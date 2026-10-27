@@ -16,7 +16,12 @@
       "args": [],
       "env": {
         "HUDU_API_KEY": "${user_config.hudu_api_key}",
-        "HUDU_BASE_URL": "${user_config.hudu_base_url}"
+        "HUDU_BASE_URL": "${user_config.hudu_base_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "HUDU_MCP_READ_ONLY": "${user_config.hudu_mcp_read_only}",
+        "HUDU_NO_LOCAL_DATA": "${user_config.hudu_no_local_data}",
+        "HUDU_USER_AGENT": "${user_config.hudu_user_agent}",
+        "HUDU_MCP_HTTP_TOKEN": "${user_config.hudu_mcp_http_token}"
       }
     }
   },
@@ -33,6 +38,40 @@
       "title": "HUDU_BASE_URL",
       "description": "Your Hudu instance's API base URL, including the /api/v1 path, e.g.\nhttps://your-subdomain.huducloud.com/api/v1 (self-hosted, *.huducloud.com, or a custom domain).",
       "required": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "hudu_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "hudu_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "hudu_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Hudu requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "hudu_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -43,11 +82,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:31:05Z",
-    "spec_checksum": "sha256:5af11d5da2135ad9d4119a67040a79a30bc5880520dec116716cbe6b8ebe5ec5",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-26T23:37:56.071519Z",
+    "spec_checksum": "sha256:42c5c7163b70d3ec95a86429fa0ba3654c2ec06afbe0762870f556136a518e82",
     "spec_format": "internal"
   }
 }

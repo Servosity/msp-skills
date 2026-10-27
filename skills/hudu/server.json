@@ -39,6 +39,36 @@
           "description": "Your Hudu instance's API base URL, including the /api/v1 path, e.g. https://your-subdomain.huducloud.com/api/v1 (self-hosted, *.huducloud.com, or a custom domain).",
           "isRequired": true,
           "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "HUDU_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "HUDU_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "HUDU_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Hudu requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "HUDU_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

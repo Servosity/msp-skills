@@ -174,12 +174,6 @@
    "read-only",
    "local-data"
   ],
-  "hudu": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "immybot": [
    "mcp-http",
    "write-gating",

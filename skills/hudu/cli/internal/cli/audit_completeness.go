@@ -106,8 +106,7 @@ layout.`,
 				if len(denom) == 0 {
 					denom = sc.All
 				}
-				cf, _ := json.Marshal(m["custom_fields"])
-				filled := filledLabels(cf)
+				filled := assetFieldLabels(m)
 				have := 0
 				for _, label := range denom {
 					if filled[label] {

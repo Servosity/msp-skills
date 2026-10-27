@@ -4,6 +4,32 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.17] - unreleased
+
+Rebuilt on CLI Printing Press 4.34.0 (the press upgrade that carries the fix for [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)).
+
+### Security
+- **HTTP mode needs a token.** `hudu-mcp --transport http` refuses to start until `HUDU_MCP_HTTP_TOKEN` is set, every request must send it as `Authorization: Bearer <token>`, the server serves `http://127.0.0.1:7777/mcp` by default, and any other address also needs `--tls-cert` and `--tls-key`. The interim advice not to use HTTP mode is removed from the docs; remote agents (ChatGPT, Copilot Studio, the Gemini app) can be wired up again through a hosted HTTPS endpoint.
+- **The MCP server is split into a read tool and an execute tool.** A state-changing call through `hudu_execute` sends nothing until the call also passes `confirm: true`.
+- **`onboard` refuses to run from the MCP server.** It reads a local template file (`--template`) or writes one (`--init`), so a call through the MCP server returns a refusal and touches no file; run `hudu-cli onboard` from a terminal.
+- **Password-vault secrets and password fields are withheld.** Every response from Hudu's password vault (`asset-passwords` list, get, create and update) keeps only a fixed set of metadata fields (name, username, URL, folder, dates); the password, the OTP secret and any other field are dropped. In asset responses, the value of every field whose asset layout type is Password, Confidential Text or not a known plain type is replaced by `[withheld: password field]` (an empty field stays empty, so audits still count filled fields). This is decided by the resource, including the address Hudu redirected to, before the CLI prints, the MCP server answers, `sync` stores or the response cache keeps anything. Asset field values are checked wherever they sit in the response, and each asset layout's field types are read again for every response, so a field changed to Password partway through a `sync` is withheld on the next page. The response cache never serves an entry written by an older version, and never keeps a vault or asset response, including one Hudu redirected to. Fetch a secret in the Hudu portal.
+- **Error text from vault and asset requests is replaced.** When Hudu answers a password-vault or asset request with an error, or with any other status outside 2xx, the CLI and the MCP server show the HTTP status and a fixed note, never the body Hudu sent, whatever its format. Exit codes are unchanged.
+- **An upgraded local store is scrubbed on first open.** The first time this version opens a store written by an older one (including one an older version left without a schema stamp), it removes stored vault passwords, OTP secrets and password field values from the mirror and its search index, in rows of every resource type (store schema version 14; older binaries then refuse the store, so upgrade rather than downgrade). A read-only open, as MCP `sql` and `search` use, that cannot confirm the scrub refuses the store instead of reading it; retry once the other process is done. No manual purge is needed.
+- **The withheld placeholder is never sent back.** A request whose body contains `[withheld: password field]` is refused, so editing an asset you read with this CLI cannot overwrite the real value in Hudu.
+- **New operator switches**, declared in the Claude Desktop bundle, the MCP Registry entry and every config in mcp-install.md: `HUDU_MCP_READ_ONLY=1` exposes only read-only tools and makes the execute tool refuse writes; `HUDU_NO_LOCAL_DATA=1` keeps no local copy of API responses; `HUDU_MCP_HTTP_TOKEN` (above).
+
+### Changed
+- **`--agent` no longer implies `--yes`.** A command that asks for confirmation now needs `--yes` passed on its own.
+
+### Fixed
+- **`onboard --apply` writes only to the company you name.** Template folders are always created under `--company`, even when the template file carries a different `company_id`.
+- **`onboard --init --dry-run` writes nothing.** It reports where the example template would go.
+- **`onboard --init` keeps an edited template.** When the template file already exists it stops with an error; pass `--yes` to replace it with the example.
+- **`audit completeness`, `audit layout-drift` and `audit summary` read the asset values Hudu returns.** Hudu returns an asset's values under `fields`; the audits read only `custom_fields` (the write shape), so a filled asset scored 0%. They now read both.
+- **`audit stale-passwords` no longer always says the store was never synced.** It looked up the wrong sync record name.
+- **`sync` of `matchers` without an integration id** sends no request and reports a `missing_required_params` warning naming `integration_id`; pass `--resource-param matchers:integration_id=<id>` to sync it.
+- **`sync` stops cleanly on a repeated page.** When Hudu returns the page it just returned (the `procedure-tasks` endpoint ignores `page` on some deployments), the walk ends complete; a repeat of an older page ends it as incomplete with reason `repeated_page`, so nothing is stored twice.
+
 ## [0.1.16] - 2026-10-23
 
 ### Security

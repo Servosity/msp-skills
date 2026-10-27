@@ -1,14 +1,15 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored regression tests for the Hudu pagination defects:
-//   - #153: the IPAM-family list endpoints reject the `page_size` filter.
-//   - #158: those same endpoints are in fact NON-paginated — they reject
-//     `page` too — so sync must send neither param and fetch them once; and
-//     every other resource must advance by ?page=N (cursorType "page") instead
-//     of truncating at the first page.
-//   - #159: /matchers requires an integration_id, so flat sync must skip it
-//     unless the caller supplies one.
-//   - #167: /relations 500s when walked at the global page_size=100, so sync
-//     must page it at 25 (resourcePageSize override), not the global default.
+//   - #153/#158: the IPAM-family list endpoints are NON-paginated: they reject
+//     both `page` and `page_size`, so sync must send neither param and fetch
+//     them once; every other resource must advance by ?page=N instead of
+//     truncating at the first page. Encoded in the spec from press 4.34.0 (the
+//     five list endpoints declare no page params), so these tests pin the
+//     rendered behaviour rather than a hand switch.
+//   - #159: /matchers requires an integration_id (spec: required), so flat sync
+//     must skip it unless the caller supplies one.
+//   - #167: /relations 500s when walked at page_size=100, so sync must page it
+//     at 25 (spec: page_size default 25), not the global default.
 //   - #169: sync --exclude drops named resources from the effective set.
 //   - #183: /procedure_tasks ignores page and page_size, so sync discards the
 //     repeated page before upsert and reports the distinct stored-row count.
@@ -29,16 +30,23 @@ import (
 	"hudu-pp-cli/internal/store"
 )
 
-func TestResourceRejectsPageSize(t *testing.T) {
-	rejects := []string{"ip-addresses", "networks", "vlans", "vlan-zones", "rack-storage-items"}
-	for _, r := range rejects {
-		if !resourceRejectsPageSize(r) {
-			t.Errorf("resourceRejectsPageSize(%q) = false, want true (non-paginated; 400s on page and page_size)", r)
+var nonPaginatedResources = []string{"ip-addresses", "networks", "vlans", "vlan-zones", "rack-storage-items"}
+
+// TestNonPaginatedResourcesDeclareNoPagination pins the spec encoding of #158:
+// the five IPAM-family resources must not be registered as paginated, and every
+// other list resource must still page by ?page=N.
+func TestNonPaginatedResourcesDeclareNoPagination(t *testing.T) {
+	for _, r := range nonPaginatedResources {
+		if resourceSupportsPagination(r) {
+			t.Errorf("resourceSupportsPagination(%q) = true, want false (non-paginated; 400s on page and page_size)", r)
 		}
 	}
-	for _, r := range []string{"companies", "articles", "assets", "websites", "users"} {
-		if resourceRejectsPageSize(r) {
-			t.Errorf("resourceRejectsPageSize(%q) = true, want false (endpoint paginates normally)", r)
+	for _, r := range []string{"companies", "articles", "assets", "websites", "users", "procedure-tasks", "relations"} {
+		if !resourceSupportsPagination(r) {
+			t.Errorf("resourceSupportsPagination(%q) = false, want true (endpoint paginates)", r)
+		}
+		if got := determinePaginationDefaults(r).cursorType; got != "page" {
+			t.Errorf("determinePaginationDefaults(%q).cursorType = %q, want page (#158: \"\" truncates at page 1)", r, got)
 		}
 	}
 }
@@ -47,18 +55,23 @@ func TestResourceRejectsPageSize(t *testing.T) {
 // Hudu ignores page and page_size on /procedure_tasks and returns the complete
 // collection each time. The second response deliberately changes ordering and
 // fields to prove duplicate detection uses primary keys rather than raw bytes.
+// The walk already holds the whole collection, so it ends complete, not as an
+// incomplete (stuck_page) sync.
 func TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert(t *testing.T) {
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	want := determinePaginationDefaults().limit + 21
+	want := determinePaginationDefaults("procedure-tasks").limit + 21
 	c := &recordingClient{pages: [][]byte{
 		makeNamedPage(1, want, false, "first"),
 		makeNamedPage(1, want, true, "updated"),
 	}}
-	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if res.Warn != nil {
+		t.Errorf("syncResource warned %v; a page-ignoring endpoint's first page is the whole collection", res.Warn)
 	}
 	if len(c.seen) != 2 {
 		t.Fatalf("made %d requests, want 2 (page 2 validates that pagination is ignored)", len(c.seen))
@@ -109,7 +122,7 @@ func TestSyncResource_ProcedureTasks_TotalIncludesExistingRows(t *testing.T) {
 	c := &recordingClient{pages: [][]byte{
 		[]byte(`[{"id":"existing-fetched","name":"new"},{"id":"new"}]`),
 	}}
-	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
@@ -128,12 +141,12 @@ func TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages(t *test
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	limit := determinePaginationDefaults().limit
+	limit := determinePaginationDefaults("procedure-tasks").limit
 	c := &recordingClient{pages: [][]byte{
 		makePage(1, limit),
 		makePage(limit+1, 21),
 	}}
-	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "procedure-tasks", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
@@ -183,31 +196,36 @@ func (r *recordingClient) Get(_ context.Context, _ string, params map[string]str
 // (--max-pages 0) production default. The pre-#158 code sent page=1,2,... and
 // 400'd on every request after the first.
 func TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam(t *testing.T) {
-	db := openSyncTestDB(t)
-	defer db.Close()
+	for _, resource := range nonPaginatedResources {
+		t.Run(resource, func(t *testing.T) {
+			db := openSyncTestDB(t)
+			defer db.Close()
 
-	c := &recordingClient{pages: [][]byte{
-		[]byte(`[{"id":"a1"},{"id":"a2"},{"id":"a3"}]`),
-	}}
+			// A full-size page: a paginated profile would ask for page 2.
+			c := &recordingClient{pages: [][]byte{makePage(1, determinePaginationDefaults("companies").limit)}}
 
-	res := syncResource(context.Background(), c, db, "ip-addresses", "", true, 0, false, nil, nil)
-	if res.Err != nil {
-		t.Fatalf("syncResource returned error: %v", res.Err)
-	}
-	// Exactly one request — no page walk (would loop/400 against a real tenant).
-	if len(c.seen) != 1 {
-		t.Fatalf("made %d requests, want exactly 1 (non-paginated endpoint)", len(c.seen))
-	}
-	// Neither pagination param may be sent — both 400 on these endpoints.
-	if v, bad := c.seen[0]["page"]; bad {
-		t.Errorf("request carried page=%q to a non-paginated endpoint", v)
-	}
-	if v, bad := c.seen[0]["page_size"]; bad {
-		t.Errorf("request carried page_size=%q to a non-paginated endpoint", v)
-	}
-	// The single response is the whole collection — all rows must land.
-	if n := countRows(t, db, "ip-addresses"); n != 3 {
-		t.Errorf("stored %d rows, want 3 (single response is the full collection)", n)
+			res := syncResource(context.Background(), c, db, resource, "", true, 0, false, false, nil, nil)
+			if res.Err != nil {
+				t.Fatalf("syncResource returned error: %v", res.Err)
+			}
+			if res.Warn != nil {
+				t.Errorf("syncResource warned %v; the single response is the whole collection", res.Warn)
+			}
+			// Exactly one request — no page walk (would loop/400 against a real tenant).
+			if len(c.seen) != 1 {
+				t.Fatalf("made %d requests, want exactly 1 (non-paginated endpoint)", len(c.seen))
+			}
+			// Neither pagination param may be sent — both 400 on these endpoints.
+			if v, bad := c.seen[0]["page"]; bad {
+				t.Errorf("request carried page=%q to a non-paginated endpoint", v)
+			}
+			if v, bad := c.seen[0]["page_size"]; bad {
+				t.Errorf("request carried page_size=%q to a non-paginated endpoint", v)
+			}
+			if n := countRows(t, db, resource); n != determinePaginationDefaults("companies").limit {
+				t.Errorf("stored %d rows, want the whole single response", n)
+			}
+		})
 	}
 }
 
@@ -219,26 +237,23 @@ func TestSyncResource_PageType_AdvancesUntilShortPage(t *testing.T) {
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	limit := determinePaginationDefaults().limit // 100
+	limit := determinePaginationDefaults("companies").limit // 100
 	c := &recordingClient{pages: [][]byte{
 		makePage(1, limit),       // page 1: full
 		makePage(limit+1, limit), // page 2: full
 		makePage(2*limit+1, 5),   // page 3: short -> stop
 	}}
 
-	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
 	if got := len(c.seen); got != 3 {
 		t.Fatalf("made %d requests, want 3 (page-int walk across two full pages)", got)
 	}
-	// First request omits page (cursor == ""); then page=2, page=3.
-	if v, sent := c.seen[0]["page"]; sent {
-		t.Errorf("first request sent page=%q, want no page param", v)
-	}
-	if c.seen[1]["page"] != "2" || c.seen[2]["page"] != "3" {
-		t.Errorf("page sequence = %q,%q, want 2,3", c.seen[1]["page"], c.seen[2]["page"])
+	// Press 4.34.0 sends the declared first page explicitly; then page=2, page=3.
+	if c.seen[0]["page"] != "1" || c.seen[1]["page"] != "2" || c.seen[2]["page"] != "3" {
+		t.Errorf("page sequence = %q,%q,%q, want 1,2,3", c.seen[0]["page"], c.seen[1]["page"], c.seen[2]["page"])
 	}
 	if n := countRows(t, db, "companies"); n != 2*limit+5 {
 		t.Errorf("stored %d rows, want %d (no truncation at page 1)", n, 2*limit+5)
@@ -260,22 +275,21 @@ func (s *staticClient) Get(_ context.Context, _ string, _ map[string]string) (js
 }
 
 // TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates pins the loop
-// backstop for the now-active page-int walk (#158): an endpoint that returns a
-// full page (>= limit) and ignores `page` must NOT loop forever at the
-// unlimited (--max-pages 0) production default — the fingerprint dup-guard
-// stops it on the first repeated page.
+// backstop for the page-int walk (#158): an endpoint that returns a full page
+// (>= limit) and ignores `page` must NOT loop forever at the unlimited
+// (--max-pages 0) production default — the fingerprint guard stops it on the
+// first repeated page.
 func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates(t *testing.T) {
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	limit := determinePaginationDefaults().limit // 100
-	c := &staticClient{body: makePage(1, limit)} // full page, same every call
-	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	limit := determinePaginationDefaults("companies").limit // 100
+	c := &staticClient{body: makePage(1, limit)}            // full page, same every call
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
-	// Page 1 advances; page 2 is byte-identical -> fingerprint match -> stop.
-	// If the guard were missing this would loop to the page ceiling (or forever).
+	// Page 1 advances; page 2 repeats it -> fingerprint match -> stop.
 	if c.calls != 2 {
 		t.Errorf("made %d requests, want 2 (fingerprint guard must break on the duplicate page)", c.calls)
 	}
@@ -288,19 +302,23 @@ func TestSyncResource_PageIgnoringEndpoint_FingerprintTerminates(t *testing.T) {
 // guard remembers every page in the current walk, not only the immediately
 // previous page. The repeated A page changes ordering and non-key fields, and
 // must be rejected before it can overwrite the first A page's cached values.
+// A cycle does not prove the collection was walked, so the sync warns.
 func TestSyncResource_PageFingerprintTerminatesMultiPageCycle(t *testing.T) {
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	limit := determinePaginationDefaults().limit
+	limit := determinePaginationDefaults("companies").limit
 	c := &recordingClient{pages: [][]byte{
 		makeNamedPage(1, limit, false, "first"),
 		makeNamedPage(limit+1, limit, false, "second"),
 		makeNamedPage(1, limit, true, "repeat"),
 	}}
-	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "companies", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
+	}
+	if res.Warn == nil || !strings.Contains(res.Warn.Error(), "repeated_page") {
+		t.Errorf("syncResource warn = %v, want an incomplete repeated_page warning", res.Warn)
 	}
 	if len(c.seen) != 3 {
 		t.Fatalf("made %d requests, want 3 for A-B-A cycle", len(c.seen))
@@ -321,13 +339,13 @@ func TestSyncResource_Matchers_SkippedWithoutIntegrationID(t *testing.T) {
 	defer db.Close()
 
 	c := &recordingClient{pages: [][]byte{[]byte(`[{"id":"m1"}]`)}}
-	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, false, nil, nil)
 
 	if len(c.seen) != 0 {
 		t.Errorf("matchers made %d API requests, want 0 (must skip without integration_id)", len(c.seen))
 	}
-	if res.Warn == nil {
-		t.Error("expected a skip warning for matchers without integration_id")
+	if res.Warn == nil || !strings.Contains(res.Warn.Error(), "integration_id") {
+		t.Errorf("expected a skip warning naming integration_id, got %v", res.Warn)
 	}
 	if res.Err != nil {
 		t.Errorf("skip must not surface an error: %v", res.Err)
@@ -346,7 +364,7 @@ func TestSyncResource_Matchers_SyncedWithIntegrationID(t *testing.T) {
 		t.Fatalf("parseSyncUserParams: %v", err)
 	}
 	c := &recordingClient{pages: [][]byte{[]byte(`[{"id":"m1"}]`)}}
-	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, up, nil)
+	res := syncResource(context.Background(), c, db, "matchers", "", true, 0, false, false, up, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
@@ -361,20 +379,6 @@ func TestSyncResource_Matchers_SyncedWithIntegrationID(t *testing.T) {
 	}
 }
 
-// TestResourcePageSize_RelationsOverridesGlobalTo25 pins the #167 fix: relations
-// pages at 25 (Hudu's default; the size n8n-nodes-hudu uses to retrieve every
-// relation), while every other resource keeps the global default (0 => 100).
-func TestResourcePageSize_RelationsOverridesGlobalTo25(t *testing.T) {
-	if got := resourcePageSize("relations"); got != 25 {
-		t.Errorf("resourcePageSize(relations) = %d, want 25 (#167: /relations 500s at the global 100)", got)
-	}
-	for _, r := range []string{"companies", "assets", "procedure-tasks", "articles", "users"} {
-		if got := resourcePageSize(r); got != 0 {
-			t.Errorf("resourcePageSize(%q) = %d, want 0 (use the global default)", r, got)
-		}
-	}
-}
-
 // TestSyncResource_Relations_PagesAt25NotGlobal100 pins the #167 behavioral fix:
 // sync must send page_size=25 on every /relations request (never the 100 that
 // 500s beyond page 1) and still walk the full collection via ?page=N.
@@ -382,14 +386,20 @@ func TestSyncResource_Relations_PagesAt25NotGlobal100(t *testing.T) {
 	db := openSyncTestDB(t)
 	defer db.Close()
 
-	rel := resourcePageSize("relations") // 25
+	rel := determinePaginationDefaults("relations").limit
+	if rel != 25 {
+		t.Fatalf("relations page size = %d, want 25 (#167: /relations 500s at 100)", rel)
+	}
+	if got := determinePaginationDefaults("companies").limit; got != 100 {
+		t.Errorf("companies page size = %d, want the global 100", got)
+	}
 	c := &recordingClient{pages: [][]byte{
 		makePage(1, rel),     // page 1: full at 25
 		makePage(rel+1, rel), // page 2: full at 25
 		makePage(2*rel+1, 4), // page 3: short -> stop
 	}}
 
-	res := syncResource(context.Background(), c, db, "relations", "", true, 0, false, nil, nil)
+	res := syncResource(context.Background(), c, db, "relations", "", true, 0, false, false, nil, nil)
 	if res.Err != nil {
 		t.Fatalf("syncResource returned error: %v", res.Err)
 	}
