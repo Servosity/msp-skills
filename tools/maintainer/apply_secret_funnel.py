@@ -30,7 +30,7 @@ What it does (every step is idempotent)
      internal/cliutil/secret_funnel.go (+ _test.go)   the decoder and held set
      internal/cli/secret_funnel_cli.go (+ _test.go)   the CLI error backstop
      cmd/<slug>-mcp/secret_funnel_mcp.go (+ _test.go) the MCP error backstop
-2. Makes the anchored edits the generated code needs, for press 4.19 to 4.34.0:
+2. Makes the anchored edits the generated code needs, for press 4.19 to 4.34.2:
    client.go (maskCredentialText ends in the funnel; the error body is checked
    whole before the display cut; the 2xx HTML summary and the token mint and
    refresh error bodies are funnelled; New holds the client's credentials; the

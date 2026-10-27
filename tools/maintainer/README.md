@@ -101,7 +101,7 @@ the held set cover that code.
 
 - It installs the canonical funnel from `tools/maintainer/secret_funnel/`, the one copy of record: the decoder
   (`internal/cliutil/secret_funnel.go`) and the CLI and MCP error backstops, plus their tests.
-- It makes the anchored edits press 4.19 to 4.34.0 need:
+- It makes the anchored edits press 4.19 to 4.34.2 need:
   - `client.go`: the masking funnel, the whole-body error check, the HTML summary, the token mint and refresh
     error bodies, and the held credentials;
   - `root.go` and every CLI error envelope;
@@ -148,7 +148,7 @@ one once against a press release, and `replay_handfixes.py --slug <slug>` applie
   `check_handfixes.py` stops demanding the entry and demands the registry's `native_asserts` instead. Below
   `retire_at`, with no or disagreeing versions, or for a `keep_manual` connector, the entry is demanded as
   before. A `retired` record the registry does not back fails.
-- **replay**: the press still lacks it, and a named recipe re-applies it on the press 4.34.0 shape.
+- **replay**: the press still lacks it, and a named recipe re-applies it on the press 4.34.0 and 4.34.2 shapes.
   Hand-written files the entry asserts on that the reprint lacks are restored from the pre-reprint revision
   (`--base`, default `HEAD`), dropping declarations the press now generates (a stronger hand-fix copy is
   kept under its own name); generated files get anchored edits, each pinned as a new ledger assert. A file
@@ -156,7 +156,18 @@ one once against a press release, and `replay_handfixes.py --slug <slug>` applie
   carry a fix that copy lacks (servosity `doctor_verdict.go` and cipp `auth_login.go` on 4.34.0). If a
   carried file lacks an entry's needle, the run names it and exits 1; every whole-file copy goes through
   one write that checks the vendored tree itself. An assert the replay would lose is named unless the
-  recipe marks it obsolete with a reason.
+  recipe marks it obsolete with a reason. Three shapes each recipe knows by name:
+  - `derive-lock-canonical` recognises the generated `derive_test.go` by its body: the module path and a
+    leading copyright line are dropped before hashing, because the press stamps whoever printed it there.
+  - `doctor-verdict` on a templated base URL (endpoint template variables such as `{tenant}`): the
+    generated check reads the resolved base, so the recipe also refuses the shipped template with every
+    variable at the default `config.Load` gives it, names the base-URL variable, and drops the
+    `doctorBaseURLIsPlaceholder(cfg.BaseURL)` needle the shape has no place for. Defaults are read
+    positively from the config package (the press's `} else {` and `} else if ... == "" {` fallbacks); any
+    other line that writes or names `TemplateVars` there is named for a person, never read as no default.
+  - `no-config-write` brings back the `### Keeping credentials off disk (optional)` section of
+    `guide.md`, which onboard.py re-vendors from the press README, in front of the heading that followed
+    it at `--base`; a reprinted guide.md that carries its own copy of the section is named, not replaced.
 - **delegated**: `secret-echo-decoded-funnel` belongs to `apply_secret_funnel.py`.
 - **floors**: a module the print resolves below a patched version (`golang.org/x/text` v0.42.0,
   `github.com/klauspost/compress` v1.18.7) is raised with `go get`, then `go mod tidy`, on a print at or

@@ -1,7 +1,7 @@
 {
  "_comment": "One verdict per fleet-wide hand-fix id (an id in 10 or more connector ledgers), settled against a press release. retire: the press generates the behavior from retire_at on; check_handfixes.py stops demanding the entry on a connector recorded at or above retire_at and demands native_asserts instead, and replay_handfixes.py removes the stale entry and runs the gates. replay: replay_handfixes.py re-applies it after every reprint with the named recipe. delegated: another tool owns it. keep_manual names connectors where the shared id carries a connector-specific part a person must reconcile. floors: minimum module versions every print at or above applies_from must resolve. See docs/reprint-survival.md.",
  "schema": 1,
- "settled_against": "4.34.0",
+ "settled_against": "4.34.2",
  "doc": "docs/reprint-survival.md",
  "handfixes": {
   "interim-http-security-note-2026-10-22": {
@@ -243,7 +243,7 @@
    "verdict": "replay",
    "recipe": "derive-lock-canonical",
    "reason": "Press 4.34.0's internal/learn/derive_test.go is byte-identical (module path aside) in all 65 renders and to 4.33.5's, so the fixed 200 ms, 500 ms and 5 s windows that failed on a slow Windows runner come back on every reprint.",
-   "proof": "sha1 of the module-normalized 4.34.0 derive_test.go: one value across 65 renders, equal to the 4.33.5 render.",
+   "proof": "sha1 of the module-normalized 4.34.0 derive_test.go: one value across 65 renders, equal to the 4.33.5 render. Re-proven 2026-10-27 on press 4.34.2: the body (module path and copyright line aside) is byte-identical on salesbuildr, pax8, liongard and backup-radar renders, and the recipe now hashes it without the copyright line, which carries whoever printed it.",
    "gates": [],
    "upstream": "cli-printing-press: learn/derive_test.go uses fixed 200 ms / 500 ms / 5 s windows (drafted 2026-10-23, not filed)"
   },

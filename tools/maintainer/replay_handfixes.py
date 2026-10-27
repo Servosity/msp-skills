@@ -489,7 +489,7 @@ def failing_asserts(p: Plan, asserts: list[dict]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
-# Recipes. Each re-applies one id on a press 4.34.0 tree and returns the
+# Recipes. Each re-applies one id on a press 4.34.0 or 4.34.2 tree and returns the
 # needles (substrings) of entry asserts it makes obsolete, with why.
 # --------------------------------------------------------------------------- #
 
@@ -501,7 +501,7 @@ def r_derive_lock(p: Plan, hid: str, entry: dict) -> dict:
         return {}
     want = render("derive_test.go.tmpl", MODULE=p.module)
     if cur != want:
-        digest = hashlib.sha256(cur.replace(p.module, "MODULE").encode()).hexdigest()
+        digest = derive_digest(cur, p.module)
         if digest not in DERIVE_GENERATED:
             p.hand("derive-test", f"{rel}: differs from the generated shape this recipe knows (sha256 {digest[:12]}); "
                                   f"merge tools/maintainer/handfix_replay/derive_test.go.tmpl by hand")
@@ -511,8 +511,22 @@ def r_derive_lock(p: Plan, hid: str, entry: dict) -> dict:
     return {}
 
 
-# sha256 of the module-normalized generated derive_test.go (press 4.33.5 = 4.34.0).
-DERIVE_GENERATED = {"4dca3f4bee7f728ef5f995cb7a3dba6a57d00b0e651fe66b6b2da94efe43bf7e"}
+def derive_digest(text: str, module: str) -> str:
+    """sha256 of a derive_test.go with the module path normalized and a leading
+    copyright line dropped. The press stamps whoever printed the file on that
+    line (a print carries its printer's owner, main the project's), so the line
+    says nothing about the shape; the body is what the recipe must recognise."""
+    if module:
+        text = text.replace(module, "MODULE")
+    if text.startswith("// Copyright "):
+        text = text.partition("\n")[2]
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+# derive_digest of the generated derive_test.go: one body on press 4.33.5,
+# 4.34.0 and 4.34.2 (measured on salesbuildr, pax8, liongard and backup-radar
+# renders on 4.34.0 and 4.34.2, under two printer owner lines).
+DERIVE_GENERATED = {"d9addaa057243f0dec7fedb228fc63b10149c34fcdf2b8ad1d6c4288587411d4"}
 
 OAUTH_FOLD = "\tif !strings.EqualFold(target.Hostname(), origin.Hostname()) {\n"
 OAUTH_HOST = ("\t// Hand-fix (handfixes.json token-request-stays-on-origin): hosts compare\n"
@@ -692,6 +706,8 @@ def r_doctor(p: Plan, hid: str, entry: dict) -> dict:
         p.pin(hid, rel, named)
     shipped = "doctorBaseURLIsShippedPlaceholder("
     if shipped in code_only("x.go", p.read("cli/internal/cli/doctor_verdict.go") or ""):
+        if DOCTOR_TEMPLATED_SHAPE in code_only(rel, p.read(rel) or ""):
+            return doctor_templated(p, hid, rel)
         p.edit("doctor-shipped", rel, "doctor also refuses the shipped placeholder base_url",
                "if cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {",
                "if cfg != nil && (doctorBaseURLIsPlaceholder(cfg.BaseURL) || doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)) {",
@@ -699,6 +715,156 @@ def r_doctor(p: Plan, hid: str, entry: dict) -> dict:
         p.pin(hid, rel, "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)")
         p.pin(hid, "cli/internal/cli/doctor_verdict.go", "func doctorBaseURLIsShippedPlaceholder(base string) bool {")
     return {}
+
+
+# Press 4.34.x on a spec with endpoint template variables ({tenant}, {instance})
+# checks the RESOLVED base URL. config.Load fills each variable the operator left
+# unset with its spec default, so the shipped placeholder has no braces left and
+# its host can look real or answer through wildcard DNS: neither the press's
+# check nor the cfg.BaseURL wiring above can see it.
+DOCTOR_TEMPLATED_SHAPE = "doctorBase = client.ResolvedBaseURL(cfg.BaseURL, cfg.TemplateVars)"
+DOCTOR_TEMPLATED_IF = "if doctorBaseURLIsPlaceholder(doctorBase) {"
+GO_STRING = r'"(?:[^"\\\n]|\\.)*"'
+CONFIG_BASE_URL = re.compile(r"(?m)^\s*BaseURL:\s+(%s),\s*$" % GO_STRING)
+DOCTOR_TEMPLATE_FUNC = "func doctorBaseURLIsShippedTemplate(base string) bool {"
+
+# Every line of the config package that names TemplateVars must be one of these
+# (copies between config views, the field, the empty map), or a write
+# template_var_defaults reads positively. Anything else could give a variable a
+# value the recipe cannot see, so it is named for a person, never taken for
+# "no default".
+TV_NAME = re.compile(r"\bTemplateVars\b")
+TV_BENIGN = [re.compile(x) for x in (
+    r"^TemplateVars\s+map\[string\]string\s+`[^`]*`$",
+    r"^if cfg\.TemplateVars == nil \{$",
+    r"^cfg\.TemplateVars = map\[string\]string\{\}$",
+    r"^\w+(?:\.\w+)*\.TemplateVars = cloneStringMap\(\w+(?:\.\w+)*\.TemplateVars\)$",
+    r"^TemplateVars:\s+c\.TemplateVars,$",
+)]
+TV_SET = re.compile(r'^cfg\.TemplateVars\["(\w+)"\] = (.+)$')
+TV_ENV_IF = re.compile(r'^if v := strings\.TrimSpace\((?:os\.Getenv|cliutil\.EnvOverride)\("[A-Z0-9_]+"\)\); v != "" \{$')
+TV_ENV_RHS = ("normalizeEndpointTemplateValue(v)", "v")
+TV_EMPTY_IF = r'^\} else if strings\.TrimSpace\(cfg\.TemplateVars\["%s"\]\) == "" \{$'
+TV_VERIFY_DEF = re.compile(r'(?m)^\s*verifyMode := os\.Getenv\("PRINTING_PRESS_VERIFY"\) == "1"\s*$')
+
+
+def template_var_defaults(p: Plan) -> tuple[dict[str, str], list[str]]:
+    """({name: Go string literal}, unknown lines): the value config.Load gives
+    each template variable when the operator sets nothing, read positively.
+
+    A variable gets a default only in the press's two shapes, directly after
+    the branch that reads its environment variable:
+        if v := strings.TrimSpace(<os.Getenv|cliutil.EnvOverride>("ENV")); v != "" {
+            cfg.TemplateVars["name"] = <normalizeEndpointTemplateValue(v)|v>
+        } else if strings.TrimSpace(cfg.TemplateVars["name"]) == "" {   (press 4.34.x)
+        } else {                                                        (older press)
+            cfg.TemplateVars["name"] = "literal"
+        }
+    `} else if verifyMode {` (only the press verifier sets a placeholder) is
+    read as no default. Every other line that names TemplateVars is returned
+    as unknown, so the caller fails closed instead of guessing."""
+    defaults: dict[str, str] = {}
+    unknown: list[str] = []
+    d = p.cli / "internal" / "config"
+    for f in sorted(d.glob("*.go")) if d.is_dir() else []:
+        rel = f"cli/internal/config/{f.name}"
+        if f.name.endswith("_test.go"):
+            continue
+        code = code_only(rel, p.read(rel) or "")
+        lines = [ln.strip() for ln in code.splitlines() if ln.strip()]
+        for i, line in enumerate(lines):
+            if not TV_NAME.search(line) or any(b.match(line) for b in TV_BENIGN):
+                continue
+            if re.match(TV_EMPTY_IF % r"\w+", line):
+                continue  # judged with the write that follows it
+            m = TV_SET.match(line)
+            prev = lines[i - 1] if i else ""
+            if m and m.group(2) in TV_ENV_RHS and TV_ENV_IF.match(prev):
+                continue
+            if m and re.fullmatch(GO_STRING, m.group(2)) and i >= 3 and i + 1 < len(lines) and lines[i + 1] == "}":
+                name, lit = m.groups()
+                env = TV_SET.match(lines[i - 2])
+                chained = env and env.group(1) == name and env.group(2) in TV_ENV_RHS and TV_ENV_IF.match(lines[i - 3])
+                if chained and (prev == "} else {" or re.match(TV_EMPTY_IF % re.escape(name), prev)) \
+                        and name not in defaults:
+                    defaults[name] = lit
+                    continue
+                if chained and prev == "} else if verifyMode {" and TV_VERIFY_DEF.search(code):
+                    continue
+            unknown.append(f"{rel}: {line}")
+    return defaults, unknown
+
+
+def doctor_template_helper(base_lit: str, defaults: list[tuple[str, str]], hid: str) -> str:
+    pairs = "".join(f'\t"{name}": {lit},\n' for name, lit in defaults)
+    return (f"\n// doctorShippedTemplateBaseURL is the base URL this print ships, and\n"
+            f"// doctorTemplateDefaults the value config.Load gives each of its template\n"
+            f"// variables when the operator sets nothing (internal/config/config.go).\n"
+            f"// Resolved together they are the shipped placeholder of a templated base\n"
+            f"// URL: no braces are left, so doctorBaseURLIsPlaceholder cannot see it, and\n"
+            f"// the host can look real or answer through wildcard DNS.\n"
+            f"// {tag(hid)}.\n"
+            f"const doctorShippedTemplateBaseURL = {base_lit}\n\n"
+            f"var doctorTemplateDefaults = map[string]string{{\n{pairs}}}\n\n"
+            f"// doctorBaseURLIsShippedTemplate reports whether base is the shipped\n"
+            f"// templated base URL with every template variable still at its default.\n"
+            f"{DOCTOR_TEMPLATE_FUNC}\n"
+            f"\tshipped := client.ResolvedBaseURL(doctorShippedTemplateBaseURL, doctorTemplateDefaults)\n"
+            f'\tif shipped == "" || strings.ContainsAny(shipped, "{{}}") {{\n'
+            f"\t\treturn false\n\t}}\n"
+            f'\treturn strings.EqualFold(strings.TrimRight(strings.TrimSpace(base), "/"), strings.TrimRight(shipped, "/"))\n'
+            f"}}\n")
+
+
+def doctor_templated(p: Plan, hid: str, rel: str) -> dict:
+    """The doctor-verdict wiring for the templated shape: refuse the shipped
+    placeholder of the resolved base (the restored hand-fix's checks, plus the
+    template with every variable at its config.Load default), and drop the
+    cfg.BaseURL needle the shape has no place for."""
+    cfg_rel, helper_rel = "cli/internal/config/config.go", "cli/internal/cli/doctor_verdict.go"
+    cfg = code_only(cfg_rel, p.read(cfg_rel) or "")
+    found, unknown = template_var_defaults(p)
+    if unknown:
+        p.hand("doctor-template", "the config package gives template variables values in a shape this recipe "
+                                  "cannot read (" + "; ".join(unknown[:3]) + (" ..." if len(unknown) > 3 else "")
+                                  + "), so the shipped-template guard cannot be wired; wire it by hand")
+        return {}
+    defaults = sorted(found.items())
+    calls = ["doctorBaseURLIsPlaceholder(doctorBase)", "doctorBaseURLIsShippedPlaceholder(doctorBase)"]
+    if defaults:
+        bases = sorted(set(CONFIG_BASE_URL.findall(cfg)))
+        if len(bases) != 1 or "{" not in bases[0]:
+            p.hand("doctor-template", f"{cfg_rel}: the shipped base URL is not one templated BaseURL literal "
+                                      f"({len(bases)} found), so the template-default placeholder cannot be wired")
+            return {}
+        names = set(re.findall(r"\{(\w+)\}", bases[0]))
+        defaults = [(n, lit) for n, lit in defaults if n in names]
+    if defaults:
+        helper = p.read(helper_rel) or ""
+        block = doctor_template_helper(bases[0], defaults, hid)
+        if DOCTOR_TEMPLATE_FUNC not in code_only(helper_rel, helper):
+            new = helper.rstrip("\n") + "\n" + block
+            for imp in ("strings", f"{p.module}/internal/client"):
+                new = add_import(new, imp)
+            p.write(helper_rel, new, "doctor knows the shipped template and its defaults")
+        elif not (f"const doctorShippedTemplateBaseURL = {bases[0]}\n" in helper
+                  and all(re.search(r'(?m)^\s*"%s":\s+%s,$' % (n, re.escape(lit)), helper) for n, lit in defaults)):
+            p.hand("doctor-template", f"{helper_rel}: doctorBaseURLIsShippedTemplate is there, but its base URL or "
+                                      f"defaults are not this print's ({cfg_rel}); update them by hand")
+            return {}
+        calls.append("doctorBaseURLIsShippedTemplate(doctorBase)")
+    after = "if " + " || ".join(calls) + " {"
+    if not p.edit("doctor-shipped", rel, "doctor also refuses the shipped placeholder of a templated base_url",
+                  DOCTOR_TEMPLATED_IF, after, after):
+        return {}
+    for call in calls[1:]:
+        p.pin(hid, rel, call)
+    p.pin(hid, helper_rel, "func doctorBaseURLIsShippedPlaceholder(base string) bool {")
+    if defaults:
+        p.pin(hid, helper_rel, DOCTOR_TEMPLATE_FUNC)
+    return {"doctorBaseURLIsPlaceholder(cfg.BaseURL)":
+            "this print checks the resolved base (doctorBase, press 4.34.x endpoint template variables); "
+            "the doctorBase wiring is pinned instead"}
 
 
 ALIAS_LINE = re.compile(r'(?m)^\t+Aliases:\s+\[\]string\{"create"\},\n')
@@ -853,9 +1019,81 @@ def r_no_config_write(p: Plan, hid: str, entry: dict) -> dict:
     native_mcp = "func newMCPConfig() (*config.Config, error) {\n\tcfg, err := config.Load(\"\")" in tools
     skip = {"cli/internal/mcp/mcp_config_resolution_test.go"} if native_mcp else set()
     restore_entry_files(p, hid, entry, skip=skip)
+    restore_guide_section(p, hid, entry, NCW_GUIDE)
     return {"func TestMCPClientHonoursTheConfigEnvVar(":
             "press 4.34.0 resolves the MCP config through config.Load(\"\") itself (newMCPConfig); "
             "the tools.go assert pins it"} if native_mcp else {}
+
+
+NCW_GUIDE = "### Keeping credentials off disk (optional)"
+FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)$")
+ATX = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
+
+
+def md_headings(text: str) -> list[tuple[int, int, str]]:
+    """(offset, level, line) of every ATX heading outside a fenced code block,
+    so a shell comment in a ```bash fence is never read as a heading."""
+    out, pos, fence = [], 0, None
+    for line in text.splitlines(keepends=True):
+        bare = line.rstrip("\r\n")
+        f = FENCE.match(bare)
+        if fence is None and f and not (f.group(1)[0] == "`" and "`" in f.group(2)):
+            fence = f.group(1)
+        elif fence is not None:
+            if f and f.group(1)[0] == fence[0] and len(f.group(1)) >= len(fence) and not f.group(2).strip():
+                fence = None
+        else:
+            h = ATX.match(bare)
+            if h:
+                out.append((pos, len(h.group(1)), bare.strip()))
+        pos += len(line)
+    return out
+
+
+def restore_guide_section(p: Plan, hid: str, entry: dict, heading: str) -> None:
+    """onboard.py re-vendors guide.md from the press README, which has no
+    section for a downstream switch, so the entry's guide.md asserts fail on
+    every reprint. Bring the section back from the pre-reprint guide.md, in
+    front of the heading that followed it there, and keep every other line of
+    the reprint's guide. A reprinted guide.md that carries its own copy of the
+    section is kept as printed and named."""
+    rel = "guide.md"
+    wanted = [a for a in entry.get("asserts", []) if a.get("file") == rel]
+    if not wanted or not failing_asserts(p, wanted):
+        return
+    cur, old = p.read(rel), p.at_base(rel)
+    if cur is None or old is None:
+        p.hand("ncw-guide", f"{rel}: missing {'here' if cur is None else f'at {p.base}'}, so its {heading!r} "
+                            f"section cannot be restored")
+        return
+    if any(line == heading for _, _, line in md_headings(cur)):
+        p.hand("ncw-guide", f"{rel}: the reprint carries its own {heading!r} section, which lacks what the ledger "
+                            f"pins; replay never replaces it with {p.base}'s copy. Merge the two and update the asserts")
+        return
+    hs = md_headings(old)
+    at_base = [i for i, (_, _, line) in enumerate(hs) if line == heading]
+    if len(at_base) != 1:
+        p.hand("ncw-guide", f"{rel}: {p.base}'s copy has {len(at_base)} {heading!r} sections, so there is no one "
+                            f"section to restore")
+        return
+    i = at_base[0]
+    nxt = next((h for h in hs[i + 1:] if h[1] <= hs[i][1]), None)
+    block = old[hs[i][0]:nxt[0] if nxt else len(old)].rstrip("\n") + "\n\n"
+    if nxt is None:
+        new = cur.rstrip("\n") + "\n\n" + block.rstrip("\n") + "\n"
+    else:
+        hits = [off for off, _, line in md_headings(cur) if line == nxt[2]]
+        if len(hits) != 1:
+            p.hand("ncw-guide", f"{rel}: the heading after the section at {p.base} ({nxt[2]!r}) appears {len(hits)} "
+                                f"times in the reprint's guide.md, so the section has no single place to go back to")
+            return
+        pre = cur[:hits[0]]
+        if pre and not pre.endswith("\n\n"):
+            pre = pre.rstrip("\n") + "\n\n"
+        new = pre + block + cur[hits[0]:]
+    p.write(rel, new, f"the {heading[4:]!r} section, restored from {p.base}")
+    if not any(a.get("contains") == heading for a in wanted):
+        p.pin(hid, rel, heading)
 
 
 def r_manifest_env(p: Plan, hid: str, entry: dict) -> dict:
