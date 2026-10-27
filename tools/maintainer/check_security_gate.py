@@ -28,7 +28,7 @@ Always-on deterministic checks (no external tools needed):
     documenting its own `curl ... | bash` install line is not flagged for saying so.
   * MCP-surface rules - seven STATE rules on a connector's vendored MCP server (cmd/*-mcp,
     internal/mcp, go.mod), from the 2026-10-22 template security pass: StreamableHTTP with
-    no requireBearerAuth; mark3labs/mcp-go below v0.57.0 (no DNS-rebinding guard); an
+    no requireBearerAuth (or press 4.34.2's requireBearerAuthWithOrigins); mark3labs/mcp-go below v0.57.0 (no DNS-rebinding guard); an
     _execute tool with no confirm gate; POST/PUT/PATCH/DELETE endpoint tools labeled
     destructiveHint=false; GET registry entries named with an action verb and not marked
     NeedsConfirm/Mutating; a `share` command; typed endpoint tools with no read-only drop.
@@ -1586,15 +1586,30 @@ def _rel(path: Path) -> str:
     return str(path.relative_to(REPO))
 
 
+# The template's bearer-auth wrappers, matched by exact name. Press 4.34.2 serves
+# through requireBearerAuthWithOrigins (the Origin allowlist, then the same bearer
+# check); its requireBearerAuth delegates to it. Both are trusted by name alike.
+_BEARER_WRAPPERS = ("requireBearerAuth", "requireBearerAuthWithOrigins")
+
+
 def _mcp_rule_http_auth(cli: Path) -> list[tuple]:
-    """The streamable server must be reachable ONLY through requireBearerAuth: each
-    NewStreamableHTTPServer(...) is an argument of requireBearerAuth(...), or is assigned
-    to a variable whose every later use is an argument of requireBearerAuth(...). Then no
-    unauthenticated MCP handler can be served, whatever else the file does with the wrapper."""
+    """The streamable server must be reachable ONLY through a bearer-auth wrapper
+    (_BEARER_WRAPPERS): each NewStreamableHTTPServer(...) is an argument of one, or is
+    assigned to a variable whose every later use is an argument of one. A near-miss
+    name, a discarded wrapper result or a name only in a comment or string still fires.
+
+    Accepted limit: this rule checks PLACEMENT, by name. It cannot detect adversarial
+    source: a wrapper whose body does not enforce the bearer, a local that shadows the
+    wrapper, a redeclared identifier. Bearer enforcement is proven at runtime instead,
+    by verify-msp-skills feature 3 (mcp-http: no token, wrong token, and, on press
+    4.34.2 and later, a foreign Origin are refused), which blocks in every connector
+    build row (tools/maintainer/verify_gate.py) unless verify_baseline.json lists that
+    connector's mcp-http FAIL (prints before press 4.34.0); per-PR Codex review covers
+    adversarial source."""
     hits = []
     for pkg in sorted(p for p in (cli / "cmd").glob("*") if p.is_dir()):
         for f, (code, bare) in _package(pkg).items():
-            auth = _spans(bare, "requireBearerAuth")
+            auth = [span for name in _BEARER_WRAPPERS for span in _spans(bare, name)]
             for m in re.finditer(r"\bNewStreamableHTTPServer\s*\(", bare):
                 if _inside(m.start(), auth):
                     continue
@@ -2433,6 +2448,21 @@ _MAIN_AUTH_DIRECT = _MAIN_OPEN.replace("httpSrv := server.NewStreamableHTTPServe
                                        "httpSrv := &http.Server{Handler: requireBearerAuth(token, server.NewStreamableHTTPServer(s))}")
 _MAIN_AUTH_ARG = _MAIN_AUTH.replace("srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
                                     "srv := newMCPHTTPServer(addr, requireBearerAuth(token, inner))")
+# Press 4.34.2: the Origin allowlist sits in front of the bearer check, and
+# requireBearerAuth delegates to requireBearerAuthWithOrigins.
+_MAIN_AUTH_ORIGINS = _MAIN_AUTH.replace(
+    "srv := &http.Server{Handler: requireBearerAuth(token, inner)}",
+    "srv := newMCPHTTPServer(addr, requireBearerAuthWithOrigins(token, allowedOrigins, inner))").replace(
+    "func requireBearerAuth(expected string, next http.Handler) http.Handler { return next }",
+    "func requireBearerAuth(expected string, next http.Handler) http.Handler {\n"
+    "\treturn requireBearerAuthWithOrigins(expected, nil, next)\n}\n\n"
+    "func requireBearerAuthWithOrigins(expected string, allowed map[string]struct{}, next http.Handler) http.Handler {\n"
+    "\treturn next\n}")
+_MAIN_AUTH_ORIGINS_DISCARDED = _MAIN_AUTH_ORIGINS.replace(
+    "srv := newMCPHTTPServer(addr, requireBearerAuthWithOrigins(token, allowedOrigins, inner))",
+    "_ = requireBearerAuthWithOrigins(token, allowedOrigins, inner)\n\tsrv := newMCPHTTPServer(addr, inner)")
+_MAIN_AUTH_NEAR_MISS = _MAIN_AUTH_ORIGINS.replace(
+    "requireBearerAuthWithOrigins(token, allowedOrigins, inner)", "requireBearerAuthLater(token, allowedOrigins, inner)")
 
 
 def _fx_gomod(body: str) -> str:
@@ -2547,6 +2577,11 @@ def _self_test_mcp_surface() -> int:
              "wrapper result swallowed by another call while the raw server is served")
         case(r1, {main_go: _MAIN_AUTH_IN_STRING}, True, "requireBearerAuth( only inside a raw string")
         case(r1, {main_go: _MAIN_AUTH_DIRECT}, False, "server built directly inside requireBearerAuth(...)")
+        case(r1, {main_go: _MAIN_AUTH_ORIGINS}, False,
+             "server wrapped in requireBearerAuthWithOrigins (template v4.34.2 shape)")
+        case(r1, {main_go: _MAIN_AUTH_ORIGINS_DISCARDED}, True,
+             "requireBearerAuthWithOrigins called but its result discarded")
+        case(r1, {main_go: _MAIN_AUTH_NEAR_MISS}, True, "a wrapper whose name only starts with requireBearerAuth")
 
         r2 = "mcp-go-no-rebinding-guard"
         case(r2, {"go.mod": _fx_gomod("require (\n\tgithub.com/mark3labs/mcp-go v0.47.0\n)")}, True, "v0.47.0")

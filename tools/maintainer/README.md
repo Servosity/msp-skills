@@ -259,6 +259,23 @@ saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses 
 redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
+## Security gate: `mcp-http-no-bearer-auth`
+
+`check_security_gate.py` fires this MCP-surface rule when a connector's streamable HTTP server
+can be served without a bearer-auth wrapper: every `NewStreamableHTTPServer(...)` must be an
+argument of `requireBearerAuth` or `requireBearerAuthWithOrigins` (press 4.34.2: the Origin
+allowlist, then the bearer check), or be held in a variable whose every later use is. Both names
+are trusted alike. A near-miss name, a discarded wrapper result, or a name that appears only in a
+comment or a string still fires.
+
+Accepted limit: the rule checks placement, by name only. It cannot detect adversarial source, such
+as a wrapper body that does not enforce the bearer, a local that shadows the wrapper, or a
+redeclared identifier. Bearer enforcement is proven at runtime by the verify gate (feature 3,
+`mcp-http`, below): no token, a wrong token and, on press 4.34.2 and later, a foreign Origin must
+be refused. It blocks in every connector build row unless `verify_baseline.json` lists that
+connector's `mcp-http` FAIL (prints before press 4.34.0). Per-PR Codex review covers adversarial
+source.
+
 ## Verify gate
 
 `.claude/skills/verify-msp-skills` drives one built connector through the user path (install,
