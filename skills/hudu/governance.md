@@ -8,11 +8,26 @@
 ## What it authenticates as
 
 The skill drives the `hudu-cli` binary (and `hudu-mcp`),
-authenticating with `HUDU_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Hudu API.
+authenticating with a Hudu API key. The key is read from `HUDU_API_KEY`, or from
+`credentials.toml` in the CLI's data directory (owner-only permissions) when the
+operator saves it with `auth set-token`. It is never logged and never sent anywhere
+except the Hudu API.
 
 ## Default-safe behavior
 
+- **Vault secrets never leave the client.** Every password-vault response
+  (`asset-passwords` list, get, create and update) keeps only metadata (name,
+  username, URL, folder, dates), and every asset response replaces the value of
+  each filled password-type field (Password, ConfidentialText, or any field type
+  the CLI does not know) with `[withheld: password field]`. The password, the OTP
+  secret and those field values are never shown, stored or cached, so `search`,
+  `sync`, the MCP read tool and MCP `sql` cannot return them, and an error from a
+  vault or asset request carries only its HTTP status, never Hudu's error text. A
+  request whose body still carries the placeholder is refused, so it is never
+  written back over the real value. Fetch a secret in the Hudu portal. A mirror
+  written by an older version is scrubbed the first time this version opens it,
+  an older cached response is never served, and vault and asset responses are
+  never cached.
 - **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.

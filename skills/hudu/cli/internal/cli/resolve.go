@@ -101,7 +101,7 @@ Use this command to resolve a single object from its Hudu URL or exact name and
 see its company/layout/relations. Do NOT use it for fuzzy or full-text discovery
 across resources; use 'search' for keyword search.`,
 		Example: `  # Resolve a pasted portal link
-  hudu-cli resolve https://docs.example.huducloud.com/a/dc01-abc123
+  hudu-cli resolve https://hudu.example.com/a/dc01-abc123
 
   # Resolve by exact asset name, as JSON
   hudu-cli resolve "DC01" --agent

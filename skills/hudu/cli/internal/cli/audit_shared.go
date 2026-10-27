@@ -185,6 +185,29 @@ func filledLabels(raw json.RawMessage) map[string]bool {
 	return out
 }
 
+// assetFieldLabels is the one reader of an asset's field values for every
+// audit. Hudu returns them under `fields` as {label,value} objects on reads
+// (the HuduAPI module's Set-HuduAsset reshapes $_.fields label/value) and
+// accepts `custom_fields` on writes; a mirror row may carry either or both.
+// Both are read and a label counts as filled when any source fills it.
+func assetFieldLabels(m map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for _, key := range []string{"fields", "custom_fields"} {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		raw, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+		for label, filled := range filledLabels(raw) {
+			out[label] = out[label] || filled
+		}
+	}
+	return out
+}
+
 type layoutField struct {
 	Label    string
 	Required bool

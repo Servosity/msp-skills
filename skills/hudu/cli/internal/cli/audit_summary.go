@@ -153,8 +153,7 @@ dimension are skipped (a count is reported on the human surface).`,
 					if len(denom) == 0 {
 						denom = sc.All
 					}
-					cf, _ := json.Marshal(m["custom_fields"])
-					filled := filledLabels(cf)
+					filled := assetFieldLabels(m)
 					have := 0
 					for _, label := range denom {
 						if filled[label] {

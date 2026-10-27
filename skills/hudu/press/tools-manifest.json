@@ -1,7 +1,7 @@
 {
   "api_name": "hudu",
   "base_url": "https://your-domain.huducloud.com/api/v1",
-  "description": "Hudu IT-documentation CLI for MSPs — full read + write coverage of the Hudu REST API with an offline SQLite mirror, cross-entity search, and agent-native output.",
+  "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "mcp": {
@@ -528,7 +528,7 @@
     },
     {
       "name": "asset-passwords_get",
-      "description": "Get a single password entry. Required: id. Returns the AssetPassword.",
+      "description": "Get a single password entry (metadata only: this CLI withholds the password and OTP secret; fetch them in the Hudu portal). Required: id. Returns the AssetPassword metadata.",
       "method": "GET",
       "path": "/asset_passwords/{id}",
       "params": [
@@ -543,7 +543,7 @@
     },
     {
       "name": "asset-passwords_list",
-      "description": "List password vault entries (paginated). The secret is returned only on single get, never the list, per Hudu. Optional: company-id, name, slug (plus 4 more). Returns array of AssetPassword.",
+      "description": "List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal. Optional: company-id, name, slug (plus 4 more). Returns array of AssetPassword.",
       "method": "GET",
       "path": "/asset_passwords",
       "params": [
@@ -1890,7 +1890,7 @@
     },
     {
       "name": "ip-addresses_list",
-      "description": "List IP address records (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of IPAddress.",
+      "description": "List IP address records (not paginated: returns the whole collection). Optional: company-id.",
       "method": "GET",
       "path": "/ip_addresses",
       "params": [
@@ -1900,19 +1900,6 @@
           "type": "int",
           "location": "query",
           "description": "Filter by company id"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "location": "query",
-          "description": "1-based page number"
-        },
-        {
-          "name": "page-size",
-          "wire_name": "page_size",
-          "type": "int",
-          "location": "query",
-          "description": "Results per page"
         }
       ]
     },
@@ -2155,7 +2142,7 @@
     },
     {
       "name": "matchers_list",
-      "description": "List integration matchers (paginated). Optional: integration-id, page (default: 1), page-size (default: 100). Returns array of Matcher.",
+      "description": "List integration matchers for one integration (paginated; --integration-id is required). Required: integration-id. Optional: page (default: 1), page-size (default: 100). Returns array of Matcher.",
       "method": "GET",
       "path": "/matchers",
       "params": [
@@ -2164,7 +2151,8 @@
           "wire_name": "integration_id",
           "type": "int",
           "location": "query",
-          "description": "Filter by integration id"
+          "description": "Filter by integration id",
+          "required": true
         },
         {
           "name": "page",
@@ -2285,7 +2273,7 @@
     },
     {
       "name": "networks_list",
-      "description": "List networks (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of Network.",
+      "description": "List networks (not paginated: returns the whole collection). Optional: company-id.",
       "method": "GET",
       "path": "/networks",
       "params": [
@@ -2295,19 +2283,6 @@
           "type": "int",
           "location": "query",
           "description": "Filter by company id"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "location": "query",
-          "description": "1-based page number"
-        },
-        {
-          "name": "page-size",
-          "wire_name": "page_size",
-          "type": "int",
-          "location": "query",
-          "description": "Results per page"
         }
       ]
     },
@@ -2772,7 +2747,7 @@
     },
     {
       "name": "rack-storage-items_list",
-      "description": "List rack storage items (paginated). Optional: rack-id, page (default: 1), page-size (default: 100). Returns array of RackStorageItem.",
+      "description": "List rack storage items (not paginated: returns the whole collection). Optional: rack-id.",
       "method": "GET",
       "path": "/rack_storage_items",
       "params": [
@@ -2782,19 +2757,6 @@
           "type": "int",
           "location": "query",
           "description": "Filter by rack storage id"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "location": "query",
-          "description": "1-based page number"
-        },
-        {
-          "name": "page-size",
-          "wire_name": "page_size",
-          "type": "int",
-          "location": "query",
-          "description": "Results per page"
         }
       ]
     },
@@ -3038,7 +3000,7 @@
     },
     {
       "name": "relations_list",
-      "description": "List relations (paginated). Optional: page (default: 1), page-size (default: 100). Returns array of Relation.",
+      "description": "List relations (paginated). Optional: page (default: 1), page-size (default: 25). Returns array of Relation.",
       "method": "GET",
       "path": "/relations",
       "params": [
@@ -3251,7 +3213,7 @@
     },
     {
       "name": "vlan-zones_list",
-      "description": "List VLAN zones (paginated). Optional: company-id, page (default: 1), page-size (default: 100). Returns array of VLANZone.",
+      "description": "List VLAN zones (not paginated: returns the whole collection). Optional: company-id.",
       "method": "GET",
       "path": "/vlan_zones",
       "params": [
@@ -3261,19 +3223,6 @@
           "type": "int",
           "location": "query",
           "description": "Filter by company id"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "location": "query",
-          "description": "1-based page number"
-        },
-        {
-          "name": "page-size",
-          "wire_name": "page_size",
-          "type": "int",
-          "location": "query",
-          "description": "Results per page"
         }
       ]
     },
@@ -3386,7 +3335,7 @@
     },
     {
       "name": "vlans_list",
-      "description": "List VLANs (paginated). Optional: company-id, zone-id, page (default: 1) (plus 1 more). Returns array of VLAN.",
+      "description": "List VLANs (not paginated: returns the whole collection). Optional: company-id, zone-id.",
       "method": "GET",
       "path": "/vlans",
       "params": [
@@ -3403,19 +3352,6 @@
           "type": "int",
           "location": "query",
           "description": "Filter by VLAN zone id"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "location": "query",
-          "description": "1-based page number"
-        },
-        {
-          "name": "page-size",
-          "wire_name": "page_size",
-          "type": "int",
-          "location": "query",
-          "description": "Results per page"
         }
       ]
     },
@@ -3604,6 +3540,58 @@
           "description": "Notes"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Documentation-completeness score",
+      "command": "audit completeness",
+      "description": "Score how completely each company's assets fill their layout's required fields, worst-first."
+    },
+    {
+      "name": "Stale-password audit",
+      "command": "audit stale-passwords",
+      "description": "Find vault passwords not rotated within a threshold, grouped by company."
+    },
+    {
+      "name": "Expiration radar",
+      "command": "audit expirations",
+      "description": "Windowed, typed view of expiring SSL certs, domains, warranties, and passwords sorted by days remaining."
+    },
+    {
+      "name": "Multi-tenant hygiene rollup",
+      "command": "audit summary",
+      "description": "One worst-first hygiene scorecard per company combining completeness, stale passwords, expirations due, and stale articles."
+    },
+    {
+      "name": "Onboarding scaffold",
+      "command": "onboard",
+      "description": "Preview (default) and apply with --apply a saved bundle of asset layouts, folder tree, and procedures-from-template to a new company; the write path needs a global (not company-scoped) API key."
+    },
+    {
+      "name": "Integration reconciliation report",
+      "command": "reconcile",
+      "description": "Bulk bidirectional check of which integrator (PSA/RMM) records resolve to a live Hudu asset and which are orphaned."
+    },
+    {
+      "name": "Tenant doctor / preflight",
+      "command": "doctor",
+      "description": "Check CLI health: config, auth, API reachability, credential presence, and local-cache freshness."
+    },
+    {
+      "name": "Layout-drift detector",
+      "command": "audit layout-drift",
+      "description": "Find assets carrying custom fields not in their layout's current schema, or missing newly-added fields."
+    },
+    {
+      "name": "Article-staleness audit",
+      "command": "audit stale-articles",
+      "description": "Rank knowledge-base articles by how long since they were last updated."
+    },
+    {
+      "name": "Resolve by URL or name",
+      "command": "resolve",
+      "description": "Paste a Hudu object URL or exact name and get the object plus its company, layout, and relations."
     }
   ]
 }

