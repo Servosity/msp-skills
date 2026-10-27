@@ -1,0 +1,93 @@
+{
+  "sites": [
+    {
+      "file": "internal/cli/raw.go",
+      "func": "newRawOpCmd",
+      "what": "writer:io.Writer",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "cobra hands this command its writer after Start; newRawOpCmd only builds the command, and each writer is the kit-wrapped stdout"
+    },
+    {
+      "file": "internal/cli/raw.go",
+      "func": "printRawRequest",
+      "what": "writer:io.Writer",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "cobra hands this command its writer after Start; newRawOpCmd only builds the command, and each writer is the kit-wrapped stdout"
+    },
+    {
+      "file": "internal/cli/raw.go",
+      "func": "resolveDocArg",
+      "what": "os.ReadFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "exempt: a document or variables file the operator names with @path; what it gives is held as it is read"
+    },
+    {
+      "file": "internal/client/superops_outbound_guard.go",
+      "func": "guardOutboundTransport",
+      "what": "call:dynamic",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "OutboundGuard is credkit.Transport, a variable only so in-process tests can stand up loopback servers; the binaries run the kit transport"
+    },
+    {
+      "file": "internal/client/superops_outbound_guard.go",
+      "func": "guardOutboundTransport",
+      "what": "carrier",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "outboundTransport keeps the base transport beside the kit transport it wraps, so StreamingHTTPClient can clone it; every request passes the kit"
+    },
+    {
+      "file": "internal/client/superops_outbound_guard.go",
+      "func": "guardOutboundTransport",
+      "what": "convert:net/http.RoundTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the embedded RoundTripper is the kit transport"
+    },
+    {
+      "file": "internal/cliutil/superops_credential_holder.go",
+      "func": "CredentialStrings",
+      "what": "reflect",
+      "count": 38,
+      "kind": "exempt",
+      "reason": "walks Config and Credentials values to hold every string field; only reads strings, reaches no command, client or transport"
+    },
+    {
+      "file": "internal/cliutil/superops_credential_holder.go",
+      "func": "HoldProcessCredentials",
+      "what": "os.Environ",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads every variable on purpose, to hold each one not named non-secret (fail-closed)",
+      "names": []
+    },
+    {
+      "file": "internal/cliutil/superops_held_write.go",
+      "func": "HeldAtomicWrite",
+      "what": "os.CreateTemp",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the temp beside HeldAtomicWrite; the bytes pass credkit.WriteFile before it is created"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.DB.Conn",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the same wrapped connection; used when a store opens, after Start"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.OpenDB",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the connection is the credsql driver, opened to set the length limit on a store the kit wrapped"
+    }
+  ]
+}

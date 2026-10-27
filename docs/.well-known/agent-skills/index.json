@@ -594,7 +594,7 @@
       "type": "skill-md",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Trigger phrases: `list superops tickets`, `which tickets are breaching sla`, `show unbilled worklog in superops`, `assets missing patches with open tickets`, `client 360 in superops`, `use superops`, `run superops`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/SKILL.md",
-      "digest": "sha256:3609d0592fbfb97bb69f0b5e2a7db6a1554d8da505e82bfcacf2fb26839e3a8a"
+      "digest": "sha256:54c34925b48c8a9b40a80d4a1d1e490e9ac662c35fc19cbf6673a827a2ad2f63"
     },
     {
       "name": "syncro",

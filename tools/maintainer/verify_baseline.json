@@ -326,11 +326,6 @@
    "read-only",
    "local-data"
   ],
-  "superops": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "syncro": [
    "mcp-http",
    "write-gating",
