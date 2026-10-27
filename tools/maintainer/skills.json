@@ -2180,7 +2180,7 @@
       "category": "PSA",
       "display_name": "Zammad",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
-      "cli_hash": "sha256:76d64e45ecddc98108a0d3c390effdb98abbfdd552177d536fa4078edcb80aa2",
+      "cli_hash": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "template_version": 3,
       "version": "0.1.10",
       "cli_hash_at_release": "sha256:fc7ad403babfda3b89fd0801687c46cef619869b0bbec3f6687854b8ac879d21",

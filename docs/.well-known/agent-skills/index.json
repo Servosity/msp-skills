@@ -615,7 +615,7 @@
       "type": "skill-md",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server - plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
-      "digest": "sha256:773860dc0243cc99c99ac6b92b6814d9d336463b0b308a35a863b5f1052d4013"
+      "digest": "sha256:358b8a4d2818908ad53e9af2d45740a7588bf2257f154404a93105ca3094ad0f"
     }
   ]
 }

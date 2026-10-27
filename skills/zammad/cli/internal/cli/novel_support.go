@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -112,6 +113,9 @@ func classifyZammadState(stateTypeID sql.NullInt64, name string) zammadStateKind
 	return classifyZammadStateName(name)
 }
 
+// fallbackZammadStateCatalog is Zammad's seeded state table
+// (db/seeds/ticket_states.rb), used only when no states were synced: 6 is
+// "removed" (an inactive, deleted-ticket state) and 7 is "pending close".
 func fallbackZammadStateCatalog() map[string]zammadStateInfo {
 	return map[string]zammadStateInfo{
 		"1": {ID: "1", Name: "new", Kind: zammadStateOpen},
@@ -119,14 +123,15 @@ func fallbackZammadStateCatalog() map[string]zammadStateInfo {
 		"3": {ID: "3", Name: "pending reminder", Kind: zammadStatePending},
 		"4": {ID: "4", Name: "closed", Kind: zammadStateClosed},
 		"5": {ID: "5", Name: "merged", Kind: zammadStateMerged},
-		"6": {ID: "6", Name: "pending close", Kind: zammadStateResolved},
+		"6": {ID: "6", Name: "removed", Kind: zammadStateClosed},
+		"7": {ID: "7", Name: "pending close", Kind: zammadStateResolved},
 	}
 }
 
 func classifyZammadStateName(name string) zammadStateKind {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	switch {
-	case lower == "closed":
+	case lower == "closed", lower == "removed":
 		return zammadStateClosed
 	case lower == "merged":
 		return zammadStateMerged
@@ -525,4 +530,77 @@ func articlesTableEmpty(db *store.Store) (bool, error) {
 		return false, fmt.Errorf("counting articles: %w", err)
 	}
 	return count == 0, nil
+}
+
+// zammadOlderThan reports whether t lies more than d before now, comparing
+// instants. A threshold must never be applied to an age already truncated to
+// whole days: a ticket 7 days and 12 hours old truncates to 7, so "> 7 days"
+// missed it for a whole day (Codex round 1 on the 4.34.0 reprint).
+func zammadOlderThan(now, t time.Time, d time.Duration) bool {
+	if t.IsZero() {
+		return false
+	}
+	return now.Sub(t) > d
+}
+
+// novelSyncTables names the local table that holds each resource a local
+// command can require. Never interpolated from input.
+var novelSyncTables = map[string]string{
+	"tickets":  "tickets",
+	"articles": "articles",
+}
+
+// novelSyncCommand is the command that fills each resource.
+var novelSyncCommand = map[string]string{
+	"tickets":  "zammad-cli sync",
+	"articles": "zammad-cli articles sync",
+}
+
+// novelRequireSynced refuses to answer from a local store that cannot back the
+// answer: one whose last sync of resource did not finish, one that predates
+// sync-completion tracking, or one where resource was never synced, whether it
+// holds no rows or the few a single read cached. Every local analytics command calls it before it reads, so an
+// interrupted or failed sync can never read as "nothing overdue / at risk /
+// stale" (Codex round 1 on the 4.34.0 reprint). Any failure signal wins.
+//
+// allowNeverSynced keeps a command's own "never synced" answer (the article
+// commands print a run-articles-sync note for an empty articles table); an
+// unfinished sync is refused regardless.
+func novelRequireSynced(db *store.Store, resource string, allowNeverSynced bool) error {
+	table, ok := novelSyncTables[resource]
+	if !ok {
+		return fmt.Errorf("internal error: no local table for %q", resource)
+	}
+	run := novelSyncCommand[resource]
+	var complete sql.NullInt64
+	err := db.DB().QueryRow(`SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, resource).Scan(&complete)
+	switch {
+	case err == nil:
+		if !complete.Valid || complete.Int64 != 1 {
+			return fmt.Errorf("the last sync of %s into the local store did not finish or did not cover every record, so this answer would be built from incomplete data.\nRun '%s' (without --limit) and try again", resource, run)
+		}
+		return nil
+	case errors.Is(err, sql.ErrNoRows), strings.Contains(err.Error(), "no such table"):
+		var rows int
+		if cErr := db.DB().QueryRow(`SELECT COUNT(*) FROM "` + table + `"`).Scan(&rows); cErr != nil {
+			if strings.Contains(cErr.Error(), "no such table") {
+				rows = 0
+			} else {
+				return fmt.Errorf("counting local %s: %w", resource, cErr)
+			}
+		}
+		if rows > 0 {
+			// A row with no checkpoint came from one read or a webhook refresh:
+			// some records, never known to be all of them.
+			return fmt.Errorf("the local store holds some %s but no finished sync of them, so this answer would count only those.\nRun '%s' first", resource, run)
+		}
+		if allowNeverSynced {
+			return nil
+		}
+		return fmt.Errorf("%s have not been synced into the local store yet.\nRun '%s' first", resource, run)
+	case strings.Contains(err.Error(), "no such column"):
+		return fmt.Errorf("the local store predates sync-completion tracking, so it cannot show the last sync of %s finished.\nRun '%s' to upgrade it", resource, run)
+	default:
+		return fmt.Errorf("reading the local sync state: %w", err)
+	}
 }

@@ -31,7 +31,7 @@ require a human for anything below the line.
 | **Write (routine)** | Day-to-day mutations. | `articles create`, `kb answer-create`, `kb category-create`, `organizations create`, `organizations update`, `tickets create`, `tickets update`, `users create`, ... (9 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `kb answer-delete`, `tickets delete` | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Admin** | Back-office administration. | `webhooks register`, `webhooks unregister` (create or remove Zammad webhooks and triggers; need the admin.webhook and admin.trigger permissions; write only with `--yes`, or `confirm: true` over MCP) | Operator-only, not for agents |
 
 ## How to lock it down
 

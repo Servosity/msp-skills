@@ -20,7 +20,9 @@
         "ZAMMAD_URL": "${user_config.zammad_url}",
         "ZAMMAD_MCP_HTTP_TOKEN": "${user_config.zammad_mcp_http_token}",
         "ZAMMAD_USER_AGENT": "${user_config.zammad_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "ZAMMAD_MCP_READ_ONLY": "${user_config.zammad_mcp_read_only}",
+        "ZAMMAD_NO_LOCAL_DATA": "${user_config.zammad_no_local_data}"
       }
     }
   },
@@ -62,6 +64,20 @@
       "title": "Client profile",
       "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
       "required": false
+    },
+    "zammad_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "zammad_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -72,11 +88,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.32.5",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.32.5",
-    "generated_at": "2026-09-28T17:11:52.557878Z",
-    "spec_checksum": "sha256:e521e79949543778dfddb523bbe85f9e2d838763cb46c9f490826adee6802f77",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-27T15:07:44.871209Z",
+    "spec_checksum": "sha256:e2f67ae12db81ef75f4ef1379f8db673b68df355a0ba3f50a0f2f56ef38bae21",
     "spec_format": "internal"
   }
 }

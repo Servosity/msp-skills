@@ -1,0 +1,12 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/webhooks_listen.go",
+   "func": "webhookListener.serve",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "net/http takes the listener as a Handler; its client sends only through credkit.Transport, and its store and stderr writes pass the kit"
+  }
+ ]
+}

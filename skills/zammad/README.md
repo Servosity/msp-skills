@@ -6,21 +6,15 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/zammad/">
-    <img src="../../docs/assets/social/zammad/wide-1200x630.png" alt="Zammad - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/zammad/animated-og.gif" alt="Zammad demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/zammad/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/zammad/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
-
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
 
 The six agents MSP owners actually use (self-serve, works today):
 
@@ -33,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `zammad-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `zammad-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `zammad-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -164,6 +158,27 @@ ZAMMAD_API_TOKEN=<value> zammad-cli doctor
 | What are customers asking for (features, pricing, compliance)? | `zammad-cli feedback-scan --bucket pricing --json` |
 | Find and read open tickets (scope to a customer with organization_id:N) | `zammad-cli tickets search --query "state:open" --json` |
 | Log a note or search the Knowledge Base | `zammad-cli ticket note 12345 --body "..." --internal` · `zammad-cli kb search "restore" --json` |
+| Hear about new and changed tickets as they happen, without polling | `zammad-cli webhooks listen` · `zammad-cli events list --since 0 --json` |
+
+### New tickets as they happen (webhooks)
+
+Zammad can call this machine when a ticket is created or updated or an article is added, so nothing has to poll it.
+
+```bash
+# Once, with a token that has the admin.webhook and admin.trigger permissions
+zammad-cli webhooks register --endpoint http://127.0.0.1:8789/zammad --yes
+# Keep running on the machine Zammad posts to
+zammad-cli webhooks listen
+# Read what arrived; pass the returned cursor as --since next time
+zammad-cli events list --since 0 --json
+```
+
+- `register` creates one Zammad webhook and one trigger per event (`zammad.ticket.created`, `zammad.ticket.updated`, `zammad.article.created`). It generates the signature secret and stores it beside your API token, readable only by you; `ZAMMAD_WEBHOOK_SECRET` overrides it. The secret is never printed: `webhooks status` shows only where it comes from.
+- `listen` binds to this machine only (127.0.0.1, port 8789) by default and refuses to start without the secret. Every request must carry Zammad's `X-Hub-Signature`, checked before the body is read; a delivery it has already seen is dropped, and bodies over 1 MiB are refused.
+- The webhook carries IDs only. The listener fetches the ticket through the API and records the event, so customer text never travels in the webhook.
+- Zammad gives up on a delivery after five attempts over about two minutes. Each time `listen` starts, it first records what changed while it was down. A delivery Zammad gives up on while `listen` is running but cannot be reached (a network outage) is not recorded.
+- Zammad has to reach the listener. A self-hosted Zammad on the same server works with the default. Zammad on another machine on your LAN needs `listen --addr <lan-ip>:8789 --tls-cert <file> --tls-key <file>` and an `https://` endpoint. A Zammad Cloud instance cannot reach a machine on your LAN.
+- Over MCP, `events_list` reads the recorded events (read-only, no Zammad call). `webhooks_register` and `webhooks_unregister` change Zammad only with `confirm: true`. `listen` is CLI-only.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -189,7 +204,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `zammad-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `zammad-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `zammad-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `zammad-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -223,9 +238,9 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `agent-load`, `agent-trend`, `customer-health`, `overdue`, `escalate`, `churn-risk`, `feedback-scan`, `tickets search/get`, `articles by-ticket`, `kb browse/search/get`, `search`, `sync` | Allow |
+| Read | `agent-load`, `agent-trend`, `customer-health`, `overdue`, `escalate`, `churn-risk`, `feedback-scan`, `tickets search/get`, `articles by-ticket`, `kb browse/search/get`, `search`, `sync`, `webhooks status`, `webhooks listen`, `events list` | Allow |
 | Write (routine) | `ticket note`, `tickets create/update`, `articles create`, `tags add/remove`, `organizations create/update`, `users create/update`, `kb answer-create/publish/internal`, `kb category-create` | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | `tickets delete`, `kb answer-delete` | Human-in-the-loop only |
+| Destructive / config | `tickets delete`, `kb answer-delete`, `webhooks register`, `webhooks unregister` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Zammad credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/zammad/handfixes.json under the
-// "mcp-filesystem-destination-gate" entry.
+// "zammad-mcp-filesystem-usage-gate" entry.
 
 package cobratree
 
@@ -65,11 +65,12 @@ func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(t *testing.T) {
 
 // TestBlockedDestinationFlagsCoverTheNamedSinks pins the floor. The usage-text
 // rule is the general gate, but these names are load bearing enough that a
-// reworded usage string must not silently reopen them.
+// reworded usage string must not silently reopen them. Since press 4.34.0 the
+// read-path names live in blockedInputFlags beside blockedDestinationFlags.
 func TestBlockedDestinationFlagsCoverTheNamedSinks(t *testing.T) {
-	for _, name := range []string{"audit-dir", "db", "home", "input", "o", "out", "output", "receipt-file"} {
-		if !blockedDestinationFlags[name] {
-			t.Fatalf("blockedDestinationFlags is missing %q; an MCP caller could direct a filesystem read or write", name)
+	for _, name := range []string{"audit-dir", "db", "from-csv", "home", "input", "notes-file", "o", "out", "output", "playbook-file", "playbook-notes-file", "receipt-file", "reconcile"} {
+		if !blockedDestinationFlags[name] && !blockedInputFlags[name] {
+			t.Fatalf("no name floor blocks %q; an MCP caller could direct a filesystem read or write", name)
 		}
 	}
 }
