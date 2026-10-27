@@ -132,6 +132,12 @@
         "var": "FORTINET_FMG_INSECURE",
         "reason": "SECURITY CARVE-OUT, same reason as FORTINET_SKIP_TLS_VERIFY: disables TLS verification for the FortiManager JSON-RPC client only, exposing the FortiManager API key to an on-path attacker. Expert-only, documented in the skill prose, never an install prompt."
       }
+    ],
+    "zammad": [
+      {
+        "var": "ZAMMAD_WEBHOOK_SECRET",
+        "reason": "The webhook signature secret, read by `webhooks register` (to set the Zammad webhook's signature token) and `webhooks listen` (to verify X-Hub-Signature), and held by the credential holder so it never prints. It is deliberately not an install prompt: `webhooks register` generates it and stores it 0600 beside credentials.toml (`webhook_secret`), where the listener reads it, so no install channel needs to carry it. A prompt would put a <your-...> placeholder into every copy-paste config (mcp-install.md) and an unresolved ${user_config.*} into hosts that skip optional keys, and either text would become a guessable signing secret. The env var stays an optional override for operators who manage the secret themselves."
+      }
     ]
   }
 }
