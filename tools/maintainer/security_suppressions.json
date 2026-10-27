@@ -1573,6 +1573,39 @@
       "reason": "press 4.34.0 template, reviewed 2026-10-23. The const block that names the MCP HTTP token: httpTokenEnvVar is the NAME of the environment variable (<SLUG>_MCP_HTTP_TOKEN) the bearer token is read from; gosec matches 'Token' in the identifier. No secret value is in the binary. slug_neutral: the digest is taken with the connector's own name put back to a marker; servosity's api name servosity-msp gives it a second digest."
     },
     {
+      "file": "cli/cmd/{slug}-mcp/main.go",
+      "rule": "G101",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:a073e906cbac31cfa763cd973933a8ca8349921bff4167b3c3245a8ca667c956"
+      ],
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template, reviewed 2026-10-27. The const block that names the MCP HTTP token, as in the 4.34.0 entry: httpTokenEnvVar is the NAME of the environment variable (<SLUG>_MCP_HTTP_TOKEN) the bearer token is read from; gosec matches 'Token' in the identifier. 4.34.2 adds three numeric limits to the block (mcpHTTPTokenMinLength = 32, mcpHTTPMaxBodyBytes, mcpHTTPBodyReadDeadline), so the 4.34.0 digest no longer matches. No secret value is in the binary. slug_neutral: one digest on salesbuildr, pax8, liongard and backup-radar 4.34.2 renders; servosity's api name will need its own digest on its reprint."
+    },
+    {
+      "file": "cli/internal/mcp/cobratree/shellout.go",
+      "rule": "G101",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:8e10c17193842726881d5c0dcaf7e462cd8423efb038bc1024853e3ae71be340"
+      ],
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template, reviewed 2026-10-27. const mcpHTTPTokenEnvVar = \"<SLUG>_MCP_HTTP_TOKEN\" is the NAME of the variable mcpChildEnvDropped removes from the environment mcpChildEnviron hands to mirrored CLI children, so the MCP listener's bearer token is no longer copied into every command (new in 4.34.2); gosec matches 'Token' in the identifier. No credential value. slug_neutral: one digest on salesbuildr, pax8, liongard and backup-radar 4.34.2 renders."
+    },
+    {
+      "file": "cli/internal/learn/match.go",
+      "rule": "G101",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:31f490d392ac05d569a69425118786a79e9b673da0893e89876c947b6fcfb48c"
+      ],
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template, reviewed 2026-10-27. The const block of learn recall top_warning keys (TopWarning...). 4.34.2 adds TopWarningUntrustedPlaybook = \"untrusted_playbook_text\", the warning key recall emits when a matched playbook row was stored over MCP; gosec's G101 name pattern includes 'pw', which 'TopWarning' contains. The value is a fixed warning key, not a credential. slug_neutral: one digest on salesbuildr, pax8, liongard and backup-radar 4.34.2 renders."
+    },
+    {
       "file": "skills/cipp/cli/internal/cli/resource_paths.go",
       "rule": "G101",
       "bind": "decl",
