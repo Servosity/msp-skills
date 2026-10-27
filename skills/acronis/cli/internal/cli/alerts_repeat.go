@@ -5,7 +5,6 @@ package cli
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"acronis-pp-cli/internal/store"
@@ -17,109 +16,100 @@ type repeatRow struct {
 	TenantID        string `json:"tenant_id"`
 	TenantName      string `json:"tenant_name"`
 	DistinctFailDay int    `json:"distinct_fail_days"`
+	UndatedFailures int    `json:"undated_failures,omitempty"`
 	LastFailure     string `json:"last_failure"`
 }
 
-type failTask struct {
-	resourceID, tenantID, ts string
-	isBackup                 bool
-}
-
 // computeAlertsRepeat ranks resources by the count of distinct calendar days
-// within the window that had a failed/missed task. Backup-typed tasks are
-// preferred, but if no backup-typed failures exist in the window the filter is
-// relaxed to all task types (lenient).
+// (UTC) within the window that had a failed backup task. Only backup tasks
+// count (explicit backup type, or no type at all so an untyped failure stays
+// visible); restores, replications and other task types never do. A failure
+// the mirror cannot date is counted in undated_failures rather than dropped,
+// and an unrecognized timestamp fails the report.
 func computeAlertsRepeat(db *store.Store, days int, now time.Time) ([]repeatRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 	cutoff := now.Add(-time.Duration(days) * 24 * time.Hour)
 
-	rows, err := db.Query(`SELECT resource_id, tenant_id, state, result_code, type, created_at, completed_at FROM task_manager`)
+	rows, err := db.Query(`SELECT id, resource_id, tenant_id, state, result_code, type, ` + taskTimeColumns + ` FROM task_manager`)
 	if err != nil {
 		return nil, fmt.Errorf("querying task_manager: %w", err)
 	}
 	defer rows.Close()
 
-	var fails []failTask
-	anyBackup := false
-	for rows.Next() {
-		var resourceID, tenantID, state, rc, typ, createdAt, completedAt *string
-		if rows.Scan(&resourceID, &tenantID, &state, &rc, &typ, &createdAt, &completedAt) != nil {
-			continue
-		}
-		if taskOutcome(deref(state), deref(rc)) != "failed" {
-			continue
-		}
-		// Choose the most relevant timestamp in-window.
-		ts := ""
-		for _, cand := range []string{deref(completedAt), deref(createdAt)} {
-			if t, ok := parseTime(cand); ok && t.After(cutoff) {
-				ts = cand
-				break
-			}
-		}
-		if ts == "" {
-			continue
-		}
-		isBackup := strings.Contains(strings.ToLower(deref(typ)), "backup")
-		if isBackup {
-			anyBackup = true
-		}
-		fails = append(fails, failTask{
-			resourceID: deref(resourceID),
-			tenantID:   deref(tenantID),
-			ts:         ts,
-			isBackup:   isBackup,
-		})
-	}
-
 	type acc struct {
 		tenantID string
 		days     map[string]bool
-		last     string
+		undated  int
+		last     time.Time
 	}
 	groups := map[string]*acc{}
-	for _, f := range fails {
-		if anyBackup && !f.isBackup {
+	for rows.Next() {
+		var id string
+		var resourceID, tenantID, state, rc, typ, completedAt, updatedAt, startedAt, enqueuedAt, createdAt *string
+		if err := rows.Scan(&id, &resourceID, &tenantID, &state, &rc, &typ, &completedAt, &updatedAt, &startedAt, &enqueuedAt, &createdAt); err != nil {
+			return nil, fmt.Errorf("reading task_manager: %w", err)
+		}
+		at, known, err := rollupTime(deref(completedAt), deref(updatedAt), deref(startedAt), deref(enqueuedAt), deref(createdAt))
+		if err != nil {
+			return nil, fmt.Errorf("task %s: %w", id, err)
+		}
+		if taskOutcome(deref(state), deref(rc)) != "failed" || taskBackupKind(deref(typ)) == "other" {
 			continue
 		}
-		key := f.resourceID
+		if known && !at.After(cutoff) {
+			continue
+		}
+		key := deref(resourceID)
 		if key == "" {
-			key = f.tenantID
+			key = deref(tenantID)
 		}
 		if key == "" {
 			key = "(unknown)"
 		}
 		g, ok := groups[key]
 		if !ok {
-			g = &acc{tenantID: f.tenantID, days: map[string]bool{}}
+			g = &acc{tenantID: deref(tenantID), days: map[string]bool{}}
 			groups[key] = g
 		}
 		if g.tenantID == "" {
-			g.tenantID = f.tenantID
+			g.tenantID = deref(tenantID)
 		}
-		day := f.ts
-		if t, ok := parseTime(f.ts); ok {
-			day = t.Format("2006-01-02")
+		if !known {
+			g.undated++
+			continue
 		}
-		g.days[day] = true
-		if f.ts > g.last {
-			g.last = f.ts
+		g.days[at.UTC().Format("2006-01-02")] = true
+		if at.After(g.last) {
+			g.last = at
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading task_manager: %w", err)
 	}
 
 	out := make([]repeatRow, 0, len(groups))
 	for key, g := range groups {
-		out = append(out, repeatRow{
+		row := repeatRow{
 			ResourceID:      key,
 			TenantID:        g.tenantID,
 			TenantName:      names[g.tenantID],
 			DistinctFailDay: len(g.days),
-			LastFailure:     g.last,
-		})
+			UndatedFailures: g.undated,
+		}
+		if !g.last.IsZero() {
+			row.LastFailure = g.last.UTC().Format(time.RFC3339)
+		}
+		out = append(out, row)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].DistinctFailDay != out[j].DistinctFailDay {
 			return out[i].DistinctFailDay > out[j].DistinctFailDay
+		}
+		if out[i].UndatedFailures != out[j].UndatedFailures {
+			return out[i].UndatedFailures > out[j].UndatedFailures
 		}
 		return out[i].ResourceID < out[j].ResourceID
 	})
@@ -177,13 +167,13 @@ func newNovelAlertsRepeatCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No repeated failures in window — run 'acronis-cli sync' first if you expected data.")
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-24s %12s %s\n", "RESOURCE", "TENANT", "FAIL_DAYS", "LAST_FAILURE")
+			fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-24s %12s %8s %s\n", "RESOURCE", "TENANT", "FAIL_DAYS", "UNDATED", "LAST_FAILURE")
 			for _, r := range rowsOut {
 				label := r.TenantName
 				if label == "" {
 					label = r.TenantID
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-24s %12d %s\n", truncate(r.ResourceID, 24), truncate(label, 24), r.DistinctFailDay, r.LastFailure)
+				fmt.Fprintf(cmd.OutOrStdout(), "%-24s %-24s %12d %8d %s\n", truncate(r.ResourceID, 24), truncate(label, 24), r.DistinctFailDay, r.UndatedFailures, r.LastFailure)
 			}
 			return nil
 		},

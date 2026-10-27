@@ -20,7 +20,8 @@ type offeringInventoryRow struct {
 
 // computeOfferingInventory rolls up the synced offering_items across every
 // tenant: per offering/SKU name, how many tenants hold it, how many item rows
-// exist, and which editions appear.
+// exist, and which editions appear. Only items whose status proves them active
+// count; a disabled or status-less item is not an enabled offering.
 func computeOfferingInventory(db *store.Store) ([]offeringInventoryRow, error) {
 	rows, err := db.Query(`SELECT tenants_id, data FROM offering_items`)
 	if err != nil {
@@ -37,16 +38,20 @@ func computeOfferingInventory(db *store.Store) ([]offeringInventoryRow, error) {
 	for rows.Next() {
 		var tid string
 		var data []byte
-		if rows.Scan(&tid, &data) != nil {
+		if err := rows.Scan(&tid, &data); err != nil {
+			return nil, fmt.Errorf("reading offering_items: %w", err)
+		}
+		obj, err := decodeRow("offering_items", data)
+		if err != nil {
+			return nil, err
+		}
+		if offeringStatusOf(obj) != "active" {
 			continue
 		}
-		obj := decodeData(data)
-		if obj == nil {
-			continue
-		}
-		name := offeringNameOf(obj)
+		id := offeringIdentityOf(obj)
+		name := id.Name
 		if name == "" {
-			continue
+			name = "(unnamed)"
 		}
 		a, ok := agg[name]
 		if !ok {
@@ -55,9 +60,12 @@ func computeOfferingInventory(db *store.Store) ([]offeringInventoryRow, error) {
 		}
 		a.tenants[tid] = true
 		a.items++
-		if ed, ok := obj["edition"].(string); ok && ed != "" {
-			a.editions[ed] = true
+		if id.Edition != "" {
+			a.editions[id.Edition] = true
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading offering_items: %w", err)
 	}
 
 	out := make([]offeringInventoryRow, 0, len(agg))

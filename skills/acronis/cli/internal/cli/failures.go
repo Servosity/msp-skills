@@ -21,17 +21,24 @@ type failureRow struct {
 	State       string `json:"state"`
 	ResultCode  string `json:"result_code,omitempty"`
 	OccurredAt  string `json:"occurred_at,omitempty"`
+	TimeUnknown bool   `json:"time_unknown,omitempty"`
 
 	occurred time.Time
 }
 
-// computeFailures returns every failed/missed task whose completion (or
-// creation, when never completed) falls inside [now-since, now], newest first.
+// computeFailures returns every failed backup task (explicit backup type, or
+// no type at all) whose time falls inside [now-since, now], newest first. A
+// failed task the mirror cannot date is listed first with time_unknown set: a
+// failure is never hidden because its time is missing, and an unrecognized
+// timestamp fails the report.
 func computeFailures(db *store.Store, since time.Duration, tenantFilter string, now time.Time) ([]failureRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 	cutoff := now.Add(-since)
 
-	rows, err := db.Query(`SELECT id, tenant_id, type, resource_id, state, result_code, created_at, completed_at FROM task_manager`)
+	rows, err := db.Query(`SELECT id, tenant_id, type, resource_id, state, result_code, ` + taskTimeColumns + ` FROM task_manager`)
 	if err != nil {
 		return nil, fmt.Errorf("querying task_manager: %w", err)
 	}
@@ -40,39 +47,48 @@ func computeFailures(db *store.Store, since time.Duration, tenantFilter string, 
 	out := []failureRow{}
 	for rows.Next() {
 		var id string
-		var tid, typ, resID, state, rc, createdAt, completedAt *string
-		if rows.Scan(&id, &tid, &typ, &resID, &state, &rc, &createdAt, &completedAt) != nil {
-			continue
+		var tid, typ, resID, state, rc, completedAt, updatedAt, startedAt, enqueuedAt, createdAt *string
+		if err := rows.Scan(&id, &tid, &typ, &resID, &state, &rc, &completedAt, &updatedAt, &startedAt, &enqueuedAt, &createdAt); err != nil {
+			return nil, fmt.Errorf("reading task_manager: %w", err)
 		}
-		if taskOutcome(deref(state), deref(rc)) != "failed" {
+		occurred, known, err := rollupTime(deref(completedAt), deref(updatedAt), deref(startedAt), deref(enqueuedAt), deref(createdAt))
+		if err != nil {
+			return nil, fmt.Errorf("task %s: %w", id, err)
+		}
+		if taskOutcome(deref(state), deref(rc)) != "failed" || taskBackupKind(deref(typ)) == "other" {
 			continue
 		}
 		if tenantFilter != "" && deref(tid) != tenantFilter {
 			continue
 		}
-		var occurred time.Time
-		for _, ts := range []string{deref(completedAt), deref(createdAt)} {
-			if t, ok := parseTime(ts); ok {
-				occurred = t
-				break
-			}
-		}
-		if occurred.IsZero() || occurred.Before(cutoff) {
+		if known && occurred.Before(cutoff) {
 			continue
 		}
-		out = append(out, failureRow{
-			TenantID:   deref(tid),
-			TenantName: names[deref(tid)],
-			TaskID:     id,
-			Type:       deref(typ),
-			ResourceID: deref(resID),
-			State:      deref(state),
-			ResultCode: deref(rc),
-			OccurredAt: occurred.UTC().Format(time.RFC3339),
-			occurred:   occurred,
-		})
+		row := failureRow{
+			TenantID:    deref(tid),
+			TenantName:  names[deref(tid)],
+			TaskID:      id,
+			Type:        deref(typ),
+			ResourceID:  deref(resID),
+			State:       deref(state),
+			ResultCode:  deref(rc),
+			TimeUnknown: !known,
+			occurred:    occurred,
+		}
+		if known {
+			row.OccurredAt = occurred.UTC().Format(time.RFC3339)
+		}
+		out = append(out, row)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].occurred.After(out[j].occurred) })
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading task_manager: %w", err)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].TimeUnknown != out[j].TimeUnknown {
+			return out[i].TimeUnknown
+		}
+		return out[i].occurred.After(out[j].occurred)
+	})
 	return out, nil
 }
 
@@ -139,8 +155,12 @@ Reads the local store; run 'acronis-cli sync' first.`,
 				if tenant == "" {
 					tenant = r.TenantID
 				}
+				occurred := r.OccurredAt
+				if r.TimeUnknown {
+					occurred = "(unknown)"
+				}
 				fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-24s %-22s %-14s %-10s %s\n",
-					r.OccurredAt, truncate(tenant, 24), truncate(r.Type, 22), truncate(r.ResultCode, 14), r.State, r.TaskID)
+					occurred, truncate(tenant, 24), truncate(r.Type, 22), truncate(r.ResultCode, 14), r.State, r.TaskID)
 			}
 			return nil
 		},

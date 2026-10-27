@@ -40,7 +40,7 @@ func TestUsagesSnapshotAndDrift(t *testing.T) {
 		}
 	})
 
-	t.Run("fewer than two snapshots: honest message, no error", func(t *testing.T) {
+	t.Run("fewer than two snapshots: an error, never an empty comparison", func(t *testing.T) {
 		db := newNovelTestStore(t)
 		seedTenant(t, db, "t1", "Acme Corp", "customer", "")
 		mustExec(t, db, `INSERT INTO usages(id, tenants_id, data) VALUES(?,?,?)`,
@@ -51,11 +51,9 @@ func TestUsagesSnapshotAndDrift(t *testing.T) {
 		var out bytes.Buffer
 		cmd.SetOut(&out)
 		cmd.SetArgs([]string{"--db", dbPathOf(t, db)})
-		if err := cmd.Execute(); err != nil {
-			t.Fatalf("execute should not error: %v", err)
-		}
-		if !strings.Contains(out.String(), "need two snapshots") {
-			t.Fatalf("expected honest message, got %q", out.String())
+		err := cmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), "need two usage snapshots") {
+			t.Fatalf("want a need-two-snapshots error, got %v (out %q)", err, out.String())
 		}
 	})
 }
@@ -88,20 +86,13 @@ func TestUsagesDriftCommand_JSON(t *testing.T) {
 		t.Fatalf("got %+v", env)
 	}
 
-	// empty store -> message + empty drift, valid JSON, no error
+	// empty store -> an error, never a successful empty comparison
 	db2 := newNovelTestStore(t)
 	cmd2 := newNovelUsagesDriftCmd(&rootFlags{asJSON: true})
 	var out2 bytes.Buffer
 	cmd2.SetOut(&out2)
 	cmd2.SetArgs([]string{"--db", dbPathOf(t, db2)})
-	if err := cmd2.Execute(); err != nil {
-		t.Fatalf("execute empty: %v", err)
-	}
-	var env2 map[string]any
-	if err := json.Unmarshal(out2.Bytes(), &env2); err != nil {
-		t.Fatalf("empty not valid JSON: %v\n%s", err, out2.String())
-	}
-	if _, ok := env2["message"]; !ok {
-		t.Fatalf("expected message key on empty, got %v", env2)
+	if err := cmd2.Execute(); err == nil || !strings.Contains(err.Error(), "need two usage snapshots") {
+		t.Fatalf("empty store: want a need-two-snapshots error, got %v (out %q)", err, out2.String())
 	}
 }

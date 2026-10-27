@@ -13,10 +13,10 @@ import (
 )
 
 // forwardedCLIArgs runs the MCP-argument-to-CLI-argument translation the tool
-// handler uses, with nothing pre-blocked by the caller, so the assertions below
-// measure this file's gate and not a per-command denylist computed elsewhere.
+// handler uses, with the blocked set every mirrored command starts from (press
+// 4.34.0 computes it per command in blockedStructuredArgsForCommand).
 func forwardedCLIArgs(args map[string]any) []string {
-	return cliArgsFromMCP(args)
+	return cliArgsFromMCP(args, cliFlagBlockedArgs(blockedStructuredArgsForCommand(nil), nil))
 }
 
 func hasFlagPair(argv []string, flag, value string) bool {
@@ -68,7 +68,7 @@ func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(t *testing.T) {
 // reworded usage string must not silently reopen them.
 func TestBlockedDestinationFlagsCoverTheNamedSinks(t *testing.T) {
 	for _, name := range []string{"audit-dir", "db", "home", "input", "o", "out", "output", "receipt-file"} {
-		if !blockedDestinationFlags[name] {
+		if !blockedDestinationFlags[name] && !blockedInputFlags[name] && !blockedRootFlags[name] {
 			t.Fatalf("blockedDestinationFlags is missing %q; an MCP caller could direct a filesystem read or write", name)
 		}
 	}

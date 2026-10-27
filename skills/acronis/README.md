@@ -6,39 +6,46 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/acronis/">
-    <img src="../../docs/assets/social/acronis/wide-1200x630.png" alt="Acronis Cyber Protect Cloud - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/acronis/animated-og.gif" alt="Acronis Cyber Protect Cloud demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/acronis/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/acronis/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 <!-- first-party-note:start -->
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](../servosity) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 <!-- first-party-note:end -->
 
-The first real CLI for the Acronis Cyber Protect Cloud platform  -  every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+The first real CLI for the Acronis Cyber Protect Cloud platform  -  every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `ACRONIS_MCP_HTTP_TOKEN` is set, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs
+> `--tls-cert` and `--tls-key` for any other address. It refuses a request body
+> over 4 MiB or one that takes longer than 30 seconds to arrive. Whoever holds the
+> token can call every tool with your Acronis credentials. Endpoint tools that
+> delete or replace (DELETE, PUT) carry the MCP `destructiveHint` annotation, and
+> those that create or trigger (POST) are marked not read-only; the server asks for
+> no confirmation on either, so that step is your MCP host's. Set
+> `ACRONIS_MCP_READ_ONLY=1` on any host that only needs to read: it removes every
+> tool not marked read-only. See
+> [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Acronis skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `acronis-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `acronis-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `acronis-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `ACRONIS_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -46,8 +53,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Host `acronis-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -150,7 +157,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Set the credentials the CLI needs (from your Acronis portal):
 
 ```bash
-ACRONIS_CYBER_PROTECT_BEARER_AUTH=<value> ACRONIS_DATACENTER=<value> acronis-cli doctor
+ACRONIS_BEARER_AUTH=<value> ACRONIS_DATACENTER=<value> acronis-cli doctor
 ```
 
 `doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
@@ -195,7 +202,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Acronis MCP server in HTTP mode. In this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `acronis-mcp` in HTTP mode: it refuses to start until `ACRONIS_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The connector works only if its authentication settings can send that bearer token, so check yours first. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -211,7 +218,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Will this hit my Acronis API rate limits?
 
-The local mirror exists so reads stop hitting the API. After the first `sync`, the cross-tenant views (`health`, `coverage`, `freshness`, `agents stale`, `reconcile usages`) run against local SQLite with zero API calls. Live calls respect a `--rate-limit` throttle, and sync is incremental - it only fetches what changed since the last checkpoint.
+The local mirror exists so reads stop hitting the API. After the first `sync`, the cross-tenant views (`health`, `coverage`, `freshness`, `agents stale`, `reconcile usages`) run against local SQLite with zero API calls. Live calls respect a `--rate-limit` throttle. Each `sync` re-reads every resource it mirrors, so schedule it rather than running it before every question.
 
 ### Do I need to be an Acronis partner?
 
@@ -234,8 +241,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `acronis-cli health`, `acronis-cli coverage --unprotected`, `acronis-cli agents stale`, `acronis-cli reconcile usages`, `acronis-cli customer "<TENANT_ID>"` | Allow |
-| Write (routine) | `acronis-cli tenants create`, `acronis-cli tenants update`, `acronis-cli tenants offering-items update`, `acronis-cli clients create`, `acronis-cli agent-manager force-agent-update` | Preview with `--dry-run`, then a reviewed write |
-| Credential / security | `acronis-cli idp request-token`, `acronis-cli idp revoke-token` | Human-in-the-loop only |
+| Write (routine) | `acronis-cli tenants create`, `acronis-cli tenants update`, `acronis-cli tenants offering-items update`, `acronis-cli reports`, `acronis-cli agent-manager force-agent-update` | Preview with `--dry-run`, then a reviewed write |
+| Credential / security | `acronis-cli clients create` (returns the new client's secret), `acronis-cli idp request-token`, `acronis-cli idp revoke-token` | Human-in-the-loop only |
 | Destructive | `acronis-cli tenants delete`, `acronis-cli clients delete`, `acronis-cli agent-manager delete-agent`, `acronis-cli agent-manager delete-agents` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Acronis credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

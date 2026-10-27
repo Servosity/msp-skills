@@ -39,15 +39,24 @@ func buildTenantForest(db *store.Store) ([]*treeNode, error) {
 	for rows.Next() {
 		var id string
 		var name, kind, parentID *string
-		if rows.Scan(&id, &name, &kind, &parentID) != nil {
-			continue
+		if err := rows.Scan(&id, &name, &kind, &parentID); err != nil {
+			return nil, fmt.Errorf("reading tenants: %w", err)
 		}
 		infos = append(infos, tenantInfo{id: id, name: deref(name), kind: deref(kind), parentID: deref(parentID)})
 		idSet[id] = true
 	}
 
-	agentCounts := countBy(db, `SELECT tenant_id, COUNT(*) FROM agent_manager GROUP BY tenant_id`)
-	userCounts := countBy(db, `SELECT tenants_id, COUNT(*) FROM users GROUP BY tenants_id`)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading tenants: %w", err)
+	}
+	agentCounts, err := countBy(db, `SELECT tenant_id, COUNT(*) FROM agent_manager GROUP BY tenant_id`)
+	if err != nil {
+		return nil, err
+	}
+	userCounts, err := countBy(db, `SELECT tenants_id, COUNT(*) FROM users GROUP BY tenants_id`)
+	if err != nil {
+		return nil, err
+	}
 
 	nodes := map[string]*treeNode{}
 	for _, in := range infos {
@@ -95,21 +104,27 @@ func buildTenantForest(db *store.Store) ([]*treeNode, error) {
 	return roots, nil
 }
 
-func countBy(db *store.Store, query string) map[string]int {
+// countBy runs a "key, COUNT(*) ... GROUP BY key" query. A failed count is an
+// error, never a zero: a zero would read as "no agents/users".
+func countBy(db *store.Store, query string) (map[string]int, error) {
 	out := map[string]int{}
 	rows, err := db.Query(query)
 	if err != nil {
-		return out
+		return nil, fmt.Errorf("counting: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var key *string
 		var c int
-		if rows.Scan(&key, &c) == nil {
-			out[deref(key)] = c
+		if err := rows.Scan(&key, &c); err != nil {
+			return nil, fmt.Errorf("counting: %w", err)
 		}
+		out[deref(key)] = c
 	}
-	return out
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("counting: %w", err)
+	}
+	return out, nil
 }
 
 func renderTree(w *strings.Builder, n *treeNode, level, maxDepth int) {

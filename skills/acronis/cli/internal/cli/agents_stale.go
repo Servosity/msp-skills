@@ -23,9 +23,14 @@ type staleAgentRow struct {
 }
 
 // computeStaleAgents returns agents whose last_seen is older than the cutoff
-// (now - olderThan) OR whose status indicates offline.
+// (now - olderThan), that have no last_seen at all, or whose status does not
+// prove they are online (offline or unknown). An unrecognized last_seen value
+// fails the report instead of hiding the agent.
 func computeStaleAgents(db *store.Store, olderThan time.Duration, now time.Time) ([]staleAgentRow, error) {
-	names := tenantNames(db)
+	names, err := tenantNames(db)
+	if err != nil {
+		return nil, err
+	}
 	cutoff := now.Add(-olderThan)
 
 	rows, err := db.Query(`SELECT id, tenant_id, hostname, last_seen, status, version FROM agent_manager`)
@@ -39,17 +44,16 @@ func computeStaleAgents(db *store.Store, olderThan time.Duration, now time.Time)
 		var id string
 		var tenantID, hostname, lastSeen, status, version *string
 		if err := rows.Scan(&id, &tenantID, &hostname, &lastSeen, &status, &version); err != nil {
-			continue
+			return nil, fmt.Errorf("reading agent_manager: %w", err)
 		}
 		ls := deref(lastSeen)
-		stale := false
-		if t, ok := parseTime(ls); ok {
-			stale = t.Before(cutoff)
-		} else if ls == "" {
-			// No last_seen at all is treated as stale.
-			stale = true
+		seen, known, err := rollupTime(ls)
+		if err != nil {
+			return nil, fmt.Errorf("agent %s: %w", id, err)
 		}
-		if agentOffline(deref(status)) {
+		// No last_seen at all is treated as stale.
+		stale := !known || seen.Before(cutoff)
+		if agentNotOnline(deref(status)) {
 			stale = true
 		}
 		if !stale {
@@ -65,6 +69,9 @@ func computeStaleAgents(db *store.Store, olderThan time.Duration, now time.Time)
 			Status:     deref(status),
 			Version:    deref(version),
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading agent_manager: %w", err)
 	}
 
 	sort.Slice(out, func(i, j int) bool {

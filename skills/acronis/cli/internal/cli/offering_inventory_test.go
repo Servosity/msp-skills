@@ -10,14 +10,14 @@ func TestComputeOfferingInventory(t *testing.T) {
 	t.Run("rolls up by offering across tenants", func(t *testing.T) {
 		db := newNovelTestStore(t)
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o1", "t1", `{"name":"backup_storage","edition":"standard"}`)
+			"o1", "t1", `{"status":1,"name":"backup_storage","edition":"standard"}`)
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o2", "t2", `{"name":"backup_storage","edition":"advanced"}`)
+			"o2", "t2", `{"status":1,"name":"backup_storage","edition":"advanced"}`)
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o3", "t1", `{"name":"disaster_recovery"}`)
+			"o3", "t1", `{"status":1,"name":"disaster_recovery"}`)
 		// second row for same tenant+offering -> items 2, tenants still 1
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o4", "t1", `{"name":"disaster_recovery"}`)
+			"o4", "t1", `{"status":1,"name":"disaster_recovery"}`)
 
 		rows, err := computeOfferingInventory(db)
 		if err != nil {
@@ -49,17 +49,17 @@ func TestComputeOfferingInventory(t *testing.T) {
 		}
 	})
 
-	t.Run("rows without a name are skipped", func(t *testing.T) {
+	t.Run("rows without a name stay visible as (unnamed)", func(t *testing.T) {
 		db := newNovelTestStore(t)
 		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`,
-			"o1", "t1", `{"edition":"standard"}`)
+			"o1", "t1", `{"status":1,"edition":"standard"}`)
 
 		rows, err := computeOfferingInventory(db)
 		if err != nil {
 			t.Fatalf("computeOfferingInventory: %v", err)
 		}
-		if len(rows) != 0 {
-			t.Fatalf("nameless rows must be skipped, got %+v", rows)
+		if len(rows) != 1 || rows[0].Offering != "(unnamed)" || rows[0].Items != 1 {
+			t.Fatalf("a nameless active row must not disappear, got %+v", rows)
 		}
 	})
 }

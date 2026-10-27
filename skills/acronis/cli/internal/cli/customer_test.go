@@ -22,7 +22,7 @@ func TestComputeCustomerCard(t *testing.T) {
 		seedTenant(t, db, "t1", "Acme", "customer", "parent-1")
 		seedTenant(t, db, "t1-child", "Acme Unit", "unit", "t1")
 		mustExec(t, db, `INSERT INTO users(id, tenants_id, data) VALUES(?,?,?)`, "u1", "t1", `{}`)
-		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t1", `{"name":"backup"}`)
+		mustExec(t, db, `INSERT INTO offering_items(id, tenants_id, data) VALUES(?,?,?)`, "o1", "t1", `{"status":1,"name":"backup"}`)
 		mustExec(t, db, `INSERT INTO usages(id, tenants_id, data) VALUES(?,?,?)`, "us1", "t1", `{"name":"storage","value":5}`)
 		mustExec(t, db, `INSERT INTO clients(id, data, tenant_id) VALUES(?,?,?)`, "c1", `{}`, "t1")
 		mustExec(t, db, `INSERT INTO agent_manager(id, data, tenant_id, status, last_seen) VALUES(?,?,?,?,?)`,
@@ -30,11 +30,11 @@ func TestComputeCustomerCard(t *testing.T) {
 		mustExec(t, db, `INSERT INTO agent_manager(id, data, tenant_id, status) VALUES(?,?,?,?)`,
 			"a2", `{}`, "t1", "offline")
 		// recent ok + recent failed + old ok (old ok is outside 7d but counts for last_success ordering check)
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k1", `{}`, "t1", "completed", "ok", recent)
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k2", `{}`, "t1", "failed", "error", recent)
-		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at) VALUES(?,?,?,?,?,?)`,
+		mustExec(t, db, `INSERT INTO task_manager(id, data, tenant_id, state, result_code, completed_at, type) VALUES(?,?,?,?,?,?,'backup')`,
 			"k3", `{}`, "t1", "completed", "ok", old)
 		// another tenant's rows must not leak in
 		seedTenant(t, db, "t2", "Globex", "customer", "")

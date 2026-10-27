@@ -69,7 +69,81 @@ func acronisTaskOrder(order string) string {
 	return order
 }
 
-func resolveAcronisTaskRead(ctx context.Context, c *client.Client, flags *rootFlags, resource, path string, params map[string]string, all bool, hints io.Writer) (json.RawMessage, DataProvenance, error) {
+// acronisTaskPartitions maps each task-manager list endpoint to the sync
+// partition that mirrors it (sync.go syncResourcePath).
+var acronisTaskPartitions = map[string]string{
+	"/api/task_manager/v2/tasks":      "task-manager",
+	"/api/task_manager/v2/activities": "task-manager-v2-activities",
+}
+
+// acronisPartitionEndpoints lists, for each partition sync mirrors, the
+// endpoints whose answers are that partition's rows: the list path and the
+// detail path ("*" is one path segment). It is the one table that picks the
+// partition of every store read and write outside sync: the read resolvers,
+// their local fallback, write-through and mutation answers (hand-fix
+// handfixes.json read-partition-by-endpoint). The rollups trust each partition
+// to hold one endpoint's rows, so an activity, a hardware node or a settings
+// object never lands in the tasks or agents partition.
+var acronisPartitionEndpoints = map[string][]string{
+	"clients":                    {"api/2/clients", "api/2/clients/*"},
+	"tenants":                    {"api/2/tenants", "api/2/tenants/*"},
+	"users":                      {"api/2/tenants/*/users"},
+	"usages":                     {"api/2/tenants/*/usages"},
+	"offering_items":             {"api/2/tenants/*/offering_items"},
+	"agent-manager":              {"api/agent_manager/v2/agents", "api/agent_manager/v2/agents/*"},
+	"task-manager":               {"api/task_manager/v2/tasks", "api/task_manager/v2/tasks/*"},
+	"task-manager-v2-activities": {"api/task_manager/v2/activities", "api/task_manager/v2/activities/*"},
+}
+
+// acronisPartition returns the local partition for a store read or write of
+// path, which the command labelled label. The endpoint decides: a listed path
+// maps to its partition. Any other path keeps a label of its own (reports,
+// remote_search) but never a mirrored one: it gets "", no partition, so
+// nothing is written and no local read answers it.
+func acronisPartition(label, path string) string {
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	for partition, patterns := range acronisPartitionEndpoints {
+		for _, pattern := range patterns {
+			if acronisPathMatches(strings.Split(pattern, "/"), segs) {
+				return partition
+			}
+		}
+	}
+	if _, mirrored := acronisPartitionEndpoints[strings.ReplaceAll(label, "-", "_")]; mirrored {
+		return ""
+	}
+	if _, mirrored := acronisPartitionEndpoints[label]; mirrored {
+		return ""
+	}
+	return label
+}
+
+// acronisPathMatches: "*" matches one id segment. An id never holds ':', so
+// a custom method (agents/update:force) is not a detail path.
+func acronisPathMatches(pattern, segs []string) bool {
+	if len(pattern) != len(segs) {
+		return false
+	}
+	for i, p := range pattern {
+		if p == "*" {
+			if segs[i] == "" || strings.Contains(segs[i], ":") {
+				return false
+			}
+		} else if p != segs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// resolveAcronisTaskRead serves a task or activity list. The endpoint path,
+// never the caller's resource label, selects the local partition, so an
+// activities read cannot be answered from the tasks mirror.
+func resolveAcronisTaskRead(ctx context.Context, c *client.Client, flags *rootFlags, _ string, path string, params map[string]string, all bool, hints io.Writer) (json.RawMessage, DataProvenance, error) {
+	resource, ok := acronisTaskPartitions[path]
+	if !ok {
+		return nil, DataProvenance{}, fmt.Errorf("unsupported task list path %q", path)
+	}
 	if flags.dataSource == "local" {
 		if params["tenant_id"] != "" {
 			return nil, DataProvenance{}, usageErr(fmt.Errorf("--tenant-id requires live enumeration; use --data-source live"))
@@ -121,14 +195,16 @@ func acronisTaskPages(ctx context.Context, c acronisGetter, path string, params 
 		if err != nil {
 			return nil, err
 		}
-		if isDryRunResponse(data) {
+		if isDryRunResponseForClient(c, data) {
 			return data, nil
+		}
+		// Every page, the single-page read included, must pass the shared
+		// validator: an in-band failure is never returned as data.
+		if err := acronisValidatePage(data); err != nil {
+			return nil, err
 		}
 		if !all {
 			return data, nil
-		}
-		if err := acronisValidatePage(data); err != nil {
-			return nil, err
 		}
 		var envelope map[string]json.RawMessage
 		if json.Unmarshal(data, &envelope) != nil {
@@ -198,7 +274,7 @@ func acronisRequireCompleteMirror(db *store.Store) error {
 
 // AcronisTaskRead shares task parameter translation with the direct MCP tools.
 func AcronisTaskRead(ctx context.Context, c *client.Client, path string, params map[string]string) (json.RawMessage, error) {
-	if path != "/api/task_manager/v2/tasks" && path != "/api/task_manager/v2/activities" {
+	if _, ok := acronisTaskPartitions[path]; !ok {
 		return nil, fmt.Errorf("unsupported task list path")
 	}
 	if params["limit"] == "" {
@@ -229,6 +305,71 @@ func AcronisSearchRead(ctx context.Context, c *client.Client, params map[string]
 	return c.Get(ctx, "/api/2/search", map[string]string{"text": text, "tenant": tenant, "limit": limit})
 }
 
+// acronisPageFailureKeys name in-band failure or partial-data signals. Any of
+// them carrying a non-empty value (a message, a list, an object, true, a
+// non-zero number) at the top level or inside any top-level object other than
+// "items" (paging, meta, pagination, ...) marks the page as not a complete,
+// successful enumeration.
+var acronisPageFailureKeys = []string{
+	"error", "errors", "warning", "warnings", "failure", "failures",
+	"partial", "incomplete", "truncated",
+}
+
+// acronisJSONValueEmpty reports whether raw is absent, null, false, 0, "",
+// [] or {}.
+func acronisJSONValueEmpty(raw json.RawMessage) bool {
+	var v any
+	if len(raw) == 0 || json.Unmarshal(raw, &v) != nil {
+		return len(raw) == 0
+	}
+	switch x := v.(type) {
+	case nil:
+		return true
+	case bool:
+		return !x
+	case float64:
+		return x == 0
+	case string:
+		return strings.TrimSpace(x) == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
+}
+
+// acronisPageSignalsFailure reports any in-band failure signal: the generated
+// success/ok/status detector (on the page and on every top-level object), or a
+// non-empty acronisPageFailureKeys value at the top level or inside any
+// top-level object other than "items". Any signal wins.
+func acronisPageSignalsFailure(data json.RawMessage, envelope map[string]json.RawMessage) bool {
+	if responseDeclaresFailure(data) {
+		return true
+	}
+	containers := []map[string]json.RawMessage{envelope}
+	for key, raw := range envelope {
+		if key == "items" {
+			continue
+		}
+		var nested map[string]json.RawMessage
+		if json.Unmarshal(raw, &nested) == nil && nested != nil {
+			if envelopeReportsFailure(nested) {
+				return true
+			}
+			containers = append(containers, nested)
+		}
+	}
+	for _, container := range containers {
+		for _, key := range acronisPageFailureKeys {
+			if raw, ok := container[key]; ok && !acronisJSONValueEmpty(raw) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func acronisValidatePage(data json.RawMessage) error {
 	var items []json.RawMessage
 	if json.Unmarshal(data, &items) == nil && items != nil {
@@ -236,6 +377,9 @@ func acronisValidatePage(data json.RawMessage) error {
 	}
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(data, &envelope) == nil && json.Unmarshal(envelope["items"], &items) == nil && items != nil {
+		if acronisPageSignalsFailure(data, envelope) {
+			return fmt.Errorf("incomplete response: the API reported a failure or partial result in-band")
+		}
 		for _, key := range []string{"paging", ""} {
 			container := envelope
 			if key != "" {
@@ -261,7 +405,7 @@ func acronisValidatePage(data json.RawMessage) error {
 			}
 		}
 		if more, known := pageExplicitHasMore(data); known && more {
-			next, _ := extractPaginationFromEnvelope(envelope, "after")
+			next, _ := extractPaginationFromEnvelope(envelope, "after", "")
 			if next == "" {
 				return fmt.Errorf("incomplete response: more data declared without a cursor")
 			}
