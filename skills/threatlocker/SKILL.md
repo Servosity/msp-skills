@@ -50,10 +50,7 @@ Use this CLI when you operate ThreatLocker across multiple customer organization
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
-
 ### Cross-tenant intelligence
-
 - **`approvals triage`**  -  One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.
 
   _Reach for this to clear the morning approval backlog across an entire MSP book without swapping tenant context request-by-request._
@@ -75,9 +72,29 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   threatlocker-cli devices health --all-tenants --agent
   ```
+- **`applications hunt`**  -  Find a file (by hash, certificate, or path) in every tenant's synced approval requests (tenant, endpoint, status) and application rules (which applications already trust it), in one offline query.
+
+  _Reach for this during incident response to see which tenants and endpoints asked to run a file, and which application rules already trust it, without swapping tenant context per search._
+
+  ```bash
+  threatlocker-cli applications hunt --hash 3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b --agent
+  ```
+- **`maintenance open`**  -  Lists every endpoint whose maintenance-mode window is open right now across all tenants, longest-open first, flagging windows open past an age threshold.
+
+  _Reach for this to catch endpoints a technician left in a maintenance mode that relaxes protection, which keep running that way until someone notices._
+
+  ```bash
+  threatlocker-cli maintenance open --older-than 24h --agent
+  ```
+- **`organizations posture`**  -  One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row.
+
+  _Reach for this before a customer review or a morning sweep to see which tenant needs attention first._
+
+  ```bash
+  threatlocker-cli organizations posture --agent
+  ```
 
 ### MSP write operations
-
 - **`approvals approve-batch`**  -  Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.
 
   _Use this when one trusted updater is blocked everywhere  -  approve it once instead of clicking through 30 portals._
@@ -87,24 +104,29 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Audit & compliance
-
-- **`audit export`**  -  Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff.
+- **`audit export`**  -  Export the Unified Audit log that `audit pull` saved, per tenant or across all tenants, to JSONL/CSV, keeping evidence past ThreatLocker's 31-day retention cliff.
 
   _Run this on a schedule so compliance evidence and incident timelines survive the retention window._
 
   ```bash
   threatlocker-cli audit export --all-tenants --since 2026-04-01 --agent
   ```
-- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is  -  flagging tenants about to lose evidence.
+- **`audit retention-check`**  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last complete audit pull is  -  flagging tenants about to lose evidence.
 
   _Pick this to catch a broken export before the data it should have captured ages off the 31-day window forever._
 
   ```bash
   threatlocker-cli audit retention-check --agent
   ```
+- **`audit pull`**  -  Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff.
+
+  _Run it on a schedule shorter than 31 days and the local archive keeps the evidence ThreatLocker deletes._
+
+  ```bash
+  threatlocker-cli audit pull --since 30d --agent
+  ```
 
 ### Auth resilience
-
 - **`doctor`**  -  Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause.
 
   _Run this first whenever a script starts returning 401  -  it tells you whether the token expired, the org header is missing, or you're on the deprecated API mode._
@@ -221,6 +243,52 @@ These capabilities aren't available in any other tool for this API.
 - `threatlocker-cli versions`  -  List available agent versions (label/value/isEnabled/isDefault/osType)
 
 
+**applications**
+
+
+- `threatlocker-cli applications hunt`  -  Find a file (by hash, certificate, or path) in every tenant's synced approval requests (tenant, endpoint, status) and application rules (which applications already trust it), in one offline query.
+
+
+**approvals**
+
+
+- `threatlocker-cli approvals triage`  -  One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row.
+
+- `threatlocker-cli approvals approve-batch`  -  Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first.
+
+
+**audit**
+
+
+- `threatlocker-cli audit export`  -  Export the Unified Audit log that `audit pull` saved, per tenant or across all tenants, to JSONL/CSV, keeping evidence past ThreatLocker's 31-day retention cliff.
+
+- `threatlocker-cli audit retention-check`  -  Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last complete audit pull is  -  flagging tenants about to lose evidence.
+
+- `threatlocker-cli audit drift`  -  One ranked table of security-relevant changes  -  protection disabled, policy changed, maintenance toggled  -  across every tenant in a time window.
+
+- `threatlocker-cli audit pull`  -  Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff.
+
+
+**devices**
+
+
+- `threatlocker-cli devices health`  -  Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant.
+
+
+**maintenance**
+
+
+- `threatlocker-cli maintenance open`  -  Lists every endpoint whose maintenance-mode window is open right now across all tenants (learning, installation or disabled protection), longest-open first, flagging windows past an age threshold.
+
+
+**organizations**
+
+
+- `threatlocker-cli organizations posture`  -  One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row.
+
+
+
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -229,10 +297,9 @@ When you know what you want to do but not which command does it, ask the CLI dir
 threatlocker-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
-
 
 ### Morning cross-tenant approval sweep
 
@@ -240,7 +307,7 @@ threatlocker-cli which "<capability in your own words>"
 threatlocker-cli approvals triage --all-tenants --agent --select organizationName,fileName,hash,ageHours,duplicateCount
 ```
 
-Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones.
+Drain the overnight backlog ranked by age with duplicate hashes collapsed, then batch-approve the trusted ones. Requires a recent sync --resources approvals.
 
 ### Nightly audit archive before the 31-day cliff
 
@@ -248,7 +315,7 @@ Drain the overnight backlog ranked by age with duplicate hashes collapsed, then 
 threatlocker-cli audit export --all-tenants --since 2026-04-01 --csv > audit-archive.csv
 ```
 
-Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance.
+Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compliance. Run threatlocker-cli audit pull --since 30d first: the export materializes from the local archive that pull fills.
 
 ### Who disabled protection this week
 
@@ -256,7 +323,7 @@ Persist Unified Audit beyond ThreatLocker's retention window for SIEM and compli
 threatlocker-cli audit drift --since 7d --all-tenants --agent
 ```
 
-One ranked table of protection-off / policy-change / maintenance events across every customer.
+One ranked table of protection-off / policy-change / maintenance events across every customer. Run threatlocker-cli audit pull --since 30d first.
 
 ### Dark-agent health sweep
 
@@ -264,7 +331,7 @@ One ranked table of protection-off / policy-change / maintenance events across e
 threatlocker-cli devices health --all-tenants --agent --select organizationName,computerName,healthClass,lastCheckin
 ```
 
-Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass.
+Classify every endpoint healthy/offline/stale/isolated across all tenants in one pass. Requires a recent sync --resources computers,online-devices.
 
 ### Diagnose a broken automation
 
@@ -282,7 +349,14 @@ Run `threatlocker-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json`  -  one JSON document on stdout (sync progress events go to stderr)
+- `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
@@ -293,6 +367,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
+- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
 
 ### Response envelope
@@ -335,17 +410,27 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `THREATLOCKER_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `THREATLOCKER_HOME`, or `doctor` will not find credentials left under the former root.
 
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `THREATLOCKER_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `THREATLOCKER_DATA_SOURCE` sets the `--data-source` default.
+
 ## Automatic learning
 
 This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, run:
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
 ```bash
-threatlocker-cli recall "<user's question>" --agent
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data  -  the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+threatlocker-cli recall "$QUERY" --agent
 ```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
 
 The response envelope:
 
@@ -449,10 +534,11 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 
 ### Step 4: `teach &` after finalizing your response - always
 
-Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall  -  argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
 
 ```bash
-threatlocker-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+QUERY=$(cat /path/to/question.txt)
+threatlocker-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -466,16 +552,18 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
 threatlocker-cli teach \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
 threatlocker-cli teach-playbook \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
@@ -486,12 +574,14 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 
 ### Step 6: `playbook amend &` when your debug response identifies a correction
 
-If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
+If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
 
 ```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
 threatlocker-cli playbook amend \
-  --query "<exact recall query string>" \
-  --add-note "<your concrete correction>"
+  --query "$QUERY" \
+  --add-note "$NOTE"
 # (append shell `&` to background it)
 ```
 
@@ -548,10 +638,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -576,6 +666,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
@@ -595,6 +686,8 @@ Parse `$ARGUMENTS`:
    claude mcp add threatlocker-mcp -- threatlocker-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `threatlocker-mcp --transport http` requires `THREATLOCKER_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. `THREATLOCKER_MCP_READ_ONLY=1` (exactly `1`) lists only read-only tools: it removes `threatlocker_execute`, `approvals_approve_batch`, `audit_pull`, `sync`, `workflow_archive`, `import`, `export` and the learn-store tools (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `playbook_list`, `recall`, `learnings_confirm`, `learnings_reject`, `learnings_forget`), 17 of the 38 tools, and `threatlocker_read` still refuses every state-changing endpoint.
 
 ## Direct Use
 

@@ -58,6 +58,24 @@
           "description": "Overrides the User-Agent the CLI sends on ThreatLocker requests. Leave blank to use the CLI's own built-in User-Agent.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "THREATLOCKER_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATLOCKER_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to save no API data locally: sync and audit pull are refused, the response cache is off, and reads go to the API.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATLOCKER_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

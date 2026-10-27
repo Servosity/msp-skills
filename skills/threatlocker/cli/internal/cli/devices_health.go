@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -39,18 +40,21 @@ func newNovelDevicesHealthCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "health",
 		Short:       "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Long: `Health joins the locally synced computers and online-devices tables and
 classifies every endpoint as online, stale, offline, or isolated, rolled up per
 tenant — the cross-tenant device-health view the Portal API has no single
 endpoint for. Use --detail to list individual devices.
 
-Sync first: threatlocker-cli sync --resources computers,online_devices`,
+Sync first: threatlocker-cli sync --resources computers,online-devices`,
 		Example: strings.Trim(`
   threatlocker-cli devices health --all-tenants --agent
   threatlocker-cli devices health --all-tenants --detail --select computerName,healthClass,lastCheckin
 `, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -60,18 +64,17 @@ Sync first: threatlocker-cli sync --resources computers,online_devices`,
 			}
 			db, err := tlOpenStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources computers,online_devices' first.", err)
+				return fmt.Errorf("opening local database: %w\nRun 'threatlocker-cli sync --resources computers,online-devices' first.", err)
 			}
 			defer db.Close()
 
 			query := `SELECT c.computer_id, c.computer_name, c.organization_id, c.organization_name,
 				c.last_checkin, c.is_isolated, c.is_online, od.computer_id
-				FROM computers c
-				LEFT JOIN online_devices od ON c.computer_id = od.computer_id`
+				FROM computers c ` + tlFreshOnlineJoin
 			var sqlArgs []any
-			if !flagAllTenants && flags.orgID != "" {
+			if scope := tlNovelTenantScope(flagAllTenants); scope != "" {
 				query += ` WHERE c.organization_id = ?`
-				sqlArgs = append(sqlArgs, flags.orgID)
+				sqlArgs = append(sqlArgs, scope)
 			}
 			rows, err := db.DB().QueryContext(cmd.Context(), query, sqlArgs...)
 			if err != nil {
@@ -151,7 +154,7 @@ Sync first: threatlocker-cli sync --resources computers,online_devices`,
 				return flags.printJSON(cmd, map[string]any{"summary": summary, "deviceCount": len(devices)})
 			}
 			if len(devices) == 0 {
-				fmt.Fprintln(out, "No synced computers. Run: threatlocker-cli sync --resources computers,online_devices")
+				fmt.Fprintln(out, "No synced computers. Run: threatlocker-cli sync --resources computers,online-devices")
 				return nil
 			}
 			if flagDetail {

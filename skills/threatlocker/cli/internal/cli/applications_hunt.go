@@ -59,10 +59,10 @@ type huntView struct {
 	Note         string             `json:"note,omitempty"`
 }
 
-// huntTrustedFiles queries application_files (joined to applications for the
-// display name) for rules matching the hash/cert/path query. The scope owns
-// the rows lifecycle so callers get a clean defer.
-func huntTrustedFiles(ctx context.Context, db *store.Store, query map[string]string, limit int) ([]huntFileHit, error) {
+// huntFileClauses is the one predicate for application-file rules matching the
+// hash/cert/path query. The display list and the cert-to-hash resolution both
+// use it, so --limit can only ever cap what is shown.
+func huntFileClauses(query map[string]string) ([]string, []any) {
 	clauses := []string{}
 	args := []any{}
 	if h := query["hash"]; h != "" {
@@ -77,6 +77,14 @@ func huntTrustedFiles(ctx context.Context, db *store.Store, query map[string]str
 		clauses = append(clauses, `(COALESCE(af.full_path, '') LIKE ? OR COALESCE(af.process_path, '') LIKE ?)`)
 		args = append(args, "%"+p+"%", "%"+p+"%")
 	}
+	return clauses, args
+}
+
+// huntTrustedFiles queries application_files (joined to applications for the
+// display name) for rules matching the hash/cert/path query, capped at limit
+// for display. The scope owns the rows lifecycle so callers get a clean defer.
+func huntTrustedFiles(ctx context.Context, db *store.Store, query map[string]string, limit int) ([]huntFileHit, error) {
+	clauses, args := huntFileClauses(query)
 	sql := `SELECT af.application_id, COALESCE(a.name, ''), af.full_path, af.cert, af.hash
 		FROM application_files af
 		LEFT JOIN applications a ON a.application_id = af.application_id
@@ -105,6 +113,32 @@ func huntTrustedFiles(ctx context.Context, db *store.Store, query map[string]str
 		return nil, fmt.Errorf("iterating application files: %w", err)
 	}
 	return hits, nil
+}
+
+// huntResolveFileHashes returns every distinct hash carried by the file rules
+// matching the query, over the full store. Hand-wired (class:
+// limit-before-aggregate): the cert-only approval search and the tenant rollup
+// it feeds must not depend on how many rules --limit lets the display show.
+func huntResolveFileHashes(ctx context.Context, db *store.Store, query map[string]string) ([]string, error) {
+	clauses, args := huntFileClauses(query)
+	clauses = append(clauses, `COALESCE(af.hash, '') <> ''`)
+	rows, err := db.DB().QueryContext(ctx, `SELECT DISTINCT LOWER(af.hash) FROM application_files af`+huntWhereClause(clauses)+` ORDER BY 1`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("resolving application-file hashes: %w", err)
+	}
+	defer rows.Close()
+	var hashes []string
+	for rows.Next() {
+		var h string
+		if err := rows.Scan(&h); err != nil {
+			return nil, fmt.Errorf("scanning application-file hash: %w", err)
+		}
+		hashes = append(hashes, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating application-file hashes: %w", err)
+	}
+	return hashes, nil
 }
 
 // huntApprovalClauses builds the approvals-table predicate for the query.
@@ -150,12 +184,16 @@ func newNovelApplicationsHuntCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "hunt",
-		Short:       "Locate a file (by hash, cert, or path) across every tenant and endpoint in one offline query",
-		Annotations: map[string]string{"mcp:read-only": "true"},
-		Long: `Use this command to locate a specific file (by hash, certificate, or path)
-across every tenant and endpoint for incident response: where it is trusted by
-an application definition, and where it is pending or processed in the approval
-queue — one offline query over all synced tenants instead of N portal searches.
+		Short:       "Find a file (by hash, cert, or path) in every tenant's synced approval requests and application rules, in one offline query",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
+		Long: `Use this command to find a specific file (by hash, certificate, or path) in
+every synced tenant for incident response: which application definitions
+already trust it, and which tenants and endpoints asked to run it (the approval
+requests sync stored, with their status), in one offline query instead of N
+portal searches. It reads approval requests and application rules only, so an
+endpoint that ran the file without ever raising a request does not appear.
+--org limits the approval requests to one tenant; application rules are not
+stored per tenant, so they are listed either way.
 Do NOT use this command to manage policy coverage; use 'policies copy' to push
 a policy to other tenants.
 
@@ -173,7 +211,7 @@ Sync first: threatlocker-cli sync --resources approvals,applications`,
 				return cmd.Help()
 			}
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would hunt the local store for matching files across all synced tenants")
+				fmt.Fprintln(cmd.OutOrStdout(), "would hunt the local store for matching files (approval requests limited to --org when set)")
 				return nil
 			}
 			if flagHash == "" && flagCert == "" && flagPath == "" {
@@ -207,20 +245,26 @@ Sync first: threatlocker-cli sync --resources approvals,applications`,
 				return err
 			}
 
-			// 2. Approval surfacings. Cert-only hunts resolve the cert to the
-			//    hashes its file rules carry, then match approvals on those.
+			// 2. Approval surfacings. Cert-only hunts resolve the cert to every
+			//    hash its file rules carry (the full store, not the --limit
+			//    display list), then match approvals on those.
 			var certHashes []string
 			if view.Query["hash"] == "" && view.Query["cert"] != "" {
-				seen := map[string]bool{}
-				for _, f := range view.TrustedFiles {
-					if f.Hash != "" && !seen[strings.ToLower(f.Hash)] {
-						seen[strings.ToLower(f.Hash)] = true
-						certHashes = append(certHashes, f.Hash)
-					}
+				certHashes, err = huntResolveFileHashes(cmd.Context(), db, view.Query)
+				if err != nil {
+					return err
 				}
 			}
 			apprClauses, apprArgs := huntApprovalClauses(view.Query, certHashes)
 			certOnlyUnresolved := apprClauses == nil && view.Query["cert"] != "" && view.Query["hash"] == "" && view.Query["path"] == ""
+			// An explicit --org limits the approval-request rows to that tenant,
+			// the same rule as every other local read (tlNovelTenantScope).
+			// Application file rules carry no tenant in the store, so they are
+			// not filtered.
+			if scope := tlNovelTenantScope(false); scope != "" && apprClauses != nil {
+				apprClauses = append(apprClauses, `organization_id = ?`)
+				apprArgs = append(apprArgs, scope)
+			}
 
 			view.Approvals = make([]huntApprovalHit, 0)
 			view.TenantRollup = make([]huntTenantRollup, 0)
@@ -301,13 +345,10 @@ Sync first: threatlocker-cli sync --resources approvals,applications`,
 			}
 			switch {
 			case len(view.Approvals) == 0 && len(view.TrustedFiles) == 0:
-				// application_files is deliberately NOT in the sync set: its endpoint
-				// is keyed by applicationId and flat sync supplies only pagination,
-				// so it can never enumerate. The table is populated on demand by
-				// `application-files list --application-id <id>` (live reads write
-				// through to the store). Say so rather than implying a sync would
-				// have filled it. See #208.
-				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,applications' or widen the query. Trusted-file (application_files) matches additionally require 'threatlocker-cli application-files --application-id <id>' for the applications you care about, which sync cannot enumerate on its own."
+				// From press 4.34.0 application-files syncs as a dependent of
+				// applications (one request per synced application), so syncing
+				// applications fills the trusted-file table too. See #208.
+				view.Note = "no matches in the local store; sync first with 'threatlocker-cli sync --resources approvals,applications' (application file rules sync with applications) or widen the query."
 			case certOnlyUnresolved:
 				view.Note = "cert-only hunt: no hashes resolved from matching application file rules, so the approval queue was not searched; add --hash or --path to search it"
 			case totalRollupRows > len(view.Approvals):

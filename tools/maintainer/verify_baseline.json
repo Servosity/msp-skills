@@ -387,12 +387,6 @@
    "read-only",
    "local-data"
   ],
-  "threatlocker": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "unifi-network": [
    "mcp-http",
    "write-gating",

@@ -24,5 +24,9 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 			return fmt.Errorf("extra migration failed: %w", err)
 		}
 	}
+	// credential-tier: scrub enrollment keys an earlier binary wrote (tl_credential_tier.go).
+	if err := s.scrubCredentialTierRows(ctx, conn); err != nil {
+		return fmt.Errorf("credential-tier scrub failed: %w", err)
+	}
 	return nil
 }

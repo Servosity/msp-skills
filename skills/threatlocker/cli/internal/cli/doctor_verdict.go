@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"threatlocker-pp-cli/internal/client"
 )
 
@@ -46,33 +47,16 @@ const doctorBaseURLEnv = "THREATLOCKER_BASE_URL"
 // placeholder and doctor would never dial it. Refusing to check a healthy
 // install is the same class of defect as blessing a broken one, pointed the
 // other way.
-const doctorShippedBaseURL = "https://portalapi.g.threatlocker.com/portalapi"
+// ThreatLocker ships with a REAL default: portalapi.g.threatlocker.com is
+// instance g's live API root, and an MSP on instance g never sets
+// THREATLOCKER_BASE_URL. Matching it here made doctor report "base_url is still
+// the shipped placeholder" on every healthy instance-g install and skip the
+// credential probe. Empty disables the exact-match check; the template,
+// YOUR_ and RFC 2606 checks below still refuse true placeholders.
+// Hand-wired (handfixes.json: doctor-shipped-base-url-real-host).
+const doctorShippedBaseURL = ""
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +65,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -107,7 +91,7 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
 		host = host[:i]
 	}
-	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
+	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "example"} {
 		if host == reserved || strings.HasSuffix(host, "."+reserved) {
 			return true
 		}
@@ -180,12 +164,31 @@ func doctorProbeableLeaf(cmd *cobra.Command) string {
 		return ""
 	}
 	path := cmd.Annotations["pp:path"]
+	// A credential-returning read is never a health check (tl_credential_tier.go).
+	if _, credential := credentialTierMember(cmd); credential {
+		return ""
+	}
 	// A templated path needs an id we do not have.
 	if path == "" || !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "{}") {
 		return ""
 	}
 	// Positional path params are advertised in Use as <id> or [id].
 	if strings.ContainsAny(cmd.Use, "<[") {
+		return ""
+	}
+	// Any declared required input disqualifies the leaf: the probe has none
+	// to give, and the API answers a request missing it with 4xx, which reads
+	// as a wrong base URL. Hand-wired (handfixes.json: doctor-probe-needs-no-input).
+	if cmd.Annotations["pp:requires-input"] == "true" {
+		return ""
+	}
+	required := false
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if _, ok := f.Annotations[cobra.BashCompOneRequiredFlag]; ok {
+			required = true
+		}
+	})
+	if required {
 		return ""
 	}
 	if cmd.Args == nil {

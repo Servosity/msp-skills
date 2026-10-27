@@ -1,0 +1,164 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-26T21:49:51.427029Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "threatlocker",
+  "display_name": "ThreatLocker",
+  "cli_name": "threatlocker-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:fa1f581a9e929749450b12b6e217913c655babc3209031aa86860ed6b7f78300",
+  "run_id": "20261024-183405-c0ca5e1b",
+  "category": "monitoring",
+  "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
+  "mcp_binary": "threatlocker-pp-mcp",
+  "mcp_tool_count": 54,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_env_vars": [
+    "THREATLOCKER_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant approval triage",
+      "command": "approvals triage",
+      "description": "One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row."
+    },
+    {
+      "name": "Batch-approve by hash",
+      "command": "approvals approve-batch",
+      "description": "Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first."
+    },
+    {
+      "name": "Audit retention rescue",
+      "command": "audit export",
+      "description": "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff."
+    },
+    {
+      "name": "Retention-cliff doctor",
+      "command": "audit retention-check",
+      "description": "Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is — flagging tenants about to lose evidence."
+    },
+    {
+      "name": "Cross-tenant audit drift",
+      "command": "audit drift",
+      "description": "One ranked table of security-relevant changes — protection disabled, policy changed, maintenance toggled — across every tenant in a time window."
+    },
+    {
+      "name": "Device-health rollup",
+      "command": "devices health",
+      "description": "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant."
+    },
+    {
+      "name": "Auth / 401 doctor",
+      "command": "doctor",
+      "description": "Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause."
+    },
+    {
+      "name": "Cross-tenant application hunt",
+      "command": "applications hunt",
+      "description": "Locate a specific file (by hash, certificate, or path) across every tenant and endpoint in one offline query — present, approved, or pending."
+    },
+    {
+      "name": "Open-maintenance sweep",
+      "command": "maintenance open",
+      "description": "Lists every endpoint whose maintenance-mode window is open right now across all tenants, longest-open first, flagging windows open past an age threshold."
+    },
+    {
+      "name": "Per-tenant posture card",
+      "command": "organizations posture",
+      "description": "One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row."
+    },
+    {
+      "name": "Audit archive pull",
+      "command": "audit pull",
+      "description": "Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-tenant approval triage",
+      "command": "approvals triage",
+      "description": "One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row."
+    },
+    {
+      "name": "Batch-approve by hash",
+      "command": "approvals approve-batch",
+      "description": "Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first."
+    },
+    {
+      "name": "Audit retention rescue",
+      "command": "audit export",
+      "description": "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff."
+    },
+    {
+      "name": "Retention-cliff doctor",
+      "command": "audit retention-check",
+      "description": "Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is — flagging tenants about to lose evidence."
+    },
+    {
+      "name": "Cross-tenant audit drift",
+      "command": "audit drift",
+      "description": "One ranked table of security-relevant changes — protection disabled, policy changed, maintenance toggled — across every tenant in a time window."
+    },
+    {
+      "name": "Device-health rollup",
+      "command": "devices health",
+      "description": "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant."
+    },
+    {
+      "name": "Auth / 401 doctor",
+      "command": "doctor",
+      "description": "Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause."
+    },
+    {
+      "name": "Cross-tenant application hunt",
+      "command": "applications hunt",
+      "description": "Locate a specific file (by hash, certificate, or path) across every tenant and endpoint in one offline query — present, approved, or pending."
+    },
+    {
+      "name": "Open-maintenance sweep",
+      "command": "maintenance open",
+      "description": "Lists every endpoint whose maintenance-mode window is open right now across all tenants, longest-open first, flagging windows open past an age threshold."
+    },
+    {
+      "name": "Per-tenant posture card",
+      "command": "organizations posture",
+      "description": "One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row."
+    },
+    {
+      "name": "Audit archive pull",
+      "command": "audit pull",
+      "description": "Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 50,
+    "total": 50,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 97,
+      "grade": "A",
+      "total": 97
+    }
+  }
+}

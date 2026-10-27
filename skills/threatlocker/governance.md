@@ -27,9 +27,9 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `approvals approve`, `approvals approve-batch`, `applications create`, `applications update`, `computers maintenance`, `computers enable-protection`, `computers restart-service`, `policies create`, `policies copy`, `policies deploy` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
+| **Read** | Reports, rollups, search. No change in ThreatLocker. | the cross-entity views and any non-mutating command; `sync` and `audit pull` write only the local store | Allow |
+| **Write (routine)** | Day-to-day mutations. | `approvals approve`, `approvals approve-batch` (a live run needs `--yes`), `applications create`, `applications update`, `computers maintenance`, `computers enable-protection`, `computers restart-service`, `policies create`, `policies copy`, `policies deploy` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Credential / security** | Touches tokens, keys, MFA, or returns a stored credential. | `organizations auth-key` and `computers install-info` (each returns a tenant's agent installation key; CLI only, never offered over MCP, never cached or stored) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `computers delete`, `policies delete` | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 

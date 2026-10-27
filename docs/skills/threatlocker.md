@@ -12,7 +12,7 @@ faqs:
   - q: "Is the ThreatLocker MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `THREATLOCKER_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `THREATLOCKER_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running threatlocker-mcp in HTTP mode, and in this build HTTP mode asks for no password and listens on every network interface. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host threatlocker-mcp in HTTP mode: it refuses to start until THREATLOCKER_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my ThreatLocker data safe?"
@@ -22,7 +22,7 @@ faqs:
   - q: "Will this hit my ThreatLocker API rate limits?"
     a: "The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (approvals triage, audit drift, devices health, applications hunt) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and sync is incremental, fetching only what changed since the last checkpoint."
   - q: "How does it handle ThreatLocker's 31-day audit retention?"
-    a: "ThreatLocker's Unified Audit log keeps about 31 days by default. audit export persists each tenant's log to JSONL or CSV locally so evidence outlives that window, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed."
+    a: "ThreatLocker's Unified Audit log keeps about 31 days by default. audit pull saves each tenant's deny events (or, with --action permit, permitted ones) to the local store so evidence outlives that window, audit export writes it out as JSONL or CSV, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed."
   - q: "Do I need to be a ThreatLocker MSP or have child tenants?"
     a: "You need API access in your own ThreatLocker Portal. The cross-tenant features assume a managed (parent) organization with child tenants, which is the MSP setup; a single organization works too, you just get the one-tenant view. The credential you mint is the real permission boundary."
   - q: "Does it replace the ThreatLocker Portal?"
@@ -80,10 +80,13 @@ Running ThreatLocker across a whole book of customer tenants? Ask your AI "what 
 | What application approvals are pending across all my clients right now? | `threatlocker-cli approvals triage --all-tenants` |
 | Approve this file hash everywhere it's pending, but show me the plan first? | `threatlocker-cli approvals approve-batch --hash <sha256> --all-tenants --dry-run` |
 | Which clients are about to lose audit evidence to the 31-day retention cliff? | `threatlocker-cli audit retention-check` |
-| Export every client's audit log before it ages off? | `threatlocker-cli audit export --all-tenants --since 30d` |
+| Save every client's blocked-file (deny) audit events locally before they age off? | `threatlocker-cli audit pull --since 30d` |
+| Export that saved audit log for a SIEM or an auditor? | `threatlocker-cli audit export --all-tenants --since 30d` |
 | What security-relevant changes (protection off, policy edits, maintenance) happened across all tenants this week? | `threatlocker-cli audit drift --since 7d --all-tenants` |
 | Which ThreatLocker agents are offline or stale across every client? | `threatlocker-cli devices health --all-tenants` |
-| Where does this binary live across my whole book, approved or pending? | `threatlocker-cli applications hunt --hash <sha256>` |
+| Which tenants and endpoints asked to run this file, and which applications already trust it? | `threatlocker-cli applications hunt --hash <sha256>` |
+| Which endpoints were left in maintenance mode? | `threatlocker-cli maintenance open --older-than 24h` |
+| Which tenant needs a look first? | `threatlocker-cli organizations posture` |
 | Pull every tenant's ThreatLocker data into a local mirror for offline queries? | `threatlocker-cli sync` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/threatlocker/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/threatlocker/guide.md).
@@ -98,7 +101,7 @@ It complements the ThreatLocker Portal rather than replacing it: the Portal stay
 
 - ThreatLocker is default-deny: every new or updated application a user runs creates an approval request an admin has to clear. Run it across a book of customer tenants and the requests pile up faster than anyone can triage them, and the Portal makes you work one tenant at a time, switching the managed-organization context for every single one.
 - The Unified Audit log keeps roughly 31 days by default. Cyber-insurance questionnaires and compliance audits routinely ask for longer, so the evidence you need is the evidence that just aged off, unless someone remembered to export each tenant's log before the cliff.
-- Answering "where does this binary live across all my clients" or "which agents went dark this week" means opening each tenant's Portal in turn. There is no single view that joins approvals, device health, and audit events across the whole book at once.
+- Answering "which of my clients has this file turned up in" or "which agents went dark this week" means opening each tenant's Portal in turn. There is no single view that joins approvals, device health, and audit events across the whole book at once.
 
 ## Install
 
@@ -132,8 +135,9 @@ After install, authenticate once with your ThreatLocker credentials, then verify
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | threatlocker-cli approvals triage --all-tenants; threatlocker-cli audit drift --since 7d --all-tenants; threatlocker-cli audit retention-check; threatlocker-cli audit export --all-tenants --since 30d; threatlocker-cli devices health --all-tenants; threatlocker-cli applications hunt --hash <sha256>; threatlocker-cli search | Allow |
-| Write (routine) | threatlocker-cli approvals approve (permit a file); threatlocker-cli approvals approve-batch (permit a file across tenants); threatlocker-cli applications create / applications update; threatlocker-cli policies create / policies copy / policies deploy; threatlocker-cli computers maintenance / computers enable-protection / computers restart-service - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Read | threatlocker-cli approvals triage --all-tenants; threatlocker-cli audit drift --since 7d --all-tenants; threatlocker-cli audit retention-check; threatlocker-cli audit export --all-tenants --since 30d; threatlocker-cli devices health --all-tenants; threatlocker-cli applications hunt --hash <sha256>; threatlocker-cli maintenance open; threatlocker-cli organizations posture; threatlocker-cli search; sync and audit pull write only the local store | Allow |
+| Write (routine) | threatlocker-cli approvals approve (permit a file); threatlocker-cli approvals approve-batch (permit a file across tenants); threatlocker-cli applications create / applications update; threatlocker-cli policies create / policies copy / policies deploy; threatlocker-cli computers maintenance / computers enable-protection / computers restart-service - writes send immediately (approvals approve-batch refuses a live run without --yes); --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Credential | threatlocker-cli organizations auth-key; threatlocker-cli computers install-info (each returns a tenant's agent installation key; CLI only, never offered over MCP, never cached or stored) | Human-in-the-loop only |
 | Destructive / config | threatlocker-cli computers delete; threatlocker-cli policies delete | Human-in-the-loop only |
 
 The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/threatlocker/governance.md).
@@ -150,7 +154,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running threatlocker-mcp in HTTP mode, and in this build HTTP mode asks for no password and listens on every network interface. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host threatlocker-mcp in HTTP mode: it refuses to start until THREATLOCKER_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
@@ -170,7 +174,7 @@ The local mirror exists so reads stop hitting the API. After the first sync, the
 
 ### How does it handle ThreatLocker's 31-day audit retention?
 
-ThreatLocker's Unified Audit log keeps about 31 days by default. audit export persists each tenant's log to JSONL or CSV locally so evidence outlives that window, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
+ThreatLocker's Unified Audit log keeps about 31 days by default. audit pull saves each tenant's deny events (or, with --action permit, permitted ones) to the local store so evidence outlives that window, audit export writes it out as JSONL or CSV, and audit retention-check reports, per tenant, how close your archive is to the cliff and how stale your last sync is, so nothing ages off unnoticed.
 
 ### Do I need to be a ThreatLocker MSP or have child tenants?
 

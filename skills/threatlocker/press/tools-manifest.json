@@ -1,0 +1,1607 @@
+{
+  "api_name": "threatlocker",
+  "base_url": "https://portalapi.g.threatlocker.com/portalapi",
+  "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "{THREATLOCKER_API_KEY}",
+    "in": "header",
+    "env_vars": [
+      "THREATLOCKER_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "THREATLOCKER_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "application-files_list",
+      "description": "List the file rules within an application (paginated). Required: application-id. Optional: search-text, page-number (default: 1), page-size (default: 100). Returns array of ApplicationFile.",
+      "method": "GET",
+      "path": "/ApplicationFile/ApplicationFileGetByApplicationId",
+      "params": [
+        {
+          "name": "application-id",
+          "wire_name": "applicationId",
+          "type": "string",
+          "location": "query",
+          "description": "Application GUID",
+          "required": true
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "query",
+          "description": "Filter file rules"
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "applications_create",
+      "description": "Create a custom application definition. Required: name. Optional: os-type (default: 1), description. Returns the new Application.",
+      "method": "POST",
+      "path": "/Application/ApplicationInsert",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Application name",
+          "required": true
+        },
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "applications_get",
+      "description": "Get a single application by id. Required: application-id. Returns the Application.",
+      "method": "GET",
+      "path": "/Application/ApplicationGetById",
+      "params": [
+        {
+          "name": "application-id",
+          "wire_name": "applicationId",
+          "type": "string",
+          "location": "query",
+          "description": "Application GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "applications_match",
+      "description": "Match a file (hash/path/cert) to existing applications — used in the approval flow. Optional: os-type (default: 1), hash, sha256 (plus 2 more). Returns array of Application.",
+      "method": "POST",
+      "path": "/Application/ApplicationGetMatchingList",
+      "params": [
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type"
+        },
+        {
+          "name": "hash",
+          "type": "string",
+          "location": "body",
+          "description": "File hash"
+        },
+        {
+          "name": "sha256",
+          "type": "string",
+          "location": "body",
+          "description": "SHA256 (64 hex)"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body",
+          "description": "Full file path"
+        },
+        {
+          "name": "process-path",
+          "wire_name": "processPath",
+          "type": "string",
+          "location": "body",
+          "description": "Parent process path"
+        }
+      ]
+    },
+    {
+      "name": "applications_research",
+      "description": "ThreatLocker security research details (risk ratings, categories, remediation). Required: application-id. Returns the ResearchInfo.",
+      "method": "GET",
+      "path": "/Application/ApplicationGetResearchDetailsById",
+      "params": [
+        {
+          "name": "application-id",
+          "wire_name": "applicationId",
+          "type": "string",
+          "location": "query",
+          "description": "Application GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "applications_search",
+      "description": "Search applications (paginated). searchBy: app/full/process/hash/cert/created/categories/countries. Optional: page-number (default: 1), page-size (default: 100), search-text (plus 8 more). Returns array of Application.",
+      "method": "POST",
+      "path": "/Application/ApplicationGetByParameters",
+      "params": [
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        },
+        {
+          "name": "search-by",
+          "wire_name": "searchBy",
+          "type": "string",
+          "location": "body",
+          "description": "Search field"
+        },
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type filter"
+        },
+        {
+          "name": "category",
+          "type": "int",
+          "location": "body",
+          "description": "Category: 0=all,1=custom,2=built-in"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Sort field"
+        },
+        {
+          "name": "ascending",
+          "wire_name": "isAscending",
+          "type": "bool",
+          "location": "body",
+          "description": "Sort ascending"
+        },
+        {
+          "name": "child-orgs",
+          "wire_name": "includeChildOrganizations",
+          "type": "bool",
+          "location": "body",
+          "description": "Include managed orgs"
+        },
+        {
+          "name": "hidden",
+          "wire_name": "isHidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Include hidden applications"
+        },
+        {
+          "name": "permitted-only",
+          "wire_name": "permittedApplications",
+          "type": "bool",
+          "location": "body",
+          "description": "Only permitted applications"
+        }
+      ]
+    },
+    {
+      "name": "applications_update",
+      "description": "Update an application's name/description. Required: application-id, name. Optional: os-type (default: 1), description. Returns the updated Application.",
+      "method": "PUT",
+      "path": "/Application/ApplicationUpdateById",
+      "params": [
+        {
+          "name": "application-id",
+          "wire_name": "applicationId",
+          "type": "string",
+          "location": "body",
+          "description": "Application GUID",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Application name",
+          "required": true
+        },
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        }
+      ]
+    },
+    {
+      "name": "approvals_approve",
+      "description": "Approve (permit) an application approval request, creating/extending a permit policy. policyLevel: org/group/computer. Required: organization-id. Optional: computer-id, policy-level (default: 0). Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/ApprovalRequest/ApprovalRequestPermitApplication",
+      "params": [
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "body",
+          "description": "Computer GUID the request came from"
+        },
+        {
+          "name": "organization-id",
+          "wire_name": "organizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Organization GUID",
+          "required": true
+        },
+        {
+          "name": "policy-level",
+          "wire_name": "policyLevel",
+          "type": "int",
+          "location": "body",
+          "description": "Permit policy scope level"
+        }
+      ]
+    },
+    {
+      "name": "approvals_count",
+      "description": "Count of pending approval requests. Returns the CountResult.",
+      "method": "GET",
+      "path": "/ApprovalRequest/ApprovalRequestGetCount",
+      "params": []
+    },
+    {
+      "name": "approvals_get",
+      "description": "Get a single approval request. Required: approval-id. Returns the ApprovalRequest.",
+      "method": "GET",
+      "path": "/ApprovalRequest/ApprovalRequestGetById",
+      "params": [
+        {
+          "name": "approval-id",
+          "wire_name": "approvalRequestId",
+          "type": "string",
+          "location": "query",
+          "description": "Approval request GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "approvals_list",
+      "description": "List approval requests. statusId 1=Pending,4=Approved,10=Ignored,13=Escalated. Use --child-orgs to span tenants. Optional: status (default: 1), search-text, order-by (default: datetime) (plus 4 more). Returns array of ApprovalRequest.",
+      "method": "POST",
+      "path": "/ApprovalRequest/ApprovalRequestGetByParameters",
+      "params": [
+        {
+          "name": "status",
+          "wire_name": "statusId",
+          "type": "int",
+          "location": "body",
+          "description": "Status filter (1=Pending)"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Sort field"
+        },
+        {
+          "name": "ascending",
+          "wire_name": "isAscending",
+          "type": "bool",
+          "location": "body",
+          "description": "Sort ascending"
+        },
+        {
+          "name": "child-orgs",
+          "wire_name": "showChildOrganizations",
+          "type": "bool",
+          "location": "body",
+          "description": "Span all managed organizations"
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "approvals_permit-options",
+      "description": "Get the permit options for an approval request (inputs to approve). Required: approval-id. Returns the PermitOptions.",
+      "method": "GET",
+      "path": "/ApprovalRequest/ApprovalRequestGetPermitApplicationById",
+      "params": [
+        {
+          "name": "approval-id",
+          "wire_name": "approvalRequestId",
+          "type": "string",
+          "location": "query",
+          "description": "Approval request GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "approvals_storage",
+      "description": "Get storage-control approval request details. Required: approval-id. Returns the ApprovalRequest.",
+      "method": "GET",
+      "path": "/ApprovalRequest/ApprovalRequestGetStorageApprovalById",
+      "params": [
+        {
+          "name": "approval-id",
+          "wire_name": "approvalRequestId",
+          "type": "string",
+          "location": "query",
+          "description": "Approval request GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "audit_file-history",
+      "description": "All audit events for a given file path. Required: full-path. Optional: computer-id. Returns array of ActionLogEntry.",
+      "method": "GET",
+      "path": "/ActionLog/ActionLogGetAllForFileHistoryV2",
+      "params": [
+        {
+          "name": "full-path",
+          "wire_name": "fullPath",
+          "type": "string",
+          "location": "query",
+          "description": "Full file path",
+          "required": true
+        },
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "query",
+          "description": "Optional computer GUID filter"
+        }
+      ]
+    },
+    {
+      "name": "audit_get",
+      "description": "Get a single audit entry by id. Required: log-id. Optional: source-table (default: 2). Returns the ActionLogEntry.",
+      "method": "GET",
+      "path": "/ActionLog/ActionLogGetByIdV2",
+      "params": [
+        {
+          "name": "log-id",
+          "wire_name": "eActionLogId",
+          "type": "string",
+          "location": "query",
+          "description": "Action log GUID",
+          "required": true
+        },
+        {
+          "name": "source-table",
+          "wire_name": "sourceTableId",
+          "type": "int",
+          "location": "query",
+          "description": "1=ActionLog,2=DenyActionLog,3=Baseline,4=EventLog"
+        }
+      ]
+    },
+    {
+      "name": "audit_search",
+      "description": "Search the Unified Audit log. actionId 1=Permit,2=Deny,99=AnyDeny. Requires startDate/endDate. Required: start, end. Optional: page-number (default: 1), page-size (default: 100), action (default: 2) (plus 5 more). Returns array of ActionLogEntry.",
+      "method": "POST",
+      "path": "/ActionLog/ActionLogGetByParametersV2",
+      "params": [
+        {
+          "name": "start",
+          "wire_name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start datetime (ISO 8601)",
+          "required": true
+        },
+        {
+          "name": "end",
+          "wire_name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End datetime (ISO 8601)",
+          "required": true
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "action",
+          "wire_name": "actionId",
+          "type": "int",
+          "location": "body",
+          "description": "1=Permit,2=Deny,99=AnyDeny"
+        },
+        {
+          "name": "action-type",
+          "wire_name": "actionType",
+          "type": "string",
+          "location": "body",
+          "description": "Action type filter"
+        },
+        {
+          "name": "hostname",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by hostname"
+        },
+        {
+          "name": "full-path",
+          "wire_name": "fullPath",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by file path"
+        },
+        {
+          "name": "child-orgs",
+          "wire_name": "showChildOrganizations",
+          "type": "bool",
+          "location": "body",
+          "description": "Span all managed orgs"
+        },
+        {
+          "name": "only-denies",
+          "wire_name": "onlyTrueDenies",
+          "type": "bool",
+          "location": "body",
+          "description": "Only true denies"
+        }
+      ]
+    },
+    {
+      "name": "computer-groups_dropdown",
+      "description": "Simple group dropdown (label/value). Optional: os-type (default: 0), hide-globals (default: false). Returns array of Dropdown.",
+      "method": "GET",
+      "path": "/ComputerGroup/ComputerGroupGetDropdownByOrganizationId",
+      "params": [
+        {
+          "name": "os-type",
+          "wire_name": "computerGroupOSTypeId",
+          "type": "int",
+          "location": "query",
+          "description": "OS type filter"
+        },
+        {
+          "name": "hide-globals",
+          "wire_name": "hideGlobals",
+          "type": "bool",
+          "location": "query",
+          "description": "Hide global groups"
+        }
+      ]
+    },
+    {
+      "name": "computer-groups_list",
+      "description": "List computer groups with nested computers. Optional: os-type (default: 0), include-global (default: true), include-computers (default: false) (plus 1 more). Returns array of ComputerGroup.",
+      "method": "GET",
+      "path": "/ComputerGroup/ComputerGroupGetGroupAndComputer",
+      "params": [
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "query",
+          "description": "OS filter: 0=All,1=Win,2=macOS,3=Linux,5=WinXP"
+        },
+        {
+          "name": "include-global",
+          "wire_name": "includeGlobal",
+          "type": "bool",
+          "location": "query",
+          "description": "Include global groups"
+        },
+        {
+          "name": "include-computers",
+          "wire_name": "includeAllComputers",
+          "type": "bool",
+          "location": "query",
+          "description": "Include computers in each group"
+        },
+        {
+          "name": "include-orgs",
+          "wire_name": "includeOrganizations",
+          "type": "bool",
+          "location": "query",
+          "description": "Include organizations"
+        }
+      ]
+    },
+    {
+      "name": "computers_baseline-rescan",
+      "description": "Restart Baseline (learning) on computers. Required: computer-ids. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerUpdateBaselineRescan",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_checkins",
+      "description": "Connection/check-in history for a computer (paginated). Required: computer-id. Optional: page-number (default: 1), page-size (default: 100), hide-heartbeat (default: false). Returns array of Checkin.",
+      "method": "POST",
+      "path": "/ComputerCheckin/ComputerCheckinGetByParameters",
+      "params": [
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "body",
+          "description": "Computer GUID",
+          "required": true
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "hide-heartbeat",
+          "wire_name": "hideHeartbeat",
+          "type": "bool",
+          "location": "body",
+          "description": "Hide heartbeat entries"
+        }
+      ]
+    },
+    {
+      "name": "computers_delete",
+      "description": "Delete/remove computers by id. Required: computer-ids. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerUpdateForDeleteByIds",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_enable-protection",
+      "description": "Enable Secured Mode (re-enable protection) on computers. Required: computer-ids. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerEnableProtection",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_get",
+      "description": "Get a single computer's detail by id. Required: computer-id. Returns the Computer.",
+      "method": "GET",
+      "path": "/Computer/ComputerGetForEditById",
+      "params": [
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "query",
+          "description": "Computer GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_install-info",
+      "description": "Deployment/install info for adding new computers. Returns the InstallInfo.",
+      "method": "GET",
+      "path": "/Computer/ComputerGetForNewComputer",
+      "params": []
+    },
+    {
+      "name": "computers_list",
+      "description": "List/search computers (paginated). searchBy 1-5; orderBy e.g. computername. Optional: page-number (default: 1), page-size (default: 100), search-text (plus 7 more). Returns array of Computer.",
+      "method": "POST",
+      "path": "/Computer/ComputerGetByAllParameters",
+      "params": [
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page (1-1000)"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        },
+        {
+          "name": "search-by",
+          "wire_name": "searchBy",
+          "type": "int",
+          "location": "body",
+          "description": "Search field index (1-5)"
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by last action"
+        },
+        {
+          "name": "kind-of-action",
+          "wire_name": "kindOfAction",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by action kind"
+        },
+        {
+          "name": "computer-group",
+          "wire_name": "computerGroup",
+          "type": "string",
+          "location": "body",
+          "description": "Computer group GUID filter"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Sort field"
+        },
+        {
+          "name": "ascending",
+          "wire_name": "isAscending",
+          "type": "bool",
+          "location": "body",
+          "description": "Sort ascending"
+        },
+        {
+          "name": "child-orgs",
+          "wire_name": "childOrganizations",
+          "type": "bool",
+          "location": "body",
+          "description": "Include child (managed) organizations"
+        }
+      ]
+    },
+    {
+      "name": "computers_maintenance",
+      "description": "Enable maintenance mode (disable protection) on computers for a window. Required: computer-ids. Optional: start, end. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerDisableProtection",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        },
+        {
+          "name": "start",
+          "wire_name": "startDateTime",
+          "type": "string",
+          "location": "body",
+          "description": "Maintenance window start (ISO 8601)"
+        },
+        {
+          "name": "end",
+          "wire_name": "maintenanceEndDate",
+          "type": "string",
+          "location": "body",
+          "description": "Maintenance window end (ISO 8601)"
+        }
+      ]
+    },
+    {
+      "name": "computers_maintenance-update",
+      "description": "Set/extend maintenance mode on a single computer. Required: computer-id. Optional: maintenance-type, start, end. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerUpdateMaintenanceMode",
+      "params": [
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "body",
+          "description": "Computer GUID",
+          "required": true
+        },
+        {
+          "name": "maintenance-type",
+          "wire_name": "maintenanceTypeId",
+          "type": "int",
+          "location": "body",
+          "description": "Maintenance type id"
+        },
+        {
+          "name": "start",
+          "wire_name": "startDateTime",
+          "type": "string",
+          "location": "body",
+          "description": "Window start (ISO 8601)"
+        },
+        {
+          "name": "end",
+          "wire_name": "maintenanceEndDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window end (ISO 8601)"
+        }
+      ]
+    },
+    {
+      "name": "computers_move-org",
+      "description": "Move computers to another organization (tenant). Required: computer-ids, target-org. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerMoveToOtherOrganization",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        },
+        {
+          "name": "target-org",
+          "wire_name": "targetOrganizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Destination organization GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "computers_restart-service",
+      "description": "Restart the ThreatLocker service on computers. Required: computer-ids. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Computer/ComputerUpdateShouldRestartByIds",
+      "params": [
+        {
+          "name": "computer-ids",
+          "wire_name": "computerIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated computer GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_history",
+      "description": "Maintenance-mode history for a computer (paginated). Required: computer-id. Optional: page-number (default: 1), page-size (default: 100). Returns array of MaintenanceEntry.",
+      "method": "GET",
+      "path": "/MaintenanceMode/MaintenanceModeGetByComputerIdV2",
+      "params": [
+        {
+          "name": "computer-id",
+          "wire_name": "computerId",
+          "type": "string",
+          "location": "query",
+          "description": "Computer GUID",
+          "required": true
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "network-policies_get",
+      "description": "Get a single network access policy by id. Required: network-policy-id. Returns the NetworkPolicy.",
+      "method": "GET",
+      "path": "/NetworkAccessPolicy/NetworkAccessPolicyGetById",
+      "params": [
+        {
+          "name": "network-policy-id",
+          "wire_name": "networkAccessPolicyId",
+          "type": "string",
+          "location": "query",
+          "description": "Network access policy GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "network-policies_list",
+      "description": "List network access policies (paginated). Optional: page-number (default: 1), page-size (default: 100), search-text. Returns array of NetworkPolicy.",
+      "method": "POST",
+      "path": "/NetworkAccessPolicy/NetworkAccessPolicyGetByParameters",
+      "params": [
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        }
+      ]
+    },
+    {
+      "name": "online-devices_list",
+      "description": "List currently-online devices (paginated). Optional: page-number (default: 1), page-size (default: 100). Returns array of OnlineDevice.",
+      "method": "GET",
+      "path": "/OnlineDevices/OnlineDevicesGetByParameters",
+      "params": [
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "organizations_auth-key",
+      "description": "Get the installation auth key for the current organization. Returns the AuthKey.",
+      "method": "GET",
+      "path": "/Organization/OrganizationGetAuthKeyById",
+      "params": []
+    },
+    {
+      "name": "organizations_for-move",
+      "description": "List organizations available as computer-move targets. Returns array of Organization.",
+      "method": "GET",
+      "path": "/Organization/OrganizationGetForMoveComputers",
+      "params": []
+    },
+    {
+      "name": "organizations_list",
+      "description": "List child/managed organizations (paginated). Optional: search-text, all-children (default: true), order-by (default: name) (plus 3 more). Returns array of Organization.",
+      "method": "POST",
+      "path": "/Organization/OrganizationGetChildOrganizationsByParameters",
+      "params": [
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        },
+        {
+          "name": "all-children",
+          "wire_name": "includeAllChildren",
+          "type": "bool",
+          "location": "body",
+          "description": "Recurse all descendants"
+        },
+        {
+          "name": "order-by",
+          "wire_name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Sort field"
+        },
+        {
+          "name": "ascending",
+          "wire_name": "isAscending",
+          "type": "bool",
+          "location": "body",
+          "description": "Sort ascending"
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "policies_copy",
+      "description": "Copy policies from a source org/group to target org(s) — cross-tenant cloning. Required: source-applies-to, source-org, target-applies-to. Optional: os-type (default: 1). Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/Policy/PolicyInsertForCopyPolicies",
+      "params": [
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type"
+        },
+        {
+          "name": "source-applies-to",
+          "wire_name": "sourceAppliesToId",
+          "type": "string",
+          "location": "body",
+          "description": "Source applies-to GUID",
+          "required": true
+        },
+        {
+          "name": "source-org",
+          "wire_name": "sourceOrganizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Source organization GUID",
+          "required": true
+        },
+        {
+          "name": "target-applies-to",
+          "wire_name": "targetAppliesToIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated target applies-to GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_create",
+      "description": "Create a policy. policyActionId 1=Permit,2=Deny,6=Permit+Ringfence. Required: name, computer-group. Optional: os-type (default: 1), action (default: 1), enabled (default: true) (plus 1 more). Returns the new Policy.",
+      "method": "POST",
+      "path": "/Policy/PolicyInsert",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Policy name",
+          "required": true
+        },
+        {
+          "name": "computer-group",
+          "wire_name": "computerGroupId",
+          "type": "string",
+          "location": "body",
+          "description": "Target computer group GUID",
+          "required": true
+        },
+        {
+          "name": "os-type",
+          "wire_name": "osType",
+          "type": "int",
+          "location": "body",
+          "description": "OS type"
+        },
+        {
+          "name": "action",
+          "wire_name": "policyActionId",
+          "type": "int",
+          "location": "body",
+          "description": "1=Permit,2=Deny,6=Permit+Ringfence"
+        },
+        {
+          "name": "enabled",
+          "wire_name": "isEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable the policy"
+        },
+        {
+          "name": "log",
+          "wire_name": "logAction",
+          "type": "bool",
+          "location": "body",
+          "description": "Log policy hits"
+        }
+      ]
+    },
+    {
+      "name": "policies_delete",
+      "description": "Delete policies by id. Required: policy-ids. Returns the updated ActionResult.",
+      "method": "PUT",
+      "path": "/Policy/PolicyUpdateForDeleteByIds",
+      "params": [
+        {
+          "name": "policy-ids",
+          "wire_name": "policyIds",
+          "type": "string",
+          "location": "body",
+          "description": "Comma-separated policy GUIDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_deploy",
+      "description": "Queue a policy deployment for an organization. Required: organization-id. Returns the new ActionResult.",
+      "method": "POST",
+      "path": "/DeployPolicyQueue/DeployPolicyQueueInsert",
+      "params": [
+        {
+          "name": "organization-id",
+          "wire_name": "organizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Organization GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get",
+      "description": "Get a single policy by id. Required: policy-id. Returns the Policy.",
+      "method": "GET",
+      "path": "/Policy/PolicyGetById",
+      "params": [
+        {
+          "name": "policy-id",
+          "wire_name": "policyId",
+          "type": "string",
+          "location": "query",
+          "description": "Policy GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list-by-app",
+      "description": "List policies that target an application (paginated). Required: application-id, organization-id. Optional: page-number (default: 1), page-size (default: 100), include-denies (default: false). Returns array of Policy.",
+      "method": "POST",
+      "path": "/Policy/PolicyGetForViewPoliciesByApplicationId",
+      "params": [
+        {
+          "name": "application-id",
+          "wire_name": "applicationId",
+          "type": "string",
+          "location": "body",
+          "description": "Application GUID",
+          "required": true
+        },
+        {
+          "name": "organization-id",
+          "wire_name": "organizationId",
+          "type": "string",
+          "location": "body",
+          "description": "Organization GUID",
+          "required": true
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "include-denies",
+          "wire_name": "includeDenies",
+          "type": "bool",
+          "location": "body",
+          "description": "Include deny policies"
+        }
+      ]
+    },
+    {
+      "name": "reports_data",
+      "description": "Fetch dynamic data for a report. Required: report-id. Returns the new ReportData.",
+      "method": "POST",
+      "path": "/Report/ReportGetDynamicData",
+      "params": [
+        {
+          "name": "report-id",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_list",
+      "description": "List report categories and their reports. Returns array of ReportCategory.",
+      "method": "GET",
+      "path": "/Report/ReportGetByOrganizationId",
+      "params": []
+    },
+    {
+      "name": "scheduled-actions_get",
+      "description": "Get a single scheduled action by id. Required: scheduled-action-id. Returns the ScheduledAction.",
+      "method": "GET",
+      "path": "/ScheduledAgentAction/GetForHydration",
+      "params": [
+        {
+          "name": "scheduled-action-id",
+          "wire_name": "scheduledActionId",
+          "type": "string",
+          "location": "query",
+          "description": "Scheduled action GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scheduled-actions_list",
+      "description": "List scheduled agent actions. Optional: scheduled-type (default: 1), include-children (default: false). Returns array of ScheduledAction.",
+      "method": "GET",
+      "path": "/ScheduledAgentAction/List",
+      "params": [
+        {
+          "name": "scheduled-type",
+          "wire_name": "scheduledType",
+          "type": "int",
+          "location": "query",
+          "description": "Scheduled type id"
+        },
+        {
+          "name": "include-children",
+          "wire_name": "includeChildren",
+          "type": "bool",
+          "location": "query",
+          "description": "Include child orgs"
+        }
+      ]
+    },
+    {
+      "name": "scheduled-actions_search",
+      "description": "Search scheduled actions (paginated). Optional: order-by (default: scheduleddatetime), ascending (default: true), page-number (default: 1) (plus 1 more). Returns array of ScheduledAction.",
+      "method": "POST",
+      "path": "/ScheduledAgentAction/GetByParameters",
+      "params": [
+        {
+          "name": "order-by",
+          "wire_name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Sort field"
+        },
+        {
+          "name": "ascending",
+          "wire_name": "isAscending",
+          "type": "bool",
+          "location": "body",
+          "description": "Sort ascending"
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        }
+      ]
+    },
+    {
+      "name": "storage-policies_get",
+      "description": "Get a single storage policy by id. Required: storage-policy-id. Returns the StoragePolicy.",
+      "method": "GET",
+      "path": "/StoragePolicy/StoragePolicyGetById",
+      "params": [
+        {
+          "name": "storage-policy-id",
+          "wire_name": "storagePolicyId",
+          "type": "string",
+          "location": "query",
+          "description": "Storage policy GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "storage-policies_list",
+      "description": "List storage policies (paginated). Optional: page-number (default: 1), page-size (default: 100), search-text. Returns array of StoragePolicy.",
+      "method": "POST",
+      "path": "/StoragePolicy/StoragePolicyGetByParameters",
+      "params": [
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        }
+      ]
+    },
+    {
+      "name": "system-audit_health-center",
+      "description": "Health Center data for the last N days (1-365). Optional: days (default: 7), logged-in (default: true), page-number (default: 1) (plus 2 more). Returns array of HealthEntry.",
+      "method": "POST",
+      "path": "/SystemAudit/SystemAuditGetForHealthCenter",
+      "params": [
+        {
+          "name": "days",
+          "type": "int",
+          "location": "body",
+          "description": "Lookback window in days (1-365)"
+        },
+        {
+          "name": "logged-in",
+          "wire_name": "isLoggedIn",
+          "type": "bool",
+          "location": "body",
+          "description": "Logged-in context"
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "search-text",
+          "wire_name": "searchText",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text search"
+        }
+      ]
+    },
+    {
+      "name": "system-audit_search",
+      "description": "Search portal admin/system audit entries. Requires startDate/endDate. Required: start, end. Optional: page-number (default: 1), page-size (default: 100), username (plus 4 more). Returns array of SystemAuditEntry.",
+      "method": "POST",
+      "path": "/SystemAudit/SystemAuditGetByParameters",
+      "params": [
+        {
+          "name": "start",
+          "wire_name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start datetime (ISO 8601)",
+          "required": true
+        },
+        {
+          "name": "end",
+          "wire_name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End datetime (ISO 8601)",
+          "required": true
+        },
+        {
+          "name": "page-number",
+          "wire_name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "1-based page number"
+        },
+        {
+          "name": "page-size",
+          "wire_name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Results per page"
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by username"
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Create/Delete/Logon/Modify/Read"
+        },
+        {
+          "name": "ip",
+          "wire_name": "ipAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by IP"
+        },
+        {
+          "name": "effective-action",
+          "wire_name": "effectiveAction",
+          "type": "string",
+          "location": "body",
+          "description": "Denied/Permitted"
+        },
+        {
+          "name": "child-orgs",
+          "wire_name": "viewChildOrganizations",
+          "type": "bool",
+          "location": "body",
+          "description": "Span managed orgs"
+        }
+      ]
+    },
+    {
+      "name": "tags_dropdown",
+      "description": "Tag dropdown options (label/value). Optional: include-built-ins (default: false), tag-type (default: 1). Returns array of Dropdown.",
+      "method": "GET",
+      "path": "/Tag/TagGetDowndownOptionsByOrganizationId",
+      "params": [
+        {
+          "name": "include-built-ins",
+          "wire_name": "includeBuiltIns",
+          "type": "bool",
+          "location": "query",
+          "description": "Include built-in tags"
+        },
+        {
+          "name": "tag-type",
+          "wire_name": "tagType",
+          "type": "int",
+          "location": "query",
+          "description": "Tag type id"
+        }
+      ]
+    },
+    {
+      "name": "tags_get",
+      "description": "Get a single tag (with its values) by id. Required: tag-id. Returns the Tag.",
+      "method": "GET",
+      "path": "/Tag/TagGetById",
+      "params": [
+        {
+          "name": "tag-id",
+          "wire_name": "tagId",
+          "type": "string",
+          "location": "query",
+          "description": "Tag GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "versions_list",
+      "description": "List available agent versions (label/value/isEnabled/isDefault/osType). Returns array of Version.",
+      "method": "GET",
+      "path": "/ThreatLockerVersion/ThreatLockerVersionGetForDropdownList",
+      "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant approval triage",
+      "command": "approvals triage",
+      "description": "One ranked queue of every pending application approval across all your managed customer tenants, grouped by file hash so duplicate requests collapse into one row."
+    },
+    {
+      "name": "Batch-approve by hash",
+      "command": "approvals approve-batch",
+      "description": "Approve the same file (by SHA256) across every tenant where it is pending, in one command, with a dry-run plan first."
+    },
+    {
+      "name": "Audit retention rescue",
+      "command": "audit export",
+      "description": "Export the Unified Audit log per-tenant or across all tenants to JSONL/CSV and persist it locally, keeping evidence past ThreatLocker's 31-day retention cliff."
+    },
+    {
+      "name": "Retention-cliff doctor",
+      "command": "audit retention-check",
+      "description": "Reports, per tenant, the oldest audit row you have versus the 31-day cliff and how stale your last export is — flagging tenants about to lose evidence."
+    },
+    {
+      "name": "Cross-tenant audit drift",
+      "command": "audit drift",
+      "description": "One ranked table of security-relevant changes — protection disabled, policy changed, maintenance toggled — across every tenant in a time window."
+    },
+    {
+      "name": "Device-health rollup",
+      "command": "devices health",
+      "description": "Joins computers, online-devices, and last-checkin data to classify every endpoint healthy / offline / stale / isolated, rolled up per tenant."
+    },
+    {
+      "name": "Auth / 401 doctor",
+      "command": "doctor",
+      "description": "Diagnoses the #1 ThreatLocker integration pain: validates the raw 64-hex token format, the no-Bearer Authorization header, the ManagedOrganizationId header, New-vs-Old API mode, pings an authenticated endpoint, and maps a 401 to its exact likely cause."
+    },
+    {
+      "name": "Cross-tenant application hunt",
+      "command": "applications hunt",
+      "description": "Locate a specific file (by hash, certificate, or path) across every tenant and endpoint in one offline query — present, approved, or pending."
+    },
+    {
+      "name": "Open-maintenance sweep",
+      "command": "maintenance open",
+      "description": "Lists every endpoint whose maintenance-mode window is open right now across all tenants, longest-open first, flagging windows open past an age threshold."
+    },
+    {
+      "name": "Per-tenant posture card",
+      "command": "organizations posture",
+      "description": "One row per managed tenant from the local store: endpoint count, online and isolated endpoints, pending approvals, open maintenance windows and the age of the newest audit row."
+    },
+    {
+      "name": "Audit archive pull",
+      "command": "audit pull",
+      "description": "Pages the Unified Audit and portal system-audit searches for a time window into the local store, so audit export, drift, retention-check and posture have rows past the 31-day cliff."
+    }
+  ]
+}

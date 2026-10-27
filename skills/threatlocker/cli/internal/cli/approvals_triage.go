@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -31,7 +32,7 @@ func newNovelApprovalsTriageCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "triage",
 		Short:       "One ranked queue of every pending application approval across all your managed customer tenants",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Long: `Triage builds a single cross-tenant queue of pending application approval
 requests from the local store, grouping duplicate requests by file hash so the
 same blocked file across many customers collapses into one row. Rows are ranked
@@ -43,6 +44,9 @@ Sync first: threatlocker-cli sync --resources approvals`,
   threatlocker-cli approvals triage --all-tenants --select hash,fileName,duplicateCount,ageBucket
 `, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -59,9 +63,9 @@ Sync first: threatlocker-cli sync --resources approvals`,
 			query := `SELECT organization_id, organization_name, file_name, hash, date_requested
 				FROM approvals WHERE status_id = 1`
 			var sqlArgs []any
-			if !flagAllTenants && flags.orgID != "" {
+			if scope := tlNovelTenantScope(flagAllTenants); scope != "" {
 				query += ` AND organization_id = ?`
-				sqlArgs = append(sqlArgs, flags.orgID)
+				sqlArgs = append(sqlArgs, scope)
 			}
 
 			rows, err := db.DB().QueryContext(cmd.Context(), query, sqlArgs...)

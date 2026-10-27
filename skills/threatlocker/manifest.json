@@ -19,7 +19,10 @@
         "THREATLOCKER_API_KEY": "${user_config.threatlocker_api_key}",
         "THREATLOCKER_BASE_URL": "${user_config.threatlocker_base_url}",
         "THREATLOCKER_ORG_ID": "${user_config.threatlocker_org_id}",
-        "THREATLOCKER_USER_AGENT": "${user_config.threatlocker_user_agent}"
+        "THREATLOCKER_USER_AGENT": "${user_config.threatlocker_user_agent}",
+        "THREATLOCKER_MCP_READ_ONLY": "${user_config.threatlocker_mcp_read_only}",
+        "THREATLOCKER_NO_LOCAL_DATA": "${user_config.threatlocker_no_local_data}",
+        "THREATLOCKER_MCP_HTTP_TOKEN": "${user_config.threatlocker_mcp_http_token}"
       }
     }
   },
@@ -56,6 +59,27 @@
       "title": "User-Agent header",
       "description": "Overrides the User-Agent the CLI sends on ThreatLocker requests. Leave blank to use the CLI's own built-in User-Agent.",
       "required": false
+    },
+    "threatlocker_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep the write tools (they still need confirm).",
+      "required": false,
+      "sensitive": false
+    },
+    "threatlocker_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to save no API data locally: sync and audit pull are refused, the response cache is off, and reads go to the API. Commands that read the local mirror still read what is already there. Leave blank to keep the local mirror.",
+      "required": false,
+      "sensitive": false
+    },
+    "threatlocker_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -66,11 +90,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.30.2",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.30.2",
-    "generated_at": "2026-08-14T12:10:59.797419Z",
-    "spec_checksum": "sha256:19913f157eae9479574851f0882e8dce587353811c9e013ba7584573ab433087",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-26T21:49:51.427029Z",
+    "spec_checksum": "sha256:fa1f581a9e929749450b12b6e217913c655babc3209031aa86860ed6b7f78300",
     "spec_format": "internal"
   }
 }
