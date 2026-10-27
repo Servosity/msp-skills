@@ -195,6 +195,8 @@ func LookupAll(db *sql.DB, kind, canonical string) ([]string, error) {
 //
 // Computed kinds cannot be Upsert'd. Source defaults to "taught"
 // when empty.
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func Upsert(db *sql.DB, kind, canonical, value, source string) error {
 	if IsComputedKind(kind) {
 		return fmt.Errorf("lookups.Upsert: %q is a computed kind, not table-backed", kind)
@@ -279,6 +281,8 @@ const createRecallMissesSQL = `CREATE TABLE IF NOT EXISTS ` + recallMissesTable 
 // repeats. Telemetry-class: the recall hot path calls it best-effort
 // and ignores the error. Local-only — a single SQLite handle, never
 // the network.
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func RecordMisses(ctx context.Context, db *sql.DB, entities []string) error {
 	if cliutil.IsVerifyEnv() || cliutil.IsDogfoodEnv() {
 		return nil

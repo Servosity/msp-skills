@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"servosity-msp-pp-cli/internal/credkit"
 	"strings"
 	"sync"
 	"testing"
@@ -97,12 +98,11 @@ func appendRawJournalLines(t *testing.T, raw string) {
 	if newest == "" {
 		t.Fatal("no journal segment to append raw lines to")
 	}
-	f, err := os.OpenFile(filepath.Join(dir, newest), os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- temp test path
-	if err != nil {
-		t.Fatalf("open segment: %v", err)
-	}
-	defer f.Close()
-	if _, err := f.WriteString(raw); err != nil {
+	// Through the credential kit, as the journal's own appends are: within one
+	// process the kit refuses to append to a file another writer changed
+	// under it (handfixes.json credkit-wiring), and these lines stand in for a
+	// second process's writes, which start fresh.
+	if err := credkit.AppendFile(filepath.Join(dir, newest), []byte(raw), 0o600); err != nil {
 		t.Fatalf("append raw: %v", err)
 	}
 }

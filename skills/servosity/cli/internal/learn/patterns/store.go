@@ -97,6 +97,8 @@ type ForgetFilter struct {
 // is the contract Extract relies on: a re-Extract pass over the same
 // learnings produces zero new rows but bumps confidence on the
 // matching existing rows.
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func Upsert(db *sql.DB, p Pattern) (int64, bool, error) {
 	if db == nil {
 		return 0, false, errors.New("patterns.Upsert: db is nil")

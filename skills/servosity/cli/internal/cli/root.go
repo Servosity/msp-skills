@@ -178,8 +178,12 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
-	funnelCommandErrors(rootCmd)
+	// Hand-fix (handfixes.json credkit-wiring): a token the MCP server hands its child on stdin.
+	if err := cliutil.ReadCredentialStdin(); err != nil {
+		return err
+	}
+	rootCmd.PersistentFlags().Bool(strings.TrimPrefix(cliutil.CredentialStdinFlag, "--"), false, "Read the API token from stdin (the MCP server's own hand-off)")
+	_ = rootCmd.PersistentFlags().MarkHidden(strings.TrimPrefix(cliutil.CredentialStdinFlag, "--"))
 	defer finalizePlatformInvocation(&flags, &retErr)
 
 	executedCmd, err := rootCmd.ExecuteC()
@@ -708,7 +712,7 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 	if target == nil {
 		target = rootCmd
 	}
-	isBoolFlag := func(name string) bool {
+	lookupFlag := func(name string) *pflag.Flag {
 		f := target.Flags().Lookup(name)
 		if f == nil {
 			f = target.InheritedFlags().Lookup(name)
@@ -716,11 +720,21 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 		if f == nil && len(name) == 1 {
 			f = target.Flags().ShorthandLookup(name)
 		}
+		return f
+	}
+	isBoolFlag := func(name string) bool {
+		f := lookupFlag(name)
 		return f != nil && f.Value.Type() == "bool"
+	}
+	// Hand-fix (handfixes.json journal-credential-hardening): only a name the invoked command
+	// declares, exactly as declared, reaches the journal; any other is a placeholder.
+	isDeclaredFlag := func(name string) bool {
+		f := lookupFlag(name)
+		return f != nil && (f.Name == name || f.Shorthand == name)
 	}
 	learn.JournalInvocation(learn.JournalEntry{
 		Cmd:           journalVerbChain(rootCmd, executed),
-		ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag),
+		ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),
 		ExitCode:      exitCode,
 		ErrorClass:    errorClass,
 		FailedFlag:    failedFlag,

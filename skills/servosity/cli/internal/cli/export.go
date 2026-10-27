@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 func newExportCmd(flags *rootFlags) *cobra.Command {
@@ -101,7 +102,7 @@ large datasets as it has no memory pressure.`,
 			}
 
 			var writer *bufio.Writer
-			var outFile *os.File
+			var outFile *credkit.Writer
 			if outputFile != "" {
 				f, err := openExportOutput(outputFile)
 				if err != nil {
@@ -235,17 +236,17 @@ large datasets as it has no memory pressure.`,
 // openExportOutput creates or truncates path as a private file. OpenFile's
 // mode applies only when the file is created; an existing 0644 file would
 // stay world-readable across the truncate, so the mode is set again after open.
-func openExportOutput(path string) (*os.File, error) {
+func openExportOutput(path string) (*credkit.Writer, error) {
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("creating output directory: %w", err)
 		}
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("creating output file: %w", err)
 	}
-	if err := f.Chmod(0o600); err != nil {
+	if err := os.Chmod(path, 0o600); err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("setting output file permissions: %w", err)
 	}

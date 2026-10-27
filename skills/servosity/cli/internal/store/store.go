@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"hash/fnv"
 	"math"
 	"os"
@@ -27,8 +28,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	_ "modernc.org/sqlite"
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credsql"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -142,13 +143,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring):
+// the MCP sql tool's value cap, set when the connection opens because
+// sqlite.Limit cannot reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 
 	// Writable directories stay on the first open so committed WAL frames
@@ -165,16 +182,19 @@ func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 }
 
 // sql.Open is lazy, and driver init is a no-op once any connection has
-// succeeded. Ping forces this DSN's open so a missing -shm fails here.
+// succeeded. Running "select 1" forces this DSN's open so a missing -shm
+// fails here. Hand-fix (handfixes.json credkit-wiring): it is the statement
+// modernc's Ping runs; the kit's connection does not forward Ping, so
+// PingContext alone would open the file without reading it.
 func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -222,7 +242,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -253,7 +273,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
 	if err != nil {
 		return nil
 	}
@@ -345,7 +365,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -2443,6 +2463,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 	}
 
+	// Hand-fix (handfixes.json store-open-skips-current-schema): with this
+	// schema's stamp already on the file, every statement below is a no-op, and
+	// the credential kit's SQL driver checks each one (over a thousand across
+	// 140 tables, on every open). Skip them.
+	stamp := migrationStamp(migrations)
+	if current == StoreSchemaVersion && migrationStampCurrent(ctx, conn, stamp) {
+		return nil
+	}
+
 	// Run every migration — including the column backfill and the
 	// schema-version stamp — inside a single BEGIN IMMEDIATE transaction
 	// pinned to one connection. IMMEDIATE acquires SQLite's RESERVED lock
@@ -2531,8 +2560,39 @@ func (s *Store) migrate(ctx context.Context) error {
 		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA user_version = %d`, StoreSchemaVersion)); err != nil {
 			return fmt.Errorf("stamp user_version: %w", err)
 		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA application_id = %d`, stamp)); err != nil {
+			return fmt.Errorf("stamp migration fingerprint: %w", err)
+		}
 		return nil
 	})
+}
+
+// migrationStamp fingerprints what an open would apply: the schema version,
+// every migration's text and the parent-key map, which the re-key pass reads
+// without a version gate. A reprint that changes any of them, a new column
+// included (it is in its table's CREATE TABLE too), runs the migrations once.
+// Kept in PRAGMA application_id, a signed 32-bit header field nothing else
+// here reads, so it is masked to 31 bits. ponytail: a 1-in-2-billion collision
+// skips one upgrade's idempotent pass until the schema next changes.
+func migrationStamp(migrations []string) int64 {
+	h := crc32.NewIEEE()
+	fmt.Fprintf(h, "%d\n%q\n%q\n%q\n", StoreSchemaVersion, migrations, vendorEventsMigrations, issueWatchMigrations)
+	keys := make([]string, 0, len(resourceParentKeyColumns))
+	for k := range resourceParentKeyColumns {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Fprintf(h, "%q=%q\n", k, resourceParentKeyColumns[k])
+	}
+	return int64(h.Sum32() & 0x7fffffff)
+}
+
+// migrationStampCurrent reports whether the file carries stamp. Any failure
+// (a busy file included) reads as no: the migrations run under their lock.
+func migrationStampCurrent(ctx context.Context, conn *sql.Conn, stamp int64) bool {
+	var got int64
+	return conn.QueryRowContext(ctx, `PRAGMA application_id`).Scan(&got) == nil && got == stamp
 }
 
 // migratePurgeSensitiveResources removes credentials that older Servosity
