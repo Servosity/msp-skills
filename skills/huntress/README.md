@@ -12,28 +12,32 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/huntress/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Huntress endpoint, plus a local SQLite mirror that delivers fleet-wide incident, coverage, and billing rollups the API and official MCP can't. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `HUNTRESS_MCP_HTTP_TOKEN` is set, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your Huntress credentials, including tools that change
+> your tenant, so treat it like a password, and set `HUNTRESS_MCP_READ_ONLY=1` on
+> a remote host that only needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Huntress skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `huntress-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (paid plans) | Run installer, host `huntress-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `huntress-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
+ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `HUNTRESS_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -41,8 +45,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Host `huntress-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -163,6 +167,8 @@ HUNTRESS_API_KEY=<value> HUNTRESS_API_SECRET=<value> huntress-cli doctor
 | What is my mean time-to-resolve per client? | `huntress-cli mttr --group-by org` |
 | What changed across the fleet since my last shift? | `huntress-cli handoff --since 12h` |
 | Give me a QBR scorecard for one client. | `huntress-cli org-scorecard --org 12345` |
+| Which detection types did the SOC report where this week? | `huntress-cli signal-digest --since 7d` |
+| Which escalations are still unresolved, critical first? | `huntress-cli escalation-queue --severity critical` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -182,7 +188,7 @@ This skill closes that gap:
 - **Posture gaps, worst-first** - `huntress-cli coverage-gaps` rolls up stale callbacks, disabled Defender, and disabled firewall across the fleet.
 - **Fleet-wide blast radius** - `huntress-cli blast-radius --indicator 203.0.113.10` correlates an IP, hash, or hostname across incidents, agents, and external ports in every org.
 - **Seat-vs-agent reconciliation** - `huntress-cli billing-reconcile` flags the delta between invoiced seats and agents actually deployed.
-- **Shift handoff and QBR** - `huntress-cli handoff --since 12h` and `huntress-cli org-scorecard --org 12345` turn repeated syncs into the history the live API throws away.
+- **Shift handoff and QBR** - `huntress-cli handoff --since 12h` and `huntress-cli org-scorecard --org 12345` roll the synced incidents, escalations and agents into a shift-change report and a one-org QBR summary (agents, incidents, MTTR).
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -190,7 +196,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Huntress MCP server in HTTP mode. In this build HTTP mode checks a token but has no request size or time limits yet, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `huntress-mcp` in HTTP mode: it refuses to start until `HUNTRESS_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The connector works only if its authentication settings can send that bearer token, so check yours first. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -225,8 +231,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `fleet-incidents`, `coverage-gaps`, `blast-radius`, `billing-reconcile`, `mttr`, `org-scorecard`, `stale-agents`, `search` | Allow |
-| Write (routine) | `organizations update-parameters`, `accounts memberships update-parameters`, `unwanted-access-rules update-parameters` | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | `organizations delete-v1-id`, `accounts delete-v1-id`, `unwanted-access-rules delete-v1-id` | Human-in-the-loop only |
+| Write (routine) | `organizations update-parameters`, `accounts memberships update-parameters`, `unwanted-access-rules update-parameters` | Preview with `--dry-run`, then a reviewed write with `--yes` |
+| Incident actions | `accounts incident-reports post-v1-accounts-account-id-id-remediations-bulk-approval`, `incident-reports remediations bulk-rejection-parameters`, `incident-reports resolution post-v1-incident-reports-id` | Human-in-the-loop only, explicit `--yes` |
+| Destructive / config | `organizations delete-v1-id`, `accounts delete-v1-id`, `unwanted-access-rules delete-v1-id` | Human-in-the-loop only, explicit `--yes` |
+
+Every command that changes your Huntress tenant (create, update, delete, incident resolution, remediation approval or rejection, subscription changes, and `import`) refuses to run, and sends nothing, unless you pass `--yes` to send it or `--dry-run` to preview the request. An agent that can run the CLI can also pass `--yes`, so keep the approval step in its policy.
 
 The strongest control is the **scope you grant the Huntress credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

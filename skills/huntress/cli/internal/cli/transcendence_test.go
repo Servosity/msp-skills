@@ -2,24 +2,30 @@ package cli
 
 import "testing"
 
-func TestParseSinceDays(t *testing.T) {
-	cases := []struct {
+func TestParseWindowDays(t *testing.T) {
+	ok := []struct {
 		in   string
 		want float64
 	}{
-		{"", 0},
 		{"30d", 30},
 		{"12h", 0.5},
 		{"24h", 1},
 		{"2w", 14},
 		{"7", 7},
 		{"  3d ", 3},
-		{"garbage", 0},
-		{"-5d", 0},
+		{"all", 0},
+		{"0", 0},
 	}
-	for _, c := range cases {
-		if got := parseSinceDays(c.in); got != c.want {
-			t.Errorf("parseSinceDays(%q) = %v, want %v", c.in, got, c.want)
+	for _, c := range ok {
+		if got, err := parseWindowDays("since", c.in); err != nil || got != c.want {
+			t.Errorf("parseWindowDays(%q) = %v, %v; want %v", c.in, got, err, c.want)
+		}
+	}
+	// Each of these used to be read as something else (30m as 30 days, 1y
+	// as 1 day, garbage as "no window"); a window must be refused instead.
+	for _, in := range []string{"", "garbage", "-5d", "30m", "1y", "5x", "inf", "nan", "1e400d", "0d"} {
+		if got, err := parseWindowDays("since", in); err == nil {
+			t.Errorf("parseWindowDays(%q) = %v, want an error", in, got)
 		}
 	}
 }

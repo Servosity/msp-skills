@@ -1,11 +1,5 @@
 # Huntress MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the Huntress MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -13,8 +7,7 @@ it's simpler. Everyone else: pick your agent below.
 **Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
 launch `huntress-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
 Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint, so they need HTTP mode, which is paused for this connector until
-it is reprinted (see the security note above).
+endpoint; see **Remote agents** below for what this build supports.
 
 ## Prerequisite: install the MCP binary
 
@@ -45,16 +38,21 @@ Add (or merge with your existing `mcpServers` block):
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
-        "HUNTRESS_BASE_URL": "https://api.huntress.io",
-        "HUNTRESS_USER_AGENT": "",
-        "HUNTRESS_MCP_HTTP_TOKEN": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "HUNTRESS_BASE_URL": "<your-huntress_base_url>",
+        "HUNTRESS_MCP_READ_ONLY": "1",
+        "HUNTRESS_NO_LOCAL_DATA": "<your-huntress_no_local_data>",
+        "HUNTRESS_MCP_HTTP_TOKEN": "<your-huntress_mcp_http_token>",
+        "HUNTRESS_USER_AGENT": "<your-huntress_user_agent>"
       }
     }
   }
 }
 ```
+
+`HUNTRESS_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to run the tools this switch hides.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -64,7 +62,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -75,11 +73,13 @@ Configuration**) and add:
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
-        "HUNTRESS_BASE_URL": "https://api.huntress.io",
-        "HUNTRESS_USER_AGENT": "",
-        "HUNTRESS_MCP_HTTP_TOKEN": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "HUNTRESS_BASE_URL": "<your-huntress_base_url>",
+        "HUNTRESS_MCP_READ_ONLY": "1",
+        "HUNTRESS_NO_LOCAL_DATA": "<your-huntress_no_local_data>",
+        "HUNTRESS_MCP_HTTP_TOKEN": "<your-huntress_mcp_http_token>",
+        "HUNTRESS_USER_AGENT": "<your-huntress_user_agent>"
       }
     }
   }
@@ -101,11 +101,13 @@ Claude Desktop:
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
-        "HUNTRESS_BASE_URL": "https://api.huntress.io",
-        "HUNTRESS_USER_AGENT": "",
-        "HUNTRESS_MCP_HTTP_TOKEN": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "HUNTRESS_BASE_URL": "<your-huntress_base_url>",
+        "HUNTRESS_MCP_READ_ONLY": "1",
+        "HUNTRESS_NO_LOCAL_DATA": "<your-huntress_no_local_data>",
+        "HUNTRESS_MCP_HTTP_TOKEN": "<your-huntress_mcp_http_token>",
+        "HUNTRESS_USER_AGENT": "<your-huntress_user_agent>"
       }
     }
   }
@@ -117,21 +119,63 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Remote agents (host the binary over HTTPS first)
 
-ChatGPT, Microsoft 365 Copilot / Copilot Studio and the Gemini app only connect
-to an MCP server over HTTPS, which means running `huntress-mcp` in HTTP mode. Do
-not do that with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. Use a local agent
-above, or the Claude Code / Codex Skill, until the fix release brings these
-steps back.
-
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+Remote agents need `huntress-mcp` reachable over **HTTPS** with a bearer token. Keep
+stdio (the default) for every local agent. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until `HUNTRESS_MCP_HTTP_TOKEN` is
+set; every request must send `Authorization: Bearer <token>`. Any address other
+than loopback also needs TLS:
 
 ```bash
-# HUNTRESS_API_KEY=<value> HUNTRESS_API_SECRET=<value> HUNTRESS_BASE_URL=<value> HUNTRESS_MCP_HTTP_TOKEN=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> huntress-mcp --transport http
+export HUNTRESS_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+HUNTRESS_API_KEY=<value> HUNTRESS_API_SECRET=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> HUNTRESS_BASE_URL=<value> HUNTRESS_MCP_READ_ONLY=1 HUNTRESS_NO_LOCAL_DATA=<value> HUNTRESS_MCP_HTTP_TOKEN=<value> HUNTRESS_USER_AGENT=<value> huntress-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so a remote agent works only if its connector
+settings can send that header; check yours first. **Treat the token like a password** -
+whoever holds it can call every tool with your Huntress credentials.
+
+## ChatGPT (Developer Mode)
+
+In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
+Settings > Apps > Advanced > **Developer mode**, then create a custom connector
+pointing at your HTTPS endpoint, if its authentication settings can send the bearer
+token (see above).
+
+Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
+
+## Microsoft 365 Copilot / Copilot Studio
+
+**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
+and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
+`huntress-mcp` you installed is not enough on its own. You also need a **Copilot Studio
+license** and a **tenant admin** to enable it. This is a build-and-host task, not a
+self-serve install.
+
+Once `huntress-mcp` is hosted over HTTPS (above), the lowest-code route:
+
+1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
+   Context Protocol**.
+2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth.
+   The server needs `Authorization: Bearer <token>` on every request, so this
+   works only if the auth option you pick sends it. Copilot Studio builds the Power
+   Platform connector behind the scenes; generative orchestration must be **on**.
+3. Publish the agent into Microsoft 365 Copilot.
+
+Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
+Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
+URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
+
+Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
+
+## Gemini app / web (Google)
+
+Same remote pattern as ChatGPT - point Gemini's connector at your hosted HTTPS
+endpoint, if it can send the bearer token. For a local, no-hosting path on Google, use
+**Gemini CLI** (above) instead.
 
 ---
 

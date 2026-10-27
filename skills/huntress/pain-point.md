@@ -25,7 +25,7 @@ actually needs at triage time or QBR time.
 - **`billing-reconcile`** - the delta between invoiced seats and agents actually
   deployed, surfaced before the customer notices.
 - **`handoff --since 12h`** and **`org-scorecard --org <id>`** - shift-change and
-  QBR rollups built from synced history the live API throws away.
+  QBR rollups built from the synced incidents, escalations and agents.
 
 ## Status
 

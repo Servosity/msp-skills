@@ -1,0 +1,2871 @@
+{
+  "api_name": "huntress",
+  "base_url": "https://api.huntress.io",
+  "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {HUNTRESS_API_KEY}:{HUNTRESS_API_SECRET}",
+    "env_vars": [
+      "HUNTRESS_API_KEY",
+      "HUNTRESS_API_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "HUNTRESS_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "inferred": true
+      },
+      {
+        "name": "HUNTRESS_API_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://www.huntress.com/terms-of-service"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "account_get-v1",
+      "description": "Shows details of the top-level Huntress Account associated with your API credentials. Returns the Account.",
+      "method": "GET",
+      "path": "/v1/account",
+      "params": []
+    },
+    {
+      "name": "accounts_creation-parameters",
+      "description": "Create a new account under the reseller associated with the supplied API credential. Required: admin, name, phone_number, subdomain. Optional: additional_admin_emails, billing_address, product_trials (plus 4 more). Returns the new Account.",
+      "method": "POST",
+      "path": "/v1/accounts",
+      "params": [
+        {
+          "name": "additional_admin_emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Email addresses of additional admin users to invite to this account"
+        },
+        {
+          "name": "admin-email",
+          "wire_name": "admin.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of the initial admin user for this account",
+          "required": true
+        },
+        {
+          "name": "admin-first-name",
+          "wire_name": "admin.first_name",
+          "type": "string",
+          "location": "body",
+          "description": "First name of the initial admin user for this account",
+          "required": true
+        },
+        {
+          "name": "admin-last-name",
+          "wire_name": "admin.last_name",
+          "type": "string",
+          "location": "body",
+          "description": "Last name of the initial admin user for this account",
+          "required": true
+        },
+        {
+          "name": "billing-address-city",
+          "wire_name": "billing_address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "billing-address-country",
+          "wire_name": "billing_address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter ISO 3166-1 alpha-2 country code"
+        },
+        {
+          "name": "billing-address-line1",
+          "wire_name": "billing_address.line1",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 1"
+        },
+        {
+          "name": "billing-address-line2",
+          "wire_name": "billing_address.line2",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 2"
+        },
+        {
+          "name": "billing-address-postal-code",
+          "wire_name": "billing_address.postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal or ZIP code (required for US and GB)"
+        },
+        {
+          "name": "billing-address-state",
+          "wire_name": "billing_address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State or province (required for US and CA)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the account to be created",
+          "required": true
+        },
+        {
+          "name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Primary phone number used to contact account owner",
+          "required": true
+        },
+        {
+          "name": "product_trials",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of the products that should receive trials for this account. Only applies to trial-supporting resellers (this field is ignored for Aggregators). If omitted, trials are started for every product enabled for the reseller. If supplied, must include at least one product, and each listed product must be enabled for the reseller."
+        },
+        {
+          "name": "product_trials_start_date",
+          "type": "string",
+          "location": "body",
+          "description": "The date that the trials in product_trials should start in ISO-8601 format (YYYY-MM-DD). Only applies if product_trials are provided. If product_trials are provided and product_trials_start_date is left blank, trials will start today. The date is assumed to be in the API caller's time zone."
+        },
+        {
+          "name": "products",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of the products to provision for this account. NOTE: This field is only relevant for Aggregators. For all other types of resellers, the appropriate trials will be created automatically and this field will be ignored. (If you aren't sure whether this applies to you, you can probably ignore this field.)"
+        },
+        {
+          "name": "shipping-address-city",
+          "wire_name": "shipping_address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "shipping-address-country",
+          "wire_name": "shipping_address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter ISO 3166-1 alpha-2 country code"
+        },
+        {
+          "name": "shipping-address-line1",
+          "wire_name": "shipping_address.line1",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 1"
+        },
+        {
+          "name": "shipping-address-line2",
+          "wire_name": "shipping_address.line2",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 2"
+        },
+        {
+          "name": "shipping-address-postal-code",
+          "wire_name": "shipping_address.postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal or ZIP code (required for US and GB)"
+        },
+        {
+          "name": "shipping-address-state",
+          "wire_name": "shipping_address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State or province (required for US and CA)"
+        },
+        {
+          "name": "subdomain",
+          "type": "string",
+          "location": "body",
+          "description": "Subdomain this account will use to access the Huntress portal",
+          "required": true
+        },
+        {
+          "name": "support_type",
+          "type": "string",
+          "location": "body",
+          "description": "Specifies whether a reseller account is managed by the partner or by Huntress. NOTE: This field is only required for Managed Resellers. For all other types of resellers, there is only one valid support type, so it will be selected automatically."
+        }
+      ]
+    },
+    {
+      "name": "accounts_delete-v1-id",
+      "description": "Marks the account as disabled and will be deleted after 10 days from initial request. **Please Note:** This is irreversible and will uninstall all of the agents for this account, as well as completing other similar operations. [Contact support](https://support.huntress.io/hc/en-us) if this was done unintentionally. Required: account_id. Returns the Account. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID for deletion (e.g. 4421)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_get-v1",
+      "description": "Shows all accounts associated with your API credentials. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token. Returns array of Account.",
+      "method": "GET",
+      "path": "/v1/accounts",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        }
+      ]
+    },
+    {
+      "name": "accounts_get-v1-id",
+      "description": "Shows the details of a specific account which your API credentials grant access to. Required: account_id. Returns the Account.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID for an account associated with your API credentials (e.g. 4421)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_update-parameters",
+      "description": "Updates the details of a specific account. Required: account_id. Optional: billing_address, name, phone_number (plus 3 more). Returns the updated Account.",
+      "method": "PATCH",
+      "path": "/v1/accounts/{account_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "billing-address-city",
+          "wire_name": "billing_address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "billing-address-country",
+          "wire_name": "billing_address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter ISO 3166-1 alpha-2 country code"
+        },
+        {
+          "name": "billing-address-line1",
+          "wire_name": "billing_address.line1",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 1"
+        },
+        {
+          "name": "billing-address-line2",
+          "wire_name": "billing_address.line2",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 2"
+        },
+        {
+          "name": "billing-address-postal-code",
+          "wire_name": "billing_address.postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal or ZIP code (required for US and GB)"
+        },
+        {
+          "name": "billing-address-state",
+          "wire_name": "billing_address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State or province (required for US and CA)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the account"
+        },
+        {
+          "name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Primary phone number used to contact account owner"
+        },
+        {
+          "name": "shipping-address-city",
+          "wire_name": "shipping_address.city",
+          "type": "string",
+          "location": "body",
+          "description": "City"
+        },
+        {
+          "name": "shipping-address-country",
+          "wire_name": "shipping_address.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter ISO 3166-1 alpha-2 country code"
+        },
+        {
+          "name": "shipping-address-line1",
+          "wire_name": "shipping_address.line1",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 1"
+        },
+        {
+          "name": "shipping-address-line2",
+          "wire_name": "shipping_address.line2",
+          "type": "string",
+          "location": "body",
+          "description": "Street address line 2"
+        },
+        {
+          "name": "shipping-address-postal-code",
+          "wire_name": "shipping_address.postal_code",
+          "type": "string",
+          "location": "body",
+          "description": "Postal or ZIP code (required for US and GB)"
+        },
+        {
+          "name": "shipping-address-state",
+          "wire_name": "shipping_address.state",
+          "type": "string",
+          "location": "body",
+          "description": "State or province (required for US and CA)"
+        },
+        {
+          "name": "subdomain",
+          "type": "string",
+          "location": "body",
+          "description": "Subdomain this account will use to access the Huntress portal"
+        },
+        {
+          "name": "support_type",
+          "type": "string",
+          "location": "body",
+          "description": "Specifies whether a reseller account is managed by the partner or by Huntress. NOTE: This field is only applicable for Managed Resellers. For all other types of resellers, there is only one valid support type, so it cannot be updated."
+        }
+      ]
+    },
+    {
+      "name": "accounts_agents_get-v1-accounts-account-id",
+      "description": "Shows Agents associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, organization_id (plus 1 more). Returns array of Agent.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/agents",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by platform. One of windows, darwin, linux"
+        }
+      ]
+    },
+    {
+      "name": "accounts_agents_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Agent associated with your account. Required: account_id, id. Returns the AgentsGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/agents/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_external-ports_get-v1-accounts-account-id",
+      "description": "Shows external port records from External Recon scans associated with your account. Required: account_id. Optional: limit (default: 10), page_token, organization_id. Returns array of ExternalPort.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/external_ports",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        }
+      ]
+    },
+    {
+      "name": "accounts_external-ports_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single external port record associated with your account. Required: account_id, id. Returns the ExternalPortsGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/external_ports/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "External port record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_get-v1-accounts-account-id",
+      "description": "Shows Incident Reports associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 7 more). Returns array of IncidentReport.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/incident_reports",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "indicator_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by indicator type. One of footholds, monitored_files, ransomware_canaries, antivirus_detections, process_detections, managed_identity, mde_detections, siem_detections, favicon_detections, behavioral_detections, email_security_detections, app_control, ai_misuse"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. One of sent, closed, dismissed, auto_remediating, deleting, partner_dismissed"
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by severity. One of low, high, critical"
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by platform. One of windows, darwin, microsoft_365, google, linux, email_security, other"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by agent ID within Huntress account"
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Incident Report associated with your account. Required: account_id, id. Returns the IncidentReportsGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/incident_reports/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident Report ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_get-v1-accounts-account-id-id-remediations",
+      "description": "Shows details of Remediations belonging to a single Incident Report. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id, incident_report_id. Optional: limit (default: 10), page_token, types (plus 1 more). Returns array of Remediation.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "types",
+          "wire_name": "types[]",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by type of remediation. Must be a comma-separated string containing the values: assisted, manual, containment"
+        },
+        {
+          "name": "statuses",
+          "wire_name": "statuses[]",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by status of remediation. Must be a comma-separated string containing the values: unapproved, approved, completed, failed, cancelled"
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_get-v1-accounts-account-id-id-remediations-remediation-id",
+      "description": "Shows details for a single Remediation belonging to a single Incident Report. Required: account_id, incident_report_id, remediation_id. Returns the Remediation.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/{remediation_id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "remediation_id",
+          "type": "int",
+          "location": "path",
+          "description": "Remediation ID (e.g. 55501)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_post-v1-accounts-account-id-id-remediations-bulk-approval",
+      "description": "Approve all unapproved remediations for an Incident Report. Approval immediately triggers the execution of assisted remediations. Manual remediations are not executed, and must be independently completed. Once all remediations are approved, the incident report becomes eligible for resolution. This endpoint requires an API key with permissions to write to remediations. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: account_id, incident_report_id. Returns the new IncidentReport.",
+      "method": "POST",
+      "path": "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_approval",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_post-v1-accounts-account-id-id-resolution",
+      "description": "Use this endpoint to resolve a single Incident Report. All remediations belonging to the Incident Report must be approved first. While resolution updates the report status to resolved, assisted remediations may still be running in the background and manual remediations may still require completion by a user. This endpoint requires an API key with permissions to resolve incident reports. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: account_id, id. Returns the new IncidentReport.",
+      "method": "POST",
+      "path": "/v1/accounts/{account_id}/incident_reports/{id}/resolution",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_incident-reports_remediation-bulk-rejection-parameters",
+      "description": "Reject all unapproved remediations for an Incident Report. Rejecting the remediations will send the incident report back to the Huntress SOC. This endpoint requires an API key with permissions to write to remediations. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: account_id, incident_report_id, comment, useful. Optional: email, name, phone_number.",
+      "method": "POST",
+      "path": "/v1/accounts/{account_id}/incident_reports/{incident_report_id}/remediations/bulk_rejection",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "A description of why the remediations were rejected. This explanation helps Huntress SOC analysts fix the remediation plan and re-issue the incident report.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email to be contacted by the Huntress SOC. Falls back to the email of the user attached to the API key if not provided."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the user rejecting the remediations. Falls back to the user attached to the API key if not provided."
+        },
+        {
+          "name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number to be contacted by the Huntress SOC. Falls back to the phone number of the user attached to the API key if not provided."
+        },
+        {
+          "name": "useful",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether or not the remediation plan was useful.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_invoices_get-v1-accounts-account-id",
+      "description": "Shows Invoices associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, status. Returns array of Invoice.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/invoices",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. One of open, paid, failed, partial_refund, full_refund, draft, voided"
+        }
+      ]
+    },
+    {
+      "name": "accounts_invoices_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Invoice associated with your account. Required: account_id, id. Returns the InvoicesGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/invoices/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Invoice ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_memberships_creation-parameters",
+      "description": "This endpoint allows you to invite a user to join your organization or account. A user will often be a person you wish to grant access to, but it could also represent a team, an automated system, or any other type of actor. If an organization ID is provided, the user will be invited to that organization. If not, they will be invited to the account associated with this API credential. Note that while the sample return value includes both an organization and an account for completeness, in practice, only one or the other will be included. Note that this is technically creating a Membership Invitation - the actual membership won't be created until the user accepts the invitation. Required: account_id, email, first_name, last_name, permissions. Optional: organization_id. Returns the new MemberInvitation.",
+      "method": "POST",
+      "path": "/v1/accounts/{account_id}/memberships",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "The first name of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "The last name of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Include this parameter to invite a user to an organization instead of your account."
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "body",
+          "description": "The specific permissions this membership will grant to the user.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_memberships_delete-v1-accounts-account-id-id",
+      "description": "Deletes a single Membership associated with your account or organization. Does not delete the user associated with the membership. Required: account_id, id. Returns the MembershipsDeleteV1AccountsAccountIdIdResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account_id}/memberships/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_memberships_get-v1-accounts-account-id",
+      "description": "Shows a list of memberships. By default, this endpoint returns both account and organization memberships, but if an organization ID is supplied, it will return only organization memberships, instead. The example return value shows both an organization and an account, but a given membership will only have one or the other. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 4 more).",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/memberships",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID to return only memberships for that organization."
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by user ID to return only memberships for that user."
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by permission label."
+        }
+      ]
+    },
+    {
+      "name": "accounts_memberships_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Membership associated with your account or organization. Required: account_id, id. Returns the MembershipsGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/memberships/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_memberships_update-parameters",
+      "description": "Update a User's membership. Required: account_id, id. Optional: permissions. Returns the updated Membership.",
+      "method": "PATCH",
+      "path": "/v1/accounts/{account_id}/memberships/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "body",
+          "description": "The specific level of permissions that have been granted to the user in the context of this membership. For more information, see our [support article](https://support.huntress.io/hc/en-us/articles/4404012728083-Huntress-Portal-User-Permissions) on permissions. Accepted values:"
+        }
+      ]
+    },
+    {
+      "name": "accounts_organizations_creation-parameters",
+      "description": "Create an Organization. Required: account_id, key, name. Returns the new Organization.",
+      "method": "POST",
+      "path": "/v1/accounts/{account_id}/organizations",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "body",
+          "description": "Organization keys are used to associate a Huntress Agent into a grouping.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the organization. Value cannot be blank and must be 256 characters or less.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_organizations_delete-v1-accounts-account-id-id",
+      "description": "Deletes the specified Organization. **Please note:** This will remove the organization and associated configurations across the Huntress Platform, including Managed SAT. For more information, see our [offboarding guide](https://support.huntress.io/hc/en-us/articles/51332785737235-Huntress-Product-Offboarding-Guide). Required: account_id, id. Returns the Organization. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account_id}/organizations/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "The id of the organization to be deleted (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_organizations_get-v1-accounts-account-id",
+      "description": "Shows details of Organizations belonging to the account associated with your API credentials. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 3 more). Returns array of Organization.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/organizations",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by organization name."
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by organization key."
+        }
+      ]
+    },
+    {
+      "name": "accounts_organizations_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Organization associated with your account. Required: account_id, id. Returns the OrganizationsGetV1AccountsAccountIdIdResponse.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/organizations/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_organizations_update-parameters",
+      "description": "Update an Organization. Required: account_id, id. Optional: key, name, report_recipients. Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/v1/accounts/{account_id}/organizations/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "body",
+          "description": "Organization keys are used to associate a Huntress Agent into a grouping."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the organization. Value cannot be blank and must be 256 characters or less."
+        },
+        {
+          "name": "report_recipients",
+          "type": "array",
+          "location": "body",
+          "description": "Any emails specified here will automatically receive quarterly and monthly branded reports."
+        }
+      ]
+    },
+    {
+      "name": "accounts_reports_get-v1-accounts-account-id",
+      "description": "Shows Summary Reports associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, period_min (plus 3 more). Returns array of SummaryReport.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/reports",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "period_min",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the lower bound of the search range for the period date."
+        },
+        {
+          "name": "period_max",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the upper bound of the search range for the period date."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by report type. One of monthly_summary, quarterly_summary, yearly_summary"
+        }
+      ]
+    },
+    {
+      "name": "accounts_reports_get-v1-accounts-account-id-id",
+      "description": "Shows details on a single Summary Report associated with your account. Required: account_id, id. Returns the SummaryReport.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/reports/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Report ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_signals_get-v1-accounts-account-id",
+      "description": "Shows details of Signals belonging to the account associated with your API credentials. Signals are used to highlight interesting user or system behaviors that an analyst can reference during a cyber investigation. A detected Signal could be as broad and low fidelity as the detection of a command line user running whoami, or it could be as specific and high fidelity as detecting a known malware file. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: account_id. Optional: limit (default: 10), page_token, investigated_at_min (plus 6 more). Returns array of Signal.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/signals",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "investigated_at_min",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the lower bound of the search range for the investigated_at date."
+        },
+        {
+          "name": "investigated_at_max",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the upper bound of the search range for the investigated_at date."
+        },
+        {
+          "name": "entity_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity type that the Signal originated from. This filter can be used without specifying entity_id."
+        },
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity ID that the Signal originated from. Must be used in tandem with entity_type parameter."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "types",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the types of Signal, must be comma-separated string containing the values: `Antivirus, Process Insights, Managed ITDR, Footholds, MDE Detections, SIEM, Ransomware Canaries, Favicon Detections, Attack Disruptions, App Control`"
+        },
+        {
+          "name": "statuses",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. Must be comma-separated string containing the values: `reported`, `closed`"
+        }
+      ]
+    },
+    {
+      "name": "accounts_signals_get-v1-accounts-account-id-id",
+      "description": "Shows details of a single Signal belonging to the account associated with your API credentials. Signals are used to highlight interesting user or system behaviors that an analyst can reference during a cyber investigation. A detected Signal could be as broad and low fidelity as the detection of a command line user running whoami, or it could be as specific and high fidelity as detecting a known malware file. Required: account_id, id. Returns the Signal.",
+      "method": "GET",
+      "path": "/v1/accounts/{account_id}/signals/{id}",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "path",
+          "description": "Account ID (e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Signal ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "actor_get-v1",
+      "description": "Shows details of the entities associated with the supplied API credentials. It will only return the fields relevant to the current credentials. For more information on User management, see [Product Support](https://support.huntress.io/hc/en-us/articles/4404012574227-Adding-and-Managing-Huntress-Users). Returns the Actor.",
+      "method": "GET",
+      "path": "/v1/actor",
+      "params": []
+    },
+    {
+      "name": "agents_get-v1",
+      "description": "Shows Agents associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, organization_id (plus 1 more). Returns array of Agent.",
+      "method": "GET",
+      "path": "/v1/agents",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by platform. One of windows, darwin, linux"
+        }
+      ]
+    },
+    {
+      "name": "agents_get-v1-id",
+      "description": "Shows details on a single Agent associated with your account. Required: id. Returns the AgentsGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/agents/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Agent ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "escalations_get-v1",
+      "description": "Shows Escalations associated with your account. Additional details for a specific escalation can be obtained by using the **GET Escalation** endpoint. Escalations are used to notify Huntress account administrators that a situation requires their attention. Below are some common use cases: - The Huntress security platform is unable to send incident reports to your PSA system and we need you to reconfigure the integration. - Security Operation Centers (SOC) suspect that an application being flagged as malicious is a false positive, and we want to get your authorization to allow-list the application moving forward. - A potential threat flagged by Managed Defender requires additional information (file path details, etc.) in order for Huntress to provide actionable assisted remediation steps. - A login event occurred from an unexpected country or VPN, and Huntress would like partner feedback on whether that event should be expected or unauthorized. Though Escalations are not incident reports, they do have severities (low, high, critical) associated with them that dictate an expected response time. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 5 more). Returns array of Escalation.",
+      "method": "GET",
+      "path": "/v1/escalations",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status."
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by severity."
+        },
+        {
+          "name": "subtype",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by subtype."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID."
+        }
+      ]
+    },
+    {
+      "name": "escalations_get-v1-id",
+      "description": "Shows details on a single Escalation associated with your account. Required: id. Returns the EscalationWithEntities.",
+      "method": "GET",
+      "path": "/v1/escalations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Escalation ID within Huntress Account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "escalations_resolution_escalation-parameters",
+      "description": "Allows you to resolve an Escalation. Creating a resolution updates the Escalation's status to resolved. This endpoint requires an API key with permissions to write to Escalations. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. The behavior of this endpoint varies by Escalation type so your request should be crafted based on the specific Escalation you are interacting with. #### Simple Resolution For most types of Escalations, a POST to the resolution endpoint with only the Escalation's ID is sufficient. This action resolves the Escalation directly without requiring any additional parameters. #### Complex Resolution For Escalations that have many entities which all require action, a call to this endpoint will **bulk resolve all associated entities at once**. The determination provided will be **applied to every single entity attached to the Escalation.** Note that these kinds of Escalation resolutions require extra parameters in their requests. Escalation types that can resolve multiple associated entities at once are: - Unwanted Country Access - Unwanted VPN Access **NOTE:** Ommitting both `determination` and `scope` params will temporarily resolve the Unwanted Access Escalations. The escalation will reopen upon the next occurrence of the event that created the escalation. This is equivalent to using the 'dismiss' option in the portal. #### API Resolution Not Supported For a few Escalation types, this endpoint is not supported. These Escalations require specific actions to be taken outside of the API (e.g., re-enabling Microsoft Defender) to be resolved. For example, the following Escalation types cannot be resolved through the API: - Defender Disabled - Logs Sources Not Reporting - Log Source Data not Audited Properly. Required: id. Optional: determination, scope. Returns the new EscalationResolution.",
+      "method": "POST",
+      "path": "/v1/escalations/{id}/resolution",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "determination",
+          "type": "string",
+          "location": "body",
+          "description": "Determination is only used for Unwanted Country Access and Unwanted VPN Access Escalations. This field determines whether **all** the associated identities are expected or unauthorized."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "body",
+          "description": "Scope is used only for Unwanted Access Escalations. This determines what kinds of access rules are created in response to the Escalation. This parameter is better explained using an example: In the scenario when `email123@example.com` logs in from Russia and the determination is `unauthorized`: When the scope is `identity`: Rules created based on the resolution will only apply to the identities associated with the Escalation. In this case a rule will be created specifically preventing `email123@example.com` from logging in from Russia. When the scope is `organization`: Rules created based on the resolution will apply to all identities in the organization. In this case all logins from Russia will be prevented across the organization. When the scope is `account`: Rules created based on the resolution will apply to all identities on the account. In this case all logins from Russia will be prevented across the account."
+        }
+      ]
+    },
+    {
+      "name": "external-ports_get-v1",
+      "description": "Shows external port records from External Recon scans associated with your account. Optional: limit (default: 10), page_token, organization_id. Returns array of ExternalPort.",
+      "method": "GET",
+      "path": "/v1/external_ports",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        }
+      ]
+    },
+    {
+      "name": "external-ports_get-v1-id",
+      "description": "Shows details on a single external port record associated with your account. Required: id. Returns the ExternalPortsGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/external_ports/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "External port record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "identities_get-v1",
+      "description": "Shows Identities associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, organization_id (plus 6 more). Returns array of Identity.",
+      "method": "GET",
+      "path": "/v1/identities",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account."
+        },
+        {
+          "name": "tenant_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by identity provider type."
+        },
+        {
+          "name": "billable",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by billable status."
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by enabled status."
+        },
+        {
+          "name": "external",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by external/guest status."
+        },
+        {
+          "name": "risk_level",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by risk level."
+        },
+        {
+          "name": "mfa_enabled",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by MFA enabled status."
+        }
+      ]
+    },
+    {
+      "name": "identities_get-v1-id",
+      "description": "Shows details on a single Identity associated with your account. Required: id. Returns the Identity.",
+      "method": "GET",
+      "path": "/v1/identities/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Identity ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_get-v1",
+      "description": "Shows Incident Reports associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 7 more). Returns array of IncidentReport.",
+      "method": "GET",
+      "path": "/v1/incident_reports",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "indicator_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by indicator type. One of footholds, monitored_files, ransomware_canaries, antivirus_detections, process_detections, managed_identity, mde_detections, siem_detections, favicon_detections, behavioral_detections, email_security_detections, app_control, ai_misuse"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. One of sent, closed, dismissed, auto_remediating, deleting, partner_dismissed"
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by severity. One of low, high, critical"
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by platform. One of windows, darwin, microsoft_365, google, linux, email_security, other"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "agent_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by agent ID within Huntress account"
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_get-v1-id",
+      "description": "Shows details on a single Incident Report associated with your account. Required: id. Returns the IncidentReportsGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/incident_reports/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident Report ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_remediations_bulk-rejection-parameters",
+      "description": "Reject all unapproved remediations for an Incident Report. Rejecting the remediations will send the incident report back to the Huntress SOC. This endpoint requires an API key with permissions to write to remediations. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: incident_report_id, comment, useful. Optional: email, name, phone_number.",
+      "method": "POST",
+      "path": "/v1/incident_reports/{incident_report_id}/remediations/bulk_rejection",
+      "params": [
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "location": "body",
+          "description": "A description of why the remediations were rejected. This explanation helps Huntress SOC analysts fix the remediation plan and re-issue the incident report.",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email to be contacted by the Huntress SOC. Falls back to the email of the user attached to the API key if not provided."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the user rejecting the remediations. Falls back to the user attached to the API key if not provided."
+        },
+        {
+          "name": "phone_number",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number to be contacted by the Huntress SOC. Falls back to the phone number of the user attached to the API key if not provided."
+        },
+        {
+          "name": "useful",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether or not the remediation plan was useful.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_remediations_get-v1-incident-reports-incident-report-id",
+      "description": "Shows details of Remediations belonging to a single Incident Report. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: incident_report_id. Optional: limit (default: 10), page_token, types (plus 1 more). Returns array of Remediation.",
+      "method": "GET",
+      "path": "/v1/incident_reports/{incident_report_id}/remediations",
+      "params": [
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "types",
+          "wire_name": "types[]",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by type of remediation. Must be a comma-separated string containing the values: assisted, manual, containment"
+        },
+        {
+          "name": "statuses",
+          "wire_name": "statuses[]",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by status of remediation. Must be a comma-separated string containing the values: unapproved, approved, completed, failed, cancelled"
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_remediations_get-v1-incident-reports-incident-report-id-id",
+      "description": "Shows details for a single Remediation belonging to a single Incident Report. Required: incident_report_id, remediation_id. Returns the Remediation.",
+      "method": "GET",
+      "path": "/v1/incident_reports/{incident_report_id}/remediations/{remediation_id}",
+      "params": [
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        },
+        {
+          "name": "remediation_id",
+          "type": "int",
+          "location": "path",
+          "description": "Remediation ID (e.g. 55501)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_remediations_post-v1-incident-reports-incident-report-id-bulk-approval",
+      "description": "Approve all unapproved remediations for an Incident Report. Approval immediately triggers the execution of assisted remediations. Manual remediations are not executed, and must be independently completed. Once all remediations are approved, the incident report becomes eligible for resolution. This endpoint requires an API key with permissions to write to remediations. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: incident_report_id. Returns the new IncidentReport.",
+      "method": "POST",
+      "path": "/v1/incident_reports/{incident_report_id}/remediations/bulk_approval",
+      "params": [
+        {
+          "name": "incident_report_id",
+          "type": "int",
+          "location": "path",
+          "description": "Incident report ID (e.g. 98765)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incident-reports_resolution_post-v1-incident-reports-id",
+      "description": "Use this endpoint to resolve a single Incident Report. All remediations belonging to the Incident Report must be approved first. While resolution updates the report status to resolved, assisted remediations may still be running in the background and manual remediations may still require completion by a user. This endpoint requires an API key with permissions to resolve incident reports. **Note that the default account API key is read-only, so you'll need to create a user-based API key with the appropriate permissions to access this endpoint**. Required: id. Returns the new IncidentReport.",
+      "method": "POST",
+      "path": "/v1/incident_reports/{id}/resolution",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_get-v1",
+      "description": "Shows Invoices associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, status. Returns array of Invoice.",
+      "method": "GET",
+      "path": "/v1/invoices",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. One of open, paid, failed, partial_refund, full_refund, draft, voided"
+        }
+      ]
+    },
+    {
+      "name": "invoices_get-v1-id",
+      "description": "Shows details on a single Invoice associated with your account. Required: id. Returns the InvoicesGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/invoices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Invoice ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "known-vpns_get-v1",
+      "description": "Returns the list of VPN and proxy operators recognized by Huntress. Use any value from this list as the `vpn` parameter when creating an Unwanted Access Rule.",
+      "method": "GET",
+      "path": "/v1/known_vpns",
+      "params": []
+    },
+    {
+      "name": "memberships_creation-parameters",
+      "description": "This endpoint allows you to invite a user to join your organization or account. A user will often be a person you wish to grant access to, but it could also represent a team, an automated system, or any other type of actor. If an organization ID is provided, the user will be invited to that organization. If not, they will be invited to the account associated with this API credential. Note that while the sample return value includes both an organization and an account for completeness, in practice, only one or the other will be included. Note that this is technically creating a Membership Invitation - the actual membership won't be created until the user accepts the invitation. Required: email, first_name, last_name, permissions. Optional: organization_id. Returns the new MemberInvitation.",
+      "method": "POST",
+      "path": "/v1/memberships",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "location": "body",
+          "description": "The first name of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "location": "body",
+          "description": "The last name of the user you are inviting.",
+          "required": true
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Include this parameter to invite a user to an organization instead of your account."
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "body",
+          "description": "The specific permissions this membership will grant to the user.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "memberships_delete-v1-id",
+      "description": "Deletes a single Membership associated with your account or organization. Does not delete the user associated with the membership. Required: id. Returns the MembershipsDeleteV1IdResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/memberships/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "memberships_get-v1",
+      "description": "Shows a list of memberships. By default, this endpoint returns both account and organization memberships, but if an organization ID is supplied, it will return only organization memberships, instead. The example return value shows both an organization and an account, but a given membership will only have one or the other. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 4 more).",
+      "method": "GET",
+      "path": "/v1/memberships",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID to return only memberships for that organization."
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by user ID to return only memberships for that user."
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by permission label."
+        }
+      ]
+    },
+    {
+      "name": "memberships_get-v1-id",
+      "description": "Shows details on a single Membership associated with your account or organization. Required: id. Returns the MembershipsGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/memberships/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "memberships_update-parameters",
+      "description": "Update a User's membership. Required: id. Optional: permissions. Returns the updated Membership.",
+      "method": "PATCH",
+      "path": "/v1/memberships/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Membership ID within Huntress account (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "permissions",
+          "type": "string",
+          "location": "body",
+          "description": "The specific level of permissions that have been granted to the user in the context of this membership. For more information, see our [support article](https://support.huntress.io/hc/en-us/articles/4404012728083-Huntress-Portal-User-Permissions) on permissions. Accepted values:"
+        }
+      ]
+    },
+    {
+      "name": "organizations_creation-parameters",
+      "description": "Create an Organization. Required: key, name. Returns the new Organization.",
+      "method": "POST",
+      "path": "/v1/organizations",
+      "params": [
+        {
+          "name": "key",
+          "type": "string",
+          "location": "body",
+          "description": "Organization keys are used to associate a Huntress Agent into a grouping.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the organization. Value cannot be blank and must be 256 characters or less.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_delete-v1-id",
+      "description": "Deletes the specified Organization. **Please note:** This will remove the organization and associated configurations across the Huntress Platform, including Managed SAT. For more information, see our [offboarding guide](https://support.huntress.io/hc/en-us/articles/51332785737235-Huntress-Product-Offboarding-Guide). Required: id. Returns the Organization. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "The id of the organization to be deleted (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_get-v1",
+      "description": "Shows details of Organizations belonging to the account associated with your API credentials. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, sort_field (default: id) (plus 3 more). Returns array of Organization.",
+      "method": "GET",
+      "path": "/v1/organizations",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "sort_field",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by. Defaults to 'id'."
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction. Defaults to 'desc'."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by organization name."
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by organization key."
+        }
+      ]
+    },
+    {
+      "name": "organizations_get-v1-id",
+      "description": "Shows details on a single Organization associated with your account. Required: id. Returns the OrganizationsGetV1IdResponse.",
+      "method": "GET",
+      "path": "/v1/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Organization ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_update-parameters",
+      "description": "Update an Organization. Required: id. Optional: key, name, report_recipients. Returns the updated Organization.",
+      "method": "PATCH",
+      "path": "/v1/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "body",
+          "description": "Organization keys are used to associate a Huntress Agent into a grouping."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the organization. Value cannot be blank and must be 256 characters or less."
+        },
+        {
+          "name": "report_recipients",
+          "type": "array",
+          "location": "body",
+          "description": "Any emails specified here will automatically receive quarterly and monthly branded reports."
+        }
+      ]
+    },
+    {
+      "name": "reports_get-v1",
+      "description": "Shows Summary Reports associated with your account. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, period_min (plus 3 more). Returns array of SummaryReport.",
+      "method": "GET",
+      "path": "/v1/reports",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "period_min",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the lower bound of the search range for the period date."
+        },
+        {
+          "name": "period_max",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the upper bound of the search range for the period date."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by report type. One of monthly_summary, quarterly_summary, yearly_summary"
+        }
+      ]
+    },
+    {
+      "name": "reports_get-v1-id",
+      "description": "Shows details on a single Summary Report associated with your account. Required: id. Returns the SummaryReport.",
+      "method": "GET",
+      "path": "/v1/reports/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Report ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-invoices",
+      "description": "Shows Invoices associated with the current reseller. **Note:** To see the details of a given invoice, you will probably want to also fetch the associated Account Usage Line Items and Organization Usage Line Items. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, status. Returns array of Invoice.",
+      "method": "GET",
+      "path": "/v1/reseller/invoices",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. One of open, paid, failed, partial_refund, full_refund, draft, voided"
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-invoices-id",
+      "description": "Shows a specific Reseller Invoice associated with the current reseller. Note: To see the details of this invoice, you will probably want to also fetch the associated Account Usage Line Items and Organization Usage Line Items. Required: id. Returns the Invoice.",
+      "method": "GET",
+      "path": "/v1/reseller/invoices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-invoices-id-account-usage-line-items",
+      "description": "Shows a list of Account Usage Line Items. This list provides a detailed breakdown of product usage per account from a given invoice. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: id. Optional: limit (default: 10), page_token. Returns the ResellerGetV1InvoicesIdAccountUsageLineItemsResponse.",
+      "method": "GET",
+      "path": "/v1/reseller/invoices/{id}/account_usage_line_items",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-invoices-id-organization-usage-line-items",
+      "description": "Shows a list of Organization Usage Line Items. This list provides a detailed breakdown of product usage per organization from a given invoice. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Required: id. Optional: limit (default: 10), page_token. Returns array of OrganizationUsageLineItem.",
+      "method": "GET",
+      "path": "/v1/reseller/invoices/{id}/organization_usage_line_items",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-subscriptions",
+      "description": "Shows subscriptions associated with the current reseller's managed accounts. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, product (plus 1 more). Returns array of Subscription.",
+      "method": "GET",
+      "path": "/v1/reseller/subscriptions",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "product",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by product type"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status"
+        }
+      ]
+    },
+    {
+      "name": "reseller_get-v1-subscriptions-id",
+      "description": "Shows details on a single subscription associated with the current reseller's managed accounts. Required: id. Returns the ResellerGetV1SubscriptionsIdResponse.",
+      "method": "GET",
+      "path": "/v1/reseller/subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reseller_subscription-creation-parameters",
+      "description": "Creates a subscription for a product on a reseller-managed account. **Note:** This endpoint only allows the creation of subscriptions that use the default terms, conditions, and pricing. Please contact your account admin for any terms that are not covered by our standard API. Required: account_id, minimum, product, purchase_order. Optional: billing_interval (default: monthly). Returns the new Subscription.",
+      "method": "POST",
+      "path": "/v1/reseller/subscriptions",
+      "params": [
+        {
+          "name": "account_id",
+          "type": "int",
+          "location": "body",
+          "description": "The reseller subaccount ID",
+          "required": true
+        },
+        {
+          "name": "billing_interval",
+          "type": "string",
+          "location": "body",
+          "description": "Billing interval"
+        },
+        {
+          "name": "minimum",
+          "type": "int",
+          "location": "body",
+          "description": "Minimum usage commitment (must be greater than zero)",
+          "required": true
+        },
+        {
+          "name": "product",
+          "type": "string",
+          "location": "body",
+          "description": "Product type",
+          "required": true
+        },
+        {
+          "name": "purchase_order",
+          "type": "string",
+          "location": "body",
+          "description": "Purchase order number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reseller_subscription-update-parameters",
+      "description": "Updates a subscription associated with the current reseller's managed accounts. For **approved** subscriptions: updates minimum, billing_interval, and purchase_order. For **active** subscriptions: toggles `auto_renew` and/or adds units via `additional_units` (with optional `purchase_order`). Required: id. Optional: additional_units, auto_renew, billing_interval (plus 2 more). Returns the updated Subscription.",
+      "method": "PATCH",
+      "path": "/v1/reseller/subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "additional_units",
+          "type": "int",
+          "location": "body",
+          "description": "Units to add (active subscriptions only)"
+        },
+        {
+          "name": "auto_renew",
+          "type": "bool",
+          "location": "body",
+          "description": "Set auto-renew (active subscriptions only)"
+        },
+        {
+          "name": "billing_interval",
+          "type": "string",
+          "location": "body",
+          "description": "Billing interval"
+        },
+        {
+          "name": "minimum",
+          "type": "int",
+          "location": "body",
+          "description": "Minimum usage commitment (must be greater than zero)"
+        },
+        {
+          "name": "purchase_order",
+          "type": "string",
+          "location": "body",
+          "description": "Purchase order number"
+        }
+      ]
+    },
+    {
+      "name": "reseller_subscription-upgrade-parameters",
+      "description": "Upgrades an active subscription by creating a new subscription with a higher minimum and/or price tier, replacing the existing one. This is modeled as a sub-resource because the operation creates a new subscription record rather than modifying the existing one in place. Required: id, minimum. Optional: on_renewal (default: false), purchase_order. Returns the new Subscription.",
+      "method": "POST",
+      "path": "/v1/reseller/subscriptions/{id}/upgrade",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Record ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "minimum",
+          "type": "int",
+          "location": "body",
+          "description": "New minimum usage commitment (must be greater than zero)",
+          "required": true
+        },
+        {
+          "name": "on_renewal",
+          "type": "bool",
+          "location": "body",
+          "description": "Schedule upgrade for next renewal instead of immediately"
+        },
+        {
+          "name": "purchase_order",
+          "type": "string",
+          "location": "body",
+          "description": "Purchase order number (defaults to existing subscription's PO)"
+        }
+      ]
+    },
+    {
+      "name": "siem_post-v1-query",
+      "description": "Execute an ESQL query against your SIEM logs and receive paginated JSON results. This endpoint uses POST so that the ESQL query string can be sent in the request body rather than as a URL query parameter, avoiding URL length limits for complex queries. Queries must begin with `FROM logs`. Results are limited to 200 rows per page. If `next_page_token` is present, pass it as `page_token` in a subsequent request (with the same `range_start` and `range_end`) to retrieve the next page. **Response** Returns a JSON object with two top-level keys: - `logs` — Array of objects. Each object represents one log record. Keys are ECS field names (e.g. `event.provider`, `host.hostname`). The fields present depend on the columns selected by your ESQL query (e.g. a `KEEP` command). With no column selection, all available ECS fields are returned. - `pagination` — Object. Contains `next_page_token` (string) when additional results are available; empty object `{}` when all results have been returned. Pass `next_page_token` as `page_token` in your next request to retrieve the following page. Required: esql, range_end, range_start. Optional: page_token.",
+      "method": "POST",
+      "path": "/v1/siem/query",
+      "params": [
+        {
+          "name": "esql",
+          "type": "string",
+          "location": "body",
+          "description": "ESQL query string (must begin with FROM logs)",
+          "required": true
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "body",
+          "description": "Pagination token from previous response"
+        },
+        {
+          "name": "range_end",
+          "type": "string",
+          "location": "body",
+          "description": "Query range end (ISO 8601)",
+          "required": true
+        },
+        {
+          "name": "range_start",
+          "type": "string",
+          "location": "body",
+          "description": "Query range start (ISO 8601)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "signals_get-v1",
+      "description": "Shows details of Signals belonging to the account associated with your API credentials. Signals are used to highlight interesting user or system behaviors that an analyst can reference during a cyber investigation. A detected Signal could be as broad and low fidelity as the detection of a command line user running whoami, or it could be as specific and high fidelity as detecting a known malware file. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, investigated_at_min (plus 6 more). Returns array of Signal.",
+      "method": "GET",
+      "path": "/v1/signals",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "investigated_at_min",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the lower bound of the search range for the investigated_at date."
+        },
+        {
+          "name": "investigated_at_max",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by an ISO-8601 formatted date string that represents the upper bound of the search range for the investigated_at date."
+        },
+        {
+          "name": "entity_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity type that the Signal originated from. This filter can be used without specifying entity_id."
+        },
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity ID that the Signal originated from. Must be used in tandem with entity_type parameter."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account"
+        },
+        {
+          "name": "types",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the types of Signal, must be comma-separated string containing the values: `Antivirus, Process Insights, Managed ITDR, Footholds, MDE Detections, SIEM, Ransomware Canaries, Favicon Detections, Attack Disruptions, App Control`"
+        },
+        {
+          "name": "statuses",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by status. Must be comma-separated string containing the values: `reported`, `closed`"
+        }
+      ]
+    },
+    {
+      "name": "signals_get-v1-id",
+      "description": "Shows details of a single Signal belonging to the account associated with your API credentials. Signals are used to highlight interesting user or system behaviors that an analyst can reference during a cyber investigation. A detected Signal could be as broad and low fidelity as the detection of a command line user running whoami, or it could be as specific and high fidelity as detecting a known malware file. Required: id. Returns the Signal.",
+      "method": "GET",
+      "path": "/v1/signals/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Signal ID within Huntress account (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "unwanted-access-rules_creation-parameters",
+      "description": "Creates a new Unwanted Access Rule associated with your account, an organization, or a specific identity. **Rule logic.** Provide exactly one of `country_code`, `vpn`, or `logic`: - Omit `logic` and supply `country_code` or `vpn` to create a `standard` rule that matches a single value. - Set `logic` as `catchall` (with `category`) to create a catchall rule that matches every value in the category. Catchalls must be `unauthorized` and may only be scoped to the account or an organization. An account or organization may have at most one catchall per category. - Set `logic` as `catchall_exception` (with `category`) to create an exception that opts an organization out of an account-level catchall. Exceptions must be `expected`, may only be scoped to an organization, and must omit `starts_at`/`expires_at`. **Scope.** The rule scope is determined by the IDs supplied: provide `identity_id` to scope the rule to a single identity, `organization_id` to scope it to an organization. Omitting both scopes the rule at the account level. Required: type. Optional: category, country_code, expires_at (plus 6 more). Returns the new UnwantedAccessRule.",
+      "method": "POST",
+      "path": "/v1/unwanted_access_rules",
+      "params": [
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category that the catchall or exception applies to. Required when `logic` is provided."
+        },
+        {
+          "name": "country_code",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 3166-1 alpha-2 country code this rule should match. Provide for `standard` rules. Mutually exclusive with `vpn` and `logic`."
+        },
+        {
+          "name": "expires_at",
+          "type": "string",
+          "location": "body",
+          "description": "UTC date (YYYY-MM-DD) when the rule expires. Omit for `expected` rules that should never expire. Must be omitted for `unauthorized` rules and for rules with `logic` of `catchall` or `catchall_exception`."
+        },
+        {
+          "name": "identity_id",
+          "type": "int",
+          "location": "body",
+          "description": "Scope the rule to a specific identity. Mutually exclusive with `organization_id`. If neither is provided, the rule is scoped to the account."
+        },
+        {
+          "name": "logic",
+          "type": "string",
+          "location": "body",
+          "description": "Rule logic. Set to `catchall` to match every value in a category, or `catchall_exception` to opt an organization out of an account-level catchall. Omit to create a `standard` rule (in which case `country_code` or `vpn` is required). Mutually exclusive with `country_code` and `vpn`."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Optional free-text note to attach to the rule."
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "body",
+          "description": "Scope the rule to an organization. Mutually exclusive with `identity_id`. If neither is provided, the rule is scoped to the account."
+        },
+        {
+          "name": "starts_at",
+          "type": "string",
+          "location": "body",
+          "description": "UTC date (YYYY-MM-DD) when the rule becomes active. Omit for `expected` rules that should start immediately. Must be omitted for `unauthorized` rules and for rules with `logic` of `catchall` or `catchall_exception`."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Whether matching access is `expected` or `unauthorized`. Must be `unauthorized` when rule `logic` is `catchall` and `expected` when rule `logic` is `catchall_exception`.",
+          "required": true
+        },
+        {
+          "name": "vpn",
+          "type": "string",
+          "location": "body",
+          "description": "Tunnel operator name this rule should match. Provide for `standard` rules. Mutually exclusive with `country_code` and `logic`."
+        }
+      ]
+    },
+    {
+      "name": "unwanted-access-rules_delete-v1-id",
+      "description": "Deletes a single Unwanted Access Rule associated with your account. Standard, catchall, and catchall exception rules can all be deleted through this endpoint. Required: id. Returns the UnwantedAccessRule. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/unwanted_access_rules/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Unwanted Access Rule ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "unwanted-access-rules_get-v1",
+      "description": "Shows Unwanted Access Rules associated with your account. Unwanted Access Rules govern how Huntress responds to identity access attempts matching specific attributes. Each rule targets a category (country or vpn) and declares a determination — `expected` or `unauthorized` — at the account, organization, or identity scope. **Note:** This endpoint will also return a `pagination` key on the root level. Please refer to the [pagination section](https://api.huntress.io/docs#pagination) within our docs for more information. Optional: limit (default: 10), page_token, organization_id (plus 8 more). Returns array of UnwantedAccessRule.",
+      "method": "GET",
+      "path": "/v1/unwanted_access_rules",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max number of resources returned in a paged collection."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token used to request the next page in paginated results. Defaults to 'null'"
+        },
+        {
+          "name": "organization_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by organization ID within Huntress account."
+        },
+        {
+          "name": "identity_id",
+          "type": "int",
+          "location": "query",
+          "description": "Filter results to rules attached directly to this identity."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by rule type."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by rule status as shown in the Portal UI."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the level the rule is attached to."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "query",
+          "description": "Limit results to a single rule category."
+        },
+        {
+          "name": "country_code",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by country code value (ISO 3166-1 alpha-2). Implies `category=country`."
+        },
+        {
+          "name": "vpn",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by VPN (tunnel operator) value. Implies `category=vpn`."
+        },
+        {
+          "name": "logic",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by rule logic. `standard` returns rules with explicit values, `catchall` returns rules matching all values in a category, and `catchall_exception` returns rules that exclude specifically set values from an existing catchall rule. Omit this parameter to include all three."
+        }
+      ]
+    },
+    {
+      "name": "unwanted-access-rules_get-v1-id",
+      "description": "Shows details on a single Unwanted Access Rule associated with your account. Required: id. Returns the UnwantedAccessRule.",
+      "method": "GET",
+      "path": "/v1/unwanted_access_rules/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Unwanted Access Rule ID (e.g. 12345)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "unwanted-access-rules_update-parameters",
+      "description": "Updates the schedule and notes on an existing Unwanted Access Rule. The rule's category, value, scope, logic, and type cannot be changed. Standard, catchall, and catchall exception rules can all be updated, but catchall and catchall exception rules must keep `starts_at` and `expires_at` nil. Passing a value for those fields on those rules will return a 422. Required: id. Optional: expires_at, notes, starts_at. Returns the updated UnwantedAccessRule.",
+      "method": "PATCH",
+      "path": "/v1/unwanted_access_rules/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Unwanted Access Rule ID (e.g. 12345)",
+          "required": true
+        },
+        {
+          "name": "expires_at",
+          "type": "string",
+          "location": "body",
+          "description": "UTC date (YYYY-MM-DD) when the rule expires. Pass an empty string or null to clear."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "location": "body",
+          "description": "Free-text note attached to the rule. Pass an empty string or null to clear."
+        },
+        {
+          "name": "starts_at",
+          "type": "string",
+          "location": "body",
+          "description": "UTC date (YYYY-MM-DD) when the rule becomes active. Pass an empty string or null to clear."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "fleet-incidents",
+      "command": "fleet-incidents",
+      "description": "One unified, age-sorted incident queue across every client organization, with org names joined in — the morning-sweep view the dashboard can't give."
+    },
+    {
+      "name": "coverage-gaps",
+      "command": "coverage-gaps",
+      "description": "Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions — a fleet posture exposure report."
+    },
+    {
+      "name": "blast-radius",
+      "command": "blast-radius",
+      "description": "Given an indicator (external IP, file hash, or foothold signature), finds every agent, org, and incident that matches it — instant correlation during incident response."
+    },
+    {
+      "name": "triage-age",
+      "command": "triage-age",
+      "description": "SLA aging report: open incidents bucketed by hours-open, broken out by org and severity, with breaches flagged."
+    },
+    {
+      "name": "billing-reconcile",
+      "command": "billing-reconcile",
+      "description": "Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta."
+    },
+    {
+      "name": "drift",
+      "command": "drift",
+      "description": "Diffs the current sync against the prior snapshot: new and removed agents, status flips, new criticals, and version changes."
+    },
+    {
+      "name": "mttr",
+      "command": "mttr",
+      "description": "Computes mean time-to-resolve for incidents from sent-to-resolved timestamps, grouped by org or severity."
+    },
+    {
+      "name": "canary-watch",
+      "command": "canary-watch",
+      "description": "Surfaces only ransomware-canary and foothold incidents in a time window — the highest-signal early-ransomware indicators, fleet-wide."
+    },
+    {
+      "name": "org-scorecard",
+      "command": "org-scorecard",
+      "description": "Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade — one client's security story."
+    },
+    {
+      "name": "stale-agents",
+      "command": "stale-agents",
+      "description": "Lists agents whose last callback exceeds a threshold — decommissioned-but-billed machines or broken installs."
+    },
+    {
+      "name": "handoff",
+      "command": "handoff",
+      "description": "Shift-change report of what changed (new criticals, resolutions, escalations) since a timestamp, ready to paste into a handoff note."
+    },
+    {
+      "name": "incident-detail",
+      "command": "incident-detail",
+      "description": "See one incident fully enriched — its remediations, the affected agent, and the org name — in a single lookup."
+    },
+    {
+      "name": "fleet-summary",
+      "command": "fleet-summary",
+      "description": "One-screen fleet top-line: total orgs, agents, open criticals, oldest unactioned critical, orgs below coverage threshold, stale agents."
+    },
+    {
+      "name": "reseller-rollup",
+      "command": "reseller-rollup",
+      "description": "Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side."
+    },
+    {
+      "name": "signal-digest",
+      "command": "signal-digest",
+      "description": "Groups SOC signals by type and organization over a time window, with reported-versus-closed counts: what the Huntress SOC saw across the fleet."
+    },
+    {
+      "name": "escalation-queue",
+      "command": "escalation-queue",
+      "description": "Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names: the environmental-issue backlog the incident queue does not show."
+    }
+  ]
+}

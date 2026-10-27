@@ -6,6 +6,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -25,73 +26,92 @@ func newNovelIncidentDetailCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  huntress-cli incident-detail 123456 --json",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:happy-args": "id=1"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if id == 0 && len(args) > 0 {
-				// Ignore parse errors: a non-numeric arg leaves id==0 and the
-				// guards below return help / a usage error, which is intended.
-				_, _ = fmt.Sscanf(args[0], "%d", &id)
-			}
-			if id == 0 && len(args) == 0 && cmd.Flags().NFlag() == 0 {
+			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
+			}
+			incidentID, given, err := idFromFlagOrArg(cmd, "id", id, args)
+			if err != nil {
+				return usageErr(err)
 			}
 			if dryRunOK(flags) {
 				fmt.Fprintln(cmd.OutOrStdout(), "would look up one incident with remediations, agent, and org joined")
 				return nil
 			}
-			if id == 0 {
+			if !given {
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("an incident id is required (positional or --id)"))
 			}
 			ctx := cmd.Context()
-			st, err := openStoreFor(cmd, flags, dbPath, rtIncidents, rtAgents, rtOrgs)
+			st, err := openStoreFor(cmd, flags, dbPath, entIncidents, entAgents, entOrgs)
 			if err != nil {
 				return err
 			}
 			defer st.Close()
 
 			rows, err := queryMaps(ctx, st.DB(),
-				fmt.Sprintf(`SELECT i.data AS data FROM resources i WHERE i.resource_type='%s' AND %s = ?`, rtIncidents, jx("i", "id")), id)
+				fmt.Sprintf(`SELECT i.data AS data FROM %s i WHERE %s = ?`, st.src(entIncidents), jx("i", "id")), incidentID)
 			if err != nil {
 				return err
 			}
 			if len(rows) == 0 {
-				return fmt.Errorf("incident %d not found in the local store; run `sync` first or check the id", id)
+				return fmt.Errorf("incident %d not found in the local store; run `sync` first or check the id", incidentID)
 			}
 			blob, _ := rows[0]["data"].(string)
 			incident := map[string]interface{}{}
-			if err := json.Unmarshal([]byte(blob), &incident); err != nil {
+			dec := json.NewDecoder(strings.NewReader(blob))
+			dec.UseNumber()
+			if err := dec.Decode(&incident); err != nil {
 				return fmt.Errorf("decoding stored incident: %w", err)
 			}
 
-			// Remediations ride inside the incident blob.
-			remediations, _ := incident["remediations"].([]interface{})
-			if remediations == nil {
-				remediations = []interface{}{}
-			}
+			// Remediations ride inside the incident blob as a
+			// {total_count, has_more, items} envelope holding only the first
+			// items; say so when the list is not the whole set. A field that
+			// is missing or cannot be read is unknown: null, never zero.
+			remediations, total, complete, known := remediationsOf(incident["remediations"])
 			delete(incident, "remediations")
 
 			result := map[string]interface{}{
-				"incident":          incident,
-				"remediations":      remediations,
-				"remediation_count": len(remediations),
+				"incident":              incident,
+				"remediations":          remediations,
+				"remediation_count":     total,
+				"remediations_complete": complete,
+			}
+			switch {
+			case !known:
+				result["remediations"] = nil
+				result["remediation_count"] = nil
+				result["note"] = fmt.Sprintf("the stored incident has no readable remediations list, so its remediations are unknown; list them with the remediations command for incident %d", incidentID)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: incident %d has no readable remediations list; remediation_count is withheld (null).\n", incidentID)
+			case !complete:
+				result["note"] = fmt.Sprintf("the incident lists %d of its %d remediations; list the rest with the remediations command for incident %d", len(remediations), total, incidentID)
 			}
 
 			if orgID, ok := toFloat(incident["organization_id"]); ok && orgID > 0 {
-				if orgRows, e := queryMaps(ctx, st.DB(),
-					fmt.Sprintf(`SELECT %s AS id, %s AS name, %s AS key FROM resources o WHERE o.resource_type='%s' AND %s = ?`,
-						jx("o", "id"), jx("o", "name"), jx("o", "key"), rtOrgs, jx("o", "id")), int(orgID)); e == nil && len(orgRows) > 0 {
+				orgRows, e := queryMaps(ctx, st.DB(),
+					fmt.Sprintf(`SELECT %s AS id, %s AS name, %s AS key FROM %s o WHERE %s = ?`,
+						jx("o", "id"), jx("o", "name"), jx("o", "key"), st.src(entOrgs), jx("o", "id")), int64(orgID))
+				if e != nil {
+					return fmt.Errorf("reading the incident's organization: %w", e)
+				}
+				if len(orgRows) > 0 {
 					result["organization"] = orgRows[0]
 				}
 			}
 			if agentID, ok := toFloat(incident["agent_id"]); ok && agentID > 0 {
-				if agRows, e := queryMaps(ctx, st.DB(),
+				agRows, e := queryMaps(ctx, st.DB(),
 					fmt.Sprintf(`SELECT %s AS id, %s AS hostname, %s AS platform, %s AS last_callback_at, %s AS external_ip, %s AS ipv4_address
-					FROM resources a WHERE a.resource_type='%s' AND %s = ?`,
+					FROM %s a WHERE %s = ?`,
 						jx("a", "id"), jx("a", "hostname"), jx("a", "platform"), jx("a", "last_callback_at"),
-						jx("a", "external_ip"), jx("a", "ipv4_address"), rtAgents, jx("a", "id")), int(agentID)); e == nil && len(agRows) > 0 {
+						jx("a", "external_ip"), jx("a", "ipv4_address"), st.src(entAgents), jx("a", "id")), int64(agentID))
+				if e != nil {
+					return fmt.Errorf("reading the incident's agent: %w", e)
+				}
+				if len(agRows) > 0 {
 					result["agent"] = agRows[0]
 				}
 			}
-			return flags.printJSON(cmd, result)
+			return printJSONFilteredKeep(cmd.OutOrStdout(), result, flags, "remediation_count", "remediations_complete")
 		},
 	}
 	cmd.Flags().IntVar(&id, "id", 0, "Incident report ID to enrich")

@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Huntress MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUNTRESS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `HUNTRESS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running huntress-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host huntress-mcp in HTTP mode: it refuses to start until HUNTRESS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Huntress data safe?"
@@ -90,7 +90,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/hunt
 
 Most Huntress integrations proxy each question straight to the live API - one record, one organization at a time. This skill syncs your whole account into a local SQLite mirror, so cross-tenant questions (one incident queue for every client, fleet-wide blast radius, seat-vs-agent reconciliation) resolve as a single local join: instant, offline, and the AI sees the answer rather than raw bulk data.
 
-Huntress exposes no public AI assistant over its API, and the portal scopes to one organization at a time. This skill adds the rollups the portal never pre-computes - a unified cross-org incident queue, posture gaps, billing reconciliation, and history (drift, MTTR, handoff) the point-in-time API throws away - without replacing the portal you already use.
+Huntress exposes no public AI assistant over its API, and the portal scopes to one organization at a time. This skill adds the rollups the portal never pre-computes - a unified cross-org incident queue, posture gaps, billing reconciliation, agent drift between runs, MTTR, and shift-handoff reports - without replacing the portal you already use.
 
 ## The pain this closes
 
@@ -131,10 +131,11 @@ After install, authenticate once with your Huntress credentials, then verify wit
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | fleet-incidents, coverage-gaps, blast-radius, billing-reconcile, mttr, org-scorecard, stale-agents, search | Allow |
-| Write (routine) | organizations update-parameters, accounts memberships update-parameters, unwanted-access-rules update-parameters | Preview with --dry-run, then a reviewed write |
-| Destructive / config | organizations delete-v1-id, accounts delete-v1-id, unwanted-access-rules delete-v1-id | Human-in-the-loop only |
+| Write (routine) | organizations update-parameters, accounts memberships update-parameters, unwanted-access-rules update-parameters | Preview with --dry-run, then a reviewed write with --yes |
+| Incident actions | accounts incident-reports post-v1-accounts-account-id-id-remediations-bulk-approval, incident-reports remediations bulk-rejection-parameters, incident-reports resolution post-v1-incident-reports-id | Human-in-the-loop only, explicit --yes |
+| Destructive / config | organizations delete-v1-id, accounts delete-v1-id, unwanted-access-rules delete-v1-id | Human-in-the-loop only, explicit --yes |
 
-The skill authenticates with your Huntress API key and secret and is read-first: every rollup, search, and report is non-mutating and safe to let an agent run. The handful of write commands (update an organization, membership, account, or unwanted-access rule) and the destructive deletes are opt-in and should sit behind an agent policy of preview-then-approve. Keep autonomous agents to reads plus dry-run previews; require a human for any write or delete. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/huntress/governance.md).
+The skill authenticates with your Huntress API key and secret and is read-first: every rollup, search, and report is non-mutating and safe to let an agent run. Every command that changes your tenant (create, update, delete, incident resolution, remediation approval or rejection, subscription changes, and import) refuses to run and sends nothing unless you pass --yes to send it or --dry-run to preview the request. An agent can still pass --yes itself, so keep autonomous agents to reads plus dry-run previews and require a human to approve any write, remediation approval, or delete. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/huntress/governance.md).
 
 ## Frequently asked questions
 
@@ -148,7 +149,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running huntress-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host huntress-mcp in HTTP mode: it refuses to start until HUNTRESS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

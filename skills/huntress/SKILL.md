@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-huntress-cli absorbs the full Huntress API  -  organizations, agents, incident reports, remediations, signals, escalations, identities, external recon, reports, invoices, reseller subscriptions, and SIEM ES|QL  -  with agent-native output (--json, --select, typed exit codes). Then it transcends the read-mostly API (account-wide lists, but only the first 10 remediations per incident and 60 requests per minute for the whole account): fleet-incidents gives one age-sorted queue across every client org, coverage-gaps rolls up posture exposure, blast-radius correlates an indicator across the whole fleet, and drift/mttr/handoff turn repeated syncs into history the live API throws away.
+huntress-cli absorbs the full Huntress API  -  organizations, agents, incident reports, remediations, signals, escalations, identities, external recon, reports, invoices, reseller subscriptions, and SIEM ES|QL  -  with agent-native output (--json, --select, typed exit codes). Then it transcends the read-mostly, per-org API: fleet-incidents gives one age-sorted queue across every client org, coverage-gaps rolls up posture exposure, blast-radius correlates an indicator across the whole fleet, drift keeps the agent snapshot history the point-in-time API lacks, and mttr and handoff compute resolution times and shift changes from synced incident timestamps.
 
 ## When to Use This CLI
 
@@ -58,10 +58,7 @@ Do not use this CLI for:
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
-
 ### Fleet rollups across every org
-
 - **`fleet-incidents`**  -  One unified, age-sorted incident queue across every client organization, with org names joined in  -  the morning-sweep view the dashboard can't give.
 
   _Reach for this when an agent needs the single cross-tenant 'what's on fire everywhere' queue instead of paging org-by-org._
@@ -69,7 +66,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli fleet-incidents --severity critical --status sent --sort age --json
   ```
-- **`coverage-gaps`**  -  Flags orgs and agents with stale callbacks, unhealthy Defender/firewall, or outdated EDR versions  -  a fleet posture exposure report.
+- **`coverage-gaps`**  -  Per-org rollup of agent health: for each org with a gap, how many agents have a stale callback, an unreadable callback time, or Defender or firewall not reported healthy, worst-first.
 
   _Use before a weekly posture review or onboarding audit to find protection gaps before an incident lands on an unmonitored host._
 
@@ -85,36 +82,42 @@ These capabilities aren't available in any other tool for this API.
   ```
 - **`stale-agents`**  -  Lists agents whose last callback exceeds a threshold  -  decommissioned-but-billed machines or broken installs.
 
-  _Use to clean up the fleet and feed billing-reconcile with the list of agents that stopped reporting._
+  _Use to clean up the fleet and to explain a billing-reconcile delta with the agents that stopped reporting._
 
   ```bash
   huntress-cli stale-agents --days 14 --platform windows --json
   ```
-- **`fleet-summary`**  -  One-screen fleet top-line: total orgs, agents, open criticals, oldest unactioned critical, orgs below coverage threshold, stale agents.
+- **`fleet-summary`**  -  One-screen fleet top-line: total orgs and agents, open incidents, open criticals, the oldest open critical's age, stale agents, and orgs with zero agents.
 
   _Run this first each shift  -  it tells an agent which detail command (fleet-incidents, coverage-gaps, stale-agents) to reach for next._
 
   ```bash
   huntress-cli fleet-summary --agent
   ```
+- **`signal-digest`**  -  Groups SOC signals by type and organization over a time window, with reported-versus-closed counts: what the Huntress SOC saw across the fleet.
+
+  _Reach for this before a weekly client touchpoint or QBR to say which detection types fired where, without paging signals org by org._
+
+  ```bash
+  huntress-cli signal-digest --since 7d --json
+  ```
 
 ### Cross-entity correlation
-
-- **`blast-radius`**  -  Given an indicator (external IP, file hash, or foothold signature), finds every agent, org, and incident that matches it  -  instant correlation during incident response.
+- **`blast-radius`**  -  Given an indicator (IP, MAC, domain or hostname, file hash, or text fragment), finds the matching incident reports, agents, and external ports across every org - instant correlation during incident response.
 
   _Reach for this mid-incident to answer 'where else does this indicator appear across my whole fleet' in one call._
 
   ```bash
   huntress-cli blast-radius --indicator 203.0.113.7 --json
   ```
-- **`triage-age`**  -  SLA aging report: open incidents bucketed by hours-open, broken out by org and severity, with breaches flagged.
+- **`triage-age`**  -  SLA aging report: open incidents bucketed by hours open, each bucket broken out by severity; the oldest bucket is flagged as an SLA breach when any incident has aged into it.
 
-  _Use to enforce response SLAs across tenants and surface the oldest unactioned criticals first._
+  _Use to enforce response SLAs across tenants: the oldest bucket counts, by severity, the open incidents past your SLA._
 
   ```bash
   huntress-cli triage-age --buckets 4,24,72 --json
   ```
-- **`org-scorecard`**  -  Per-client QBR scorecard: agent count, coverage percent, open and closed incidents, MTTR, and a posture grade  -  one client's security story.
+- **`org-scorecard`**  -  Per-client QBR rollup for one org: agent count, open, closed and total incidents, and mean time-to-resolve.
 
   _Use to assemble a client quarterly-business-review summary in one command instead of stitching several endpoints._
 
@@ -128,29 +131,34 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli incident-detail 123456 --agent
   ```
+- **`escalation-queue`**  -  Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names: the environmental-issue backlog the incident queue does not show.
+
+  _Use in the morning sweep next to fleet-incidents so Defender-disabled and unwanted-access escalations do not sit unresolved._
+
+  ```bash
+  huntress-cli escalation-queue --severity critical --json
+  ```
 
 ### Partner ops and billing
-
-- **`billing-reconcile`**  -  Compares invoiced and subscribed seat counts against actually deployed agent counts per org and surfaces the delta.
+- **`billing-reconcile`**  -  Compares the seats on each account's latest invoice, summed, with the agents in the local mirror and reports the delta.
 
   _Run at monthly close to catch decommissioned-but-billed seats and under-billed new deployments._
 
   ```bash
   huntress-cli billing-reconcile --json
   ```
-- **`reseller-rollup`**  -  Per-account roll-up for resellers: invoice total, subscribed seats, and deployed agent count side by side.
+- **`reseller-rollup`**  -  Per-account roll-up for resellers: subscription count and products, minimum usage by product, deployed agent count, and deployed agents against the active EDR minimum.
 
-  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for per-org drift inside one account use billing-reconcile instead._
+  _Live-only: calls the API directly and requires reseller-scoped credentials (standard account keys get 401; no sync needed). Use at month close for multi-account resellers; for invoiced seats against deployed agents inside one account use billing-reconcile instead._
 
   ```bash
   huntress-cli reseller-rollup --json
   ```
 
 ### Local history that compounds
+- **`drift`**  -  Diffs the agent list against the snapshot its previous run saved: agents added, agents removed, and agents whose last callback has not moved since then.
 
-- **`drift`**  -  Diffs the current sync against the prior snapshot: new and removed agents, status flips, new criticals, and version changes.
-
-  _Use after each sync to see what changed across the fleet without re-reading every record._
+  _Run after each sync to see which agents were added, removed, or went quiet since the previous drift run._
 
   ```bash
   huntress-cli drift --entity agents --json
@@ -162,7 +170,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   huntress-cli mttr --group-by org --since 30d --json
   ```
-- **`handoff`**  -  Shift-change report of what changed (new criticals, resolutions, escalations) since a timestamp, ready to paste into a handoff note.
+- **`handoff`**  -  Shift-change report of what happened in a look-back window (new incidents, resolved incidents, new escalations), ready to paste into a handoff note.
 
   _Use at shift change so the next analyst sees exactly what moved during the prior shift._
 
@@ -171,6 +179,8 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Command Reference
+
+Commands below that change the tenant (create, update, delete, resolution, remediation approval or rejection, subscription changes) refuse to run without `--yes` or `--dry-run`. Preview first, for example `huntress-cli organizations update-parameters 12345 --name Acme --dry-run`, then run the same command with `--yes`.
 
 **account**  -  Operations about Accounts
 
@@ -273,6 +283,104 @@ These capabilities aren't available in any other tool for this API.
 - `huntress-cli unwanted-access-rules update-parameters`  -  Updates the schedule and notes on an existing Unwanted Access Rule.
 
 
+**billing-reconcile**
+
+
+- `huntress-cli billing-reconcile`  -  Compares the seats on each account's latest invoice, summed, with the agents in the local mirror and reports the delta.
+
+
+**blast-radius**
+
+
+- `huntress-cli blast-radius`  -  Given an indicator (IP, MAC, domain or hostname, file hash, or text fragment), finds the matching incident reports, agents, and external ports across every org - instant correlation during incident response.
+
+
+**canary-watch**
+
+
+- `huntress-cli canary-watch`  -  Surfaces only ransomware-canary and foothold incidents in a time window  -  the highest-signal early-ransomware indicators, fleet-wide.
+
+
+**coverage-gaps**
+
+
+- `huntress-cli coverage-gaps`  -  Per-org rollup of agent health: for each org with a gap, how many agents have a stale callback, an unreadable callback time, or Defender or firewall not reported healthy, worst-first.
+
+
+**drift**
+
+
+- `huntress-cli drift`  -  Diffs the agent list against the snapshot its previous run saved: agents added, agents removed, and agents whose last callback has not moved since then.
+
+
+**escalation-queue**
+
+
+- `huntress-cli escalation-queue`  -  Unresolved escalations across the fleet, critical first and oldest first, with hours open and the organizations each one names: the environmental-issue backlog the incident queue does not show.
+
+
+**fleet-incidents**
+
+
+- `huntress-cli fleet-incidents`  -  One unified, age-sorted incident queue across every client organization, with org names joined in  -  the morning-sweep view the dashboard can't give.
+
+
+**fleet-summary**
+
+
+- `huntress-cli fleet-summary`  -  One-screen fleet top-line: total orgs and agents, open incidents, open criticals, the oldest open critical's age, stale agents, and orgs with zero agents.
+
+
+**handoff**
+
+
+- `huntress-cli handoff`  -  Shift-change report of what happened in a look-back window (new incidents, resolved incidents, new escalations), ready to paste into a handoff note.
+
+
+**incident-detail**
+
+
+- `huntress-cli incident-detail`  -  See one incident fully enriched  -  its remediations, the affected agent, and the org name  -  in a single lookup.
+
+
+**mttr**
+
+
+- `huntress-cli mttr`  -  Computes mean time-to-resolve for incidents from sent-to-resolved timestamps, grouped by org or severity.
+
+
+**org-scorecard**
+
+
+- `huntress-cli org-scorecard`  -  Per-client QBR rollup for one org: agent count, open, closed and total incidents, and mean time-to-resolve.
+
+
+**reseller-rollup**
+
+
+- `huntress-cli reseller-rollup`  -  Per-account roll-up for resellers: subscription count and products, minimum usage by product, deployed agent count, and deployed agents against the active EDR minimum.
+
+
+**signal-digest**
+
+
+- `huntress-cli signal-digest`  -  Groups SOC signals by type and organization over a time window, with reported-versus-closed counts: what the Huntress SOC saw across the fleet.
+
+
+**stale-agents**
+
+
+- `huntress-cli stale-agents`  -  Lists agents whose last callback exceeds a threshold  -  decommissioned-but-billed machines or broken installs.
+
+
+**triage-age**
+
+
+- `huntress-cli triage-age`  -  SLA aging report: open incidents bucketed by hours open, each bucket broken out by severity; the oldest bucket is flagged as an SLA breach when any incident has aged into it.
+
+
+
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -284,7 +392,6 @@ huntress-cli which "<capability in your own words>"
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
-
 
 ### Cross-tenant critical queue
 
@@ -300,7 +407,7 @@ One age-sorted queue of every open critical across all client orgs.
 huntress-cli coverage-gaps --stale-days 7 --json
 ```
 
-Orgs and agents with stale callbacks or unhealthy Defender/firewall, rolled up per org.
+Per-org counts of agents with a stale callback or Defender or firewall not reported healthy, worst-first.
 
 ### Indicator correlation during IR
 
@@ -308,7 +415,7 @@ Orgs and agents with stale callbacks or unhealthy Defender/firewall, rolled up p
 huntress-cli blast-radius --indicator 203.0.113.7 --json
 ```
 
-Every agent, org, and incident touching an external IP, hash, or foothold.
+The incident reports, agents, and external ports, across every org, that match the IP, hash, or other indicator, each with how it matched.
 
 ### Trim verbose fleet-incident payloads
 
@@ -324,7 +431,7 @@ fleet-incidents joins org names and returns a wide row per incident; --agent wit
 huntress-cli billing-reconcile --json
 ```
 
-Invoiced/subscribed seats versus actually deployed agents per org, with the delta.
+Seats on each account's latest invoice, summed, versus the agents in the local mirror, with the delta (`invoiced_seats`, `deployed_agents`, `delta`).
 
 ## Auth Setup
 
@@ -340,7 +447,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -352,7 +459,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Explicit confirmation**  -  every command that changes the tenant (create, update, delete, incident resolution, remediation approval or rejection, subscription changes, `import`) refuses to run and sends nothing without `--yes` (send) or `--dry-run` (preview); the refusal exits 2 with `"confirmation_required": true` in the JSON envelope. `--agent` does not imply `--yes`; pass `--yes` only after the target, arguments, and side effects are clear
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
@@ -394,6 +501,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `HUNTRESS_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `HUNTRESS_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `HUNTRESS_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `HUNTRESS_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -621,10 +730,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -670,6 +779,8 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
+For a remote host, `huntress-mcp --transport http` requires `HUNTRESS_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`, and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. `HUNTRESS_MCP_READ_ONLY=1` lists only read-only tools: it removes `huntress_execute`, `sync`, `import`, `export`, `workflow_archive` and the learn-store writers (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_reject`, `learnings_forget`), 13 of the 42 tools, and `huntress_read` still refuses every state-changing endpoint.
+
 ## Direct Use
 
 1. Check if installed: `which huntress-cli`
@@ -679,4 +790,5 @@ Parse `$ARGUMENTS`:
    ```bash
    huntress-cli <command> [subcommand] [args] --agent
    ```
+   A command that changes the tenant refuses without `--yes` or `--dry-run`: run it with `--dry-run` first, show the user the previewed request, and add `--yes` only after they approve.
 4. If ambiguous, drill into subcommand help: `huntress-cli <command> --help`.

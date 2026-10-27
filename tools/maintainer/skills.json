@@ -977,7 +977,7 @@
       "category": "Security",
       "display_name": "Huntress",
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
-      "cli_hash": "sha256:e5f434ca215acaff946248e7260b6cde481c62f7bf70b1ca06552d371ce1a3f6",
+      "cli_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
       "template_version": 3,
       "version": "0.1.10",
       "cli_hash_at_release": "sha256:67800ebb70b3a1e948e1b865bc6cc2ccad76bd4ad77aed7c17b8c0d047bc36a9",
