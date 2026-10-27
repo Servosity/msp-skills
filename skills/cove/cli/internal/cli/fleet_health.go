@@ -21,6 +21,7 @@ type fleetPartnerHealth struct {
 	Failed   int    `json:"failed"`
 	Stale    int    `json:"stale"`
 	NeverRun int    `json:"never_run"`
+	Unknown  int    `json:"unknown"`
 }
 
 type fleetHealthView struct {
@@ -30,6 +31,7 @@ type fleetHealthView struct {
 	Failed       int                  `json:"failed"`
 	Stale        int                  `json:"stale"`
 	NeverRun     int                  `json:"never_run"`
+	Unknown      int                  `json:"unknown"`
 	InProgress   int                  `json:"in_progress"`
 	StaleDays    float64              `json:"stale_threshold_days"`
 	ByStatus     map[string]int       `json:"by_status"`
@@ -52,10 +54,14 @@ never-run devices, a by-status breakdown, and (with --by partner) a
 per-customer table.
 
 Every device lands in exactly one primary bucket (healthy, failed, stale,
-never-run), so the counts always sum to the total. Failures dominate: a
-failed-and-stale device counts as failed. A completed or in-progress device
-counts as stale when its last successful session is older than --stale-days.
-in_progress is reported as a separate overlay metric.
+never-run, unknown), so the counts always sum to the total. Failures
+dominate: a failed-and-stale device counts as failed. Failed covers every
+adverse last status: Failed, Aborted, Interrupted, CompletedWithErrors,
+OverQuota, NoSelection and InProgressWithFaults. A device is healthy only
+when its last session Completed (or is running) AND it has a successful
+session within --stale-days; otherwise it is stale. A recent success with a
+last status that was not reported, or that this build cannot name, counts
+as unknown, never healthy. in_progress is a separate overlay metric.
 `, "\n"),
 		Example: strings.Trim(`
   cove-cli fleet health --json
@@ -63,13 +69,13 @@ in_progress is reported as a separate overlay metric.
   cove-cli fleet health --stale-days 7 --partner-id 1234`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would aggregate fleet health across the partner tree")
-				return nil
+				return coveDryRun(cmd, flags, "would aggregate fleet health across the partner tree")
 			}
 			if by != "" && by != "partner" {
 				_ = cmd.Usage()
@@ -115,31 +121,33 @@ in_progress is reported as a separate overlay metric.
 				status, hasStatus := coverpc.SettingInt(s, coverpc.ColTotalLastStatus)
 				if hasStatus {
 					view.ByStatus[coverpc.StatusName(int(status))]++
+				} else {
+					view.ByStatus["NotReported"]++
 				}
+				class := coverpc.ClassifyStatus(status, hasStatus)
 				lastSuccess, hasSuccess := coverpc.SettingTime(s, coverpc.ColTotalLastSuccessTS)
 				isStale := !hasSuccess || now.Sub(lastSuccess) > staleCutoff
-				switch {
-				case hasStatus && status == 7:
-					view.NeverRun++
-					ph.NeverRun++
-				case hasStatus && coverpc.BadSessionStatuses[int(status)]:
-					view.Failed++
-					ph.Failed++
-				case hasStatus && (status == 1 || status == 9 || status == 12):
+				if class == coverpc.StatusRunning {
 					// In-progress is an overlay metric; the device still lands
 					// in exactly one primary bucket so totals reconcile.
 					view.InProgress++
-					if isStale {
-						view.Stale++
-						ph.Stale++
-					} else {
-						view.Healthy++
-						ph.Healthy++
-					}
+				}
+				switch {
+				case class == coverpc.StatusNeverRun:
+					view.NeverRun++
+					ph.NeverRun++
+				case class == coverpc.StatusAdverse:
+					view.Failed++
+					ph.Failed++
 				case isStale:
 					view.Stale++
 					ph.Stale++
-				default:
+				case class == coverpc.StatusUnknown:
+					// A recent success with a status nobody can vouch for is
+					// not positive evidence of health.
+					view.Unknown++
+					ph.Unknown++
+				default: // Succeeded or Running, with a recent success
 					view.Healthy++
 					ph.Healthy++
 				}

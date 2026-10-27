@@ -190,9 +190,14 @@ func TestFlattenSettings(t *testing.T) {
 			want: map[string]string{"I1": "host-1", "I14": "1048576"},
 		},
 		{
-			name: "array values keep first element",
-			in:   []any{map[string]any{"I78": []any{"D1,D2"}}},
-			want: map[string]string{"I78": "D1,D2"},
+			name: "array values keep every element",
+			in:   []any{map[string]any{"I78": []any{"D1,D2"}}, map[string]any{"I79": []any{"D1", "D2"}}},
+			want: map[string]string{"I78": "D1,D2", "I79": "D1,D2"},
+		},
+		{
+			name: "null is not reported",
+			in:   []any{map[string]any{"I14": nil}},
+			want: map[string]string{},
 		},
 		{
 			name: "non-list input yields empty map",

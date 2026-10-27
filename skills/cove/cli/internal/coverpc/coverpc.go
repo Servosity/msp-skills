@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,18 @@ type RPCError struct {
 	Data    int    `json:"data"`
 	Message string `json:"message"`
 	Method  string `json:"-"`
+	// codesWithheld is set when Code or Data repeats a credential this client
+	// holds: the numbers are server text too, so Error and DataText leave them
+	// out (Data still drives the hint and IsVisaError).
+	codesWithheld bool
+}
+
+// DataText is the vendor error number as it may be shown.
+func (e *RPCError) DataText() string {
+	if e.codesWithheld {
+		return "number withheld"
+	}
+	return strconv.Itoa(e.Data)
 }
 
 func (e *RPCError) Error() string {
@@ -78,9 +91,12 @@ func (e *RPCError) Error() string {
 	case ErrDataVisa:
 		hint = " (session expired or missing — run `cove-cli auth login`)"
 	case ErrDataBadCredentials:
-		hint = " (for an API User set COVE_PARTNER to the full customer/partner string shown in the Cove console customer dropdown — usually including the account email in parentheses, e.g. \"Acme Corp (admin@acme.com)\", not just the company name — COVE_USERNAME to its login name, and COVE_PASSWORD to its API token; Cove returns this same error for a wrong COVE_PARTNER format as for a bad password, and an empty COVE_PARTNER is the usual cause)"
+		hint = " (for an API User set COVE_PARTNER to the full customer/partner string shown in the Cove console customer dropdown — usually including the account email in parentheses, e.g. \"Acme Corp (admin@example.com)\", not just the company name — COVE_USERNAME to its login name, and COVE_PASSWORD to its API token; Cove returns this same error for a wrong COVE_PARTNER format as for a bad password, and an empty COVE_PARTNER is the usual cause)"
 	case ErrDataSecurity:
 		hint = " (the visa was accepted but this method was refused for security reasons — the API User's role may not permit it; verify the API User's role in the Cove console, or run the method through `cove-cli call <Method>`, which manages the session visa automatically)"
+	}
+	if e.codesWithheld {
+		return fmt.Sprintf("cove api error (numbers withheld) on %s: %s%s", e.Method, e.Message, hint)
 	}
 	return fmt.Sprintf("cove api error %d (data %d) on %s: %s%s", e.Code, e.Data, e.Method, e.Message, hint)
 }
@@ -113,9 +129,13 @@ type responseEnvelope struct {
 type session struct {
 	Visa    string    `json:"visa"`
 	SavedAt time.Time `json:"saved_at"`
-	// Username records which login the visa belongs to so a credential swap
-	// invalidates the cache instead of reusing another account's session.
+	// Username, Partner and Endpoint bind the visa to the login and the API
+	// endpoint it was issued for: a cache whose binding differs from the
+	// current credentials (or that predates the binding) is never reused, so
+	// another tenant's session cannot answer for this one.
 	Username string `json:"username,omitempty"`
+	Partner  string `json:"partner,omitempty"`
+	Endpoint string `json:"endpoint,omitempty"`
 	// PartnerID is the logged-in user's root partner, cached so commands can
 	// default their query scope without an extra login round-trip.
 	PartnerID int64 `json:"partner_id,omitempty"`
@@ -153,13 +173,17 @@ func New(baseURL string) *Client {
 	}
 	// refuseCrossOriginRedirect (redirect.go): every call's body carries the
 	// password or the session visa, so no hop may leave the configured origin.
-	return &Client{
+	c := &Client{
 		BaseURL:     baseURL,
 		HTTP:        &http.Client{Timeout: 60 * time.Second, CheckRedirect: refuseCrossOriginRedirect},
 		Creds:       CredentialsFromEnv(),
 		SessionPath: DefaultSessionPath(),
 		limiter:     cliutil.NewAdaptiveLimiter(4),
 	}
+	// The process-wide error backstops (CLI and MCP) withhold the API token
+	// from the moment a client exists.
+	cliutil.FunnelHold(c.Creds.Password)
+	return c
 }
 
 // DefaultSessionPath returns ~/.config/cove-cli/session.json.
@@ -179,8 +203,8 @@ func (c *Client) Visa(ctx context.Context) (string, error) {
 		return c.visa, nil
 	}
 	if s, err := c.loadSession(); err == nil && s.Visa != "" &&
-		time.Since(s.SavedAt) < sessionMaxAge && (s.Username == "" || s.Username == c.Creds.Username) {
-		c.visa = s.Visa
+		time.Since(s.SavedAt) < sessionMaxAge && c.sessionBound(s) {
+		c.setVisa(s.Visa)
 		if c.partnerID == 0 {
 			c.partnerID = s.PartnerID
 		}
@@ -211,7 +235,7 @@ func (c *Client) Login(ctx context.Context) (json.RawMessage, error) {
 	if visa == "" {
 		return nil, fmt.Errorf("login succeeded but the response carried no visa — cannot establish a session")
 	}
-	c.visa = visa
+	c.setVisa(visa)
 	if inner, ierr := InnerResult(result); ierr == nil {
 		var info struct {
 			PartnerID int64 `json:"PartnerId"`
@@ -265,7 +289,7 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 	}
 	if newVisa != "" && newVisa != c.visa {
 		// Cove rotates the visa on every response; keep the freshest.
-		c.visa = newVisa
+		c.setVisa(newVisa)
 		c.saveSession()
 	}
 	return result, nil
@@ -279,7 +303,14 @@ func (c *Client) CallAnonymous(ctx context.Context, method string, params any) (
 }
 
 func (c *Client) do(ctx context.Context, method string, params any, visa string) (json.RawMessage, string, error) {
-	c.limiter.Wait()
+	// Every request carries the password (Login) or the visa: refuse plaintext
+	// HTTP before anything is dialled.
+	if err := refusePlaintextOrigin(c.BaseURL); err != nil {
+		return nil, "", err
+	}
+	if err := c.limiter.Wait(ctx); err != nil {
+		return nil, "", err
+	}
 	reqBody, err := json.Marshal(envelope{
 		JSONRPC: "2.0",
 		ID:      "jsonrpc",
@@ -297,7 +328,7 @@ func (c *Client) do(ctx context.Context, method string, params any, visa string)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		if w := cliutil.FunnelWithhold(err.Error(), c.heldSecrets(visa)); cliutil.FunnelWithheld(w) {
+		if w := c.withhold(err.Error(), c.heldSecrets(visa)); cliutil.FunnelWithheld(w) {
 			return nil, "", fmt.Errorf("calling %s: %s", method, w)
 		}
 		return nil, "", fmt.Errorf("calling %s: %w", method, err)
@@ -316,14 +347,31 @@ func (c *Client) do(ctx context.Context, method string, params any, visa string)
 	}
 	var env responseEnvelope
 	if err := json.Unmarshal(body, &env); err != nil {
+		// The decoder's message quotes server text (a number it could not
+		// store), so it passes the funnel too.
+		err = c.shownErr(err, c.heldSecrets(append([]string{visa}, responseVisas(body)...)...))
 		return nil, "", fmt.Errorf("parsing %s response: %w: %s", method, err, c.shownBody(body, visa))
 	}
+	// Every credential this answer could repeat: the token, the visa this
+	// client holds, the visa it sent, and every visa the answer returned.
+	held := c.heldSecrets(append([]string{visa, env.Visa}, responseVisas(body)...)...)
 	if env.Error != nil {
 		env.Error.Method = method
-		if w := cliutil.FunnelWithhold(string(body), c.heldSecrets(visa)); cliutil.FunnelWithheld(w) {
+		// The message is the only server text an RPCError shows.
+		if w := c.withhold(env.Error.Message, held); cliutil.FunnelWithheld(w) {
 			env.Error.Message = w
 		}
+		for _, n := range []int{env.Error.Code, env.Error.Data} {
+			if cliutil.FunnelWithheld(c.withhold(strconv.Itoa(n), held)) {
+				env.Error.codesWithheld = true
+			}
+		}
 		return nil, env.Visa, env.Error
+	}
+	// Success data is server-controlled too: a result that repeats a held
+	// credential is refused before any command prints or stores it.
+	if cliutil.FunnelJSONEchoes(env.Result, held) {
+		return nil, env.Visa, fmt.Errorf("the %s answer repeated a credential this program holds, so it was withheld", method)
 	}
 	c.limiter.OnSuccess()
 	return env.Result, env.Visa, nil
@@ -354,8 +402,12 @@ func Rows(result json.RawMessage) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// UseNumber keeps every number exact (ColumnText renders it); a float64
+	// would round ids past 2^53 and print large values in e-notation.
+	dec := json.NewDecoder(bytes.NewReader(inner))
+	dec.UseNumber()
 	rows := make([]map[string]any, 0)
-	if err := json.Unmarshal(inner, &rows); err != nil {
+	if err := dec.Decode(&rows); err != nil {
 		return nil, fmt.Errorf("decoding enumeration rows: %w", err)
 	}
 	return rows, nil
@@ -363,8 +415,9 @@ func Rows(result json.RawMessage) ([]map[string]any, error) {
 
 // FlattenSettings converts an EnumerateAccountStatistics "Settings" value —
 // a list of single-key objects like [{"I1":"name"},{"I14":"123"}] — into one
-// flat map. Values arrive as strings or arrays of strings; arrays keep their
-// first element (Cove uses arrays for multi-valued columns).
+// flat map, every value rendered by ColumnText (the one shared parser): a
+// multi-valued column keeps every value, joined by ",", and a number keeps its
+// exact decimal form. A null value is left out (not reported).
 func FlattenSettings(settings any) map[string]string {
 	flat := map[string]string{}
 	list, ok := settings.([]any)
@@ -377,21 +430,24 @@ func FlattenSettings(settings any) map[string]string {
 			continue
 		}
 		for k, v := range obj {
-			switch val := v.(type) {
-			case string:
-				flat[k] = val
-			case float64:
-				flat[k] = fmt.Sprintf("%v", val)
-			case []any:
-				if len(val) > 0 {
-					flat[k] = fmt.Sprintf("%v", val[0])
-				}
-			default:
-				flat[k] = fmt.Sprintf("%v", val)
+			if text, ok := ColumnText(v); ok {
+				flat[k] = text
 			}
 		}
 	}
 	return flat
+}
+
+// CachedVisa is the visa in the default session cache ("" when there is
+// none), whatever login or endpoint it is bound to: for a process that must
+// withhold a visa it never logged in with (the MCP server's error backstop,
+// whose CLI children write that cache).
+func CachedVisa() string {
+	s, err := (&Client{SessionPath: DefaultSessionPath()}).loadSession()
+	if err != nil {
+		return ""
+	}
+	return s.Visa
 }
 
 func (c *Client) loadSession() (session, error) {
@@ -414,7 +470,7 @@ func (c *Client) saveSession() {
 	if err := os.MkdirAll(filepath.Dir(c.SessionPath), 0o700); err != nil {
 		return
 	}
-	data, err := json.Marshal(session{Visa: c.visa, SavedAt: time.Now().UTC(), Username: c.Creds.Username, PartnerID: c.partnerID})
+	data, err := json.Marshal(session{Visa: c.visa, SavedAt: time.Now().UTC(), Username: c.Creds.Username, Partner: c.Creds.Partner, Endpoint: c.Endpoint(), PartnerID: c.partnerID})
 	if err != nil {
 		return
 	}
@@ -438,7 +494,7 @@ func (c *Client) ClearSession() error {
 // cached on disk.
 func (c *Client) SessionAge() (time.Duration, bool) {
 	s, err := c.loadSession()
-	if err != nil || s.Visa == "" {
+	if err != nil || s.Visa == "" || !c.sessionBound(s) {
 		return 0, false
 	}
 	return time.Since(s.SavedAt), true
@@ -456,8 +512,8 @@ func (c *Client) heldSecrets(extra ...string) []string {
 // funnel decodes, before the 300-byte cut, and the cut text again as shown. A
 // held value too short for the decoded check is masked as written.
 func (c *Client) shownBody(body []byte, extra ...string) string {
-	held := c.heldSecrets(extra...)
-	if w := cliutil.FunnelWithhold(string(body), held); cliutil.FunnelWithheld(w) {
+	held := c.heldSecrets(append(extra, responseVisas(body)...)...)
+	if w := c.withhold(string(body), held); cliutil.FunnelWithheld(w) {
 		return w
 	}
 	text := truncate(body, 300)
@@ -466,7 +522,38 @@ func (c *Client) shownBody(body []byte, extra ...string) string {
 			text = strings.ReplaceAll(text, v, "****")
 		}
 	}
-	return cliutil.FunnelWithhold(text, held)
+	return c.withhold(text, held)
+}
+
+// shownErr is err, or an error carrying only the funnel's withheld notice
+// when err's text repeats one of held.
+func (c *Client) shownErr(err error, held []string) error {
+	if w := c.withhold(err.Error(), held); cliutil.FunnelWithheld(w) {
+		return errors.New(w)
+	}
+	return err
+}
+
+// withhold is the one funnel every piece of server text passes before it is
+// shown: cliutil.FunnelWithhold's decoded views plus every short credential
+// as written or encoded (cliutil.FunnelWithholdAll).
+func (c *Client) withhold(text string, held []string) string {
+	return cliutil.FunnelWithholdAll(text, held)
+}
+
+// setVisa records a visa this client now holds, for the process-wide error
+// backstops too.
+func (c *Client) setVisa(visa string) {
+	c.visa = visa
+	cliutil.FunnelHold(visa)
+}
+
+// sessionBound reports whether a cached session was issued for this client's
+// login (partner and username) at this client's endpoint. A cache written
+// before the binding existed carries none and is never reused.
+func (c *Client) sessionBound(s session) bool {
+	return s.Endpoint != "" && s.Endpoint == c.Endpoint() &&
+		s.Username == c.Creds.Username && s.Partner == c.Creds.Partner
 }
 
 func truncate(b []byte, n int) string {

@@ -44,7 +44,7 @@
       "command": "cove-cli billing usage --csv"
     },
     {
-      "question": "Which device SKUs or seat counts changed since last month?",
+      "question": "Which device SKUs changed since last month?",
       "command": "cove-cli billing changes --json"
     },
     {
@@ -57,7 +57,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running cove-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host cove-mcp in HTTP mode: it refuses to start until COVE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -73,7 +73,7 @@
     },
     {
       "q": "What kind of Cove account does it need?",
-      "a": "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@acme.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
+      "a": "A dedicated API User, created in the Cove Management Console under Users > API Users. It issues a login name and an API token (shown only once); API Users can use the JSON-RPC API but cannot sign in to the console. Set COVE_USERNAME to the API user's login name, COVE_PASSWORD to the API token, and COVE_PARTNER to the customer/partner it was created for (required for API Users). COVE_PARTNER must be the full customer/partner string exactly as shown in the Cove console customer dropdown - usually including the account email in parentheses, e.g. Acme Corp (admin@example.com), not just the company name; Cove returns the same Unknown partner/username or bad password error for a wrong format as for a bad password. The skill exchanges them for a cached session visa and refreshes it automatically. N-able retired the older per-user API access checkbox."
     },
     {
       "q": "Can it restore files or browse backed-up data?",

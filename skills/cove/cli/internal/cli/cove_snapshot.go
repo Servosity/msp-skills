@@ -14,7 +14,7 @@ import (
 )
 
 // newCoveSnapshotCmd captures one timestamped fleet snapshot into local
-// SQLite — the history layer behind `storage growth` and `devices changes`.
+// SQLite: the history layer behind `storage growth` and `devices changes`.
 func newCoveSnapshotCmd(flags *rootFlags) *cobra.Command {
 	var partnerID int64
 	var pageSize int
@@ -27,8 +27,11 @@ func newCoveSnapshotCmd(flags *rootFlags) *cobra.Command {
 Walks EnumerateAccountStatistics under your root partner (or --partner-id)
 and stores one timestamped row per device: name, customer, used storage,
 last session status, last success time, SKU, previous-month SKU, M365 seat
-counts, plus the full column map. The Cove console keeps no history — two or
+counts, plus the full column map. The Cove console keeps no history; two or
 more snapshots are what make 'storage growth' and 'devices changes' work.
+A device whose AccountId is not an exact integer cannot be matched between
+snapshots, so it is not stored: it is counted in unidentified_devices and the
+snapshot is marked incomplete.
 `, "\n"),
 		Example: strings.Trim(`
   cove-cli snapshot
@@ -36,13 +39,13 @@ more snapshots are what make 'storage growth' and 'devices changes' work.
   cove-cli snapshot --max-scan-pages 20   # fleets beyond ~3000 devices`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "false",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would capture a fleet statistics snapshot into local SQLite")
-				return nil
+				return coveDryRun(cmd, flags, "would capture a fleet statistics snapshot into local SQLite")
 			}
 			c, err := newCoveRPC(flags)
 			if err != nil {
@@ -62,7 +65,14 @@ more snapshots are what make 'storage growth' and 'devices changes' work.
 				return apiErr(err)
 			}
 			rows := make([]store.CoveDeviceStat, 0, len(devices))
+			unidentified := 0
 			for _, d := range devices {
+				if !d.AccountKnown {
+					// Stored as account 0 it would overwrite every other
+					// unidentified device and be diffed as one device.
+					unidentified++
+					continue
+				}
 				s := d.Settings
 				row := store.CoveDeviceStat{
 					AccountID:    d.AccountID,
@@ -73,7 +83,7 @@ more snapshots are what make 'storage growth' and 'devices changes' work.
 					PrevSKU:      s[coverpc.ColPrevSKU],
 					SettingsJSON: store.MarshalSettings(s),
 				}
-				if v, ok := coverpc.SettingInt(s, coverpc.ColUsedStorage); ok {
+				if v, ok := coverpc.SettingCount(s, coverpc.ColUsedStorage); ok {
 					row.UsedStorage = v
 				}
 				if v, ok := coverpc.SettingInt(s, coverpc.ColTotalLastStatus); ok {
@@ -93,7 +103,12 @@ more snapshots are what make 'storage growth' and 'devices changes' work.
 			}
 			defer db.Close()
 			takenAt := time.Now().UTC()
-			snapID, err := db.InsertCoveSnapshot(cmd.Context(), takenAt, root, rows)
+			complete := !capHit && unidentified == 0
+			snapID, err := db.InsertCoveSnapshotScoped(cmd.Context(), takenAt, store.CoveSnapshotScope{
+				RootPartnerID: root,
+				Endpoint:      c.Endpoint(),
+				Complete:      complete,
+			}, rows)
 			if err != nil {
 				return fmt.Errorf("writing snapshot: %w", err)
 			}
@@ -102,17 +117,28 @@ more snapshots are what make 'storage growth' and 'devices changes' work.
 				TakenAt       string `json:"taken_at"`
 				RootPartnerID int64  `json:"root_partner_id"`
 				Devices       int    `json:"devices"`
+				Complete      bool   `json:"complete"`
+				Unidentified  int    `json:"unidentified_devices,omitempty"`
 				scanCapFields
 			}{
 				SnapshotID:    snapID,
 				TakenAt:       takenAt.Format(time.RFC3339),
 				RootPartnerID: root,
 				Devices:       len(rows),
+				Complete:      complete,
+				Unidentified:  unidentified,
 				scanCapFields: scanCapFields{
 					ScannedDevices: scanned,
 					MaxScanPages:   effectiveMaxPages(maxScanPages),
 					Note:           scanCapNote(capHit, scanned, effectiveMaxPages(maxScanPages), "snapshot"),
 				},
+			}
+			if unidentified > 0 {
+				note := fmt.Sprintf("%d devices had no readable AccountId and were not stored, so this snapshot is marked incomplete (added and removed devices are not reported against it)", unidentified)
+				if view.Note != "" {
+					note = view.Note + "; " + note
+				}
+				view.Note = note
 			}
 			return flags.printJSON(cmd, view)
 		},

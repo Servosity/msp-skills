@@ -124,11 +124,6 @@
    "read-only",
    "local-data"
   ],
-  "cove": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "crowdstrike": [
    "mcp-stdio",
    "mcp-http",

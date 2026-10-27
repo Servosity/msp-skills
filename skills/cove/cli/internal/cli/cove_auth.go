@@ -27,7 +27,7 @@ API user's login name, COVE_PASSWORD to its API token, and COVE_PARTNER to the
 customer the API user was created for (COVE_PARTNER is required for API Users),
 then run 'auth login'. COVE_PARTNER must be the full customer/partner string
 exactly as shown in the Cove console customer dropdown — usually including the
-account email in parentheses, e.g. "Acme Corp (admin@acme.com)", not just the
+account email in parentheses, e.g. "Acme Corp (admin@example.com)", not just the
 company name. Cove returns the same "Unknown partner/username or bad password"
 error for a wrong COVE_PARTNER format as for a bad password. The API token is the
 password, not a visa, and is never sent as a header. The returned session token
@@ -54,14 +54,13 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Use:   "login",
 		Short: "Log in with COVE_USERNAME/COVE_PASSWORD and cache the session visa",
 		Example: strings.Trim(`
-  export COVE_PARTNER="Acme Corp (admin@acme.com)" COVE_USERNAME=api-user COVE_PASSWORD=...   # full dropdown string; API user creds, once per shell
+  export COVE_PARTNER="Acme Corp (admin@example.com)" COVE_USERNAME=api-user COVE_PASSWORD=...   # full dropdown string; API user creds, once per shell
   cove-cli auth login
   cove-cli auth login --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
+		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would call JSON-RPC Login with COVE_USERNAME/COVE_PASSWORD and cache the visa")
-				return nil
+				return coveDryRun(cmd, flags, "would call JSON-RPC Login with COVE_USERNAME/COVE_PASSWORD and cache the visa")
 			}
 			c, err := newCoveRPC(flags)
 			if err != nil {
@@ -69,7 +68,7 @@ func newCoveAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !c.Creds.Present() {
 				_ = cmd.Usage()
-				return usageErr(fmt.Errorf("COVE_USERNAME (API user login) and COVE_PASSWORD (API token) must be set; set COVE_PARTNER to the full customer/partner string from the Cove console dropdown (usually including the account email in parentheses, e.g. \"Acme Corp (admin@acme.com)\") when using an API User"))
+				return usageErr(fmt.Errorf("COVE_USERNAME (API user login) and COVE_PASSWORD (API token) must be set; set COVE_PARTNER to the full customer/partner string from the Cove console dropdown (usually including the account email in parentheses, e.g. \"Acme Corp (admin@example.com)\") when using an API User"))
 			}
 			result, err := c.Login(cmd.Context())
 			if err != nil {
@@ -104,13 +103,12 @@ func newCoveAuthStatusCmd(flags *rootFlags) *cobra.Command {
 		Use:         "status",
 		Short:       "Show cached session state without printing secrets",
 		Example:     "  cove-cli auth status --json",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would report cached Cove session state")
-				return nil
+				return coveDryRun(cmd, flags, "would report cached Cove session state")
 			}
-			c, err := newCoveRPC(flags)
+			c, err := newCoveRPCLocal(flags)
 			if err != nil {
 				return err
 			}
@@ -148,12 +146,14 @@ hand. The visa Cove rotates on every response, so a token captured here is a
 point-in-time snapshot. The visa is a short-lived session secret — avoid writing
 it to logs.
 `, "\n"),
-		Example:     "  cove-cli server info --visa \"$(cove-cli auth token)\"",
-		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
+		Example: "  cove-cli server --visa \"$(cove-cli auth token)\"",
+		// mcp:hidden: the visa is a session credential; over MCP it would land
+		// in the agent's transcript. MCP callers use the call tool, which
+		// injects the visa itself.
+		Annotations: map[string]string{"mcp:hidden": "true", "mcp:read-only": "false", "pp:requires-tier": "credentials", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would print a fresh session visa")
-				return nil
+				return coveDryRun(cmd, flags, "would print a fresh session visa")
 			}
 			c, err := newCoveRPC(flags)
 			if err != nil {
@@ -176,13 +176,12 @@ func newCoveAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 		Use:         "logout",
 		Short:       "Delete the cached session visa",
 		Example:     "  cove-cli auth logout",
-		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials"},
+		Annotations: map[string]string{"mcp:read-only": "false", "pp:requires-tier": "credentials", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would delete the cached session visa")
-				return nil
+				return coveDryRun(cmd, flags, "would delete the cached session visa")
 			}
-			c, err := newCoveRPC(flags)
+			c, err := newCoveRPCLocal(flags)
 			if err != nil {
 				return err
 			}

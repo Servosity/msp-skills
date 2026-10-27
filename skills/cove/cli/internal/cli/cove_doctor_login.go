@@ -31,9 +31,12 @@ func coveDoctorLogin(ctx context.Context, baseURL string, timeout time.Duration)
 		c.HTTP.Timeout = timeout
 	}
 	if _, err := c.Login(ctx); err != nil {
+		if errors.Is(err, coverpc.ErrPlaintextCredentials) {
+			return "not probed (plaintext HTTP); use https"
+		}
 		var rpcErr *coverpc.RPCError
 		if errors.As(err, &rpcErr) {
-			return fmt.Sprintf("ERROR Login refused (Cove error %d); check COVE_PARTNER (the full customer string from the console dropdown), COVE_USERNAME and COVE_PASSWORD, then run `cove-cli auth login`", rpcErr.Data)
+			return fmt.Sprintf("ERROR Login refused (Cove error %s); check COVE_PARTNER (the full customer string from the console dropdown), COVE_USERNAME and COVE_PASSWORD, then run `cove-cli auth login`", rpcErr.DataText())
 		}
 		return "ERROR Login failed: no Cove JSON-RPC session came back; check COVE_BASE_URL and run `cove-cli auth login` for the full error"
 	}

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"cove-pp-cli/internal/cliutil"
+	"cove-pp-cli/internal/cliutil/testenv"
 	"cove-pp-cli/internal/config"
 )
 
@@ -25,9 +27,7 @@ var redirectTestCredentials = map[string]string{
 
 func newRedirectTestClient(t *testing.T) *Client {
 	t.Helper()
-	for _, k := range []string{"HOME", "USERPROFILE", "XDG_CACHE_HOME"} {
-		t.Setenv(k, t.TempDir())
-	}
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	cfg := &config.Config{
 		BaseURL:       "https://api.example.test",
 		AuthHeaderVal: "primary-credential",
@@ -59,7 +59,6 @@ func TestRedirectLeavingTheOriginStripsEveryCredential(t *testing.T) {
 	for _, to := range []string{
 		"https://elsewhere.example.test/x", // another host
 		"https://api.example.test:8443/x",  // same hostname, another port: Go keeps Authorization here
-		"http://api.example.test/x",        // https down to http
 	} {
 		next, via := redirectTestHop(t, http.MethodGet, "https://api.example.test/v1/items", to)
 		if err := c.HTTPClient.CheckRedirect(next, via); err != nil {
@@ -73,6 +72,16 @@ func TestRedirectLeavingTheOriginStripsEveryCredential(t *testing.T) {
 		if next.Header.Get("Accept") == "" {
 			t.Errorf("redirect to %s also dropped Accept, which carries no credential", to)
 		}
+	}
+}
+
+// Press 4.34.0 refuses an https-to-http hop outright, which is stronger than
+// stripping its credentials: nothing is sent in plaintext at all.
+func TestRedirectDowngradeToPlaintextIsRefused(t *testing.T) {
+	c := newRedirectTestClient(t)
+	next, via := redirectTestHop(t, http.MethodGet, "https://api.example.test/v1/items", "http://api.example.test/x")
+	if err := c.HTTPClient.CheckRedirect(next, via); err == nil {
+		t.Fatal("an https to http redirect was followed")
 	}
 }
 

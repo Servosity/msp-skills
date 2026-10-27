@@ -1,0 +1,780 @@
+{
+  "api_name": "cove",
+  "base_url": "https://api.backup.management",
+  "description": "Fleet-wide Cove backup health, billing usage and storage trends, with local history.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "none"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "audit_list",
+      "description": "Enumerate audit actions in a time range (JSON-RPC EnumerateAuditActions). Optional: jsonrpc (default: 2.0), method (default: EnumerateAuditActions), id (default: 1) (plus 2 more). Returns array of AuditAction.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-action-info",
+          "wire_name": "params.actionInfo",
+          "type": "object",
+          "location": "body",
+          "description": "Filter template (entity/operation/result), usually {}"
+        },
+        {
+          "name": "params-from",
+          "wire_name": "params.from",
+          "type": "int",
+          "location": "body",
+          "description": "Range start as Unix seconds"
+        },
+        {
+          "name": "params-to",
+          "wire_name": "params.to",
+          "type": "int",
+          "location": "body",
+          "description": "Range end as Unix seconds"
+        },
+        {
+          "name": "params-count-limit",
+          "wire_name": "params.countLimit",
+          "type": "int",
+          "location": "body",
+          "description": "Max rows"
+        },
+        {
+          "name": "params-include-all-sub-partners",
+          "wire_name": "params.includeAllSubPartners",
+          "type": "bool",
+          "location": "body",
+          "description": "Include the whole subtree"
+        },
+        {
+          "name": "params-reverse-order",
+          "wire_name": "params.reverseOrder",
+          "type": "bool",
+          "location": "body",
+          "description": "Newest first"
+        }
+      ]
+    },
+    {
+      "name": "backup-jobs_list",
+      "description": "Enumerate jobs for a partner (JSON-RPC EnumerateJobs). Optional: jsonrpc (default: 2.0), method (default: EnumerateJobs), id (default: 1) (plus 2 more). Returns array of JobInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "columns_list",
+      "description": "Enumerate custom statistic columns visible to a partner (JSON-RPC EnumerateColumns). Optional: jsonrpc (default: 2.0), method (default: EnumerateColumns), id (default: 1) (plus 2 more). Returns array of ColumnInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Get one device by id (JSON-RPC GetAccountInfoById). Optional: jsonrpc (default: 2.0), method (default: GetAccountInfoById), id (default: 1) (plus 2 more). Returns the new AccountInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-account-id",
+          "wire_name": "params.accountId",
+          "type": "int",
+          "location": "body",
+          "description": "Device (account) id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Enumerate backup devices for a partner (JSON-RPC EnumerateAccounts). Optional: jsonrpc (default: 2.0), method (default: EnumerateAccounts), id (default: 1) (plus 2 more). Returns array of AccountInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id whose devices to list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_stats",
+      "description": "Query device statistics by column codes (JSON-RPC EnumerateAccountStatistics; see README column-code legend). Optional: jsonrpc (default: 2.0), method (default: EnumerateAccountStatistics), id (default: 1) (plus 2 more). Returns array of AccountStatisticsRow.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-query-partner-id",
+          "wire_name": "params.query.PartnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id to query under",
+          "required": true
+        },
+        {
+          "name": "params-query-filter",
+          "wire_name": "params.query.Filter",
+          "type": "string",
+          "location": "body",
+          "description": "Console filter expression, e.g. 'D1F00 == 2' (Files \u0026 Folders last session failed)"
+        },
+        {
+          "name": "params-query-selection-mode",
+          "wire_name": "params.query.SelectionMode",
+          "type": "string",
+          "location": "body",
+          "description": "Merged | PerInstallation | Count"
+        },
+        {
+          "name": "params-query-start-record-number",
+          "wire_name": "params.query.StartRecordNumber",
+          "type": "int",
+          "location": "body",
+          "description": "Paging offset"
+        },
+        {
+          "name": "params-query-records-count",
+          "wire_name": "params.query.RecordsCount",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        },
+        {
+          "name": "params-query-order-by",
+          "wire_name": "params.query.OrderBy",
+          "type": "string",
+          "location": "body",
+          "description": "Column code to order by, e.g. 'I1' (device name)"
+        },
+        {
+          "name": "params-query-columns",
+          "wire_name": "params.query.Columns",
+          "type": "array",
+          "location": "body",
+          "description": "Column codes to return, e.g. ['I0','I1','I8','D9F00','F09']"
+        }
+      ]
+    },
+    {
+      "name": "labels_list",
+      "description": "Enumerate all device labels (JSON-RPC EnumerateAllLabels). Optional: jsonrpc (default: 2.0), method (default: EnumerateAllLabels), id (default: 1) (plus 1 more). Returns array of LabelInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        }
+      ]
+    },
+    {
+      "name": "locations_list",
+      "description": "Enumerate data-center locations (JSON-RPC EnumerateLocations). Optional: jsonrpc (default: 2.0), method (default: EnumerateLocations), id (default: 1) (plus 1 more). Returns array of LocationInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        }
+      ]
+    },
+    {
+      "name": "partners_get",
+      "description": "Get one partner by id (JSON-RPC GetPartnerInfoById). Optional: jsonrpc (default: 2.0), method (default: GetPartnerInfoById), id (default: 1) (plus 2 more). Returns the new PartnerInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "partners_list",
+      "description": "Enumerate partners under a parent (JSON-RPC EnumeratePartners). Optional: jsonrpc (default: 2.0), method (default: EnumeratePartners), id (default: 1) (plus 2 more). Returns array of PartnerInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-parent-partner-id",
+          "wire_name": "params.parentPartnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id to enumerate under (your root partner id)"
+        },
+        {
+          "name": "params-fetch-recursively",
+          "wire_name": "params.fetchRecursively",
+          "type": "bool",
+          "location": "body",
+          "description": "Include the whole subtree, not just direct children"
+        },
+        {
+          "name": "params-fields",
+          "wire_name": "params.fields",
+          "type": "array",
+          "location": "body",
+          "description": "PartnerField ids to return, e.g. [0,1,3,5,8,9,10,18,20]"
+        }
+      ]
+    },
+    {
+      "name": "products_list",
+      "description": "Enumerate products (JSON-RPC EnumerateProducts). Optional: jsonrpc (default: 2.0), method (default: EnumerateProducts), id (default: 1) (plus 2 more). Returns array of ProductInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        },
+        {
+          "name": "params-current-partner-only",
+          "wire_name": "params.currentPartnerOnly",
+          "type": "bool",
+          "location": "body",
+          "description": "Only products defined directly on this partner"
+        }
+      ]
+    },
+    {
+      "name": "server_info",
+      "description": "Get management server info (JSON-RPC GetServerInfo). Optional: jsonrpc (default: 2.0), method (default: GetServerInfo), id (default: 1) (plus 1 more). Returns the new ServerInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        }
+      ]
+    },
+    {
+      "name": "storage_list",
+      "description": "Enumerate storage pools for a partner (JSON-RPC EnumerateStorages). Optional: jsonrpc (default: 2.0), method (default: EnumerateStorages), id (default: 1) (plus 2 more). Returns array of StorageInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "storage_nodes",
+      "description": "Enumerate all storage nodes (JSON-RPC EnumerateAllStorageNodes). Optional: jsonrpc (default: 2.0), method (default: EnumerateAllStorageNodes), id (default: 1) (plus 1 more). Returns array of StorageNodeInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        }
+      ]
+    },
+    {
+      "name": "storage_stats",
+      "description": "Storage usage statistics per location (JSON-RPC EnumerateStorageStatistics). Optional: jsonrpc (default: 2.0), method (default: EnumerateStorageStatistics), id (default: 1) (plus 2 more). Returns array of StorageStatInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-id",
+          "wire_name": "params.partnerId",
+          "type": "int",
+          "location": "body",
+          "description": "Partner id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Enumerate users for partners (JSON-RPC EnumerateUsers). Optional: jsonrpc (default: 2.0), method (default: EnumerateUsers), id (default: 1) (plus 2 more). Returns array of UserInfo.",
+      "method": "POST",
+      "path": "/jsonapi",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "jsonrpc",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC protocol version (leave at 2.0)"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-RPC method name (leave at default)"
+        },
+        {
+          "name": "id",
+          "type": "int",
+          "location": "body",
+          "description": "JSON-RPC request id"
+        },
+        {
+          "name": "visa",
+          "type": "string",
+          "location": "body",
+          "description": "Session token; pass --visa '$(cove-pp-cli auth token)'"
+        },
+        {
+          "name": "params-partner-ids",
+          "wire_name": "params.partnerIds",
+          "type": "array",
+          "location": "body",
+          "description": "Partner ids, e.g. [123456]",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Storage growth / drift",
+      "command": "storage growth",
+      "description": "See which devices and customers are growing their backup storage fastest, from timestamped local snapshots."
+    },
+    {
+      "name": "Fleet failure sweep",
+      "command": "devices failures",
+      "description": "Every device across all customers whose last backup session failed, aborted, errored, had no selection, never started or reported an unrecognised status, decoded to status names."
+    },
+    {
+      "name": "Stale-device triage",
+      "command": "devices stale",
+      "description": "Devices with no successful backup in N days, ranked by staleness and grouped by customer."
+    },
+    {
+      "name": "Status drift / what-changed",
+      "command": "devices changes",
+      "description": "Devices whose backup status flipped between the two latest snapshots of the same partner tree: regressions and recoveries without re-sweeping the fleet."
+    },
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One-screen rollup: total devices, healthy, failed, stale, never-run and unknown status, with a per-customer breakdown."
+    },
+    {
+      "name": "Billing usage report",
+      "command": "billing usage",
+      "description": "Per-device SKU, used storage, and M365 seat counts with column codes decoded — the month-end billing export in one command."
+    },
+    {
+      "name": "SKU change / billing delta",
+      "command": "billing changes",
+      "description": "Devices whose plan changed since last month — current SKU vs Cove's built-in previous-month SKU column."
+    },
+    {
+      "name": "Data-source coverage",
+      "command": "devices sources",
+      "description": "Which data sources each device protects (Files, System State, SQL, Hyper-V, Microsoft 365), decoded fleet-wide, with a filter for devices missing one."
+    },
+    {
+      "name": "Console activity digest",
+      "command": "fleet activity",
+      "description": "Who did what in the Cove console: audit-trail actions grouped by user and operation across every sub-partner, with a breakdown by result."
+    }
+  ]
+}

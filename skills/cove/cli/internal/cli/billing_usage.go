@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -14,25 +15,31 @@ import (
 )
 
 type billingUsageItem struct {
-	AccountID        int64   `json:"account_id"`
-	DeviceName       string  `json:"device_name"`
-	Customer         string  `json:"customer"`
-	Product          string  `json:"product"`
-	SKU              string  `json:"sku"`
-	PrevSKU          string  `json:"prev_sku,omitempty"`
-	UsedStorageBytes int64   `json:"used_storage_bytes"`
-	UsedStorageGB    float64 `json:"used_storage_gb"`
-	M365ExchangeSeat int64   `json:"m365_exchange_licenses,omitempty"`
-	M365ExchangeBox  int64   `json:"m365_exchange_mailboxes,omitempty"`
-	M365OneDriveSeat int64   `json:"m365_onedrive_licenses,omitempty"`
+	AccountID  int64  `json:"account_id"`
+	DeviceName string `json:"device_name"`
+	Customer   string `json:"customer"`
+	Product    string `json:"product"`
+	SKU        string `json:"sku"`
+	PrevSKU    string `json:"prev_sku,omitempty"`
+	// UsedStorageBytes and UsedStorageGB are null when Cove did not report
+	// used storage as an exact non-negative integer: never billed as 0.
+	UsedStorageBytes *int64   `json:"used_storage_bytes"`
+	UsedStorageGB    *float64 `json:"used_storage_gb"`
+	M365ExchangeSeat int64    `json:"m365_exchange_licenses,omitempty"`
+	M365ExchangeBox  int64    `json:"m365_exchange_mailboxes,omitempty"`
+	M365OneDriveSeat int64    `json:"m365_onedrive_licenses,omitempty"`
 }
 
 type billingUsageView struct {
-	PartnerID      int64              `json:"partner_id"`
-	Items          []billingUsageItem `json:"items"`
-	TotalDevices   int                `json:"total_devices"`
-	TotalStorageGB float64            `json:"total_storage_gb"`
-	TotalM365Seats int64              `json:"total_m365_licenses"`
+	PartnerID         int64              `json:"partner_id"`
+	Items             []billingUsageItem `json:"items"`
+	TotalDevices      int                `json:"total_devices"`
+	TotalStorageBytes int64              `json:"total_storage_bytes"`
+	TotalStorageGB    float64            `json:"total_storage_gb"`
+	TotalM365Seats    int64              `json:"total_m365_licenses"`
+	// StorageUnreported counts devices left out of the storage totals
+	// because their used storage was not reported.
+	StorageUnreported int `json:"storage_unreported,omitempty"`
 	scanCapFields
 }
 
@@ -41,28 +48,31 @@ func newNovelBillingUsageCmd(flags *rootFlags) *cobra.Command {
 	var maxScanPages int
 	cmd := &cobra.Command{
 		Use:   "usage",
-		Short: "Per-device SKU, used storage, and M365 seats — the month-end billing export",
+		Short: "Per-device SKU, used storage, and M365 seats: the month-end billing export",
 		Long: strings.Trim(`
-Pulls the billing column preset — SKU (I57), previous-month SKU (I58), used
-storage (I14), and Microsoft 365 seat counts (D19F13/D19F20/D20F13) — for
+Pulls the billing column preset (SKU (I57), previous-month SKU (I58), used
+storage (I14), and Microsoft 365 seat counts (D19F13/D19F20/D20F13)) for
 every device under the partner tree, decoded to human names. Replaces the
-per-partner PowerShell report scripts with one cross-tree call.
+per-partner PowerShell report scripts with one cross-tree call. A device whose
+used storage is not reported as an exact non-negative integer shows null
+storage, never 0, and is counted in storage_unreported and left out of the
+storage totals.
 
 Use this command for the CURRENT-period billing snapshot. Do NOT use it to
 find what changed since last month; use 'billing changes' instead.
 `, "\n"),
 		Example: strings.Trim(`
-  cove-cli billing usage --csv > usage.csv
-  cove-cli billing usage --json --select items.customer,items.sku,items.used_storage_gb`, "\n"),
+  cove-cli billing usage --json --select items.customer,items.sku,items.used_storage_gb
+  cove-cli billing usage --csv > usage.csv`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would export per-device SKU, storage, and M365 seat usage")
-				return nil
+				return coveDryRun(cmd, flags, "would export per-device SKU, storage, and M365 seat usage")
 			}
 			c, err := newCoveRPC(flags)
 			if err != nil {
@@ -95,22 +105,29 @@ find what changed since last month; use 'billing changes' instead.
 					SKU:        s[coverpc.ColSKU],
 					PrevSKU:    s[coverpc.ColPrevSKU],
 				}
-				if v, ok := coverpc.SettingInt(s, coverpc.ColUsedStorage); ok {
-					item.UsedStorageBytes = v
-					item.UsedStorageGB = float64(int(float64(v)/1e9*100)) / 100
+				if v, ok := coverpc.SettingCount(s, coverpc.ColUsedStorage); ok {
+					gb := bytesToGB(v)
+					item.UsedStorageBytes, item.UsedStorageGB = &v, &gb
+					// Sum exact bytes; round only the displayed total.
+					if !addExact(&view.TotalStorageBytes, v) {
+						return errTotalOverflow("total_storage_bytes", d.AccountID)
+					}
+				} else {
+					view.StorageUnreported++
 				}
-				if v, ok := coverpc.SettingInt(s, coverpc.ColM365ExchangeLicenses); ok {
+				if v, ok := coverpc.SettingCount(s, coverpc.ColM365ExchangeLicenses); ok {
 					item.M365ExchangeSeat = v
 				}
-				if v, ok := coverpc.SettingInt(s, coverpc.ColM365ExchangeMailbox); ok {
+				if v, ok := coverpc.SettingCount(s, coverpc.ColM365ExchangeMailbox); ok {
 					item.M365ExchangeBox = v
 				}
-				if v, ok := coverpc.SettingInt(s, coverpc.ColM365OneDriveLicenses); ok {
+				if v, ok := coverpc.SettingCount(s, coverpc.ColM365OneDriveLicenses); ok {
 					item.M365OneDriveSeat = v
 				}
 				view.Items = append(view.Items, item)
-				view.TotalStorageGB += item.UsedStorageGB
-				view.TotalM365Seats += item.M365ExchangeSeat + item.M365OneDriveSeat
+				if !addExact(&view.TotalM365Seats, item.M365ExchangeSeat) || !addExact(&view.TotalM365Seats, item.M365OneDriveSeat) {
+					return errTotalOverflow("total_m365_licenses", d.AccountID)
+				}
 			}
 			sort.Slice(view.Items, func(i, j int) bool {
 				if view.Items[i].Customer != view.Items[j].Customer {
@@ -119,11 +136,18 @@ find what changed since last month; use 'billing changes' instead.
 				return view.Items[i].DeviceName < view.Items[j].DeviceName
 			})
 			view.TotalDevices = len(view.Items)
-			view.TotalStorageGB = float64(int(view.TotalStorageGB*100)) / 100
+			view.TotalStorageGB = bytesToGB(view.TotalStorageBytes)
 			view.scanCapFields = scanCapFields{
 				ScannedDevices: scanned,
 				MaxScanPages:   effectiveMaxPages(maxScanPages),
 				Note:           scanCapNote(capHit, scanned, effectiveMaxPages(maxScanPages), "billing"),
+			}
+			if view.StorageUnreported > 0 {
+				unreported := fmt.Sprintf("%d devices did not report used storage as an exact byte count; their storage is null and total_storage_bytes covers only the other %d", view.StorageUnreported, view.TotalDevices-view.StorageUnreported)
+				if view.Note != "" {
+					unreported = view.Note + "; " + unreported
+				}
+				view.Note = unreported
 			}
 			return emitCoveJSON(cmd, flags, view, view.Items)
 		},
@@ -131,4 +155,10 @@ find what changed since last month; use 'billing changes' instead.
 	cmd.Flags().Int64Var(&partnerID, "partner-id", 0, "Root partner to export (default: the logged-in user's partner)")
 	cmd.Flags().IntVar(&maxScanPages, "max-scan-pages", 10, "Maximum statistics pages to scan")
 	return cmd
+}
+
+// bytesToGB renders bytes as decimal gigabytes rounded to two places, for
+// display only: totals are summed in bytes first.
+func bytesToGB(b int64) float64 {
+	return math.Round(float64(b)/1e7) / 100
 }

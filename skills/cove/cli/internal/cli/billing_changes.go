@@ -49,13 +49,13 @@ the full current billing snapshot; use 'billing usage' instead.
   cove-cli billing changes --partner-id 1234 --csv`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only":          "true",
+			"pp:data-source":         "live",
 			"pp:no-error-path-probe": "true",
 			"pp:requires-tier":       "credentials",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would list devices whose SKU differs from last month")
-				return nil
+				return coveDryRun(cmd, flags, "would list devices whose SKU differs from last month")
 			}
 			c, err := newCoveRPC(flags)
 			if err != nil {
