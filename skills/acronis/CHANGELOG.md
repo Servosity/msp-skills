@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.10] - unreleased
+## [0.1.10] - 2026-10-27
 
 ### Security
 - Rebuilt on CLI Printing Press 4.34.0 ([GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now refuses to start until `ACRONIS_MCP_HTTP_TOKEN` is set, rejects any request without that bearer token, serves `http://127.0.0.1:7777/mcp` by default, needs `--tls-cert` and `--tls-key` for any other address, and refuses a request body over 4 MiB or one slower than 30 seconds. The remote-agent instructions (ChatGPT, Copilot Studio, the Gemini app) are back in `mcp-install.md`.
