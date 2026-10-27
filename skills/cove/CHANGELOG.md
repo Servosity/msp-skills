@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.13] - unreleased
+## [0.1.13] - 2026-10-27
 
 ### Changed
 - **Rebuilt on CLI Printing Press 4.34.0** (the press upgrade behind GHSA-jh26-vhqh-692c). The MCP server's HTTP mode now refuses to start without `COVE_MCP_HTTP_TOKEN`, answers 401 without the matching bearer token, binds 127.0.0.1 by default and needs TLS for any other address. MCP tools refuse file and directory arguments by name. `COVE_MCP_READ_ONLY=1` exposes only read-only tools and `COVE_NO_LOCAL_DATA=1` keeps no local copy of API responses; both, plus `COVE_MCP_HTTP_TOKEN`, are declared on every install channel.
