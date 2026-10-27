@@ -31,6 +31,10 @@ func init() {
 	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
 		addNovelCommandIfAbsent(root, newAvananMirrorCmd(flags))
 	})
+	// mirror copies API data into the local store, like sync and workflow
+	// archive, so AVANAN_NO_LOCAL_DATA=1 refuses it by the same rule and with
+	// the same error (applyLocalDataEnv), before any request or store write.
+	localDataWriterCommands["mirror"] = true
 }
 
 type mirrorReport struct {
@@ -175,6 +179,13 @@ Do NOT use this command to query the API directly; use 'event query' or
 			// returns it for that engine alone — and treating it as fatal would
 			// lose the other eight exception families to it.
 			var rejected error
+			// incomplete records a resource that was not read completely: a
+			// single-source resource (events) that failed at all, or a fan-out
+			// in which some source failed for a reason other than the 403 an
+			// unlicensed engine or platform answers with. Stamping such a
+			// resource fresh is what lets the offline commands answer
+			// confidently from data they never received, so it is fatal too.
+			var incomplete error
 			attempted, failed := 0, 0
 
 			if wanted[avananmirror.ResourceEvents] {
@@ -183,6 +194,9 @@ Do NOT use this command to query the API directly; use 'event query' or
 				report.Results = append(report.Results, res)
 				if err != nil {
 					failed++
+					if incomplete == nil {
+						incomplete = fmt.Errorf("events: %w", err)
+					}
 					report.Warnings = append(report.Warnings, fmt.Sprintf("events: %v", err))
 					if avananmirror.IsRateLimited(err) && throttled == nil {
 						throttled = err
@@ -198,6 +212,9 @@ Do NOT use this command to query the API directly; use 'event query' or
 				report.Results = append(report.Results, res)
 				if err != nil {
 					failed++
+					if incomplete == nil {
+						incomplete = fmt.Errorf("entities: %w", err)
+					}
 					report.Warnings = append(report.Warnings, fmt.Sprintf("entities: %v", err))
 					if avananmirror.IsRateLimited(err) && throttled == nil {
 						throttled = err
@@ -218,6 +235,9 @@ Do NOT use this command to query the API directly; use 'event query' or
 					failed++
 				}
 				for _, p := range problems {
+					if !avananmirror.SourceUnavailable(p) && incomplete == nil {
+						incomplete = fmt.Errorf("exceptions: %w", p)
+					}
 					report.Warnings = append(report.Warnings, fmt.Sprintf("exceptions: %v", p))
 					if avananmirror.IsRateLimited(p) && throttled == nil {
 						throttled = p
@@ -245,6 +265,10 @@ Do NOT use this command to query the API directly; use 'event query' or
 				mirrorFailure = fmt.Errorf(
 					"mirror stored nothing because the credential was rejected: %w\n"+
 						"run 'avanan-cli auth login' and confirm the region matches where the key was issued", rejected)
+			case incomplete != nil:
+				mirrorFailure = fmt.Errorf(
+					"mirror is incomplete: %w\n"+
+						"rows that did arrive were stored, but nothing was stamped as freshly synced; re-run 'mirror' once the source answers", incomplete)
 			case attempted > 0 && failed == attempted && report.Totals["stored"] == 0:
 				mirrorFailure = fmt.Errorf(
 					"mirror stored nothing: all %d requested resource(s) failed\n"+

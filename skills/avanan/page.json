@@ -49,15 +49,15 @@
     },
     {
       "question": "Quarantine this batch and tell me the real per-message outcome, not just that a task started.",
-      "command": "avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait"
+      "command": "avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait --yes"
     }
   ],
-  "different_vs_wrappers": "Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's history in order, as far as the local mirror can attest, and one exception lookup across all seven engines and nine exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.",
+  "different_vs_wrappers": "Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's history in order, as far as the local mirror can attest, and one exception lookup across all seven engines and ten exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.",
   "different_vs_vendor": "The Avanan portal shows one tenant's detections, one engine's exception list, one message's current state. This skill answers the questions that span all of them at once - what came in across the fleet, which detections are the same campaign, where a domain is already allowlisted, which tenant is over its seats - and it turns quarantine and restore from fire-and-poll into a command that waits for the task and reports the real per-item outcome.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -65,7 +65,7 @@
     },
     {
       "q": "Is my Avanan data safe?",
-      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message."
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server uses stdio by default, so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message."
     },
     {
       "q": "Will this hit my Avanan API rate limits?",

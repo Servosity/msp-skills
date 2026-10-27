@@ -1,6 +1,6 @@
 ---
 name: avanan
-description: "Every Avanan (Check Point Harmony Email and Collaboration) API operation as one CLI and MCP server, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, exception conflict auditing, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`."
+description: "Every Avanan email security API call, plus an offline mirror for cross-tenant questions. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`."
 author: "Abhi Saini"
 license: "Apache-2.0"
 vendor: "Avanan"
@@ -42,24 +42,22 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Avanan (Check Point Harmony Email & Collaboration) has integrations for XSOAR, Sentinel, n8n, and MCP, but no CLI and nothing that keeps state. This one covers the whole documented surface, including the sectool exception families the published spec omits, and adds a local SQLite mirror that makes triage, campaign, exceptions audit, msp fleet, and timeline possible. It also implements the documented request signature exactly, including the request-string term the docs leave out.
+Avanan (Check Point Harmony Email and Collaboration) answers one scope and one page at a time, so the questions an MSP actually asks span calls the portal never joins. This CLI types the whole Smart API surface, mirrors events, entities and exceptions into local SQLite, and adds commands built on that mirror: triage buckets a shift's detections, campaign clusters them into phishing campaigns, exceptions find checks all seven engines at once, and remediate waits for the async task and reports the real outcome.
 
 ## When to Use This CLI
 
-Use this CLI for Avanan / Check Point Harmony Email & Collaboration work: investigating phishing and malware detections, searching mail and SaaS entities, quarantining or restoring messages, managing allow and block exceptions across all seven policy engines, and running MSP tenant, license, and usage operations. Run `avanan-cli mirror --since 7d` before the offline commands (triage, campaign, timeline, exceptions find, exceptions audit) and `avanan-cli sync --resources msp` before `msp fleet`  -  those commands read the local mirror only and will report empty results against an unpopulated store. It is the right tool when a question spans more than one tenant or more than one point in time, because the mirror answers without spending API quota.
+Use this CLI for Avanan / Check Point Harmony Email & Collaboration work: investigating phishing and malware detections, searching mail and SaaS entities, quarantining or restoring messages, managing allow and block exceptions across all seven policy engines, and running MSP tenant, license, and usage operations. Run mirror --since 7d before the offline commands (triage, campaign, timeline, exceptions find, exceptions audit) and sync --resources msp-tenants before msp fleet; those commands read the local mirror only and will report empty results against an unpopulated store. It is the right tool when a question spans more than one tenant or more than one point in time, because the mirror answers without spending API quota.
 
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use this CLI for Check Point system or audit logs  -  the vendor exposes those through the separate Infinity Portal API, not this one
+- Do not use this CLI for Check Point system or audit logs; the vendor exposes those through the separate Infinity Portal API, not this one
 - Do not use this CLI for Check Point firewall, endpoint, or network security products; it covers email and SaaS collaboration only
-- Do not use this CLI to read mail from Microsoft 365 or Google Workspace directly  -  it only sees messages Avanan has scanned
+- Do not use this CLI to read mail from Microsoft 365 or Google Workspace directly; it only sees messages Avanan has scanned
 - Do not use this CLI to change Avanan security policy rules or engine configuration; only exceptions are exposed through the API
-- Do not use this CLI to reach a tenant in another region  -  credentials are region-scoped and cross-region access is refused by design
+- Do not use this CLI to reach a tenant in another region; credentials are region-scoped and cross-region access is refused by design
 
 ## Unique Capabilities
-
-These capabilities aren't available in any other tool for this API.
 
 ### Local state that compounds
 - **`triage`**  -  See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume.
@@ -85,12 +83,12 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Collapsing the seven-headed exception system
-- **`exceptions find`**  -  Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and nine exception tables at once.
+- **`exceptions find`**  -  Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once.
 
   _Reach for this before adding an allowlist entry, or when a phish got through and you need to know whether one of your own exceptions let it._
 
   ```bash
-  avanan-cli exceptions find partner-domain.com --agent
+  avanan-cli exceptions find partner.example.com --agent
   ```
 - **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
 
@@ -204,12 +202,52 @@ These capabilities aren't available in any other tool for this API.
 
 **soar**  -  Manage soar
 
-- `avanan-cli soar get-entity`  -  Retrieve the decoded email record for a SaaS entity, including headers and body. **Known limitation:** this endpoint returns HTTP 404 for every entity on the tenants tested, including entities confirmed to exist seconds earlier. Use `avanan-cli avanan-search get-saas-entity <entity_id> --scopes <scope>` instead, which returns the full record.
+- `avanan-cli soar get-entity`  -  Retrieve the decoded email record for a SaaS entity, including headers and body.
 - `avanan-cli soar post-notify`  -  Send an exposure notification about a specific entity to a list of email addresses.
 
 **task**  -  Manage task
 
 - `avanan-cli task <task_id>`  -  Get Task.
+
+
+**campaign**
+
+
+- `avanan-cli campaign`  -  Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated.
+
+
+**exceptions**
+
+
+- `avanan-cli exceptions find`  -  Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once.
+
+- `avanan-cli exceptions audit`  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
+
+
+**msp**
+
+
+- `avanan-cli msp fleet`  -  One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume.
+
+
+**remediate**
+
+
+- `avanan-cli remediate`  -  Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome.
+
+
+**timeline**
+
+
+- `avanan-cli timeline`  -  Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
+
+
+**triage**
+
+
+- `avanan-cli triage`  -  See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume.
+
+
 
 
 ### Finding the right command
@@ -220,7 +258,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 avanan-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
@@ -230,12 +268,12 @@ avanan-cli which "<capability in your own words>"
 avanan-cli triage --since 12h --agent
 ```
 
-Requires a populated mirror (`mirror --since 7d`). Everything detected in the window, bucketed by type, severity, and state, with the top offending sender domains and a count of anything still unresolved.
+Requires a populated mirror (mirror --since 7d). Everything detected in the window, bucketed by type, severity, and state, with the top offending sender domains and a count of anything still unresolved.
 
 ### Narrow a large event query to just what an agent needs
 
 ```bash
-avanan-cli event query --request-data-event-types phishing --agent --select responseData.eventId,responseData.type,responseData.state,responseData.entityInfo.subject,responseData.entityInfo.senderEmail
+avanan-cli event query --request-data-event-types phishing --agent --select responseData.eventId,responseData.type,responseData.state
 ```
 
 Avanan event payloads nest entity detail several levels deep and run to tens of KB per call; the dotted --select paths keep only the fields worth reading.
@@ -243,10 +281,10 @@ Avanan event payloads nest entity detail several levels deep and run to tens of 
 ### Check an allowlist request before you grant it
 
 ```bash
-avanan-cli exceptions find vendor-domain.com --agent
+avanan-cli exceptions find vendor.example.com --agent
 ```
 
-Requires `mirror --resources exceptions` first. Searches all nine exception tables at once and shows which engine, which list side, and who created each hit  -  replacing nine separate API calls.
+Requires mirror --resources exceptions first. Searches all ten exception tables at once and shows which engine, which list side, and who created each hit.
 
 ### Quarantine a confirmed campaign and prove it landed
 
@@ -254,7 +292,7 @@ Requires `mirror --resources exceptions` first. Searches all nine exception tabl
 avanan-cli remediate quarantine --entity f05b74da3ee859eea41aeac40aaad3c2 --wait --dry-run
 ```
 
-Resolves the required single scope, submits the action, polls the task to a terminal state, and prints the per-item outcome. Drop --dry-run to execute.
+Resolves the required single scope, submits the action, polls the task to a terminal state, and prints the per-item outcome. Replace --dry-run with --yes to execute: remediate refuses to send without --yes.
 
 ### Find tenants running over their licensed seats
 
@@ -262,27 +300,35 @@ Resolves the required single scope, submits the action, polls the task to a term
 avanan-cli msp fleet --agent --select rows.tenant,rows.seats_licensed,rows.seats_used,rows.detections
 ```
 
-Requires `sync --resources msp` and `mirror --since 7d` first. One local join across mirrored tenants, licenses, and detection volume, ranked by seat overage.
+Requires sync --resources msp-tenants and mirror --since 7d first. One local join across mirrored tenants, licenses, and detection volume, ranked by seat overage.
 
 ## Auth Setup
 
-Avanan uses one of two schemes depending on your host, and the CLI picks automatically. On legacy `*.avanan.net` hosts it performs the signed handshake: a fresh request UUID, your application ID, a GMT timestamp, and an `x-av-sig` computed as sha256(base64(reqId + appId + date + requestString + secret)). The resulting token lasts one hour and is refreshed for you. On Infinity Portal hosts it exchanges your access key for a bearer token instead. Set `AVANAN_APP_ID` and `AVANAN_CLIENT_SECRET`, pick your region, and run `auth login`. Credentials are region-scoped: a US key cannot read EU data, by design.
+Avanan uses one of two schemes depending on your host, and the CLI picks automatically. On legacy *.avanan.net hosts it performs the signed handshake: a fresh request UUID, your application ID, a timestamp, and an x-av-sig computed as sha256(base64(reqId + appId + date + requestString + secret)). The resulting token lasts one hour and is refreshed for you. On Infinity Portal hosts it exchanges your access key for a bearer token instead. Set AVANAN_APP_ID and AVANAN_CLIENT_SECRET, pick your region, and run auth login. Credentials are region-scoped: a US key cannot read EU data, by design.
 
 Run `avanan-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json`  -  one JSON document on stdout (sync progress events go to stderr)
+- `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent --select actions,additionalData,availableEventActions
+  avanan-cli event get mock-value --agent --select actions,additionalData,availableEventActions
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
+- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
@@ -325,17 +371,27 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `AVANAN_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `AVANAN_HOME`, or `doctor` will not find credentials left under the former root.
 
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `AVANAN_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, blocks `sync`, `workflow archive` and `mirror`, and stops `remediate` keeping a local action log; `--data-source local` still reads an existing store, and `AVANAN_DATA_SOURCE` sets the `--data-source` default.
+
 ## Automatic learning
 
 This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, run:
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
 ```bash
-avanan-cli recall "<user's question>" --agent
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data  -  the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+avanan-cli recall "$QUERY" --agent
 ```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
 
 The response envelope:
 
@@ -439,10 +495,11 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 
 ### Step 4: `teach &` after finalizing your response - always
 
-Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall  -  argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
 
 ```bash
-avanan-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+QUERY=$(cat /path/to/question.txt)
+avanan-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -456,16 +513,18 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
 avanan-cli teach \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
 avanan-cli teach-playbook \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
@@ -476,12 +535,14 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 
 ### Step 6: `playbook amend &` when your debug response identifies a correction
 
-If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
+If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
 
 ```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
 avanan-cli playbook amend \
-  --query "<exact recall query string>" \
-  --add-note "<your concrete correction>"
+  --query "$QUERY" \
+  --add-note "$NOTE"
 # (append shell `&` to background it)
 ```
 
@@ -538,10 +599,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -549,7 +610,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 avanan-cli profile save briefing --json
-avanan-cli --profile briefing event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
+avanan-cli --profile briefing event get mock-value
 avanan-cli profile list --json
 avanan-cli profile show briefing
 avanan-cli profile delete briefing --yes
@@ -569,6 +630,8 @@ For endpoints that submit long-running work, the generator detects the submit-th
 
 Use async submission without `--wait` when you want to fire-and-forget; use `--wait` when you want one command to return the finished artifact.
 
+If `--wait` times out or polling fails after the job was accepted, the command exits `8` and prints the job ID plus a recovery command that fetches the result. The job may still be running and may already be billed, so run the recovery command instead of resubmitting.
+
 ## Exit Codes
 
 | Code | Meaning |
@@ -578,7 +641,9 @@ Use async submission without `--wait` when you want to fire-and-forget; use `--w
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
+| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit) |
 | 10 | Config error |
 
 ## Argument Parsing
@@ -597,6 +662,8 @@ Parse `$ARGUMENTS`:
    claude mcp add avanan-mcp -- avanan-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `avanan-mcp --transport http` requires `AVANAN_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. `AVANAN_MCP_READ_ONLY=1` drops mirrored write commands (every tool not marked read-only, including the local-write learn tools) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

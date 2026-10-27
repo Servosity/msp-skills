@@ -67,9 +67,9 @@
     {
       "name": "avanan",
       "type": "skill-md",
-      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation as one CLI and MCP server, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, exception conflict auditing, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`.",
+      "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/SKILL.md",
-      "digest": "sha256:d3f5b50da6ddb3d478a0afeee3bc23038e284170e5016d7f5b83a589e5456484"
+      "digest": "sha256:42d673c083d6bd4576b58f39522492f0c8171bbba125622c09031821c1857fad"
     },
     {
       "name": "aws-billing",

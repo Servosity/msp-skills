@@ -22,12 +22,17 @@ package avananmirror
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"sort"
 	"strings"
 	"time"
 
+	"avanan-pp-cli/internal/client"
 	"avanan-pp-cli/internal/cliutil"
 	"avanan-pp-cli/internal/store"
 )
@@ -74,23 +79,73 @@ type Envelope struct {
 	ResponseData json.RawMessage `json:"responseData"`
 }
 
+// EnvelopeError is an envelope-level failure on an HTTP 2xx response.
+type EnvelopeError struct {
+	Code int
+	Text string
+}
+
+func (e *EnvelopeError) Error() string {
+	return fmt.Sprintf("API reported failure (responseCode %d): %s", e.Code, e.Text)
+}
+
 // Decode unwraps an API response, surfacing an envelope-level failure as an
-// error even when the HTTP status was 200.
+// error even when the HTTP status was 200. The success rule is the one shared
+// with the transport (client.EnvelopeCodeFailed).
 func Decode(raw json.RawMessage) (*Envelope, error) {
 	var env Envelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return nil, fmt.Errorf("parsing response envelope: %w", err)
 	}
 	// Avanan uses 0 and 200 interchangeably for success depending on endpoint.
-	if code := env.ResponseEnvelope.ResponseCode; code != 0 && code != 200 {
+	if code := env.ResponseEnvelope.ResponseCode; client.EnvelopeCodeFailed(code) {
 		msg := strings.TrimSpace(env.ResponseEnvelope.ResponseText + " " + env.ResponseEnvelope.AdditionalText)
 		if msg == "" {
 			msg = "no detail supplied"
 		}
-		return nil, fmt.Errorf("API reported failure (responseCode %d): %s", code, msg)
+		return nil, &EnvelopeError{Code: code, Text: msg}
 	}
 	return &env, nil
 }
+
+// SourceUnavailable reports whether err is the one per-source refusal a
+// fan-out may skip: HTTP 403 (or an envelope 403), which is how a tenant
+// without a licence for an engine or platform answers (ledger
+// mirror-fails-when-nothing-was-mirrored). Every other failure - a 5xx, a
+// different 4xx, a transport error, an unparseable page - means the source
+// was not read, so the mirror is incomplete and must not be stamped fresh.
+func SourceUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *client.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusForbidden
+	}
+	var envErr *EnvelopeError
+	if errors.As(err, &envErr) {
+		return envErr.Code == http.StatusForbidden
+	}
+	return false
+}
+
+// IncompleteError reports a fan-out in which at least one source failed for a
+// reason other than SourceUnavailable. The rows from the sources that did
+// answer are stored; the resource as a whole is not complete.
+type IncompleteError struct {
+	Resource string
+	Failures []error
+}
+
+func (e *IncompleteError) Error() string {
+	parts := make([]string, 0, len(e.Failures))
+	for _, f := range e.Failures {
+		parts = append(parts, f.Error())
+	}
+	return fmt.Sprintf("%s is incomplete: %s", e.Resource, strings.Join(parts, "; "))
+}
+
+func (e *IncompleteError) Unwrap() []error { return e.Failures }
 
 // Records splits an envelope's responseData into individual JSON objects.
 // responseData is an array for query endpoints and a bare object for
@@ -298,6 +353,7 @@ func Entities(ctx context.Context, c Poster, db *store.Store, opts Options) (Res
 
 	total := Result{Resource: ResourceEntities}
 	var firstErr error
+	var failures []error
 	succeeded := 0
 
 	for _, saas := range platforms {
@@ -321,17 +377,26 @@ func Entities(ctx context.Context, c Poster, db *store.Store, opts Options) (Res
 		total.Pages += res.Pages
 		total.Capped = total.Capped || res.Capped
 		if err != nil {
-			// A tenant that does not license a platform answers with an error
-			// for that platform only. Keep going so one unlicensed SaaS does
-			// not empty the whole entity mirror.
+			// A tenant that does not license a platform answers 403 for that
+			// platform only. Keep going so one unlicensed SaaS does not empty
+			// the whole entity mirror - but only that refusal is skippable.
+			// Any other failure leaves the platform unread, and a mirror
+			// missing a platform it could not read must not pass as complete.
+			wrapped := fmt.Errorf("%s: %w", saas, err)
 			if firstErr == nil {
-				firstErr = fmt.Errorf("%s: %w", saas, err)
+				firstErr = wrapped
+			}
+			if !SourceUnavailable(err) {
+				failures = append(failures, wrapped)
 			}
 			continue
 		}
 		succeeded++
 	}
 
+	if len(failures) > 0 {
+		return total, &IncompleteError{Resource: ResourceEntities, Failures: failures}
+	}
 	if succeeded == 0 && firstErr != nil {
 		return total, firstErr
 	}
@@ -461,6 +526,7 @@ func ExceptionSources() []ExceptionSource {
 		{SubSystem: "anti-phishing-whitelist", Path: "/v1.0/exceptions/whitelist", Engine: "whitelist"},
 		{SubSystem: "anti-phishing-blacklist", Path: "/v1.0/exceptions/blacklist", Engine: "blacklist"},
 		{SubSystem: "spam-whitelist", Path: "/v1.0/exceptions/spam_whitelist", Engine: "spam_whitelist"},
+		{SubSystem: "spam-blacklist", Path: "/v1.0/exceptions/spam_blacklist", Engine: "spam_blacklist"},
 		{SubSystem: "anti-malware", Path: "/v1.0/sectool-exceptions/checkpoint2/exceptions/hash", Engine: "checkpoint2"},
 		{SubSystem: "url-reputation-allow", Path: "/v1.0/sectool-exceptions/avanan_url/exceptions/allow-url", Engine: "avanan_url"},
 		{SubSystem: "url-reputation-block", Path: "/v1.0/sectool-exceptions/avanan_url/exceptions/block-url", Engine: "avanan_url"},
@@ -471,25 +537,62 @@ func ExceptionSources() []ExceptionSource {
 }
 
 // StoredException is the unified row shape written for every sub-system.
-// Flattening nine differently-shaped payloads into one schema is what makes a
+// Flattening ten differently-shaped payloads into one schema is what makes a
 // single cross-sub-system query possible.
+//
+// An exception is a PREDICATE, not a value: an anti-phishing entry can carry a
+// sender domain AND a recipient (spec components.schemas ApException), and it
+// then covers only that recipient. Selectors keeps every selector the entry
+// carries, so a conditional rule is never shown as a domain-wide one and an
+// entry keyed on a field outside the first match field (attachmentMd5) is
+// still searchable. MatchString stays as the primary value for display.
 type StoredException struct {
-	SubSystem   string          `json:"sub_system"`
-	Engine      string          `json:"engine"`
-	ID          string          `json:"id"`
-	MatchString string          `json:"match_string"`
-	ListSide    string          `json:"list_side"`
-	CreatedBy   string          `json:"created_by"`
-	Comment     string          `json:"comment"`
-	Raw         json.RawMessage `json:"raw"`
+	SubSystem   string            `json:"sub_system"`
+	Engine      string            `json:"engine"`
+	ID          string            `json:"id"`
+	Scope       string            `json:"scope"`
+	Partition   string            `json:"partition"`
+	MatchString string            `json:"match_string"`
+	Selectors   map[string]string `json:"selectors"`
+	MatchModes  map[string]string `json:"match_modes"`
+	ListSide    string            `json:"list_side"`
+	CreatedBy   string            `json:"created_by"`
+	Comment     string            `json:"comment"`
+	Raw         json.RawMessage   `json:"raw"`
+}
+
+// SelectorValues returns one value per populated selector field, in field
+// order. Equal values in different fields are NOT merged: a predicate is its
+// (field, value) pairs, so {senderEmail: a, recipient: a} is a two-condition
+// rule, never the one-condition rule on a. Rows written before Selectors
+// existed fall back to MatchString.
+func (e StoredException) SelectorValues() []string {
+	var out []string
+	keys := make([]string, 0, len(e.Selectors))
+	for k := range e.Selectors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if v := strings.TrimSpace(e.Selectors[k]); v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 && strings.TrimSpace(e.MatchString) != "" {
+		out = append(out, strings.TrimSpace(e.MatchString))
+	}
+	return out
 }
 
 // matchFields are the keys, in priority order, that different sub-systems use
-// to hold the value an exception matches on.
+// to hold the value an exception matches on. The documented ApException
+// selectors past the original list (senderName, senderIp, senderClientIp,
+// subject, linkDomains, attachmentMd5) are appended so every one is kept.
 var matchFields = []string{
 	"senderEmail", "senderDomain", "recipientEmail", "recipient",
 	"url", "domain", "hash", "md5", "sha256",
 	"value", "matchString", "name", "text", "listItemName", "item",
+	"senderName", "senderIp", "senderClientIp", "subject", "linkDomains", "attachmentMd5",
 }
 
 var creatorFields = []string{"createdBy", "added_by", "addedBy", "creator", "user"}
@@ -505,6 +608,22 @@ func FlattenException(src ExceptionSource, raw json.RawMessage) StoredException 
 	}
 	out.ID = recordID(raw)
 	out.MatchString = firstString(obj, matchFields)
+	for _, k := range matchFields {
+		if v, ok := obj[k].(string); ok && strings.TrimSpace(v) != "" {
+			if out.Selectors == nil {
+				out.Selectors = map[string]string{}
+			}
+			out.Selectors[k] = strings.TrimSpace(v)
+		}
+	}
+	for k, v := range obj {
+		if s, ok := v.(string); ok && strings.HasSuffix(k, "Matching") && strings.TrimSpace(s) != "" {
+			if out.MatchModes == nil {
+				out.MatchModes = map[string]string{}
+			}
+			out.MatchModes[k] = strings.TrimSpace(s)
+		}
+	}
 	out.CreatedBy = firstString(obj, creatorFields)
 	out.Comment = firstString(obj, commentFields)
 
@@ -541,8 +660,9 @@ func IsRateLimited(err error) bool {
 //
 // A sub-system that fails on its own merits is recorded and skipped rather
 // than aborting the run: a tenant without a DLP licence returns 403 for that
-// engine, and losing the other eight families to it would make the command
-// useless for exactly the customers who need it most.
+// engine, and losing the other families to it would make the command useless
+// for exactly the customers who need it most. The caller decides whether a
+// recorded problem leaves the mirror incomplete (see SourceUnavailable).
 //
 // Throttling is the one exception to that tolerance. A 429 does not mean "this
 // engine has no entries", it means "we were not allowed to ask" — and a
@@ -550,6 +670,13 @@ func IsRateLimited(err error) bool {
 // anywhere" from data it never received. For a tool whose output gates
 // allow/block decisions, that false negative is worse than no answer, so a
 // rate-limit error aborts the whole ingest and is returned to the caller.
+//
+// The local table is a CURRENT inventory, not a log. Every (sub-system, scope)
+// listing that is read completely replaces that partition: entries the API no
+// longer lists are deleted, and an entry whose content changed is stored under
+// a new key (the key carries a content hash) so a removed field cannot survive
+// the store's keep-richer merge. A partition that was not read completely is
+// left exactly as it was - absence of an answer is not absence of an entry.
 func Exceptions(ctx context.Context, c Poster, db *store.Store, opts Options) (Result, []error) {
 	res := Result{Resource: ResourceExceptions}
 	var problems []error
@@ -567,6 +694,9 @@ func Exceptions(ctx context.Context, c Poster, db *store.Store, opts Options) (R
 	}
 
 	for _, src := range ExceptionSources() {
+		// completed holds, per partition read completely in this run, the
+		// storage keys it wrote. Reconciled once per sub-system below.
+		completed := map[string][]string{}
 		for _, params := range scopeParams {
 			if err := ctx.Err(); err != nil {
 				problems = append(problems, err)
@@ -595,6 +725,9 @@ func Exceptions(ctx context.Context, c Poster, db *store.Store, opts Options) (R
 			res.Pages++
 			res.Fetched += len(records)
 
+			partition := src.SubSystem + "/" + scopeKey(params)
+			complete := true
+			var seen []string
 			for _, rec := range records {
 				flat := FlattenException(src, rec)
 				if flat.ID == "" {
@@ -606,21 +739,92 @@ func Exceptions(ctx context.Context, c Poster, db *store.Store, opts Options) (R
 					}
 					flat.ID = src.SubSystem + ":" + flat.MatchString
 				}
+				flat.Scope = params["scope"]
+				flat.Partition = partition
 				encoded, err := json.Marshal(flat)
 				if err != nil {
 					problems = append(problems, fmt.Errorf("%s: encoding %s: %w", src.SubSystem, flat.ID, err))
+					complete = false
 					continue
 				}
-				if err := db.Upsert(ResourceExceptions, src.SubSystem+"/"+scopeKey(params)+flat.ID, encoded); err != nil {
+				key := partition + flat.ID + "#" + contentKey(rec)
+				if db == nil {
+					complete = false
+					continue
+				}
+				if err := db.Upsert(ResourceExceptions, key, encoded); err != nil {
 					problems = append(problems, fmt.Errorf("%s: storing %s: %w", src.SubSystem, flat.ID, err))
+					complete = false
 					continue
 				}
+				seen = append(seen, key)
 				res.Stored++
+			}
+			if complete && db != nil {
+				completed[partition] = seen
+			}
+		}
+		if len(completed) > 0 {
+			if err := reconcileExceptionSubSystem(db, src.SubSystem, completed, len(completed) == len(scopeParams)); err != nil {
+				problems = append(problems, fmt.Errorf("%s: removing entries the API no longer lists: %w", src.SubSystem, err))
 			}
 		}
 	}
 
 	return res, problems
+}
+
+// contentKey is a short digest of a raw record, so a changed entry gets a new
+// storage key instead of being merged into the old one.
+func contentKey(raw json.RawMessage) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:8])
+}
+
+// reconcileExceptionSubSystem deletes, for one sub-system, every stored row of
+// a partition that was read completely in this run and that this run did not
+// write. Partitions not in completed (failed, or not requested) are untouched.
+// Rows written before partitions existed carry no partition field and cannot
+// be attributed to a tenant (callers refuse to answer while any remain). They
+// are reconciled when the run read every partition it requested for this
+// sub-system (all), or, for a scoped partition, when their storage-key prefix
+// ("<sub-system>/<scope>/") names it.
+func reconcileExceptionSubSystem(db *store.Store, subSystem string, completed map[string][]string, all bool) error {
+	var keep []string
+	for _, ids := range completed {
+		keep = append(keep, ids...)
+	}
+	err := db.ListScan(ResourceExceptions, func(id string, data json.RawMessage) bool {
+		var row struct {
+			SubSystem string `json:"sub_system"`
+			Partition string `json:"partition"`
+		}
+		if json.Unmarshal(data, &row) != nil || row.SubSystem != subSystem {
+			// Never a victim: the delete is confined to this sub-system.
+			return true
+		}
+		if row.Partition != "" {
+			if _, done := completed[row.Partition]; !done {
+				keep = append(keep, id)
+			}
+			return true
+		}
+		if all {
+			return true // legacy row: this run read the whole sub-system
+		}
+		for p := range completed {
+			if p != subSystem+"/" && strings.HasPrefix(id, p) {
+				return true // legacy row of a completed scoped partition
+			}
+		}
+		keep = append(keep, id)
+		return true
+	})
+	if err != nil {
+		return err
+	}
+	_, err = db.ReconcilePartition(ResourceExceptions, "$.sub_system", subSystem, keep, "", nil)
+	return err
 }
 
 // scopeKey namespaces stored rows by scope so two tenants' identically-numbered

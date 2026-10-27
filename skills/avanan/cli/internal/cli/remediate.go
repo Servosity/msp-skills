@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ func init() {
 
 type remediateOutcome struct {
 	TargetID string `json:"target_id"`
+	TaskID   string `json:"task_id,omitempty"`
 	Status   string `json:"status"`
 	Detail   string `json:"detail,omitempty"`
 }
@@ -56,6 +58,7 @@ type remediateReport struct {
 	EntityType string             `json:"entity_type,omitempty"`
 	Scope      string             `json:"scope,omitempty"`
 	TaskID     string             `json:"task_id,omitempty"`
+	TaskIDs    []string           `json:"task_ids,omitempty"`
 	Waited     bool               `json:"waited"`
 	Completed  bool               `json:"completed"`
 	Outcomes   []remediateOutcome `json:"outcomes"`
@@ -88,6 +91,11 @@ more than one tenant and you do not pass --scope, this command fails with the
 list of scopes you can choose from rather than the bare HTTP 400 the API
 returns.
 
+This command changes mail, so it runs only with --yes. Without it the command
+refuses and sends nothing; --dry-run previews the exact request instead. The
+MCP tool never passes --yes, so an agent can preview a remediation but cannot
+submit one through it.
+
 Use this command to quarantine or restore a batch and wait for the real
 per-item outcome. Do NOT use this command when you want fire-and-forget
 submission returning a task ID; use 'action post-entity' or 'action post-event',
@@ -95,8 +103,8 @@ then 'task <task_id>'.
 `, "\n"),
 		Example: strings.Trim(`
   avanan-cli remediate quarantine --entity f05b74da3ee859eea41aeac40aaad3c2 --dry-run
-  avanan-cli remediate quarantine --entity f05b74da3ee859eea41aeac40aaad3c2 --wait
-  avanan-cli remediate restore --event ebb3e4bc8a9b14d7a529bb54ea6991b6 --scope farm1:tenant-a --wait
+  avanan-cli remediate quarantine --entity f05b74da3ee859eea41aeac40aaad3c2 --wait --yes
+  avanan-cli remediate restore --event ebb3e4bc8a9b14d7a529bb54ea6991b6 --scope farm1:tenant-a --wait --yes
 `, "\n"),
 		Annotations: map[string]string{
 			"pp:happy-args":       "<action>=quarantine;--entity=f05b74da3ee859eea41aeac40aaad3c2",
@@ -131,6 +139,13 @@ then 'task <task_id>'.
 			if len(entities) > 0 && len(events) > 0 {
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("pass either --entity or --event IDs, not both: they route to different endpoints"))
+			}
+			// A remediation moves mail. It is mirrored as an MCP tool, and the
+			// MCP bridge never forwards --yes, so this gate is what keeps an
+			// agent (or a script that forgot) from submitting one unconfirmed.
+			// It runs before any client is built: nothing is sent.
+			if !flags.yes {
+				return usageErr(fmt.Errorf("refusing to %s without confirmation: pass --yes to submit it, or --dry-run to preview the request", action))
 			}
 
 			ctx, cancel := boundCtx(cmd.Context(), flags)
@@ -190,10 +205,29 @@ then 'task <task_id>'.
 				report.EntityType = resolved
 				requestData["entityType"] = resolved
 			}
-			if action == "quarantine" {
-				requestData["entityActionName"] = "quarantine"
-			} else {
-				requestData["entityActionName"] = "restore"
+			// Each action endpoint names the action in its own field: the event
+			// contract (action.post-event) requires eventActionName, the entity
+			// contract entityActionName. action is quarantine or restore
+			// (validated above).
+			actionField := "entityActionName"
+			if report.TargetKind == "event" {
+				actionField = "eventActionName"
+			}
+			requestData[actionField] = action
+
+			// A restore is confirmed by evidence, not by the absence of a
+			// quarantine: an entity that was never quarantined already reads
+			// isQuarantined false. So read each entity's state BEFORE
+			// submitting; "no longer quarantined" then counts only for an
+			// entity that was quarantined before (see entityFlags.reflects).
+			var pre map[string]entityFlags
+			if wait && action == "restore" && report.TargetKind == "entity" {
+				pre = map[string]entityFlags{}
+				for _, id := range targets {
+					if st, ok := entityActionState(ctx, c, id, resolvedScope); ok {
+						pre[id] = st
+					}
+				}
 			}
 			if reason != "" {
 				requestData["restoreDeclineReason"] = reason
@@ -211,10 +245,44 @@ then 'task <task_id>'.
 				return fmt.Errorf("submitting %s: %w", action, err)
 			}
 
-			report.TaskID = extractTaskID(env)
-			for _, t := range targets {
-				report.Outcomes = append(report.Outcomes, remediateOutcome{TargetID: t, Status: "submitted"})
+			// The documented response is an ARRAY of {target, taskId}
+			// records, one task per target or one shared batch task. Map
+			// every target to its own task so each outcome reports that
+			// target's task, never the first task's status stamped on all.
+			refs := avananTaskRefs(env)
+			taskFor := map[string]string{}
+			untaskedRecords := 0
+			for _, ref := range refs {
+				if ref.TaskID == "" {
+					// No task for this record's target: it stays unmapped
+					// and must be confirmed against its own state.
+					untaskedRecords++
+					continue
+				}
+				if !slices.Contains(report.TaskIDs, ref.TaskID) {
+					report.TaskIDs = append(report.TaskIDs, ref.TaskID)
+				}
+				target := ref.EntityID
+				if report.TargetKind == "event" && ref.EventID != "" {
+					target = ref.EventID
+				}
+				if target != "" {
+					taskFor[target] = ref.TaskID
+				}
 			}
+			if len(report.TaskIDs) > 0 {
+				report.TaskID = report.TaskIDs[0]
+			}
+			for _, t := range targets {
+				task := taskFor[t]
+				if task == "" && len(report.TaskIDs) == 1 && len(taskFor) == 0 && untaskedRecords == 0 {
+					// One task and no per-target linkage: a batch task that
+					// covers every target.
+					task = report.TaskIDs[0]
+				}
+				report.Outcomes = append(report.Outcomes, remediateOutcome{TargetID: t, TaskID: task, Status: "submitted"})
+			}
+			var failedTasks []string
 
 			if report.TaskID == "" {
 				// Google Mail returns taskId null where Office 365 returns a
@@ -231,7 +299,7 @@ then 'task <task_id>'.
 				// which is the ground truth the task only ever trails.
 				if wait {
 					pollCtx, pollCancel := context.WithTimeout(cmd.Context(), waitFor)
-					applied, checked := pollEntityApplied(pollCtx, c, targets, resolvedScope, action, waitFor)
+					applied, checked := pollEntityApplied(pollCtx, c, targets, resolvedScope, action, waitFor, pre)
 					pollCancel()
 					report.Completed = applied
 					for i := range report.Outcomes {
@@ -261,14 +329,56 @@ then 'task <task_id>'.
 				// 2m wait short at the 60s default and then report a duration
 				// that never elapsed.
 				pollCtx, pollCancel := context.WithTimeout(cmd.Context(), waitFor)
-				status, detail, completed := pollTask(pollCtx, c, report.TaskID, resolvedScope, waitFor)
-				pollCancel()
-				report.Completed = completed
-				for i := range report.Outcomes {
-					report.Outcomes[i].Status = status
-					report.Outcomes[i].Detail = detail
+				type taskResult struct {
+					status, detail string
+					completed      bool
 				}
-				if !completed {
+				results := map[string]taskResult{}
+				pending := ""
+				for _, id := range report.TaskIDs {
+					status, detail, completed := pollTask(pollCtx, c, id, resolvedScope, waitFor)
+					results[id] = taskResult{status, detail, completed}
+					if !completed && pending == "" {
+						pending = id
+					}
+					if completed && !avananTaskSucceeded(status) {
+						failedTasks = append(failedTasks, id+"="+status)
+					}
+				}
+				// A target no task names was not observed by any task poll;
+				// its own state is the only confirmation there is.
+				var unmapped []string
+				for _, o := range report.Outcomes {
+					if _, ok := results[o.TaskID]; !ok {
+						unmapped = append(unmapped, o.TargetID)
+					}
+				}
+				unmappedApplied := false
+				if len(unmapped) > 0 {
+					unmappedApplied, _ = pollEntityApplied(pollCtx, c, unmapped, resolvedScope, action, waitFor, pre)
+				}
+				pollCancel()
+				completed := pending == ""
+				for i := range report.Outcomes {
+					r, ok := results[report.Outcomes[i].TaskID]
+					if !ok {
+						if unmappedApplied {
+							report.Outcomes[i].Status = "applied"
+							report.Outcomes[i].Detail = "no task in the response; confirmed against the entity's own state"
+							continue
+						}
+						completed = false
+						report.Outcomes[i].Detail = "the API returned no task for this target and its own state did not confirm it; check it before resubmitting"
+						continue
+					}
+					report.Outcomes[i].Status = r.status
+					report.Outcomes[i].Detail = r.detail
+				}
+				report.Completed = completed
+				if pending == "" && !completed {
+					report.Note = "some targets had no task in the response; their outcome is not confirmed - check those entities before resubmitting"
+				}
+				if pending != "" {
 					// A task that has not gone terminal does NOT mean the mail
 					// has not moved. Office 365 tasks were observed still
 					// reading inprogress/init after the entity already
@@ -279,10 +389,10 @@ then 'task <task_id>'.
 						"task %s had not reached a terminal state after %s. The action may already have been applied: "+
 							"the task lags the entity, so check the entity's isQuarantined/isRestored state before resubmitting. "+
 							"Re-check the task with 'avanan-cli task %s --scope %s'",
-						report.TaskID, waitFor, report.TaskID, resolvedScope)
+						pending, waitFor, pending, resolvedScope)
 				}
 			} else {
-				report.Note = fmt.Sprintf("submitted as task %s; pass --wait to poll for the outcome", report.TaskID)
+				report.Note = fmt.Sprintf("submitted as task %s; pass --wait to poll for the outcome", strings.Join(report.TaskIDs, ", "))
 			}
 
 			// Deliberately not the command context: it may already be expired
@@ -292,8 +402,24 @@ then 'task <task_id>'.
 			recordActionLog(logCtx, cmd, flags, report, targets)
 			logCancel()
 
+			// A task that ended in a failure state is a failed remediation:
+			// report it, then exit non-zero.
+			var failErr error
+			if len(failedTasks) > 0 {
+				failErr = apiErr(fmt.Errorf("%s did not succeed: task(s) %s", action, strings.Join(failedTasks, ", ")))
+			}
+			// --wait promises a confirmed outcome. Any target left unconfirmed
+			// (no task, a task that never went terminal, an entity that never
+			// reflected the action) is pending, never success.
+			if failErr == nil && wait && !report.Completed {
+				failErr = &cliError{code: ExitJobPending, err: fmt.Errorf("%s was submitted but not confirmed for every target: %s", action, orDefault(report.Note, "see the per-target outcomes"))}
+			}
+
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-				return printJSONFiltered(cmd.OutOrStdout(), report, flags)
+				if err := printJSONFiltered(cmd.OutOrStdout(), report, flags); err != nil {
+					return err
+				}
+				return failErr
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "%s: %d %s target(s)", action, len(targets), report.TargetKind)
@@ -301,8 +427,8 @@ then 'task <task_id>'.
 				fmt.Fprintf(cmd.OutOrStdout(), "  scope=%s", report.Scope)
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
-			if report.TaskID != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "task: %s\n", report.TaskID)
+			if len(report.TaskIDs) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "task: %s\n", strings.Join(report.TaskIDs, ", "))
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
 			for _, o := range report.Outcomes {
@@ -311,7 +437,7 @@ then 'task <task_id>'.
 			if report.Note != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", report.Note)
 			}
-			return nil
+			return failErr
 		},
 	}
 
@@ -394,23 +520,6 @@ func extractScopes(env *avananmirror.Envelope) []string {
 		}
 	}
 	return out
-}
-
-func extractTaskID(env *avananmirror.Envelope) string {
-	records, err := env.Records()
-	if err != nil {
-		return ""
-	}
-	for _, r := range records {
-		var obj map[string]any
-		if err := json.Unmarshal(r, &obj); err != nil {
-			continue
-		}
-		if id := str(obj, "taskId", "task_id", "id"); id != "" {
-			return id
-		}
-	}
-	return ""
 }
 
 // terminalTaskStates are the task states that mean "stop polling".
@@ -525,6 +634,12 @@ func recordActionLog(ctx context.Context, cmd *cobra.Command, flags *rootFlags, 
 	if report.TaskID == "" {
 		return
 	}
+	// AVANAN_NO_LOCAL_DATA=1 keeps no local copy of API data, and this log
+	// stores the task ids the API returned. The action itself has already
+	// been submitted and is still reported; only the local record is skipped.
+	if localDataDisabled() {
+		return
+	}
 	dbPath := defaultDBPath("avanan-cli")
 	db, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {
@@ -533,24 +648,38 @@ func recordActionLog(ctx context.Context, cmd *cobra.Command, flags *rootFlags, 
 	}
 	defer db.Close()
 
-	entry := map[string]any{
-		"task_id":      report.TaskID,
-		"action":       report.Action,
-		"target_kind":  report.TargetKind,
-		"entity_ids":   targets,
-		"scope":        report.Scope,
-		"submitted_at": time.Now().UTC().Format(time.RFC3339),
-	}
-	if report.Completed && len(report.Outcomes) > 0 {
-		entry["outcome"] = report.Outcomes[0].Status
-		entry["completed_at"] = time.Now().UTC().Format(time.RFC3339)
-	}
-	encoded, err := json.Marshal(entry)
-	if err != nil {
-		return
-	}
-	if err := db.Upsert(avananActionResource, report.TaskID, encoded); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not record the action locally (%v); 'timeline' will not show it\n", err)
+	// One row per task, linking it to exactly the targets it covers.
+	for _, taskID := range report.TaskIDs {
+		var covered []string
+		status := ""
+		for _, o := range report.Outcomes {
+			if o.TaskID == taskID {
+				covered = append(covered, o.TargetID)
+				status = o.Status
+			}
+		}
+		if len(covered) == 0 {
+			continue
+		}
+		entry := map[string]any{
+			"task_id":      taskID,
+			"action":       report.Action,
+			"target_kind":  report.TargetKind,
+			"entity_ids":   covered,
+			"scope":        report.Scope,
+			"submitted_at": time.Now().UTC().Format(time.RFC3339),
+		}
+		if report.Waited && terminalTaskStates[strings.ToLower(status)] {
+			entry["outcome"] = status
+			entry["completed_at"] = time.Now().UTC().Format(time.RFC3339)
+		}
+		encoded, err := json.Marshal(entry)
+		if err != nil {
+			continue
+		}
+		if err := db.Upsert(avananActionResource, taskID, encoded); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not record the action locally (%v); 'timeline' will not show it\n", err)
+		}
 	}
 }
 
@@ -760,7 +889,7 @@ func truncateIDs(ids []string, n int) []string {
 // look").
 func pollEntityApplied(ctx context.Context, c interface {
 	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
-}, targets []string, scope, action string, within time.Duration) (applied, checked bool) {
+}, targets []string, scope, action string, within time.Duration, pre map[string]entityFlags) (applied, checked bool) {
 	deadline := time.Now().Add(within)
 	backoff := 2 * time.Second
 
@@ -777,7 +906,11 @@ func pollEntityApplied(ctx context.Context, c interface {
 				continue
 			}
 			readAny = true
-			if !state.reflects(action) {
+			var before *entityFlags
+			if p, ok := pre[id]; ok {
+				before = &p
+			}
+			if !state.reflects(action, before) {
 				allDone = false
 			}
 		}
@@ -807,9 +940,17 @@ type entityFlags struct {
 	Restored    bool `json:"isRestored"`
 }
 
-func (f entityFlags) reflects(action string) bool {
+// reflects reports whether the entity shows the action landed. Only
+// affirmative evidence counts: isQuarantined for a quarantine; isRestored, or
+// a transition out of quarantine observed against the state read before
+// submission (pre), for a restore. A missing field reads false, so an entity
+// with no flags at all never confirms anything.
+func (f entityFlags) reflects(action string, pre *entityFlags) bool {
 	if action == "restore" {
-		return f.Restored || !f.Quarantined
+		if f.Restored {
+			return true
+		}
+		return pre != nil && pre.Quarantined && !f.Quarantined
 	}
 	return f.Quarantined
 }
