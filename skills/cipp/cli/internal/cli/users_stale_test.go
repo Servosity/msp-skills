@@ -25,6 +25,9 @@ func seedStaleUser(t *testing.T, db *store.Store, id, tenant string, licensed bo
 	if licensed {
 		obj["assignedLicenses"] = []any{map[string]any{"skuPartNumber": "ENTERPRISEPACK"}}
 	}
+	// "" is a user who never signed in: the field is present and null, the
+	// shape /ListUsers returns when logon details are requested.
+	obj["LastSignInDateTime"] = nil
 	if lastSignIn != "" {
 		obj["LastSignInDateTime"] = lastSignIn
 	}

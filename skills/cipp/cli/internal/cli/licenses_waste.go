@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -16,6 +17,7 @@ import (
 type wasteRow struct {
 	Tenant      string `json:"tenant"`
 	LicenseName string `json:"licenseName"`
+	SkuID       string `json:"skuId,omitempty"`
 	Assigned    int    `json:"assigned"`
 	Unused      int    `json:"unused"`
 }
@@ -53,6 +55,52 @@ func userLicenseNames(obj map[string]any) []string {
 		}
 	}
 	return names
+}
+
+// skuDisplayNames maps a SKU id, as user rows carry it in assignedLicenses,
+// to the readable name the stored /ListLicenses rows give it (the License
+// friendly name, else skuPartNumber). Keys are lower-cased.
+func skuDisplayNames(db *store.Store) map[string]string {
+	names := map[string]string{}
+	rows, err := readResourceRows(db, "licenses")
+	if err != nil {
+		return names
+	}
+	for _, r := range rows {
+		id := strings.ToLower(tenantFieldLookup(r, "skuId", "SkuId"))
+		if id == "" {
+			continue
+		}
+		if n := tenantFieldLookup(r, "License", "skuPartNumber", "SkuPartNumber"); n != "" {
+			names[id] = n
+		}
+	}
+	return names
+}
+
+// nameSKUs replaces SKU ids with their stored display names where known.
+func nameSKUs(skus []string, names map[string]string) []string {
+	out := make([]string, 0, len(skus))
+	for _, s := range skus {
+		if n, ok := names[strings.ToLower(s)]; ok {
+			s = n
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// userHasSignInField reports whether a user row carries a sign-in field at
+// all (possibly null). Without one, sign-in activity is unknown, which is not
+// the same as "never signed in": /ListUsers omits it unless the fanout asked
+// for IncludeLogonDetails.
+func userHasSignInField(obj map[string]any) bool {
+	for _, key := range []string{"LastSignInDateTime", "lastSignInDateTime", "lastSignIn", "LastSignIn", "lastLogon", "signInActivity"} {
+		if _, ok := lookupField(obj, key); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // userLastSignIn extracts a parseable last-sign-in time from a user row, if
@@ -117,28 +165,65 @@ func userIsActive(obj map[string]any) bool {
 	return true
 }
 
+// dormantUserRow is one licensed account that has gone idle — the `--by user`
+// view. This is the capability the standalone `users stale` command used to
+// provide; it was folded here because it runs the identical join over the
+// identical rows. Pure inactivity regardless of licensing is available natively
+// via `fanout --endpoint /ListInactiveAccounts --all-tenants`.
+type dormantUserRow struct {
+	Tenant      string   `json:"tenant"`
+	User        string   `json:"user"`
+	Licenses    []string `json:"licenses"`
+	LastSignIn  string   `json:"last_sign_in,omitempty"`
+	DaysIdle    int      `json:"days_idle,omitempty"`
+	AccountOpen bool     `json:"account_enabled"`
+	Reason      string   `json:"reason"`
+}
+
 func newNovelLicensesWasteCmd(flags *rootFlags) *cobra.Command {
 	var flagDB string
 	var flagAllTenants bool
+	var flagBy string
+	var flagStaleDays int
 
 	cmd := &cobra.Command{
 		Use:         "waste",
-		Short:       "Surface assigned-but-unused licenses and CSP billing mismatches across all tenants.",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Short:       "Surface assigned-but-unused licenses, and the dormant accounts holding them, across all tenants.",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Long: `Join synced licenses against synced users (and sign-in activity when present)
-to surface assigned-but-unused seats per tenant. A seat is "unused" when its
-holder has not signed in within 30 days (when sign-in data is present), or when
-its holder is a disabled account with no sign-in data.
+to surface wasted seats per tenant. A seat is "unused" when its holder has not
+signed in within --stale-days (when sign-in data is present), or when its holder
+is a disabled account with no sign-in data.
+
+Views:
+  --by sku   (default) assigned vs unused seat counts per tenant and SKU
+  --by user  the dormant licensed accounts behind those counts
+
+Use this command for reclaimable licenses totalled by SKU or by holder.
+Do NOT use this command for a per-account list of enabled accounts that stopped signing in; use 'users stale' instead.
+Do NOT use it to verify offboarded accounts; use 'users offboard-check' instead.
+For pure inactivity regardless of licensing, run
+'cipp-cli fanout --endpoint /ListInactiveAccounts --all-tenants'.
 
 Populate the store first:
   cipp-cli fanout --endpoint /ListLicenses --all-tenants --save
   cipp-cli fanout --endpoint /ListUsers --all-tenants --save`,
+		Example: "  cipp-cli licenses waste --by sku --stale-days 90 --all-tenants --agent",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "licenses waste")
 			}
 			if !flagAllTenants {
 				return usageErr(fmt.Errorf("--all-tenants=false is not supported; this command always reads the full local store across all synced tenants"))
+			}
+			view := strings.ToLower(strings.TrimSpace(flagBy))
+			if view != "sku" && view != "user" {
+				_ = cmd.Usage()
+				return usageErr(fmt.Errorf("invalid --by %q: must be sku or user", flagBy))
+			}
+			if flagStaleDays <= 0 {
+				_ = cmd.Usage()
+				return usageErr(fmt.Errorf("--stale-days must be greater than 0, got %d", flagStaleDays))
 			}
 			dbPath := flagDB
 			if dbPath == "" {
@@ -156,14 +241,33 @@ Populate the store first:
 			}
 			if len(users) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(),
-					"no synced users data; populate it with: cipp-cli fanout --endpoint /ListUsers --all-tenants --save")
+					"hint: no synced users data; populate it with: cipp-cli fanout --endpoint /ListUsers --all-tenants --save")
 				if flags.asJSON {
-					return flags.printJSON(cmd, []wasteRow{})
+					if view == "user" {
+						return printNovelJSON(cmd, flags, []dormantUserRow{})
+					}
+					return printNovelJSON(cmd, flags, []wasteRow{})
 				}
 				return nil
 			}
 
-			cutoff := time.Now().AddDate(0, 0, -30)
+			skuNames := skuDisplayNames(db)
+			now := time.Now()
+			cutoff := now.AddDate(0, 0, -flagStaleDays)
+
+			// --by user: the dormant licensed accounts behind the seat counts.
+			if view == "user" {
+				// false: absent sign-in data is unknown, not idle. See the
+				// contract note on computeDormantUsers.
+				dormant := computeDormantUsers(users, now, cutoff, flagStaleDays, false)
+				for i := range dormant {
+					dormant[i].Licenses = nameSKUs(dormant[i].Licenses, skuNames)
+				}
+				if flags.asJSON {
+					return printNovelJSON(cmd, flags, dormant)
+				}
+				return printDormantUsersTable(cmd, flags, dormant)
+			}
 
 			// tenant -> sku -> [assigned, unused]
 			type counts struct{ assigned, unused int }
@@ -180,6 +284,7 @@ Populate the store first:
 
 			for _, u := range users {
 				tenant := rowTenant(u)
+				// Aggregate by SKU id; two SKUs can share a display name.
 				skus := userLicenseNames(u)
 				if len(skus) == 0 {
 					continue
@@ -222,12 +327,16 @@ Populate the store first:
 					if c.unused == 0 {
 						continue
 					}
-					out = append(out, wasteRow{Tenant: t, LicenseName: s, Assigned: c.assigned, Unused: c.unused})
+					row := wasteRow{Tenant: t, LicenseName: s, Assigned: c.assigned, Unused: c.unused}
+					if n, ok := skuNames[strings.ToLower(s)]; ok {
+						row.LicenseName, row.SkuID = n, s
+					}
+					out = append(out, row)
 				}
 			}
 
 			if flags.asJSON {
-				return flags.printJSON(cmd, out)
+				return printNovelJSON(cmd, flags, out)
 			}
 			headers := []string{"TENANT", "LICENSE", "ASSIGNED", "UNUSED"}
 			tableRows := make([][]string, 0, len(out))
@@ -239,5 +348,81 @@ Populate the store first:
 	}
 	cmd.Flags().StringVar(&flagDB, "db", "", "Path to the local SQLite database (default: standard location)")
 	cmd.Flags().BoolVar(&flagAllTenants, "all-tenants", true, "Scan all synced tenants (default; this command always reads the full local store)")
+	cmd.Flags().StringVar(&flagBy, "by", "sku", "View: sku (assigned vs unused seats) or user (the dormant accounts holding them)")
+	cmd.Flags().IntVar(&flagStaleDays, "stale-days", 30, "Days without a sign-in before a licensed seat counts as unused")
 	return cmd
+}
+
+// computeDormantUsers is the licensed-dormancy join shared by
+// `licenses waste --by user` and the deprecated `users stale` alias. Keeping it
+// in one place is why `users stale` was consolidated: both views ask the same
+// question of the same rows.
+//
+// A user is dormant when they hold at least one license AND signed in before the
+// cutoff. Users with no licenses are skipped entirely — this is LICENSED
+// dormancy, not general inactivity (for that, fan out /ListInactiveAccounts).
+//
+// missingSignInIsDormant selects how a user with NO sign-in data is treated, and
+// the two callers deliberately disagree:
+//   - `licenses waste` passes false: absent sign-in data is treated as unknown,
+//     not idle, so a seat is only called wasted when the account is also
+//     disabled. This is the conservative rule that avoids over-reporting waste
+//     against tenants whose payloads simply lack signInActivity.
+//   - `users stale` passes true: "null sign-in counts as stale" is the published
+//     behavior of that command, and flipping it would silently stop flagging
+//     never-signed-in licensed accounts for anyone already using it.
+func computeDormantUsers(users []map[string]any, now, cutoff time.Time, staleDays int, missingSignInIsDormant bool) []dormantUserRow {
+	dormant := make([]dormantUserRow, 0)
+	for _, u := range users {
+		skus := userLicenseNames(u)
+		if len(skus) == 0 {
+			continue
+		}
+		lastSignIn, hasSignIn := userLastSignIn(u)
+		active := userIsActive(u)
+		row := dormantUserRow{
+			Tenant:      rowTenant(u),
+			User:        firstNonEmpty(u, "userPrincipalName", "UserPrincipalName", "mail", "displayName"),
+			Licenses:    skus,
+			AccountOpen: active,
+		}
+		switch {
+		case hasSignIn && lastSignIn.Before(cutoff):
+			row.LastSignIn = lastSignIn.UTC().Format(time.RFC3339)
+			row.DaysIdle = int(now.Sub(lastSignIn).Hours() / 24)
+			row.Reason = fmt.Sprintf("no sign-in in %d days", staleDays)
+		case !hasSignIn && missingSignInIsDormant:
+			row.Reason = "no recorded sign-in while holding a licensed seat"
+		case !hasSignIn && !active:
+			row.Reason = "disabled account still holding a licensed seat"
+		default:
+			continue
+		}
+		dormant = append(dormant, row)
+	}
+	sort.Slice(dormant, func(i, j int) bool {
+		if dormant[i].Tenant != dormant[j].Tenant {
+			return dormant[i].Tenant < dormant[j].Tenant
+		}
+		return dormant[i].User < dormant[j].User
+	})
+	return dormant
+}
+
+// printDormantUsersTable renders the human view shared by both entry points.
+func printDormantUsersTable(cmd *cobra.Command, flags *rootFlags, dormant []dormantUserRow) error {
+	headers := []string{"TENANT", "USER", "LICENSES", "LAST SIGN-IN", "DAYS IDLE", "REASON"}
+	tableRows := make([][]string, 0, len(dormant))
+	for _, r := range dormant {
+		idle := "-"
+		if r.DaysIdle > 0 {
+			idle = fmt.Sprintf("%d", r.DaysIdle)
+		}
+		last := r.LastSignIn
+		if last == "" {
+			last = "-"
+		}
+		tableRows = append(tableRows, []string{r.Tenant, r.User, strings.Join(r.Licenses, ", "), last, idle, r.Reason})
+	}
+	return flags.printTable(cmd, headers, tableRows)
 }

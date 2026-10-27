@@ -83,12 +83,6 @@
    "read-only",
    "local-data"
   ],
-  "cipp": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "cisco-duo": [
    "write-gating",
    "read-only",

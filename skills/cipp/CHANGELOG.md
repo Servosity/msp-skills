@@ -4,6 +4,34 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.13] - unreleased
+
+Rebuilt on CLI Printing Press 4.34.0.
+
+### Changed
+- **MCP HTTP mode needs a token.** `cipp-mcp --transport http` serves `http://127.0.0.1:7777/mcp` by default, refuses to start until `CIPP_MCP_HTTP_TOKEN` is set, answers only requests that send `Authorization: Bearer <token>`, and needs `--tls-cert`/`--tls-key` for any address other than loopback. stdio stays the default.
+- **MCP writes are previewed.** `cipp_execute` returns a preview of any call that changes something and sends it only when the agent passes `confirm: true`. That includes every CIPP endpoint called with GET but named as an action (43 in this build: `ExecRunBackup`, `RemoveStandard`, `ExecSendOrgMessage`, ...); `cipp_read` refuses them. A write CIPP answers with HTTP 200 and a failure inside `Results` comes back from `cipp_execute` as an error.
+- **Read-only switch.** `CIPP_MCP_READ_ONLY=1` makes the MCP server drop its write tools. Claude Desktop shows it as the **Read-only MCP mode** setting.
+- **Local data you can see and remove.** `cipp-cli doctor` prints where the store, response cache and learn journal live; `cipp-cli local-data purge` lists them and `--yes` deletes them; cached responses expire after five minutes and are deleted on a later run. `CIPP_NO_LOCAL_DATA=1` (Claude Desktop: **Run without a local copy**) keeps no local copy of CIPP data: reads go live, the cache is off, and `fanout --save` and `fanout --resume` refuse.
+- **`auth set-token` reads the token from stdin** (`echo "$TOKEN" | cipp-cli auth set-token`) instead of an argument, so it stays out of shell history.
+- The `sync` command is gone; `cipp-cli fanout ... --save` fills the local store, as before.
+- MCP library `github.com/mark3labs/mcp-go` v0.57.0.
+
+### Fixed
+- **`posture --dimension mfa` reads the right data.** It now counts from the rows `fanout` saves from `/ListMFAUsers`, which carry MFA registration. Earlier builds read `/ListUsers`, which has no MFA fields, so their MFA numbers were wrong. Run `cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save` before `posture --dimension mfa`.
+- `fanout --save` replaces a tenant's stored rows in one step instead of keeping rows CIPP no longer returns, unwraps CIPP's `Results` envelope, and keeps the stored rows when CIPP answers with a failure message. Rows are stored per tenant, so two tenants with the same id (license SKUs, for example) no longer overwrite each other.
+- `fanout`, `export` and `tail` accept only `List*` and `Get*` read endpoints.
+- `fanout --save` refuses a tenant's response when anything in the response reads as a failure: failure wording or a failed state anywhere under a status-like field (state, status, result, message, text, detail, reason and the like, at any depth: `"status":{"code":"error"}`) or in a bare message, a populated field named like error, exception or fault (`"error":"HTTP 403"`, whatever the wording), a field named like success or ok that is `false`, or a failed state, in the rows or beside them, and keeps the rows already stored. It stores only a list (an array, or `Results` holding an array) whose every entry carries the endpoint's id; JSON `null`, an empty answer, a single object or a message is shown, not stored. In the tenant list, and only there, tenant records keep their own Graph token fields (`LastGraphError`, `GraphErrorCount`), so one tenant with a failed Graph token does not stop the fleet. A response with a duplicate key is refused. A row whose own name holds a failure word (a user named "Error Reporting", a group named "Denied Access") is still a row. The trade-off: a list whose rows report their own failed status is refused too; run the same `fanout` with `--json` to see what CIPP returned. The tenant list and `gdap expiring` refuse any entry that is not a tenant or relationship instead of working from a partial list.
+- `bulk` is a command-line tool only; the MCP server no longer offers it.
+- A successful response that repeats a configured credential (the API key, the client secret or the minted token) has it masked before it is shown, cached or saved. The check reads the whole response with zero-width and other invisible characters removed, and then reads every value again with all spaces, tabs and line breaks removed too, so a credential cut up by them (`WVdG aFlX ...`) is still found. A single value over 64 KiB once spaces are removed, or a response that is not JSON and is over 64 KiB, withholds the response, because it cannot be decoded whole. A response over 1 MiB is also searched along its whole length for every encoded form of each credential and withheld only if one turns up, so large reads such as a big tenant's `/ListUsers` still come back.
+- A retry after a rate-limit wait re-checks the token and mints a new one if it has expired.
+- A `bulk --resume` checkpoint belongs to one CSV file's exact contents, so a new or edited batch starts from its first row instead of skipping rows an earlier batch finished.
+- A failed token request shows only the OAuth error code and any Azure AD error numbers (AADSTS...); the rest of what the token endpoint sent is withheld. A token response that cannot be read is described by what went wrong ("could not be decoded"), never by its text. A token that arrives already expired is refused. `auth login` checks its connection errors for the client secret in encoded forms too.
+- `bulk` and `cipp_execute` recognize more of CIPP's failure wording inside an HTTP 200 (Access denied, Forbidden, Insufficient privileges, not found, invalid input), and read the whole response, not only `Results`; a response with a duplicate key is a failure. A populated field named like error, exception or fault counts as a failure whatever its wording, and so does a field named like success or ok that is `false`. A result that carries both failure and success wording or state is reported as an error and is never resent automatically: `bulk` marks the row needs-review (keeping only hashes and row numbers, never CIPP's response) and skips it on later runs of the same CSV, and refuses to start when that CSV's checkpoint file, or the folder for a new one, cannot be written.
+
+### Docs
+- The README, docs page and skill notes no longer say CIPP lacks fleet-wide MFA, drift, stale-account or license views, or that its own MCP server is limited to one tenant: CIPP's All Tenants views and its MCP server cover those. They now describe what this connector adds (a local copy an agent can join and compare offline, and CIPP's writes behind a preview) and where that copy lives on disk.
+
 ## [0.1.12] - 2026-10-23
 
 ### Fixed

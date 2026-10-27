@@ -22,7 +22,8 @@ func seedUser(t *testing.T, db *store.Store, id, tenant string, mfa bool) {
 		"MFARegistration":   mfa,
 	}
 	raw, _ := json.Marshal(obj)
-	if err := db.Upsert("users", id, raw); err != nil {
+	// MFA registration lives on /ListMFAUsers rows, stored as mfausers.
+	if err := db.Upsert("mfausers", id, raw); err != nil {
 		t.Fatalf("seed user %s: %v", id, err)
 	}
 }
@@ -102,4 +103,81 @@ func TestPostureHonestEmpty(t *testing.T) {
 		t.Fatalf("expected honest-empty hint on stderr, got nothing")
 	}
 	fmt.Printf("posture honest-empty stderr: %s", errBuf.String())
+}
+
+// TestPostureDimensionsMatchFanoutResourceTypes locks the invariant whose
+// violation shipped a permanently-empty dimension: every posture dimension's
+// resourceType must equal what resourceTypeForEndpoint() derives from that
+// dimension's own listEndpoint, because that is the key fanout --save writes.
+// The pre-4.30 build declared "bestpracticeanalyser" while fanout wrote "bpa",
+// so `posture --dimension bpa` could never return a row against a healthy store.
+func TestPostureDimensionsMatchFanoutResourceTypes(t *testing.T) {
+	for name, dim := range postureDimensions {
+		want := resourceTypeForEndpoint(dim.listEndpoint)
+		if dim.resourceType != want {
+			t.Errorf("dimension %q: resourceType = %q, but fanout --endpoint %s writes %q; the dimension can never return a row",
+				name, dim.resourceType, dim.listEndpoint, want)
+		}
+	}
+}
+
+// TestPostureDimensionCoverage asserts the reprint's three new compliance
+// dimensions are present alongside the original four.
+func TestPostureDimensionCoverage(t *testing.T) {
+	for _, want := range []string{"mfa", "ca", "standards", "bpa", "dlp", "retention", "labels"} {
+		if _, ok := postureDimensions[want]; !ok {
+			t.Errorf("missing posture dimension %q", want)
+		}
+	}
+}
+
+// TestCAPolicyStateBuckets asserts a report-only Conditional Access policy is
+// never counted as enforced. Conflating the two is the reason this dimension
+// computes a real signal instead of a row count.
+func TestCAPolicyStateBuckets(t *testing.T) {
+	cases := []struct {
+		state string
+		want  string
+	}{
+		{"enabled", "enabled"},
+		{"enabledForReportingButNotEnforced", "report_only"},
+		{"disabled", "disabled"},
+		{"", "unknown"},
+		{"something-new", "unknown"},
+	}
+	for _, c := range cases {
+		obj := map[string]any{}
+		if c.state != "" {
+			obj["state"] = c.state
+		}
+		if got := caPolicyState(obj); got != c.want {
+			t.Errorf("caPolicyState(state=%q) = %q, want %q", c.state, got, c.want)
+		}
+	}
+}
+
+// TestPostureMetricsAlwaysEmitsTotal asserts every dimension emits a total, so a
+// tenant holding data never renders as an empty row.
+func TestPostureMetricsAlwaysEmitsTotal(t *testing.T) {
+	totals := map[string]string{
+		"mfa": "users", "ca": "policies", "standards": "standards", "bpa": "checks",
+		"dlp": "policies", "retention": "policies", "labels": "policies",
+	}
+	for dim, totalKey := range totals {
+		m := map[string]int{}
+		postureMetrics(dim, map[string]any{"id": "x"}, m)
+		if m[totalKey] != 1 {
+			t.Errorf("dimension %q: expected %s=1, got %d (metrics=%v)", dim, totalKey, m[totalKey], m)
+		}
+	}
+}
+
+// TestComplianceBucketUnknownNotCountedHealthy asserts an un-inspectable payload
+// buckets as unknown rather than silently passing.
+func TestComplianceBucketUnknownNotCountedHealthy(t *testing.T) {
+	got := complianceBucket(map[string]any{"irrelevant": "value"},
+		[]string{"Compliant"}, []string{"Deviated"})
+	if got != "unknown" {
+		t.Errorf("complianceBucket with no known field = %q, want %q", got, "unknown")
+	}
 }

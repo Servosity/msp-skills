@@ -51,7 +51,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Blumira (Security) - ask "What are the worst open findings across all my client accounts right now?" - Triage every Blumira finding across all your MSP client accounts from one ranked queue
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
-- CIPP + Microsoft 365 (Security) - ask "Which tenants still have users without MFA registered?" - MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.
+- CIPP + Microsoft 365 (Security) - ask "Which tenants have users with no MFA registered, as one row per tenant?" - MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.
   Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13). Page: https://msp-skills.compoundingteams.com/skills/cipp/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 - Cisco Duo (Security) - ask "Why can't this user get through Duo, and which fix applies?" - Fix Duo MFA lockouts in one command and see every MSP subaccount at once.

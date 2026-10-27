@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -13,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// staleRow reports one licensed account with no recent sign-in.
+// staleRow reports one enabled, licensed account with no recent sign-in.
 type staleRow struct {
 	Tenant            string `json:"tenant"`
 	UserPrincipalName string `json:"userPrincipalName"`
@@ -28,6 +29,21 @@ func userIsLicensed(obj map[string]any) bool {
 	return len(userLicenseNames(obj)) > 0
 }
 
+// userAccountEnabled reports whether a stored user row is enabled. A row that
+// carries no accountEnabled field is treated as enabled, so a partial payload
+// never hides an account from the sweep.
+func userAccountEnabled(obj map[string]any) bool {
+	for _, k := range []string{"accountEnabled", "AccountEnabled"} {
+		switch v := obj[k].(type) {
+		case bool:
+			return v
+		case string:
+			return !strings.EqualFold(strings.TrimSpace(v), "false")
+		}
+	}
+	return true
+}
+
 func newNovelUsersStaleCmd(flags *rootFlags) *cobra.Command {
 	var flagDays string
 	var flagDB string
@@ -35,10 +51,16 @@ func newNovelUsersStaleCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "stale",
-		Short:       "Flag licensed accounts with no sign-in in N days across every tenant.",
-		Annotations: map[string]string{"mcp:read-only": "true"},
-		Long: `Scan synced users across every tenant and flag licensed accounts whose last
-sign-in is older than N days (or null). Reads the local store only.
+		Short:       "List enabled, licensed accounts with no sign-in in N days from the stored users rows.",
+		Example:     "  cipp-cli users stale --days 90 --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
+		Long: `Use this command for enabled, licensed accounts with no sign-in in N days.
+Do NOT use this command for disabled accounts left holding access; use 'users offboard-check' instead.
+Do NOT use it for license reclaim totals by SKU; use 'licenses waste' instead.
+
+Scans stored users across every tenant and lists enabled, licensed accounts
+whose last sign-in is older than N days (or never recorded). Reads the local
+store only. CIPP's /ListInactiveAccounts is the pure-inactivity report.
 
 Populate the store first:
   cipp-cli fanout --endpoint /ListUsers --all-tenants --save`,
@@ -47,7 +69,7 @@ Populate the store first:
 				return cmd.Help()
 			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "users stale")
 			}
 			if !flagAllTenants {
 				return usageErr(fmt.Errorf("--all-tenants=false is not supported; this command always reads the full local store across all synced tenants"))
@@ -77,56 +99,26 @@ Populate the store first:
 			}
 			if len(users) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(),
-					"no synced users data; populate it with: cipp-cli fanout --endpoint /ListUsers --all-tenants --save")
+					"hint: no synced users data; populate it with: cipp-cli fanout --endpoint /ListUsers --all-tenants --save")
 				if flags.asJSON {
-					return flags.printJSON(cmd, []staleRow{})
+					return printNovelJSON(cmd, flags, []staleRow{})
 				}
 				return nil
 			}
 
-			now := time.Now()
-			cutoff := now.AddDate(0, 0, -days)
-
-			out := make([]staleRow, 0)
+			out := computeStaleUsers(users, time.Now(), days)
+			unknown := 0
 			for _, u := range users {
-				if !userIsLicensed(u) {
-					continue
+				if userIsLicensed(u) && userAccountEnabled(u) && !userHasSignInField(u) {
+					unknown++
 				}
-				lastSignIn, has := userLastSignIn(u)
-				stale := false
-				lastStr := ""
-				daysSince := -1
-				if !has {
-					// Null sign-in counts as stale.
-					stale = true
-				} else {
-					lastStr = lastSignIn.UTC().Format(time.RFC3339)
-					daysSince = int(now.Sub(lastSignIn).Hours() / 24)
-					if lastSignIn.Before(cutoff) {
-						stale = true
-					}
-				}
-				if !stale {
-					continue
-				}
-				out = append(out, staleRow{
-					Tenant:            rowTenant(u),
-					UserPrincipalName: tenantFieldLookup(u, "userPrincipalName", "UserPrincipalName", "upn", "mail"),
-					DisplayName:       tenantFieldLookup(u, "displayName", "DisplayName"),
-					LastSignIn:        lastStr,
-					DaysSince:         daysSince,
-				})
+			}
+			if unknown > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "hint: %d enabled licensed account(s) have no sign-in data stored and were not judged; re-save users with: cipp-cli fanout --endpoint /ListUsers --all-tenants --save\n", unknown)
 			}
 
-			sort.Slice(out, func(i, j int) bool {
-				if out[i].Tenant != out[j].Tenant {
-					return out[i].Tenant < out[j].Tenant
-				}
-				return out[i].UserPrincipalName < out[j].UserPrincipalName
-			})
-
 			if flags.asJSON {
-				return flags.printJSON(cmd, out)
+				return printNovelJSON(cmd, flags, out)
 			}
 			headers := []string{"TENANT", "UPN", "NAME", "LAST SIGN-IN", "DAYS"}
 			tableRows := make([][]string, 0, len(out))
@@ -150,4 +142,51 @@ Populate the store first:
 	cmd.Flags().StringVar(&flagDB, "db", "", "Path to the local SQLite database (default: standard location)")
 	cmd.Flags().BoolVar(&flagAllTenants, "all-tenants", true, "Scan all synced tenants (default; this command always reads the full local store)")
 	return cmd
+}
+
+// computeStaleUsers lists enabled, licensed users whose last sign-in is older
+// than days (or never recorded), sorted by tenant then UPN.
+func computeStaleUsers(users []map[string]any, now time.Time, days int) []staleRow {
+	cutoff := now.AddDate(0, 0, -days)
+
+	out := make([]staleRow, 0)
+	for _, u := range users {
+		// Disabled accounts belong to 'users offboard-check'. A row with no
+		// sign-in field at all is unknown, not stale (see userHasSignInField).
+		if !userIsLicensed(u) || !userAccountEnabled(u) || !userHasSignInField(u) {
+			continue
+		}
+		lastSignIn, has := userLastSignIn(u)
+		stale := false
+		lastStr := ""
+		daysSince := -1
+		if !has {
+			// Null sign-in counts as stale.
+			stale = true
+		} else {
+			lastStr = lastSignIn.UTC().Format(time.RFC3339)
+			daysSince = int(now.Sub(lastSignIn).Hours() / 24)
+			if lastSignIn.Before(cutoff) {
+				stale = true
+			}
+		}
+		if !stale {
+			continue
+		}
+		out = append(out, staleRow{
+			Tenant:            rowTenant(u),
+			UserPrincipalName: tenantFieldLookup(u, "userPrincipalName", "UserPrincipalName", "upn", "mail"),
+			DisplayName:       tenantFieldLookup(u, "displayName", "DisplayName"),
+			LastSignIn:        lastStr,
+			DaysSince:         daysSince,
+		})
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Tenant != out[j].Tenant {
+			return out[i].Tenant < out[j].Tenant
+		}
+		return out[i].UserPrincipalName < out[j].UserPrincipalName
+	})
+	return out
 }

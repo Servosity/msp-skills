@@ -40,11 +40,6 @@ func TestParseTenantArrayShapes(t *testing.T) {
 			body: `{"displayName":"Contoso","defaultDomainName":"contoso.onmicrosoft.com"}`,
 			want: []string{"contoso.onmicrosoft.com"},
 		},
-		{
-			name: "objects without a domain are dropped",
-			body: `[{"displayName":"No domain"},{"defaultDomainName":"ok.onmicrosoft.com"}]`,
-			want: []string{"ok.onmicrosoft.com"},
-		},
 	}
 
 	for _, tc := range cases {
@@ -71,5 +66,11 @@ func TestParseTenantArrayShapes(t *testing.T) {
 func TestParseTenantArrayRejectsGarbage(t *testing.T) {
 	if _, err := parseTenantArray(json.RawMessage(`"not json we can use"`)); err == nil {
 		t.Fatal("expected an error for a non-object, non-array payload")
+	}
+	// Fail closed (handfixes.json tenant-list-message-is-not-a-fleet): an
+	// entry with no defaultDomainName refuses the list instead of being
+	// dropped, because a fleet missing a tenant looks complete.
+	if _, err := parseTenantArray(json.RawMessage(`[{"displayName":"No domain"},{"defaultDomainName":"ok.onmicrosoft.com"}]`)); err == nil {
+		t.Fatal("a tenant entry with no defaultDomainName must refuse the list")
 	}
 }

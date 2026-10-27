@@ -28,7 +28,9 @@ func TestAuthSetToken_ClearsStaleExpiry(t *testing.T) {
 	t.Setenv("CIPP_CONFIG", path)
 	t.Setenv("CIPP_API_KEY", "")
 
-	seed := &config.Config{Path: path}
+	// Press 4.34 binds saved credentials to the base URL's origin, so the
+	// seed names a real one (the placeholder default is never trusted).
+	seed := &config.Config{Path: path, BaseURL: "https://cipp.example.com/api"}
 	seed.SetOAuthContext("tenant-abc", "", "")
 	if err := seed.SaveTokens("cid", "csec", "old-token", "", time.Now().Add(-2*time.Hour)); err != nil {
 		t.Fatalf("seed SaveTokens: %v", err)
@@ -39,7 +41,9 @@ func TestAuthSetToken_ClearsStaleExpiry(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs([]string{"pasted-static-token"})
+	// Press 4.34 reads the token from stdin so it never reaches argv.
+	cmd.SetIn(strings.NewReader("pasted-static-token\n"))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("set-token: %v", err)
 	}

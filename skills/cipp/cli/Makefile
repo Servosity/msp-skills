@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/cipp-cli ./cmd/cipp-cli
+	go build -trimpath -o bin/cipp-cli$(BIN_EXT) ./cmd/cipp-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/cipp-mcp ./cmd/cipp-mcp
+	go build -trimpath -o bin/cipp-mcp$(BIN_EXT) ./cmd/cipp-mcp
 
 install-mcp:
 	go install ./cmd/cipp-mcp

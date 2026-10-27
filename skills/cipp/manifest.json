@@ -17,7 +17,11 @@
       "env": {
         "CIPP_API_KEY": "${user_config.cipp_api_key}",
         "CIPP_BASE_URL": "${user_config.cipp_base_url}",
-        "CIPP_NO_CONFIG_WRITE": "${user_config.cipp_no_config_write}"
+        "CIPP_NO_CONFIG_WRITE": "${user_config.cipp_no_config_write}",
+        "CIPP_USER_AGENT": "${user_config.cipp_user_agent}",
+        "CIPP_MCP_READ_ONLY": "${user_config.cipp_mcp_read_only}",
+        "CIPP_NO_LOCAL_DATA": "${user_config.cipp_no_local_data}",
+        "CIPP_MCP_HTTP_TOKEN": "${user_config.cipp_mcp_http_token}"
       }
     }
   },
@@ -38,9 +42,34 @@
     "cipp_no_config_write": {
       "type": "string",
       "title": "Keep credentials off disk",
-      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "description": "Set to 1 to keep credentials off disk: auth login and auth set-token refuse and nothing is written, so supply the bearer token in CIPP_API_KEY. Leave blank for the default, which keeps the minted token in the credentials file.",
       "required": false,
       "default": ""
+    },
+    "cipp_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on CIPP requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "cipp_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to drop every MCP tool not marked read-only, cipp_execute included. Leave blank to allow writes, which run only after a preview the agent confirms.",
+      "required": false
+    },
+    "cipp_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to exactly 1 to keep no local copy of CIPP data: reads go to the API, the response cache is off, and fanout --save and --resume refuse to run. Leave blank to keep the local store.",
+      "required": false
+    },
+    "cipp_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -51,11 +80,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:18:12.541831Z",
-    "spec_checksum": "sha256:f8b6b7bc4c45ea2df98e8f229bb0fbc12056dc9f19c2b0c0404e2e8605bba349",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-24T00:07:26.177584Z",
+    "spec_checksum": "sha256:b68b0913229a155dca64831d264dd59aeadc22f71f8d43352bf6b909e774e7f3",
     "spec_format": "openapi3"
   }
 }

@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -6,7 +7,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	"cipp-pp-cli/internal/cliutil"
 	"cipp-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -100,20 +103,34 @@ func newNovelStandardsDriftCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "drift",
-		Short:       "Show every tenant whose security baseline regressed since the last sync.",
-		Annotations: map[string]string{"mcp:read-only": "true"},
-		Long: `Compare the two most recent synced snapshots of standards per tenant and
-report standards whose state changed. If only one snapshot exists for a tenant,
-no drift is reported (drift is never fabricated from a single point in time).
+		Short:       "Show every tenant whose Standards settings changed between two stored snapshots.",
+		Example:     "  cipp-cli standards drift --since 7d --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
+		Long: `Use this command for Standards settings that regressed between two stored snapshots.
+Do NOT use this command for row-level changes in other resources; use 'changes' instead.
 
-Sync standards twice over time (e.g. via 'cipp-cli fanout --endpoint
+Compares, per tenant, the newest stored standards snapshot with the newest one
+at or before --since ago (or with the previous snapshot when --since is not
+given) and reports standards whose state changed. A tenant without two usable
+snapshots reports no drift: drift is never fabricated from one point in time.
+CIPP's own drift views report current deviation from a template; this compares
+your own history.
+
+Save standards at two points in time (e.g. 'cipp-cli fanout --endpoint
 /ListStandards --all-tenants --save') to build the snapshot history drift needs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Read-only analytic with no required flag: a bare call still runs.
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "standards drift")
 			}
-			_ = flagSince // accepted for forward-compat; comparison is snapshot-based
+			var cutoff time.Time
+			if flagSince != "" {
+				d, err := cliutil.ParseDurationLoose(flagSince)
+				if err != nil || d <= 0 {
+					return usageErr(fmt.Errorf("invalid --since %q: use a positive duration such as 7d, 24h or 1w", flagSince))
+				}
+				cutoff = time.Now().UTC().Add(-d)
+			}
 
 			dbPath := flagDB
 			if dbPath == "" {
@@ -133,76 +150,13 @@ Sync standards twice over time (e.g. via 'cipp-cli fanout --endpoint
 				// Honest-empty: name the population path instead of silently
 				// printing nothing.
 				fmt.Fprintln(cmd.ErrOrStderr(),
-					"no standards snapshot history; run 'cipp-cli fanout --endpoint /ListStandards --all-tenants --save' at two points in time to build it")
+					"hint: no standards snapshot history; run 'cipp-cli fanout --endpoint /ListStandards --all-tenants --save' at two points in time to build it")
 			}
 
-			// Group by tenant → ordered distinct snapshot timestamps → per
-			// standard state at each snapshot.
-			type tenantData struct {
-				snapshots []string                     // distinct synced_at, sorted ascending
-				states    map[string]map[string]string // syncedAt -> standard -> state
-			}
-			byTenant := map[string]*tenantData{}
-			for _, s := range snaps {
-				td := byTenant[s.tenant]
-				if td == nil {
-					td = &tenantData{states: map[string]map[string]string{}}
-					byTenant[s.tenant] = td
-				}
-				if td.states[s.syncedAt] == nil {
-					td.states[s.syncedAt] = map[string]string{}
-					td.snapshots = append(td.snapshots, s.syncedAt)
-				}
-				td.states[s.syncedAt][s.standard] = s.state
-			}
-
-			out := make([]driftRow, 0)
-			tenants := make([]string, 0, len(byTenant))
-			for t := range byTenant {
-				tenants = append(tenants, t)
-			}
-			sort.Strings(tenants)
-
-			for _, t := range tenants {
-				td := byTenant[t]
-				sort.Strings(td.snapshots)
-				// Need at least two distinct snapshots to detect drift.
-				if len(td.snapshots) < 2 {
-					continue
-				}
-				prevTS := td.snapshots[len(td.snapshots)-2]
-				currTS := td.snapshots[len(td.snapshots)-1]
-				prev := td.states[prevTS]
-				curr := td.states[currTS]
-
-				standards := map[string]bool{}
-				for s := range prev {
-					standards[s] = true
-				}
-				for s := range curr {
-					standards[s] = true
-				}
-				names := make([]string, 0, len(standards))
-				for s := range standards {
-					names = append(names, s)
-				}
-				sort.Strings(names)
-				for _, name := range names {
-					pv := prev[name]
-					cv := curr[name]
-					if pv != cv {
-						out = append(out, driftRow{
-							Tenant:        t,
-							Standard:      name,
-							PreviousState: pv,
-							CurrentState:  cv,
-						})
-					}
-				}
-			}
+			out := computeStandardsDrift(snaps, cutoff)
 
 			if flags.asJSON {
-				return flags.printJSON(cmd, out)
+				return printNovelJSON(cmd, flags, out)
 			}
 			headers := []string{"TENANT", "STANDARD", "PREVIOUS", "CURRENT"}
 			tableRows := make([][]string, 0, len(out))
@@ -212,7 +166,76 @@ Sync standards twice over time (e.g. via 'cipp-cli fanout --endpoint
 			return flags.printTable(cmd, headers, tableRows)
 		},
 	}
-	cmd.Flags().StringVar(&flagSince, "since", "", "Reserved: time window hint (e.g. 7d); drift is computed from the two most recent snapshots")
+	cmd.Flags().StringVar(&flagSince, "since", "", "Compare against the newest snapshot at or before this long ago (e.g. 7d, 24h); default: the previous snapshot")
 	cmd.Flags().StringVar(&flagDB, "db", "", "Path to the local SQLite database (default: standard location)")
 	return cmd
+}
+
+// computeStandardsDrift diffs each tenant's base and current standards
+// snapshot (see pickSnapshotPair) into per-standard state changes.
+func computeStandardsDrift(snaps []standardsSnapshotRow, cutoff time.Time) []driftRow {
+	// Group by tenant → ordered distinct snapshot timestamps → per
+	// standard state at each snapshot.
+	type tenantData struct {
+		snapshots []string                     // distinct synced_at, sorted ascending
+		states    map[string]map[string]string // syncedAt -> standard -> state
+	}
+	byTenant := map[string]*tenantData{}
+	for _, s := range snaps {
+		td := byTenant[s.tenant]
+		if td == nil {
+			td = &tenantData{states: map[string]map[string]string{}}
+			byTenant[s.tenant] = td
+		}
+		if td.states[s.syncedAt] == nil {
+			td.states[s.syncedAt] = map[string]string{}
+			td.snapshots = append(td.snapshots, s.syncedAt)
+		}
+		td.states[s.syncedAt][s.standard] = s.state
+	}
+
+	out := make([]driftRow, 0)
+	tenants := make([]string, 0, len(byTenant))
+	for t := range byTenant {
+		tenants = append(tenants, t)
+	}
+	sort.Strings(tenants)
+
+	for _, t := range tenants {
+		td := byTenant[t]
+		sortSnapshotTimes(td.snapshots)
+		// Need two usable snapshots to detect drift (see pickSnapshotPair).
+		prevTS, currTS, ok := pickSnapshotPair(td.snapshots, cutoff)
+		if !ok {
+			continue
+		}
+		prev := td.states[prevTS]
+		curr := td.states[currTS]
+
+		standards := map[string]bool{}
+		for s := range prev {
+			standards[s] = true
+		}
+		for s := range curr {
+			standards[s] = true
+		}
+		names := make([]string, 0, len(standards))
+		for s := range standards {
+			names = append(names, s)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			pv := prev[name]
+			cv := curr[name]
+			if pv != cv {
+				out = append(out, driftRow{
+					Tenant:        t,
+					Standard:      name,
+					PreviousState: pv,
+					CurrentState:  cv,
+				})
+			}
+		}
+	}
+	return out
 }

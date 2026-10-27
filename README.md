@@ -207,7 +207,7 @@ Outcomes, not hype - drawn from each of the 84 connectors' skill pages:
 | What's down right now and is anyone actually paged? | betterstack | `betterstack-cli down` |
 | Which customers have unmanaged, outdated or unscanned endpoints? | bitdefender | `bitdefender-cli fleet health` |
 | What are the worst open findings across all my client accounts right now? | blumira | `blumira-cli triage --status open` |
-| Which tenants still have users without MFA registered? | cipp | `cipp-cli posture --dimension mfa` |
+| Which tenants have users with no MFA registered, as one row per tenant? | cipp | `cipp-cli posture --dimension mfa` |
 | Why can't this user get through Duo, and which fix applies? | cisco-duo | `cisco-duo-cli lockout triage "jane@example.com" --account-id "Acme Corp"` |
 | Which client org is in the worst shape right now? | cisco-meraki | `cisco-meraki-cli fleet health --agent` |
 | Which open vulnerabilities across every client are most likely to be exploited? | connectsecure | `connectsecure-cli exposure --min-epss 0.5 --severity Critical,High` |

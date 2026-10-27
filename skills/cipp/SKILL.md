@@ -1,6 +1,6 @@
 ---
 name: cipp
-description: "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out. Trigger phrases: `check MFA across all my tenants`, `Defender vulnerabilities across all my clients`, `Intune policies for every tenant`, `mailbox forwarding across tenants`, `GDAP roles for each client`, `find unused M365 licenses`, `offboard users from a CSV in CIPP`, `which tenants drifted off baseline`, `list CIPP tenants`, `use cipp`, `run cipp-cli`."
+description: "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with a local store, offline joins across endpoints, and history over time. Trigger phrases: `check MFA across all my tenants`, `which tenants are missing a conditional access policy`, `what standards regressed this week`, `find unused Microsoft 365 licenses`, `which GDAP relationships expire soon`, `offboard these users across tenants`, `what changed in admin roles since last week`, `which disabled users still have mail forwarding`, `stale accounts across my tenants`, `scorecard for one client tenant`, `use cipp`, `run cipp-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "CIPP"
@@ -11,9 +11,16 @@ metadata:
     requires:
       bins:
         - cipp-cli
+    install:
+      - kind: script
+        bins: [cipp-cli]
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cipp/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cipp/install.ps1
 ---
 
 # CIPP - Claude Code Skill
+
+> **Version note.** The MCP write preview, `CIPP_MCP_READ_ONLY`, token-protected HTTP mode, `local-data purge` and `CIPP_NO_LOCAL_DATA` ship in cipp 0.1.13 and later. Check with `cipp-cli --version`.
 
 ## Prerequisites: Install the CLI
 
@@ -37,98 +44,122 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-CIPP (CyberDrain Improved Partner Portal) is how MSPs manage many Microsoft 365 tenants from one place. This CLI wraps the full 496-endpoint API as typed commands, then goes further: `fanout --save` pulls tenants, users, licenses, and standards into a local SQLite database so you can run fleet-wide queries (`posture`, `licenses waste`, `users stale`), detect baseline drift (`standards drift`), and execute throttle-aware bulk operations (`bulk`) that survive Microsoft Graph 429s  -  all with --json, --dry-run, and typed exit codes.
+CIPP (CyberDrain Improved Partner Portal) is how MSPs manage many Microsoft 365 tenants from one place. This CLI brings its full endpoint surface to the terminal as typed commands and adds a local-first layer: `fanout` drives any tenant-scoped endpoint across every tenant into a local SQLite store, so `posture`, `scorecard`, `ca diff`, `licenses waste`, `users stale` and `users offboard-check` answer cross-endpoint questions offline (`gdap expiring` reads the relationship list live against the stored tenants), and `standards drift` and `changes` compare your own stored snapshots over time. CIPP can report a failed write as text inside an HTTP 200 `Results` envelope: `bulk` and the MCP server's `cipp_execute` turn that into an error, while the typed write commands print the `Results` text and exit 0, so read it before reporting success.
 
 ## Read this first: some CIPP GET calls change things
 
-39 CIPP endpoints are called with GET but named as actions (`Exec...`,
-`Remove...`). Some of them change your tenants or your CIPP instance, for
-example `RemoveStandard`, `ExecSendOrgMessage` and `ExecRunBackup`. Their CLI
-commands look like reads, and through the MCP server they run via `cipp_execute`
-with no confirmation step, the same as every other call, so MCP hosts must not
-auto-approve `cipp_execute`. Treat each of these commands as a change and
-confirm with the user before running it:
+43 CIPP endpoints are called with GET but named as actions (`Exec...`,
+`Remove...`). Some change your tenants or your CIPP instance, for example
+`RemoveStandard`, `ExecSendOrgMessage` and `ExecRunBackup`. From cipp 0.1.13 (check `cipp-cli --version`), the MCP
+server treats them as state-changing: `cipp_read` refuses them and `cipp_execute`
+only previews them until `confirm` is boolean `true`; earlier builds run them
+with no confirmation step. Their CLI commands run
+as soon as they are invoked, so treat each one as a change and confirm with
+the user before running it:
 
-`exec-add-spn`, `exec-alerts-list`, `exec-apipermission-list`,
-`exec-app-approval`, `exec-app-insights-query`, `exec-app-upload`,
-`exec-backend-urls`, `exec-beccheck`, `exec-bulk-license`, `exec-cippdbcache`,
-`exec-cpvrefresh`, `exec-create-default-groups`, `exec-csplicense list`,
-`exec-device-code-logon`, `exec-durable-functions`, `exec-extension-mapping`,
-`exec-extension-ninja-one-queue`, `exec-extension-sync`, `exec-extension-test`,
-`exec-gdapinvite-approved`, `exec-gdaptrace`, `exec-incidents-list`,
-`exec-list-app-id list`, `exec-list-backup`, `exec-mail-test`,
-`exec-mailbox-mobile-devices`, `exec-maintenance-scripts`,
-`exec-mdo-alerts-list`, `exec-permission-repair`, `exec-run-backup`,
-`exec-scheduler-billing-run`, `exec-send-org-message`,
-`exec-service-principals`, `exec-standard-convert`, `exec-standards-run`,
-`exec-universal-search`, `exec-universal-search-v2`, `remove-standard`,
-`remove-tenant-capabilities-cache`.
+`exec-add-spn`, `exec-alerts-list`, `exec-apipermission-list`, `exec-app-approval`, `exec-app-insights-query`, `exec-app-upload`, `exec-backend-urls`, `exec-beccheck`, `exec-bulk-license`, `exec-cippdbcache`, `exec-cpvrefresh`, `exec-create-default-groups`, `exec-csplicense list`, `exec-device-code-logon`, `exec-durable-functions`, `exec-extension-clear-hibpkey`, `exec-extension-mapping`, `exec-extension-ninja-one-queue`, `exec-extension-sync`, `exec-extension-test`, `exec-gdapinvite-approved`, `exec-gdaptrace`, `exec-graph-request-profile`, `exec-incidents-list`, `exec-list-app-id list`, `exec-list-backup`, `exec-mail-test`, `exec-mailbox-mobile-devices`, `exec-maintenance-scripts`, `exec-mdo-alerts-list`, `exec-permission-repair`, `exec-run-backup`, `exec-scheduler-billing-run`, `exec-send-org-message`, `exec-service-principals`, `exec-standard-convert`, `exec-standards-run`, `exec-universal-search`, `exec-universal-search-v2`, `remove-cipp-queue`, `remove-standard`, `remove-tenant-capabilities-cache`, `remove-webhook-alert`.
 
-The table with API paths and MCP endpoint IDs is in
-[mcp-install.md](./mcp-install.md#appendix-cipp-get-endpoints-named-as-actions).
+`fanout`, `export` and `tail` refuse all of them: they only drive `List*`/`Get*` reads.
+
+`fanout --save` refuses a tenant's response when anything in the response reads as a failure: failure wording or a failed state anywhere under a status-like field (state, status, result, message, text, detail, reason and the like, at any depth: `"status":{"code":"error"}`) or in a bare message, a populated field named like error, exception or fault (`"error":"HTTP 403"`, whatever the wording), a field named like success or ok that is `false`, or a failed state, in the rows or beside them, and keeps the rows already stored. It stores only a list whose every entry carries the endpoint's id; JSON `null`, an empty answer, a single object or a message is shown, not stored. In the tenant list, and only there, tenant records keep their own Graph token fields (`LastGraphError`, `GraphErrorCount`), so one tenant with a failed Graph token does not stop the fleet. A response with a duplicate key is refused. A row whose own name holds a failure word (a user named "Error Reporting", a group named "Denied Access") is still a row. The trade-off: a list whose rows report their own failed status is refused too; run the same `fanout` with `--json` to see what CIPP returned.
+
+Before a successful response is shown, cached or saved, it is checked for your configured credentials (the API key, the client secret, the minted token) in every encoding the CLI can decode, with spaces and invisible characters removed first. A response holding a single value over 64 KiB once spaces are removed, or a response that is not JSON and is over 64 KiB, is withheld instead, because it cannot be decoded whole; read that value in CIPP itself.
 
 ## When to Use This CLI
 
-Reach for this CLI whenever an MSP task spans more than one Microsoft 365 tenant or needs to be scripted: cross-tenant posture and license reporting, baseline drift detection, burst onboarding/offboarding from a CSV, or any CIPP action wired into cron/RMM automation. It is the headless, agent-native alternative to clicking through the CIPP web UI one tenant at a time.
+Reach for this CLI when a question spans more than one Microsoft 365 tenant, or when a CIPP action needs to be scripted rather than clicked. It suits fleet posture rollups (MFA, Conditional Access, Standards, DLP), license reclaim totals, comparing stored snapshots over time, GDAP relationship health, offboarding end-state checks, and CSV-driven batches that must survive HTTP 429 rate limiting. The rollup commands read only the local store: they return empty until the endpoints they need were saved with `fanout --save` (presets: core, posture, offboarding, compliance, gdap). Commands support --json, --select and typed exit codes for agents; mutations support --dry-run.
 
 ## Anti-triggers
 
 Do not use this CLI for:
-- Managing a single Microsoft 365 tenant directly without a CIPP instance  -  use Microsoft Graph tooling; this CLI drives a self-hosted CIPP deployment.
-- Driving destructive or write actions across tenants with `fanout`  -  fanout is read fan-out; use `bulk` for CSV-driven write batches.
-- Expecting `standards drift` on first run  -  drift needs two snapshots over time (`fanout --endpoint /ListStandards --save` twice); use `posture` for a point-in-time read.
-- Bulk-populating the store with the framework `sync` command  -  CIPP's tenant-scoped endpoints require tenantFilter, so `fanout --save` is the population path.
+- Do not use this CLI to stand up or configure CIPP itself - it manages tenants through an existing CIPP instance and cannot deploy one.
+- Do not use this CLI to call Microsoft Graph directly; it speaks only to your CIPP instance, which brokers Graph access via GDAP.
+- Do not use this CLI for single-tenant one-off clicks where the CIPP web UI is faster, unless you need a machine-readable receipt.
+- Do not use `sync`: this CLI has none. Populate the local store with `cipp-cli fanout --endpoint <path> --all-tenants --save` (or a `--preset`).
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
+### Cross-tenant reach
+- **`fanout`**  -  Run any CIPP read endpoint across every client tenant at once and save the results locally.
 
-### Cross-tenant leverage
-- **`fanout`**  -  Run any read command across every client tenant at once, with throttle-aware backoff and resume after a halt.
-
-  _Reach for this whenever a question spans the whole MSP fleet instead of a single tenant; it replaces dozens of UI tenant-switches with one call._
+  _Reach for this first: every offline rollup command reads the store this populates._
 
   ```bash
-  cipp-cli fanout --endpoint /ListUsers --all-tenants --save
+  cipp-cli fanout --endpoint /ListUsers --all-tenants --save --agent
   ```
-- **`posture`**  -  One table of every tenant's MFA, Conditional Access, Standards, and BPA posture  -  the QBR rollup the UI never renders.
+- **`bulk`**  -  Drive CIPP deploy, user and mailbox actions from a CSV across tenants: plan-only unless --execute, with Retry-After backoff, per-row resume and HTTP-200 failure detection.
 
-  _Use it to answer 'which tenants are out of compliance right now' for a QBR or cyber-insurance attestation without click-per-tenant._
+  _A failed write becomes a non-zero exit instead of a silent success. CLI only: it is not exposed as an MCP tool._
+
+  ```bash
+  cipp-cli bulk --from offboards.csv --dry-run --agent
+  ```
+- **`gdap expiring`**  -  List delegated-admin relationships expiring inside a window, plus stored tenants with no active relationship (reads the partner-wide relationship list live; needs credentials).
+
+  _Catches a lapsing delegation before a technician hits a permission error._
+
+  ```bash
+  cipp-cli gdap expiring --days 30 --agent
+  ```
+
+### Offline joins over the local store
+- **`posture`**  -  A per-tenant table for one chosen posture dimension (MFA, Conditional Access, Standards, BPA, DLP, retention or sensitivity labels) from the local store.
+
+  _Use this for QBR and cyber-insurance rollups: one table per dimension across tenants; `scorecard` gives every dimension for one tenant._
 
   ```bash
   cipp-cli posture --dimension mfa --agent
   ```
-- **`licenses waste`**  -  Surface assigned-but-unused licenses and CSP billing mismatches across all tenants.
+- **`licenses waste`**  -  Total reclaimable licenses by SKU or by user from stored user license assignments and sign-in activity, with SKU names from stored license rows.
 
-  _Run it at renewal to recover real dollars from dormant seats and pool-vs-billed gaps._
+  _A scriptable seat-reclaim total from stored data._
 
   ```bash
-  cipp-cli licenses waste --all-tenants --agent
+  cipp-cli licenses waste --by sku --stale-days 90 --all-tenants --agent
+  ```
+- **`ca diff`**  -  Find which tenants deviate from the Conditional Access baseline the rest of the fleet shares.
+
+  _Shows the policy one tenant lacks that most of the fleet has, in one scriptable result._
+
+  ```bash
+  cipp-cli ca diff --agent
+  ```
+- **`users stale`**  -  List enabled, licensed accounts with no sign-in in N days from the stored users rows.
+
+  _Feeds a disable queue or a QBR from stored data without another round of API calls._
+
+  ```bash
+  cipp-cli users stale --days 90 --agent
+  ```
+- **`users offboard-check`**  -  Find disabled accounts that still hold mail forwarding, inbox rules, directory roles or licenses.
+
+  _Run it after a Friday offboarding batch to catch the step that silently did not happen._
+
+  ```bash
+  cipp-cli users offboard-check --agent
+  ```
+- **`scorecard`**  -  Every stored signal about one tenant in a single record, each with the time its data was saved.
+
+  _One machine-readable record per client for a QBR packet or an insurance questionnaire._
+
+  ```bash
+  cipp-cli scorecard --tenant 7d3c9f2e-1b4a-4c8e-9f6d-2a5b8c1e4f70 --agent
   ```
 
-### Drift and time-travel
-- **`standards drift`**  -  Show every tenant whose security baseline regressed since the last sync.
+### Change over time
+- **`standards drift`**  -  Show every tenant whose Standards settings changed between two stored snapshots; --since picks the base snapshot.
 
-  _Catch baseline drift before an audit finds it  -  the snapshot-to-snapshot diff is invisible in the live UI._
+  _Answers 'what changed since my last look' from your own stored history, offline._
 
   ```bash
-  cipp-cli standards drift --agent
+  cipp-cli standards drift --since 7d --agent
   ```
-- **`users stale`**  -  Flag licensed accounts with no sign-in in N days across every tenant.
+- **`changes`**  -  Show rows of any stored resource added, removed or modified between two fanout snapshots.
 
-  _Use it for security cleanup and cost recovery  -  dormant licensed accounts are both an attack surface and wasted spend._
-
-  ```bash
-  cipp-cli users stale --days 90 --all-tenants --agent
-  ```
-
-### Bulk and automation
-- **`bulk`**  -  Drive add-user / offboard / remove-user / set-forwarding actions from a CSV with Retry-After backoff and resume-after-429 checkpointing.
-
-  _Use it for burst onboarding/offboarding across tenants; the dry-run previews every destructive step before anything fires._
+  _Answers 'what changed in admin roles or app consents since last week' across the fleet in one call._
 
   ```bash
-  cipp-cli bulk --from offboards.csv --dry-run
+  cipp-cli changes --resource roles --since 7d --agent
   ```
 
 ## Command Reference
@@ -139,7 +170,11 @@ These capabilities aren't available in any other tool for this API.
 
 **add-apdevice**  -  Manage add apdevice
 
-- `cipp-cli add-apdevice`  -  Adds Autopilot devices to a tenant via Partner Center API #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli add-apdevice`  -  Adds Autopilot devices to a tenant via Partner Center API
+
+**add-app-template**  -  Manage add app template
+
+- `cipp-cli add-app-template`  -  Add app template
 
 **add-assignment-filter**  -  Manage add assignment filter
 
@@ -185,9 +220,25 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli add-contact-templates`  -  Add contact templates
 
+**add-custom-script**  -  Manage add custom script
+
+- `cipp-cli add-custom-script`  -  Add custom script
+
 **add-defender-deployment**  -  Manage add defender deployment
 
 - `cipp-cli add-defender-deployment`  -  Add defender deployment
+
+**add-defender-template**  -  Manage add defender template
+
+- `cipp-cli add-defender-template`  -  Add defender template
+
+**add-dlp-compliance-policy**  -  Manage add dlp compliance policy
+
+- `cipp-cli add-dlp-compliance-policy`  -  Add dlp compliance policy
+
+**add-dlp-compliance-policy-template**  -  Manage add dlp compliance policy template
+
+- `cipp-cli add-dlp-compliance-policy-template`  -  Add dlp compliance policy template
 
 **add-domain**  -  Manage add domain
 
@@ -265,6 +316,14 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli add-quarantine-policy`  -  Add quarantine policy
 
+**add-retention-compliance-policy**  -  Manage add retention compliance policy
+
+- `cipp-cli add-retention-compliance-policy`  -  Add retention compliance policy
+
+**add-retention-compliance-policy-template**  -  Manage add retention compliance policy template
+
+- `cipp-cli add-retention-compliance-policy-template`  -  Add retention compliance policy template
+
 **add-room-list**  -  Manage add room list
 
 - `cipp-cli add-room-list`  -  Add room list
@@ -284,6 +343,26 @@ These capabilities aren't available in any other tool for this API.
 **add-scheduled-item**  -  Manage add scheduled item
 
 - `cipp-cli add-scheduled-item`  -  Add scheduled item
+
+**add-scripted-alert**  -  Manage add scripted alert
+
+- `cipp-cli add-scripted-alert`  -  Add scripted alert
+
+**add-sensitive-info-type**  -  Manage add sensitive info type
+
+- `cipp-cli add-sensitive-info-type`  -  Add sensitive info type
+
+**add-sensitive-info-type-template**  -  Manage add sensitive info type template
+
+- `cipp-cli add-sensitive-info-type-template`  -  Add sensitive info type template
+
+**add-sensitivity-label**  -  Manage add sensitivity label
+
+- `cipp-cli add-sensitivity-label`  -  Add sensitivity label
+
+**add-sensitivity-label-template**  -  Manage add sensitivity label template
+
+- `cipp-cli add-sensitivity-label-template`  -  Add sensitivity label template
 
 **add-shared-mailbox**  -  Manage add shared mailbox
 
@@ -329,6 +408,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli add-tenant-allow-block-list`  -  Add tenant allow block list
 
+**add-tenant-allow-block-list-template**  -  Manage add tenant allow block list template
+
+- `cipp-cli add-tenant-allow-block-list-template`  -  Add tenant allow block list template
+
 **add-test-report**  -  Manage add test report
 
 - `cipp-cli add-test-report`  -  Add test report
@@ -360,18 +443,6 @@ These capabilities aren't available in any other tool for this API.
 **best-practice-analyser-list**  -  Manage best practice analyser list
 
 - `cipp-cli best-practice-analyser-list`  -  Best practice analyser_list
-
-**cippdbtests-run**  -  Manage cippdbtests run
-
-- `cipp-cli cippdbtests-run`  -  Cippdbtests run
-
-**cippoffboarding-job**  -  Manage cippoffboarding job
-
-- `cipp-cli cippoffboarding-job`  -  Cippoffboarding job
-
-**cippstandards-run**  -  Manage cippstandards run
-
-- `cipp-cli cippstandards-run`  -  Cippstandards run
 
 **create-safe-links-policy-template**  -  Manage create safe links policy template
 
@@ -409,6 +480,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli edit-contact-templates`  -  Edit contact templates
 
+**edit-dlp-compliance-policy**  -  Manage edit dlp compliance policy
+
+- `cipp-cli edit-dlp-compliance-policy`  -  Edit dlp compliance policy
+
 **edit-equipment-mailbox**  -  Manage edit equipment mailbox
 
 - `cipp-cli edit-equipment-mailbox`  -  Edit equipment mailbox
@@ -445,6 +520,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli edit-quarantine-policy`  -  Edit quarantine policy
 
+**edit-retention-compliance-policy**  -  Manage edit retention compliance policy
+
+- `cipp-cli edit-retention-compliance-policy`  -  Edit retention compliance policy
+
 **edit-room-list**  -  Manage edit room list
 
 - `cipp-cli edit-room-list`  -  Edit room list
@@ -463,7 +542,15 @@ These capabilities aren't available in any other tool for this API.
 
 **edit-safe-links-policy-template**  -  Manage edit safe links policy template
 
-- `cipp-cli edit-safe-links-policy-template`  -  This function updates an existing Safe Links policy template. #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli edit-safe-links-policy-template`  -  This function updates an existing Safe Links policy template.
+
+**edit-sensitive-info-type**  -  Manage edit sensitive info type
+
+- `cipp-cli edit-sensitive-info-type`  -  Edit sensitive info type
+
+**edit-sensitivity-label**  -  Manage edit sensitivity label
+
+- `cipp-cli edit-sensitivity-label`  -  Edit sensitivity label
 
 **edit-spam-filter**  -  Manage edit spam filter
 
@@ -635,7 +722,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-cipp-logs-sas**  -  Manage exec cipp logs sas
 
-- `cipp-cli exec-cipp-logs-sas`  -  Creates a long-lived, read-only SAS URL for the CippLogs Azure Storage table. .FUNCTIONALITY Entrypoint .ROLE CIPP.
+- `cipp-cli exec-cipp-logs-sas`  -  Creates a long-lived, read-only SAS URL for the CippLogs Azure Storage table.
 
 **exec-cipp-replacemap**  -  Manage exec cipp replacemap
 
@@ -659,7 +746,11 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-community-repo**  -  Manage exec community repo
 
-- `cipp-cli exec-community-repo`  -  This function makes changes to a community repository in table storage .FUNCTIONALITY Entrypoint,AnyTenant .ROLE CIPP.
+- `cipp-cli exec-community-repo`  -  This function makes changes to a community repository in table storage
+
+**exec-compare-intune-policy**  -  Manage exec compare intune policy
+
+- `cipp-cli exec-compare-intune-policy`  -  Exec compare intune policy
 
 **exec-convert-mailbox**  -  Manage exec convert mailbox
 
@@ -683,7 +774,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-create-default-groups**  -  Manage exec create default groups
 
-- `cipp-cli exec-create-default-groups`  -  This function creates a set of default tenant groups that are commonly used .FUNCTIONALITY Entrypoint,AnyTenant .
+- `cipp-cli exec-create-default-groups`  -  This function creates a set of default tenant groups that are commonly used
 
 **exec-create-samapp**  -  Manage exec create samapp
 
@@ -706,6 +797,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli exec-custom-role`  -  Exec custom role
 
+**exec-custom-script**  -  Manage exec custom script
+
+- `cipp-cli exec-custom-script`  -  Exec custom script
+
 **exec-delete-gdaprelationship**  -  Manage exec delete gdaprelationship
 
 - `cipp-cli exec-delete-gdaprelationship`  -  Exec delete gdaprelationship
@@ -717,6 +812,10 @@ These capabilities aren't available in any other tool for this API.
 **exec-delete-safe-links-policy**  -  Manage exec delete safe links policy
 
 - `cipp-cli exec-delete-safe-links-policy`  -  This function deletes a Safe Links rule and its associated policy.
+
+**exec-deploy-app-template**  -  Manage exec deploy app template
+
+- `cipp-cli exec-deploy-app-template`  -  Exec deploy app template
 
 **exec-device-action**  -  Manage exec device action
 
@@ -802,6 +901,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli exec-exclude-tenant`  -  Exec exclude tenant
 
+**exec-extension-clear-hibpkey**  -  Manage exec extension clear hibpkey
+
+- `cipp-cli exec-extension-clear-hibpkey`  -  Exec extension clear hibpkey
+
 **exec-extension-mapping**  -  Manage exec extension mapping
 
 - `cipp-cli exec-extension-mapping`  -  Exec extension mapping
@@ -850,6 +953,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli exec-gdaptrace`  -  GDAP Access Path Testing: 1. Validates input parameters (TenantFilter and UPN) 2.
 
+**exec-generate-report-builder-report**  -  Manage exec generate report builder report
+
+- `cipp-cli exec-generate-report-builder-report`  -  Exec generate report builder report
+
 **exec-geo-iplookup**  -  Manage exec geo iplookup
 
 - `cipp-cli exec-geo-iplookup`  -  Exec geo iplookup
@@ -864,11 +971,15 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-git-hub-action**  -  Manage exec git hub action
 
-- `cipp-cli exec-git-hub-action`  -  Call GitHub API .ROLE CIPP.Extension.ReadWrite .
+- `cipp-cli exec-git-hub-action`  -  Invoke GitHub Action
 
 **exec-graph-explorer-preset**  -  Manage exec graph explorer preset
 
 - `cipp-cli exec-graph-explorer-preset`  -  Exec graph explorer preset
+
+**exec-graph-request-profile**  -  Manage exec graph request profile
+
+- `cipp-cli exec-graph-request-profile`  -  Exec graph request profile
 
 **exec-groups-delete**  -  Manage exec groups delete
 
@@ -934,6 +1045,10 @@ These capabilities aren't available in any other tool for this API.
 **exec-maintenance-scripts**  -  Manage exec maintenance scripts
 
 - `cipp-cli exec-maintenance-scripts`  -  Exec maintenance scripts
+
+**exec-manage-app-credentials**  -  Manage exec manage app credentials
+
+- `cipp-cli exec-manage-app-credentials`  -  Exec manage app credentials
 
 **exec-manage-retention-policies**  -  Manage exec manage retention policies
 
@@ -1017,7 +1132,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-permission-repair**  -  Manage exec permission repair
 
-- `cipp-cli exec-permission-repair`  -  Merges new permissions from the SAM manifest into the AppPermissions entry for CIPP-SAM. .FUNCTIONALITY Entrypoint .
+- `cipp-cli exec-permission-repair`  -  Merges new permissions from the SAM manifest into the AppPermissions entry for CIPP-SAM.
 
 **exec-quarantine-management**  -  Manage exec quarantine management
 
@@ -1031,6 +1146,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli exec-remove-restricted-user`  -  Removes a user from the restricted senders list in Exchange Online.
 
+**exec-remove-snooze**  -  Manage exec remove snooze
+
+- `cipp-cli exec-remove-snooze`  -  Exec remove snooze
+
 **exec-remove-teams-voice-phone-number-assignment**  -  Manage exec remove teams voice phone number assignment
 
 - `cipp-cli exec-remove-teams-voice-phone-number-assignment`  -  Exec remove teams voice phone number assignment
@@ -1042,6 +1161,10 @@ These capabilities aren't available in any other tool for this API.
 **exec-rename-apdevice**  -  Manage exec rename apdevice
 
 - `cipp-cli exec-rename-apdevice`  -  Exec rename apdevice
+
+**exec-report-builder-template**  -  Manage exec report builder template
+
+- `cipp-cli exec-report-builder-template`  -  Exec report builder template
 
 **exec-reprocess-user-licenses**  -  Manage exec reprocess user licenses
 
@@ -1073,7 +1196,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-run-tenant-group-rule**  -  Manage exec run tenant group rule
 
-- `cipp-cli exec-run-tenant-group-rule`  -  This function executes dynamic tenant group rules for immediate membership updates .FUNCTIONALITY Entrypoint,AnyTenant .
+- `cipp-cli exec-run-tenant-group-rule`  -  This function executes dynamic tenant group rules for immediate membership updates
 
 **exec-samapp-permissions**  -  Manage exec samapp permissions
 
@@ -1086,6 +1209,10 @@ These capabilities aren't available in any other tool for this API.
 **exec-samsetup**  -  Manage exec samsetup
 
 - `cipp-cli exec-samsetup`  -  Exec samsetup
+
+**exec-schedule-forwarding-vacation**  -  Manage exec schedule forwarding vacation
+
+- `cipp-cli exec-schedule-forwarding-vacation`  -  Exec schedule forwarding vacation
 
 **exec-schedule-mailbox-vacation**  -  Manage exec schedule mailbox vacation
 
@@ -1125,7 +1252,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-set-cloud-managed**  -  Manage exec set cloud managed
 
-- `cipp-cli exec-set-cloud-managed`  -  Sets the cloud-managed status of a user, group, or contact. #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli exec-set-cloud-managed`  -  Sets the cloud-managed status of a user, group, or contact.
 
 **exec-set-litigation-hold**  -  Manage exec set litigation hold
 
@@ -1191,6 +1318,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli exec-share-point-perms`  -  Exec share point perms
 
+**exec-snooze-alert**  -  Manage exec snooze alert
+
+- `cipp-cli exec-snooze-alert`  -  Exec snooze alert
+
 **exec-standard-convert**  -  Manage exec standard convert
 
 - `cipp-cli exec-standard-convert`  -  Exec standard convert
@@ -1209,7 +1340,7 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-sync-dep**  -  Manage exec sync dep
 
-- `cipp-cli exec-sync-dep`  -  Syncs devices from Apple Business Manager to Intune #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli exec-sync-dep`  -  Syncs devices from Apple Business Manager to Intune
 
 **exec-sync-vpp**  -  Manage exec sync vpp
 
@@ -1221,7 +1352,11 @@ These capabilities aren't available in any other tool for this API.
 
 **exec-tenant-group**  -  Manage exec tenant group
 
-- `cipp-cli exec-tenant-group`  -  This function is used to manage tenant groups in CIPP .FUNCTIONALITY Entrypoint,AnyTenant .ROLE Tenant.Groups.
+- `cipp-cli exec-tenant-group`  -  This function is used to manage tenant groups in CIPP
+
+**exec-test-refresh**  -  Manage exec test refresh
+
+- `cipp-cli exec-test-refresh`  -  Exec test refresh
 
 **exec-test-run**  -  Manage exec test run
 
@@ -1275,6 +1410,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli get-version`  -  Get version
 
+**list-active-sync-devices**  -  Manage list active sync devices
+
+- `cipp-cli list-active-sync-devices`  -  List active sync devices
+
 **list-admin-portal-licenses**  -  Manage list admin portal licenses
 
 - `cipp-cli list-admin-portal-licenses`  -  List admin portal licenses
@@ -1314,6 +1453,10 @@ These capabilities aren't available in any other tool for this API.
 **list-app-status**  -  Manage list app status
 
 - `cipp-cli list-app-status`  -  List app status
+
+**list-app-templates**  -  Manage list app templates
+
+- `cipp-cli list-app-templates`  -  List app templates
 
 **list-application-queue**  -  Manage list application queue
 
@@ -1391,9 +1534,13 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-check-ext-alerts`  -  List check ext alerts
 
+**list-cipp-queue**  -  Manage list cipp queue
+
+- `cipp-cli list-cipp-queue`  -  List cipp queue
+
 **list-community-repos**  -  Manage list community repos
 
-- `cipp-cli list-community-repos`  -  This function lists community repositories in Table Storage .FUNCTIONALITY Entrypoint,AnyTenant .ROLE CIPP.Core.
+- `cipp-cli list-community-repos`  -  This function lists community repositories in Table Storage
 
 **list-compliance-policies**  -  Manage list compliance policies
 
@@ -1443,6 +1590,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-custom-role`  -  List custom role
 
+**list-custom-scripts**  -  Manage list custom scripts
+
+- `cipp-cli list-custom-scripts`  -  List custom scripts
+
 **list-custom-variables**  -  Manage list custom variables
 
 - `cipp-cli list-custom-variables`  -  List custom variables
@@ -1487,6 +1638,14 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-directory-objects`  -  List directory objects
 
+**list-dlp-compliance-policy**  -  Manage list dlp compliance policy
+
+- `cipp-cli list-dlp-compliance-policy`  -  List dlp compliance policy
+
+**list-dlp-compliance-policy-templates**  -  Manage list dlp compliance policy templates
+
+- `cipp-cli list-dlp-compliance-policy-templates`  -  List dlp compliance policy templates
+
 **list-domain-analyser**  -  Manage list domain analyser
 
 - `cipp-cli list-domain-analyser`  -  List domain analyser
@@ -1521,7 +1680,7 @@ These capabilities aren't available in any other tool for this API.
 
 **list-extension-cache-data**  -  Manage list extension cache data
 
-- `cipp-cli list-extension-cache-data`  -  This function is used to list the extension cache data. .FUNCTIONALITY Entrypoint .ROLE CIPP.Core.
+- `cipp-cli list-extension-cache-data`  -  This function is used to list the extension cache data.
 
 **list-extension-sync**  -  Manage list extension sync
 
@@ -1551,13 +1710,29 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-gdapaccess-assignments`  -  List gdapaccess assignments
 
+**list-gdapcontracts**  -  Manage list gdapcontracts
+
+- `cipp-cli list-gdapcontracts`  -  List gdapcontracts
+
 **list-gdapinvite**  -  Manage list gdapinvite
 
 - `cipp-cli list-gdapinvite`  -  List gdapinvite
 
+**list-gdaprelationships**  -  Manage list gdaprelationships
+
+- `cipp-cli list-gdaprelationships`  -  List gdaprelationships
+
 **list-gdaproles**  -  Manage list gdaproles
 
 - `cipp-cli list-gdaproles`  -  List gdaproles
+
+**list-gdapservice-principals**  -  Manage list gdapservice principals
+
+- `cipp-cli list-gdapservice-principals`  -  List gdapservice principals
+
+**list-generated-reports**  -  Manage list generated reports
+
+- `cipp-cli list-generated-reports`  -  List generated reports
 
 **list-generic-test-function**  -  Manage list generic test function
 
@@ -1578,6 +1753,10 @@ These capabilities aren't available in any other tool for this API.
 **list-graph-explorer-presets**  -  Manage list graph explorer presets
 
 - `cipp-cli list-graph-explorer-presets`  -  List graph explorer presets
+
+**list-graph-reports**  -  Manage list graph reports
+
+- `cipp-cli list-graph-reports`  -  List graph reports
 
 **list-graph-request**  -  Manage list graph request
 
@@ -1633,7 +1812,7 @@ These capabilities aren't available in any other tool for this API.
 
 **list-jitadmin**  -  Manage list jitadmin
 
-- `cipp-cli list-jitadmin`  -  List Just-in-time admin users for a tenant or all tenants. #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli list-jitadmin`  -  List Just-in-time admin users for a tenant or all tenants.
 
 **list-jitadmin-templates**  -  Manage list jitadmin templates
 
@@ -1687,6 +1866,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-malware-filters`  -  List malware filters
 
+**list-mdeonboarding**  -  Manage list mdeonboarding
+
+- `cipp-cli list-mdeonboarding`  -  List mdeonboarding
+
 **list-message-trace**  -  Manage list message trace
 
 - `cipp-cli list-message-trace`  -  List message trace
@@ -1710,6 +1893,10 @@ These capabilities aren't available in any other tool for this API.
 **list-oauth-apps**  -  Manage list oauth apps
 
 - `cipp-cli list-oauth-apps`  -  List oauth apps
+
+**list-offboard-tenants**  -  Manage list offboard tenants
+
+- `cipp-cli list-offboard-tenants`  -  List offboard tenants
 
 **list-oo-o**  -  Manage list oo o
 
@@ -1739,9 +1926,25 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-quarantine-policy`  -  List quarantine policy
 
+**list-report-builder-templates**  -  Manage list report builder templates
+
+- `cipp-cli list-report-builder-templates`  -  List report builder templates
+
+**list-reseller-relationship-link**  -  Manage list reseller relationship link
+
+- `cipp-cli list-reseller-relationship-link`  -  List reseller relationship link
+
 **list-restricted-users**  -  Manage list restricted users
 
 - `cipp-cli list-restricted-users`  -  Lists users from the restricted senders list in Exchange Online.
+
+**list-retention-compliance-policy**  -  Manage list retention compliance policy
+
+- `cipp-cli list-retention-compliance-policy`  -  List retention compliance policy
+
+**list-retention-compliance-policy-templates**  -  Manage list retention compliance policy templates
+
+- `cipp-cli list-retention-compliance-policy-templates`  -  List retention compliance policy templates
 
 **list-roles**  -  Manage list roles
 
@@ -1783,6 +1986,22 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-scheduled-items`  -  List scheduled items
 
+**list-sensitive-info-type**  -  Manage list sensitive info type
+
+- `cipp-cli list-sensitive-info-type`  -  List sensitive info type
+
+**list-sensitive-info-type-templates**  -  Manage list sensitive info type templates
+
+- `cipp-cli list-sensitive-info-type-templates`  -  List sensitive info type templates
+
+**list-sensitivity-label**  -  Manage list sensitivity label
+
+- `cipp-cli list-sensitivity-label`  -  List sensitivity label
+
+**list-sensitivity-label-templates**  -  Manage list sensitivity label templates
+
+- `cipp-cli list-sensitivity-label-templates`  -  List sensitivity label templates
+
 **list-service-health**  -  Manage list service health
 
 - `cipp-cli list-service-health`  -  List service health
@@ -1819,6 +2038,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli list-sites`  -  List sites
 
+**list-snoozed-alerts**  -  Manage list snoozed alerts
+
+- `cipp-cli list-snoozed-alerts`  -  List snoozed alerts
+
 **list-spam-filter-templates**  -  Manage list spam filter templates
 
 - `cipp-cli list-spam-filter-templates`  -  List spam filter templates
@@ -1838,6 +2061,10 @@ These capabilities aren't available in any other tool for this API.
 **list-standards-compare**  -  Manage list standards compare
 
 - `cipp-cli list-standards-compare`  -  List standards compare
+
+**list-standards-current-state**  -  Manage list standards current state
+
+- `cipp-cli list-standards-current-state`  -  List standards current state
 
 **list-teams**  -  Manage list teams
 
@@ -1862,6 +2089,10 @@ These capabilities aren't available in any other tool for this API.
 **list-tenant-allow-block-list**  -  Manage list tenant allow block list
 
 - `cipp-cli list-tenant-allow-block-list`  -  List tenant allow block list
+
+**list-tenant-allow-block-list-templates**  -  Manage list tenant allow block list templates
+
+- `cipp-cli list-tenant-allow-block-list-templates`  -  List tenant allow block list templates
 
 **list-tenant-details**  -  Manage list tenant details
 
@@ -1979,6 +2210,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli remove-app`  -  Remove app
 
+**remove-app-template**  -  Manage remove app template
+
+- `cipp-cli remove-app-template`  -  Remove app template
+
 **remove-assignment-filter-template**  -  Manage remove assignment filter template
 
 - `cipp-cli remove-assignment-filter-template`  -  Remove assignment filter template
@@ -1999,6 +2234,10 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli remove-catemplate`  -  Remove catemplate
 
+**remove-cipp-queue**  -  Manage remove cipp queue
+
+- `cipp-cli remove-cipp-queue`  -  Remove cipp queue
+
 **remove-connectionfilter-template**  -  Manage remove connectionfilter template
 
 - `cipp-cli remove-connectionfilter-template`  -  Remove connectionfilter template
@@ -2011,9 +2250,21 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli remove-contact-templates`  -  Remove contact templates
 
+**remove-custom-script**  -  Manage remove custom script
+
+- `cipp-cli remove-custom-script`  -  Remove custom script
+
 **remove-deleted-object**  -  Manage remove deleted object
 
 - `cipp-cli remove-deleted-object`  -  Remove deleted object
+
+**remove-dlp-compliance-policy**  -  Manage remove dlp compliance policy
+
+- `cipp-cli remove-dlp-compliance-policy`  -  Remove dlp compliance policy
+
+**remove-dlp-compliance-policy-template**  -  Manage remove dlp compliance policy template
+
+- `cipp-cli remove-dlp-compliance-policy-template`  -  Remove dlp compliance policy template
 
 **remove-ex-connector**  -  Manage remove ex connector
 
@@ -2063,13 +2314,37 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli remove-queued-app`  -  Remove queued app
 
+**remove-retention-compliance-policy**  -  Manage remove retention compliance policy
+
+- `cipp-cli remove-retention-compliance-policy`  -  Remove retention compliance policy
+
+**remove-retention-compliance-policy-template**  -  Manage remove retention compliance policy template
+
+- `cipp-cli remove-retention-compliance-policy-template`  -  Remove retention compliance policy template
+
 **remove-safe-links-policy-template**  -  Manage remove safe links policy template
 
 - `cipp-cli remove-safe-links-policy-template`  -  Remove safe links policy template
 
 **remove-scheduled-item**  -  Manage remove scheduled item
 
-- `cipp-cli remove-scheduled-item`  -  Removes a scheduled item from CIPP's scheduler. #> [CmdletBinding()] param($Request, $TriggerMetadata)
+- `cipp-cli remove-scheduled-item`  -  Removes a scheduled item from CIPP's scheduler.
+
+**remove-sensitive-info-type**  -  Manage remove sensitive info type
+
+- `cipp-cli remove-sensitive-info-type`  -  Remove sensitive info type
+
+**remove-sensitive-info-type-template**  -  Manage remove sensitive info type template
+
+- `cipp-cli remove-sensitive-info-type-template`  -  Remove sensitive info type template
+
+**remove-sensitivity-label**  -  Manage remove sensitivity label
+
+- `cipp-cli remove-sensitivity-label`  -  Remove sensitivity label
+
+**remove-sensitivity-label-template**  -  Manage remove sensitivity label template
+
+- `cipp-cli remove-sensitivity-label-template`  -  Remove sensitivity label template
 
 **remove-spamfilter**  -  Manage remove spamfilter
 
@@ -2090,6 +2365,10 @@ These capabilities aren't available in any other tool for this API.
 **remove-tenant-allow-block-list**  -  Manage remove tenant allow block list
 
 - `cipp-cli remove-tenant-allow-block-list`  -  Remove tenant allow block list
+
+**remove-tenant-allow-block-list-template**  -  Manage remove tenant allow block list template
+
+- `cipp-cli remove-tenant-allow-block-list-template`  -  Remove tenant allow block list template
 
 **remove-tenant-capabilities-cache**  -  Manage remove tenant capabilities cache
 
@@ -2115,9 +2394,77 @@ These capabilities aren't available in any other tool for this API.
 
 - `cipp-cli remove-user-default-template`  -  Remove user default template
 
+**remove-webhook-alert**  -  Manage remove webhook alert
+
+- `cipp-cli remove-webhook-alert`  -  Remove webhook alert
+
 **set-auth-method**  -  Manage set auth method
 
 - `cipp-cli set-auth-method`  -  Set auth method
+
+
+**bulk**
+
+
+- `cipp-cli bulk`  -  Drive CIPP deploy, user and mailbox actions from a CSV across tenants: plan-only unless --execute, with Retry-After backoff, per-row resume and HTTP-200 failure detection.
+
+
+**ca**
+
+
+- `cipp-cli ca diff`  -  Find which tenants deviate from the Conditional Access baseline the rest of the fleet shares.
+
+
+**changes**
+
+
+- `cipp-cli changes`  -  Show rows of any stored resource added, removed or modified between two fanout snapshots.
+
+
+**fanout**
+
+
+- `cipp-cli fanout`  -  Run any CIPP read endpoint across every client tenant at once and save the results locally.
+
+
+**gdap**
+
+
+- `cipp-cli gdap expiring`  -  List delegated-admin relationships expiring inside a window, plus stored tenants with no active relationship (reads the partner-wide relationship list live; needs credentials).
+
+
+**licenses**
+
+
+- `cipp-cli licenses waste`  -  Total reclaimable licenses by SKU or by user from stored user license assignments and sign-in activity, with SKU names from stored license rows.
+
+
+**posture**
+
+
+- `cipp-cli posture`  -  A per-tenant table for one chosen posture dimension (MFA, Conditional Access, Standards, BPA, DLP, retention or sensitivity labels) from the local store.
+
+
+**scorecard**
+
+
+- `cipp-cli scorecard`  -  Every stored signal about one tenant in a single record, each with the time its data was saved.
+
+
+**standards**
+
+
+- `cipp-cli standards drift`  -  Show every tenant whose Standards settings changed between two stored snapshots; --since picks the base snapshot.
+
+
+**users**
+
+
+- `cipp-cli users stale`  -  List enabled, licensed accounts with no sign-in in N days from the stored users rows.
+
+- `cipp-cli users offboard-check`  -  Find disabled accounts that still hold mail forwarding, inbox rules, directory roles or licenses.
+
+
 
 
 ### Finding the right command
@@ -2128,62 +2475,86 @@ When you know what you want to do but not which command does it, ask the CLI dir
 cipp-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
-### Fleet MFA posture for a QBR
+### Fleet MFA rollup for a QBR
 
 ```bash
-cipp-cli posture --dimension mfa --agent --select tenant,metrics
+cipp-cli fanout --endpoint /ListMFAUsers --all-tenants --save && cipp-cli posture --dimension mfa --agent
 ```
 
-Narrow the cross-tenant matrix to just MFA columns for a clean QBR export.
+Save every tenant's MFA rows, then read one offline, scriptable MFA table from your store.
 
-### Find dormant licensed accounts
+### Narrow a large tenant list for an agent
 
 ```bash
-cipp-cli users stale --days 90 --all-tenants --json
+cipp-cli list-tenants --agent --select displayName,defaultDomainName,customerId
 ```
 
-Surface licensed accounts fleet-wide with no sign-in in 90 days for cleanup and cost recovery.
+CIPP tenant payloads carry dozens of fields per tenant; --select keeps only the three an agent needs so the response stays small.
 
-### List users across all tenants
+### Find what changed since last week
 
 ```bash
-cipp-cli fanout --endpoint /ListUsers --all-tenants --save --json
+cipp-cli standards drift --since 7d --agent
 ```
 
-Run one read command fleet-wide with throttle-aware backoff, narrowing the deeply-nested response to the fields that matter.
+Compares the newest stored standards snapshot with the newest one at least seven days old and lists per-tenant changes.
 
-### What drifted since last week
+### Catch a lapsing delegation before it breaks a ticket
 
 ```bash
-cipp-cli standards drift --agent
+cipp-cli gdap expiring --days 30 --agent
 ```
 
-Diff each tenant's security baseline against the prior synced snapshot.
+Lists relationships ending inside the window plus any tenant with no active relationship at all.
+
+### Prove a Friday offboarding batch landed
+
+```bash
+cipp-cli fanout --preset offboarding --all-tenants --save && cipp-cli users offboard-check --agent
+```
+
+Refresh the store, then list disabled accounts still holding forwarding, inbox rules, roles or licenses.
+
+### Dry-run a bulk offboard batch
+
+```bash
+cipp-cli bulk --from offboards.csv --dry-run --agent
+```
+
+Prints which action would run against which tenant, with no writes; add --execute to perform them.
 
 ## Auth Setup
 
-CIPP is self-hosted, so point the CLI at your own instance and authenticate with an API client created in CIPP > Integrations > CIPP-API. Run `cipp-cli auth login` with your Client ID, Client Secret, Tenant ID, and base URL (which must include /api); the CLI performs the OAuth2 client-credentials exchange against login.microsoftonline.com and caches the bearer token to expiry. A static bearer token (CIPP_API_KEY) is also accepted. If you get 401/403, check the API client's IP allowlist and that your base URL ends in /api.
+CIPP is self-hosted, so point the CLI at your own instance. Create an API client in CIPP under Integrations > CIPP-API (use a read-only Custom Role while you are testing). Run `cipp-cli auth login` with the Client ID, Tenant ID and base URL, passing `--client-secret -` to read the secret from stdin so it stays out of shell history; the CLI performs the OAuth2 client-credentials exchange against login.microsoftonline.com, caches the token, and re-mints it before it expires. For a static bearer token instead, pipe it to `cipp-cli auth set-token` (reads stdin) or set CIPP_API_KEY, and set CIPP_BASE_URL. The base URL is the value CIPP shows you and must include /api. `auth status` shows which credential is in use, `auth logout` removes it, and CIPP_NO_CONFIG_WRITE keeps credentials off disk. If you get 401 or 403, check that the API client's IP allowlist includes this host.
 
 Run `cipp-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, and `--deliver` paths:
+
+- `--json`  -  one JSON document on stdout (progress and notes go to stderr)
+- `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  cipp-cli best-practice-analyser-list --agent --select id,name,status
+  cipp-cli best-practice-analyser-list --agent
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
+- **Offline-friendly**  -  store-reading commands (posture, scorecard, ca diff, licenses waste, users stale, users offboard-check, standards drift, changes) run offline from the local SQLite store that `fanout --save` populates
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and `--ignore-missing` only when a missing delete target should count as success
+- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Explicit retries**  -  use `--idempotent` only when an already-existing create (HTTP 409) should count as success. Do not rely on `--ignore-missing`: it is accepted but not honored, so a delete-method command whose target is missing still exits 3
 
 ### Response envelope
 
@@ -2198,6 +2569,239 @@ Commands that read from the local store or the API wrap output in a provenance e
 
 Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
 
+## Paths and state
+
+Agents should treat the CLI's path resolver as part of the runtime contract:
+
+- Use `--home <dir>` for one invocation, or set `CIPP_HOME=<dir>` to relocate all four path kinds under one root.
+- Use per-kind env vars only when a specific kind must diverge: `CIPP_CONFIG_DIR`, `CIPP_DATA_DIR`, `CIPP_STATE_DIR`, `CIPP_CACHE_DIR`.
+- Resolution order is per-kind env var, `--home`, `CIPP_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
+- Run `cipp-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
+- For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
+
+  ```json
+  {
+    "mcpServers": {
+      "cipp": {
+        "command": "cipp-mcp",
+        "env": {
+          "CIPP_HOME": "/srv/cipp"
+        }
+      }
+    }
+  }
+  ```
+
+Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `CIPP_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `CIPP_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `CIPP_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and makes `fanout --save` refuse; `--data-source local` still reads an existing store, and `CIPP_DATA_SOURCE` sets the `--data-source` default.
+
+## Automatic learning
+
+This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
+
+### Step 1: `recall` before any discovery
+
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
+
+```bash
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data  -  the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+cipp-cli recall "$QUERY" --agent
+```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
+
+The response envelope:
+
+```json
+{
+  "query": "...",
+  "normalized": "<normalized form>",
+  "query_entities": ["..."],
+  "found": true | false,
+  "match_score": 0.0,
+  "results": [
+    { "resource_id": "...", "resource_type": "...", "venue": "...",
+      "confidence": 2, "entity_match": "exact|partial|unknown",
+      "source": "taught|preseed|pattern", "warnings": ["..."] }
+  ],
+  "mismatches": [ /* only when --debug-mismatches */ ],
+  "warnings": [ /* top-level */ ],
+  "candidates": [
+    { "id": 12, "class": "flag_alias | playbook_candidate",
+      "summary": "...", "sightings": 3, "last_seen": "...",
+      "rationale": "...",
+      "next_action": ["<trial command>", "cipp-cli learnings confirm 12"] }
+  ],
+  "playbook": {
+    "query_family": "...",
+    "playbook": {
+      "steps": [ { "cmd": "<command with {slot} substitution>", "purpose": "..." } ],
+      "entity_slots": ["$ENTITY"],
+      "expected_tool_calls": 3
+    },
+    "slots_resolved": { "$ENTITY": { "token": "<live token>", "canonical": "<canonical>" } },
+    "notes": "<workarounds + gotchas for this query family>"
+  },
+  "notes": "<duplicate surface for non-playbook callers>"
+}
+```
+
+Empty-store short-circuit: if the store has no learnings, playbooks, or candidates yet (recall finds nothing and `learnings list` and `learnings candidates` are both empty), skip recall for the rest of this session instead of taxing every query; resume recall-first once something has been taught.
+
+### Step 2: decision tree
+
+Read `candidates`, `playbook`, `notes`, `results[0]`, and warnings in that order:
+
+```
+if Candidates present (warnings include "candidates_present"):
+    -> candidates are try-then-confirm, never facts. Follow each candidate's
+       two-step next_action verbatim: run the trial command first, then run
+       `learnings confirm <id>` only after the trial verified the behavior.
+       Reject a wrong candidate with `learnings reject <id>`.
+    -> NEVER re-teach something recall surfaced as a candidate; confirm or
+       reject that candidate instead of teaching a duplicate.
+    -> candidates ride alongside playbooks and resource hits, not instead of
+       them; continue with the branches below after acting on them.
+
+if Playbook present:
+    -> READ Playbook.notes verbatim FIRST (workarounds + gotchas the CLI surface doesn't expose)
+    -> replay Playbook.steps in order, substituting Playbook.slots_resolved entries
+       for the entity slot tokens. If a step's slot is unresolved, fall back to
+       discovery for that step only.
+    -> the Playbook's expected_tool_calls is a budget; if you find yourself running
+       materially more, record the divergence via `cipp-cli playbook amend`
+       at end-of-session.
+
+elif Notes present (no Playbook):
+    -> read Notes verbatim before any discovery step; they carry known gotchas
+       for this query family even when no structured choreography exists yet.
+
+elif Found AND Results[0].EntityMatch == "exact" AND Results[0].Confidence >= 2:
+    -> skip discovery; fetch live data for Results[*].ResourceID in parallel
+
+elif Found AND Results[0].EntityMatch == "partial":
+    -> candidate hint, NOT a hit; read the resource title to validate before trusting
+
+elif (any row in Mismatches[] when --debug-mismatches was passed):
+    -> treat as cold start; the stored learning is for a different entity
+       (different canonical resolved from query_entities)
+
+else:  // Found == false, no playbook, no notes
+    -> cold start; run discovery normally; teach the answer afterward (Step 4).
+       If the family has no playbook yet, that teach auto-synthesizes a
+       playbook candidate from this session's journal - you do not need to
+       record one by hand.
+```
+
+Playbook and Notes are orthogonal to the per-resource path. A recall response can carry both a Playbook AND a `Results[]` hit - use both: the Playbook tells you which choreography to run; the resource hits short-circuit specific steps. Default to skipping `mismatches`; pass `--debug-mismatches` only when investigating cold-start surprises.
+
+Candidate judgment details: `learnings confirm <id>` prints the candidate's full payload before materializing it - check that the printed payload matches the behavior you verified. `learnings reject <id>` tombstones the derivation signature so the same candidate does not resurface. The envelope carries only the few candidates worth acting on now; `cipp-cli learnings candidates` lists the full open set.
+
+Graceful degradation: if `learnings confirm` is an unknown command, you are driving an older binary - ignore the candidates guidance and follow the rest of the protocol.
+
+### Step 3: always read `warnings`
+
+- `low_confidence`: row exists at `confidence<2`. Treat as a hint, not a skip-discovery hit.
+- `resource_not_in_store`: the local store doesn't have the resource the learning points at. The match validator couldn't classify entities  -  direct-fetch and re-evaluate.
+- `cross_alias_match` (per-result): the row was taught under a different alias and matched the live query's canonical via `entity_lookups` (e.g., a "USA" teach satisfying a "United States" recall). Trust the resource_id.
+- `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
+- `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "CA" → Conditional Access + Certificate Authority). Surface the ambiguity from context before committing to a resource.
+- `candidates_present` (top-level): the envelope carries a `candidates` section. Handle it via the candidates branch in Step 2 before anything else.
+- Top-level `no_learnings_for_query_family`: the table had no rows above the Jaccard floor. Pure cold start.
+
+### Step 4: `teach &` after finalizing your response - always
+
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall  -  argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
+
+```bash
+QUERY=$(cat /path/to/question.txt)
+cipp-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
+# (append shell `&` to background it)
+```
+
+Silent on success. Errors only land in `teach.log` under the resolved state dir. Teach the **most specific** resource - if the user asked a broad question and you walked through parent records to find the specific answer, teach the leaf id, not the parent. The CLI uses seeded `entity_lookups` for cross-alias resolution at recall time, so a teach under one alias (e.g., "contoso") satisfies future queries under another alias (e.g., "contoso.onmicrosoft.com", "Contoso Ltd") automatically.
+
+PII rule: teach the structural question with identifiers stripped - never include names, emails, phone numbers, account ids, or other personal identifiers in taught queries or notes. The CLI scans teach queries for obvious email/phone shapes and warns, but does not block; strip before teaching rather than relying on the warning.
+
+### Step 5: playbooks - optional flags, automatic synthesis
+
+You do not need to decide whether a session "deserves" a playbook: a teach on a family without one auto-synthesizes a `playbook_candidate` from the session's journal, and the next session judges it via confirm/reject. Attach explicit playbook flags only when you already hold choreography worth recording verbatim - workarounds the CLI didn't surface (silently-dropped flags, undocumented params, pagination tricks, payload gotchas). Prefer the **integrated one-call form** - record the resource learning and the playbook in the same `teach` invocation:
+
+```bash
+# Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
+cipp-cli teach \
+  --query "$QUERY" \
+  --resource <id> \
+  --playbook-file ~/playbooks/<shape>.json \
+  --playbook-notes-file ~/playbooks/<shape>-notes.md
+# (append shell `&` to background it)
+
+# Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
+cipp-cli teach-playbook \
+  --query "$QUERY" \
+  --playbook-file ~/playbooks/<shape>.json \
+  --notes-file ~/playbooks/<shape>-notes.md
+```
+
+Playbook files are JSON with `steps`, `entity_slots`, `expected_tool_calls`. Notes files are markdown carrying the gotchas verbatim. File-free callers (MCP-only agents) pass the same content inline: `--playbook-json` and `--playbook-notes` on the integrated `teach` form, `--playbook-json` and `--notes` on `teach-playbook`. On the integrated `teach` form, the playbook flags are optional - omit them entirely for a resource-only teach. On the standalone `teach-playbook` form, at least one of the playbook and notes flags must be set; both empty is rejected. Playbooks are keyed on the structural query family (entities stripped) so a recipe taught from one entity-shaped query applies to every other query of the same shape, with `slots_resolved` binding the live query's canonical at recall time.
+
+When you DO find a playbook on a future recall, treat it as ground truth: replay the steps with `slots_resolved` substitutions, skip the discovery that the choreography already documents, and read `notes` before any step.
+
+### Step 6: `playbook amend &` when your debug response identifies a correction
+
+If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
+
+```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
+cipp-cli playbook amend \
+  --query "$QUERY" \
+  --add-note "$NOTE"
+# (append shell `&` to background it)
+```
+
+What counts as worth amending: a behavior you OBSERVED this session that future-you would benefit from knowing. Examples worth amending:
+
+- A workaround for a CLI surface that silently drops or misorders a flag.
+- An undocumented endpoint shape (response wrapped in `{meta, results}`, payload nested two levels deeper than the docs claim).
+- Observed schema drift (a field renamed, an index that shifted between seasons, a category label that the API now returns lower-cased).
+
+What does NOT belong in notes:
+
+- The year-specific or entity-specific answer to the user's question. That's the response, not a learning.
+- Per-tenant / per-user / per-row data the playbook already retrieves at runtime.
+- Statements that paraphrase what the existing notes already say.
+
+The amend command appends to the family's existing notes with a timestamped marker (`[amend YYYY-MM-DDTHH:MMZ]: <text>`). Multiple amends accumulate; the audit trail is visible. If no playbook exists yet for the family, amend creates a notes-only one (so cold-start corrections still land).
+
+#### PII discipline for amend notes
+
+`playbook amend` notes are designed to potentially flow upstream as shared knowledge in future versions of the Printing Press. Keep them clean of user-identifying content so the upstream-contribution path stays open without retroactive scrubbing:
+
+- **Do NOT embed** paths to user filesystems, personal API keys or tokens, user email addresses, user GitHub handles, or specific query histories tied to a single user.
+- **Acceptable**: endpoint shapes, undocumented field names, API gotchas, observed schema drift, workarounds for CLI surfaces, generalizable pagination or retry tactics.
+
+If a correction is only meaningful with user-specific context, it belongs in a personal note, not in the playbook amend.
+
+### Measuring the loop
+
+`cipp-cli learnings stats` reports recall hit rate, teach-to-reuse, playbook resolution rate, and candidate confirm/reject counts from the local `learn_events` table. Rates are null until they have a denominator; everything stays on this machine. Use it to check whether the loop is earning its keep for this CLI.
+
+### Disabling learning
+
+- `--no-learn` on a single command short-circuits both `recall` and the `teach` write path. Use for deterministic agent flows or tests that must not be affected by accumulated learnings.
+- `CIPP_NO_LEARN=true` in the environment globally disables the pipeline.
+
 ## Agent Feedback
 
 When you (or the agent) notice something off about this CLI, record it:
@@ -2208,7 +2812,7 @@ cipp-cli feedback --stdin < notes.txt
 cipp-cli feedback list --json --limit 10
 ```
 
-Entries are stored locally at `~/.local/share/cipp-cli/feedback.jsonl`. They are never POSTed unless `CIPP_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `CIPP_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
+Entries are stored locally as `feedback.jsonl` under the resolved data dir. They are never POSTed unless `CIPP_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `CIPP_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
 
 Write what *surprised* you, not a bug report. Short, specific, one line: that is the part that compounds.
 
@@ -2219,14 +2823,14 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled or recurring agent reuses the same saved flags while providing different input each run.
 
 ```
 cipp-cli profile save briefing --json
@@ -2247,6 +2851,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
@@ -2260,13 +2865,14 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
+2. Register with Claude Code:
+   ```bash
+   claude mcp add cipp-mcp -- cipp-mcp
+   ```
+3. Verify: `claude mcp list`
 
-```bash
-claude mcp add cipp-mcp -- cipp-mcp
-```
-
-Verify: `claude mcp list`
+For a remote host, `cipp-mcp --transport http` requires `CIPP_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. `CIPP_MCP_READ_ONLY=1` (exactly `1`) drops every tool not marked read-only, `cipp_execute` and the learn-store writers included.
 
 ## Direct Use
 
