@@ -951,8 +951,8 @@
       "tagline": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
       "cli_hash": "sha256:ccb282914fbe150e342cc6b22f4cbfcff75b22fdf07c5d8c400df1ae39e02d19",
       "template_version": 3,
-      "version": "0.1.16",
-      "cli_hash_at_release": "sha256:a6281807b4f52e1eb8b204cd9369b18f2d579172f3c2d74dd870ddf46b9dcd1d",
+      "version": "0.1.17",
+      "cli_hash_at_release": "sha256:ccb282914fbe150e342cc6b22f4cbfcff75b22fdf07c5d8c400df1ae39e02d19",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
