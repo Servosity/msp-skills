@@ -99,7 +99,7 @@ The six features, from [features/](features/README.md):
 |---|---|---|---|
 | 1 | install path | `install.sh` against the release fixture, then `--version`, `<slug>-mcp --help`, `doctor --json` | binaries installed, sha256 verified, sealed release, commands exit 0 |
 | 2 | MCP stdio | JSON-RPC: `initialize`, `tools/list`, one read call | the call reached the fake vendor and answered |
-| 3 | MCP HTTP | `--transport http` with no token; then with a token on loopback | refuses or loopback-only; 401 without the token, a session with it |
+| 3 | MCP HTTP | `--transport http` with no token; then with a token on loopback: no token, a wrong token, a foreign `Origin` with the token, the token with no `Origin` | refuses or loopback-only; 401 without the token and with a wrong one, a session with it; 403 for a foreign `Origin` (press 4.34.2 on; SKIP before) |
 | 4 | write gating | `<slug>_execute` on a write endpoint, without and with `confirm` | preview and nothing sent; sent only with `confirm: true` |
 | 5 | read-only switch | `tools/list` with `<PREFIX>_MCP_READ_ONLY=1` | every listed tool is annotated read-only |
 | 6 | local data | `doctor --json`, `local-data purge`, `sync` with `<PREFIX>_NO_LOCAL_DATA=1` | store path named; purge previews; sync refused |
@@ -169,6 +169,7 @@ Never kill by process name: a user's own `<slug>-mcp` may be running.
 ## Helpers
 
 `scripts/verify.py` (stdlib Python 3, executable). Subcommands: `doctor`,
-`run`, `report`, `cleanup`; `--help` on each. Its module docstring states the
+`run`, `report`, `cleanup`, `self-test` (feature 3's HTTP probe against
+stand-in servers, both ways); `--help` on each. Its module docstring states the
 verdict and exit-code contract. Keep the map honest as connectors change with
 `/maintain-verification-skill`.
