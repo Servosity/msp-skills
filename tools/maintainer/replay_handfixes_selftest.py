@@ -86,6 +86,18 @@ def run(m) -> int:  # m: the replay_handfixes module
     except m.GoListError:
         expect(True, "a module replaced by a local directory cannot be verified and is refused")
 
+    # The derive-lock pin ignores the copyright line: the press stamps whoever
+    # printed the file there (a print carries its printer's owner line, main the
+    # project's), so the same generated body must hash the same under any owner.
+    dd = getattr(m, "derive_digest", None)
+    body = 'package learn\n\nimport "acme-pp-cli/internal/store"\n'
+    expect(dd is not None
+           and dd("// Copyright 2026 dstevens and contributors. Licensed under Apache-2.0.\n" + body, "acme-pp-cli")
+           == dd("// Copyright 2026 Servosity Inc. and msp-skills contributors.\n" + body, "acme-pp-cli")
+           == dd(body, "acme-pp-cli") == dd(body.replace("acme-pp-cli", "other-pp-cli"), "other-pp-cli")
+           and dd(body + "// drift\n", "acme-pp-cli") != dd(body, "acme-pp-cli"),
+           "derive_digest drops the copyright line and the module path, and still sees a body change")
+
     # Every Go command the tool starts, directly or through a gate script, runs
     # with workspace mode off: in workspace mode even a read-only go list may
     # write go.work.sum at the workspace root, outside the connector.
@@ -211,6 +223,12 @@ def run(m) -> int:  # m: the replay_handfixes module
             expect("func NoConfigWrite() bool {" in cfg and "return c.saveCredentialMaterial()" in cfg
                    and "\treturn c.saveCredentialsThenConfig()\n}\n\nfunc (c *Config) ClearTokens" not in cfg,
                    "no-config-write: the switch, and SaveTokens routed through it")
+            expect((skill / "guide.md").read_text() == PRESS_GUIDE + NCW_SECTION + GUIDE_TAIL,
+                   "no-config-write: guide.md gets its pre-reprint section back, before the heading that followed "
+                   "it (a # line inside a code fence is not a heading), and keeps the reprint's own text")
+            nc = next(e for e in led["handfixes"] if e["id"] == "no-config-write-switch")
+            expect(any(a.get("file") == "guide.md" and a.get("contains") == "### Keeping credentials off disk (optional)"
+                       for a in nc["asserts"]), "the restored guide section's heading is pinned in the ledger")
             man = json.loads((skill / "manifest.json").read_text())
             expect(set(man["server"]["mcp_config"]["env"]) == {"ACME_CLIENT_ID", "ACME_CLIENT_SECRET", "ACME_BASE_URL",
                                                                "ACME_NO_CONFIG_WRITE"}
@@ -250,7 +268,7 @@ def run(m) -> int:  # m: the replay_handfixes module
             named = " ".join(s for s in sink if "NEEDS HAND WIRING" in s)
             expect(rc == 1, "a print the recipes cannot anchor fails")
             for site in ("[dry-run:newAuthLoginCmd]", "[token-host]", "[derive-test]", "[doctor-variant]",
-                         "[ncw-save]", "[restore:cli/internal/cli/never_test.go]"):
+                         "[ncw-save]", "[ncw-guide]", "[restore:cli/internal/cli/never_test.go]"):
                 expect(site in named, f"fail-closed: {site} is named")
             git("checkout", "-q", "--", ".")
             git("clean", "-fdq")
@@ -301,6 +319,92 @@ def run(m) -> int:  # m: the replay_handfixes module
             expect(rc == 1 and verdict.read_text() == CARRIED_HELPER
                    and any("the reprint carries its own copy" in s and "doctor_verdict.go" in s for s in sink),
                    "a restore that misjudges a carried file as missing fails closed, naming it, and never overwrites it")
+            git("checkout", "-q", "--", ".")
+            git("clean", "-fdq")
+            git("stash", "pop", "-q")
+
+            # A reprint whose guide.md carries its own, different copy of the
+            # section is named for a person and left as printed.
+            git("stash", "-q", "--include-untracked")
+            reprint(skill, m)
+            own = PRESS_GUIDE + "### Keeping credentials off disk (optional)\n\nThe press's own words.\n\n" + GUIDE_TAIL
+            w(skill / "guide.md", own)
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 1 and (skill / "guide.md").read_text() == own
+                   and any("[ncw-guide]" in s and "carries its own" in s for s in sink),
+                   "a reprinted guide.md with its own copy of the section is named, never overwritten")
+            git("checkout", "-q", "--", ".")
+            git("clean", "-fdq")
+            git("stash", "pop", "-q")
+
+            # Doctor on a templated base URL (press 4.34.x, EndpointTemplateVars):
+            # the generated check reads the RESOLVED base, so the shipped
+            # placeholder is the template with every variable at the default
+            # config.Load fills in (no braces left, a real-looking host).
+            git("stash", "-q", "--include-untracked")
+            reprint(skill, m, templated=True)
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 0 and any("applied and proven" in s for s in sink),
+                   "doctor-verdict on a templated base URL applies and proves: "
+                   + " | ".join(s for s in sink if "NEEDS" in s or "PROOF" in s or "FAIL" in s)[:600])
+            doc = (cli / "internal/cli/doctor.go").read_text()
+            helper = (cli / "internal/cli/doctor_verdict.go").read_text()
+            expect("if doctorBaseURLIsPlaceholder(doctorBase) || doctorBaseURLIsShippedPlaceholder(doctorBase) || "
+                   "doctorBaseURLIsShippedTemplate(doctorBase) {" in doc and "+ doctorBaseURLEnv +" in doc,
+                   "templated doctor: refuses the shipped template and names the base-URL variable")
+            expect('const doctorShippedTemplateBaseURL = "https://{tenant}.acme.test/api"' in helper
+                   and '"tenant": "your-tenant",' in helper and "func doctorBaseURLIsShippedTemplate(base string) bool {" in helper
+                   and '"acme-pp-cli/internal/client"' in helper and '"strings"' in helper,
+                   "templated doctor: the helper carries this print's base URL and template defaults, read from config.go")
+            led = json.loads((skill / "handfixes.json").read_text())
+            de = next(e for e in led["handfixes"] if e["id"] == "doctor-verdict-tracks-reality")
+            expect(not any(a.get("contains") == "doctorBaseURLIsPlaceholder(cfg.BaseURL)" for a in de["asserts"])
+                   and any(a.get("contains") == "doctorBaseURLIsShippedTemplate(doctorBase)" for a in de["asserts"])
+                   and any(a.get("contains") == "func doctorBaseURLIsShippedTemplate(base string) bool {" for a in de["asserts"]),
+                   "templated doctor: the cfg.BaseURL needle is dropped as obsolete and the templated wiring is pinned")
+            snap = {p: p.read_bytes() for p in skill.rglob("*") if p.is_file()}
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 0 and snap == {p: p.read_bytes() for p in skill.rglob("*") if p.is_file()},
+                   "templated doctor: a re-apply is a no-op that proves again")
+            git("checkout", "-q", "--", ".")
+            git("clean", "-fdq")
+            reprint(skill, m, templated=True, break_template=True)
+            sink.clear()
+            rc = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+            expect(rc == 1 and any("[doctor-template]" in s for s in sink),
+                   "templated doctor: a config.go whose shipped base URL cannot be read is named, not guessed")
+
+            # Every way config.Load can give a template variable its value must
+            # be read positively; a shape the recipe does not know is never
+            # taken for "no default" (the URL would be dialled unguarded).
+            def templated_run(shape: str) -> tuple[int, str, list]:
+                git("checkout", "-q", "--", ".")
+                git("clean", "-fdq")
+                reprint(skill, m, templated=True, default_shape=shape)
+                sink.clear()
+                code = m.run_slug(root, "acme", check=False, out=say, prove=prove, registry=REGISTRY)
+                led = json.loads((skill / "handfixes.json").read_text())
+                de = next(e for e in led["handfixes"] if e["id"] == "doctor-verdict-tracks-reality")
+                return code, (cli / "internal/cli/doctor_verdict.go").read_text() if (cli / "internal/cli/doctor_verdict.go").exists() else "", de["asserts"]
+
+            rc, helper, asserts = templated_run("else")
+            expect(rc == 0 and '"tenant": "your-tenant",' in helper
+                   and "doctorBaseURLIsShippedTemplate(doctorBase)" in (cli / "internal/cli/doctor.go").read_text(),
+                   "templated doctor: the older `} else {` fallback default is read and guarded")
+            for shape in ("computed", "loop"):
+                rc, helper, asserts = templated_run(shape)
+                expect(rc == 1 and any("[doctor-template]" in s for s in sink)
+                       and "doctorBaseURLIsShippedTemplate" not in (cli / "internal/cli/doctor.go").read_text()
+                       and any(a.get("contains") == "doctorBaseURLIsPlaceholder(cfg.BaseURL)" for a in asserts),
+                       f"templated doctor: a default config.go writes in a shape the recipe cannot read ({shape}) is named "
+                       f"and the cfg.BaseURL needle is kept, never read as no default")
+            rc, helper, asserts = templated_run("verify")
+            expect(rc == 0 and "doctorBaseURLIsShippedTemplate" not in helper
+                   and "doctorBaseURLIsShippedPlaceholder(doctorBase)" in (cli / "internal/cli/doctor.go").read_text(),
+                   "templated doctor: a variable only the press verifier fills is read as no default (braces stay, the press refuses them)")
             git("checkout", "-q", "--", ".")
             git("clean", "-fdq")
             git("stash", "pop", "-q")
@@ -435,6 +539,25 @@ def w(path: Path, text: str) -> None:
 
 
 GEN = "// Code generated by CLI Printing Press. DO NOT EDIT.\n\n"
+_TENANT_ENV = ('\tif v := strings.TrimSpace(cliutil.EnvOverride("ACME_TENANT")); v != "" {\n'
+               '\t\tcfg.TemplateVars["tenant"] = normalizeEndpointTemplateValue(v)\n')
+# How config.Load can give {tenant} a value when the operator sets nothing.
+TEMPLATE_DEFAULT_SHAPES = {
+    # press 4.34.x: a stored template_vars value wins over the default
+    "trimspace": _TENANT_ENV + '\t} else if strings.TrimSpace(cfg.TemplateVars["tenant"]) == "" {\n'
+                               '\t\tcfg.TemplateVars["tenant"] = "your-tenant"\n\t}\n',
+    # older press (skills/salesbuildr/cli/internal/config/config.go on main)
+    "else": _TENANT_ENV + '\t} else {\n\t\tcfg.TemplateVars["tenant"] = "your-tenant"\n\t}\n',
+    # no default: only the press verifier fills a placeholder in
+    "verify": '\tverifyMode := os.Getenv("PRINTING_PRESS_VERIFY") == "1"\n' + _TENANT_ENV
+              + '\t} else if verifyMode {\n\t\tcfg.TemplateVars["tenant"] = "tenant_placeholder"\n\t}\n',
+    # a default the recipe cannot read: computed, not a literal
+    "computed": _TENANT_ENV + '\t} else {\n\t\tcfg.TemplateVars["tenant"] = defaultTenant()\n\t}\n',
+    # a default written through a variable key
+    "loop": _TENANT_ENV + '\t}\n\tfor k, v := range templateDefaults {\n\t\tif cfg.TemplateVars[k] == "" {\n'
+                          '\t\t\tcfg.TemplateVars[k] = v\n\t\t}\n\t}\n',
+}
+PRINTER_COPYRIGHT = "// Copyright 2026 some-printer and contributors. Licensed under Apache-2.0. See LICENSE.\n"
 HELPER = """package cli
 
 import (
@@ -479,6 +602,17 @@ LOGIN = ("package cli\n\n// Hand-authored novel feature (preserved across regen)
          "\tclientSecret := flags.secret\n\treturn nil\n}\n")
 CARRIED_LOGIN = LOGIN.replace("\tclientSecret := flags.secret\n",
                               "\tclientSecret, err := readSecretFromStdin(cmd.InOrStdin())\n")
+# guide.md: the pre-reprint copy carries the no-config-write section; the
+# reprint's copy is the press README, which does not. The fenced # lines are
+# shell comments, never headings.
+GUIDE_HEAD = ("# acme-cli\n\n## Authentication\n\nSet ACME_CLIENT_ID.\n\n```bash\n# a shell comment, not a heading\n"
+              "acme-cli doctor\n```\n\n### agentcookie (optional)\n\nIt adopts agentcookie.\n\n")
+PRESS_GUIDE = GUIDE_HEAD.replace("Set ACME_CLIENT_ID.", "Set ACME_CLIENT_ID (the reprint's README).")
+NCW_SECTION = ("### Keeping credentials off disk (optional)\n\nSet `ACME_NO_CONFIG_WRITE=1`.\n\n"
+               "| What changes | With `ACME_NO_CONFIG_WRITE=1` |\n| --- | --- |\n"
+               "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |\n\n"
+               "```bash\n# still inside the section\nexport ACME_NO_CONFIG_WRITE=1\n```\n\n")
+GUIDE_TAIL = "## Troubleshooting\n\nRun `acme-cli doctor`.\n"
 SWITCH = """// NoConfigWriteEnv is the environment switch (issue #270).
 const NoConfigWriteEnv = "ACME_NO_CONFIG_WRITE"
 
@@ -518,6 +652,7 @@ def ledger(m) -> dict:
             A("cli/internal/cli/doctor_verdict.go", "func doctorProbeCredentials("),
             A("cli/internal/cli/doctor_verdict.go", "func doctorBaseURLIsPlaceholder("),
             A("cli/internal/cli/doctor.go", "doctorProbeCredentials(cmd.Context()"),
+            A("cli/internal/cli/doctor.go", "doctorBaseURLIsPlaceholder(cfg.BaseURL)"),
             N("cli/internal/cli/doctor.go", "present, not verified. Run `%s %s`")]},
         {"id": "no-create-alias-on-destructive-commands", "asserts": [
             N("cli/internal/cli/purge.go", '[]string{"create"}'),
@@ -531,7 +666,8 @@ def ledger(m) -> dict:
             A("cli/internal/cli/auth_login.go", "if config.NoConfigWrite() {", code_only=True),
             A("cli/internal/config/config_noconfigwrite_test.go", "func TestNoConfigWriteLeavesNothingOnDisk("),
             A("cli/internal/mcp/mcp_config_resolution_test.go", "func TestMCPClientHonoursTheConfigEnvVar("),
-            A("manifest.json", '"ACME_NO_CONFIG_WRITE"')]},
+            A("manifest.json", '"ACME_NO_CONFIG_WRITE"'),
+            A("guide.md", "| `auth login` / `auth set-token` | Refuse, naming the variable")]},
         {"id": "install-credentials-declared-on-every-channel", "asserts": [
             A("manifest.json", '"ACME_BASE_URL": "${user_config.acme_base_url}"')]},
     ]}
@@ -563,7 +699,9 @@ def before(skill: Path, m) -> None:
       '\trun("", "auth", "set-token", "stub-dry-run-token", "--dry-run")\n}\n')
     w(cli / "internal/cli/doctor_verdict.go", HELPER)
     w(cli / "internal/cli/auth_login.go", LOGIN)
-    w(cli / "internal/cli/doctor.go", GEN + "package cli\n\nfunc d() {\n\tdoctorProbeCredentials(cmd.Context(), c, nil, \"\", nil)\n}\n")
+    w(cli / "internal/cli/doctor.go", GEN + "package cli\n\nfunc d() {\n\tdoctorProbeCredentials(cmd.Context(), c, nil, \"\", nil)\n"
+      "\tif cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {\n\t}\n}\n")
+    w(skill / "guide.md", GUIDE_HEAD + NCW_SECTION + GUIDE_TAIL)
     w(cli / "internal/cli/purge.go", GEN + "package cli\n\nfunc newPurgeCmd(flags *rootFlags) *cobra.Command {\n"
       "\treturn &cobra.Command{\n\t\tUse:   \"purge <id>\",\n\t\tShort: \"Purge things\",\n\t}\n}\n")
     w(cli / "internal/cli/create_alias_destructive_test.go",
@@ -580,7 +718,8 @@ def before(skill: Path, m) -> None:
     w(skill / "handfixes.json", json.dumps(ledger(m), indent=1) + "\n")
 
 
-def reprint(skill: Path, m, break_sites: bool = False) -> None:
+def reprint(skill: Path, m, break_sites: bool = False, templated: bool = False, break_template: bool = False,
+            default_shape: str = "trimspace") -> None:
     """Replace the generated files the way onboard vendors a press 4.34.0 print:
     hand-written files are gone, generated ones take the 4.34.0 shapes, the
     manifest is the press's (credential pair only), the version is stamped."""
@@ -618,10 +757,15 @@ def reprint(skill: Path, m, break_sites: bool = False) -> None:
                '\t\t\t\t\t\t} else {\n'
                '\t\t\t\t\t\t\treport["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."\n'
                '\t\t\t\t\t\t}\n')
+    # Press 4.34.x with endpoint template variables checks the resolved base.
+    check = ("\t\t\tdoctorBase := \"\"\n\t\t\tif cfg != nil {\n"
+             "\t\t\t\tdoctorBase = client.ResolvedBaseURL(cfg.BaseURL, cfg.TemplateVars)\n\t\t\t}\n"
+             "\t\t\tif doctorBaseURLIsPlaceholder(doctorBase) {\n\t\t\t\t") if templated else \
+        "\t\t\tif cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {\n\t\t\t\t"
     w(cli / "internal/cli/doctor.go", GEN + 'package cli\n\nimport (\n\t"strings"\n)\n\n'
       "func doctorIsInfoKey(key string) bool { return key == \"\" }\n\n"
       "func newDoctorCmd(flags *rootFlags) *cobra.Command {\n"
-      "\t\t\tif cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {\n\t\t\t\t" + m.DOCTOR_PLACEHOLDER
+      + check + m.DOCTOR_PLACEHOLDER
       + "\t\t\t}\n\t\t\t\t\t\t" + m.DOCTOR_NOAUTH + suggest + "\treturn nil\n}\n\n"
       "func doctorBaseURLIsPlaceholder(base string) bool {\n\treturn strings.TrimSpace(base) == \"\"\n}\n")
     (cli / "internal/cli/purge.go").unlink(missing_ok=True)
@@ -634,13 +778,23 @@ def reprint(skill: Path, m, break_sites: bool = False) -> None:
     w(cli / "internal/cli/things_item_purge_purge.go", GEN + "package cli\n\nfunc newThingsItemPurgePurgeCmd(flags *rootFlags) *cobra.Command {\n"
       '\treturn &cobra.Command{\n\t\tUse:   "purge <id>",\n\t\tShort: "Purge things",\n'
       '\t\tAliases:     []string{"create"},\n\t}\n}\n')
-    derive = "package learn\n\n// generated derive test\n" + ("// unknown shape\n" if break_sites else "")
+    # The print stamps its printer's owner line, not the project's (backup-radar
+    # on press 4.34.0 and 4.34.2); the recipe pins the body without it.
+    derive = (PRINTER_COPYRIGHT + "package learn\n\n// generated derive test\n"
+              + ("// unknown shape\n" if break_sites else ""))
     w(cli / "internal/learn/derive_test.go", derive)
     m.DERIVE_GENERATED.add(__import__("hashlib").sha256(("package learn\n\n// generated derive test\n").encode()).hexdigest())
     save = "\treturn c.saveCredentialsThenConfig()\n}\n" if not break_sites else "\treturn c.persist()\n}\n"
+    load = ""
+    if templated:
+        base = "" if break_template else '\t\tBaseURL: "https://{tenant}.acme.test/api",\n'
+        load = ("\nfunc Load() (*Config, error) {\n\tcfg := &Config{\n" + base + "\t}\n"
+                + TEMPLATE_DEFAULT_SHAPES[default_shape] + "\treturn cfg, nil\n}\n")
     w(cli / "internal/config/config.go", GEN + 'package config\n\nimport (\n\t"os"\n)\n\n'
       "func (c *Config) SaveTokens(clientID string) error {\n\tc.updateFileConfigField(\"TokenExpiry\")\n" + save
-      + "\nfunc (c *Config) ClearTokens() error {\n\treturn c.save()\n}\n")
+      + "\nfunc (c *Config) ClearTokens() error {\n\treturn c.save()\n}\n" + load)
+    # onboard re-vendors guide.md from the press README, which has no such section.
+    w(skill / "guide.md", PRESS_GUIDE + ("" if break_sites else GUIDE_TAIL))
     w(cli / "internal/mcp/tools.go", GEN + 'package mcp\n\nfunc newMCPConfig() (*config.Config, error) {\n\tcfg, err := config.Load("")\n'
       "\treturn cfg, err\n}\n")
     if break_sites:

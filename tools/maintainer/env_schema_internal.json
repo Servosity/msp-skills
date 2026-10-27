@@ -52,12 +52,15 @@
     "_LEDGER_DIR",
     "_MAX_RESPONSE_BYTES",
     "_MCP_CHILD",
+    "_MCP_HTTP_ALLOWED_ORIGINS",
     "_NO_AUTO_REFRESH",
     "_NO_LEARN",
     "_STATE_DIR",
     "_TLS_SERVER_NAME"
   ],
   "_internal_press434_comment": "Press 4.34.0 runtime knobs, classified 2026-10-23 on the servosity reprint. HTTP_PROXY / HTTPS_PROXY / ALL_PROXY are the standard proxy variables: client.go reads them only to tell a configured proxy apart from a private address, and net/http reads them itself. <PREFIX>_MCP_CHILD is set by the MCP server on the CLI processes it spawns, never by an operator. <PREFIX>_CA_CERT, <PREFIX>_TLS_SERVER_NAME, <PREFIX>_DATA_SOURCE and <PREFIX>_MAX_RESPONSE_BYTES are optional tuning knobs that each mirror a CLI flag or config key (--ca-cert, --tls-server-name, --data-source); an install prompt would put a <your-...> placeholder into every copy-paste config, and a placeholder CA bundle or TLS name breaks every request. The operator levers this release adds (<PREFIX>_MCP_READ_ONLY, <PREFIX>_NO_LOCAL_DATA, <PREFIX>_MCP_HTTP_TOKEN) stay operator-facing and are declared in the manifest.",
+
+  "_internal_press4342_comment": "Press 4.34.2 runtime knob, classified 2026-10-27 on the batch-2 re-proof. <PREFIX>_MCP_HTTP_ALLOWED_ORIGINS lists extra browser Origins the MCP server accepts in HTTP mode. Only the --transport http branch of cmd/<slug>-mcp/main.go reads it (loadAllowedHTTPOrigins), the .mcpb bundle runs stdio, and leaving it unset refuses every non-loopback Origin, which is the safe default. An install prompt would put a <your-...> placeholder into every copy-paste config, and HTTP mode refuses to start on an entry that is not a scheme://host[:port] origin. <PREFIX>_MCP_HTTP_TOKEN stays operator-facing and declared.",
 
   "_operator_exact_comment": "Carve-backs: variables that match an internal rule above but ARE operator input. PRINTING_PRESS_CLIENT_PROFILE binds a tenant-gated MCP server to one client profile; without it a multi-tenant connector answers for the wrong customer, so it belongs in the install prompt (threatlocker already declares it).",
   "operator_exact": [

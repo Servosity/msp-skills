@@ -2075,6 +2075,12 @@ def self_test() -> int:
         # servosity's prefix is SERVOSITY_MSP, not SERVOSITY - anchoring uses the
         # connector's declared envPrefix, so its own knob still classifies internal.
         ("SERVOSITY_MSP_CONFIG_DIR", "SERVOSITY_MSP", True),
+        # Press 4.34.2: the MCP HTTP origin allowlist is an HTTP-mode-only knob
+        # (unset refuses every non-loopback Origin), so it is internal; the HTTP
+        # token beside it stays operator-facing, and the suffix stays anchored.
+        ("SALESBUILDR_MCP_HTTP_ALLOWED_ORIGINS", "SALESBUILDR", True),
+        ("SALESBUILDR_MCP_HTTP_TOKEN", "SALESBUILDR", False),
+        ("VENDOR_MCP_HTTP_ALLOWED_ORIGINS", "SALESBUILDR", False),
     ]
     for name, prefix, expect_internal in classify_cases:
         got = is_internal(name, rules, prefix)
