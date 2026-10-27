@@ -1,7 +1,7 @@
 {
   "api_name": "ninjaone",
   "base_url": "https://app.ninjarmm.com",
-  "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
+  "description": "Every NinjaOne report, plus a local store for fleet-wide patch, backup, AV and health answers.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "mcp": {
@@ -136,7 +136,7 @@
           "name": "uid",
           "type": "string",
           "location": "path",
-          "description": "Uid",
+          "description": "uid (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -151,7 +151,7 @@
           "name": "uid",
           "type": "string",
           "location": "path",
-          "description": "Uid",
+          "description": "uid (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -385,7 +385,7 @@
           "name": "checklistTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Checklist template id",
+          "description": "checklistTemplateId (e.g. 4)",
           "required": true
         }
       ]
@@ -460,7 +460,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Contact identifier",
+          "description": "Contact identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -475,7 +475,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Contact identifier",
+          "description": "Contact identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -490,7 +490,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Contact identifier",
+          "description": "Contact identifier (e.g. 42)",
           "required": true
         },
         {
@@ -592,14 +592,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. NODE)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         }
       ]
@@ -614,7 +614,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -629,7 +629,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -701,7 +701,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -764,7 +764,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -791,7 +791,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -812,7 +812,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -827,7 +827,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -848,7 +848,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -863,7 +863,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -890,7 +890,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -905,7 +905,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -920,7 +920,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -953,7 +953,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -968,7 +968,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1001,7 +1001,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1034,7 +1034,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1049,14 +1049,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
           "name": "ownerUid",
           "type": "string",
           "location": "path",
-          "description": "Device owner identifier",
+          "description": "Device owner identifier (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -1071,7 +1071,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1086,7 +1086,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1101,7 +1101,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1116,7 +1116,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1131,7 +1131,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1146,7 +1146,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1161,7 +1161,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1176,14 +1176,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
           "name": "mode",
           "type": "string",
           "location": "path",
-          "description": "Reboot mode",
+          "description": "Reboot mode (e.g. NORMAL)",
           "required": true
         },
         {
@@ -1204,7 +1204,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1250,7 +1250,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1271,7 +1271,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1286,7 +1286,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1337,7 +1337,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1376,7 +1376,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1397,14 +1397,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
           "name": "serviceId",
           "type": "string",
           "location": "path",
-          "description": "Service identifier",
+          "description": "Service identifier (e.g. Spooler)",
           "required": true
         },
         {
@@ -1425,14 +1425,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
           "name": "serviceId",
           "type": "string",
           "location": "path",
-          "description": "Service identifier",
+          "description": "Service identifier (e.g. Spooler)",
           "required": true
         },
         {
@@ -1459,7 +1459,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Device identifier",
+          "description": "Device identifier (e.g. 42)",
           "required": true
         },
         {
@@ -1526,7 +1526,7 @@
           "name": "mode",
           "type": "string",
           "location": "path",
-          "description": "Mode",
+          "description": "mode (e.g. APPROVE)",
           "required": true
         },
         {
@@ -1651,7 +1651,7 @@
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template id",
+          "description": "documentTemplateId (e.g. 12)",
           "required": true
         }
       ]
@@ -1666,7 +1666,7 @@
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template id",
+          "description": "documentTemplateId (e.g. 12)",
           "required": true
         },
         {
@@ -1714,7 +1714,7 @@
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template id",
+          "description": "documentTemplateId (e.g. 12)",
           "required": true
         },
         {
@@ -1765,7 +1765,7 @@
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template id",
+          "description": "documentTemplateId (e.g. 12)",
           "required": true
         }
       ]
@@ -1780,7 +1780,7 @@
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template id",
+          "description": "documentTemplateId (e.g. 12)",
           "required": true
         }
       ]
@@ -1795,7 +1795,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Group identifier",
+          "description": "Group identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -1878,7 +1878,7 @@
           "name": "nodeId",
           "type": "int",
           "location": "path",
-          "description": "Node id",
+          "description": "nodeId (e.g. 1203)",
           "required": true
         }
       ]
@@ -1893,7 +1893,7 @@
           "name": "nodeId",
           "type": "int",
           "location": "path",
-          "description": "Node id",
+          "description": "nodeId (e.g. 1203)",
           "required": true
         },
         {
@@ -1989,7 +1989,7 @@
           "name": "articleId",
           "type": "int",
           "location": "path",
-          "description": "Article id",
+          "description": "articleId (e.g. 17)",
           "required": true
         }
       ]
@@ -2050,7 +2050,7 @@
           "name": "articleId",
           "type": "int",
           "location": "path",
-          "description": "Article id",
+          "description": "articleId (e.g. 17)",
           "required": true
         }
       ]
@@ -2065,7 +2065,7 @@
           "name": "folderId",
           "type": "int",
           "location": "path",
-          "description": "Folder id",
+          "description": "folderId (e.g. 6)",
           "required": true
         },
         {
@@ -2269,7 +2269,7 @@
     },
     {
       "name": "organization_archive-client-document",
-      "description": "Archives an organization document by id. Required: clientDocumentId. Returns array of ClientDocumentAttributeWithValuePublicApiDto.",
+      "description": "Archives an organization document by id. Required: clientDocumentId. Returns the new ClientDocumentWithAttributeValuesPublicApiDto.",
       "method": "POST",
       "path": "/v2/organization/document/{clientDocumentId}/archive",
       "params": [
@@ -2277,7 +2277,7 @@
           "name": "clientDocumentId",
           "type": "int",
           "location": "path",
-          "description": "Client document id",
+          "description": "clientDocumentId (e.g. 88)",
           "required": true
         }
       ]
@@ -2313,7 +2313,7 @@
           "name": "checklistId",
           "type": "int",
           "location": "path",
-          "description": "Checklist id",
+          "description": "checklistId (e.g. 9)",
           "required": true
         }
       ]
@@ -2335,7 +2335,7 @@
           "name": "clientDocumentId",
           "type": "int",
           "location": "path",
-          "description": "Client document id",
+          "description": "clientDocumentId (e.g. 88)",
           "required": true
         }
       ]
@@ -2350,14 +2350,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         }
       ]
     },
     {
       "name": "organization_get-client-checklist",
-      "description": "Get a client checklist by id. Required: checklistId. Returns array of ClientChecklistTaskPublicApiDto.",
+      "description": "Get a client checklist by id. Required: checklistId. Returns the ClientChecklistPublicApiDto.",
       "method": "GET",
       "path": "/v2/organization/checklist/{checklistId}",
       "params": [
@@ -2365,7 +2365,7 @@
           "name": "checklistId",
           "type": "int",
           "location": "path",
-          "description": "Checklist id",
+          "description": "checklistId (e.g. 9)",
           "required": true
         }
       ]
@@ -2380,7 +2380,7 @@
           "name": "checklistId",
           "type": "int",
           "location": "path",
-          "description": "Checklist id",
+          "description": "checklistId (e.g. 9)",
           "required": true
         }
       ]
@@ -2445,7 +2445,7 @@
           "name": "clientDocumentId",
           "type": "int",
           "location": "path",
-          "description": "Client document id",
+          "description": "clientDocumentId (e.g. 88)",
           "required": true
         }
       ]
@@ -2490,7 +2490,7 @@
     },
     {
       "name": "organization_get-installer",
-      "description": "Generates and returns URL for installer with specified settings. Optional: content, installerType, locationId (plus 2 more).",
+      "description": "Generates and returns URL for installer with specified settings. Optional: content, installerType, locationId (plus 1 more).",
       "method": "POST",
       "path": "/v2/organization/generate-installer",
       "params": [
@@ -2518,12 +2518,6 @@
           "type": "int",
           "location": "body",
           "description": "Organization identifier"
-        },
-        {
-          "name": "usageLimit",
-          "type": "int",
-          "location": "body",
-          "description": "Usage limit"
         }
       ]
     },
@@ -2557,7 +2551,7 @@
     },
     {
       "name": "organization_restore-client-document",
-      "description": "Restores an organization document by id. Required: clientDocumentId. Returns array of ClientDocumentAttributeWithValuePublicApiDto.",
+      "description": "Restores an organization document by id. Required: clientDocumentId. Returns the new ClientDocumentWithAttributeValuesPublicApiDto.",
       "method": "POST",
       "path": "/v2/organization/document/{clientDocumentId}/restore",
       "params": [
@@ -2565,7 +2559,7 @@
           "name": "clientDocumentId",
           "type": "int",
           "location": "path",
-          "description": "Client document id",
+          "description": "clientDocumentId (e.g. 88)",
           "required": true
         }
       ]
@@ -2587,7 +2581,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         },
         {
@@ -2652,7 +2646,7 @@
           "name": "organizationId",
           "type": "int",
           "location": "path",
-          "description": "Organization id",
+          "description": "organizationId (e.g. 2)",
           "required": true
         }
       ]
@@ -2667,7 +2661,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -2682,7 +2676,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         }
       ]
@@ -2697,7 +2691,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         },
         {
@@ -2724,14 +2718,14 @@
           "name": "organizationId",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 2)",
           "required": true
         },
         {
           "name": "clientDocumentId",
           "type": "int",
           "location": "path",
-          "description": "Organization document identifier",
+          "description": "Organization document identifier (e.g. 88)",
           "required": true
         },
         {
@@ -2764,7 +2758,7 @@
           "name": "organizationId",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 2)",
           "required": true
         }
       ]
@@ -2779,7 +2773,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
@@ -2800,21 +2794,21 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
           "name": "location_id",
           "type": "int",
           "location": "path",
-          "description": "Location id",
+          "description": "location_id (e.g. 4)",
           "required": true
         },
         {
           "name": "installer_type",
           "type": "string",
           "location": "path",
-          "description": "Installer type",
+          "description": "installer_type (e.g. WINDOWS_MSI)",
           "required": true
         }
       ]
@@ -2829,14 +2823,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
           "name": "locationId",
           "type": "int",
           "location": "path",
-          "description": "Location id",
+          "description": "locationId (e.g. 4)",
           "required": true
         },
         {
@@ -2857,14 +2851,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
           "name": "locationId",
           "type": "int",
           "location": "path",
-          "description": "Location id",
+          "description": "locationId (e.g. 4)",
           "required": true
         }
       ]
@@ -2879,7 +2873,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
@@ -2930,7 +2924,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -2945,7 +2939,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 2)",
           "required": true
         }
       ]
@@ -2960,14 +2954,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 42)",
           "required": true
         },
         {
           "name": "locationId",
           "type": "int",
           "location": "path",
-          "description": "Location identifier",
+          "description": "Location identifier (e.g. 4)",
           "required": true
         }
       ]
@@ -2982,14 +2976,14 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         },
         {
           "name": "locationId",
           "type": "int",
           "location": "path",
-          "description": "Location id",
+          "description": "locationId (e.g. 4)",
           "required": true
         },
         {
@@ -3040,7 +3034,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         }
       ]
@@ -3055,14 +3049,14 @@
           "name": "organizationId",
           "type": "int",
           "location": "path",
-          "description": "Organization identifier",
+          "description": "Organization identifier (e.g. 2)",
           "required": true
         },
         {
           "name": "documentTemplateId",
           "type": "int",
           "location": "path",
-          "description": "Document template identifier",
+          "description": "Document template identifier (e.g. 12)",
           "required": true
         },
         {
@@ -3266,7 +3260,7 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         },
         {
@@ -3347,7 +3341,7 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         },
         {
@@ -3472,14 +3466,14 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         },
         {
           "name": "condition_id",
           "type": "string",
           "location": "path",
-          "description": "Condition id",
+          "description": "condition_id (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -3494,7 +3488,7 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         }
       ]
@@ -3509,14 +3503,14 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         },
         {
           "name": "condition_id",
           "type": "string",
           "location": "path",
-          "description": "Condition id",
+          "description": "condition_id (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -3531,7 +3525,7 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         }
       ]
@@ -3546,14 +3540,14 @@
           "name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "policy_id (e.g. 7)",
           "required": true
         },
         {
           "name": "condition_id",
           "type": "string",
           "location": "path",
-          "description": "Condition id",
+          "description": "condition_id (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)",
           "required": true
         }
       ]
@@ -4474,14 +4468,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         },
         {
@@ -4502,14 +4496,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         },
         {
@@ -4536,14 +4530,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         }
       ]
@@ -4558,14 +4552,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         },
         {
@@ -4616,7 +4610,7 @@
           "name": "relatedItemId",
           "type": "int",
           "location": "path",
-          "description": "Related item id",
+          "description": "relatedItemId (e.g. 31)",
           "required": true
         }
       ]
@@ -4631,14 +4625,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         }
       ]
@@ -4660,14 +4654,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         }
       ]
@@ -4682,14 +4676,14 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "entityId",
           "type": "int",
           "location": "path",
-          "description": "Entity id",
+          "description": "entityId (e.g. 1203)",
           "required": true
         },
         {
@@ -4710,14 +4704,14 @@
           "name": "relEntityType",
           "type": "string",
           "location": "path",
-          "description": "Rel entity type",
+          "description": "relEntityType (e.g. ORGANIZATION)",
           "required": true
         },
         {
           "name": "relEntityId",
           "type": "int",
           "location": "path",
-          "description": "Rel entity id",
+          "description": "relEntityId (e.g. 15)",
           "required": true
         }
       ]
@@ -4732,7 +4726,7 @@
           "name": "relatedEntityType",
           "type": "string",
           "location": "path",
-          "description": "Related entity type",
+          "description": "relatedEntityType (e.g. ORGANIZATION)",
           "required": true
         }
       ]
@@ -4747,7 +4741,7 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "entityType (e.g. ORGANIZATION)",
           "required": true
         }
       ]
@@ -4762,7 +4756,7 @@
           "name": "relatedItemId",
           "type": "int",
           "location": "path",
-          "description": "Related item id",
+          "description": "relatedItemId (e.g. 31)",
           "required": true
         }
       ]
@@ -4783,7 +4777,7 @@
     },
     {
       "name": "tab_create-custom-public-api",
-      "description": "Create a Custom Tab with the provided details. Required: name. Optional: entityId, entityType, items (plus 1 more). Returns array of AttributeFormContentCommonItemPublicApiDto.",
+      "description": "Create a Custom Tab with the provided details. Required: name. Optional: entityId, entityType, items (plus 1 more). Returns the new CustomTabPublicApiDto.",
       "method": "POST",
       "path": "/v2/tab",
       "params": [
@@ -4830,14 +4824,14 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         }
       ]
     },
     {
       "name": "tab_get-custom-public-api",
-      "description": "Gets a custom tab. NOTE: This will _not_ fetch tab extensions. You must use the GET tab/{tabId}/role/{roleId} for that. Required: tabId. Returns array of AttributeFormContentCommonItemPublicApiDto.",
+      "description": "Gets a custom tab. NOTE: This will _not_ fetch tab extensions. You must use the GET tab/{tabId}/role/{roleId} for that. Required: tabId. Returns the CustomTabPublicApiDto.",
       "method": "GET",
       "path": "/v2/tab/{tabId}",
       "params": [
@@ -4845,7 +4839,7 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         }
       ]
@@ -4874,7 +4868,7 @@
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role id",
+          "description": "roleId (e.g. 5)",
           "required": true
         }
       ]
@@ -4910,7 +4904,7 @@
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role id",
+          "description": "roleId (e.g. 5)",
           "required": true
         }
       ]
@@ -4925,7 +4919,7 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         },
         {
@@ -4972,7 +4966,7 @@
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role id",
+          "description": "roleId (e.g. 5)",
           "required": true
         }
       ]
@@ -4987,7 +4981,7 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         }
       ]
@@ -5002,7 +4996,7 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         }
       ]
@@ -5017,14 +5011,14 @@
           "name": "tabId",
           "type": "int",
           "location": "path",
-          "description": "Tab id",
+          "description": "tabId (e.g. 3)",
           "required": true
         },
         {
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role id",
+          "description": "roleId (e.g. 5)",
           "required": true
         }
       ]
@@ -5039,7 +5033,7 @@
           "name": "assetType",
           "type": "string",
           "location": "path",
-          "description": "Asset type",
+          "description": "assetType (e.g. device)",
           "required": true
         },
         {
@@ -5099,7 +5093,7 @@
           "name": "tagId",
           "type": "int",
           "location": "path",
-          "description": "Tag id",
+          "description": "tagId (e.g. 8)",
           "required": true
         }
       ]
@@ -5159,14 +5153,14 @@
           "name": "assetType",
           "type": "string",
           "location": "path",
-          "description": "Asset type",
+          "description": "assetType (e.g. device)",
           "required": true
         },
         {
           "name": "assetId",
           "type": "int",
           "location": "path",
-          "description": "Asset id",
+          "description": "assetId (e.g. 1203)",
           "required": true
         },
         {
@@ -5187,7 +5181,7 @@
           "name": "tagId",
           "type": "int",
           "location": "path",
-          "description": "Tag id",
+          "description": "tagId (e.g. 8)",
           "required": true
         },
         {
@@ -5373,7 +5367,7 @@
           "name": "ticketId",
           "type": "int",
           "location": "path",
-          "description": "Ticket id",
+          "description": "ticketId (e.g. 1043)",
           "required": true
         },
         {
@@ -5466,7 +5460,7 @@
           "name": "ticketId",
           "type": "int",
           "location": "path",
-          "description": "Ticket id",
+          "description": "ticketId (e.g. 1043)",
           "required": true
         }
       ]
@@ -5481,7 +5475,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         }
       ]
@@ -5503,7 +5497,7 @@
           "name": "ticketId",
           "type": "int",
           "location": "path",
-          "description": "Ticket id",
+          "description": "ticketId (e.g. 1043)",
           "required": true
         },
         {
@@ -5542,7 +5536,7 @@
           "name": "boardId",
           "type": "int",
           "location": "path",
-          "description": "Board id",
+          "description": "boardId (e.g. 3)",
           "required": true
         },
         {
@@ -5593,7 +5587,7 @@
           "name": "ticketId",
           "type": "int",
           "location": "path",
-          "description": "Ticket id",
+          "description": "ticketId (e.g. 1043)",
           "required": true
         },
         {
@@ -5716,7 +5710,7 @@
     },
     {
       "name": "user_add-role-members",
-      "description": "Add members to user role. Required: roleId. Returns array of RoleMember.",
+      "description": "Add members to user role. Required: roleId. Returns the updated UserRole.",
       "method": "PATCH",
       "path": "/v2/user/role/{roleId}/add-members",
       "params": [
@@ -5724,7 +5718,7 @@
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role identifier",
+          "description": "Role identifier (e.g. 5)",
           "required": true
         }
       ]
@@ -5821,7 +5815,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "End user identifier",
+          "description": "End user identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -5836,7 +5830,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Technician identifier",
+          "description": "Technician identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -5851,7 +5845,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "End user identifier",
+          "description": "End user identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -5873,7 +5867,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "End user identifier",
+          "description": "End user identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -5902,7 +5896,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Technician identifier",
+          "description": "Technician identifier (e.g. 42)",
           "required": true
         }
       ]
@@ -5924,7 +5918,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "End user identifier",
+          "description": "End user identifier (e.g. 42)",
           "required": true
         },
         {
@@ -5955,7 +5949,7 @@
     },
     {
       "name": "user_remove-role-members",
-      "description": "Remove users from user role. Required: roleId. Returns array of RoleMember.",
+      "description": "Remove users from user role. Required: roleId. Returns the updated UserRole.",
       "method": "PATCH",
       "path": "/v2/user/role/{roleId}/remove-members",
       "params": [
@@ -5963,7 +5957,7 @@
           "name": "roleId",
           "type": "int",
           "location": "path",
-          "description": "Role identifier",
+          "description": "Role identifier (e.g. 5)",
           "required": true
         }
       ]
@@ -5978,7 +5972,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Id",
+          "description": "id (e.g. 42)",
           "required": true
         }
       ]
@@ -5993,7 +5987,7 @@
           "name": "id",
           "type": "int",
           "location": "path",
-          "description": "Technician identifier",
+          "description": "Technician identifier (e.g. 42)",
           "required": true
         },
         {
@@ -6047,7 +6041,7 @@
           "name": "scan-group-id",
           "type": "int",
           "location": "path",
-          "description": "Unique ID of the scan group to upload CSV to",
+          "description": "Unique ID of the scan group to upload CSV to (e.g. 101)",
           "required": true
         }
       ]
@@ -6062,7 +6056,7 @@
           "name": "scan-group-id",
           "type": "int",
           "location": "path",
-          "description": "Unique ID of the scan group to upload CSV to",
+          "description": "Unique ID of the scan group to upload CSV to (e.g. 101)",
           "required": true
         }
       ]
@@ -6111,6 +6105,58 @@
       "method": "DELETE",
       "path": "/v2/webhook",
       "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet patch-compliance rollup",
+      "command": "patch-compliance",
+      "description": "One row per organization showing percent OS-patched, percent software-patched, failed counts, and the worst-offender device across your whole fleet."
+    },
+    {
+      "name": "Backup-coverage gap finder",
+      "command": "backup-coverage",
+      "description": "Lists every device with no backup usage (or zero bytes / stale job), grouped by organization, so unprotected endpoints surface immediately."
+    },
+    {
+      "name": "Software sprawl audit",
+      "command": "software-audit",
+      "description": "For each software title, counts the distinct versions installed across the fleet and where each version lives; flags titles fragmented across many versions."
+    },
+    {
+      "name": "Fleet health score",
+      "command": "fleet-health",
+      "description": "A transparent 0-100 score per organization from patch, backup, AV, and stale-device signals, with the contributing deductions itemized."
+    },
+    {
+      "name": "AV threat fleet sweep",
+      "command": "av-sweep",
+      "description": "Given a threat name or a stale-definition window, lists every device fleet-wide carrying it, grouped by organization and location."
+    },
+    {
+      "name": "Stale / abandoned device detector",
+      "command": "stale-devices",
+      "description": "Lists devices whose last contact exceeds a threshold, with days-since and owning organization and location."
+    },
+    {
+      "name": "Unsupported-OS / EOL exposure",
+      "command": "os-eol",
+      "description": "Lists devices running end-of-life operating systems, grouped by organization, against a curated EOL reference table."
+    },
+    {
+      "name": "Fleet drift (week-over-week)",
+      "command": "drift",
+      "description": "Diffs the current sync against the previous stored snapshot to show which organizations got better or worse on patch, backup, or stale metrics."
+    },
+    {
+      "name": "Low-disk-space finder",
+      "command": "low-disk",
+      "description": "Lists every synced volume under a free-space floor (percent or GiB), worst first, with device and organization, so disk-full patch and backup failures are caught before they happen."
+    },
+    {
+      "name": "BitLocker encryption gaps",
+      "command": "bitlocker-gaps",
+      "description": "Lists every synced volume whose BitLocker protection is not PROTECTED (unprotected, pending, unknown or not reported), grouped by organization, for encryption audits and cyber-insurance questionnaires."
     }
   ]
 }

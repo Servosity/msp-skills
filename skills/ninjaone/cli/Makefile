@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/ninjaone-cli ./cmd/ninjaone-cli
+	go build -trimpath -o bin/ninjaone-cli$(BIN_EXT) ./cmd/ninjaone-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/ninjaone-mcp ./cmd/ninjaone-mcp
+	go build -trimpath -o bin/ninjaone-mcp$(BIN_EXT) ./cmd/ninjaone-mcp
 
 install-mcp:
 	go install ./cmd/ninjaone-mcp

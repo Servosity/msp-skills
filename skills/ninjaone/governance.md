@@ -28,7 +28,7 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `alert reset`, `alert reset alert-set-activity-data`, `checklist archive-template`, `checklist create-templates`, `checklist update-templates`, `contact update`, `contacts create`, `device custom-fields update-node-attribute-values`, ... (84 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
+| **Write (routine)** | Day-to-day mutations. | `alert item-reset`, `alert item-reset alert-set-activity-data`, `checklist archive-template`, `checklist create-templates`, `checklist update-templates`, `contact update`, `contacts create`, `device custom-fields update-node-attribute-values`, ... (84 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
 | **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | `checklist delete-template`, `checklist delete-templates`, `contact delete`, `document-templates delete`, `itam delete-unmanaged-device-public-api`, `knowledgebase delete-knowledge-base-articles`, `knowledgebase delete-knowledge-base-folders`, `organization delete-client-checklist`, ... (18 total) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |

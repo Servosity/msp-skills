@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-24",
+  "generated_at": "2026-10-27",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1072,7 +1072,7 @@
       "cli_binary": "ninjaone-cli",
       "mcp_binary": "ninjaone-mcp",
       "version": "0.1.20",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "NinjaOne",
       "vendor_trademark_owner": "NinjaOne, LLC",

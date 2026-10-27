@@ -62,9 +62,28 @@ func TestRequestContractWire(t *testing.T) {
 		{"document-templates.archive", "POST", "/v2/document-templates/archive", map[string]any{"body": []any{float64(42), float64(43)}}, "", `[42,43]`},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
+			// Press 4.34.0 splits the executor: reads go through ninjaone_read and
+			// run at once; writes go through ninjaone_execute and only preview
+			// until confirm is boolean true.
+			handler := handleCodeOrchRead
+			args := map[string]any{"endpoint_id": tc.id, "params": tc.params}
+			if tc.method != "GET" {
+				handler = handleCodeOrchExecute
+				preview := mcplib.CallToolRequest{}
+				preview.Params.Arguments = args
+				if result, err := handler(context.Background(), preview); err != nil || result == nil || result.IsError {
+					t.Fatalf("preview failed: %#v %v", result, err)
+				}
+				select {
+				case got := <-seen:
+					t.Fatalf("an unconfirmed write reached the server: %s %s", got.method, got.path)
+				default:
+				}
+				args = map[string]any{"endpoint_id": tc.id, "params": tc.params, "confirm": true}
+			}
 			req := mcplib.CallToolRequest{}
-			req.Params.Arguments = map[string]any{"endpoint_id": tc.id, "params": tc.params}
-			result, err := handleCodeOrchExecute(context.Background(), req)
+			req.Params.Arguments = args
+			result, err := handler(context.Background(), req)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -4,6 +4,29 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.21] - unreleased
+
+Rebuilt on CLI Printing Press 4.34.0 (the press upgrade that carries the fix for [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)).
+
+### Security
+- **HTTP mode needs a token.** `ninjaone-mcp --transport http` refuses to start until `NINJAONE_MCP_HTTP_TOKEN` is set, every request must send it as `Authorization: Bearer <token>`, the server listens on `127.0.0.1:7777` by default, and any other address also needs `--tls-cert` and `--tls-key`. The interim advice not to use HTTP mode is removed from the docs; remote agents (ChatGPT, Copilot Studio, the Gemini app) can be wired up again through a hosted HTTPS endpoint.
+- **The MCP server is split into a read tool and an execute tool.** A state-changing call through `ninjaone_execute` sends nothing until the call also passes `confirm: true`.
+- **New operator switches**, declared in the Claude Desktop bundle, the MCP Registry entry and every config in mcp-install.md: `NINJAONE_MCP_READ_ONLY=1` exposes only read-only tools and makes the execute tool refuse writes; `NINJAONE_NO_LOCAL_DATA=1` keeps no local copy of API responses; `NINJAONE_MCP_HTTP_TOKEN` (above).
+
+### Added
+- `low-disk`: every synced volume under a free-space floor (`--min-free-pct`, default 10, or `--min-free-gb`), worst first, with device and organization.
+- `bitlocker-gaps`: every synced volume whose BitLocker protection is not PROTECTED, grouped by organization; Windows devices only unless `--all-os`.
+
+### Changed
+- **Two command paths were renamed by the press.** `alert reset alert-set-activity-data <uid>` is now `alert item-reset alert-set-activity-data <uid>`, and `document-templates archive document-template <id>` / `document-templates restore document-template <id>` are now `document-templates item-archive document-template <id>` / `document-templates item-restore document-template <id>`. Each still calls the same endpoint; update scripts that used the old paths. (`document-templates archive` and `document-templates restore` on their own, which act on several templates, are unchanged.)
+
+### Fixed
+- **Every list is read to the end.** NinjaOne lists that page by the last item id (`/v2/devices`, `/v2/organizations` and others) and the `/v2/queries/*` reports that page by a cursor object are now followed to the last page by `sync`, `export`, the `--all` reads and the MCP tools, instead of stopping after the first page.
+- **Report rows keep their own identity.** In the local store, rows of a `/v2/queries/*` report whose rows carry no id of their own (disks, antivirus status, logged-on users, processors, software, volumes, Windows services) are kept apart per device and per position in the report, so two processors with the same name stay two rows; such rows carry a `_ninja_row_ordinal` field, and those reports are always synced from the first page. Every documents row of an organization is kept instead of collapsing into one. A complete, unfiltered `sync` of a report now replaces that report's stored rows, so a title that was uninstalled no longer lingers and an upgraded version replaces the old one. For the reports above, whose rows are keyed by position, a sync writes rows only when it walked the whole report, and then replaces the stored report in one step (`workflow archive` too); a capped sync (`--max-pages`, `--latest-only`) writes nothing, leaves the stored rows exactly as they were and says so (event `report_not_stored`), and a sync that fails on a page writes nothing and fails that resource, and `--no-prune` does not apply to them, because a row with no id has nothing to keep (event `no_prune_not_applicable`). For every other report, `--no-prune` keeps rows the report stopped returning, and a filtered, resumed, capped or failed sync deletes nothing; `pageSize` is not a filter.
+- **A filtered sync of the position-keyed reports is refused.** Any parameter other than `pageSize` (and `include` on volumes), for example `--resource-param queries-software:installedAfter=2026-01-01` or `queries-windows-services:state=STOPPED`, makes `sync` refuse that report before sending a request, name the parameter, and exit non-zero; the other resources of the run still sync. Use the live `queries get-...` command for a filtered question.
+- **`backup-coverage` reads the documented backup usage report**, and `bitlocker-gaps`, `low-disk` and the volume reports sync the BitLocker data the report only returns on request.
+- **An error from the token endpoint is shown with every credential withheld,** like every other error.
+
 ## [0.1.20] - 2026-10-23
 
 ### Security

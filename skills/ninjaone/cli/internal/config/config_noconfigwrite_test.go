@@ -63,12 +63,21 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 	return hits
 }
 
+// ncwHome sandboxes every directory Load and SaveTokens resolve and returns
+// the sandbox. HOME alone is not enough: Windows resolves the home from
+// USERPROFILE, so the token cache landed in the runner's real profile, the
+// snapshot saw nothing, and later tests in other packages read that file.
+func ncwHome(t *testing.T) string {
+	t.Helper()
+	isolateCredentials(t)
+	return os.Getenv("NINJAONE_HOME")
+}
+
 // ncwMint runs one "an ordinary command minted a token" cycle under a
 // throwaway HOME and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := ncwHome(t)
 	t.Setenv("NINJAONE_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +137,8 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	home := ncwHome(t)
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("NINJAONE_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is
