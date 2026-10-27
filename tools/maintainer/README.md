@@ -23,7 +23,7 @@ the statusline, you do not need anything in this folder - see the root
 | `check_mcp_gate.py` | Boots a skill's MCP server over stdio and asserts the tenant gate does not default-deny. Probes the read-only tools the gate wraps in-process; skips Cobra mirrors (the child CLI gates those) and destructive tools. Needs no credentials. |
 | `check_mcp_file_flags.py` | Proves an MCP tool call cannot name a file or directory on the MCP host. The Go analyzer in `mcp_file_flags/` derives, from data flow in the connector's code (not from flag names), every flag whose value can start a filesystem path; the script then boots the real MCP server beside a recording stand-in for the CLI and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, that an ordinary flag still reaches the CLI, and that no in-process tool hands request data to a filesystem call. A name resolved inside an `os.Root` (press 4.34.0's opt-in MCP upload root) counts as naming a path only where a caller-chosen value reached the root's own location; `os.OpenRoot` of such a value, and a plain `os.Open` of the name, stay sinks. `--slug`, `--all`, `--jobs N`. The analyzer's own both-directions proof is `go test ./...` in `mcp_file_flags/`. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also fails a command-local flag that takes a value and shadows a persistent bare switch such as `--agent` or `--json` (the documented bare switch would swallow the next argument), and reports, without failing, every other local flag that shadows a global one. `--self-test` proves the classifier both ways. |
-| `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
+| `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one, and that the baseline guard fails closed; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
 | `verify_gate.py` | CI gate over `.claude/skills/verify-msp-skills`: `--slug X` runs its `verify.py run` (Linux: `--egress-guard proxy-env`) and compares the six feature verdicts with `verify_baseline.json`. An unlisted FAIL blocks; a listed feature that now passes blocks until its entry is removed; an ERROR blocks as a harness error, not a connector defect. `--policy-base REF` reads the baseline from the trusted base. `--assert-baseline-shrinks REF` (guards job), `--seed-from DIR` (first seed from CI verdict artifacts), `--self-test`. See [Verify gate](#verify-gate). |
 | `verify_baseline.json` | `connectors`: the verify features each connector FAILS on main today (3 to 6 by design before press 4.34.0). `known_errors`: the harness ERRORs the fleet had when it was seeded (reported, not gating). Both shrink-only, like `class_baseline.json`; a reprint PR removes its own entries. |
 | `class_baseline.json` | Connectors that FAIL a class today, per class. Same burn-down model as `security_gate_baseline.json` (#429): a listed connector reports, an unlisted one fails CI, the list only shrinks. |
@@ -212,24 +212,33 @@ Fleet counts at seed (84 connectors, measured 2026-10-23, a fleet-wide `--all` e
 
 Step 7 of the pipeline plan empties these lists. No connector is fixed here.
 
-### Known gaps (open, tracked in #439)
+### Review gaps closed (#439)
 
-The final review round left five findings open. Each has a concrete failing input and a one-rule
-fix, and none can turn main red (every connector failing a class today is baselined). Each can let a
-future connector pass a class it should fail:
+The final review round of #436 left five findings open, each with a concrete failing input and a
+one-rule fix. All five are closed, each with a self-test (in `--self-test`) that fails on the old
+harness and passes on the fixed one:
 
-1. **secret-echo decode.** The candidate-run pattern also matches `.`, so a `.`-prefixed base64
-   blob is decoded misaligned and the credential is not reconstructed. Fix: base64-alphabet token
-   boundaries.
-2. **write-safety attribution.** The token URL points at the fake server root, so a connector's
-   data `POST /` is exempted as a token exchange. Fix: a reserved token path on the fake server.
-3. **write-safety attribution.** Requests sent during the read-only `tools/list` discovery fall
-   outside the read-only capture window. Fix: attribute every read-only-session request.
-4. **secret-echo surface parity.** The MCP success probe reuses the CLI probe's HOME, so a shared
-   response cache can keep the reflected header from reaching MCP. Fix: a fresh HOME for it.
-5. **baseline guard.** A base whose baseline blob exists but cannot be read (an unhydrated partial
-   clone) is treated as "file absent". Not reachable in CI (full clone). Fix: prove absence with
-   `git ls-tree`; any other failure fails closed.
+1. **secret-echo decode.** The decoder adds a scan whose base64 candidate runs break on
+   base64-alphabet boundaries only (`=` only as trailing padding), so a blob right after `.`, `%`,
+   `&`, `;`, `\` or `=` is decoded on its own rather than shifted by the prefix. It decodes the
+   UNION of that scan and the original one, so a blob with an interior `.` is still reconstructed:
+   a decoder change may add reconstructions, never lose one. The self-test runs a corpus through the
+   pre-#439 decoder (frozen in `class_secret_echo.py`) and fails if the live decoder misses any of
+   its positives.
+2. **write-safety attribution.** Token and authorization URLs point at a reserved path on the fake
+   server (`TOKEN_PATH`), never its root, so a connector's data write to `POST /` is never exempted
+   as a token exchange.
+3. **write-safety attribution.** Every request sent while a read-only session runs counts as
+   read-only, its `tools/list` discovery included, so a write at startup (remembered in HOME) is
+   caught. A self-test drives `run()` against a stand-in MCP server that does exactly that.
+4. **secret-echo surface parity.** The MCP success probe gets its own fresh HOME, so a response
+   cache shared with the CLI probe cannot keep the reflected header from reaching MCP. A self-test
+   drives `run()` against a stand-in CLI and MCP server that share such a cache.
+5. **baseline guard.** `--assert-baseline-shrinks` proves the baseline absent at the base with
+   `git ls-tree`; a tree that names the file but whose blob cannot be read (an unhydrated partial
+   clone) fails closed instead of passing as "new".
+
+Still open in #439: per-connector argument recipes for the advisory connectors.
 
 ### Known limits (accepted)
 

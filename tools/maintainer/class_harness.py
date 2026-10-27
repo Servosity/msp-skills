@@ -138,10 +138,21 @@ def leaks(text: str, value: str) -> list[str]:
     return hits
 
 
-# One candidate-run scan: runs long enough to carry a 25+ char credential in any
-# of base64, URL, HTML or JSON form. No sort-and-truncate (that could drop the
-# very run carrying the secret); the number of runs is bounded by output length.
-_RUN = __import__("re").compile(r"[A-Za-z0-9+/_=%.&;\\-]{12,}")
+# Candidate-run scans for the base64 decoder: runs long enough to carry a 25+
+# char credential. No sort-and-truncate (that could drop the very run carrying
+# the secret); the number of runs is bounded by output length. The decoder runs
+# BOTH scans and decodes the UNION of their runs, so a change can add
+# reconstructions but never lose one:
+#   _RUN_WIDE  the original scan: also swallows `=%.&;\` into a run, and the
+#              decoder drops those bytes, so a blob with an interior `.` is
+#              still reconstructed;
+#   _RUN       breaks on base64-alphabet boundaries only (std and url
+#              alphabets, `=` only as trailing padding), so a blob right after
+#              `.`, `%`, `&`, `;`, `\` or `=` is decoded on its own instead of
+#              shifted by the prefix (#439 gap 1).
+# URL, HTML and JSON forms are undone by their own views in _decode_views.
+_RUN_WIDE = __import__("re").compile(r"[A-Za-z0-9+/_=%.&;\\-]{12,}")
+_RUN = __import__("re").compile(r"[A-Za-z0-9+/_-]{12,}={0,2}")
 _JSON_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f",
                  '"': '"', "\\": "\\", "/": "/", "'": "'"}
 
@@ -177,7 +188,7 @@ def _base64_decodings(text: str) -> list[str]:
     reconstructed. Per-run work is bounded; the run count is bounded by the
     output length."""
     out = []
-    for run in set(_RUN.findall(text)):
+    for run in set(_RUN_WIDE.findall(text)) | set(_RUN.findall(text)):
         std = run.replace("-", "+").replace("_", "/").rstrip("=")
         if len(std) < 12:
             continue
@@ -445,12 +456,20 @@ def classify_env(manifest: dict) -> Wiring:
     return Wiring(env=env, sentinels=sentinels, url_vars=url_vars, host_vars=host_vars)
 
 
+# The fake server's token endpoint. A token or authorization URL variable points
+# here, never at the server root, so a mint and a data write to `POST /` never
+# share a path and write-safety cannot exempt that write as a mint (#439 gap 2).
+# The fake server answers any POST whose path names a token with a token.
+TOKEN_PATH = "/cls-harness/oauth/token"
+
+
 def apply_urls(wiring: Wiring, url: str) -> dict[str, str]:
-    """Return a full env dict with URL/host vars pointed at `url`."""
+    """Return a full env dict with URL/host vars pointed at `url` (token and
+    authorization URLs at its reserved TOKEN_PATH)."""
     host = url.split("://", 1)[1]
     env = dict(wiring.env)
     for k in wiring.url_vars:
-        env[k] = url
+        env[k] = url + TOKEN_PATH if k.upper().endswith(("_TOKEN_URL", "_AUTHORIZATION_URL")) else url
     for k in wiring.host_vars:
         env[k] = host
     return env
@@ -693,25 +712,27 @@ BASELINE_COMMENT = (
 CLASS_IDS = ("secret-echo", "auth-wire", "write-safety")
 
 
-def _git_show(ref: str, path: str) -> str | None:
+def _git_show(ref: str, path: str, repo: Path = ROOT) -> str | None:
     p = subprocess.run(["git", "show", f"{ref}:{path}"], capture_output=True,
-                       text=True, cwd=ROOT, timeout=30)
+                       text=True, cwd=repo, timeout=30)
     return p.stdout if p.returncode == 0 else None
 
 
-def load_baseline(policy_base: str | None = None) -> dict[str, set[str]]:
+def load_baseline(policy_base: str | None = None, repo: Path = ROOT) -> dict[str, set[str]]:
     """Return {class: set(slugs)}. With policy_base, read the file as it exists at
     that git ref (the trusted base), so a PR cannot widen its own baseline. Fail
-    closed: a missing or unparseable baseline cannot silently excuse failures."""
-    rel = str(BASELINE.relative_to(ROOT))
+    closed: a missing or unparseable baseline cannot silently excuse failures.
+    `repo` is the checkout to read (the self-test passes a throwaway one)."""
+    rel = BASELINE.relative_to(ROOT).as_posix()
     if policy_base:
-        text = _git_show(policy_base, rel)
+        text = _git_show(policy_base, rel, repo)
         if text is None:
             raise SystemExit(f"class_harness: cannot read {rel} at --policy-base {policy_base!r}")
     else:
-        if not BASELINE.exists():
-            raise SystemExit(f"class_harness: baseline file missing: {BASELINE}")
-        text = BASELINE.read_text(encoding="utf-8")
+        path = repo / rel
+        if not path.exists():
+            raise SystemExit(f"class_harness: baseline file missing: {path}")
+        text = path.read_text(encoding="utf-8")
     try:
         data = json.loads(text)
         classes = data["classes"]
@@ -732,14 +753,14 @@ def save_baseline(classes: dict[str, set[str]]) -> None:
     BASELINE.write_text(json.dumps(data, indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
-def assert_baseline_shrinks(base_ref: str) -> int:
+def assert_baseline_shrinks(base_ref: str, repo: Path = ROOT) -> int:
     """Build-free CI guard, mirroring the security gate's baseline-readded check
     (issue #429): the working baseline may only REMOVE connectors relative to
     the baseline at base_ref, never add. An addition means a PR tried to baseline
     a connector it broke instead of fixing it. Fail closed if either side is
     unreadable."""
     try:
-        head = load_baseline()
+        head = load_baseline(repo=repo)
     except SystemExit as e:
         print(f"FAIL: {e}")
         return 1
@@ -748,20 +769,28 @@ def assert_baseline_shrinks(base_ref: str) -> int:
     # the baseline" (a pass). Without this split, _git_show returning None for a
     # bad ref would be mistaken for the new-baseline case and pass open.
     rp = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{base_ref}^{{commit}}"],
-                        capture_output=True, text=True, cwd=ROOT, timeout=30)
+                        capture_output=True, text=True, cwd=repo, timeout=30)
     if rp.returncode != 0 or not rp.stdout.strip():
         print(f"FAIL: cannot resolve --assert-baseline-shrinks base ref {base_ref!r} "
               f"(fails closed; a bad base never passes the shrink guard).")
         return 1
     base_sha = rp.stdout.strip()
-    rel = str(BASELINE.relative_to(ROOT))
-    if _git_show(base_sha, rel) is None:
-        # Valid commit, but the baseline does not exist there: this is the PR
-        # that introduces it. Nothing to shrink against, so it is a pass.
+    rel = BASELINE.relative_to(ROOT).as_posix()
+    # Absence is PROVED from the base tree, never inferred from a failed read
+    # (#439 gap 5): a tree that names the file but whose blob cannot be read
+    # (an unhydrated partial clone) must fail closed, not pass as "new".
+    ls = subprocess.run(["git", "ls-tree", "--name-only", base_sha, "--", rel],
+                        capture_output=True, text=True, cwd=repo, timeout=30)
+    if ls.returncode != 0:
+        print(f"FAIL: cannot list {rel} at {base_ref!r} (fails closed): {ls.stderr.strip()[:200]}")
+        return 1
+    if not ls.stdout.strip():
+        # Valid commit, and its tree has no baseline: this is the PR that
+        # introduces it. Nothing to shrink against, so it is a pass.
         print(f"PASS: class_baseline.json is new at {base_ref}; nothing to shrink against.")
         return 0
     try:
-        base = load_baseline(base_sha)
+        base = load_baseline(base_sha, repo)
     except SystemExit as e:
         print(f"FAIL: {e}")
         return 1
@@ -778,6 +807,144 @@ def assert_baseline_shrinks(base_ref: str) -> int:
     removed = sum(len(base[c] - head[c]) for c in CLASS_IDS)
     print(f"PASS: baseline only shrank vs {base_ref} ({removed} connector(s) retired, none added).")
     return 0
+
+
+# --------------------------------------------------------------------------- #
+# Self-test support: stand-in connectors and the baseline guard's own proof.
+# --------------------------------------------------------------------------- #
+
+# Shared prelude for the stand-in CLI and MCP scripts the class self-tests run
+# through the real class code. Stdlib only; proxies off so loopback is direct.
+FIXTURE_PRELUDE = '''import json, os, sys, urllib.request, urllib.error
+BASE = os.environ.get("ACME_BASE_URL", "")
+HOME = os.environ.get("HOME", "")
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+RO = os.environ.get("ACME_MCP_READ_ONLY") == "1"
+def call(method, path, body=None):
+    req = urllib.request.Request(BASE + path, data=body, method=method)
+    try:
+        with OPENER.open(req, timeout=10) as r:
+            return r.status, dict(r.headers), r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read().decode()
+    except Exception as e:
+        return 0, {}, str(e)
+def serve(tools, on_call):
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        msg = json.loads(line)
+        mid, method = msg.get("id"), msg.get("method")
+        if mid is None:
+            continue
+        if method == "initialize":
+            res = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}},
+                   "serverInfo": {"name": "fixture", "version": "1"}}
+        elif method == "tools/list":
+            res = {"tools": tools}
+        elif method == "tools/call":
+            res = on_call(msg.get("params") or {})
+        else:
+            res = None
+        out = {"jsonrpc": "2.0", "id": mid}
+        if res is None:
+            out["error"] = {"code": -32601, "message": "unknown method"}
+        else:
+            out["result"] = res
+        print(json.dumps(out), flush=True)
+'''
+
+# The stand-in connector's manifest: a base URL, a token URL, one credential and
+# the read-only switch, wired the way the real manifests are.
+FIXTURE_MANIFEST = {"server": {"mcp_config": {"env": {
+    "ACME_BASE_URL": "${user_config.base_url}",
+    "ACME_TOKEN_URL": "${user_config.token_url}",
+    "ACME_API_KEY": "${user_config.api_key}",
+    "ACME_MCP_READ_ONLY": "${user_config.read_only}",
+}}}, "user_config": {"api_key": {"sensitive": True}}}
+
+FIXTURE_SURFACE = {"commands": [{"name": "items", "subcommands": [
+    {"name": "list", "use": "list", "annotations": {
+        "pp:method": "GET", "pp:path": "/v1/items", "mcp:read-only": "true"}}]}]}
+
+
+def fixture_ctx(tmp: str, cli_body: str, mcp_body: str, surface: dict | None = None) -> Ctx:
+    """A Ctx whose CLI and MCP server are small Python scripts (FIXTURE_PRELUDE
+    plus the given body), so a self-test drives a class's real `run()` against a
+    connector shape it chooses. Nothing is built."""
+    bindir = Path(tmp) / "fixture-bin"
+    bindir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name, body in (("acme-cli", cli_body), ("acme-mcp", mcp_body)):
+        script = bindir / name
+        script.write_text(f"#!{sys.executable}\n{FIXTURE_PRELUDE}\n{body}\n", encoding="utf-8")
+        script.chmod(0o755)
+        paths.append(script)
+    home = os.path.join(tmp, "fixture-home")
+    os.makedirs(home, exist_ok=True)
+    manifest = json.loads(json.dumps(FIXTURE_MANIFEST))
+    return Ctx("acme", paths[0], paths[1], home, surface or FIXTURE_SURFACE, manifest,
+               classify_env(manifest))
+
+
+def self_test_baseline_guard() -> bool:
+    """--assert-baseline-shrinks, both directions, in a throwaway repository.
+    Gap 5 of #439: a base whose tree HAS the baseline but whose blob cannot be
+    read (an unhydrated partial clone, here a deleted loose object) must fail
+    closed, never read as "the file is new at the base"."""
+    import contextlib
+    import io
+    ok = True
+    rel = BASELINE.relative_to(ROOT).as_posix()
+    with tempfile.TemporaryDirectory(prefix="class-guard-selftest-") as tmp:
+        repo = Path(tmp)
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid",
+               "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+        def git(*args: str) -> str:
+            return subprocess.run(["git", *args], cwd=tmp, env=env, check=True,
+                                  capture_output=True, text=True, timeout=30).stdout.strip()
+
+        def write(classes: dict[str, list[str]]) -> None:
+            path = repo / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"classes": classes}) + "\n", encoding="utf-8")
+
+        def guard(ref: str) -> int:
+            with contextlib.redirect_stdout(io.StringIO()):
+                return assert_baseline_shrinks(ref, repo)
+
+        def expect(cond: bool, label: str) -> None:
+            nonlocal ok
+            if not cond:
+                print(f"    baseline-guard self-test: {label}")
+                ok = False
+
+        git("init", "-q")
+        (repo / "README").write_text("x\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "no baseline")
+        no_file = git("rev-parse", "HEAD")
+        write({"secret-echo": ["a", "b"], "auth-wire": [], "write-safety": []})
+        git("add", "-A")
+        git("commit", "-q", "-m", "baseline")
+        with_file = git("rev-parse", "HEAD")
+        write({"secret-echo": ["a"], "auth-wire": [], "write-safety": []})
+        expect(guard(with_file) == 0, "a baseline that only shrank must pass")
+        write({"secret-echo": ["a", "b", "c"], "auth-wire": [], "write-safety": []})
+        expect(guard(with_file) == 1, "a widened baseline must fail")
+        expect(guard(no_file) == 0, "a base commit without the file (the introducing PR) must pass")
+        expect(guard("refs/heads/no-such-base") == 1, "an unresolvable base ref must fail closed")
+        # The base tree names the file but its blob is gone (unhydrated partial
+        # clone): the widened baseline must fail closed, not pass as "new".
+        blob = git("rev-parse", f"{with_file}:{rel}")
+        (repo / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+        expect(guard(with_file) == 1,
+               "a base that has the baseline but whose blob cannot be read must fail closed "
+               "(not read as 'new at the base')")
+    return ok
 
 
 def run_slug(slug: str, which: list[str], classes: dict) -> dict[str, list[str]]:
@@ -831,7 +998,8 @@ def main(argv: list[str]) -> int:
     classes = _load_classes()
 
     if args.self_test:
-        ok = True
+        ok = self_test_baseline_guard()
+        print(f"  {'ok  ' if ok else 'FAIL'} baseline-guard self-test")
         for name, mod in classes.items():
             passed = mod.self_test()
             print(f"  {'ok  ' if passed else 'FAIL'} {name} self-test")
