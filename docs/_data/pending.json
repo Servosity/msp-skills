@@ -105,11 +105,11 @@
     "released_hash": "sha256:2b75c28984aa02654c2247d325e2155d24e83d07c669165f9059d2973630c86d"
   },
   "cipp": {
-    "state": "binary-pending",
-    "version": "0.1.12",
+    "state": "version-pending",
+    "version": "0.1.13",
     "latest_tag": "cipp-v0.1.12",
     "current_hash": "sha256:0f2e7a64ea956d0d2c3dcefb1c035d767c9a0c17d86863c0d0b0fbdb29f7152e",
-    "released_hash": "sha256:5e9f04574aa11ac796186df69b1ad17440f28f653b8037cab7db0c9666c60d76"
+    "released_hash": "sha256:0f2e7a64ea956d0d2c3dcefb1c035d767c9a0c17d86863c0d0b0fbdb29f7152e"
   },
   "cisco-duo": {
     "state": "up-to-date",
@@ -266,11 +266,11 @@
     "released_hash": "sha256:a6281807b4f52e1eb8b204cd9369b18f2d579172f3c2d74dd870ddf46b9dcd1d"
   },
   "huntress": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "version-pending",
+    "version": "0.1.11",
     "latest_tag": "huntress-v0.1.10",
     "current_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
-    "released_hash": "sha256:67800ebb70b3a1e948e1b865bc6cc2ccad76bd4ad77aed7c17b8c0d047bc36a9"
+    "released_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd"
   },
   "immybot": {
     "state": "up-to-date",
@@ -483,11 +483,11 @@
     "released_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7"
   },
   "sentinelone": {
-    "state": "binary-pending",
-    "version": "0.2.5",
+    "state": "version-pending",
+    "version": "0.2.6",
     "latest_tag": "sentinelone-v0.2.5",
     "current_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52",
-    "released_hash": "sha256:f72a961364fb04006aa26c685c1f1d3a84733d46d715d18ac9a27dbf19630759"
+    "released_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52"
   },
   "servosity": {
     "state": "up-to-date",
@@ -560,11 +560,11 @@
     "released_hash": "sha256:6d4e8cfd8182feaae38a38ad21e7e809d496be48dbd588229edb28f823ea7764"
   },
   "threatlocker": {
-    "state": "binary-pending",
-    "version": "0.3.12",
+    "state": "version-pending",
+    "version": "0.3.13",
     "latest_tag": "threatlocker-v0.3.12",
     "current_hash": "sha256:74b951adbf638da0028972a3fa79a0ed08bc9e3443e8ed61df1582d85b6a0c85",
-    "released_hash": "sha256:831654eaf80bd6a4f0b796715c6878071dd718f9aa908f196f568d17e4c6a4a7"
+    "released_hash": "sha256:74b951adbf638da0028972a3fa79a0ed08bc9e3443e8ed61df1582d85b6a0c85"
   },
   "unifi-network": {
     "state": "up-to-date",
