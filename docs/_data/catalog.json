@@ -1,5 +1,5 @@
 {
-  "count": 93,
+  "count": 94,
   "connectors": [
     {
       "slug": "abnormal",
@@ -832,6 +832,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/proxmox/"
+    },
+    {
+      "slug": "prtg",
+      "display_name": "PRTG Network Monitor",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "category": "Network Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/prtg/"
     },
     {
       "slug": "quickbooks",

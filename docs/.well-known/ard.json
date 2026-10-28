@@ -1319,6 +1319,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:prtg",
+      "displayName": "PRTG Network Monitor",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/prtg/SKILL.md",
+      "description": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "tags": [
+        "Network Monitoring"
+      ],
+      "representativeQueries": [
+        "Which client core is in the worst shape right now?",
+        "What is down and unacknowledged across every core, oldest first?",
+        "What changed overnight: new alarms and recoveries, with how each sensor came back?",
+        "What has someone paused or acknowledged with no end date for more than a week?",
+        "Which cores are behind on version, have a license or maintenance ending, or a disconnected probe?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/prtg.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:quickbooks",
       "displayName": "QuickBooks Online",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

@@ -1,0 +1,2690 @@
+{
+  "api_name": "prtg",
+  "base_url": "https://{server}/api/v2",
+  "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "PRTG_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "PRTG_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://www.paessler.com/support/prtg/api/v2/overview/index.html#apikey"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "ai_aistatus",
+      "description": "Returns whether the PRTG AI Agent service is registered with the Windows Service Control Manager, whether it is running, and whether the agent is connected to PRTG. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). This endpoint is disabled by default. Enable it with the `aianalyzeendpoint` feature toggle. While disabled, the endpoint stays visible in this reference but returns `403 FEATURE_NOT_ENABLED` for every request. The answer comes from the Windows Service Control Manager, not from the PRTG AI Agent. Nothing is sent to the agent, because a question you have to ask the agent cannot tell you the agent is missing. The response carries `registration`, `state` and `connected` together, in one round trip: a service that is not installed also reports `state: stopped` here, and `registration` is what tells that apart from an installed-but-stopped service. `state` comes from the Windows Service Control Manager and `connected` from the PRTG side of the transport. They answer different questions: a service can be running while nothing is attached, which is what a crash-looping or blocked agent looks like. The PRTG AI Agent ships only as a Windows service, so this endpoint is unsupported on every other platform.",
+      "method": "GET",
+      "path": "/experimental/ai/status",
+      "params": []
+    },
+    {
+      "name": "ai_analyze-aiincidents",
+      "description": "Analyzes the currently active alarms with AI and returns potential incidents. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). This endpoint is enabled by default. Disable it with the `aianalyzeendpoint` feature toggle. While disabled, the endpoint stays visible in this reference but returns `403 FEATURE_NOT_ENABLED` for every request. Required: alarms.",
+      "method": "POST",
+      "path": "/experimental/ai/analyze",
+      "params": [
+        {
+          "name": "alarms",
+          "type": "array",
+          "location": "body",
+          "description": "The list of currently active alarms to analyze.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autodiscoveries_list",
+      "description": "Returns a list of all running auto-discoveries. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/autodiscoveries",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the Overview: Filter ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "autodiscoverytasks_delete-auto-discovery-task",
+      "description": "Deletes a given auto-discovery task This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/autodiscoverytasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of auto-discovery task that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autodiscoverytasks_get-auto-discovery-task",
+      "description": "Returns auto-discovery task by the given task ID This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/autodiscoverytasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the auto-discovery task you want see.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested..."
+        }
+      ]
+    },
+    {
+      "name": "autodiscoverytasks_list-auto-discovery-task-overview",
+      "description": "Returns a overview list of all auto-discovery tasks. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 2 more).",
+      "method": "GET",
+      "path": "/experimental/autodiscoverytasks",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested..."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "autodiscoverytasks_modify-auto-discovery-task",
+      "description": "Patch a auto-discovery task This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Partial update.",
+      "method": "PATCH",
+      "path": "/experimental/autodiscoverytasks/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the target that you want to patch the auto-discovery task.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "autodiscoverytasks_start-auto-discovery-task",
+      "description": "Starts a auto-discovery task by the given task ID This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns the new AutoDiscoveryTask.",
+      "method": "POST",
+      "path": "/experimental/autodiscoverytasks/{id}/start",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the auto-discovery task you want to start.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "channels_channels",
+      "description": "Returns a list of channels. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 2 more).",
+      "method": "GET",
+      "path": "/experimental/channels",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested channels. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=alerting,values` `include=path` | Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "channels_get",
+      "description": "Returns the metrics and settings of a channel. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/channels/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the channel that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a channel. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=alerting,values` `include=path` | Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "channels_list",
+      "description": "Returns a list of channels. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced with the '/experimental/channels' endpoint. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/channels",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "channels_list-measurements",
+      "description": "Get a list of the last measurements with references to the corresponding channels. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more). Returns array of ChannelMeasurement.",
+      "method": "GET",
+      "path": "/channels/data",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "channels_overview_get-channel",
+      "description": "Get a channel overview. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/channels/{id}' endpoint. Required: id. Returns the ChannelInfo.",
+      "method": "GET",
+      "path": "/channels/{id}/overview",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the channel for which you want to get a channel overview.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_create-sensor",
+      "description": "Creates a new sensor in a device. Specify a sensor kind like 'ping', 'http' or 'paessler.snmp.traffic_sensor'. To get a list of all creatable sensor kinds, call the endpoint /experimental/schemas/{parent} in the Schemas section. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id, kindid (default: ping). Returns array of SensorInfo.",
+      "method": "POST",
+      "path": "/experimental/devices/{id}/sensor",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to create a new sensor in.",
+          "required": true
+        },
+        {
+          "name": "kindid",
+          "type": "string",
+          "location": "query",
+          "description": "Enter the kind ID of the sensor.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_delete",
+      "description": "Deletes a device with all child sensors and channels. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Returns the metrics and settings of a device. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a device. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on a device grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "devices_get-icons",
+      "description": "Returns a list of device icons.",
+      "method": "GET",
+      "path": "/devices/icons",
+      "params": []
+    },
+    {
+      "name": "devices_get-templates-experimental",
+      "description": "Returns a list of device templates. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity).",
+      "method": "GET",
+      "path": "/experimental/devices/templates",
+      "params": []
+    },
+    {
+      "name": "devices_list",
+      "description": "Returns a list of devices. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/experimental/devices' endpoint. Optional: offset (default: 0), limit (default: 100), filter (plus 2 more).",
+      "method": "GET",
+      "path": "/devices",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sensor_status_summary",
+          "type": "bool",
+          "location": "query",
+          "description": "Define if you want to request a sensor status summary of each device. Enter **true** to request a sensor status summary."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "devices_list-experimental",
+      "description": "Returns a list of devices. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/devices",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested devices. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ | | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on a device grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "devices_metascan",
+      "description": "Execute a meta-scan on a given device for a given sensor kind Some sensors use a metascan to retrieve important information from a device which is relevant for sensor creation, e.g. the available disks on a device. Specify a sensor kind like 'snmpdiskfree' to perform the metascan. Get a list of all creatable sensor kinds, and whether they have a metascan, by calling the endpoint /experimental/schemas/{parent} in the Schemas section. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id, kind (default: snmpdiskfree). Optional: params.",
+      "method": "POST",
+      "path": "/experimental/devices/{id}/metascan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to execute a new meta-scan.",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "query",
+          "description": "Enter the kind of the sensor.",
+          "required": true
+        },
+        {
+          "name": "params",
+          "type": "object",
+          "location": "body",
+          "description": "Params"
+        }
+      ]
+    },
+    {
+      "name": "devices_metascan-result",
+      "description": "Retrieve the meta scan progress/result This endpoint does not yet support all sensor kinds. Currently only the following sensor kind is supported: - snmpdiskfree This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id, kind (default: snmpdiskfree). Returns the Metascan.",
+      "method": "GET",
+      "path": "/experimental/devices/{id}/metascan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to execute a new meta-scan.",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "query",
+          "description": "Enter the kind of the sensor.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_multi-pause",
+      "description": "Pauses all devices that match a filter. Required: filter. Optional: duration (default: 0), message. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/devices/pause",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "devices_multi-resume",
+      "description": "Resumes all devices that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/devices/resume",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_multi-scan-now",
+      "description": "Triggers a scan of all devices that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/devices/scan",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_trigger-autodiscovery",
+      "description": "Trigger autodiscovery for a given device This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Optional: templates.",
+      "method": "POST",
+      "path": "/experimental/devices/{id}/autodiscovery",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to trigger autodiscovery for.",
+          "required": true
+        },
+        {
+          "name": "templates",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Templates"
+        }
+      ]
+    },
+    {
+      "name": "devices_update",
+      "description": "Edits a device. Required: id. Partial update.",
+      "method": "PATCH",
+      "path": "/devices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to edit.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_overview_get-device",
+      "description": "Get a device overview. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/devices{id}' endpoint. Required: id. Returns the DeviceInfo.",
+      "method": "GET",
+      "path": "/devices/{id}/overview",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to get an overview of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_pause_device",
+      "description": "Pauses a device. Required: id. Optional: duration (default: 0), message.",
+      "method": "POST",
+      "path": "/devices/{id}/pause",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to pause.",
+          "required": true
+        },
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the pause."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the paused sensor displays as sensor message."
+        }
+      ]
+    },
+    {
+      "name": "devices_resume_device",
+      "description": "Resumes a device. Required: id.",
+      "method": "POST",
+      "path": "/devices/{id}/resume",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to resume.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_scan_device-now",
+      "description": "Triggers a scan of all sensors on a device. Required: id.",
+      "method": "POST",
+      "path": "/devices/{id}/scan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the device that you want to scan.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_create-device-for",
+      "description": "Creates a new device in a group. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns array of DeviceInfo.",
+      "method": "POST",
+      "path": "/experimental/groups/{id}/device",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to create a new device in.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_create-for",
+      "description": "Creates a new group in a group. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns array of GroupInfo.",
+      "method": "POST",
+      "path": "/experimental/groups/{id}/group",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to create a new group in.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Deletes a group with all child groups and devices. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Returns the metrics and settings of a group. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a group. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on a group grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "Get a list of all groups that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/experimental/groups' endpoint. Optional: offset (default: 0), limit (default: 100), filter (plus 2 more). Returns array of GroupInfo.",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sensor_status_summary",
+          "type": "bool",
+          "location": "query",
+          "description": "Define if you want to request a sensor status summary of each group. Enter **true** to request a sensor status summary."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "groups_list-experimental",
+      "description": "Returns a list of groups. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/groups",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested groups. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on each group grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "groups_multi-pause",
+      "description": "Pauses all groups that match a filter. Required: filter. Optional: duration (default: 0), message. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/groups/pause",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "groups_multi-resume",
+      "description": "Resumes all groups that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/groups/resume",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_multi-scan-now",
+      "description": "Triggers a scan of all groups that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/groups/scan",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_trigger-autodiscovery",
+      "description": "Trigger autodiscovery for a given group This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Optional: templates.",
+      "method": "POST",
+      "path": "/experimental/groups/{id}/autodiscovery",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to trigger autodiscovery for.",
+          "required": true
+        },
+        {
+          "name": "templates",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Templates"
+        }
+      ]
+    },
+    {
+      "name": "groups_update",
+      "description": "Edits a group. Required: id. Partial update.",
+      "method": "PATCH",
+      "path": "/experimental/groups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to edit.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_overview_get-group",
+      "description": "Get a group overview. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/groups/{id}' endpoint. Required: id. Returns the GroupInfo.",
+      "method": "GET",
+      "path": "/groups/{id}/overview",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group for which you want to get a group overview.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_pause_group",
+      "description": "Pauses a group. Required: id. Optional: duration (default: 0), message.",
+      "method": "POST",
+      "path": "/groups/{id}/pause",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to pause.",
+          "required": true
+        },
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the pause."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the paused sensor displays as sensor message."
+        }
+      ]
+    },
+    {
+      "name": "groups_resume_group",
+      "description": "Resumes a group. Required: id.",
+      "method": "POST",
+      "path": "/groups/{id}/resume",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to resume.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_scan_group-now",
+      "description": "Triggers a scan of all sensors in a group. Required: id.",
+      "method": "POST",
+      "path": "/groups/{id}/scan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the group that you want to scan.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "health_check",
+      "description": "Returns the status of the PRTG application server.",
+      "method": "GET",
+      "path": "/health",
+      "params": []
+    },
+    {
+      "name": "libraries_list",
+      "description": "Returns a list of all libraries that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/libraries",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "lookup-definitions_get-overview",
+      "description": "Returns a lookup definition. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Required: id.",
+      "method": "GET",
+      "path": "/lookup-definitions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the lookup definition that you want to request.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lookup-definitions_list",
+      "description": "Returns a list of lookups definitions. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/lookup-definitions",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "objects_count",
+      "description": "Returns a list of how many objects of each kind exist.",
+      "method": "GET",
+      "path": "/objects/count",
+      "params": []
+    },
+    {
+      "name": "objects_list",
+      "description": "Get a list of all probes, groups, devices, and sensors that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more). Returns array of ObjectInfo.",
+      "method": "GET",
+      "path": "/objects",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sensor_status_summary",
+          "type": "bool",
+          "location": "query",
+          "description": "Define if you want to request a sensor status summary of all objects. Enter **true** to request a sensor status summary."
+        }
+      ]
+    },
+    {
+      "name": "objects_multi-delete",
+      "description": "Delete multiple objects based on the specified filter. All children will also be deleted. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: filter. Returns array of ActionResult. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/objects",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "The filter for selecting the objects that should be deleted. For more information, see the PRTG API v2 Overview: Filters .",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objects_objects",
+      "description": "Returns a list of all probes, groups, devices, sensors, and channels that match a filter. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/objects",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested objects. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on a device grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "objects_clone_object",
+      "description": "Clone an object and its siblings to a new parent. You can combine the mandatory `parent` parameter and one of the optional positional parameters `position`/`position_preset`. Required: id, parent. Optional: position, position_preset.",
+      "method": "POST",
+      "path": "/objects/{id}/clone",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the object that you want to clone.",
+          "required": true
+        },
+        {
+          "name": "parent",
+          "type": "string",
+          "location": "body",
+          "description": "The new parent where to clone the object to.",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "location": "body",
+          "description": "The absolute position within the siblings or 'null'."
+        },
+        {
+          "name": "position_preset",
+          "type": "string",
+          "location": "body",
+          "description": "position_preset clone commands or 'null' * `top` - move to the first place * `bottom` - move to the end (default)"
+        }
+      ]
+    },
+    {
+      "name": "objects_move_object",
+      "description": "Move the position of any monitoring object within it's siblings or to a new parent. You can either combine `parent` and optionally one of the positional parameter `position`/`position_preset`, if you want to move the object to another parent. Or if you want to move the object within its siblings you can either use `position` (multiple of 10) or `position_preset`. Required: id. Optional: parent, position, position_preset.",
+      "method": "POST",
+      "path": "/objects/{id}/move",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the object that you want to move.",
+          "required": true
+        },
+        {
+          "name": "parent",
+          "type": "string",
+          "location": "body",
+          "description": "The new parent where to move the object or 'null'"
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "location": "body",
+          "description": "The absolute position within the siblings or 'null'."
+        },
+        {
+          "name": "position_preset",
+          "type": "string",
+          "location": "body",
+          "description": "position_preset movement commands or 'null' * `top` - move to the first place * `bottom` - move to the end * `up` - move one place forward * `down` - move one place backward"
+        }
+      ]
+    },
+    {
+      "name": "probe_network_get-info",
+      "description": "Returns the network information of a probe. Required: id.",
+      "method": "GET",
+      "path": "/probes/{id}/info",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to see the network information of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_create-auto-discovery-task",
+      "description": "Creates a new auto-discovery task on a probe This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns the new AutoDiscoveryTask.",
+      "method": "POST",
+      "path": "/experimental/probes/{id}/autodiscoverytask",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the target that you want to create a new auto-discovery task.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_create-device-for",
+      "description": "Creates a new device on a probe. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns array of DeviceInfo.",
+      "method": "POST",
+      "path": "/experimental/probes/{id}/device",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to create a new device on.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_create-group-for",
+      "description": "Creates a new group in a probe. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Returns array of GroupInfo.",
+      "method": "POST",
+      "path": "/experimental/probes/{id}/group",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to create a new group in.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_delete",
+      "description": "Deletes a probe with all child groups and devices. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/probes/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_get",
+      "description": "Returns the metrics and settings of a probe. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/probes/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a probe. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. You can only use this parameter together with another parameter. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on the probe grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "probes_list",
+      "description": "Get a list of all probes that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/experimental/probes' endpoint. Optional: offset (default: 0), limit (default: 100), filter (plus 2 more). Returns array of ProbeInfo.",
+      "method": "GET",
+      "path": "/probes",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sensor_status_summary",
+          "type": "bool",
+          "location": "query",
+          "description": "Define if you want to request a sensor status summary of each probe. Enter **true** to request a sensor status summary."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "probes_list-experimental",
+      "description": "Returns a list of probes. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/probes",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested probes. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. | `include=intervalgroup,inheritance`| |`sensor_status_summary`|Returns the number of sensors on each probe grouped by status.|`include=sensor_status_summary`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "probes_multi-pause",
+      "description": "Pauses all probes that match a filter. Required: filter. Optional: duration (default: 0), message. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/probes/pause",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "probes_multi-resume",
+      "description": "Resumes all probes that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/probes/resume",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_multi-scan-now",
+      "description": "Triggers a scan of all probes that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/probes/scan",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_update",
+      "description": "Edits a probe. Required: id. Partial update.",
+      "method": "PATCH",
+      "path": "/experimental/probes/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to edit.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_overview_get-probe",
+      "description": "Get a probe overview. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/probes/{id}' endpoint. Required: id. Returns the ProbeInfo.",
+      "method": "GET",
+      "path": "/probes/{id}/overview",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to get an overview for.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_pause_probe",
+      "description": "Pauses a probe. Required: id. Optional: duration (default: 0), message.",
+      "method": "POST",
+      "path": "/probes/{id}/pause",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to pause.",
+          "required": true
+        },
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the pause."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the paused sensor displays as sensor message."
+        }
+      ]
+    },
+    {
+      "name": "probes_resume_probe",
+      "description": "Resumes a probe. Required: id.",
+      "method": "POST",
+      "path": "/probes/{id}/resume",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to resume.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "probes_scan_probe-now",
+      "description": "Triggers a scan of all sensors on a probe. Required: id.",
+      "method": "POST",
+      "path": "/probes/{id}/scan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the probe that you want to scan.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "schemas_get",
+      "description": "Returns a OAS schema to use in other endpoints. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the following endpoints: - `/experimental/schemas/{parentid}/post` for creating objects - `/experimental/schemas/{id}/patch` for updating objects - `/experimental/schemas/{id}/get` for reading objects. Required: kind, purpose (default: read). Optional: parent.",
+      "method": "GET",
+      "path": "/schemas/{kind}",
+      "params": [
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the kind of schema you want. You can request a schema of a device, group, user, or a specific type of sensor, for example, ping).",
+          "required": true
+        },
+        {
+          "name": "purpose",
+          "type": "string",
+          "location": "query",
+          "description": "Select the purpose to refine the schema for a specific use case: * Use `read` for the schema of a `GET` endpoint. * Use `create` for the schema of a `POST` endpoint. * Use `update` for the schema of a `PATCH` endpoint.",
+          "required": true
+        },
+        {
+          "name": "parent",
+          "type": "string",
+          "location": "query",
+          "description": "Enter the object ID of the parent object where you want to create a new object to request the correct schema for this use case. This field is required if you select `create` as the purpose above."
+        }
+      ]
+    },
+    {
+      "name": "schemas_get-create-by-parent-id",
+      "description": "Returns an OAS schema for use in `POST` endpoints. Required: parent, kind. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/schemas/{parent}/post",
+      "params": [
+        {
+          "name": "parent",
+          "type": "string",
+          "location": "path",
+          "description": "The object ID of the parent object where you want to create a new object.",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "location": "query",
+          "description": "The kind of object you want to create (e.g., device, group, or in case of sensors e.g. ping).",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested..."
+        }
+      ]
+    },
+    {
+      "name": "schemas_get-kinds-for-parent",
+      "description": "Returns a list of all object kinds that you can create on a given parent object. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: parent. Optional: offset (default: 0), limit (default: 100).",
+      "method": "GET",
+      "path": "/experimental/schemas/{parent}",
+      "params": [
+        {
+          "name": "parent",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the parent object.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        }
+      ]
+    },
+    {
+      "name": "schemas_get-read-by-object-id",
+      "description": "Returns OAS schema for use in `GET` endpoints for a specific object. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/schemas/{id}/get",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object ID for which to retrieve the schema.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested..."
+        }
+      ]
+    },
+    {
+      "name": "schemas_get-update-by-object-id",
+      "description": "Returns an OAS schema for use in `PATCH` endpoints for a specific object. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/schemas/{id}/patch",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object ID for which to retrieve the schema.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested..."
+        }
+      ]
+    },
+    {
+      "name": "sensor-status-summary_global-sensor-summary",
+      "description": "Returns a summary of all sensor states.",
+      "method": "GET",
+      "path": "/sensor-status-summary",
+      "params": []
+    },
+    {
+      "name": "sensor-status-summary_sensor-summary",
+      "description": "Returns a summary of sensor states for a probe, group, or device. Required: id.",
+      "method": "GET",
+      "path": "/sensor-status-summary/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the object that you you want to get a sensor status summary of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_delete",
+      "description": "Deletes a sensor with all child channels. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/experimental/sensors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_get",
+      "description": "Returns metrics and settings of a sensor. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/sensors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a sensor. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. | `include=intervalgroup,inheritance`| | `*` | A wildcard that includes the `all_sections`, `inheritance`, and `sensor_status_summary` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "sensors_list",
+      "description": "Returns a list of all sensors that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/experimental/sensors' endpoint. Optional: offset (default: 0), limit (default: 100), filter (plus 2 more).",
+      "method": "GET",
+      "path": "/sensors",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        },
+        {
+          "name": "include_all_channels",
+          "type": "bool",
+          "location": "query",
+          "description": "Enter **true** to include all channels. Enter **false** to only include the primary channel and the Downtime channel of each sensor."
+        }
+      ]
+    },
+    {
+      "name": "sensors_list-alarms",
+      "description": "Returns a list of sensors with alarms that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed. Optional: offset (default: 0), limit (default: 100), filter (plus 2 more).",
+      "method": "GET",
+      "path": "/sensors/alarms",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        },
+        {
+          "name": "include_all_channels",
+          "type": "bool",
+          "location": "query",
+          "description": "Enter **true** to include all channels. Enter **false** to only include the primary channel and the Downtime channel of each sensor."
+        }
+      ]
+    },
+    {
+      "name": "sensors_list-experimental",
+      "description": "Returns a list of sensors. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/sensors",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested sensors. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=intervalgroup,scheduledependency` `include=path` | | `inheritance`|Returns information about whether settings are inherited or not. | `include=intervalgroup,inheritance`| | `*` | A wildcard that includes the `all_sections` and `inheritance` parameters. | `include=*`| Use the `all_sections` parameter to see all available setting sections. You can then refine your request with the setting sections that you want. For more information, see the [PRTG API v2 Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "sensors_multi-acknowledge",
+      "description": "Acknowledges the alarms of all sensors that match a filter. Required: filter. Optional: duration (default: 0), message. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/sensors/acknowledge",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "sensors_multi-pause",
+      "description": "Pauses all sensors that match a filter. Required: filter. Optional: duration (default: 0), message. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/sensors/pause",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "sensors_multi-resume",
+      "description": "Resumes all sensors that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/sensors/resume",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_multi-scan-now",
+      "description": "Triggers a scan of all sensors that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/sensors/scan",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_update",
+      "description": "Edits a sensor. This endpoint does not yet support all sensor settings. Currently only the following settings are supported: - basic-section: name, priority and tags - all settings in the section channelgroup This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id. Partial update.",
+      "method": "PATCH",
+      "path": "/experimental/sensors/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to edit.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_acknowledge_sensor",
+      "description": "Acknowledges the alarm of a sensor. Required: id. Optional: duration (default: 0), message.",
+      "method": "POST",
+      "path": "/sensors/{id}/acknowledge",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to acknowledge the alarm of.",
+          "required": true
+        },
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the alarm acknowledgement."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the acknowledged sensor displays as a sensor message."
+        }
+      ]
+    },
+    {
+      "name": "sensors_data_list-sensor-measurements",
+      "description": "Returns the channel data for a specific sensor. Required: id. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/sensors/{id}/data",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to get channel data for.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "sensors_overview_get-sensor",
+      "description": "Returns a sensor overview. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but is replaced with the '/sensors/{id}' endpoint. Required: id.",
+      "method": "GET",
+      "path": "/sensors/{id}/overview",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want an overview of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_pause_sensor",
+      "description": "Pauses a sensor. Required: id. Optional: duration (default: 0), message.",
+      "method": "POST",
+      "path": "/sensors/{id}/pause",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to pause.",
+          "required": true
+        },
+        {
+          "name": "duration",
+          "type": "float",
+          "location": "body",
+          "description": "Enter the duration of the pause."
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a message that the paused sensor displays as sensor message."
+        }
+      ]
+    },
+    {
+      "name": "sensors_resume_sensor",
+      "description": "Resumes a sensor. Required: id.",
+      "method": "POST",
+      "path": "/sensors/{id}/resume",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to resume.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sensors_scan_sensor-now",
+      "description": "Triggers a scan of a sensor. Required: id.",
+      "method": "POST",
+      "path": "/sensors/{id}/scan",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to scan.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "session_login",
+      "description": "Creates a new user session. Required: password, username. Returns the new LoginResult.",
+      "method": "POST",
+      "path": "/session",
+      "params": [
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "Password",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "Username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "session_logout",
+      "description": "Ends an active user session. Destructive.",
+      "method": "DELETE",
+      "path": "/session",
+      "params": []
+    },
+    {
+      "name": "session_renew",
+      "description": "Renews an active user session. Returns the RenewResult.",
+      "method": "GET",
+      "path": "/session",
+      "params": []
+    },
+    {
+      "name": "setting-lookups_settings-lookup",
+      "description": "Returns possible setting lookup values. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Required: name. Optional: id.",
+      "method": "GET",
+      "path": "/setting-lookups/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Name of the lookup.",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "query",
+          "description": "Enter ID of corresponding object of the setting lookup."
+        }
+      ]
+    },
+    {
+      "name": "settings_public",
+      "description": "Returns a list of settings that are available for unauthenticated users.",
+      "method": "GET",
+      "path": "/settings/public",
+      "params": []
+    },
+    {
+      "name": "system_license-info",
+      "description": "Returns PRTG license information.",
+      "method": "GET",
+      "path": "/experimental/license",
+      "params": []
+    },
+    {
+      "name": "system_prtgfeature-flags",
+      "description": "Returns a list of all feature-flags.",
+      "method": "GET",
+      "path": "/experimental/featureflags",
+      "params": []
+    },
+    {
+      "name": "system_prtgfeature-toggles",
+      "description": "Returns a list of all enabled feature-toggles. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed.",
+      "method": "GET",
+      "path": "/experimental/feature-toggles",
+      "params": []
+    },
+    {
+      "name": "system_version-info",
+      "description": "Returns information on the PRTG version and appserver version.",
+      "method": "GET",
+      "path": "/version",
+      "params": []
+    },
+    {
+      "name": "timeseries_graph-set",
+      "description": "Returns time series data of a sensor for predefined time frames. This endpoint is experimental. For more information, see the [PRTG API v2 Overview: Endpoint Maturity](../overview/index.html#endpoint-maturity). Required: id, type (default: live). Optional: channels.",
+      "method": "GET",
+      "path": "/experimental/timeseries/{id}/{type}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor that you want to get the time series data for.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "path",
+          "description": "Select the dataset type: * `live`: Returns data of the last four hours. * `short`: Returns data of the last 2 days. * `medium`: Returns data of the last 60 days. * `long`: Returns data of the last 365 days.",
+          "required": true
+        },
+        {
+          "name": "channels",
+          "type": "array",
+          "location": "query",
+          "description": "Enter a comma-separated list of channel IDs that you want to include (e.g. 3074.1, 3074.2) in the response. If left empty, the response includes all channels."
+        }
+      ]
+    },
+    {
+      "name": "timeseries_time-series",
+      "description": "Get time series data ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be removed. Required: id, from. Optional: channels, to. Returns array of TimeseriesRow.",
+      "method": "GET",
+      "path": "/experimental/timeseries/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the sensor for which you want to get the time series data.",
+          "required": true
+        },
+        {
+          "name": "channels",
+          "type": "array",
+          "location": "query",
+          "description": "Enter the comma separated IDs of the channels you want to include. If left empty all channels will be returned"
+        },
+        {
+          "name": "from",
+          "type": "string",
+          "location": "query",
+          "description": "The starting point of the sample interval in the past as a timestamp in RFC3339 ('YYYY-MM-DDThh:mm:ssZ') format.",
+          "required": true
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "location": "query",
+          "description": "The ending point of the sample interval in the past as a time stamp in RFC3339 ('YYYY-MM-DDThh:mm:ssZ') format. If left empty the sample runs up to now."
+        }
+      ]
+    },
+    {
+      "name": "usergroups_get-user-group",
+      "description": "Returns the settings of a usergroup. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/usergroups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the usergroup that you want to see the settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a usergroup. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ | | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=usercontrol,commentgroup` | | `*` | A wildcard that includes the all_sections, usercontrol, and commentgroup parameters. | `include=*`| For more information, see the [Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "usergroups_get-user-group-overview",
+      "description": "Return information about a user group. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Required: id. Returns the UserGroupInfo.",
+      "method": "GET",
+      "path": "/usergroups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user group that you want to get information for.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "usergroups_list-user-groups",
+      "description": "Get a list of all user groups that match a filter. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more). Returns array of UserGroupInfo.",
+      "method": "GET",
+      "path": "/usergroups",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "usergroups_list-user-groups-osk",
+      "description": "Returns a list of user groups. This endpoint is experimental. See [Overview: Maturity of endpoints](../overview/index.html#endpoint-maturity) for more context. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/usergroups",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use offset to define which results are returned. For example, if you enter 0 for offset and 100 for limit, the API returns results 0 to 99. The index is zero based. For more information, see Overview: Pagination ."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns. The maximum number of objects is 3000. If you enter 0, the request returns up to 3000 objects."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see Overview: Filter ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested users. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ | | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=usercontrol,commentgroup` | | `*` | A wildcard that includes the all_sections, usercontrol, and commentgroup parameters. | `include=*`| For more information, see the [Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "users_delete-apikey",
+      "description": "Deletes an API key. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/users/api-keys/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the API key that you want to delete.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_find-apikey",
+      "description": "Returns details of an API key. Optional: id, key.",
+      "method": "POST",
+      "path": "/users/api-keys/find",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the API key."
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "location": "body",
+          "description": "The API key itself."
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Returns the metrics and settings of a user. Required: id. Optional: include.",
+      "method": "GET",
+      "path": "/experimental/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user that you want to see the metrics and settings of.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about a user. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=usercontrol,commentgroup` | | `*` | A wildcard that includes the all_sections, usercontrol, and commentgroup parameters. | `include=*`| For more information, see the [Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "users_get-overview",
+      "description": "Returns information about a user account. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Required: id.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user account for which you want to get information.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Returns a list of all user accounts. ⚠ Deprecated as of PRTG 24.3.100: This endpoint still works, but will be replaced. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use an offset to define which results the request returns."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see the PRTG API v2 Overview: Filters ."
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Enter a comma-separated list of settings that you want to use to sort the results."
+        }
+      ]
+    },
+    {
+      "name": "users_list-osk",
+      "description": "Returns a list of users. This endpoint is experimental. See [Overview: Maturity of endpoints](../overview/index.html#endpoint-maturity) for more context. Optional: offset (default: 0), limit (default: 100), filter (plus 1 more).",
+      "method": "GET",
+      "path": "/experimental/users",
+      "params": [
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Use offset to define which results are returned. For example, if you enter 0 for offset and 100 for limit, the API returns results 0 to 99. The index is zero based. For more information, see Overview: Pagination ."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Enter the number of objects that the request returns. The maximum number of objects is 3000. If you enter 0, the request returns up to 3000 objects."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Define filters to filter the results. For more information, see Overview: Filter ."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "By default, this endpoint only returns the most relevant information about the requested users. You can include additional parameters: | Parameter | Description | Example | | ------ | ------ | ------ |  | `all_sections` Individual settings sections | Explicitly request one, multiple, or all settings sections. | `include=all_sections` `include=usercontrol,commentgroup` | | `*` | A wildcard that includes the all_sections, usercontrol, and commentgroup parameters. | `include=*`| For more information, see the [Overview: Includes](../overview/index.html#includes)."
+        }
+      ]
+    },
+    {
+      "name": "users_modify-apikey",
+      "description": "Edits an API key. Required: id. Optional: access_level, description, name. Partial update.",
+      "method": "PATCH",
+      "path": "/users/api-keys/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the API key that you want to edit.",
+          "required": true
+        },
+        {
+          "name": "access_level",
+          "type": "string",
+          "location": "body",
+          "description": "The access level of the API key."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A textual description of the API key."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the API key."
+        }
+      ]
+    },
+    {
+      "name": "users_multi-pause-request",
+      "description": "Pauses all user accounts that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/users/pause",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_multi-resume",
+      "description": "Resumes all user accounts that match a filter. Required: filter. Returns array of ActionResult.",
+      "method": "POST",
+      "path": "/users/resume",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Define filters to limit and specify the results that the request returns.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_reset-password",
+      "description": "Set a new password for a user account with the token from the password reset process. **Note:** This route is not available when using PPHM. Required: password, token, username.",
+      "method": "POST",
+      "path": "/users/reset-password",
+      "params": [
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "The new password for the user account.",
+          "required": true
+        },
+        {
+          "name": "token",
+          "type": "string",
+          "location": "body",
+          "description": "The token from the password reset process.",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "The user name of the user account whose password you want to change.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_trigger-password-reset",
+      "description": "Triggers the password reset process for a user account. **Note:** This route is not available when using PPHM. Required: username.",
+      "method": "POST",
+      "path": "/users/request-password",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "The user name of the user account that you want to initiate the password reset process for.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_api-keys_create",
+      "description": "Creates a new API key. Required: id, access_level, name. Optional: description. Returns the new CreateApikeyResponse.",
+      "method": "POST",
+      "path": "/users/{id}/api-keys",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user that you want to create an API key for. Enter 'me' if you want to create an API key for your own user account.",
+          "required": true
+        },
+        {
+          "name": "access_level",
+          "type": "string",
+          "location": "body",
+          "description": "The access level of the new API key.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A textual description of the new API key."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the new API key.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_api-keys_list",
+      "description": "Returns a list of API keys that belong to a user account. Required: id.",
+      "method": "GET",
+      "path": "/users/{id}/api-keys",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user that you want to get a list of API keys for. Enter 'me' if you want a list of your own API keys.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_pause_user",
+      "description": "Pauses a user account. Required: id.",
+      "method": "POST",
+      "path": "/users/{id}/pause",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user account that you want to pause.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_resume_user",
+      "description": "Resumes a user account. Required: id.",
+      "method": "POST",
+      "path": "/users/{id}/resume",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enter the ID of the user account that you want to resume.",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet alarms",
+      "command": "fleet alarms",
+      "description": "See every down, warning and unusual sensor across all of your clients' PRTG cores in one list: worst state first (down, warning, unusual, acknowledged), then higher priority, then oldest."
+    },
+    {
+      "name": "Fleet status",
+      "command": "fleet status",
+      "description": "One row per client core with reachability and sensor counts by state, worst first."
+    },
+    {
+      "name": "Fleet handoff",
+      "command": "fleet handoff",
+      "description": "What changed across all cores since a point in time: new alarms, recoveries, and new acknowledgements or pauses with who and why."
+    },
+    {
+      "name": "Fleet silenced",
+      "command": "fleet silenced",
+      "description": "Everything someone paused or acknowledged across all cores, with who, when, until when and why, flagging indefinite ones left too long."
+    },
+    {
+      "name": "Fleet drift",
+      "command": "fleet drift",
+      "description": "PRTG estate hygiene across cores: versions behind your newest core, expiring licenses or maintenance, sensor overuse, disconnected probes, rejected API keys and unreachable servers."
+    },
+    {
+      "name": "Fleet acknowledge",
+      "command": "fleet ack",
+      "description": "Acknowledge matching down sensors on every core at once with a ticket message; previews per core and sends only with --yes (the API key needs the Acknowledge access level)."
+    },
+    {
+      "name": "Fleet maintenance pause",
+      "command": "fleet pause",
+      "description": "Pause matching devices, groups, sensors or probes on every core for a maintenance window; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet maintenance resume",
+      "command": "fleet resume",
+      "description": "Resume matching objects on every core after maintenance and optionally trigger an immediate scan; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet sync",
+      "description": "Refresh the offline mirror of every registered core in one run, each into its own isolated store."
+    },
+    {
+      "name": "Fleet exec",
+      "command": "fleet exec",
+      "description": "Run any read-only API v2 query on every core and get one merged table with a core column."
+    }
+  ]
+}

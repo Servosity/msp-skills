@@ -187,7 +187,7 @@ Writes send immediately when called, with no confirmation prompt, so keep autono
 
 ## More Network Monitoring connectors
 
-Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Domotz](/skills/domotz/) · [UniFi Network](/skills/unifi-network/)
+Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Domotz](/skills/domotz/) · [PRTG Network Monitor](/skills/prtg/) · [UniFi Network](/skills/unifi-network/)
 
 ## Status
 

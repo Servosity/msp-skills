@@ -1364,6 +1364,26 @@
       "tagline": "Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt."
     },
     {
+      "name": "prtg",
+      "system": "PRTG Network Monitor (API v2): sensors, devices, groups, probes, alarms, channels and fleet views across every client's PRTG core",
+      "status": "beta",
+      "skill_path": "skills/prtg",
+      "cli_binary": "prtg-cli",
+      "mcp_binary": "prtg-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "PRTG",
+      "vendor_trademark_owner": "Paessler GmbH",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/prtg/install.sh)",
+      "install_mcp_doc": "skills/prtg/mcp-install.md",
+      "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+      "verification": "awaiting",
+      "category": "Network Monitoring",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions."
+    },
+    {
       "name": "quickbooks",
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "live-verified",

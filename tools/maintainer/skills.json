@@ -1672,6 +1672,29 @@
         "evidence": null
       }
     },
+    "prtg": {
+      "system": "PRTG Network Monitor (API v2): sensors, devices, groups, probes, alarms, channels and fleet views across every client's PRTG core",
+      "status": "beta",
+      "cli_binary": "prtg-cli",
+      "mcp_binary": "prtg-mcp",
+      "vendor": "PRTG",
+      "vendor_trademark_owner": "Paessler GmbH",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "PRTG Network Monitor",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "has_video": true,
+      "cli_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "quickbooks": {
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "live-verified",
