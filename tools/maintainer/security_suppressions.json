@@ -1655,6 +1655,15 @@
         "sha256:0eaa07233789c41d577c1aa71c83733152c2fd59449a7d026d029194151006b5"
       ],
       "reason": "zammad only, hand-written (webhooks-listener in skills/zammad/handfixes.json), reviewed 2026-10-27. validWebhookSignature checks Zammad's X-Hub-Signature, which Zammad computes as OpenSSL::HMAC.hexdigest('sha1', signature_token, body) (lib/user_agent.rb); the algorithm is the vendor's, not a choice. HMAC-SHA1 is a keyed MAC, not open to the collision attacks that retired bare SHA-1, and the compare is hmac.Equal (constant time). The file holds only this function, so any edit is scanned again."
+    },
+    {
+      "file": "skills/zammad/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:15e384146b3451b58fee371a6da4f399755604c559a99f8c76812dc04b1d3ca4"
+      ],
+      "reason": "zammad only, reviewed 2026-10-28. Declaration AppendJournalEntry: the press template's journal append, with two hand-fixes (journal-credential-hardening and secret-echo-decoded-funnel in skills/zammad/handfixes.json) that check the whole marshalled record after TS and session_key are filled and drop it when it repeats a held credential. The OpenFile path is unchanged from the template: filepath.Join(JournalDir(), journalSegmentNameFor(time.Now())), the state directory plus a dated segment name, no operator input. Editing the declaration lost the fleet precedent for its G304; any further edit is scanned again."
     }
   ]
 }
