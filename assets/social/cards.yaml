@@ -427,3 +427,7 @@ xero:
 zammad:
   vendor: "Zammad"
   example_command: "Which customers might churn?"
+
+zoom-phone:
+  vendor: "Zoom Phone"
+  example_command: "Which users have no verified 911 address?"

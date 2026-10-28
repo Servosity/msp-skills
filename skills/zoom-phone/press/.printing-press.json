@@ -1,0 +1,178 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T17:59:42.029048Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "zoom-phone",
+  "display_name": "Zoom Phone",
+  "cli_name": "zoom-phone-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:9d9dc141fe53c2ec8c5aa69a41038315926c771fc44a075d774f025dfd03cf0f",
+  "run_id": "20261027-120930-16377276",
+  "category": "social-and-messaging",
+  "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
+  "mcp_binary": "zoom-phone-pp-mcp",
+  "mcp_tool_count": 420,
+  "mcp_ready": "full",
+  "api_version": "2",
+  "auth_type": "bearer_token",
+  "auth_preference": "zoomS2S",
+  "auth_env_vars": [
+    "ZOOM_PHONE_ACCOUNT_ID",
+    "ZOOM_PHONE_CLIENT_ID",
+    "ZOOM_PHONE_CLIENT_SECRET"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "ZOOM_PHONE_ACCOUNT_ID",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": false,
+      "description": "Account ID of the Zoom Server-to-Server OAuth app (sent as account_id on the token request)."
+    },
+    {
+      "name": "ZOOM_PHONE_CLIENT_ID",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": false,
+      "description": "Client ID of the Zoom Server-to-Server OAuth app."
+    },
+    {
+      "name": "ZOOM_PHONE_CLIENT_SECRET",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": true,
+      "description": "Client Secret of the Zoom Server-to-Server OAuth app."
+    }
+  ],
+  "auth_key_url": "https://marketplace.zoom.us/develop/create",
+  "auth_title": "Zoom Server-to-Server OAuth app",
+  "auth_description": "Create a Server-to-Server OAuth app in the Zoom App Marketplace, add the phone:*:admin scopes you need, then copy its Account ID, Client ID and Client Secret.",
+  "novel_features": [
+    {
+      "name": "E911 audit",
+      "command": "e911 audit",
+      "description": "From the locally synced store: users, common areas and sites whose emergency address is missing or unverified, plus BYOC numbers needing a carrier update."
+    },
+    {
+      "name": "User footprint",
+      "command": "footprint",
+      "description": "Everything one phone user holds: extension, numbers, calling plans, call queue membership, shared lines, pickup and monitoring groups, desk phones and emergency address."
+    },
+    {
+      "name": "Number inventory",
+      "command": "numbers inventory",
+      "description": "From the locally synced store: phone numbers by site, source and assignee, with unassigned, pending and inactive-assignee lists."
+    },
+    {
+      "name": "Unreturned missed calls",
+      "command": "callbacks",
+      "description": "External callers whose calls were missed or abandoned and who have not been called back yet."
+    },
+    {
+      "name": "Device health",
+      "command": "devices health",
+      "description": "From the locally synced store: offline or unassigned desk phones, firmware drift per model, devices assigned to inactive users, grouped by site."
+    },
+    {
+      "name": "MSP fleet",
+      "command": "fleet",
+      "description": "Run one read-only command (or sync) across every saved client account and get one merged result with an account column; writes need --allow-writes."
+    },
+    {
+      "name": "Client accounts",
+      "command": "accounts connect",
+      "description": "Save one profile per client Zoom account (its own credentials, token cache and local store) so you can switch tenants without re-entering credentials."
+    },
+    {
+      "name": "Offboard plan and apply",
+      "command": "offboard",
+      "description": "Ordered removal plan for a departing user across queues, shared lines, groups, devices, numbers and calling plan; --apply executes it."
+    },
+    {
+      "name": "Routing trace",
+      "command": "routing trace",
+      "description": "Follow one inbound number or extension through auto receptionists, IVR keys and call queues to where it rings, for business and closed hours."
+    },
+    {
+      "name": "Routing audit",
+      "command": "routing audit",
+      "description": "Dead IVR targets, empty call queues, orphaned auto receptionists and auto receptionists with no upcoming holiday hours."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "E911 audit",
+      "command": "e911 audit",
+      "description": "From the locally synced store: users, common areas and sites whose emergency address is missing or unverified, plus BYOC numbers needing a carrier update."
+    },
+    {
+      "name": "User footprint",
+      "command": "footprint",
+      "description": "Everything one phone user holds: extension, numbers, calling plans, call queue membership, shared lines, pickup and monitoring groups, desk phones and emergency address."
+    },
+    {
+      "name": "Number inventory",
+      "command": "numbers inventory",
+      "description": "From the locally synced store: phone numbers by site, source and assignee, with unassigned, pending and inactive-assignee lists."
+    },
+    {
+      "name": "Unreturned missed calls",
+      "command": "callbacks",
+      "description": "External callers whose calls were missed or abandoned and who have not been called back yet."
+    },
+    {
+      "name": "Device health",
+      "command": "devices health",
+      "description": "From the locally synced store: offline or unassigned desk phones, firmware drift per model, devices assigned to inactive users, grouped by site."
+    },
+    {
+      "name": "MSP fleet",
+      "command": "fleet",
+      "description": "Run one read-only command (or sync) across every saved client account and get one merged result with an account column; writes need --allow-writes."
+    },
+    {
+      "name": "Client accounts",
+      "command": "accounts connect",
+      "description": "Save one profile per client Zoom account (its own credentials, token cache and local store) so you can switch tenants without re-entering credentials."
+    },
+    {
+      "name": "Offboard plan and apply",
+      "command": "offboard",
+      "description": "Ordered removal plan for a departing user across queues, shared lines, groups, devices, numbers and calling plan; --apply executes it."
+    },
+    {
+      "name": "Routing trace",
+      "command": "routing trace",
+      "description": "Follow one inbound number or extension through auto receptionists, IVR keys and call queues to where it rings, for business and closed hours."
+    },
+    {
+      "name": "Routing audit",
+      "command": "routing audit",
+      "description": "Dead IVR targets, empty call queues, orphaned auto receptionists and auto receptionists with no upcoming holiday hours."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 401,
+    "total": 401,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 97,
+      "grade": "A",
+      "total": 97
+    }
+  }
+}

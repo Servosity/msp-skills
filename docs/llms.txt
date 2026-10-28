@@ -109,6 +109,7 @@ Links ending in `.md` are clean Markdown copies; the HTML page is the same addre
 - [WordPress](https://msp-skills.compoundingteams.com/skills/wordpress.md): Marketing. Ask "Publish a landing page from HTML without opening wp-admin?".  Verification: Live-verified by Servosity (maintainer) (2026-08-16).
 - [Xero](https://msp-skills.compoundingteams.com/skills/xero.md): Billing. Ask "Who owes us, and how overdue is each invoice?". Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call. Verification: Awaiting live verification.
 - [Zammad](https://msp-skills.compoundingteams.com/skills/zammad.md): PSA. Ask "Who on the team is overloaded, and who is idle?". Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call. Verification: Live-verified by Servosity (maintainer) (2026-08-16).
+- [Zoom Phone](https://msp-skills.compoundingteams.com/skills/zoom-phone.md): Telephony. Ask "Which users, common areas and sites have a missing or unverified emergency address?". Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal. Verification: Awaiting live verification.
 
 ## Start here
 

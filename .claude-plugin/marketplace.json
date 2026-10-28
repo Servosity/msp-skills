@@ -1572,6 +1572,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "zoom-phone",
+      "source": "./skills/zoom-phone",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
+      "version": "0.1.0",
+      "category": "telephony",
+      "tags": [
+        "zoom-phone",
+        "zoom",
+        "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

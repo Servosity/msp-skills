@@ -1,5 +1,5 @@
 {
-  "count": 98,
+  "count": 99,
   "connectors": [
     {
       "slug": "abnormal",
@@ -1274,6 +1274,19 @@
       "verified_version": null,
       "verified_code": "unknown",
       "url": "/skills/zammad/"
+    },
+    {
+      "slug": "zoom-phone",
+      "display_name": "Zoom Phone",
+      "tagline": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "category": "Telephony",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/zoom-phone/"
     }
   ],
   "featured": [

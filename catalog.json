@@ -2050,6 +2050,26 @@
       "verified_code": "unknown",
       "category": "PSA",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call."
+    },
+    {
+      "name": "zoom-phone",
+      "system": "cloud phone system for business: users, numbers, call queues, auto receptionists, desk phones and E911",
+      "status": "beta",
+      "skill_path": "skills/zoom-phone",
+      "cli_binary": "zoom-phone-cli",
+      "mcp_binary": "zoom-phone-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Zoom",
+      "vendor_trademark_owner": "Zoom Communications, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/install.sh)",
+      "install_mcp_doc": "skills/zoom-phone/mcp-install.md",
+      "description": "Zoom Phone admin API for MSPs, plus E911, call routing, number and desk-phone audits across every client Zoom account.",
+      "verification": "awaiting",
+      "category": "Telephony",
+      "tagline": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal."
     }
   ]
 }

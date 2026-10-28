@@ -119,6 +119,7 @@ body:
         - wordpress
         - xero
         - zammad
+        - zoom-phone
         - other / not listed
     validations:
       required: true
