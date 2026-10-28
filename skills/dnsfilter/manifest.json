@@ -1,0 +1,91 @@
+{
+  "manifest_version": "0.3",
+  "name": "dnsfilter-mcp",
+  "display_name": "DNSFilter",
+  "version": "0.1.0",
+  "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/dnsfilter-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/dnsfilter-mcp",
+      "args": [],
+      "env": {
+        "DNSFILTER_BASE_URL": "${user_config.dnsfilter_base_url}",
+        "DNSFILTER_API_KEY": "${user_config.dnsfilter_api_key}",
+        "DNSFILTER_USER_AGENT": "${user_config.dnsfilter_user_agent}",
+        "DNSFILTER_MCP_READ_ONLY": "${user_config.dnsfilter_mcp_read_only}",
+        "DNSFILTER_NO_LOCAL_DATA": "${user_config.dnsfilter_no_local_data}",
+        "DNSFILTER_MCP_HTTP_TOKEN": "${user_config.dnsfilter_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "dnsfilter_base_url": {
+      "type": "string",
+      "title": "DNSFilter API base URL",
+      "description": "Optional. Leave blank for the DNSFilter API (https://api.dnsfilter.com).",
+      "default": "https://api.dnsfilter.com",
+      "required": false
+    },
+    "dnsfilter_api_key": {
+      "type": "string",
+      "title": "DNSFILTER_API_KEY",
+      "description": "DNSFilter API token (DNSFilter dashboard, Account Settings, API Tokens). Use the bare token: DNSFilter expects it as the Authorization header value with no Bearer prefix. Create it in your MSP organization so the cross-client commands see your client organizations.",
+      "sensitive": true,
+      "required": true
+    },
+    "dnsfilter_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the CLI's own.",
+      "required": false
+    },
+    "dnsfilter_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to 1 so the MCP server offers only tools that read from DNSFilter: write tools are removed, and reads that return a secret (site secret keys, API key tokens, the roaming client uninstall PIN) are refused. Leave blank for the full tool set.",
+      "required": false
+    },
+    "dnsfilter_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "dnsfilter_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP bearer token",
+      "description": "Only for --transport http: the bearer token callers must present. Not used by Claude Desktop (stdio). Leave blank.",
+      "sensitive": true,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not enforced by this connector: there are no tenant-gated client profiles, so a value here does not limit which organizations a call can reach. Leave blank. To limit what an agent can do, use a narrower API token or turn on the read-only MCP server.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T16:24:01.010068Z",
+    "spec_checksum": "sha256:ba94f3fc7d32cd3cf1fac1c4ce47c8f333790a6b731bd1ddde20f1ed5846a963",
+    "spec_format": "openapi3"
+  }
+}
