@@ -66,6 +66,7 @@ body:
         - itglue
         - jira-service-management
         - kaseya-bms
+        - kaseya-vsa
         - knowbe4
         - levelio
         - liongard

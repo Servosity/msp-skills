@@ -331,6 +331,13 @@
       "digest": "sha256:03f47661cd1d4c451a1d2e6411fcff9635302554ef38418727439b972c092922"
     },
     {
+      "name": "kaseya-vsa",
+      "type": "skill-md",
+      "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline. Trigger phrases: `which devices are missing critical patches`, `kaseya vsa fleet health`, `run a vsa script on a device and get the output`, `who has this software installed in vsa`, `use kaseya vsa`, `run kaseya-vsa`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/SKILL.md",
+      "digest": "sha256:54cab9ace2b990a3059a41b671ab496c8bf0fe6067b7bca8240a5bbee67f0195"
+    },
+    {
       "name": "knowbe4",
       "type": "skill-md",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",

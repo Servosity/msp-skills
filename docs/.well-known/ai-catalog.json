@@ -931,6 +931,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:kaseya-vsa",
+      "displayName": "Kaseya VSA 10",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/SKILL.md",
+      "description": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which pending OS updates are exposed on the most devices, across every client?",
+        "Which clients carry the most critical patch exposure?",
+        "Which devices are offline, without working antivirus, or with the firewall off?",
+        "Which devices are low on disk space?",
+        "Which versions of Google Chrome are installed, and on how many devices?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/kaseya-vsa.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:knowbe4",
       "displayName": "KnowBe4",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
