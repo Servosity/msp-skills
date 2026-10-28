@@ -67,6 +67,10 @@ bitdefender:
   vendor: "Bitdefender"
   example_command: "Which customers have unprotected endpoints?"
 
+blackpoint:
+  vendor: "Blackpoint Cyber"
+  example_command: "Which open detections are oldest across all my clients?"
+
 blumira:
   vendor: "Blumira"
   example_command: "Triage findings across every account"

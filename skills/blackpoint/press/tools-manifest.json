@@ -1,0 +1,2461 @@
+{
+  "api_name": "blackpoint",
+  "base_url": "https://api.blackpointcyber.com/v1",
+  "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "BLACKPOINT_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "BLACKPOINT_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://docs.blackpointcyber.com"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_get",
+      "description": "Returns one partner account. Required: accountId.",
+      "method": "GET",
+      "path": "/accounts/{accountId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Account id, from `accounts list`.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_list",
+      "description": "Lists the partner accounts this token can see. Wire: GET /v1/accounts, returns {data, meta}. Optional: page (default: 1), pageSize (default: 50), search (plus 4 more).",
+      "method": "GET",
+      "path": "/accounts",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field (default name)."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "billingVersion",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by billing version."
+        },
+        {
+          "name": "partnershipType",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partnership type."
+        }
+      ]
+    },
+    {
+      "name": "assets_get",
+      "description": "Returns one asset; fields depend on its class. Required: x-tenant-id, assetId.",
+      "method": "GET",
+      "path": "/assets/{assetId}",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "location": "path",
+          "description": "Asset id, from `assets list`.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "assets_list",
+      "description": "Lists assets for one tenant. `class` is required: there is no all-assets query. Classes populated today: DEVICE, USER, SOFTWARE, SOURCE, SURVEY. Requires x-tenant-id (400 without it).",
+      "method": "GET",
+      "path": "/assets",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "class",
+          "type": "string",
+          "location": "query",
+          "description": "Asset class (required).",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search over asset names."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "WITH-clause filter passed through verbatim, e.g. WITH platform='WINDOWS' or THAT HAS SOURCE WITH type='AGENTENDPOINT'."
+        },
+        {
+          "name": "withDeleted",
+          "type": "bool",
+          "location": "query",
+          "description": "Include deleted assets."
+        },
+        {
+          "name": "sources",
+          "type": "string",
+          "location": "query",
+          "description": "Discovery-source filter. Operator filter; ImmyBot sends EQ|\u003cbase64 value\u003e, e.g. EQ|V0lORE9XUw== for WINDOWS."
+        },
+        {
+          "name": "platform",
+          "type": "string",
+          "location": "query",
+          "description": "Platform filter. Operator filter; ImmyBot sends EQ|\u003cbase64 value\u003e, e.g. EQ|V0lORE9XUw== for WINDOWS."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Asset type filter."
+        },
+        {
+          "name": "foundOn",
+          "type": "string",
+          "location": "query",
+          "description": "First-seen filter."
+        },
+        {
+          "name": "lastSeenOn",
+          "type": "string",
+          "location": "query",
+          "description": "Last-seen filter."
+        },
+        {
+          "name": "decommissioned",
+          "type": "string",
+          "location": "query",
+          "description": "Decommissioned-state filter. Operator filter; ImmyBot sends EQ|\u003cbase64 value\u003e, e.g. EQ|V0lORE9XUw== for WINDOWS."
+        },
+        {
+          "name": "decommissionDate",
+          "type": "string",
+          "location": "query",
+          "description": "Decommission-date filter."
+        },
+        {
+          "name": "wdStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Windows Defender status filter."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field (default name), e.g. lastSeenOn, criticality, displayName, agentLastSeenOn."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (ASC or DESC)."
+        }
+      ]
+    },
+    {
+      "name": "assets_list-relationships",
+      "description": "Lists what one asset is connected to in one direction. Use the finding classes (ALERT, ALERTGROUP, INCIDENT, VULNERABILITY) for what has been found on a machine. The far-side class is sent as `class`; some clients send it as `entityClass`. Required: x-tenant-id, assetId, class, direction. Optional: page (default: 1), pageSize (default: 50), withDeleted (plus 2 more). Returns array of AssetsListRelationshipsItem.",
+      "method": "GET",
+      "path": "/assets/{assetId}/relationships",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "location": "path",
+          "description": "Asset id.",
+          "required": true
+        },
+        {
+          "name": "class",
+          "type": "string",
+          "location": "query",
+          "description": "Class at the far end of the relationship (required).",
+          "required": true
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "location": "query",
+          "description": "out follows edges from this asset, in edges to it (required).",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "withDeleted",
+          "type": "bool",
+          "location": "query",
+          "description": "Include deleted related records."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (ASC or DESC)."
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_complete",
+      "description": "Completes the onboarding by verifying everything was set up appropriately. Required: onboardingId, tenantId. Returns the new CiscoOnboarding.",
+      "method": "POST",
+      "path": "/cloud/cisco/onboardings/{onboardingId}/complete",
+      "params": [
+        {
+          "name": "onboardingId",
+          "type": "string",
+          "location": "path",
+          "description": "Onboarding id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_create",
+      "description": "Begins a new onboarding for a customer. Fails if the onboarding for that domain already exists in Blackpoint. Body: Duo Admin API host, integration key and secret key (CCCiscoDuoOnboardingRequestDto). The secret key is sensitive. Required: tenantId. Optional: host, ikey, skey. Returns the new CiscoOnboarding.",
+      "method": "POST",
+      "path": "/cloud/cisco/onboardings",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "host",
+          "type": "string",
+          "location": "body",
+          "description": "Duo API hostname."
+        },
+        {
+          "name": "ikey",
+          "type": "string",
+          "location": "body",
+          "description": "Duo integration key."
+        },
+        {
+          "name": "skey",
+          "type": "string",
+          "location": "body",
+          "description": "Duo secret key (sensitive)."
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_delete",
+      "description": "Abandons an onboarding, removing the db records and cisco duo onboarding app if there is any. Required: onboardingId, tenantId. Destructive.",
+      "method": "DELETE",
+      "path": "/cloud/cisco/onboardings/{onboardingId}",
+      "params": [
+        {
+          "name": "onboardingId",
+          "type": "string",
+          "location": "path",
+          "description": "Onboarding id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_get",
+      "description": "Get the state of an onboarding. Required: onboardingId, tenantId. Returns the CiscoOnboarding.",
+      "method": "GET",
+      "path": "/cloud/cisco/onboardings/{onboardingId}",
+      "params": [
+        {
+          "name": "onboardingId",
+          "type": "string",
+          "location": "path",
+          "description": "Onboarding id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_list",
+      "description": "List the states of the onboardings a customer has completed or in progress. Required: tenantId. Returns array of CiscoOnboarding.",
+      "method": "GET",
+      "path": "/cloud/cisco/onboardings",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cisco_onboardings_sync-users",
+      "description": "Runs the Duo post-provision step: re-verifies the onboarding and starts the user sync if it has not started or has stalled. Required: onboardingId, tenantId. Returns the new CiscoOnboarding.",
+      "method": "POST",
+      "path": "/cloud/cisco/onboardings/{onboardingId}/post-provision",
+      "params": [
+        {
+          "name": "onboardingId",
+          "type": "string",
+          "location": "path",
+          "description": "Onboarding id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_approve-country",
+      "description": "Approve a country for a given connection. Body: {isoCountryCode}. Required: connectionId, tenantId, isoCountryCode. Returns the updated ApprovedCountry.",
+      "method": "PUT",
+      "path": "/cloud/connections/{connectionId}/approved-countries",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "isoCountryCode",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 3166 alpha-2 code.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_approve-user-country",
+      "description": "Add approved countries for connection user. Body: {isoCountryCode, startDate?, endDate?} (a travel exception window). Required: connectionId, connectionUserId, tenantId, isoCountryCode. Optional: endDate, startDate. Returns the new UserApprovedCountry.",
+      "method": "POST",
+      "path": "/cloud/connections/{connectionId}/users/{connectionUserId}/approved-countries",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "connectionUserId",
+          "type": "string",
+          "location": "path",
+          "description": "Connection user id, from `cloud-connections list-users`.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window end."
+        },
+        {
+          "name": "isoCountryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Iso country code",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window start."
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_list-approved-countries",
+      "description": "Get a paginated list of approved countries for a given connection. Required: connectionId, tenantId. Optional: take (default: 100), skip (default: 0). Returns the ApprovedCountryPage.",
+      "method": "GET",
+      "path": "/cloud/connections/{connectionId}/approved-countries",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_list-user-countries",
+      "description": "List a user's approved countries. Required: connectionId, connectionUserId, tenantId. Optional: take (default: 100), skip (default: 0). Returns the UserApprovedCountryPage.",
+      "method": "GET",
+      "path": "/cloud/connections/{connectionId}/users/{connectionUserId}/approved-countries",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "connectionUserId",
+          "type": "string",
+          "location": "path",
+          "description": "Connection user id, from `cloud-connections list-users`.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_list-users",
+      "description": "Get users for connection. Required: connectionId, tenantId. Optional: take (default: 100), skip (default: 0), sortDirection (default: ASC) (plus 2 more). Returns the ConnectionUserPage.",
+      "method": "GET",
+      "path": "/cloud/connections/{connectionId}/users",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        },
+        {
+          "name": "sortDirection",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_remove-approved-country",
+      "description": "Remove a country for a given connection by its ID. Required: connectionId, id, tenantId. Returns the ApprovedCountry. Destructive.",
+      "method": "DELETE",
+      "path": "/cloud/connections/{connectionId}/approved-countries/{id}",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Approved-country record id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_connections_remove-user-country",
+      "description": "Delete connection user approved country. Required: connectionId, connectionUserId, id, tenantId. Returns the UserApprovedCountry. Destructive.",
+      "method": "DELETE",
+      "path": "/cloud/connections/{connectionId}/users/{connectionUserId}/approved-countries/{id}",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "Cloud Response connection id.",
+          "required": true
+        },
+        {
+          "name": "connectionUserId",
+          "type": "string",
+          "location": "path",
+          "description": "Connection user id, from `cloud-connections list-users`.",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Approved-country record id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_add-member",
+      "description": "Add member to contact group. Required: accountId, contactGroupId, availability, email, name, phoneNumber, priority, timezone. Returns the new ContactGroupMember.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/members",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "availability",
+          "type": "string",
+          "location": "body",
+          "description": "Availability",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "phoneNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number",
+          "required": true
+        },
+        {
+          "name": "priority",
+          "type": "float",
+          "location": "body",
+          "description": "Priority",
+          "required": true
+        },
+        {
+          "name": "timezone",
+          "type": "string",
+          "location": "body",
+          "description": "Timezone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_assign-tenants",
+      "description": "Assign tenants to a contact group. Required: accountId, contactGroupId, tenantIds. Returns array of ContactGroupTenant.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/tenants",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "tenantIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Tenant ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_create",
+      "description": "Body: TEV1CreateContactGroupRequestDto. Required: accountId, members, name, type. Returns the new ContactGroup.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/contact-groups",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "members",
+          "type": "array",
+          "location": "body",
+          "description": "Members",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_delete",
+      "description": "Delete contact group. Required: accountId, contactGroupId. Returns the ContactGroup. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_delete-many",
+      "description": "Bulk delete: DELETE with a JSON body {contactGroupIds: [...]}. Required: accountId, contactGroupIds. Returns array of ContactGroup. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/{accountId}/contact-groups",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Contact group ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_delete-member",
+      "description": "Delete contact group member. Required: accountId, contactGroupId, memberId. Returns the ContactGroupMember. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/members/{memberId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "memberId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group member id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_get",
+      "description": "Get contact group. Required: accountId, contactGroupId. Optional: includeMembers, includeAssignedTenants. Returns the ContactGroup.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "includeMembers",
+          "type": "bool",
+          "location": "query",
+          "description": "Embed members."
+        },
+        {
+          "name": "includeAssignedTenants",
+          "type": "bool",
+          "location": "query",
+          "description": "Embed assigned tenants."
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_get-member",
+      "description": "Get contact group member. Required: accountId, contactGroupId, memberId. Returns the ContactGroupMember.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/members/{memberId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "memberId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group member id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_list",
+      "description": "Escalation contact groups for an account. Required: accountId. Optional: page (default: 1), pageSize (default: 50), search (plus 4 more). Returns array of ContactGroup.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "tenantsPageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Assigned tenants to embed per group (0 = none)."
+        },
+        {
+          "name": "membersPageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Members to embed per group (0 = none)."
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_list-members",
+      "description": "List contact group members. Required: accountId, contactGroupId. Optional: page (default: 1), pageSize (default: 50), sortBy (plus 1 more). Returns array of ContactGroupMember.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/members",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_list-tenants",
+      "description": "List tenants assigned to a contact group. Required: accountId, contactGroupId. Optional: page (default: 1), pageSize (default: 50), search (plus 2 more). Returns array of ContactGroupTenant.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/tenants",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_list-unassigned-tenants",
+      "description": "Get a paginated list of all tenants which have not being assigned to a given contact group. Required: accountId, contactGroupId. Optional: page (default: 1), pageSize (default: 50), search (plus 2 more). Returns array of ContactGroupsListUnassignedTenantsItem.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/unassigned-tenants",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_update",
+      "description": "Body: TEV1UpdateContactGroupRequestDto; members carry their id to keep them. Required: accountId, contactGroupId, members, name, type. Returns the updated ContactGroup.",
+      "method": "PUT",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "members",
+          "type": "array",
+          "location": "body",
+          "description": "Members",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "contact_groups_update-member",
+      "description": "Body: TEV1UpdateContactGroupMemberRequestDto (all fields required). Required: accountId, contactGroupId, memberId, availability, email, name, phoneNumber, priority, timezone. Returns the updated ContactGroupMember.",
+      "method": "PATCH",
+      "path": "/accounts/{accountId}/contact-groups/{contactGroupId}/members/{memberId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id, from `accounts list`.",
+          "required": true
+        },
+        {
+          "name": "contactGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group id.",
+          "required": true
+        },
+        {
+          "name": "memberId",
+          "type": "string",
+          "location": "path",
+          "description": "Contact group member id.",
+          "required": true
+        },
+        {
+          "name": "availability",
+          "type": "string",
+          "location": "body",
+          "description": "Availability",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "phoneNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Phone number",
+          "required": true
+        },
+        {
+          "name": "priority",
+          "type": "float",
+          "location": "body",
+          "description": "Priority",
+          "required": true
+        },
+        {
+          "name": "timezone",
+          "type": "string",
+          "location": "body",
+          "description": "Timezone",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "countries_get",
+      "description": "Get country by code. Required: code. Returns the IsoCountry.",
+      "method": "GET",
+      "path": "/cloud/iso-countries/{code}",
+      "params": [
+        {
+          "name": "code",
+          "type": "string",
+          "location": "path",
+          "description": "ISO 3166 alpha-2 code, e.g. US.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "countries_list",
+      "description": "List countries. Reference list used by the approved-country (geo) policy. Returns array of IsoCountry.",
+      "method": "GET",
+      "path": "/cloud/iso-countries",
+      "params": []
+    },
+    {
+      "name": "darkweb_exposures_list",
+      "description": "Credential exposures from the tenant's most recent dark-web scan. Empty means the last scan found nothing; check `scans --type darkweb` for whether a scan ran. Required: x-tenant-id. Optional: search, domain, passwordExposed (plus 5 more). Returns array of DarkwebExposure.",
+      "method": "GET",
+      "path": "/vulnerability-management/darkweb/scan/exposures",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search over exposures."
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to one impacted domain."
+        },
+        {
+          "name": "passwordExposed",
+          "type": "bool",
+          "location": "query",
+          "description": "Only rows where a password was exposed."
+        },
+        {
+          "name": "usernameExposed",
+          "type": "bool",
+          "location": "query",
+          "description": "Only rows where a username was exposed."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field (default breachCreatedAt)."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (ASC or DESC)."
+        }
+      ]
+    },
+    {
+      "name": "detections_count",
+      "description": "Counts detections without listing them. Response shape is not published; returned verbatim. Required: x-tenant-id. Optional: startDate, endDate, type (plus 1 more).",
+      "method": "GET",
+      "path": "/alert-groups/count",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window start. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window end. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Detection family: CR (Cloud Response: M365, Google Workspace, Cisco Duo) or MDR (endpoint..."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Group-level status."
+        }
+      ]
+    },
+    {
+      "name": "detections_get",
+      "description": "Returns one detection in full. Its nested ticket carries the lifecycle status: NEW, CLAIM, INVESTIGATE, ESCALATE, RESOLVE, CLOSE, INFORMATIONAL, NO_AGENT or SUGGEST_SUPPRESSION. Required: x-tenant-id, alertGroupId.",
+      "method": "GET",
+      "path": "/alert-groups/{alertGroupId}",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "alertGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Detection (alert group) id, from `detections list`.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "detections_list",
+      "description": "Lists detections for one tenant, paged with skip/take. Requires the x-tenant-id header (400 `x-tenant-id header required` without it). The deprecated `tenantId` query parameter is not exposed. `status` is group-level OPEN/RESOLVED; the nine-state lifecycle lives on the nested ticket. Required: x-tenant-id. Optional: take (default: 50), skip (default: 0), status (plus 8 more). Returns array of AlertGroup.",
+      "method": "GET",
+      "path": "/alert-groups",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Group-level status filter."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Detection family: CR (Cloud Response: M365, Google Workspace, Cisco Duo) or MDR (endpoint..."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search over alertTypes, action, dataset, username and hostname (min 3 chars)."
+        },
+        {
+          "name": "tunnelSearch",
+          "type": "string",
+          "location": "query",
+          "description": "Vendor tunnel-specific search string."
+        },
+        {
+          "name": "since",
+          "type": "string",
+          "location": "query",
+          "description": "Only detections created since this instant. Capped at 90 days ago; future dates are rejected."
+        },
+        {
+          "name": "minAlertsCount",
+          "type": "int",
+          "location": "query",
+          "description": "Only groups with at least this many alerts."
+        },
+        {
+          "name": "maxAlertsCount",
+          "type": "int",
+          "location": "query",
+          "description": "Only groups with at most this many alerts."
+        },
+        {
+          "name": "sortByColumn",
+          "type": "string",
+          "location": "query",
+          "description": "Sort column (default created)."
+        },
+        {
+          "name": "sortDirection",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "detections_list-alerts",
+      "description": "Lists the individual alerts a detection aggregated. Required: x-tenant-id, alertGroupId. Optional: take (default: 50), skip (default: 0), sortByColumn (plus 1 more). Returns array of Alert.",
+      "method": "GET",
+      "path": "/alert-groups/{alertGroupId}/alerts",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "alertGroupId",
+          "type": "string",
+          "location": "path",
+          "description": "Detection (alert group) id, from `detections list`.",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        },
+        {
+          "name": "sortByColumn",
+          "type": "string",
+          "location": "query",
+          "description": "Sort column."
+        },
+        {
+          "name": "sortDirection",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "detections_list-by-week",
+      "description": "Detection counts bucketed by week (the trend series behind a monthly report chart). Response returned verbatim. Required: x-tenant-id. Optional: startDate, endDate, type.",
+      "method": "GET",
+      "path": "/alert-groups/alert-groups-by-week",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window start. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window end. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Detection family: CR (Cloud Response: M365, Google Workspace, Cisco Duo) or MDR (endpoint..."
+        }
+      ]
+    },
+    {
+      "name": "detections_list-top-by-entity",
+      "description": "Ranks the hosts and users with the most detections. Response returned verbatim. Required: x-tenant-id. Optional: startDate, endDate, detectionType (plus 2 more).",
+      "method": "GET",
+      "path": "/alert-groups/top-detections-by-entity",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window start. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window end. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "detectionType",
+          "type": "string",
+          "location": "query",
+          "description": "Detection family: CR (Cloud Response: M365, Google Workspace, Cisco Duo) or MDR (endpoint products)."
+        },
+        {
+          "name": "entityName",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to one entity (host or user)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max entities to return."
+        }
+      ]
+    },
+    {
+      "name": "detections_list-top-by-threat",
+      "description": "Ranks the threat types behind the most detections. Response returned verbatim. Required: x-tenant-id. Optional: startDate, endDate, detectionType (plus 1 more).",
+      "method": "GET",
+      "path": "/alert-groups/top-detections-by-threat",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window start. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Window end. ISO 8601 date-time. Defaults to the last 90 days when omitted."
+        },
+        {
+          "name": "detectionType",
+          "type": "string",
+          "location": "query",
+          "description": "Detection family: CR (Cloud Response: M365, Google Workspace, Cisco Duo) or MDR (endpoint products)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Max threat types to return."
+        }
+      ]
+    },
+    {
+      "name": "external_exposures_get",
+      "description": "Findings from one external (perimeter) scan. Pick the scan with `scans --type external`. Response returned verbatim. Required: x-tenant-id, scanId.",
+      "method": "GET",
+      "path": "/vulnerability-management/external/scan/exposures/{scanId}",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "scanId",
+          "type": "string",
+          "location": "path",
+          "description": "External scan id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "google_onboardings_get",
+      "description": "Get the state of an onboarding. Required: onboardingId, tenantId. Returns the GoogleOnboarding.",
+      "method": "GET",
+      "path": "/cloud/google/onboardings/{onboardingId}",
+      "params": [
+        {
+          "name": "onboardingId",
+          "type": "string",
+          "location": "path",
+          "description": "Onboarding id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "google_onboardings_list",
+      "description": "List the states of the onboardings a customer has completed or in progress. Required: tenantId. Returns array of GoogleOnboarding.",
+      "method": "GET",
+      "path": "/cloud/google/onboardings",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_approve-country",
+      "description": "Post iso country to ms365 connection authorized country list. Body: {code}. Required: connectionId, tenantId, code. Returns array of IsoCountry.",
+      "method": "POST",
+      "path": "/cloud/ms365/connections/{connectionId}/iso-country",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 3166 alpha-2 code.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_approve-user-country",
+      "description": "Adds an authorized country to user. Body: {isoCountryCode, startDate?, endDate?}. Required: connectionId, userId, tenantId, isoCountryCode. Optional: endDate, startDate. Returns the new Ms365UserCountry.",
+      "method": "POST",
+      "path": "/cloud/ms365/connections/{connectionId}/users/{userId}/isoCountry",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 user id, from `ms365 list-users`.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window end."
+        },
+        {
+          "name": "isoCountryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Iso country code",
+          "required": true
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window start."
+        }
+      ]
+    },
+    {
+      "name": "ms365_get-connection",
+      "description": "Get cloud ms365 connections by ID. Includes onboarding stage, policy config, CIS benchmarks and events. Required: connectionId, tenantId. Returns the Ms365Connection.",
+      "method": "GET",
+      "path": "/cloud/ms365/connections/{connectionId}",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_list-approved-countries",
+      "description": "List m365 connection approved countries. Returns the connection with authorizedCountries. Required: connectionId, tenantId.",
+      "method": "GET",
+      "path": "/cloud/ms365/connections/{connectionId}/iso-country",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_list-connections",
+      "description": "Get cloud ms365 customer. Returns the tenant with its ms365DefensePackages (one per connected Microsoft 365 tenant). Required: tenantId.",
+      "method": "GET",
+      "path": "/cloud/ms365/customer",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_list-user-countries",
+      "description": "Get active isoCountries for a given user. Required: connectionId, userId, tenantId. Optional: take (default: 100), skip (default: 0). Returns the Ms365UserCountryPage.",
+      "method": "GET",
+      "path": "/cloud/ms365/connections/{connectionId}/users/{userId}/active-countries",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 user id, from `ms365 list-users`.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        }
+      ]
+    },
+    {
+      "name": "ms365_list-users",
+      "description": "Get ms ms365 defense connection's users. Required: connectionId, tenantId. Optional: take (default: 100), skip (default: 0), sortDirection (default: ASC) (plus 4 more). Returns the Ms365UserPage.",
+      "method": "GET",
+      "path": "/cloud/ms365/connections/{connectionId}/users",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "take",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to return."
+        },
+        {
+          "name": "skip",
+          "type": "int",
+          "location": "query",
+          "description": "Rows to skip, for paging."
+        },
+        {
+          "name": "sortDirection",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "emailOrNameLike",
+          "type": "string",
+          "location": "query",
+          "description": "Substring match on email or name."
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by enabled."
+        },
+        {
+          "name": "licensed",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by licensed."
+        }
+      ]
+    },
+    {
+      "name": "ms365_remove-country",
+      "description": "Delete iso country from ms365 connection authorized country list. The country is a `code` query parameter. Required: connectionId, tenantId, code. Returns array of IsoCountry. Destructive.",
+      "method": "DELETE",
+      "path": "/cloud/ms365/connections/{connectionId}/iso-country",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "location": "query",
+          "description": "ISO 3166 alpha-2 code to remove.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ms365_remove-user-country",
+      "description": "Deletes an authorized country from user. Required: connectionId, userId, isoCountryId, tenantId. Destructive.",
+      "method": "DELETE",
+      "path": "/cloud/ms365/connections/{connectionId}/users/{userId}/isoCountry/{isoCountryId}",
+      "params": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 connection id (ms365DefensePackages[].id from `ms365 list-connections`).",
+          "required": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "location": "path",
+          "description": "M365 user id, from `ms365 list-users`.",
+          "required": true
+        },
+        {
+          "name": "isoCountryId",
+          "type": "string",
+          "location": "path",
+          "description": "Approved-country record id.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer tenant id (UUID).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "posture_get-rating",
+      "description": "Score, maximumScore, maturityLevel and every metric row. maximumScore varies by edition (50 and 120 observed); a row with metricApplied false deducts nothing. Required: x-tenant-id. Optional: includeNonDeductions. Returns the PostureRating.",
+      "method": "GET",
+      "path": "/security-posture/rating",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "includeNonDeductions",
+          "type": "bool",
+          "location": "query",
+          "description": "Include metric rows that produced no deduction."
+        }
+      ]
+    },
+    {
+      "name": "reports_get-json",
+      "description": "The report payload, verbatim. `report` is polymorphic by reportType; the legacy Executive payload keys executiveSummary alongside the current securityPosture. Required: x-tenant-id, reportId. Returns the ReportJson.",
+      "method": "GET",
+      "path": "/reports/{reportId}/json",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report run id, from `reports list`.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_list",
+      "description": "Generated report runs for one tenant. startDate/endDate filter on intervalStart (inclusive). Required: x-tenant-id. Optional: reportType, startDate, endDate (plus 4 more). Returns array of ReportRun.",
+      "method": "GET",
+      "path": "/reports",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "reportType",
+          "type": "string",
+          "location": "query",
+          "description": "Report type."
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Keep runs whose intervalStart \u003e= this."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Keep runs whose intervalStart \u003c= this."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (default desc)."
+        }
+      ]
+    },
+    {
+      "name": "scans_list",
+      "description": "Scan runs and their status. A tenant with no recent completed scan has no coverage, not a clean bill of health. Required: x-tenant-id. Optional: search, type, status (plus 7 more). Returns array of Scan.",
+      "method": "GET",
+      "path": "/vulnerability-management/scans",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search over scans."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Scan type."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Scan state."
+        },
+        {
+          "name": "assetId",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to scans of this asset."
+        },
+        {
+          "name": "createdOnStart",
+          "type": "string",
+          "location": "query",
+          "description": "Created at or after."
+        },
+        {
+          "name": "createdOnEnd",
+          "type": "string",
+          "location": "query",
+          "description": "Created at or before."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field (default createdOn)."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (ASC or DESC)."
+        }
+      ]
+    },
+    {
+      "name": "tenants_get",
+      "description": "Returns one tenant with its status, contact group (and members) and report/alert email lists. Required: accountId, tenantId.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/tenants/{tenantId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "Partner account id that owns the tenant.",
+          "required": true
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant id, from `tenants list`.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_list",
+      "description": "Lists the customer tenants this token can reach. It takes no x-tenant-id header; it is what produces the tenant ids the scoped commands need. `search` matches both tenant id and name. Check `type` (SELF is the MSP's own tenant) before running customer reports. Optional: page (default: 1), pageSize (default: 50), search (plus 3 more). Returns array of TenantSummary.",
+      "method": "GET",
+      "path": "/tenants",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Matches tenant id and name."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to one partner account."
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Portal users visible to this token. Response returned verbatim; 403 means the key is not entitled. Optional: page, pageSize, search.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search."
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_list",
+      "description": "CVE-level findings for one tenant with severity, scores and affected-asset counts. 403 when the account is not entitled to vulnerability management; tenant scoping via x-tenant-id has not been verified against a live tenant. Required: x-tenant-id. Optional: search, severity, status (plus 12 more). Returns array of Vulnerability.",
+      "method": "GET",
+      "path": "/vulnerability-management/vulnerabilities",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "type": "string",
+          "location": "header",
+          "description": "Customer tenant id (UUID), sent as the x-tenant-id header.",
+          "required": true
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text search over findings."
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "location": "query",
+          "description": "Severity filter value."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Finding status filter."
+        },
+        {
+          "name": "ids",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to these vulnerability (CVE) ids."
+        },
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict to findings on one device."
+        },
+        {
+          "name": "exploitability",
+          "type": "string",
+          "location": "query",
+          "description": "Known exploited in the wild (Attacked) or not."
+        },
+        {
+          "name": "prioritized",
+          "type": "bool",
+          "location": "query",
+          "description": "Only vendor-prioritized findings."
+        },
+        {
+          "name": "hasAffectedAssets",
+          "type": "bool",
+          "location": "query",
+          "description": "Only findings with at least one affected asset."
+        },
+        {
+          "name": "hideResolvedVulnerabilities",
+          "type": "bool",
+          "location": "query",
+          "description": "Exclude resolved findings."
+        },
+        {
+          "name": "foundAfter",
+          "type": "string",
+          "location": "query",
+          "description": "First seen after."
+        },
+        {
+          "name": "foundBefore",
+          "type": "string",
+          "location": "query",
+          "description": "First seen before."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "1-based page number."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Rows per page."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field (default name), e.g. baseScore, severity, foundOn, lastSeenOn, assetsAmount, exploitability."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction (ASC or DESC)."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant detection queue",
+      "command": "triage",
+      "description": "One oldest-first queue of open detections across every customer tenant, with tenant name, age, alert count and ticket status. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Client report bundle",
+      "command": "client-report",
+      "description": "Live: build one client's reporting-window summary from six CompassOne endpoints (posture, detection count and weekly trend, top entities and threats, latest report run per type). Needs BLACKPOINT_API_TOKEN; failed sections are listed under fetch_failures."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "gaps",
+      "description": "Find tenants with no recent completed scan, no or empty escalation contact group, or no posture rating; scans_unknown, contacts_unknown or posture_unknown means that data could not be fetched. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Stale agents",
+      "command": "stale-agents",
+      "description": "List devices across every tenant whose agent has not reported in N days or never checked in, with Defender status; decommissioned devices are skipped unless --include-decommissioned. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "CVE spread",
+      "command": "cve-spread",
+      "description": "Rank unresolved CVEs by how many tenants and assets they affect; --exploited or --prioritized narrows the list. Needs the vulnerability-management entitlement: when every tenant's fetch was refused (403) it fails instead of returning an empty list. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Tenant overview",
+      "command": "overview",
+      "description": "One offline current-state view of a tenant: open detections, stale devices, exploited or prioritized CVEs, last scans, posture, dark-web exposure counts, cloud connection state and escalation contacts. Reads the local store, so run fleet-sync first; an unknown tenant or a store with no fleet data exits 3 (not found)."
+    },
+    {
+      "name": "Posture leaderboard",
+      "command": "leaderboard",
+      "description": "Rank tenants by security posture score as a share of their maximum, with maturity level and weakest NIST function. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Geo policy audit",
+      "command": "geo-audit",
+      "description": "Audit Cloud Response approved countries per connection and per user; flag expired or expiring travel exceptions and broad allow-lists. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Pull every tenant's detections, devices, vulnerabilities, scans, exposures, posture, contact groups and approved countries into the local store; failed or incomplete fetches are kept, reported under fetch_failures, and flagged by the readers."
+    }
+  ]
+}

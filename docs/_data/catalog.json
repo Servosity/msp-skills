@@ -1,5 +1,5 @@
 {
-  "count": 84,
+  "count": 85,
   "connectors": [
     {
       "slug": "abnormal",
@@ -182,6 +182,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/bitdefender/"
+    },
+    {
+      "slug": "blackpoint",
+      "display_name": "Blackpoint Cyber",
+      "tagline": "Blackpoint Cyber CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant view of open detections, stale agents and coverage gaps.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/blackpoint/"
     },
     {
       "slug": "blumira",
