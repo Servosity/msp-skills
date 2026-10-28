@@ -1699,6 +1699,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:synology",
+      "displayName": "Synology",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/SKILL.md",
+      "description": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Is every client NAS OK? One row per NAS with backup outcomes, stale devices, worst storage state and sync age.",
+        "Which Active Backup jobs failed, partially failed or never ran in the last 24 hours?",
+        "Which machines dropped out of protection in the last 30 days: removed from a task, task deleted, or schedule turned off?",
+        "Which PCs, servers and VMs have had no successful backup in 36 hours, or never had one?",
+        "Which volumes, pools or disks are degraded, failing, hot or nearly full, and how many days until full?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/synology.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:tactical-rmm",
       "displayName": "Tactical RMM",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

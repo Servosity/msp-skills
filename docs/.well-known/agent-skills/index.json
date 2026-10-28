@@ -604,6 +604,13 @@
       "digest": "sha256:fd6a774df99358b74f98a1364ce754065d4568a7eacece9dd11ef5e4ccac6149"
     },
     {
+      "name": "synology",
+      "type": "skill-md",
+      "description": "Use when the user asks whether client Synology NAS backups succeeded, which machines have not backed up, or how client NAS storage is doing: mirrors Synology Active Backup for Business jobs and storage health from every registered client NAS (one DSM login each, two-factor supported) into one local database, then answers failed and missed runs, stale devices, which task protects a machine, why a task failed, success-rate trends, machines that dropped out of protection, unusual backup sizes, and degraded pools, bad disks or volumes about to fill across all of them. Also reads Hyper Backup, storage, system health, logs, users and groups per NAS. Trigger phrases: `did last night's synology backups succeed`, `active backup for business failures`, `which machines have not backed up`, `which client nas is running out of space`, `check synology nas disk health`, `why did the synology backup fail`, `use synology`, `run synology-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/SKILL.md",
+      "digest": "sha256:ade69760f89fb239ed88cbae593540e37aa6633553dbcdf2a6cf47bb9d80336b"
+    },
+    {
       "name": "tactical-rmm",
       "type": "skill-md",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`.",
