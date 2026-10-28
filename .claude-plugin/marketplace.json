@@ -1543,6 +1543,21 @@
       ]
     },
     {
+      "name": "vsphere",
+      "source": "./skills/vsphere",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "vsphere",
+        "vmware",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",

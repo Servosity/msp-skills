@@ -674,6 +674,13 @@
       "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
     },
     {
+      "name": "vsphere",
+      "type": "skill-md",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use. Trigger phrases: `inventory our vcenter`, `what blocks the vmware migration`, `how many cores will broadcom charge us`, `find old vmware snapshots`, `export rvtools from vcenter`, `use vsphere`, `run vsphere-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "digest": "sha256:63105574aa4f24db496ed2b25ebd7e984ef1f6597c50d24f9596ac0a09d26f83"
+    },
+    {
       "name": "warranty",
       "type": "skill-md",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror. Trigger phrases: `is this laptop still under warranty`, `warranty end date for serial`, `which devices go out of warranty this quarter`, `dell warranty lookup`, `lenovo warranty lookup`, `use warranty`, `run warranty-cli`.",

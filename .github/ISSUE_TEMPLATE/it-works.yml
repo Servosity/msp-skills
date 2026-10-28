@@ -115,6 +115,7 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - vsphere
         - warranty
         - watchguard
         - wordpress

@@ -1,0 +1,862 @@
+{
+ "slug": "vsphere",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "vcenter-session-login",
+   "class": "auth-wire",
+   "summary": "vCenter accepts Basic credentials only at login: a transport trades them for a session id per API (POST /api/session for the Automation API; the VI/JSON SessionManager Login, its moId read from the unauthenticated ServiceInstance content) and every data call carries only the vmware-api-session-id header. An expired session is replaced once; a refused login is remembered per credentials so a fan-out cannot lock the account; VSPHERE_TLS_FINGERPRINT pins self-signed vCenter certificates.",
+   "why": "The spec can only declare http basic; without the transport every data call sends the password and vCenter answers 401. Hand file internal/client/vsphere_session.go, installed on every CLI, novel and MCP client by the registerClientHook in internal/cli/vsphere_guard.go (it replaces the 4.33.5 print's vsphere_hooks.go, so the origin pin wraps the session transport). Sources: developer.broadcom.com vSphere Automation API (POST /api/session) and the VI/JSON API guide (SessionManager Login, vCenter 8.0 U1). Tests: internal/client/vsphere_session_test.go, TestGuardWrapsTheSessionTransport.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "contains": "func (c *Client) InstallVsphereTransport() error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "contains": "clone.Header.Set(SessionHeader, id)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vsphere_guard.go",
+     "contains": "if err := c.InstallVsphereTransport(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/vsphere_session_test.go",
+     "contains": "func TestSessionExchangeBothAPIs(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sessions-memory-only",
+   "class": "secret-echo",
+   "summary": "vCenter session ids are minted, held for the output chokepoint and kept in memory for the run only; nothing writes them to disk (the 4.33.5 print kept a 0600 session cache under the cache dir).",
+   "why": "Work order: nothing but the 0600 credential store holds a credential, and a minted token is a credential. The cost is one login per CLI invocation (sessions expire on vCenter's idle timeout); README Credential safety says so. TestSessionExchangeBothAPIs scans HOME and the XDG dirs for both session ids after a second client logs in; TestNoCredentialInAnyWrittenFile checks the credential store holds none either.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "contains": "credkit.Hold(\"minted:session\", id)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "not_contains": "func (t *sessionTransport) writeCached("
+    },
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "not_contains": "vcenter-sessions"
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/blackbox_test.go",
+     "contains": "holds a session id; sessions live in memory only",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-path-param-examples",
+   "class": "docs",
+   "summary": "spec.yaml gives every path parameter a runnable example (vm-1021, host-10, datastore-11, domain-c8, a tag urn) and drops the 'The parameter must be an identifier for the resource type' boilerplate, so 4.34.x emits Example strings and pp:happy-args and the MCP parameter descriptions are not cut before the example.",
+   "why": "Press 4.34.0 emits only runnable examples (press-traps section 1); the MCP schema cuts parameter descriptions near 120 characters, which left '(e.g.' with nothing after it. Spec-encoded (tools/spec_repair.py on the library spec), so it survives a reprint by construction. Replaces the 4.33.5 print's hand-added Example lines.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "(e.g. vm-1021)",
+     "min_count": 20
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "(e.g. urn:vmomi:InventoryServiceTag:"
+    },
+    {
+     "file": "cli/internal/cli/vm_get.go",
+     "contains": "Example:",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-tool-descriptions",
+   "class": "docs",
+   "summary": "Four MCP tool descriptions (resource_pool_get, tagging_tag_get, vi_vm_summary, vm_get) say which id they take and what they return instead of the generator's 'Returns array of string'.",
+   "why": "Carried from the 4.33.5 print's polish (mcp-descriptions.json). Re-applied to tools.go and tools-manifest.json by tools/apply_mcp_descriptions.py without mcp-sync, which would regenerate main.go, walker.go and tools.go and drop the credential-rule lines (press-traps section 4).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Retrieves one resource pool by id (resgroup-N, from resource_pool_list).",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Returns the full configuration of one virtual machine by id (vm-N, from vm_list).",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request and redirect hop goes only to the scheme, host and port of VSPHERE_BASE_URL (or the config file); anything else is refused before it is resolved, dialled or given the password or a session id. The pin wraps the session transport, whose logins go to that same origin.",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/vsphere_guard.go, registered with registerClientHook, so every CLI, novel fan-out and MCP client gets it). Byte-exact ASCII-folded origins; a host with a non-ASCII byte never matches. The session transport also refuses credentials over plain http except to loopback. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestGuardWrapsTheSessionTransport, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/vsphere_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origins: origins, next: next}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vsphere_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vsphere_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw vCenter bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (vsphere_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/vsphere_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values before they reach the store. A value or id that repeats a held credential, and every other SQL statement, is judged by the credential kit (credkit-sqlite-every-handle).",
+   "why": "Work order: no credential in files. store.go carries 4 lines re-applied by tools/apply_credential_rules.py; Open uses WithholdingSQLiteDriver (hand file internal/store/vsphere_withhold_driver.go, from the cisco-umbrella Codex r1 class store-write-bypasses-chokepoint). The class credential-split-across-sql-bindings is left to the fleet credential filter the publish step adopts (orchestrator ruling 2026-10-27). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes vCenter state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/vsphere_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReadsAndLogins (black-box) checks a full MCP battery sends only GETs and the two logins.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/vsphere_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsAndLogins(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (logins only, sessions in memory, origin pin, what output withholds, only credentials.toml holds a credential) and no longer promise a five-minute response cache; the README, SKILL and AGENTS template text is vSphere-specific (session login, read-only, per-vCenter URL); the MCPB manifest asks for VSPHERE_BASE_URL and the optional VSPHERE_TLS_FINGERPRINT.",
+   "why": "Generated template text that does not fit this CLI. tools/docs_patch.py (from the 4.33.5 print), tools/apply_docfixes.py and tools/manifest_patch.py; re-run after dogfood, shipcheck and promote, which re-render these files.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "VSPHERE_TLS_FINGERPRINT"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdicts-shown",
+   "class": "auth-wire",
+   "summary": "doctor verifies the credential with GET /api/session (the session transport logs in first): 2xx valid, 401 invalid, 403 scope-limited, 404 an ERROR on both rows naming VSPHERE_BASE_URL (not a vCenter Server); the placeholder verdict names VSPHERE_BASE_URL. A verdict word is not a credential, so the kit prints it (TestDoctorShowsItsCredentialsVerdict).",
+   "why": "The generated doctor never probed the credential, and the name-based member redaction turned every credentials verdict into [redacted] and held it, so check_doctor_truth saw one identical verdict for a working, expired and wrong-base install. A reprint regenerates doctor.go and drops the probe and the mark loop.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "const verifyPath = \"/api/session\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "base_url is a placeholder); set VSPHERE_BASE_URL"
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/local_preview_test.go",
+     "contains": "func TestDoctorShowsItsCredentialsVerdict",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-save-no-credential-outside-store",
+   "class": "secret-echo",
+   "summary": "config.toml never keeps a credential field: persisted() strips the base URL userinfo and credential-named query values (cliutil.StripURLCredentials) and drops credential-named headers. config.toml, the legacy config and credentials.toml are credential sources the kit reads at startup (Declarations.Files), so their writes are the declared exemption (cliutil.AtomicWriteCredentialFile) and never pass the kit. With the .agentcookie-managed marker the external store owns config.toml, so that file keeps the credential fields at 0600 and stays a declared source.",
+   "why": "Codex r1 class file-sink-bypasses-chokepoint: VSPHERE_HOME=/tmp/vc-save VSPHERE_BASE_URL='https://ro:UrlOnlyPw-Q7n9@vc.example' vsphere-cli auth set-credentials readonly@vsphere.local LoginPw-A8s4 wrote UrlOnlyPw-Q7n9 into config/config.toml; dropping typed password fields did not cover URL passwords or credential headers. save(), persisted() and scrubLegacyCredentials are generated: a reprint restores the unchecked write. TestSaveKeepsCredentialsOutOfTheConfigFile and TestLegacyScrubKeepsCredentialsOutOfTheLegacyFile fail on it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "safe := persisted.persisted()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "BaseURL:       cliutil.StripURLCredentials(c.BaseURL),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "Headers:       persistableHeaders(c.Headers),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/vsphere_save_test.go",
+     "contains": "func TestSaveKeepsCredentialsOutOfTheConfigFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/vsphere_save_test.go",
+     "contains": "func TestLegacyScrubKeepsCredentialsOutOfTheLegacyFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/publish_classes_test.go",
+     "contains": "func TestAgentcookieConfigIsADeclaredCredentialFile",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-every-write-confirm",
+   "class": "write-safety",
+   "summary": "Every MCP tool that is not a proven read previews and acts only with confirm boolean true: vendor writes, every local writer (learnings forget/confirm/reject, teach*, playbook amend, sync, export, workflow archive) and any unclassified tool, mirrored or typed. A mirrored tool is ungated only when its command carries mcp:read-only (or is read-only-unless-flags under the MCP read-only switch); an unproven read-only mark is cleared so the read-only switch drops the tool. A preview starts the CLI only for commands that declare a write-free preview (preview-flag, sends-with-yes, read-only-unless-flags, vsphere:dry-run-preview); everything else, every local writer included, previews by echoing the call: the tool, the command and the argument names, never a value (a value may become a held credential later in the session). The registered-tools test is an allowlist of proven reads, so a new tool fails it until classified. manifest.json and server.json say vCenter is only read and local writes need confirm.",
+   "why": "Codex r1 class mcp-write-without-confirm: {\"name\":\"learnings_forget\",\"arguments\":{\"query\":\"find application\",\"all\":true}} deleted without confirm because the gate exempted local writers (mirrorLocalOnlyCommands, mcp:local-write), and the manifest claimed every tool was read-only. TestLocalAndUnclassifiedWritersNeedConfirm, TestRegisteredMirroredWritesNeedConfirm and TestLearningsForgetWithoutConfirmOnlyPreviews fail on it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "if marked && found && (isMCPReadOnly(cmd) || (readOnlyMode && len(readOnlyUnlessFlagNames(cmd)) > 0)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "s.AddTool(tool, mirrorConfirmGate(name, name, nil, entry.Handler, nil, declaredArguments(tool)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "localWrite := mirrorLocalWriters[path] || (found && isMCPLocalWrite(cmd))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "\"argument_names\":        names,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm_local_test.go",
+     "contains": "func TestLocalAndUnclassifiedWritersNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/vsphere_confirm_registered_test.go",
+     "contains": "var provenReads = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/vsphere_confirm_registered_test.go",
+     "contains": "func TestLearningsForgetWithoutConfirmOnlyPreviews(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "manifest.json",
+     "contains": "act only with confirm set to true, and this switch hides them"
+    },
+    {
+     "file": "server.json",
+     "contains": "act only with confirm set to true, and this switch hides them"
+    }
+   ]
+  },
+  {
+   "id": "mcp-local-writer-preview",
+   "class": "write-safety",
+   "summary": "An unconfirmed MCP call refuses a host-file flag by name before it previews. A local writer listed in LocalWriterDryRunPreviews previews through its --dry-run, so ordinary flags reach the CLI; every other unproven tool echoes and starts nothing. sync --dry-run walks a scratch store and leaves the operator's untouched.",
+   "why": "check_mcp_file_flags.py blocks a preview that drops a path flag silently or never forwards an ordinary flag. TestLocalWriterPreviewsChangeNothing runs every listed command through the real MCP server and CLI, on a seeded and a fresh home, with a confirm control proving the snapshot sees a write; it found sync --dry-run creating and rewriting the store.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "var LocalWriterDryRunPreviews = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm.go",
+     "contains": "if err := validateMCPArgumentNames(rest, declared); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "os.MkdirTemp(\"\", \"vsphere-sync-preview-\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/vsphere_confirm_fileflags_test.go",
+     "contains": "func TestPreviewRefusesFileFlagsAndForwardsOrdinaryFlags(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/local_preview_test.go",
+     "contains": "func TestLocalWriterPreviewsChangeNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every client, feedback, webhook and probe request goes through credkit.Transport (for the API client, under the vCenter session transport, so the guard judges what is really sent); every file write except the 0600 credential store and the config files goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes; rvtools export writes each row as one unit of a stream.",
+   "why": "The hand-wired layer (cliutil/vsphere_output.go, vsphere_secrets.go, vsphere_outbound.go, secret_funnel.go, the store driver and the cli and mcp filters) duplicated what the kit now owns for every connector. One contract, one matcher and one set of sinks replace it, and a matcher fix reaches this connector by vendoring.",
+   "spec_encode_followup": "Press-side: generate main, the sinks and a Declarations literal against the kit, and let a session-exchange transport wrap the guard rather than the reverse.",
+   "asserts": [
+    {
+     "file": "cli/cmd/vsphere-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-cli/main.go",
+     "contains": "credkit.Exit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "contains": "credkit.Exit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/vsphere_session.go",
+     "contains": "st := &sessionTransport{base: OutboundGuard(tr)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "contains": "credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rvtools_export.go",
+     "contains": "sink := credkit.NewWriter(tmp, credkit.SinkFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/sinks_test.go",
+     "contains": "func TestEveryHTTPClientIsGuarded",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheKit",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter that credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a read-only handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "credsql",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "credsql.LengthLimitParam",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit's startup discovery (credentialFiles in internal/credwire/declarations.go) reads the command line as the program does: it builds cli.RootCmd, lets Cobra pick the command and pflag parse its flags, then resolves --config and --home with config.ReadPaths. When argv does not parse it declares every candidate. holdSetCredentialsArgs holds the positional words after set-credentials, which reach the store before any file read, dashed ones included.",
+   "why": "A hand argv scanner reads a flag value as a flag, so it can hold the wrong config file, leave the real credential unheld, and let the program persist it.",
+   "spec_encode_followup": "Press-side: generate the declarations' Files from the command tree the CLI executes, never a hand argv scan.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if configPath, home, ok := cobraPathFlags(args); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.Hold(\"config:password\", a)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestCredentialFilesReadsArgvLikeCobra",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-url-credentials-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Startup holds the password and every query value of each URL setting with the kit's own reader: credkit.HoldURL over VSPHERE_BASE_URL and VSPHERE_FEEDBACK_ENDPOINT (internal/credwire holdURLSettings), and over the base_url of every file Declarations.Files names (config.HoldBaseURLs, cliutil.HoldConfigBaseURLs); the per-read hold of a config file routes base_url through credkit.HoldURL too. VSPHERE_FEEDBACK_ENDPOINT is a Declarations.URLEnv entry. HoldURL reads the password in an address with a typo (https//u:pw@h, u:pw@h, https;//, https ://) at any length, numbers included, which the kit's BaseURL reader misses. No URL inside free text (argv words, a feedback note, a --deliver value, a profile description) is read: contract section 1 does not list it.",
+   "why": "Review inputs: VSPHERE_BASE_URL='https//u:87654321@127.0.0.1:1' vm list --json, doctor and doctor --json printed the numeric password; VSPHERE_FEEDBACK_ENDPOINT='https://u:!!!@feedback.example:bad/' feedback note --send printed the short one; the same base_url in config.toml and credentials.toml printed it too. The hand-written readers that replaced it (holdBrokenURLPassword, holdUserinfoPassword, HoldURLCredentials) filtered by length and digits; the kit's reader has no filter.",
+   "spec_encode_followup": "Press-side: hold URL settings with credkit.HoldURL in the generated startup discovery; kit-side: let BaseURL and URLEnv read through HoldURL so no connector needs this.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"userinfo\", v)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "URLEnv: []string{\"VSPHERE_FEEDBACK_ENDPOINT\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "config.HoldBaseURLs(files)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func HoldBaseURLs(paths []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldURL(\"userinfo\", v.value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldURL(\"userinfo\", s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/url_setting_test.go",
+     "contains": "func TestURLSettingPasswordNeverPrinted",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/review_classes_test.go",
+     "contains": "func TestBrokenBaseURLNeverPrintsItsPassword",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-profiles-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A run-profile store (profiles.json) is read at startup and filtered, not held whole: a value is held when it is under a flag a run profile does not apply (cli.RunProfileFlagAllowed: a flag this CLI lacks, or a credential flag's name), every member of a duplicate key included (eachProfileValue walks the JSON tokens; json.Unmarshal keeps only the last); a value under an allowed base-url flag gives up what credkit.HoldURL reads; a store that does not parse as the program reads it is held by credkit.HoldBody. Free text (a description, a URL in a --deliver value) is not read.",
+   "why": "A profile is applied after the kit started. Listing it in Declarations.Files would hold every saved flag value, so an ordinary --select would withhold ordinary output. Ruling 19 / publish-common item 8(c) as corrected 2026-11-04: profile values under a credential flag's name or base-url are sources; free text is not.",
+   "spec_encode_followup": "Press-side: generate this hold with the profile store.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldRunProfileStore(data []byte, allowed func(flag string) bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func eachProfileValue(data []byte, f func(flag, value string)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldRunProfileStore(data, cli.RunProfileFlagAllowed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func RunProfileStorePaths() []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/publish_classes_test.go",
+     "contains": "func TestRunProfilesAreHeldAtStartup",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcp-child-handoff",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A mirrored MCP tool runs the companion CLI with cmd.Env = mcpChildEnviron() and credkit.RunCommand(cmd), nothing on stdin: the kit hands each credential variable (VSPHERE_PASSWORD, a held VSPHERE_USERNAME, VSPHERE_FEEDBACK_ENDPOINT with a credential) down its inherited pipe to its own <x>-cli beside <x>-mcp, and credkit.Start in the child sets it again. mcpChildEnviron drops only the MCP-child marker (replaced) and the stdio build's unused VSPHERE_MCP_HTTP_TOKEN, as the press generated it. The hand-written stdin hand-off (cliutil.CredentialHandoff, ReadCredentialHandoff) is deleted.",
+   "why": "Kit fix tools/credkit-fix1: the kit now hands a companion child the variables it would refuse, so the connector's own hand-off duplicated it. Proved on the built binaries: a mirrored tool logs in with the server's environment password, and a stand-in companion prints an environment with no credential and no withheld unit.",
+   "spec_encode_followup": "Press-side: generate RunCLICommand with credkit.RunCommand.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/mcp_child_env_test.go",
+     "contains": "func TestMCPShellOutGetsCredentialsThroughTheKit",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsStillPrint",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "saved-credentials-stay-with-their-vcenter",
+   "class": "credential-origin",
+   "status": "active",
+   "summary": "A credential saved on disk goes only to the vCenter it was saved for. One gate, Config.useSavedCredentials, runs on every load path immediately before a saved credential is used: the config file's own credential fields and [headers] (an agentcookie-managed file's included, before its early return) against the base_url the file names; the credentials file beside an explicit config against the base_url it recorded, else its config's; the global store against its recorded base_url, else the default config's. The target is VSPHERE_BASE_URL, else the config's base_url; origins compare with scheme and host case, default port and trailing slash folded. A refused source records a refusal (the command fails without an environment login) and the config's own credential fields and headers are dropped. Environment credentials are not saved credentials and go to the target.",
+   "why": "Review inputs (2026-11-04 kit round): the global store reached through --config <VSPHERE_HOME>/globex.toml sent A's password to B (the profile-store path had no check); config.toml [headers] Authorization / X-Api-Key / Cookie for A reached B under VSPHERE_BASE_URL=B, CLI and MCP; an agentcookie-managed c.toml skipped the check by returning early. Per-path checks left three paths open.",
+   "spec_encode_followup": "Press-side: apply one stored-credential origin gate on every load path.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) useSavedCredentials(s savedCredentials) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.useSavedCredentials(savedCredentials{label: \"the config file's credentials\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "applied = c.useSavedCredentials(savedCredentials{label: \"credentials beside the config\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "applied = c.useSavedCredentials(savedCredentials{label: \"global credentials\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.fileHoldsCredential() && named != \"\" && (c.fileNamedBaseURL || named != builtinBaseURL())",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/saved_origin_test.go",
+     "contains": "func TestSavedCredentialsGoOnlyToTheirOrigin",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/vsphereblackbox/review_classes_test.go",
+     "contains": "func TestSavedCredentialsStayWithTheirVCenter",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.fileNamedBaseURL = toml.Unmarshal(data, &named) == nil && named.BaseURL != nil",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-scope-includes-vcenter",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every local store is data-<hash>.db named for the effective base URL's normalized origin (scheme://host:port as the API origin pin reads it: case folded, default port filled, path and trailing slash ignored) and the credential, with or without a credential. There is no shared unscoped data.db: an unscoped file cannot show which vCenter wrote it, so it is never opened, claimed or adopted, and the legacy-scope adoption carries the origin too.",
+   "why": "Review input: VSPHERE_BASE_URL=A sync with no credential (rc=1) left an empty shared data.db; auth set-credentials and sync at A claimed and filled it; VSPHERE_BASE_URL=B vm get vm-1021 --data-source local (the saved credential refused at B) read data.db and printed A's ACME-DC01 for B's vm-1021 with rc=0. vm list, search, MCP sql and search did the same, and an unreachable vCenter with no credential fell back to A's rows (meta.reason api_unreachable). https://127.0.0.1 and https://127.0.0.1:443 got two stores. A MoRef repeats across vCenters. Tests: internal/vsphereblackbox/store_origin_test.go TestLocalStoreIsTheStoreOfTheEffectiveVCenter, internal/cli/store_scope_origin_test.go TestStoreScopeFollowsTheNormalizedOrigin, internal/mcp/tools_test.go (path tests updated).",
+   "spec_encode_followup": "Press-side: scope the default store by the base URL's normalized origin for every run, credential or not, and drop the unscoped data.db claim for a per-instance API.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "scopeHash := hashDefaultDBScope(storeScopeKey(origin, credential))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return \"origin=\" + origin + \"\\x00\" + credential",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return normalizedOrigin(parsed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "claimLegacyUnscopedDB("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "return unscoped"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return defaultDBPathInDir(\".\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "return \"data.db\""
+    }
+   ]
+  },
+  {
+   "id": "export-withheld-fails",
+   "class": "export-false-success",
+   "status": "active",
+   "summary": "export --output and rvtools export --out read the finished file back and exit non-zero when the kit replaced a record with its notice or left the file empty. Only a regular file is read back: a FIFO or a device already carries the notice to its reader.",
+   "why": "Review input (P2 export-read-back): mkfifo out.fifo with a reader; export vm --format jsonl --output out.fifo hung after delivering all data (os.ReadFile on the FIFO waited for a writer), and --output /dev/stdout through a pipe exited 1 with a false withheld error. Test: internal/vsphereblackbox/export_readback_unix_test.go TestExportReadsBackOnlyARegularFile.",
+   "spec_encode_followup": "Kit-side: let a caller learn that a Writer withheld a unit.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "recordWithheld(outputFile) && count > 0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if err == nil && !info.Mode().IsRegular() {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-keeps-prior-file",
+   "class": "export-truncates-prior-file",
+   "status": "active",
+   "summary": "export --output writes a regular file (or a new path) through a 0600 temp file in the same directory, through credkit.NewWriter, and renames it over the path only once the export finished; a failed export removes the temp file and leaves the previous file as it was. A FIFO or device is written in place. The command's deferred abort sees the returned error (the generated code shadowed err, so its deferred close never ran).",
+   "why": "Followup export-truncates-prior-file: export vm --output existing.json with the API answering 404 or a body that is not JSON exited non-zero but had already truncated the previous good export to empty. rvtools export already used a temp file. Test: internal/vsphereblackbox/export_keeps_prior_test.go TestFailedExportKeepsThePriorFile; internal/cli/export_perms_test.go still passes unchanged.",
+   "spec_encode_followup": "Press-side: write export --output through a temp file and rename on success.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "tmp, err := os.CreateTemp(dir, \".export-*.tmp\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "return &exportOutput{w: credkit.NewWriter(tmp, credkit.SinkFile), tmp: tmp, path: path}, nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if err := os.Rename(o.tmp.Name(), o.path); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, openErr := openExportOutput(outputFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outFile.abort()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "not_contains": "os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)"
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a bearer holding the refusal's text would get a piece of itself back.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/vsphere-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  }
+ ]
+}

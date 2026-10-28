@@ -1,0 +1,8 @@
+{
+  "descriptions": {
+    "resource_pool_get": "Retrieves one resource pool by id (resgroup-N, from resource_pool_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: resource_pool. Returns the pool's name, the ids of its child resource pools, and its CPU and memory allocation (reservation, expandable reservation, limit, shares).",
+    "tagging_tag_get": "Fetches one tag by its identifier (a urn:vmomi:InventoryServiceTag:...:GLOBAL id from tagging_tag_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: tag_id. Returns the tag's id, category_id, name, description and used_by list.",
+    "vi_vm_summary": "Basic information about one virtual machine from the VI/JSON API. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId (vm-N, the same id the Automation API returns). Returns the VirtualMachineSummary object: runtime, config, guest, storage, quickStats and overallStatus, plus any custom field values.",
+    "vm_get": "Returns the full configuration of one virtual machine by id (vm-N, from vm_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm. Returns name, guest OS, power state, hardware version, boot settings, CPU, memory, and the disks, NICs, CD-ROMs and storage adapters keyed by device id. Use the vm_hardware_* tools when you need only one device class."
+  }
+}

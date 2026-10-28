@@ -1,0 +1,105 @@
+{
+  "outcome_intro": "Ask your AI which client VMs can leave VMware today, which are blocked and why, how many cores Broadcom will bill for, and what each VM looks like on Proxmox. vsphere-cli reads vCenter with a Read-Only login and answers in seconds, as JSON your agent can act on. It never changes anything in vCenter.",
+  "instead_of_say": [
+    {
+      "instead": "Run RVTools on a Windows jump box, then sort a spreadsheet by hand to find snapshots, mounted ISOs and PVSCSI disks",
+      "say": "Which of Acme's VMs are blocked from migrating, and why?",
+      "cli": "vsphere-cli migration blockers --severity block --agent"
+    },
+    {
+      "instead": "Count sockets and cores per host and apply Broadcom's 16-core minimum in a spreadsheet",
+      "say": "How many cores will Broadcom bill us for at Northwind?",
+      "cli": "vsphere-cli licence exposure --price-per-core 350 --agent"
+    },
+    {
+      "instead": "Click through every VM's snapshot manager to find forgotten snapshots before a cutover",
+      "say": "Show me every snapshot older than a week and how much space it holds",
+      "cli": "vsphere-cli snapshots audit --older-than 7d --agent"
+    }
+  ],
+  "pain_points": [
+    "Broadcom's per-core subscriptions raised VMware bills several times over for many MSPs and their clients (ServeTheHome reported 10x or more for cloud service providers), so every client now asks what staying costs and what leaving takes.",
+    "The migration inventory still means RVTools on a Windows jump box and an afternoon of spreadsheet work per vCenter before anyone knows which VMs can move."
+  ],
+  "outcomes": [
+    {
+      "question": "Which VMs are blocked from migrating, and what is blocking each one?",
+      "command": "vsphere-cli migration blockers --severity block --agent"
+    },
+    {
+      "question": "Which snapshots are older than a week, and how much delta disk does each of those VMs carry?",
+      "command": "vsphere-cli snapshots audit --older-than 7d --agent"
+    },
+    {
+      "question": "How many licensable cores does this vCenter have under the 16-core-per-CPU minimum?",
+      "command": "vsphere-cli licence exposure --agent"
+    },
+    {
+      "question": "How much vCPU, RAM and storage does the Proxmox target need?",
+      "command": "vsphere-cli migration capacity --powered-on-only --agent"
+    },
+    {
+      "question": "Which Proxmox VE settings does this VM map to?",
+      "command": "vsphere-cli migration proxmox-map --vm vm-1021 --agent"
+    },
+    {
+      "question": "Can I get an RVTools-format export without a Windows machine?",
+      "command": "vsphere-cli rvtools export --out ./acme-rvtools"
+    }
+  ],
+  "different_vs_wrappers": "This connector answers migration questions directly: blockers with reason codes, snapshot age and size, licensable cores and Proxmox mappings come back as one JSON answer per vCenter, built from both of vCenter's JSON APIs. Tools such as govc and PowerCLI expose the raw objects well, and you still assemble these answers yourself.",
+  "different_vs_vendor": "VMware's own tooling manages vSphere; it does not tell you what leaving costs or what blocks a move. This adds read-only migration and licence answers that your AI can ask for in plain English, and it complements the vSphere Client rather than replacing it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the VMware vSphere MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my VMware data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does it change anything in vCenter?",
+      "a": "No. Every vCenter call is a read. A Read-Only role on the vCenter SSO user is enough."
+    },
+    {
+      "q": "Which vCenter versions does it support?",
+      "a": "Inventory reads need vCenter 7.0 Update 2 or later. Snapshots, licence exposure, host hardware and capacity need vCenter 8.0 Update 1 or later; on older vCenters those checks are reported as unknown, never as a pass."
+    },
+    {
+      "q": "Our vCenter uses a self-signed certificate. Will it connect?",
+      "a": "Yes. Set VSPHERE_TLS_FINGERPRINT to the certificate's SHA-256 fingerprint and the CLI accepts only that certificate. Without it, normal certificate checks apply."
+    }
+  ],
+  "governance_summary": "Every command that talks to vCenter is a read: the skill cannot power off, delete, move or reconfigure anything. It does write on your own machine (the local store, export files, saved credentials), and local-data purge erases that local data. Let agents run the read commands freely; keep credential and local-erase commands with a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "vm list, migration blockers, snapshots audit, licence exposure, migration capacity, migration proxmox-map, session, doctor",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (local files only)",
+      "examples": "sync, export --output, rvtools export --out, profile save, teach",
+      "policy": "Allow; they write only on your machine, never to vCenter"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth set-credentials, auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive (local data)",
+      "examples": "local-data purge --yes, learnings forget, learnings purge",
+      "policy": "Human-in-the-loop only; local-data purge previews unless --yes"
+    }
+  ]
+}
