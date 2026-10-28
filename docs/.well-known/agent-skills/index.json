@@ -247,6 +247,13 @@
       "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
     },
     {
+      "name": "datto-saas",
+      "type": "skill-md",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes. Trigger phrases: `audit datto saas seats`, `which backupify seats are unprotected`, `rank datto saas protection backup health`, `exit inventory for a client leaving backupify`, `plan a bulk seat license change`, `use datto-saas`, `run datto-saas`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/SKILL.md",
+      "digest": "sha256:a93557d6fe08c6f4bc3524a912118b861f9799d99f079589c028ed93a4b226c1"
+    },
+    {
       "name": "dnsfilter",
       "type": "skill-md",
       "description": "Use when the user asks about DNSFilter across every client: why a domain is blocked or allowed for one client and which policy and rule did it, allowing a domain on the policies that actually blocked it (preview first), the pending end-user unblock request queue, which client orgs have roaming clients behind the latest agent release or on a pulled build, roaming clients that went silent, unprotected or bypassed, which policies already allow or block a domain, or a policy hygiene audit. Covers every DNSFilter API operation as commands. Trigger phrases: `why is this site blocked in DNSFilter`, `allow this domain for a client in DNSFilter`, `which DNSFilter roaming clients are out of date`, `DNSFilter unblock requests`, `which clients are on the bad roaming client version`, `use dnsfilter`.",
