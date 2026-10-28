@@ -1,0 +1,176 @@
+{
+  "api_name": "domain-cert-tracker",
+  "base_url": "https://rdap.org",
+  "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "none"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "autnum_get",
+      "description": "Look up who holds an autonomous system number over RDAP. Required: asn. Returns the RdapAutnum.",
+      "method": "GET",
+      "path": "/autnum/{asn}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "asn",
+          "type": "int",
+          "location": "path",
+          "description": "Autonomous system number without the AS prefix (e.g. 15169)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "bootstrap_get-dns",
+      "description": "Read the IANA list of which RDAP server answers for each top-level domain. Returns the RdapBootstrap.",
+      "method": "GET",
+      "path": "/rdap/dns.json",
+      "base_url": "https://data.iana.org",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "certificates_find",
+      "description": "Search the Certificate Transparency log index for every certificate naming a domain. Required: domain, output (default: json). Optional: exclude, deduplicate, match. Returns array of CtCertificate.",
+      "method": "GET",
+      "path": "/",
+      "base_url": "https://crt.sh",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "domain",
+          "wire_name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Domain to search (sent as crt.sh's q parameter); prefix with %. for subdomains only (e.g. example.com)",
+          "required": true
+        },
+        {
+          "name": "output",
+          "type": "string",
+          "location": "query",
+          "description": "Output format; always json for this CLI (e.g. json)",
+          "required": true
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "location": "query",
+          "description": "Set to expired to drop expired certificates (e.g. expired)"
+        },
+        {
+          "name": "deduplicate",
+          "type": "string",
+          "location": "query",
+          "description": "Set to Y to collapse a precertificate with its final certificate (e.g. Y)"
+        },
+        {
+          "name": "match",
+          "type": "string",
+          "location": "query",
+          "description": "Match mode for q (e.g. =)"
+        }
+      ]
+    },
+    {
+      "name": "domain_get",
+      "description": "Look up a domain's registrar, expiry, lock statuses, nameservers and DNSSEC over RDAP. Required: name. Returns the RdapDomain.",
+      "method": "GET",
+      "path": "/domain/{name}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Fully qualified domain name in LDH or U-label form (e.g. example.com)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ip_get-network",
+      "description": "Look up which network and registry hold an IP address over RDAP. Required: address. Returns the RdapIpNetwork.",
+      "method": "GET",
+      "path": "/ip/{address}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "address",
+          "type": "string",
+          "location": "path",
+          "description": "IPv4 or IPv6 address (e.g. 8.8.8.8)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "nameserver_get",
+      "description": "Look up a nameserver host object and its addresses over RDAP. Required: name. Returns the RdapNameserver.",
+      "method": "GET",
+      "path": "/nameserver/{name}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Nameserver host name (e.g. a.iana-servers.net)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Client inventory",
+      "command": "clients list",
+      "description": "Keep each client's domains and hosts in one local inventory that every sweep and report walks."
+    },
+    {
+      "name": "Report",
+      "command": "report",
+      "description": "See, per client, what expires within N days, which registrations are not transfer-locked, new CT certificates and DNS drift, plus what the last sweep could not check."
+    },
+    {
+      "name": "Events feed",
+      "command": "events list",
+      "description": "Read typed events from each sweep diff (domain.expiring, cert.expiring, ct.new_cert, dns.changed, registrar.unlocked) after a cursor."
+    },
+    {
+      "name": "Sweep",
+      "command": "sweep",
+      "description": "Check every inventoried domain's registration, new CT certificates and DNS, and every inventoried host's live TLS certificate, in one run; then store the results and diff them against the last run."
+    },
+    {
+      "name": "TLS probe",
+      "command": "tls probe",
+      "description": "Handshake with a live host and get its chain, expiry, SANs, key, issuer, hostname match and OCSP must-staple as JSON."
+    },
+    {
+      "name": "Stalled renewals",
+      "command": "renewals",
+      "description": "Find hosts still serving an old certificate after a newer one was logged, or past their renewal point with no successor in CT."
+    },
+    {
+      "name": "DNS check",
+      "command": "dns check",
+      "description": "Get NS, MX, SPF, DMARC, CAA and DNSSEC for a domain as one JSON document through the system resolver."
+    },
+    {
+      "name": "Issuer anomalies",
+      "command": "issuers audit",
+      "description": "Separate certificates from issuers a domain's CAA does not permit, or a first-ever issuer, from routine renewals."
+    },
+    {
+      "name": "Unwatched hosts",
+      "command": "hosts discover",
+      "description": "List hostnames that have certificates in CT for a client's domains but are not in that client's inventory."
+    }
+  ]
+}

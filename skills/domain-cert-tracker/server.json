@@ -1,0 +1,71 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/domain-cert-tracker-mcp",
+  "title": "Domain and Certificate Tracker MCP",
+  "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/domain-cert-tracker/domain-cert-tracker-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/domain-cert-tracker"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/domain-cert-tracker-v0.1.0/domain-cert-tracker-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DOMAIN_CERT_TRACKER_BASE_URL",
+          "description": "Optional server for single lookups. Leave the default; sweep always routes each domain to its registry. A server named here is reached even on a private address or another port.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://rdap.org"
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "DOMAIN_CERT_TRACKER_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOMAIN_CERT_TRACKER_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local store or response cache; sweep is then refused.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOMAIN_CERT_TRACKER_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends to RDAP servers and crt.sh.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DOMAIN_CERT_TRACKER_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

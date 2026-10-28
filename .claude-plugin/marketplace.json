@@ -1635,6 +1635,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "domain-cert-tracker",
+      "source": "./skills/domain-cert-tracker",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "domain-cert-tracker",
+        "servosity",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -713,6 +713,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domain-cert-tracker",
+      "displayName": "Domain and Certificate Tracker",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "description": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "What expires within 30 days, lost its lock or changed, per client?",
+        "Which hosts still serve an old certificate after a newer one was logged?",
+        "Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer?",
+        "Which hostnames have certificates in CT but are not in the client's inventory?",
+        "What changed since the agent last looked, once per event, for ticketing?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
       "displayName": "Domotz",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
