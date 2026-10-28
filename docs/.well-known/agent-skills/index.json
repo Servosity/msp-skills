@@ -156,6 +156,13 @@
       "digest": "sha256:2f2635638bcb5e139cfe75e3bb3ba9cd5b582d779f65ab255350305e6248f51c"
     },
     {
+      "name": "comet-backup",
+      "type": "skill-md",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day. Trigger phrases: `which comet backups failed last night`, `comet backup health across all tenants`, `comet storage usage per customer`, `find offline comet devices`, `re-run failed comet backups`, `use comet-backup`, `run comet-backup`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/SKILL.md",
+      "digest": "sha256:84a17a947e36f9b1ff2c728cccf6894fae308cba57ce851d5a96c28b671ce8ba"
+    },
+    {
       "name": "connect-tool",
       "type": "skill-md",
       "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",

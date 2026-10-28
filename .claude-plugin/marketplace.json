@@ -1619,6 +1619,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "comet-backup",
+      "source": "./skills/comet-backup",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "comet-backup",
+        "comet backup",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

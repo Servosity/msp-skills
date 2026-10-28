@@ -470,6 +470,25 @@
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server."
     },
     {
+      "name": "comet-backup",
+      "system": "White-label backup: users, devices, jobs, policies, and storage across every tenant on an MSP's Comet server",
+      "status": "beta",
+      "skill_path": "skills/comet-backup",
+      "cli_binary": "comet-backup-cli",
+      "mcp_binary": "comet-backup-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Comet Backup",
+      "vendor_trademark_owner": "Comet Licensing Ltd",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/install.sh)",
+      "install_mcp_doc": "skills/comet-backup/mcp-install.md",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+      "verification": "awaiting",
+      "category": "Backup/DR"
+    },
+    {
       "name": "connect-tool",
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",
