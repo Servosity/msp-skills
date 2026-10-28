@@ -1359,6 +1359,29 @@
         "issue_url": null
       }
     },
+    "netsapiens": {
+      "system": "White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain",
+      "status": "beta",
+      "cli_binary": "netsapiens-cli",
+      "mcp_binary": "netsapiens-mcp",
+      "vendor": "NetSapiens",
+      "vendor_trademark_owner": "Crexendo, Inc",
+      "first_party": false,
+      "category": "Telephony",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "has_video": true,
+      "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "ninjaone": {
       "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
       "status": "live-verified",

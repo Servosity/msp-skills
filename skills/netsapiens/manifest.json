@@ -1,0 +1,109 @@
+{
+  "manifest_version": "0.3",
+  "name": "netsapiens-mcp",
+  "display_name": "NetSapiens",
+  "version": "0.1.0",
+  "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/netsapiens-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/netsapiens-mcp",
+      "args": [],
+      "env": {
+        "NETSAPIENS_API_KEY": "${user_config.netsapiens_api_key}",
+        "NETSAPIENS_SERVER": "${user_config.netsapiens_server}",
+        "NETSAPIENS_BASE_URL": "${user_config.netsapiens_base_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "NETSAPIENS_MCP_READ_ONLY": "${user_config.netsapiens_mcp_read_only}",
+        "NETSAPIENS_NO_LOCAL_DATA": "${user_config.netsapiens_no_local_data}",
+        "NETSAPIENS_MCP_HTTP_TOKEN": "${user_config.netsapiens_mcp_http_token}",
+        "NETSAPIENS_USER_AGENT": "${user_config.netsapiens_user_agent}",
+        "NETSAPIENS_MCP_UPLOAD_ROOT": "${user_config.netsapiens_mcp_upload_root}"
+      }
+    }
+  },
+  "user_config": {
+    "netsapiens_api_key": {
+      "type": "string",
+      "title": "NETSAPIENS_API_KEY",
+      "description": "Sets NETSAPIENS_API_KEY for the NetSapiens MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "netsapiens_server": {
+      "type": "string",
+      "title": "NETSAPIENS_SERVER",
+      "description": "Your NetSapiens platform host, for example pbx.yourprovider.example (ns-api.com is only the public sandbox).",
+      "required": true
+    },
+    "netsapiens_base_url": {
+      "type": "string",
+      "title": "NetSapiens API base URL (optional)",
+      "description": "Optional. Overrides the whole base URL (https://<host>/ns-api/v2) when your provider uses a different path. Leave blank to build it from the platform host.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "netsapiens_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "netsapiens_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "netsapiens_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "netsapiens_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on NetSapiens requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "netsapiens_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank. Reserved for MCP file uploads: no NetSapiens MCP tool in this release takes a file, so the server never opens a local path and this setting has no effect.",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T21:38:22.636993Z",
+    "spec_checksum": "sha256:fabe8f8434ae9190f4126702cbb94a2d39b004f2110f891b259c0d873a3a5c00",
+    "spec_format": "openapi3"
+  }
+}

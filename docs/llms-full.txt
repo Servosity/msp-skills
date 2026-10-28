@@ -1985,6 +1985,40 @@ A: Every NMM mutation (provisioning, scripted actions, backup, host power) is as
 
 Governance: The skill reads your whole NMM fleet - accounts, host pools, session hosts, Intune devices, billing - and can also make changes: create or delete host pools and reservations, power and restart session hosts, run scripted actions across accounts, and manage secure variables. Reads are safe to automate. Anything that powers, executes, deletes, or touches a stored secret should be previewed with --dry-run and approved by a human. The credential's NMM role is the real ceiling - scope it to only what your workflow needs.
 
+### NetSapiens (Telephony)
+
+Page: [NetSapiens](https://msp-skills.compoundingteams.com/skills/netsapiens.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/install.sh)
+
+Ask which clients are over their seat limit, which phones went offline, which numbers route nowhere and where E911 data is missing, and get one answer across every client domain on your NetSapiens platform. The reseller portal shows one domain at a time; this skill syncs your whole reseller into a local mirror, so each fleet-wide audit is one command.
+
+Outcomes (question -> command your AI agent runs):
+- Which clients are over or near a user, call queue, auto attendant or conference limit? -> netsapiens-cli fleet seats --flagged --json
+- Which phones are unregistered, high-latency or never provisioned? -> netsapiens-cli fleet offline --json
+- Which phone numbers route to a missing or unreachable user, queue or attendant? -> netsapiens-cli fleet dids --problems-only --json
+- Which domains, users and devices are missing an emergency caller ID or point at an unknown emergency address? -> netsapiens-cli fleet e911 --json
+- Which users had unanswered inbound calls in the last 7 days, and is their phone registered now? -> netsapiens-cli fleet missed --window 7d --json
+- Which call queues are dropping callers, and are their agents' phones registered? -> netsapiens-cli fleet queues --window 7d --json
+- What users, devices, numbers and domains were added, removed or re-pointed since my last check? -> netsapiens-cli fleet changes --json
+- Which client, user and phones does this number belong to? -> netsapiens-cli trace 6025550142 --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the NetSapiens MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my NetSapiens data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Does it work with Crexendo, OITVOIP and other white-label NetSapiens platforms?
+A: Yes. Set NETSAPIENS_SERVER to your provider's platform host and use an API key or OAuth2 access token from that platform. Without NETSAPIENS_SERVER the CLI talks to ns-api.com, which is only the NetSapiens public sandbox.
+Q: Do I need a reseller-level API key?
+A: For the fleet audits, yes: a reseller-scoped key sees every client domain. An office-manager key sees one domain, so the fleet commands then cover only that client. A read-only key is enough for every audit.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Most of what an MSP asks is read-only: the fleet audits, trace and search read the local mirror, and sync reads the API. The CLI also carries every NetSapiens v2 write, from user and number changes to live call control, API keys and domain restores. Over MCP every write previews first and sends only with confirm: true; on the CLI, preview with --dry-run. Allow reads; keep writes, credential commands and restores with a human.
+
 ### NinjaOne (RMM)
 
 Page: [NinjaOne](https://msp-skills.compoundingteams.com/skills/ninjaone.md)

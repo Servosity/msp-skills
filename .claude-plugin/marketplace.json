@@ -1387,6 +1387,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "netsapiens",
+      "source": "./skills/netsapiens",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
+      "version": "0.1.0",
+      "category": "telephony",
+      "tags": [
+        "netsapiens",
+        "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

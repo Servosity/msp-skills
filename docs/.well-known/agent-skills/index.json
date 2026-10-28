@@ -380,6 +380,13 @@
       "digest": "sha256:bb9c3cf04db8e5d709a15f47b939c8b71eff7909447d62a9ce0e9ebe7a419ff5"
     },
     {
+      "name": "netsapiens",
+      "type": "skill-md",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once. Trigger phrases: `which phones are offline`, `who owns this DID`, `which clients are over their seat limit`, `check E911 across our VoIP clients`, `missed calls report for netsapiens`, `use netsapiens`, `run netsapiens`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/SKILL.md",
+      "digest": "sha256:6481750e378eea830a810036a3ca76629271bda91e38dd8325b38549eaea0178"
+    },
+    {
       "name": "ninjaone",
       "type": "skill-md",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift. Trigger phrases: `check patch compliance in ninjaone`, `which ninjaone devices have no backup`, `ninjaone av threat sweep`, `ninjaone fleet health for an org`, `show stale ninjaone devices`, `use ninjaone`, `run ninjaone`.",
