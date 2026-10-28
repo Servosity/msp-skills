@@ -39,6 +39,7 @@ import argparse
 import datetime as dt
 import fcntl
 import hashlib
+import http.client
 import ipaddress
 import json
 import os
@@ -57,6 +58,7 @@ import threading
 import time
 import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -235,6 +237,35 @@ class _QuietHTTPServer(ThreadingHTTPServer):
         print("verify: the fake vendor's request handler raised; request data not logged", file=sys.stderr)
 
 
+def dsm_params(target: str, content_type: str, body: bytes) -> dict | None:
+    """The lower-cased query and form parameters of a Synology DSM WebAPI call:
+    an origin-form request target under /webapi/ whose `api` parameter names a
+    SYNO.* API. A body counts only when it is declared a form. None for every
+    other request, including a proxy-style target that names another host."""
+    path, _, query = target.partition("?")
+    if not path.lower().startswith("/webapi/"):
+        return None
+    sources = [query]
+    if content_type.split(";")[0].strip().lower() == "application/x-www-form-urlencoded":
+        sources.append(body.decode("utf-8", "replace"))
+    params: dict[str, str] = {}
+    for raw in sources:
+        for k, v in urllib.parse.parse_qsl(raw, keep_blank_values=True):
+            params.setdefault(k.lower(), v.lower())
+    return params if params.get("api", "").startswith("syno.") else None
+
+
+def dsm_answer(params: dict) -> dict:
+    """The {"success":true,"data":...} envelope a Synology DSM WebAPI answers
+    with: SYNO.API.Info lists the login API, SYNO.API.Auth login mints an
+    inert session, and every other call returns an empty data object."""
+    if params["api"] == "syno.api.info":
+        return {"success": True, "data": {"SYNO.API.Auth": {"path": "entry.cgi", "minVersion": 1, "maxVersion": 7}}}
+    if params["api"] == "syno.api.auth" and params.get("method") == "login":
+        return {"success": True, "data": {"sid": "verify-fake-dsm-sid", "synotoken": "verify-fake-dsm-synotoken"}}
+    return {"success": True, "data": {}}
+
+
 class FakeVendor:
     def __init__(self, log: Path, egress_log: Path):
         self.lock = threading.Lock()
@@ -276,6 +307,12 @@ class FakeVendor:
                 if self.command == "POST" and ("token" in low or "oauth" in low or b"grant_type" in body):
                     return self._reply(200, {"access_token": "verify-fake-access-token",
                                              "token_type": "Bearer", "expires_in": 3600})
+                dsm = dsm_params(self.path, self.headers.get("Content-Type") or "", body)
+                if dsm is not None:
+                    # A Synology DSM WebAPI answers every call in its own envelope,
+                    # and its client refuses a host that does not (it sends no
+                    # login until SYNO.API.Info lists SYNO.API.Auth).
+                    return self._reply(200, dsm_answer(dsm))
                 if self.command == "GET":
                     return self._reply(200, [])
                 return self._reply(200, {})
@@ -1211,8 +1248,62 @@ def self_test() -> int:
         print(f"  [{'PASS' if ok else 'FAIL'}] {mode} (allowlist expected: {expected}): "
               + "; ".join(f"{k} {v[0]}" for k, v in got.items()) + (" (token leaked into the record)" if leaked else ""))
     bad += redaction_self_test()
+    bad += dsm_self_test()
     print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
     return 0 if not bad else 1
+
+
+def dsm_self_test() -> int:
+    """The fake vendor answers a Synology DSM WebAPI call in DSM's envelope and
+    every other request exactly as before ([] for GET, {} otherwise), over HTTP."""
+    info = {"success": True, "data": {"SYNO.API.Auth": {"path": "entry.cgi", "minVersion": 1, "maxVersion": 7}}}
+    login = {"success": True, "data": {"sid": "verify-fake-dsm-sid", "synotoken": "verify-fake-dsm-synotoken"}}
+    empty = {"success": True, "data": {}}
+    form, as_json = "application/x-www-form-urlencoded; charset=utf-8", "application/json"
+    cases = [  # (method, request target, content type, body, expected reply)
+        ("GET", "/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=all", None, b"", info),
+        ("POST", "/webapi/auth.cgi", form, b"api=SYNO.API.Auth&version=6&method=login&account=a", login),
+        ("GET", "/webapi/entry.cgi?api=SYNO.API.Auth&method=logout&version=6", None, b"", empty),
+        ("GET", "/webapi/entry.cgi?api=SYNO.ActiveBackup.Inventory&method=list&version=1", None, b"", empty),
+        ("GET", "/api/v1/devices", None, b"", []),
+        ("POST", "/api/v1/devices", as_json, b'{"name":"x"}', {}),
+        ("GET", "/webapi/entry.cgi?method=list", None, b"", []),
+        ("GET", "/webapi/entry.cgi?myapi=SYNO.API.Info", None, b"", []),
+        ("GET", "/v2/devices?api=SYNO.API.Info", None, b"", []),
+        ("GET", "/v2/devices?next=/webapi/query.cgi&api=SYNO.API.Info", None, b"", []),
+        ("GET", "/proxy/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        ("GET", "/webapi/entry.cgi?api=SYNOLOGY.Info", None, b"", []),
+        # An api= inside a body that is not a form is text, not a parameter.
+        ("POST", "/webapi/entry.cgi", as_json, b'{"note":"&api=SYNO.API.Info&"}', {}),
+        ("POST", "/webapi/entry.cgi", None, b"api=SYNO.API.Info", {}),
+        # A proxy-style target names another host, whatever the case of its scheme.
+        ("GET", "HTTP://example.invalid/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        # A target that does not parse as a URL is still answered, never raised on.
+        ("GET", "HTTP://[broken/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        ("GET", "//[broken/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory(prefix="verify-dsm-") as td:
+        d = Path(td)
+        vendor = FakeVendor(d / "vendor-requests.jsonl", d / "egress-attempts.jsonl")
+        try:
+            for method, target, ctype, body, want in cases:
+                conn = http.client.HTTPConnection("127.0.0.1", vendor.srv.server_address[1], timeout=10)
+                try:
+                    conn.request(method, target, body=body or None, headers={"Content-Type": ctype} if ctype else {})
+                    raw = conn.getresponse().read()
+                    got = json.loads(raw)
+                except (OSError, http.client.HTTPException, ValueError) as e:
+                    got = f"no reply: {type(e).__name__}"
+                finally:
+                    conn.close()
+                ok = got == want
+                bad += not ok
+                kind = "DSM envelope" if isinstance(got, dict) and "success" in got else f"generic reply {got}"
+                print(f"  [{'PASS' if ok else 'FAIL'}] fake vendor {method} {target} ({ctype}): {kind}")
+        finally:
+            vendor.stop()
+    return bad
 
 
 def longest_token_run(text: str, token: str, k: int = 8) -> int:
