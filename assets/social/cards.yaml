@@ -168,6 +168,10 @@ dropsuite:
   vendor: "Dropsuite"
   example_command: "Which client backups are failing or stale?"
 
+eset-protect:
+  vendor: "ESET PROTECT"
+  example_command: "Which ESET customers need attention?"
+
 exchange-online:
   vendor: "Exchange Online"
   example_command: "Is any client mail auto-forwarding out?"

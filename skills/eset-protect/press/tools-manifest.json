@@ -1,0 +1,3262 @@
+{
+  "api_name": "eset-protect",
+  "base_url": "https://{region}.device-management.eset.systems",
+  "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports for MSP trees.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "ESET_PROTECT_USERNAME",
+      "ESET_PROTECT_PASSWORD",
+      "ESET_PROTECT_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ESET_PROTECT_USERNAME",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": false,
+        "description": "Email of the dedicated ESET Connect API user."
+      },
+      {
+        "name": "ESET_PROTECT_PASSWORD",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": true,
+        "description": "Password of the dedicated ESET Connect API user."
+      },
+      {
+        "name": "ESET_PROTECT_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "Optional pre-minted bearer access token (expires after one hour)."
+      }
+    ],
+    "key_url": "https://help.eset.com/eset_connect/en-US/"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "application-patching-processes_patch-management-list-recent-application-patching-details",
+      "description": "List the patching details of all application patching attempts performed recently (within the last few days). The list might be empty if no application patching has been performed recently. Stale data (that is, not recent) is removed from the list over the course of several days. Returns array of V1ApplicationPatchingDetails.",
+      "method": "GET",
+      "path": "/v1/application-patching-processes/recent/details",
+      "base_url": "https://{region}.patch-management.eset.systems",
+      "params": []
+    },
+    {
+      "name": "detection-groups_get",
+      "description": "Get details about a detection group. Required: detectionGroupUuid. Returns the V2GetDetectionGroupResponse.",
+      "method": "GET",
+      "path": "/v2/detection-groups/{detectionGroupUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionGroupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to requested detection group. type: DetectionGroup",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "detection-groups_list",
+      "description": "Return a list of all the [detection group]s matching criteria. Optional: cloudOfficeTenantUuid, deviceUuid, endTime (plus 3 more). Returns array of V2DetectionGroup.",
+      "method": "GET",
+      "path": "/v2/detection-groups",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [cloud office tenant] whose [detection]s should appear in the response. If empty or null, the [detection] of any cloud office tenant will be returned. For device [detection]s, it should be null or empty. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Include only [detections] occurred on the referenced [device]. If empty or null, the [detections] from any device will be included. For cloud office detections, it should remain empty or null. type: Device"
+        },
+        {
+          "name": "endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred before `end_time` (excluding)."
+        },
+        {
+          "name": "startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred after `start_time` (including). `detection.occur_time` \u003e= `start_time` Use timestamp in UTC or offset format: Examples: - 2024-10-30T12:00Z - 2024-10-30T10:00+02:00 \u003e **Info:** \u003e [Google Protobuf: Timestamp](https://protobuf.dev/reference/php/api-docs/Google/Protobuf/Timestamp.html)"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "detection-groups_resolve",
+      "description": "Mark all the [detections] in a group as resolved. Required: detectionGroupUuid. Optional: note. Returns the new V2ResolveDetectionGroupResponse.",
+      "method": "POST",
+      "path": "/v2/detection-groups/{detectionGroupUuid}:resolve",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionGroupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [detection]. type: Detection",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Arbitrary text explaining the resolution."
+        }
+      ]
+    },
+    {
+      "name": "detection-groups-search_detection-groups",
+      "description": "Search a collection for [detection groups]s matching criteria defined by the filter (if given). \u003e **Info:** \u003e [Search method](https://google.aip.dev/136#common_custom_methods) is used instead of [standard List](https://google.aip.dev/132) to provide extra filtering semantics. Optional: filter, returnTotalSize. Returns array of V2DetectionGroup.",
+      "method": "POST",
+      "path": "/v2/detection-groups:search",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "body",
+          "description": "Filter supports the following operators `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `and`, `or`, and `()`. Operators can be combined with values to filter data. For instance, `resolved eq 0` will report only unresolved detections. Nested fields are addressed by using dot notation. For example, `context.userName eq 'Hans'`. \u003e **Info:** \u003e Filter mimics the semantics [defined by Microsoft](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-odata/7d6c4117-317d-4860-915b-7e321be017e3). \u003e \u003e Filter is also a standard field from Google's perspective, despite this one uses non-Google expression language: [Standard Fields](https://google.aip.dev/148)"
+        },
+        {
+          "name": "returnTotalSize",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the `total_size` of [detection group]s collection is computed for the response."
+        }
+      ]
+    },
+    {
+      "name": "detections_get",
+      "description": "Endpoint detection from ESET PROTECT and ESET Inspect (v1). Required: detectionUuid. Returns the IncidentManagementv1GetDetectionResponse.",
+      "method": "GET",
+      "path": "/v1/detections/{detectionUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [detection]. type: Detection",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "detections_list",
+      "description": "Endpoint detections from ESET PROTECT and ESET Inspect (v1). Return a list of all the [detection]s matching criteria. Optional: deviceUuid, endTime, startTime (plus 2 more). Returns array of IncidentManagementv1Detection.",
+      "method": "GET",
+      "path": "/v1/detections",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Include only [detections] that occurred on the referenced [device]. type: device_management.v1.Device"
+        },
+        {
+          "name": "endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred before `end_time` (excluding)."
+        },
+        {
+          "name": "startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred after `start_time` (including). `detection.occur_time` \u003e= `start_time` Use timestamp in UTC or offset format. Examples: - 2024-10-30T12:00Z - 2024-10-30T10:00+02:00 \u003e **Info:** \u003e [Google Protobuf: Timestamp](https://protobuf.dev/reference/php/api-docs/Google/Protobuf/Timestamp.html)"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "detections_v2_batch-get",
+      "description": "Batch-get detections from the v2 API (ESET Inspect and ESET Cloud Office Security). Batch-get detections. The operation is atomic: it fails for all resources or succeeds for all resources (no partial success). If the operation covers multiple locations and at least one location is down, the operation fails. \u003e **Info:** \u003e Modeled after [Batch Methods: Get](https://google.aip.dev/231). Optional: detectionUuids. Returns array of IncidentManagementv2Detection.",
+      "method": "POST",
+      "path": "/v2/detections:batchGet",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The references to the detections to retrieve. The maximum recommended number is 100; higher values can lead to a timeout. The size of the batch is limited to 1000 detections. If this limit is exceeded, OUT_OF_RANGE (gRPC) | 400 Bad Request (HTTP) is returned. The maximum recommended size is 100. If exceeded, INTERNAL (gRPC) | 500 Internal server error (HTTP) may be returned. type: Detection"
+        }
+      ]
+    },
+    {
+      "name": "detections_v2_get",
+      "description": "Detection by UUID from the v2 API (ESET Inspect and ESET Cloud Office Security). Get detection. Required: detectionUuid. Returns the IncidentManagementv2GetDetectionResponse.",
+      "method": "GET",
+      "path": "/v2/detections/{detectionUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [detection]. type: Detection",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "detections_v2_list",
+      "description": "ESET Cloud Office Security detections only (v2). The API user must have signed in to the ESET Cloud Office Security console once. Not available in the jpn region. Return a list of all the [detection]s matching criteria. Optional: cloudOfficeTenantUuid, endTime, startTime (plus 2 more). Returns array of IncidentManagementv2Detection.",
+      "method": "GET",
+      "path": "/v2/detections",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [cloud office tenant] whose [detection]s should appear in the response. If empty or null, the [detection] of any cloud office tenant will be returned. For device [detection]s, it should be null or empty. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred before `end_time` (excluding)."
+        },
+        {
+          "name": "startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Include only incidents whose detections occurred after `start_time` (including). `detection.occur_time` \u003e= `start_time` Use timestamp in UTC or offset format. Examples: - 2024-10-30T12:00Z - 2024-10-30T10:00+02:00 \u003e **Info:** \u003e [Google Protobuf: Timestamp](https://protobuf.dev/reference/php/api-docs/Google/Protobuf/Timestamp.html)"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "detections_v2_resolve",
+      "description": "Resolve an ESET Inspect detection (v2). Mark a [detection] as resolved. Required: detectionUuid. Optional: note. Returns the new V2ResolveDetectionResponse.",
+      "method": "POST",
+      "path": "/v2/detections/{detectionUuid}:resolve",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "detectionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [detection]. type: Detection",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Arbitrary text explaining the resolution."
+        }
+      ]
+    },
+    {
+      "name": "device-groups_list-groups",
+      "description": "Hierarchy can be reconstructed from the returned `device_groups`. Optional: pageSize, pageToken. Returns array of V1DeviceGroup.",
+      "method": "GET",
+      "path": "/v1/device_groups",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "device-groups_devices_groups-list-member",
+      "description": "Return the list of devices within a [device group]. \u003e **Info:** \u003e The lifecycle of membership and devices are uncorrelated: a device can be a member of many arbitrary groups without a device entity knowing that. This is also supported by the fact that some systems responsible for the device-group membership are autonomous and do not need to update the device state to remember membership. \u003e \u003e As an independent service without direct visibility of device management's memory, it only operates with a convenient projection of the device state. [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem) applies here. \u003e \u003e See: \u003e [Distributed data management](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/architect-microservice-container-applications/distributed-data-management) \u003e \u003e **Info:** \u003e Example: \u003e [ListGroupMembers response](https://learn.microsoft.com/en-us/connectors/office365groups/#listgroupmembers_response). Required: groupUuid. Optional: recurseSubgroups, pageSize, pageToken. Returns array of V1MemberDevice.",
+      "method": "GET",
+      "path": "/v1/device_groups/{groupUuid}/devices",
+      "params": [
+        {
+          "name": "groupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [device group] for which members should be listed. Mandatory.",
+          "required": true
+        },
+        {
+          "name": "recurseSubgroups",
+          "type": "bool",
+          "location": "query",
+          "description": "For true, not only devices from the requested [device group] are returned, but also from its subgroups."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "device-os-vulnerabilities_vulnerable-devices-list",
+      "description": "List vulnerabilities of the operating system of the given device. \u003e **Note:** \u003e Besides vulnerabilities of the Linux kernel, there are also some 'core packages' whose vulnerabilities are treated as operating system vulnerabilities. \u003e For example: glibc, systemd, etc. \u003e \u003e Such vulnerabilities are reported twice, once as an operating system vulnerability and once as a package vulnerability. Optional: deviceUuid, deviceGroupUuid. Returns array of V1OsVulnerability.",
+      "method": "GET",
+      "path": "/v1/device-os-vulnerabilities",
+      "base_url": "https://{region}.vulnerability-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the vulnerable device. If the device is identified as 'me', all the [OS vulnerabilities] of the actual device are returned. If called with 'me' in the cloud (that is, not on the device where the device context is ambiguous), the call will fail. If empty or null, vulnerabilities of the operating system regardless of any device accessible to the caller will be returned in the response. Clean devices with no vulnerabilities have no entry in the collection of vulnerable devices. type: VulnerableDevice"
+        },
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [device group]. If filled, only devices within the group will be included in the response. If empty, any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        }
+      ]
+    },
+    {
+      "name": "device-patches_unpatched-devices-list",
+      "description": "If the same application, package or operating system is unpatched on multiple devices, the collection would contain entities for each device and patch individually. The list may be empty if no patches for any device are found. Optional: deviceUuid, deviceGroupUuid, patchType (default: PATCH_TYPE_UNSPECIFIED) (plus 2 more). Returns array of V1DevicePatch.",
+      "method": "GET",
+      "path": "/v1/device-patches",
+      "base_url": "https://{region}.patch-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the device whose vulnerabilities should be listed. If empty or null, vulnerabilities of any device accessible to the caller will be included in the response. type: vulnerability_management.v1.VulnerableDevice"
+        },
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [device group] for which the vulnerable devices should be listed. Devices of the nested groups are listed recursively as well. If empty or null, any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "patchType",
+          "type": "string",
+          "location": "query",
+          "description": "Possible categories of vulnerabilities. - PATCH_TYPE_UNSPECIFIED: fallback - PATCH_TYPE_APPLICATION: Application patch. - PATCH_TYPE_OPERATING_SYSTEM: Operating system patch. - PATCH_TYPE_PACKAGE: Package patch."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_create",
+      "description": "Create a [device task]. There is one [device task template] for every unique `display_name`, description, and `action` combination. This template inherits `display_name`, `description` and `action` from the `task` in the request. The created task requires to have at least one trigger set. Otherwise, the call fails. Optional: task. Returns the new V1CreateTaskResponse.",
+      "method": "POST",
+      "path": "/v1/device_tasks",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "task-action-name",
+          "wire_name": "task.action.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the function to execute. GRPC/ERPC function names in the form of package.ServiceName/RpcName For example: - `eset.dotnod.scan_management.v1.ScanManager/CreateScan` - `eset.dotnod.power_management.v1.PowerManager/RegisterAction` - `eset.dotnod.network_access_protection.v1.NetworkAccessProtection/StartNetworkIsolation` Actions outside .NOD are available as documented at [ESET Connect Online Help](https://help.eset.com/eset_connect/en-US/automation.html)."
+        },
+        {
+          "name": "task-action-params",
+          "wire_name": "task.action.params",
+          "type": "object",
+          "location": "body",
+          "description": "`Any` contains an arbitrary serialized protocol buffer message along with a URL that describes the type of the serialized message. Protobuf library provides support to pack/unpack Any values in the form of utility functions or additional generated methods of the Any type. Example 1: Pack and unpack a message in C++. Foo foo = ...; Any any; any.PackFrom(foo); ... if (any.UnpackTo(\u0026foo)) { ... } Example 2: Pack and unpack a message in Java. Foo foo = ...; Any any = Any.pack(foo); ... if (any.is(Foo.class)) { foo = any.unpack(Foo.class); } // or ... if (any.isSameTypeAs(Foo.getDefaultInstance())) { foo = any.unpack(Foo.getDefaultInstance()); } Example 3: Pack and unpack a message in Python. foo = Foo(...) any = Any() any.Pack(foo) ... if any.Is(Foo.DESCRIPTOR): any.Unpack(foo) ... Example 4: Pack and unpack a message in Go foo := \u0026pb.Foo{...} any, err := anypb.New(foo) if err != nil { ... } ... foo := \u0026pb.Foo{} if err := any.UnmarshalTo(foo); err != nil { ... } The pack methods provided by protobuf library will by default use 'type.googleapis.com/full.type.name' as the type URL and the unpack methods only use the fully qualified type name after the last '/' in the type URL, for example 'foo.bar.com/x/y.z' will yield type name 'y.z'. JSON ==== The JSON representation of an `Any` value uses the regular representation of the deserialized, embedded message, with an additional field `@type` which contains the type URL. Example: package google.profile; message Person { string first_name = 1; string last_name = 2; } { '@type': 'type.googleapis.com/google.profile.Person', 'firstName': \u003cstring\u003e, 'lastName': \u003cstring\u003e } If the embedded message type is well-known and has a custom JSON representation, that representation will be embedded adding a field `value` which holds the custom JSON in addition to the `@type` field. Example (for message [google.protobuf.Duration][]): { '@type': 'type.googleapis.com/google.protobuf.Duration', 'value': '1.212s' }"
+        },
+        {
+          "name": "task-asset-group-uuid",
+          "wire_name": "task.assetGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Specifies in which asset group the task should be created. If empty or null, the asset group will be assigned automatically. type: asset_management.v1.Group"
+        },
+        {
+          "name": "task-create-time",
+          "wire_name": "task.createTime",
+          "type": "string",
+          "location": "body",
+          "description": "The creation timestamp of an entity."
+        },
+        {
+          "name": "task-description",
+          "wire_name": "task.description",
+          "type": "string",
+          "location": "body",
+          "description": "User's description. Free text."
+        },
+        {
+          "name": "task-display-name",
+          "wire_name": "task.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "User-friendly name of the task."
+        },
+        {
+          "name": "task-source",
+          "wire_name": "task.source",
+          "type": "string",
+          "location": "body",
+          "description": "Possible sources of a task. - DEVICE_TASK_SOURCE_UNSPECIFIED: fallback - DEVICE_TASK_SOURCE_INTERNAL_AUTOMATION: The task was created by automation internal to the tenant. For example, some internal rule system. - DEVICE_TASK_SOURCE_EXTERNAL_AUTOMATION: The task was created by automation external to the tenant/company. For example, a rule system of a company hired to provide managed detection and response services. - DEVICE_TASK_SOURCE_INTERNAL_USER: The task was created by the user from within the tenant/company. For example, an internal security officer. - DEVICE_TASK_SOURCE_EXTERNAL_USER: The task was created by the user external to the tenant/company. For example, a security manager of a company hired to provide managed detection and response services."
+        },
+        {
+          "name": "task-targets-device-groups-uuids",
+          "wire_name": "task.targets.deviceGroupsUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Task can be assigned to groups of devices. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "task-targets-devices-uuids",
+          "wire_name": "task.targets.devicesUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Task can be assigned to individual devices, for example, if the task run failed on these devices. type: device_management.v1.Device"
+        },
+        {
+          "name": "task-triggers",
+          "wire_name": "task.triggers",
+          "type": "array",
+          "location": "body",
+          "description": "Specifies *when* to run. What causes the task to be executed. Cannot be empty."
+        },
+        {
+          "name": "task-update-time",
+          "wire_name": "task.updateTime",
+          "type": "string",
+          "location": "body",
+          "description": "Represents the timestamp when the resource was most recently updated. Any change to the resource made by users (create/update/delete) must update this value; changes to a resource made internally by the service should refresh this value unless specified otherwise on entity level. \u003e **Info:** \u003e Modeled after: https://google.aip.dev/148#timestamps"
+        },
+        {
+          "name": "task-uuid",
+          "wire_name": "task.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 4122: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc4122), do not rely on it being a RFC UUID. Treat it as an opaque identifier. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        },
+        {
+          "name": "task-version-id",
+          "wire_name": "task.versionId",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of entity version. Every change to internal state of the entity leads to increase of this number. Every time this number changes, `update_time` must change as well. [Version id] also determines whether one version is more recent than another. More recent versions have higher numbers. \u003e **Info:** \u003e Similar concepts are \u003e - change sequence number (CSN) \u003e - version_id \u003e **Info:** \u003e Modeled after: https://google.aip.dev/162 \u003e \u003e `revision_create_time` is delivered by `update_time` of https://google.aip.dev/148#timestamps"
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_delete",
+      "description": "Delete the specified task. Deletion of the template leads to deletion of all templated tasks. Required: taskUuid. Returns the V1DeleteTaskResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/device_tasks/{taskUuid}",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "taskUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to deleted task. type: DeviceTask",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_get",
+      "description": "Get the task entity. For a complete history, call `ListTaskRuns()`. Required: taskUuid. Returns the V1GetTaskResponse.",
+      "method": "GET",
+      "path": "/v1/device_tasks/{taskUuid}",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "taskUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to task. type: DeviceTask",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_list",
+      "description": "List all device tasks matching criteria. Optional: pageSize, pageToken. Returns array of V1DeviceTask.",
+      "method": "GET",
+      "path": "/v1/device_tasks",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_update-targets",
+      "description": "Update task targets. Required: taskUuid. Optional: targets. Returns the new V1UpdateTaskTargetsResponse.",
+      "method": "POST",
+      "path": "/v1/device_tasks/{taskUuid}:updateTaskTargets",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "taskUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Descriptor of the task to update type: DeviceTask",
+          "required": true
+        },
+        {
+          "name": "targets-device-groups-uuids",
+          "wire_name": "targets.deviceGroupsUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Task can be assigned to groups of devices. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "targets-devices-uuids",
+          "wire_name": "targets.devicesUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Task can be assigned to individual devices, for example, if the task run failed on these devices. type: device_management.v1.Device"
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_update-triggers",
+      "description": "Update the list of task triggers. Required: taskUuid. Optional: triggers. Returns the new V1UpdateTaskTriggersResponse.",
+      "method": "POST",
+      "path": "/v1/device_tasks/{taskUuid}:updateTaskTriggers",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "taskUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Descriptor of the task to update type: DeviceTask",
+          "required": true
+        },
+        {
+          "name": "triggers",
+          "type": "array",
+          "location": "body",
+          "description": "List of triggers that replace current triggers. Cannot be empty."
+        }
+      ]
+    },
+    {
+      "name": "device-tasks_runs_device-tasks-list-task",
+      "description": "List task history - all the runs of the task. For the sake of forensics, the [task run]s are listed collectively, not as children of their parent task. Information about task runs might easily survive their parent task. \u003e **Info:** \u003e Modeled based on [Jobs: Executions and results](https://google.aip.dev/152#executions-and-results) with ESET specific vocabulary. Required: taskUuid. Optional: deviceUuid, listOnlyLastRuns, pageSize (plus 1 more). Returns array of V1DeviceTaskRun.",
+      "method": "GET",
+      "path": "/v1/device_tasks/{taskUuid}/runs",
+      "base_url": "https://{region}.automation.eset.systems",
+      "params": [
+        {
+          "name": "taskUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Include only runs of specific task. Mandatory. type: DeviceTask",
+          "required": true
+        },
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Include only runs on specific device (if filled). type: device_management/v1/Device"
+        },
+        {
+          "name": "listOnlyLastRuns",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, the result will only contain the latest runs per device."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "device-vulnerabilities_vulnerable-devices-list",
+      "description": "List device vulnerabilities where the vulnerabilities fit the criteria from the request. Each vulnerability is treated individually; that is, if the device has multiple vulnerabilities, it will be listed multiple times. Optional: deviceUuid, deviceGroupUuid, vulnerabilityScope. Returns array of V1DeviceVulnerability.",
+      "method": "GET",
+      "path": "/v1/device-vulnerabilities",
+      "base_url": "https://{region}.vulnerability-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the device whose vulnerabilities should be listed. If empty or null, vulnerabilities of any device accessible to the caller will be included in the response. type: VulnerableDevice"
+        },
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the device group whose devices' vulnerabilities should be listed. Devices of the nested groups are listed recursively as well. If empty or null, vulnerabilities of any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "vulnerabilityScope",
+          "type": "string",
+          "location": "query",
+          "description": "The scope of the vulnerability to include in the response. If UNSPECIFIED or null, vulnerabilities of any scope from any device accessible to the user will be included in the response. - VULNERABILITY_SCOPE_UNSPECIFIED: fallback - VULNERABILITY_SCOPE_APPLICATION: Vulnerability of an application. - VULNERABILITY_SCOPE_OPERATING_SYSTEM: Vulnerability of an operating system. - VULNERABILITY_SCOPE_PACKAGE: Vulnerability of a package."
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Get details of a [device]. Required: deviceUuid. Returns the V1GetDeviceResponse.",
+      "method": "GET",
+      "path": "/v1/devices/{deviceUuid}",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [Device].",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "List all the managed [device]s. Optional: displayNames, functionalityStatus, isMuted (plus 2 more). Returns array of V1Device.",
+      "method": "GET",
+      "path": "/v1/devices",
+      "params": [
+        {
+          "name": "displayNames",
+          "type": "array",
+          "location": "query",
+          "description": "If populated, devices with `display name` exactly matching one of the strings within the list would be present in the response. If empty, there is no constraint on `display name` of the result set. Example: filter ['Hugo', 'Boss'] applied on set ['John', 'Boss', 'Lemon'] would return devices with display names ['Boss']."
+        },
+        {
+          "name": "functionalityStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device functionality status. If this field is filled, the response will include the devices that match the specified functionality status (OK, ATTENTION_RECOMMENDED, or ATTENTION_REQUIRED). If this field is left empty or not set, the response will return devices, regardless of their functionality status. - DEVICE_FUNCTIONALITY_STATUS_UNSPECIFIED: fallback - DEVICE_FUNCTIONALITY_STATUS_OK: The device is functioning normally, with no issues that require attention. - DEVICE_FUNCTIONALITY_STATUS_ATTENTION_RECOMMENDED: There are issues that may not be critical (for example, medium security risks), but they should be addressed to avoid potential future problems. - DEVICE_FUNCTIONALITY_STATUS_ATTENTION_REQUIRED: Critical issues exist (for example, severe security risks), and immediate action is necessary to maintain system integrity or security."
+        },
+        {
+          "name": "isMuted",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, only muted devices will be returned. If false, only not muted devices will be returned. If this field is left empty or not set, the response will return devices, regardless of fact if they are muted or not."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "devices_move",
+      "description": "Move [Device] under new [Group]. It is possible to move Groups only in the scope of the same tenant. The assignment of policies is updated according to the new hierarchy. Required: deviceUuid. Optional: newParentUuid. Returns the new V1MoveDeviceResponse.",
+      "method": "POST",
+      "path": "/v1/devices/{deviceUuid}:move",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Device] to move. type: Device",
+          "required": true
+        },
+        {
+          "name": "newParentUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the new parent [Group] for the [Device] being moved. type: DeviceGroup"
+        }
+      ]
+    },
+    {
+      "name": "devices_rename",
+      "description": "Update the device's display name. The device display name is objective; it changes for everyone requesting such a device. Required: deviceUuid. Optional: displayName. Returns the new V1RenameDeviceResponse.",
+      "method": "POST",
+      "path": "/v1/devices/{deviceUuid}:rename",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the device for which the name is changed.",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "New display name for the device."
+        }
+      ]
+    },
+    {
+      "name": "devices-batch-get_devices",
+      "description": "Retrieves a specific set of devices at a consistent time point. \u003e **Info:** \u003e Modeled after [Batch methods: Get](https://google.aip.dev/231). Required: devicesUuids. Returns array of V1Device.",
+      "method": "GET",
+      "path": "/v1/devices:batchGet",
+      "params": [
+        {
+          "name": "devicesUuids",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of devices to retrieve. If empty, INVALID_ARGUMENT is returned. The operation is atomic - no partial success. Either every requested device is returned or none.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices-batch-import_devices-import-device-batch",
+      "description": "Import a batch of devices into device management. Imported devices cannot be managed until properly enrolled. The size of the batch is limited to 1000 devices. If this limit is exceeded, OUT_OF_RANGE (gRPC) | 400 Bad Request (HTTP) is returned. \u003e **Warning:** \u003e Only devices imported with `is mobile` flag == `true` are suitable for Mobile Device Management scenarios. The method can fail atomically with: - PERMISSION_DENIED (gRPC) | 403 Forbidden (HTTP) if the caller does not have rights for the specified group. - INVALID_ARGUMENT (gRPC) | 400 Bad Request (HTTP) if provided device `display names` are not mutually unique within the request. - DEADLINE_EXCEEDED (gRPC) | 504 Gateway Timeout (HTTP) if the batch cannot be processed within the time limit of one call. The method can fail partially. In such a case, OK (gRPC) | 200 OK (HTTP) is returned, and the response contains a list of errors for every device where an error occurred during enrollment. Possible errors are: - INVALID_ARGUMENT (gRPC) if the attributes of the enrolled device are not valid. Also, this error is raised for every imported device where the `parent group` attribute is not empty and does not match the `parent group` from the request. Failed devices are identified by the display names from the request (they do not have other unique identifiers yet). Errors are accompanied by an error message in plain English. \u003e **Note:** \u003e Method parameters follow the semantics of [Batch methods: Create](https://google.aip.dev/233). Optional: devices, parentGroupUuid. Returns array of V1Device.",
+      "method": "POST",
+      "path": "/v1/devices:batchImport",
+      "params": [
+        {
+          "name": "devices",
+          "type": "array",
+          "location": "body",
+          "description": "Descriptor of the imported device. For the newly enrolled device, the attributes should be filled as follows: - `display name` will be used to identify the device until the device gets renamed manually (real device name is ignored); mandatory. - `description` is optional. - `is mobile` should be `true` for mobile devices, especially those involved in Mobile Device Management scenarios. - `parent group` should be left empty and inferred from the root `parent group` in the request. - `management domain` should be left empty and inferred from the access token. Display names of the enrolled devices must be mutually unique within one batch (not globally)."
+        },
+        {
+          "name": "parentGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the parent [device group] that will exclusively contain the imported devices. This parent group will be set to every imported device. If the `parent group` is set, the `parent group` attributes of the imported devices must be either empty or match this field. In Managed service provider (MSP) environments, [device group] representing an MSP customer (or a subgroup of) should be used. type: DeviceGroup"
+        }
+      ]
+    },
+    {
+      "name": "edr-rule-exclusions_create",
+      "description": "Create an [EDR rule exclusion]. Optional: exclusion. Returns the new V2CreateEdrRuleExclusionResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rule-exclusions",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "exclusion-enabled",
+          "wire_name": "exclusion.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "If `true`, the exclusion will be applied."
+        },
+        {
+          "name": "exclusion-note",
+          "wire_name": "exclusion.note",
+          "type": "string",
+          "location": "body",
+          "description": "User's note. Max 2048 characters long."
+        },
+        {
+          "name": "exclusion-rule-uuids",
+          "wire_name": "exclusion.ruleUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to the [automation rules] for which the exclusion applies. type: EdrRule"
+        },
+        {
+          "name": "exclusion-scopes",
+          "wire_name": "exclusion.scopes",
+          "type": "array",
+          "location": "body",
+          "description": "List of scopes in which the rule exclusion is used. For example, a `rule exclusion` is scoped to `device_uuid`; it would never be triggered for events from devices other than `device_uuid`. One rule exclusion might be applicable in multiple scopes. Rule exclusion can also have scopes disjunct to the rules it excludes. In this case, the exclusion is never applied. This status cannot be prevented as the rules might change scopes over time regardless of the rule exclusion."
+        },
+        {
+          "name": "exclusion-uuid",
+          "wire_name": "exclusion.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 9562: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc9562), do not rely on it being a RFC UUID. Treat it as an opaque identifier, albeit of predictable length and alphabet. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        },
+        {
+          "name": "exclusion-xml-definition",
+          "wire_name": "exclusion.xmlDefinition",
+          "type": "string",
+          "location": "body",
+          "description": "XML definition of the [EDR rule exclusion]. Specification of the format is the same as for [automation rule](https://help.eset.com/ei_rules/latest/en-US/), but actions are ignored. XML definition must be valid according to this specification for the [EDR rule exclusion] to be valid."
+        }
+      ]
+    },
+    {
+      "name": "edr-rule-exclusions_delete",
+      "description": "Delete an [EDR rule exclusion]. Required: exclusionUuid. Returns the V2DeleteEdrRuleExclusionResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/edr-rule-exclusions/{exclusionUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "exclusionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [EDR rule exclusion] to be deleted. type: EdrRuleExclusion",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rule-exclusions_get",
+      "description": "Get details of an [EDR rule exclusion]. Required: exclusionUuid. Returns the V2GetEdrRuleExclusionResponse.",
+      "method": "GET",
+      "path": "/v2/edr-rule-exclusions/{exclusionUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "exclusionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [EDR rule exclusion] to be retrieved. type: EdrRuleExclusion",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rule-exclusions_list",
+      "description": "List [EDR rule exclusion]s matching criteria. Optional: includeTotalSize, pageSize, pageToken. Returns array of V2EdrRuleExclusion.",
+      "method": "GET",
+      "path": "/v2/edr-rule-exclusions",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "includeTotalSize",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, the `total_size` attribute is filled in the response."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "edr-rule-exclusions_update-definition",
+      "description": "Update the definition of an [EDR rule exclusion]. Required: exclusionUuid. Optional: xmlDefinition. Returns the new V2UpdateEdrRuleExclusionDefinitionResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rule-exclusions/{exclusionUuid}:updateDefinition",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "exclusionUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [EDR rule exclusion] whose definition is to be updated. type: EdrRuleExclusion",
+          "required": true
+        },
+        {
+          "name": "xmlDefinition",
+          "type": "string",
+          "location": "body",
+          "description": "New XML definition of [EDR rule exclusion]. Specification of the format is the same as for [EDR rule](https://help.eset.com/ei_rules/latest/en-US/), but actions are ignored. XML definition must be valid according to this specification for [EDR rule exclusion] to be valid."
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_create",
+      "description": "Create an [EDR rule]. Only the rule with valid `xml_definition` can be accepted. Optional: rule. Returns the new V2CreateEdrRuleResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rules",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "rule-enabled",
+          "wire_name": "rule.enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "If enabled, the rule is used for matching."
+        },
+        {
+          "name": "rule-scopes",
+          "wire_name": "rule.scopes",
+          "type": "array",
+          "location": "body",
+          "description": "List of scopes in which the rule is used. For example, a `rule` is scoped to `device_uuid`; it would never be triggered for events from devices other than `device_uuid`. One rule might be applicable in multiple scopes."
+        },
+        {
+          "name": "rule-severity-level",
+          "wire_name": "rule.severityLevel",
+          "type": "string",
+          "location": "body",
+          "description": "Severity levels abstracted to cover all the possible GUIs. Vocabulary is leaving interpretation of severity level completely to API client. ```info: This approach is inevitable on SIEM level as there are many contributing sources. Keeping the local names for severity levels never fits all the GUIs. ``` - SEVERITY_LEVEL_UNSPECIFIED: fallback - SEVERITY_LEVEL_DIAGNOSTIC: In some GUIs known `Debug` - SEVERITY_LEVEL_INFORMATIONAL: In some GUIs known as `Info` or `Information` - SEVERITY_LEVEL_LOW: In some GUIs known `Warning` - SEVERITY_LEVEL_MEDIUM: In some GUIs known as `Error` or `Threat` - SEVERITY_LEVEL_HIGH: In some GUIs known as `Critical`"
+        },
+        {
+          "name": "rule-xml-definition",
+          "wire_name": "rule.xmlDefinition",
+          "type": "string",
+          "location": "body",
+          "description": "Definition of the rule in XML language. Specification of the format is in [ESET Inspect On-Prem: Rules guide](https://help.eset.com/ei_rules/latest/en-US/). XML definition must be valid according to this specification for the [EDR rule] to be valid."
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_delete",
+      "description": "Delete the given [EDR rule]. Required: ruleUuid. Returns the V2DeleteEdrRuleResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/edr-rules/{ruleUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "ruleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the rule. type: EdrRule",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_disable",
+      "description": "Disable the given [EDR rule]. Required: ruleUuid. Returns the new V2DisableEdrRuleResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rules/{ruleUuid}:disable",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "ruleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the rule. type: EdrRule",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_enable",
+      "description": "Enable the given [EDR rule]. Required: ruleUuid. Returns the new V2EnableEdrRuleResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rules/{ruleUuid}:enable",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "ruleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the rule. type: EdrRule",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_get",
+      "description": "Get [EDR rule] details. Required: ruleUuid. Returns the V2GetEdrRuleResponse.",
+      "method": "GET",
+      "path": "/v2/edr-rules/{ruleUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "ruleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the rule. type: EdrRule",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_list",
+      "description": "List [EDR rule]s matching the criteria. Optional: includeTotalSize, severityLevel (default: SEVERITY_LEVEL_UNSPECIFIED), pageSize (plus 1 more). Returns array of V2EdrRule.",
+      "method": "GET",
+      "path": "/v2/edr-rules",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "includeTotalSize",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, the `total_size` attribute is filled in the response."
+        },
+        {
+          "name": "severityLevel",
+          "type": "string",
+          "location": "query",
+          "description": "If filled, only the rules with matching `severity_level` will be included in the response. - SEVERITY_LEVEL_UNSPECIFIED: fallback - SEVERITY_LEVEL_DIAGNOSTIC: In some GUIs known `Debug` - SEVERITY_LEVEL_INFORMATIONAL: In some GUIs known as `Info` or `Information` - SEVERITY_LEVEL_LOW: In some GUIs known `Warning` - SEVERITY_LEVEL_MEDIUM: In some GUIs known as `Error` or `Threat` - SEVERITY_LEVEL_HIGH: In some GUIs known as `Critical`"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "edr-rules_update-definition",
+      "description": "Update the [EDR rule] definition. If the rule_definition is invalid, an error 400 BAD REQUEST is returned. Required: ruleUuid. Optional: xmlDefinition. Returns the new V2UpdateEdrRuleDefinitionResponse.",
+      "method": "POST",
+      "path": "/v2/edr-rules/{ruleUuid}:updateDefinition",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "ruleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [EDR rule] whose definition is about to be updated. type: EdrRule",
+          "required": true
+        },
+        {
+          "name": "xmlDefinition",
+          "type": "string",
+          "location": "body",
+          "description": "Definition of the rule in XML language. Specification of the format is at [ESET Inspect On-Prem: Rules guide](https://help.eset.com/ei_rules/latest/en-US/). XML definition must be valid according to this specification for [EDR rule] to be valid."
+        }
+      ]
+    },
+    {
+      "name": "executables_block",
+      "description": "Blocked executables will not be executed. Idempotent. Required: executableUuid. Returns the new V1BlockExecutableResponse.",
+      "method": "POST",
+      "path": "/v1/executables/{executableUuid}:block",
+      "base_url": "https://{region}.application-management.eset.systems",
+      "params": [
+        {
+          "name": "executableUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the executable to be blocked. type: Executable",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "executables_get",
+      "description": "Get details of a specific executable. Required: executableUuid. Returns the V1GetExecutableResponse.",
+      "method": "GET",
+      "path": "/v1/executables/{executableUuid}",
+      "base_url": "https://{region}.application-management.eset.systems",
+      "params": [
+        {
+          "name": "executableUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the executable whose details are requested. type: Executable",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "executables_list",
+      "description": "List all the executables. Optional: pageSize, pageToken. Returns array of V1Executable.",
+      "method": "GET",
+      "path": "/v1/executables",
+      "base_url": "https://{region}.application-management.eset.systems",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "executables_unblock",
+      "description": "Unblock a file to be executable again. Idempotent. Required: executableUuid. Returns the new V1UnblockExecutableResponse.",
+      "method": "POST",
+      "path": "/v1/executables/{executableUuid}:unblock",
+      "base_url": "https://{region}.application-management.eset.systems",
+      "params": [
+        {
+          "name": "executableUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the executable to be unblocked. type: Executable",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "gpo-sccm-files-generate_installers-generate-gpo-sccm-file",
+      "description": "Generates a GPO/SCCM-compatible configuration file for deploying the security product via centralized IT management systems (such as Group Policy or System Center Configuration Manager). The configuration is generated ad-hoc and not stored in the system. Optional: deviceEnrollmentSettings, sendAnonymousDiagnosticData. Returns the new V1GenerateGpoSccmFileResponse.",
+      "method": "POST",
+      "path": "/v1/gpo-sccm-files:generate",
+      "base_url": "https://{region}.installer-management.eset.systems",
+      "params": [
+        {
+          "name": "device-enrollment-settings-security-group-uuid",
+          "wire_name": "deviceEnrollmentSettings.securityGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Security group to become a member of. If not specified: 1. If the device name matches an existing device, the device is enrolled in the group of the matching device. 2. If the device name does not match any existing device, the device is enrolled in the `Lost \u0026 found` group. type: asset_management.v1.Group"
+        },
+        {
+          "name": "sendAnonymousDiagnosticData",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the installed endpoint product will take part in improvement program by sending anonymous diagnostic data, such as crash reports and crash dumps."
+        }
+      ]
+    },
+    {
+      "name": "groups_create",
+      "description": "Create a [Group] in the hierarchy and assign a UUID to it. Optional: group. Returns the new V1CreateGroupResponse.",
+      "method": "POST",
+      "path": "/v1/groups",
+      "base_url": "https://{region}.asset-management.eset.systems",
+      "params": [
+        {
+          "name": "group-description",
+          "wire_name": "group.description",
+          "type": "string",
+          "location": "body",
+          "description": "Group description. Free text."
+        },
+        {
+          "name": "group-display-name",
+          "wire_name": "group.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "User-friendly name of the group."
+        },
+        {
+          "name": "group-external-reference",
+          "wire_name": "group.externalReference",
+          "type": "string",
+          "location": "body",
+          "description": "A unique reference from an external system used to associate this entity with its corresponding record in that system. This value is typically received from an external source during integration or synchronization and remains unchanged for the lifetime of the association."
+        },
+        {
+          "name": "group-external-type",
+          "wire_name": "group.externalType",
+          "type": "string",
+          "location": "body",
+          "description": "Defines the specific, technical type of an asset as identified in the source system. It is intentionally granular and covers both structural containers and leaf resources. - EXTERNAL_ASSET_TYPE_UNSPECIFIED: Unspecified or default type. - EXTERNAL_ASSET_TYPE_AZURE_RESOURCE_GROUP: An Azure Resource Group. A container within an Azure Subscription that holds related resources for an application or a project. - EXTERNAL_ASSET_TYPE_AZURE_SUBSCRIPTION: An Azure Subscription, which serves as a primary billing and management container for all Azure resources. It is the top-level hierarchical entity in Azure. - EXTERNAL_ASSET_TYPE_AWS_ACCOUNT: An Amazon Web Services (AWS) Account. It is the fundamental container for all AWS resources and acts as a security, access, and billing boundary. - EXTERNAL_ASSET_TYPE_AWS_REGION: An Amazon Web Services (AWS) Region. A physical location containing one or more availability zones where AWS resources can be deployed. - EXTERNAL_ASSET_TYPE_GCP_PROJECT: A Google Cloud Project. It is the core organizational unit for creating and managing resources, and serves as a boundary for billing, enabling APIs, and managing IAM permissions for all contained resources. - EXTERNAL_ASSET_TYPE_AZURE_VIRTUAL_MACHINE: A Microsoft Azure Virtual Machine. A scalable, on-demand compute resource that functions as a virtual server. - EXTERNAL_ASSET_TYPE_AWS_EC2_INSTANCE: An Amazon Elastic Compute Cloud (EC2) Instance. A virtual server in the AWS cloud used for running applications. - EXTERNAL_ASSET_TYPE_GCP_COMPUTE_ENGINE_INSTANCE: A Google Compute Engine (GCE) instance. A virtual machine running in Google's infrastructure, used for a wide range of workloads. - EXTERNAL_ASSET_TYPE_ENTRA_ID_USER: A user identity managed by Microsoft Entra ID (formerly Azure AD), used for accessing Microsoft 365, Azure, and other federated cloud services. - EXTERNAL_ASSET_TYPE_MICROSOFT_ACTIVE_DIRECTORY_USER: A user account within a Microsoft Active Directory domain. - EXTERNAL_ASSET_TYPE_OBSERVED_USER: A user identity as observed from a device logon event, containing partial information. - EXTERNAL_ASSET_TYPE_MICROSOFT_ACTIVE_DIRECTORY_MANAGED_SERVICE_ACCOUNT: A Managed Service Account within a Microsoft Active Directory domain, used to provide automatic password management and simplified SPN management for services. - EXTERNAL_ASSET_TYPE_ENTRA_ID_APPLICATION: An application registration in Microsoft Entra ID (formerly Azure AD), representing a software application that can authenticate and request access to resources. - EXTERNAL_ASSET_TYPE_ENTRA_ID_SERVICE_PRINCIPAL: A service principal in Microsoft Entra ID (formerly Azure AD), representing the local instance of an application or managed identity within a tenant, used for authentication and authorization. - EXTERNAL_ASSET_TYPE_MICROSOFT_SHAREPOINT_SITE: A Microsoft SharePoint Site. A cloud-based document repository and content management platform within Microsoft 365 for storing, organizing, securing, and sharing enterprise information. - EXTERNAL_ASSET_TYPE_MICROSOFT_TEAMS_TEAM: A Microsoft Teams Team. A cloud-based team workspace within Microsoft 365 with integrated cloud storage for team files, conversations, and collaborative resources. Microsoft Teams team is backed by a [Microsoft 365 Group](https://learn.microsoft.com/en-us/microsoft-365/admin/create-groups/compare-groups?view=o365-worldwide). - EXTERNAL_ASSET_TYPE_PALO_ALTO_FIREWALL: A Next-Generation Firewall (NGFW) appliance (physical or virtual) from Palo Alto Networks, used for network security policy enforcement. - EXTERNAL_ASSET_TYPE_AZURE_STORAGE_ACCOUNT: An Azure Storage Account. A massively scalable and secure cloud storage service for blobs, files, queues, and tables. - EXTERNAL_ASSET_TYPE_AWS_S3_BUCKET: An Amazon Simple Storage Service (S3) Bucket. An object storage container in AWS for storing and retrieving any amount of data. - EXTERNAL_ASSET_TYPE_GCP_CLOUD_STORAGE_BUCKET: A Google Cloud Storage Bucket. An object storage container in GCP for storing unstructured data. - EXTERNAL_ASSET_TYPE_AWS_EFS_FILE_SYSTEM: An Amazon Elastic File System (EFS) File System. A scalable, managed NFS file system for AWS workloads. - EXTERNAL_ASSET_TYPE_GCP_FILESTORE_INSTANCE: A Google Cloud Filestore Instance. A fully managed NFS file server on Google Cloud."
+        },
+        {
+          "name": "group-linked-entity-type",
+          "wire_name": "group.linkedEntityType",
+          "type": "string",
+          "location": "body",
+          "description": "Possible entities that the Group represents. - GROUP_ENTITY_TYPE_UNSPECIFIED: fallback - GROUP_ENTITY_TYPE_CUSTOMER: Group representing [company] - GROUP_ENTITY_TYPE_MSP: Group representing [MSP] - GROUP_ENTITY_TYPE_SITE: Group representing [site] - GROUP_ENTITY_TYPE_HOUSEHOLD: Group representing [household] - GROUP_ENTITY_TYPE_EXTERNAL_CONTAINER: Group representing an external container (e.g., Azure Resource Group, AWS Account). Such groups are managed by the integration connector."
+        },
+        {
+          "name": "group-parent-group-uuid",
+          "wire_name": "group.parentGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the parent group in the tree structure. type: Group"
+        },
+        {
+          "name": "group-uuid",
+          "wire_name": "group.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 9562: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc9562), do not rely on it being a RFC UUID. Treat it as an opaque identifier, albeit of predictable length and alphabet. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Delete the group referenced by the uuid and any groups under it. If there are objects under the deleted groups, all of them will be deleted as well. It is not possible to delete a group that has a linked entity (CUSTOMER, MSP, ...). Required: groupUuid. Optional: releaseConsumedUnits. Returns the V1DeleteGroupResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/groups/{groupUuid}",
+      "base_url": "https://{region}.asset-management.eset.systems",
+      "params": [
+        {
+          "name": "groupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the group that is the root of the deleted subtree. type: Group",
+          "required": true
+        },
+        {
+          "name": "releaseConsumedUnits",
+          "type": "bool",
+          "location": "query",
+          "description": "For any deleted object within the group, all the associated units will be released. For devices, the seat of any active product on deleted devices will be released (and can be used again). If there were multiple active products on the deleted device, all of them are deactivated. Similarly, if there is a product consuming users (for example, mail server security), all the users will be released after the deletion of the device. \u003e **Note:** \u003e As of 2024H2 only seats are released."
+        }
+      ]
+    },
+    {
+      "name": "groups_move",
+      "description": "Move a [Group] under another [Group]. It is possible to move groups only in the scope of the same tenant. The assignment of policies is updated according to the new hierarchy. Required: groupUuid. Optional: newParentUuid. Returns the new V1MoveGroupResponse.",
+      "method": "POST",
+      "path": "/v1/groups/{groupUuid}:move",
+      "base_url": "https://{region}.asset-management.eset.systems",
+      "params": [
+        {
+          "name": "groupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the group to be moved. type: Group",
+          "required": true
+        },
+        {
+          "name": "newParentUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the new parent [Group] for the [Group] being moved. type: Group"
+        }
+      ]
+    },
+    {
+      "name": "groups_rename",
+      "description": "Update the group's display name. Required: groupUuid. Optional: displayName. Returns the new V1RenameGroupResponse.",
+      "method": "POST",
+      "path": "/v1/groups/{groupUuid}:rename",
+      "base_url": "https://{region}.asset-management.eset.systems",
+      "params": [
+        {
+          "name": "groupUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the group for which the name is changed. type: Group",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "New display name for the group."
+        }
+      ]
+    },
+    {
+      "name": "incidents_close",
+      "description": "Close an incident. Required: incidentUuid. Optional: closureReason, finalComment. Returns the new V2CloseIncidentResponse.",
+      "method": "POST",
+      "path": "/v2/incidents/{incidentUuid}:close",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [Incident]. type: Incident",
+          "required": true
+        },
+        {
+          "name": "closureReason",
+          "type": "string",
+          "location": "body",
+          "description": "Possible reasons for resolved incident. - INCIDENT_RESOLVE_REASON_UNSPECIFIED: fallback - INCIDENT_RESOLVE_REASON_TRUE_POSITIVE: The incident was a true positive, indicating a genuine security threat. - INCIDENT_RESOLVE_REASON_FALSE_POSITIVE: The incident was initially thought to be a security threat but later determined to be a false alarm. - INCIDENT_RESOLVE_REASON_SUSPICIOUS: The incident is not a confirmed threat (true positive), but investigating it can provide valuable insights into user behavior patterns and help mitigate potential attacks."
+        },
+        {
+          "name": "final-comment-incident-uuid",
+          "wire_name": "finalComment.incidentUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the root - [Incident]. type: Incident"
+        },
+        {
+          "name": "final-comment-text",
+          "wire_name": "finalComment.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text content of the comment."
+        },
+        {
+          "name": "final-comment-uuid",
+          "wire_name": "finalComment.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 9562: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc9562), do not rely on it being a RFC UUID. Treat it as an opaque identifier, albeit of predictable length and alphabet. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        }
+      ]
+    },
+    {
+      "name": "incidents_get",
+      "description": "Get details of a specific incident. Required: incidentUuid. Returns the V2GetIncidentResponse.",
+      "method": "GET",
+      "path": "/v2/incidents/{incidentUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the requested incident. type: Incident",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_list",
+      "description": "Returns a list of incidents matching the `filter`. The list is ordered according to `order_by`. Optional: filter, orderBy, pageSize (plus 1 more).",
+      "method": "GET",
+      "path": "/v2/incidents",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "A filter string compliant with [Filtering](https://google.aip.dev/160). Field names must be expressed in lower_case_with_underscores form or in lowerCamelCase form, for example, display_name or displayName. For time filtering, use the timestamp offset representation. Examples: - incident.create_time \u003e= timestamp('2024-10-01T12:41:39+00:00') - incident.assignee_uuid == 'uuid' - incident.displayName.contains('abc') - displayName.contains('abc') \u003e **Info:** \u003e For more details about filtering, see [ESET Connect Online Help](https://help.eset.com/eset_connect/en-US/incident_management_v2_incidents_get.html#s-filtering) \u003e Common Expression Language is defined at [GitHub: Google Open Source](https://github.com/google/cel-spec/blob/master/doc/intro.md) along with libraries for [C++/C#](https://github.com/google/cel-go), [Go](https://github.com/google/cel-go)"
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query",
+          "description": "It is a comma-separated list of fields. The default sorting order is ascending. To specify the descending order for a field, users must append a ' desc' suffix. All actual fields and subfields from the object [Incident] can be used. Subfields are specified with a . character. Field names must be expressed in lower_case_with_underscores form, for example, display_name. \u003e **Info:** \u003e Modeled after: [Standard Methods: List Ordering](https://google.aip.dev/132#ordering) \u003e For more details about ordering, see [ESET Connect Online Help](https://help.eset.com/eset_connect/en-US/incident_management_v2_incidents_get.html#s-ordering) For example, the result will be ordered by the device name given by the user and by the incident severity in the reverse order: display_name, severity desc"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "incidents_reopen",
+      "description": "Reopening an incident causes the change of the status to 'Open'. This can only be done if the incident is not in the 'Open' state. The assignee is not affected. If the incident has a comment that was added when the incident was closed, it is changed to a normal comment. This means that 'is_closed_comment' is set to false. Required: incidentUuid. Optional: comment. Returns the new V2ReopenIncidentResponse.",
+      "method": "POST",
+      "path": "/v2/incidents/{incidentUuid}:reopen",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [Incident]. type: Incident",
+          "required": true
+        },
+        {
+          "name": "comment-incident-uuid",
+          "wire_name": "comment.incidentUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the root - [Incident]. type: Incident"
+        },
+        {
+          "name": "comment-text",
+          "wire_name": "comment.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text content of the comment."
+        },
+        {
+          "name": "comment-uuid",
+          "wire_name": "comment.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 9562: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc9562), do not rely on it being a RFC UUID. Treat it as an opaque identifier, albeit of predictable length and alphabet. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        }
+      ]
+    },
+    {
+      "name": "incidents_basic-attributes-update_incidents-update-incident-basic-attributes",
+      "description": "Update the chosen attributes of a specific incident. Required: incidentUuid. Optional: assigneeUuid, description, displayName (plus 2 more). Returns the new V2UpdateIncidentBasicAttributesResponse.",
+      "method": "POST",
+      "path": "/v2/incidents/{incidentUuid}/basic-attributes:update",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [Incident]. type: Incident",
+          "required": true
+        },
+        {
+          "name": "assigneeUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the User to be assigned as the assignee. The attribute can only be empty when the status is 'Open'. type: user_management.v1.User"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "New description."
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "New human-readable name."
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "location": "body",
+          "description": "Severity levels abstracted to cover all the possible GUIs. Vocabulary is leaving interpretation of severity level completely to API client. \u003e **Info:** \u003e This approach is inevitable on SIEM level as there are many contributing sources. Keeping the local names for severity levels never fits all the GUIs. - INCIDENT_SEVERITY_LEVEL_UNSPECIFIED: fallback - INCIDENT_SEVERITY_LEVEL_LOW: In some GUIs known as `Warning` - INCIDENT_SEVERITY_LEVEL_MEDIUM: In some GUIs known as `Error` or `Threat` - INCIDENT_SEVERITY_LEVEL_HIGH: In some GUIs known as `Critical`"
+        },
+        {
+          "name": "updateMask",
+          "type": "string",
+          "location": "body",
+          "description": "The list of fields to update. \u003e **Info:** \u003e Modeled after: [Standard Methods: Update](https://google.aip.dev/134)"
+        }
+      ]
+    },
+    {
+      "name": "incidents_comments_incident-create-incident",
+      "description": "Create an [Incident Comment] for a specific [Incident]. Required: incidentUuid. Optional: comment. Returns the new V2CreateIncidentCommentResponse.",
+      "method": "POST",
+      "path": "/v2/incidents/{incidentUuid}/comments",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident] type: Incident",
+          "required": true
+        },
+        {
+          "name": "comment-incident-uuid",
+          "wire_name": "comment.incidentUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the root - [Incident]. type: Incident"
+        },
+        {
+          "name": "comment-text",
+          "wire_name": "comment.text",
+          "type": "string",
+          "location": "body",
+          "description": "Text content of the comment."
+        },
+        {
+          "name": "comment-uuid",
+          "wire_name": "comment.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within the entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 9562: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc9562), do not rely on it being a RFC UUID. Treat it as an opaque identifier, albeit of predictable length and alphabet. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        }
+      ]
+    },
+    {
+      "name": "incidents_comments_incident-delete-incident",
+      "description": "Delete an [Incident Comment] from an [Incident]. Required: incidentUuid, commentUuid. Returns the V2DeleteIncidentCommentResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/incidents/{incidentUuid}/comments/{commentUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident] type: Incident",
+          "required": true
+        },
+        {
+          "name": "commentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident Comment] to be deleted. type: IncidentComment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_comments_incident-get-incident",
+      "description": "Get an Incident Comment. Preconditions: - incident_uuid must point to an existing incident. Required: incidentUuid, commentUuid. Returns the V2GetIncidentCommentResponse.",
+      "method": "GET",
+      "path": "/v2/incidents/{incidentUuid}/comments/{commentUuid}",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident] type: Incident",
+          "required": true
+        },
+        {
+          "name": "commentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident Comment]. type: IncidentComment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_comments_incident-list-incident",
+      "description": "List Comments that are accessible to the caller. The user must always specify the uuid of an Incident in arguments; therefore, the list is always provided only for one Incident. Comments are ordered by create_time. Required: incidentUuid. Returns array of V2IncidentComment.",
+      "method": "GET",
+      "path": "/v2/incidents/{incidentUuid}/comments",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Filter for the [Incident]. It must be filled. Only [Incident Comments] related to the [Incident] are returned. type: Incident",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_comments_incident-update-incident-text",
+      "description": "Change the text of an [Incident Comment]. Required: incidentUuid, commentUuid. Optional: text. Returns the new V2UpdateIncidentCommentTextResponse.",
+      "method": "POST",
+      "path": "/v2/incidents/{incidentUuid}/comments/{commentUuid}/text:update",
+      "base_url": "https://{region}.incident-management.eset.systems",
+      "params": [
+        {
+          "name": "incidentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident] type: Incident",
+          "required": true
+        },
+        {
+          "name": "commentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [Incident Comment] to be updated. type: IncidentComment",
+          "required": true
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "location": "body",
+          "description": "New text of the [Incident Comment] after update."
+        }
+      ]
+    },
+    {
+      "name": "installers_create",
+      "description": "Create [installer]. Optional: installer, requestedComponentIds. Returns the new V1CreateInstallerResponse.",
+      "method": "POST",
+      "path": "/v1/installers",
+      "base_url": "https://{region}.installer-management.eset.systems",
+      "params": [
+        {
+          "name": "installer-device-enrollment-security-group-uuid",
+          "wire_name": "installer.deviceEnrollment.securityGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Security group to become a member of. If not specified: 1. If the device name matches an existing device, the device is enrolled in the group of the matching device. 2. If the device name does not match any existing device, the device is enrolled in the `Lost \u0026 found` group. type: asset_management.v1.Group"
+        },
+        {
+          "name": "installer-display-name",
+          "wire_name": "installer.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Human-readable name of the installer."
+        },
+        {
+          "name": "installer-enable-cloud-scanner-feedback",
+          "wire_name": "installer.enableCloudScannerFeedback",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the installed endpoint product will use ESET cloud scanning."
+        },
+        {
+          "name": "installer-enable-pua-detection",
+          "wire_name": "installer.enablePuaDetection",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the detection of potentially unwanted applications will be enabled in the installed endpoint product."
+        },
+        {
+          "name": "installer-operating-system-family-id",
+          "wire_name": "installer.operatingSystemFamilyId",
+          "type": "int",
+          "location": "body",
+          "description": "Which operating system family the installer supports. Currently, only 1 - Windows and 3 - MacOS are supported. 0 = Unspecified 1 = Windows 2 = Linux 3 = Mac OS type: os_catalog.v2.OsFamily"
+        },
+        {
+          "name": "installer-preferred-language-code",
+          "wire_name": "installer.preferredLanguageCode",
+          "type": "string",
+          "location": "body",
+          "description": "Code of the preferred GUI language in [BCP-47 format](https://en.wikipedia.org/wiki/IETF_language_tag). A default 'en-us' is used if the preferred language is not available."
+        },
+        {
+          "name": "installer-send-anonymous-diagnostic-data",
+          "wire_name": "installer.sendAnonymousDiagnosticData",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the installed endpoint product will take part in improvement program by sending anonymous diagnostic data, such as crash reports and crash dumps."
+        },
+        {
+          "name": "requestedComponentIds",
+          "type": "array",
+          "location": "body",
+          "description": "List of component IDs to be explicitly included in the installer. Each ID represents a platform component that provides specific security functionality. If not provided, components will be automatically selected based on the license. Only the following component IDs are currently supported: 13 – ESET Remote Administrator Agent Endpoint Security components: 19 - \tESET Endpoint Antivirus for Windows 20 - ESET File Security for Microsoft Windows Server 27 - \tESET Endpoint Security for Windows 209 - ESET File Security for Linux 215 - ESET Endpoint Antivirus for Linux (new codebase, v7+) 29 - \tESET Endpoint Antivirus for macOS 30 - \tESET Endpoint Security for macOS 230 - ESET Endpoint Antivirus for macOS (new codebase, v7+) 231 - ESET Endpoint Security for macOS (new codebase, v7+) 167 – ESET Inspect Agent Full Disk Encryption (EFDE) components: 210 - ESET Full Disk Encryption for Windows Any unsupported or incompatible component ID will be rejected with a validation error. type: PlatformComponent"
+        }
+      ]
+    },
+    {
+      "name": "installers_delete",
+      "description": "Delete [installer]. Required: installerUuid. Returns the V1DeleteInstallerResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1/installers/{installerUuid}",
+      "base_url": "https://{region}.installer-management.eset.systems",
+      "params": [
+        {
+          "name": "installerUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [installer] to be deleted. type: Installer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "installers_get",
+      "description": "Get details of the requested [installer]. Required: installerUuid. Returns the V1GetInstallerResponse.",
+      "method": "GET",
+      "path": "/v1/installers/{installerUuid}",
+      "base_url": "https://{region}.installer-management.eset.systems",
+      "params": [
+        {
+          "name": "installerUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the requested [installer]. type: Installer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "installers_list",
+      "description": "List all installers available to the caller. Optional: usable, pageSize, pageToken. Returns array of V1Installer.",
+      "method": "GET",
+      "path": "/v1/installers",
+      "base_url": "https://{region}.installer-management.eset.systems",
+      "params": [
+        {
+          "name": "usable",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, only usable installers will be included in the response. If false, only unusable installers will be returned. If empty, all installers will be included."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "ip-sets_get",
+      "description": "Get details about an IP set. Required: policyUuid, ipSetUuid. Returns the V1GetIpSetResponse.",
+      "method": "GET",
+      "path": "/v1/policies/{policyUuid}/ip-sets/{ipSetUuid}",
+      "base_url": "https://{region}.network-access-protection.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy in which the IP set is defined. type: policy_management.v1.Policy",
+          "required": true
+        },
+        {
+          "name": "ipSetUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the IP set. type: IpSet",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ip-sets_list",
+      "description": "List all IP sets. Required: policyUuid. Optional: pageSize, pageToken. Returns array of V1IpSet.",
+      "method": "GET",
+      "path": "/v1/policies/{policyUuid}/ip-sets",
+      "base_url": "https://{region}.network-access-protection.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy for which the IP sets are listed. type: policy_management.v1.Policy",
+          "required": true
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "ip-sets_update",
+      "description": "Update the selected IP set; attributes that can be updated: - display_name - description - ip_addresses If IP addresses are updated, there is no check for uniqueness, which means that one IP address can appear multiple times inside the IP set. Read-only IP sets cannot be updated. For built-in IP sets, only the ip_addresses attribute can be updated. Required: policyUuid, ipSet.uuid. Optional: ipSet. Returns the new V1UpdateIpSetResponse.",
+      "method": "POST",
+      "path": "/v1/policies/{policyUuid}/ip-sets/{ipSet.uuid}:update",
+      "base_url": "https://{region}.network-access-protection.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy in which the IP set is defined. type: policy_management.v1.Policy",
+          "required": true
+        },
+        {
+          "name": "ipSet.uuid",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 4122: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc4122), do not rely on it being a RFC UUID. Treat it as an opaque identifier. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'",
+          "required": true
+        },
+        {
+          "name": "ip-set-description",
+          "wire_name": "ipSet.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the IP set."
+        },
+        {
+          "name": "ip-set-display-name",
+          "wire_name": "ipSet.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Human-readable name of the IP set."
+        },
+        {
+          "name": "ip-set-ip-addresses",
+          "wire_name": "ipSet.ipAddresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Host addresses that comprise the IP set. An IP address can be in: - [CIDR format](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) - [IPv4 format](https://datatracker.ietf.org/doc/html/rfc791) - [IPv6 format](https://datatracker.ietf.org/doc/html/rfc4291). Examples: 192.168.3.5 19.69.0.0/16 2001:db8:3333:4444:5555:6666:1.2.3.4"
+        },
+        {
+          "name": "ip-set-uuid",
+          "wire_name": "ipSet.uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Unique identifier of the entity. Must be collision-free - two identifiers created anywhere in the world must not collide within entity parent scope. Unless a member of aggregate, the entity scope is always global. Although most of the times compliant with [RFC 4122: A Universally Unique IDentifier (UUID) URN Namespace](https://tools.ietf.org/html/rfc4122), do not rely on it being a RFC UUID. Treat it as an opaque identifier. RFC UUID can be recognized by being formatted according to the template xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx, as explained on [Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier#Format). UUID is used for referencing an entity, even across domains. Example: '123e4567-e89b-12d3-a456-426614174000'"
+        }
+      ]
+    },
+    {
+      "name": "mobile-devices-batch-activate-product_v1_mobile_devices_batch_activate_product",
+      "description": "Create a product activation task with mobile devices as its targets. The product is picked automatically based on the parent group of a particular device. The method can fail atomically with: - PERMISSION_DENIED (gRPC) | 403 Forbidden (HTTP) if the caller cannot does not have rights to relevant resources (devices, device tasks and triggers). - FAILED_PRECONDITION (gRPC) | 400 Bad Request (HTTP) if - the devices on input do not share the same parent [device group] or - if there is no such subscription with available product on the parent [device group]. - NOT_FOUND (gRPC) | 404 Not Found (HTTP) if some of the devices on the input does not exist. Optional: deviceUuids. Returns the new V1BatchActivateProductResponse.",
+      "method": "POST",
+      "path": "/v1/mobile-devices:batchActivateProduct",
+      "base_url": "https://{region}.mobile-device-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [mobile devices] on which the endpoint protection product should be activated. All the devices must be from the same device group. type: device_management.v1.Device"
+        }
+      ]
+    },
+    {
+      "name": "mobile-devices-batch-get-enrollment-links_v1_mobile_devices_batch_get_enrollment_links",
+      "description": "Get enrollment links for a batch of **mobile** devices in device management. The mobile devices must have `is mobile` flag set to `true`. \u003e**Warning:** \u003e A link only works on Android and iOS operating systems. There is no limit on number of enrollment links issued for one device. All of them can be valid at the same time (within limits of their own expiration) until the device gets enrolled. The size of the batch is limited to 1000 devices. If this limit is exceeded, INVALID_ARGUMENT (gRPC) | 400 Bad Request (HTTP) is returned. The operation fails atomically. If any error occurs, it is returned for the whole batch. The devices are processed in an undetermined order. - If some device is already enrolled, the link is not generated, and the error FAILED_PRECONDITION (gRPC) | 400 Bad Request (HTTP) is returned. - For a device not marked as `mobile` in the device management (effectively not an iOS or Android device), the link is not generated, and error FAILED_PRECONDITION (gRPC) | 400 Bad Request (HTTP) is returned. - For non-existing devices, the error NOT_FOUND (gRPC) | 404 Not Found (HTTP) is returned. Optional: deviceUuids. Returns the new V1BatchGetEnrollmentLinksResponse.",
+      "method": "POST",
+      "path": "/v1/mobile-devices:batchGetEnrollmentLinks",
+      "base_url": "https://{region}.mobile-device-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [mobile devices] for which the enrollment links should be generated. type: device_management.v1.Device"
+        }
+      ]
+    },
+    {
+      "name": "patching-process-details_patch-management-list-device-patching-details",
+      "description": "History is pruned repeatedly to prevent database flooding. Entries from at least the previous 30 days should be available at any time. Optional: deviceUuid, deviceGroupUuid, timePeriod.startTime (plus 3 more). Returns array of V1DevicePatchingDetails.",
+      "method": "GET",
+      "path": "/v1/patching-process-details",
+      "base_url": "https://{region}.patch-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the device whose patching details should be listed. If empty or null, patching details of all devices accessible to the caller will be included in the response. type: device_management.v1.Device"
+        },
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [device group]. If filled, only the patching details of devices within the group will be included in the response. If empty or null, scan details of any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "timePeriod.startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "timePeriod.endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "permissions_list",
+      "description": "List all possible permissions. Optional: pageSize, pageToken. Returns array of V2Permission.",
+      "method": "GET",
+      "path": "/v2/permissions",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "policies_create",
+      "description": "Create a policy. All the included feature policies must be valid. Otherwise, INVALID_ARGUMENT (gRPC) or 400 BAD Request (REST) is returned. Optional: policy. Returns the new V2CreatePolicyResponse.",
+      "method": "POST",
+      "path": "/v2/policies",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "policy-description",
+          "wire_name": "policy.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the policy."
+        },
+        {
+          "name": "policy-display-name",
+          "wire_name": "policy.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Human-readable name of the policy."
+        },
+        {
+          "name": "policy-features",
+          "wire_name": "policy.features",
+          "type": "array",
+          "location": "body",
+          "description": "Policies for individual features."
+        }
+      ]
+    },
+    {
+      "name": "policies_delete",
+      "description": "Delete the given policy. Required: policyUuid. Returns the V2DeletePolicyResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/policies/{policyUuid}",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy to be deleted. type: Policy",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get",
+      "description": "Get policy details. Required: policyUuid. Returns the V2GetPolicyResponse.",
+      "method": "GET",
+      "path": "/v2/policies/{policyUuid}",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the requested policy. type: Policy",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "List all the policies accessible to the caller (based on the token). Optional: pageSize, pageToken. Returns array of V2Policy.",
+      "method": "GET",
+      "path": "/v2/policies",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "policy-assignments_assign-policy",
+      "description": "Create a policy assignment. Assignments to the same targets are ordered and prioritized. Every new assignment to the target is put at the end of the stack. The assignment ranking will be equal to the number of target's assignments. Ranking 1 is the highest, and policies are merged from rank 1 towards lower ranks. \u003e **Info:** \u003e A similar concept is described in [Group assignment ranking](https://learn.microsoft.com/en-us/microsoftteams/assign-policies-users-and-groups#group-assignment-ranking). Optional: assignment. Returns the new V2AssignPolicyResponse.",
+      "method": "POST",
+      "path": "/v2/policy-assignments",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "assignment-policy-uuid",
+          "wire_name": "assignment.policyUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Assigned policy. type: Policy"
+        },
+        {
+          "name": "assignment-target-device-group-uuid",
+          "wire_name": "assignment.target.deviceGroupUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Policy is assigned to [device group]. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "assignment-target-device-uuid",
+          "wire_name": "assignment.target.deviceUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Policy is assigned to [device]. type: device_management.v1.Device"
+        },
+        {
+          "name": "assignment-target-subscription-uuid",
+          "wire_name": "assignment.target.subscriptionUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Policy is assigned to [subscription]. type: subscription_provisioning.v2.Subscription"
+        }
+      ]
+    },
+    {
+      "name": "policy-assignments_get",
+      "description": "Get details of the given policy assignment. Required: assignmentUuid. Returns the V2GetPolicyAssignmentResponse.",
+      "method": "GET",
+      "path": "/v2/policy-assignments/{assignmentUuid}",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "assignmentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy assignment to retrieve. type: PolicyAssignment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policy-assignments_list",
+      "description": "List all the policy assignments available to the caller. Optional: policyUuids, policyUuid, target.deviceUuid (plus 4 more). Returns array of V2PolicyAssignment.",
+      "method": "GET",
+      "path": "/v2/policy-assignments",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "policyUuids",
+          "type": "array",
+          "location": "query",
+          "description": "If filled, only assignments of any of the given policies will be included in the response. If also `policy uuid` is filled, it is added to this list. type: Policy"
+        },
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "query",
+          "description": "If filled, only assignments of the given policy will be included in the response. This filter is merged with `policy uuids` if those are filled. type: Policy"
+        },
+        {
+          "name": "target.deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Policy is assigned to [device]. type: device_management.v1.Device"
+        },
+        {
+          "name": "target.deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Policy is assigned to [device group]. type: device_management.v1.DeviceGroup"
+        },
+        {
+          "name": "target.subscriptionUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Policy is assigned to [subscription]. type: subscription_provisioning.v2.Subscription"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "policy-assignments_unassign-policy",
+      "description": "Delete the policy assignment. The remaining assignments to the target are reordered. Required: assignmentUuid. Returns the V2UnassignPolicyResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/policy-assignments/{assignmentUuid}",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "assignmentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy assignment to be updated. type: PolicyAssignment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policy-assignments_update-ranking",
+      "description": "Move the policy assignment within ranks. Required: assignmentUuid. Optional: rank. Returns the new V2UpdatePolicyAssignmentRankingResponse.",
+      "method": "POST",
+      "path": "/v2/policy-assignments/{assignmentUuid}:updateRanking",
+      "base_url": "https://{region}.policy-management.eset.systems",
+      "params": [
+        {
+          "name": "assignmentUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the policy assignment to be updated. type: PolicyAssignment",
+          "required": true
+        },
+        {
+          "name": "rank",
+          "type": "int",
+          "location": "body",
+          "description": "The new ranking of the policy assignment. Cannot be 0; otherwise, 400 BAD REQUEST is thrown. Cannot be higher than the number of target's assignments; otherwise, 412 PRECONDITION-FAILED is thrown. After the successful update, all the other assignments are reordered with the given policy being ranked as desired."
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects_get",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Get a quarantined object. Required: objectUuid. Returns the V1GetQuarantinedObjectResponse.",
+      "method": "GET",
+      "path": "/v1/quarantined-objects/{objectUuid}",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "objectUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to [quarantined object]. type: QuarantinedObject",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects_get-count",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Get the count of quarantined objects matching the criteria. Optional: filter.cloudOfficeTenantUuid, filter.emailInternetMessageId, filter.emailRecipient (plus 11 more). Returns the V1GetQuarantinedObjectsCountResponse.",
+      "method": "GET",
+      "path": "/v1/quarantined-objects/count",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "filter.cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [cloud office tenant]. If filled, only objects of the referred tenant are returned. If empty or null, objects of any tenant are returned. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "filter.emailInternetMessageId",
+          "type": "string",
+          "location": "query",
+          "description": "If filled, only messages with this Message-ID are returned. If empty or '', messages with any Message-ID are returned."
+        },
+        {
+          "name": "filter.emailRecipient",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails with the given email address in recipients are returned. If empty or '', emails for all the recipients are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.emailSender",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails from the given email address are returned. If empty or '', emails from all the senders are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.emailSubject",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails whose subject contains this string are returned. If empty or '', emails with any subject are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.fileName",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only quarantined files with the path terminated with this string are returned. If empty or '', all files are returned."
+        },
+        {
+          "name": "filter.msSharepointRootSiteUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [Microsoft Sharepoint root site]. If filled, only objects belonging to the given site or its child sites are returned. If empty or '', objects of all sites are returned. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftSharepointSite"
+        },
+        {
+          "name": "filter.msTeamsTeamUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [Microsoft Teams team]. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftTeamsTeam"
+        },
+        {
+          "name": "filter.objectOrigin",
+          "type": "string",
+          "location": "query",
+          "description": "Origin of the quarantined object. If filled, only objects with the given origin are returned. Objects with any origin are returned otherwise. - OBJECT_ORIGIN_UNSPECIFIED: fallback - OBJECT_ORIGIN_MS_OFFICE365: Object originates in Microsoft Office 365. - OBJECT_ORIGIN_GOOGLE_WORKSPACE: Object originates in Google Workspace. - OBJECT_ORIGIN_DEVICE: Object originates from a device."
+        },
+        {
+          "name": "filter.objectType",
+          "type": "string",
+          "location": "query",
+          "description": "Type of quarantined object to be returned in the response. If 0 or empty, all types of quarantined objects are returned. - QUARANTINED_OBJECT_TYPE_UNSPECIFIED: fallback - QUARANTINED_OBJECT_TYPE_EMAIL_MESSAGE: The object is an email message. - QUARANTINED_OBJECT_TYPE_EMAIL_ATTACHMENT: The object is an email attachment. - QUARANTINED_OBJECT_TYPE_FILE_ON_DRIVE: The object is a file on the drive."
+        },
+        {
+          "name": "filter.quarantineReason",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only objects quarantined for this reason are returned. If 0 or empty, objects quarantined for all possible reasons are returned. - QUARANTINE_REASON_UNSPECIFIED: fallback - QUARANTINE_REASON_MALWARE: The object was identified as malware or as containing malware. - QUARANTINE_REASON_GRAYWARE: The object was identified as grayware or as containing grayware. Grayware refers to potentially unwanted programs or files that, while not explicitly malicious, can negatively impact system performance or user experience. - QUARANTINE_REASON_PHISHING: The object (mostly email) was identified as phishing. - QUARANTINE_REASON_SPAM: The object (mostly email) was identified as unsolicited or spam. - QUARANTINE_REASON_SENDER_SPOOFING: The email's sender was identified as spoofed. - QUARANTINE_REASON_RULE: The object was quarantined by a rule (for example, `mail transfer protection rule`)."
+        },
+        {
+          "name": "filter.quarantineTime.startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "filter.quarantineTime.endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "filter.userUuid",
+          "type": "string",
+          "location": "query",
+          "description": "This is a reference to the user associated with the quarantined object through ownership of its storage. If filled for a file, only the files on a cloud drive owned by the given user are included in the response. If filled for mail, only the files in a mailbox owned by the given user are included in the response. If null or empty, quarantined objects associated with any user and accessible to the caller will be included in the response. type: user_management.v1.User"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects_list",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. List all quarantined objects matching the criteria in the filter. Optional: filter.cloudOfficeTenantUuid, filter.emailInternetMessageId, filter.emailRecipient (plus 14 more). Returns array of V1QuarantinedObject.",
+      "method": "GET",
+      "path": "/v1/quarantined-objects",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "filter.cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [cloud office tenant]. If filled, only objects of the referred tenant are returned. If empty or null, objects of any tenant are returned. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "filter.emailInternetMessageId",
+          "type": "string",
+          "location": "query",
+          "description": "If filled, only messages with this Message-ID are returned. If empty or '', messages with any Message-ID are returned."
+        },
+        {
+          "name": "filter.emailRecipient",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails with the given email address in recipients are returned. If empty or '', emails for all the recipients are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.emailSender",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails from the given email address are returned. If empty or '', emails from all the senders are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.emailSubject",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only emails whose subject contains this string are returned. If empty or '', emails with any subject are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter.fileName",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only quarantined files with the path terminated with this string are returned. If empty or '', all files are returned."
+        },
+        {
+          "name": "filter.msSharepointRootSiteUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [Microsoft Sharepoint root site]. If filled, only objects belonging to the given site or its child sites are returned. If empty or '', objects of all sites are returned. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftSharepointSite"
+        },
+        {
+          "name": "filter.msTeamsTeamUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to [Microsoft Teams team]. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftTeamsTeam"
+        },
+        {
+          "name": "filter.objectOrigin",
+          "type": "string",
+          "location": "query",
+          "description": "Origin of the quarantined object. If filled, only objects with the given origin are returned. Objects with any origin are returned otherwise. - OBJECT_ORIGIN_UNSPECIFIED: fallback - OBJECT_ORIGIN_MS_OFFICE365: Object originates in Microsoft Office 365. - OBJECT_ORIGIN_GOOGLE_WORKSPACE: Object originates in Google Workspace. - OBJECT_ORIGIN_DEVICE: Object originates from a device."
+        },
+        {
+          "name": "filter.objectType",
+          "type": "string",
+          "location": "query",
+          "description": "Type of quarantined object to be returned in the response. If 0 or empty, all types of quarantined objects are returned. - QUARANTINED_OBJECT_TYPE_UNSPECIFIED: fallback - QUARANTINED_OBJECT_TYPE_EMAIL_MESSAGE: The object is an email message. - QUARANTINED_OBJECT_TYPE_EMAIL_ATTACHMENT: The object is an email attachment. - QUARANTINED_OBJECT_TYPE_FILE_ON_DRIVE: The object is a file on the drive."
+        },
+        {
+          "name": "filter.quarantineReason",
+          "type": "string",
+          "location": "query",
+          "description": "If given, only objects quarantined for this reason are returned. If 0 or empty, objects quarantined for all possible reasons are returned. - QUARANTINE_REASON_UNSPECIFIED: fallback - QUARANTINE_REASON_MALWARE: The object was identified as malware or as containing malware. - QUARANTINE_REASON_GRAYWARE: The object was identified as grayware or as containing grayware. Grayware refers to potentially unwanted programs or files that, while not explicitly malicious, can negatively impact system performance or user experience. - QUARANTINE_REASON_PHISHING: The object (mostly email) was identified as phishing. - QUARANTINE_REASON_SPAM: The object (mostly email) was identified as unsolicited or spam. - QUARANTINE_REASON_SENDER_SPOOFING: The email's sender was identified as spoofed. - QUARANTINE_REASON_RULE: The object was quarantined by a rule (for example, `mail transfer protection rule`)."
+        },
+        {
+          "name": "filter.quarantineTime.startTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "filter.quarantineTime.endTime",
+          "type": "string",
+          "location": "query",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "filter.userUuid",
+          "type": "string",
+          "location": "query",
+          "description": "This is a reference to the user associated with the quarantined object through ownership of its storage. If filled for a file, only the files on a cloud drive owned by the given user are included in the response. If filled for mail, only the files in a mailbox owned by the given user are included in the response. If null or empty, quarantined objects associated with any user and accessible to the caller will be included in the response. type: user_management.v1.User"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of fields (from the request resource). Allowed formats are: - [snake_case version of the field name](https://developers.google.com/protocol-buffers/docs/style#message_and_field_names) as used by protocol buffers. - [JSON version of the field name](https://protobuf.dev/programming-guides/proto3/#json) The syntax is described at [Standard Methods: List Ordering](https://google.aip.dev/132#ordering)"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-batch-delete_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Delete a batch of quarantined objects. The objects will be deleted permanently. Optional: objectUuids. Returns the new V1BatchDeleteQuarantinedObjectsResponse.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:batchDelete",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "objectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s to be deleted. type: QuarantinedObject"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-batch-download_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Download a batch of quarantined objects. The response is a ZIP archive of quarantined objects. \u003e **Info:** \u003e Modeled after [gRPC-JSON transcoder: Sending arbitrary content](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter#sending-arbitrary-content) \u003e and \u003e [GitHub: Google APIs](https://github.com/googleapis/googleapis/blob/master/google/api/httpbody.proto). Optional: objectUuids.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:batchDownload",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "objectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s to be downloaded. type: QuarantinedObject"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-batch-restore_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Restore a batch of quarantined objects to their original location. Objects might be scanned anytime later; if the reasons for being quarantined persist, they will be quarantined again. Optional: addToExclusions, objectUuids. Returns the new V1BatchRestoreQuarantinedObjectsResponse.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:batchRestore",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "addToExclusions",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, objects will be excluded from scanning and will not end up in the quarantine again."
+        },
+        {
+          "name": "objectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s to be restored. type: QuarantinedObject"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-download_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Download quarantined objects matching the criteria in the filter. The response is a ZIP archive of quarantined objects. \u003e **Info:** \u003e Modeled after [gRPC-JSON transcoder: Sending arbitrary content](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter#sending-arbitrary-content) \u003e and \u003e [GitHub: Google APIs](https://github.com/googleapis/googleapis/blob/master/google/api/httpbody.proto). Optional: excludedObjectUuids, filter.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:download",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "excludedObjectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s excluded from the result. type: QuarantinedObject"
+        },
+        {
+          "name": "filter-cloud-office-tenant-uuid",
+          "wire_name": "filter.cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [cloud office tenant]. If filled, only objects of the referred tenant are returned. If empty or null, objects of any tenant are returned. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "filter-email-internet-message-id",
+          "wire_name": "filter.emailInternetMessageId",
+          "type": "string",
+          "location": "body",
+          "description": "If filled, only messages with this Message-ID are returned. If empty or '', messages with any Message-ID are returned."
+        },
+        {
+          "name": "filter-email-recipient",
+          "wire_name": "filter.emailRecipient",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails with the given email address in recipients are returned. If empty or '', emails for all the recipients are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-sender",
+          "wire_name": "filter.emailSender",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails from the given email address are returned. If empty or '', emails from all the senders are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-subject",
+          "wire_name": "filter.emailSubject",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails whose subject contains this string are returned. If empty or '', emails with any subject are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-file-name",
+          "wire_name": "filter.fileName",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only quarantined files with the path terminated with this string are returned. If empty or '', all files are returned."
+        },
+        {
+          "name": "filter-ms-sharepoint-root-site-uuid",
+          "wire_name": "filter.msSharepointRootSiteUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Sharepoint root site]. If filled, only objects belonging to the given site or its child sites are returned. If empty or '', objects of all sites are returned. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftSharepointSite"
+        },
+        {
+          "name": "filter-ms-teams-team-uuid",
+          "wire_name": "filter.msTeamsTeamUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Teams team]. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftTeamsTeam"
+        },
+        {
+          "name": "filter-object-origin",
+          "wire_name": "filter.objectOrigin",
+          "type": "string",
+          "location": "body",
+          "description": "Object origin denotes a system managing object's life-cycle. This is necessary to be known for actions that manipulate with object, such as delete, quarantine, move and so on. - OBJECT_ORIGIN_UNSPECIFIED: fallback - OBJECT_ORIGIN_MS_OFFICE365: Object originates in Microsoft Office 365. - OBJECT_ORIGIN_GOOGLE_WORKSPACE: Object originates in Google Workspace. - OBJECT_ORIGIN_DEVICE: Object originates from a device."
+        },
+        {
+          "name": "filter-object-type",
+          "wire_name": "filter.objectType",
+          "type": "string",
+          "location": "body",
+          "description": "Possible types of an object. - QUARANTINED_OBJECT_TYPE_UNSPECIFIED: fallback - QUARANTINED_OBJECT_TYPE_EMAIL_MESSAGE: The object is an email message. - QUARANTINED_OBJECT_TYPE_EMAIL_ATTACHMENT: The object is an email attachment. - QUARANTINED_OBJECT_TYPE_FILE_ON_DRIVE: The object is a file on the drive."
+        },
+        {
+          "name": "filter-quarantine-reason",
+          "wire_name": "filter.quarantineReason",
+          "type": "string",
+          "location": "body",
+          "description": "Reasons for the object being quarantined. - QUARANTINE_REASON_UNSPECIFIED: fallback - QUARANTINE_REASON_MALWARE: The object was identified as malware or as containing malware. - QUARANTINE_REASON_GRAYWARE: The object was identified as grayware or as containing grayware. Grayware refers to potentially unwanted programs or files that, while not explicitly malicious, can negatively impact system performance or user experience. - QUARANTINE_REASON_PHISHING: The object (mostly email) was identified as phishing. - QUARANTINE_REASON_SPAM: The object (mostly email) was identified as unsolicited or spam. - QUARANTINE_REASON_SENDER_SPOOFING: The email's sender was identified as spoofed. - QUARANTINE_REASON_RULE: The object was quarantined by a rule (for example, `mail transfer protection rule`)."
+        },
+        {
+          "name": "filter-quarantine-time-end-time",
+          "wire_name": "filter.quarantineTime.endTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "filter-quarantine-time-start-time",
+          "wire_name": "filter.quarantineTime.startTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "filter-user-uuid",
+          "wire_name": "filter.userUuid",
+          "type": "string",
+          "location": "body",
+          "description": "This is a reference to the user associated with the quarantined object through ownership of its storage. If filled for a file, only the files on a cloud drive owned by the given user are included in the response. If filled for mail, only the files in a mailbox owned by the given user are included in the response. If null or empty, quarantined objects associated with any user and accessible to the caller will be included in the response. type: user_management.v1.User"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-purge_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Delete quarantined objects matching criteria in the filter. The objects will be deleted permanently. \u003e **Info:** \u003e Name `Purge` is chosen to comply with [Criteria-based delete](https://google.aip.dev/165). Optional: excludedObjectUuids, filter. Returns the new V1PurgeQuarantinedObjectsResponse.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:purge",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "excludedObjectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s excluded from the result. type: QuarantinedObject"
+        },
+        {
+          "name": "filter-cloud-office-tenant-uuid",
+          "wire_name": "filter.cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [cloud office tenant]. If filled, only objects of the referred tenant are returned. If empty or null, objects of any tenant are returned. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "filter-email-internet-message-id",
+          "wire_name": "filter.emailInternetMessageId",
+          "type": "string",
+          "location": "body",
+          "description": "If filled, only messages with this Message-ID are returned. If empty or '', messages with any Message-ID are returned."
+        },
+        {
+          "name": "filter-email-recipient",
+          "wire_name": "filter.emailRecipient",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails with the given email address in recipients are returned. If empty or '', emails for all the recipients are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-sender",
+          "wire_name": "filter.emailSender",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails from the given email address are returned. If empty or '', emails from all the senders are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-subject",
+          "wire_name": "filter.emailSubject",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails whose subject contains this string are returned. If empty or '', emails with any subject are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-file-name",
+          "wire_name": "filter.fileName",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only quarantined files with the path terminated with this string are returned. If empty or '', all files are returned."
+        },
+        {
+          "name": "filter-ms-sharepoint-root-site-uuid",
+          "wire_name": "filter.msSharepointRootSiteUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Sharepoint root site]. If filled, only objects belonging to the given site or its child sites are returned. If empty or '', objects of all sites are returned. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftSharepointSite"
+        },
+        {
+          "name": "filter-ms-teams-team-uuid",
+          "wire_name": "filter.msTeamsTeamUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Teams team]. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftTeamsTeam"
+        },
+        {
+          "name": "filter-object-origin",
+          "wire_name": "filter.objectOrigin",
+          "type": "string",
+          "location": "body",
+          "description": "Object origin denotes a system managing object's life-cycle. This is necessary to be known for actions that manipulate with object, such as delete, quarantine, move and so on. - OBJECT_ORIGIN_UNSPECIFIED: fallback - OBJECT_ORIGIN_MS_OFFICE365: Object originates in Microsoft Office 365. - OBJECT_ORIGIN_GOOGLE_WORKSPACE: Object originates in Google Workspace. - OBJECT_ORIGIN_DEVICE: Object originates from a device."
+        },
+        {
+          "name": "filter-object-type",
+          "wire_name": "filter.objectType",
+          "type": "string",
+          "location": "body",
+          "description": "Possible types of an object. - QUARANTINED_OBJECT_TYPE_UNSPECIFIED: fallback - QUARANTINED_OBJECT_TYPE_EMAIL_MESSAGE: The object is an email message. - QUARANTINED_OBJECT_TYPE_EMAIL_ATTACHMENT: The object is an email attachment. - QUARANTINED_OBJECT_TYPE_FILE_ON_DRIVE: The object is a file on the drive."
+        },
+        {
+          "name": "filter-quarantine-reason",
+          "wire_name": "filter.quarantineReason",
+          "type": "string",
+          "location": "body",
+          "description": "Reasons for the object being quarantined. - QUARANTINE_REASON_UNSPECIFIED: fallback - QUARANTINE_REASON_MALWARE: The object was identified as malware or as containing malware. - QUARANTINE_REASON_GRAYWARE: The object was identified as grayware or as containing grayware. Grayware refers to potentially unwanted programs or files that, while not explicitly malicious, can negatively impact system performance or user experience. - QUARANTINE_REASON_PHISHING: The object (mostly email) was identified as phishing. - QUARANTINE_REASON_SPAM: The object (mostly email) was identified as unsolicited or spam. - QUARANTINE_REASON_SENDER_SPOOFING: The email's sender was identified as spoofed. - QUARANTINE_REASON_RULE: The object was quarantined by a rule (for example, `mail transfer protection rule`)."
+        },
+        {
+          "name": "filter-quarantine-time-end-time",
+          "wire_name": "filter.quarantineTime.endTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "filter-quarantine-time-start-time",
+          "wire_name": "filter.quarantineTime.startTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "filter-user-uuid",
+          "wire_name": "filter.userUuid",
+          "type": "string",
+          "location": "body",
+          "description": "This is a reference to the user associated with the quarantined object through ownership of its storage. If filled for a file, only the files on a cloud drive owned by the given user are included in the response. If filled for mail, only the files in a mailbox owned by the given user are included in the response. If null or empty, quarantined objects associated with any user and accessible to the caller will be included in the response. type: user_management.v1.User"
+        }
+      ]
+    },
+    {
+      "name": "quarantined-objects-restore_quarantined-objects",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Restore quarantined objects matching the criteria in the filter to their original location. Objects might be scanned anytime later; if the reasons for being quarantined persist, they will be quarantined again. Optional: addToExclusions, excludedObjectUuids, filter. Returns the new V1RestoreQuarantinedObjectsResponse.",
+      "method": "POST",
+      "path": "/v1/quarantined-objects:restore",
+      "base_url": "https://{region}.quarantine-management.eset.systems",
+      "params": [
+        {
+          "name": "addToExclusions",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, objects will be excluded from scanning and will not end up in the quarantine again."
+        },
+        {
+          "name": "excludedObjectUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Reference to [quarantined object]s excluded from the result. type: QuarantinedObject"
+        },
+        {
+          "name": "filter-cloud-office-tenant-uuid",
+          "wire_name": "filter.cloudOfficeTenantUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [cloud office tenant]. If filled, only objects of the referred tenant are returned. If empty or null, objects of any tenant are returned. type: cloud_office_protection.v1.CloudOfficeTenant"
+        },
+        {
+          "name": "filter-email-internet-message-id",
+          "wire_name": "filter.emailInternetMessageId",
+          "type": "string",
+          "location": "body",
+          "description": "If filled, only messages with this Message-ID are returned. If empty or '', messages with any Message-ID are returned."
+        },
+        {
+          "name": "filter-email-recipient",
+          "wire_name": "filter.emailRecipient",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails with the given email address in recipients are returned. If empty or '', emails for all the recipients are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-sender",
+          "wire_name": "filter.emailSender",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails from the given email address are returned. If empty or '', emails from all the senders are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-email-subject",
+          "wire_name": "filter.emailSubject",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only emails whose subject contains this string are returned. If empty or '', emails with any subject are included in the response. 0 - 100 characters"
+        },
+        {
+          "name": "filter-file-name",
+          "wire_name": "filter.fileName",
+          "type": "string",
+          "location": "body",
+          "description": "If given, only quarantined files with the path terminated with this string are returned. If empty or '', all files are returned."
+        },
+        {
+          "name": "filter-ms-sharepoint-root-site-uuid",
+          "wire_name": "filter.msSharepointRootSiteUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Sharepoint root site]. If filled, only objects belonging to the given site or its child sites are returned. If empty or '', objects of all sites are returned. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftSharepointSite"
+        },
+        {
+          "name": "filter-ms-teams-team-uuid",
+          "wire_name": "filter.msTeamsTeamUuid",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to [Microsoft Teams team]. type: eset.dotnod.quarantine_management.v1-alpha.MicrosoftTeamsTeam"
+        },
+        {
+          "name": "filter-object-origin",
+          "wire_name": "filter.objectOrigin",
+          "type": "string",
+          "location": "body",
+          "description": "Object origin denotes a system managing object's life-cycle. This is necessary to be known for actions that manipulate with object, such as delete, quarantine, move and so on. - OBJECT_ORIGIN_UNSPECIFIED: fallback - OBJECT_ORIGIN_MS_OFFICE365: Object originates in Microsoft Office 365. - OBJECT_ORIGIN_GOOGLE_WORKSPACE: Object originates in Google Workspace. - OBJECT_ORIGIN_DEVICE: Object originates from a device."
+        },
+        {
+          "name": "filter-object-type",
+          "wire_name": "filter.objectType",
+          "type": "string",
+          "location": "body",
+          "description": "Possible types of an object. - QUARANTINED_OBJECT_TYPE_UNSPECIFIED: fallback - QUARANTINED_OBJECT_TYPE_EMAIL_MESSAGE: The object is an email message. - QUARANTINED_OBJECT_TYPE_EMAIL_ATTACHMENT: The object is an email attachment. - QUARANTINED_OBJECT_TYPE_FILE_ON_DRIVE: The object is a file on the drive."
+        },
+        {
+          "name": "filter-quarantine-reason",
+          "wire_name": "filter.quarantineReason",
+          "type": "string",
+          "location": "body",
+          "description": "Reasons for the object being quarantined. - QUARANTINE_REASON_UNSPECIFIED: fallback - QUARANTINE_REASON_MALWARE: The object was identified as malware or as containing malware. - QUARANTINE_REASON_GRAYWARE: The object was identified as grayware or as containing grayware. Grayware refers to potentially unwanted programs or files that, while not explicitly malicious, can negatively impact system performance or user experience. - QUARANTINE_REASON_PHISHING: The object (mostly email) was identified as phishing. - QUARANTINE_REASON_SPAM: The object (mostly email) was identified as unsolicited or spam. - QUARANTINE_REASON_SENDER_SPOOFING: The email's sender was identified as spoofed. - QUARANTINE_REASON_RULE: The object was quarantined by a rule (for example, `mail transfer protection rule`)."
+        },
+        {
+          "name": "filter-quarantine-time-end-time",
+          "wire_name": "filter.quarantineTime.endTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Exclusive end of the interval. If specified, a Timestamp matching this interval will have to be before the end."
+        },
+        {
+          "name": "filter-quarantine-time-start-time",
+          "wire_name": "filter.quarantineTime.startTime",
+          "type": "string",
+          "location": "body",
+          "description": "Optional. Inclusive start of the interval. If specified, a Timestamp matching this interval will have to be the same or after the start."
+        },
+        {
+          "name": "filter-user-uuid",
+          "wire_name": "filter.userUuid",
+          "type": "string",
+          "location": "body",
+          "description": "This is a reference to the user associated with the quarantined object through ownership of its storage. If filled for a file, only the files on a cloud drive owned by the given user are included in the response. If filled for mail, only the files in a mailbox owned by the given user are included in the response. If null or empty, quarantined objects associated with any user and accessible to the caller will be included in the response. type: user_management.v1.User"
+        }
+      ]
+    },
+    {
+      "name": "role-assignments_identity-provider-list-roles",
+      "description": "List [role]s of [subject]s. \u003e **Info:** \u003e Not only Users are [subject]s, but anything that can have roles attached. For example, Devices. \u003e **Info:** \u003e Modeled after [List role assignments](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-list-portal). Might be filtered by the specified [subject] or [scope]s. If the filters are left empty, all the roles available to the caller are returned. Example: Request* ```yaml --- scopes: - msp_uuid: af631cc9-3e9f-4fd7-8f29-ed8121b4cf8a ``` Response* ```yaml --- assignments: - subject_reference: 286f5456-a0ac-4e8a-8508-5c2224b47ae6 roles: - role_name: admin scopes: - msp_uuid: af631cc9-3e9f-4fd7-8f29-ed8121b4cf8a - customer_uuid: 30bd93aa-c0ef-4fcf-a73f-ce80610bd161 - role_name: auditor scopes: - msp_uuid: 30bd93aa-c0ef-4fcf-a73f-ce80610bd161 - subject_reference: ae9e45d2-9ee6-43e7-9b68-a650d62eeff1 roles: - role_name: admin scopes: - msp_uuid: af631cc9-3e9f-4fd7-8f29-ed8121b4cf8a - customer_uuid: ff572f63-8965-47da-9d9d-cb994dc9da10 - role_name: auditor scopes: - msp_uuid: af631cc9-3e9f-4fd7-8f29-ed8121b4cf8a - customer_uuid: 30bd93aa-c0ef-4fcf-a73f-ce80610bd161 ```. Optional: includeNestedScopes, subjectReference, subjectType (default: SUBJECT_TYPE_UNSPECIFIED) (plus 3 more). Returns array of V2SubjectRoles.",
+      "method": "GET",
+      "path": "/v2/role-assignments",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "includeNestedScopes",
+          "type": "bool",
+          "location": "query",
+          "description": "Scopes can be nested, and some scopes naturally exist within the boundaries of another scope. If true, besides the requested scopes, nested scopes are also included in the response."
+        },
+        {
+          "name": "subjectReference",
+          "type": "string",
+          "location": "query",
+          "description": "Return only roles of the [subject](https://pages.nist.gov/800-63-3/sp800-63-3.html#subject) Reference can be the User UUID, EPC instance UUID, or whatever identifies the subject. If omitted, all the subjects (accessible to the caller) are returned. \u003e **Info:** \u003e `sub` claim can be used: \u003e [JSON Web Token Claims](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims#reserved-claims) \u003e \u003e Identical to the `principal` concept from the Microsoft literature: [Security principals](https://docs.microsoft.com/en-us/windows/security/identity-protection/access-control/security-principals)"
+        },
+        {
+          "name": "subjectType",
+          "type": "string",
+          "location": "query",
+          "description": "Type of the subject in reference. - SUBJECT_TYPE_UNSPECIFIED: fallback - SUBJECT_TYPE_USER: Subject represents a [user]. - SUBJECT_TYPE_DEVICE: Subject represents a [device]. - SUBJECT_TYPE_USER_GROUP: Roles can be assigned to a user group. Then, the roles are inferred from the groups of the authenticated user. - SUBJECT_TYPE_MANAGED_IDENTITY: The subject has a managed identity. Managed identities are used by the API clients to access services. - SUBJECT_TYPE_SERVICE: The subject represents a [service]."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of fields (from the request resource). For example, a result set will be ordered by `display name` and `severity level` in descending order, what can be encoded as `display_name, SeverityLevel desc`. Allowed formats are: - [snake_case version of the field name](https://developers.google.com/protocol-buffers/docs/style#message_and_field_names) as used by protocol buffers. - [JSON version of the field name](https://protobuf.dev/programming-guides/proto3/#json) The syntax is described at [Standard Methods: List Ordering](https://google.aip.dev/132#ordering)"
+        }
+      ]
+    },
+    {
+      "name": "role-assignments-assign-role_identity-provider-assign-role",
+      "description": "Assign a role to a subject. Eventually, the subject ends with its existing roles and those assigned by this operation. For example: 'User X' is an 'admin' of the Subscription B. `AssignRole( 'User X', { 'admin', ['Subscription A', 'Subscription C']) ` leaves the user being an admin of the Subscriptions A, B, and C. Optional: role, subjectReference, subjectType (default: SUBJECT_TYPE_UNSPECIFIED). Returns the new V2AssignRoleResponse.",
+      "method": "POST",
+      "path": "/v2/role-assignments:assignRole",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "role-role-name",
+          "wire_name": "role.roleName",
+          "type": "string",
+          "location": "body",
+          "description": "Roles are referenced by their names."
+        },
+        {
+          "name": "role-scopes",
+          "wire_name": "role.scopes",
+          "type": "array",
+          "location": "body",
+          "description": "Map of [role]s to [scope]s. If the [scope] is left empty, the role is considered global for all the [scope]s. The first string stands for the role (for example, 'Auditor')."
+        },
+        {
+          "name": "subjectReference",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the [user], [device] or whatever identifies the subject."
+        },
+        {
+          "name": "subjectType",
+          "type": "string",
+          "location": "body",
+          "description": "The type of principal represented by the subject to whom the roles are assigned. - SUBJECT_TYPE_UNSPECIFIED: fallback - SUBJECT_TYPE_USER: Subject represents a [user]. - SUBJECT_TYPE_DEVICE: Subject represents a [device]. - SUBJECT_TYPE_USER_GROUP: Roles can be assigned to a user group. Then, the roles are inferred from the groups of the authenticated user. - SUBJECT_TYPE_MANAGED_IDENTITY: The subject has a managed identity. Managed identities are used by the API clients to access services. - SUBJECT_TYPE_SERVICE: The subject represents a [service]."
+        }
+      ]
+    },
+    {
+      "name": "role-assignments-revoke-role_identity-provider-revoke-role",
+      "description": "Remove the assigned role from the subject. Eventually, the subject ends without roles or scopes unassigned by this operation. For example: 'User X' is an 'admin' of the Subscriptions A, B, C. `RevokeRole( 'User X', { 'admin', 'Subscription B'}) ` leaves the user being an admin of the Subscriptions A and C. Optional: role, subjectReference, subjectType (default: SUBJECT_TYPE_UNSPECIFIED). Returns the new V2RevokeRoleResponse.",
+      "method": "POST",
+      "path": "/v2/role-assignments:revokeRole",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "role-role-name",
+          "wire_name": "role.roleName",
+          "type": "string",
+          "location": "body",
+          "description": "Roles are referenced by their names."
+        },
+        {
+          "name": "role-scopes",
+          "wire_name": "role.scopes",
+          "type": "array",
+          "location": "body",
+          "description": "Map of [role]s to [scope]s. If the [scope] is left empty, the role is considered global for all the [scope]s. The first string stands for the role (for example, 'Auditor')."
+        },
+        {
+          "name": "subjectReference",
+          "type": "string",
+          "location": "body",
+          "description": "Reference to the [user], [device] or whatever identifies the subject."
+        },
+        {
+          "name": "subjectType",
+          "type": "string",
+          "location": "body",
+          "description": "The type of principal represented by the subject to whom the roles are assigned. - SUBJECT_TYPE_UNSPECIFIED: fallback - SUBJECT_TYPE_USER: Subject represents a [user]. - SUBJECT_TYPE_DEVICE: Subject represents a [device]. - SUBJECT_TYPE_USER_GROUP: Roles can be assigned to a user group. Then, the roles are inferred from the groups of the authenticated user. - SUBJECT_TYPE_MANAGED_IDENTITY: The subject has a managed identity. Managed identities are used by the API clients to access services. - SUBJECT_TYPE_SERVICE: The subject represents a [service]."
+        }
+      ]
+    },
+    {
+      "name": "roles_create",
+      "description": "Creates a new custom [Role]. The role name must be unique within the scope in which the role is created. \u003e **Info:** \u003e For EPC, name must be unique within the EPC Instance. Optional: role. Returns the new V2CreateRoleResponse.",
+      "method": "POST",
+      "path": "/v2/roles",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "role-description",
+          "wire_name": "role.description",
+          "type": "string",
+          "location": "body",
+          "description": "A human-readable description of the role definition."
+        },
+        {
+          "name": "role-display-name",
+          "wire_name": "role.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "A human-readable name of the Role."
+        },
+        {
+          "name": "role-name",
+          "wire_name": "role.name",
+          "type": "string",
+          "location": "body",
+          "description": "The role name. It is a unique ID of the role in the defined scope. It must be a URL-safe identifier. It must consist only of alphanumeric characters (a-z, A-Z, 0-9), dashes (-), and underscores (_). Spaces and special characters are not allowed."
+        },
+        {
+          "name": "role-permission-names",
+          "wire_name": "role.permissionNames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The names of the permissions this role grants. Permissions are referenced by their name."
+        }
+      ]
+    },
+    {
+      "name": "roles_delete",
+      "description": "Delete specified role. Required: roleName. Returns the V2DeleteRoleResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v2/roles/{roleName}",
+      "base_url": "https://{region}.iam.eset.systems",
+      "params": [
+        {
+          "name": "roleName",
+          "type": "string",
+          "location": "path",
+          "description": "Role name of deleted role.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scans_vulnerability-management-list-recent-details",
+      "description": "List the scan details of all vulnerability scan attempts performed recently (within the last few days). The list might be empty if no vulnerability scans have been performed recently. Stale data (that is, not recent) is removed from the list over the course of several days. Optional: deviceUuid, deviceGroupUuid. Returns array of V1ScanDetails.",
+      "method": "GET",
+      "path": "/v1/scans/recent",
+      "base_url": "https://{region}.vulnerability-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the device whose vulnerability scan details should be listed. If empty or null, vulnerability scan details of all devices accessible to the caller will be included in the response. type: VulnerableDevice"
+        },
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [device group]. If filled, only the vulnerability scan details of the devices within the group will be included in the response. If empty or null, scan details of any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Retrieves the details of a specific user based on their unique identifier. Required: userUuid. Returns the V1GetUserResponse.",
+      "method": "GET",
+      "path": "/v1/users/{userUuid}",
+      "base_url": "https://{region}.user-management.eset.systems",
+      "params": [
+        {
+          "name": "userUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to the [user] to be retrieved. type: User",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Retrieves a list of users, optionally filtered by certain criteria defined in the user filter. Optional: activeProduct.autoActivated, activeProduct.autoActivationDetails.base, activeProduct.autoActivationDetails.userGroupUuid (plus 12 more). Returns array of V1User.",
+      "method": "GET",
+      "path": "/v1/users",
+      "base_url": "https://{region}.user-management.eset.systems",
+      "params": [
+        {
+          "name": "activeProduct.autoActivated",
+          "type": "bool",
+          "location": "query",
+          "description": "If `true`, the product was activated automatically. That is, the product was activated because it is automatically activated for all the users within some user's group or user's tenant."
+        },
+        {
+          "name": "activeProduct.autoActivationDetails.base",
+          "type": "string",
+          "location": "query",
+          "description": "Base, on which the product has been automatically activated for the user. For example, some products are activated based on automation at the level of the user's tenant. - PRODUCT_AUTO_ACTIVATION_BASE_UNSPECIFIED: fallback - PRODUCT_AUTO_ACTIVATION_BASE_TENANT: The product is activated for this user because automatic activation was enabled on the user's tenant. - PRODUCT_AUTO_ACTIVATION_BASE_USER_GROUP: The product is activated for this user because automatic activation was enabled on some of the user's groups."
+        },
+        {
+          "name": "activeProduct.autoActivationDetails.userGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [user group]. It is only meaningful if the base is equal to the USER GROUP. type: UserGroup"
+        },
+        {
+          "name": "activeProduct.subscriptionUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [subscription] used for product activation. type: subscription_management.v1.Subscription"
+        },
+        {
+          "name": "activeProduct.unitPoolUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [unit pool] used for product activation. Unit pools contain units available for product activation. type: unit_management.v1.UnitPool"
+        },
+        {
+          "name": "activeProduct.id",
+          "type": "int",
+          "location": "query",
+          "description": "Identifier of the governed resource. It can be seen as the [value of the item in enumerated type](https://protobuf.dev/programming-guides/proto3/#enum). It can be derived from the name by some algorithm, such as CRC32."
+        },
+        {
+          "name": "activeProduct.name",
+          "type": "string",
+          "location": "query",
+          "description": "Name of the governed item. It can be seen as the name of the enumeration item, with `id` being its numerical value. \u003e **Note:** \u003e Not to be confused with `display_name`, which is [purposed for UI](https://google.aip.dev/148)."
+        },
+        {
+          "name": "cloudOfficeTenantReference",
+          "type": "string",
+          "location": "query",
+          "description": "Filtering based on the user's cloud office tenant reference. If filled, only the users of the given `cloud office tenant reference` will be included in the response. An exact match is required. If `null` or empty, users of any or none `cloud office tenant` will be included in the response."
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "query",
+          "description": "Filtering based on the user's display name. If filled, only the users containing the given `display name` (at least partially) will be included in the response. If `null` or empty, users with any `display name` will be included in the response."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filtering based on the user's email. If filled, only the users containing the given `email` (at least partially) within the `primary email address` or `proxy email addresses` will be included in the response. If `null` or empty, users with any `email address` will be included in the response."
+        },
+        {
+          "name": "hasCloudOfficeMsLicense",
+          "type": "bool",
+          "location": "query",
+          "description": "If `true`, include only users with an associated Microsoft (MS) cloud office license. If `false`, include only users without associated Microsoft (MS) cloud office license. If `null`, this filter does not apply at all."
+        },
+        {
+          "name": "protectionStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filtering based on the user's protection status. If not-null or non-zero, only the users with the given `protection status` will be included in the response. Otherwise, users with any `protection status` will be returned. - PROTECTION_STATUS_UNSPECIFIED: fallback - PROTECTION_STATUS_UNPROTECTED: Status where selected asset is not protected by enabled ESET protection features. - PROTECTION_STATUS_PENDING: Status where asset is not protected by enabled protection features yet, the protection is in pending state. The protection features are setting up. - PROTECTION_STATUS_PARTIALLY_PROTECTED: Status where asset is protected by enabled protection features, with some complications, that require the attention. - PROTECTION_STATUS_FULLY_PROTECTED: Status where asset is fully protected by enabled ESET protection features."
+        },
+        {
+          "name": "userGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filtering based on the user's group. If `null` or empty, users from any user group will be included in the response. type: UserGroup"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for pagination purposes."
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Page token of the current page."
+        }
+      ]
+    },
+    {
+      "name": "users-batch-get-users_v1_users_batch_get_users",
+      "description": "Requires ESET Cloud Office Security access (the API user must sign in to that console once); not available in the jpn region. Retrieves a specific set of [user]s at some point in time. The size of the batch is limited to 1000 users. If this limit is exceeded, OUT_OF_RANGE (gRPC) | 400 Bad Request (HTTP) is returned. Optional: usersUuids. Returns array of V1User.",
+      "method": "POST",
+      "path": "/v1/users:batchGetUsers",
+      "base_url": "https://{region}.user-management.eset.systems",
+      "params": [
+        {
+          "name": "usersUuids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Identifiers of [user]s to retrieve. If empty, INVALID_ARGUMENT is returned. The operation is atomic, with no partial success. Either every requested [user] is returned or none. type: User"
+        }
+      ]
+    },
+    {
+      "name": "vulnerable-devices_list",
+      "description": "List vulnerable devices matching the criteria from the request. Even if a device has multiple vulnerabilities, it will be listed only once. Optional: deviceGroupUuid. Returns array of V1VulnerableDevice.",
+      "method": "GET",
+      "path": "/v1/vulnerable-devices",
+      "base_url": "https://{region}.vulnerability-management.eset.systems",
+      "params": [
+        {
+          "name": "deviceGroupUuid",
+          "type": "string",
+          "location": "query",
+          "description": "Reference to the [device group] for which the vulnerable devices should be listed. If empty or null, any device accessible to the caller will be included in the response. type: device_management.v1.DeviceGroup"
+        }
+      ]
+    },
+    {
+      "name": "web-address-rules_list",
+      "description": "List all address rules containing given domain. Required: policyUuid. Optional: includeDomain. Returns array of string.",
+      "method": "GET",
+      "path": "/v2/policies/{policyUuid}/web-address-rules",
+      "base_url": "https://{region}.web-access-protection.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to policy. type: policy_management.v2.Policy",
+          "required": true
+        },
+        {
+          "name": "includeDomain",
+          "type": "string",
+          "location": "query",
+          "description": "Domain of interest."
+        }
+      ]
+    },
+    {
+      "name": "web-address-rules_domains_web-address-rules-update",
+      "description": "Update all domains inside the web address rule. If the web address rule is empty, it will set the specified vector of domains; otherwise, it will replace all domains inside the web address rule. Original domains that were part of the web address rule will be replaced by the list of new ones. Only domain parts of URLs are extracted and imported. All domains are imported once. Multiple URLs sharing the domain part are imported once. Repeated addition of the same domain adds nothing to `added_domains_count`. \u003e **Warning:** \u003e Even if a single element is added, the whole policy MUST BE validated. Required: policyUuid, addressRuleUuid. Optional: sourceName, urls. Returns array of string.",
+      "method": "PUT",
+      "path": "/v2/policies/{policyUuid}/web-address-rules/{addressRuleUuid}/domains",
+      "base_url": "https://{region}.web-access-protection.eset.systems",
+      "params": [
+        {
+          "name": "policyUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Reference to policy. type: policy_management.v2.Policy",
+          "required": true
+        },
+        {
+          "name": "addressRuleUuid",
+          "type": "string",
+          "location": "path",
+          "description": "Address rule where the domains will be updated. type: WebAddressRule",
+          "required": true
+        },
+        {
+          "name": "sourceName",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the data source. Filename if the source is a file."
+        },
+        {
+          "name": "urls",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of new URLs (might contain just domains) that will be set up. The original URLs (domains) will be replaced by this vector of domains."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Per-customer fleet health",
+      "command": "fleet health",
+      "description": "One row per customer with device count, attention-required and attention-recommended devices, problem count, muted, stale and unenrolled devices, worst customer first."
+    },
+    {
+      "name": "Customer QBR one-pager",
+      "command": "report customer",
+      "description": "One customer's QBR one-pager: current device health, detections by severity and response, incidents with triage and response times, top CVEs, pending and failed security patches, and vulnerability-scan coverage (ESET keeps only a few days of scan and patching history)."
+    },
+    {
+      "name": "CVE and application exposure",
+      "command": "exposure",
+      "description": "Which customers and devices have a given CVE or vulnerable application, with risk score, first detection and whether a patch is available."
+    },
+    {
+      "name": "Hash spread with executable verdict",
+      "command": "detections spread",
+      "description": "How far each detected file hash has spread across devices and customers in a window, joined to whether that executable is blocked, its signer and its LiveGrid reputation when executables are synced."
+    },
+    {
+      "name": "Peer-relative coverage gaps",
+      "command": "fleet gaps",
+      "description": "Devices missing a component or product their customer's other devices have, running an older component version, or not finished enrolling."
+    },
+    {
+      "name": "Named response actions",
+      "command": "respond",
+      "description": "Scan, isolate or release a device by name (or scan a whole customer): prints the exact ESET task first and creates it only with --yes; with --wait it polls the task runs until they finish. Over MCP the root --yes is never forwarded, so the tool only previews."
+    },
+    {
+      "name": "Patch backlog",
+      "command": "patches backlog",
+      "description": "Available-but-not-installed patches ranked by the devices and CVE risk they fix per customer, plus recent failed patch attempts by reason."
+    },
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Endpoint detections in a window (v1 has no resolved state) and open incidents in one ranked queue, worst first, with device, customer and a suggested next command."
+    },
+    {
+      "name": "Stale device list",
+      "command": "fleet stale",
+      "description": "Devices that stopped checking in for N days, most stale first, with customer and group path."
+    },
+    {
+      "name": "Latest detections",
+      "command": "detections latest",
+      "description": "The newest endpoint detections straight from ESET for a time window and minimum severity, with device and customer names when the mirror is synced."
+    },
+    {
+      "name": "Device profile",
+      "command": "devices profile",
+      "description": "Everything about one device in one call: health, recent detections, CVEs, pending patches and recent scans, with partial-failure reporting."
+    },
+    {
+      "name": "Incident context",
+      "command": "incidents context",
+      "description": "One incident with its comments and every linked detection and device, falling back from v1 to v2 detection lookups."
+    },
+    {
+      "name": "Vulnerability rollup",
+      "command": "report vulnerabilities",
+      "description": "Vulnerable devices, CVE counts by severity, top CVEs and patchable share per customer from a live vulnerability scan."
+    },
+    {
+      "name": "Executable lookup",
+      "command": "executables find",
+      "description": "Turn an MD5, SHA-1 or SHA-256 hash or a name into the executable UUID that 'executables block' needs, with blocked state and signer."
+    },
+    {
+      "name": "Policy decoder",
+      "command": "policies decode",
+      "description": "Decode a policy's base64 and LZMA settings blobs into readable JSON, list settings that mention a word, or pull one value by path."
+    },
+    {
+      "name": "Policy clone",
+      "command": "policies clone",
+      "description": "Copy an existing policy's feature settings byte for byte into a new policy under a new name; preview unless --yes."
+    }
+  ]
+}
