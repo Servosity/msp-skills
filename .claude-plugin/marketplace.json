@@ -1356,6 +1356,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "kaseya-vsa",
+      "source": "./skills/kaseya-vsa",
+      "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "kaseya-vsa",
+        "kaseya vsa",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

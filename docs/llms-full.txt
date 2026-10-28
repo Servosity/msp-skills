@@ -1606,6 +1606,40 @@ A: No. It's a faster path for the questions you ask every day - queue health, un
 
 Governance: The skill reads everything - tickets, CRM, contracts, finance, projects - and can create and update records across the service desk, CRM, finance, and projects, so keep an autonomous agent to reads plus previewed (--dry-run) writes with a human approving each write. Deletes, the back-office 'admin' group, and any command that returns stored credentials (ITGlue or VSA access info) are human-in-the-loop only. The strongest control is the scope of the BMS API user you authenticate as.
 
+### Kaseya VSA 10 (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/kaseya-vsa/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/install.sh)
+
+Ask which devices across every client are offline, unprotected or missing a critical patch, and get the list. Kaseya VSA 10 plus your AI agent reads a local mirror of your whole fleet, so the cross-client questions the portal answers one policy or one device at a time become one reproducible answer. It also runs a VSA script on a device and hands back the output in one call.
+
+Outcomes (question -> command your AI agent runs):
+- Which pending OS updates are exposed on the most devices, across every client? -> kaseya-vsa-cli patch-exposure --by kb --severity critical,important --agent
+- Which clients carry the most critical patch exposure? -> kaseya-vsa-cli patch-exposure --by org --severity critical --agent
+- Which devices are offline, without working antivirus, or with the firewall off? -> kaseya-vsa-cli health --check offline,av,firewall --offline-for 72h --agent
+- Which devices are low on disk space? -> kaseya-vsa-cli health --check disk --disk-below 15 --agent
+- Which versions of Google Chrome are installed, and on how many devices? -> kaseya-vsa-cli software "Google Chrome" --versions --agent
+- Which devices with software inventory are missing our security agent? -> kaseya-vsa-cli software "Huntress Agent" --absent --agent
+- Who did what in the tenant this week, including remote control and API token changes? -> kaseya-vsa-cli audit-logs digest --since 7d --agent
+- What is the current state of one device: notifications, security posture, disks and pending updates? -> kaseya-vsa-cli devices brief FRONTDESK-01 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Kaseya VSA MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Kaseya VSA data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Is this for Kaseya VSA 10 or classic VSA 9?
+A: VSA 10, the platform formerly called VSA X, with an instance host such as yourcompany.vsax.net. It uses the VSA 10 REST API (/api/v3) with an API token ID and secret created under Administration > Configuration > API Access. Classic on-premises VSA 9 has a different API and is not supported.
+Q: Will this hit my VSA 10 API rate limits?
+A: It is built to stay inside them. VSA 10 limits each API token per hour, so the skill syncs once and then answers fleet questions from the local mirror without new API calls. The CLI paces itself to the server's rate-limit headers, and kaseya-vsa-cli rate-limits shows what is left in the current window.
+
+Governance: The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.
+
 ### KnowBe4 (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/knowbe4/

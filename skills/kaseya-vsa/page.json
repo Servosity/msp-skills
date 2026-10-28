@@ -1,0 +1,115 @@
+{
+  "outcome_intro": "Ask which devices across every client are offline, unprotected or missing a critical patch, and get the list. Kaseya VSA 10 plus your AI agent reads a local mirror of your whole fleet, so the cross-client questions the portal answers one policy or one device at a time become one reproducible answer. It also runs a VSA script on a device and hands back the output in one call.",
+  "instead_of_say": [
+    {
+      "instead": "Build a patch status report in Advanced Reporting one policy at a time, then merge the exports in a spreadsheet",
+      "say": "Which critical updates are missing across all my clients, and on how many devices?",
+      "cli": "kaseya-vsa-cli patch-exposure --by kb --severity critical,important --agent"
+    },
+    {
+      "instead": "Open each organization in the VSA 10 console and read down the device list for offline machines and disabled antivirus",
+      "say": "Which devices are offline, unprotected or low on disk, across every client?",
+      "cli": "kaseya-vsa-cli health --check offline,av,firewall,disk --agent"
+    },
+    {
+      "instead": "Run a script from the console, wait, then open the execution log to copy the output",
+      "say": "Run the disk cleanup script on FRONTDESK-01 and tell me what it printed",
+      "cli": "kaseya-vsa-cli scripts run-wait <script-id> --device FRONTDESK-01 --agent"
+    }
+  ],
+  "pain_points": [
+    "VSA 10's own patch status reporting is limited to one policy at a time (Kaseya's Advanced Reporting release note, February 2026), so a fleet-wide view of what is missing means one report per policy and a spreadsheet to join them.",
+    "Offline agents, disabled antivirus and full disks hide across dozens of client organizations: you find out a machine stopped reporting when the client calls.",
+    "Running a script and getting its output back is several clicks per device, and the output lives in an execution log the technician has to go and read."
+  ],
+  "outcomes": [
+    {
+      "question": "Which pending OS updates are exposed on the most devices, across every client?",
+      "command": "kaseya-vsa-cli patch-exposure --by kb --severity critical,important --agent"
+    },
+    {
+      "question": "Which clients carry the most critical patch exposure?",
+      "command": "kaseya-vsa-cli patch-exposure --by org --severity critical --agent"
+    },
+    {
+      "question": "Which devices are offline, without working antivirus, or with the firewall off?",
+      "command": "kaseya-vsa-cli health --check offline,av,firewall --offline-for 72h --agent"
+    },
+    {
+      "question": "Which devices are low on disk space?",
+      "command": "kaseya-vsa-cli health --check disk --disk-below 15 --agent"
+    },
+    {
+      "question": "Which versions of Google Chrome are installed, and on how many devices?",
+      "command": "kaseya-vsa-cli software \"Google Chrome\" --versions --agent"
+    },
+    {
+      "question": "Which devices with software inventory are missing our security agent?",
+      "command": "kaseya-vsa-cli software \"Huntress Agent\" --absent --agent"
+    },
+    {
+      "question": "Who did what in the tenant this week, including remote control and API token changes?",
+      "command": "kaseya-vsa-cli audit-logs digest --since 7d --agent"
+    },
+    {
+      "question": "What is the current state of one device: notifications, security posture, disks and pending updates?",
+      "command": "kaseya-vsa-cli devices brief FRONTDESK-01 --agent"
+    }
+  ],
+  "different_vs_wrappers": "This skill syncs your VSA 10 organizations, sites and device inventory into a local SQLite mirror, so fleet-wide questions (patch exposure by KB, health failures, software version spread) are one offline query instead of one live API call per device. Most VSA integrations, and an MCP server that only forwards each tool call to the API, answer one record at a time and spend your hourly API budget doing it.",
+  "different_vs_vendor": "The VSA 10 console and Advanced Reporting stay your place for remote control, policy and scheduled reports; this skill answers the cross-client questions in the AI agent you already use, from a local mirror, and complements the portal rather than replacing it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Kaseya VSA MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Kaseya VSA data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Is this for Kaseya VSA 10 or classic VSA 9?",
+      "a": "VSA 10, the platform formerly called VSA X, with an instance host such as yourcompany.vsax.net. It uses the VSA 10 REST API (/api/v3) with an API token ID and secret created under Administration > Configuration > API Access. Classic on-premises VSA 9 has a different API and is not supported."
+    },
+    {
+      "q": "Will this hit my VSA 10 API rate limits?",
+      "a": "It is built to stay inside them. VSA 10 limits each API token per hour, so the skill syncs once and then answers fleet questions from the local mirror without new API calls. The CLI paces itself to the server's rate-limit headers, and kaseya-vsa-cli rate-limits shows what is left in the current window."
+    }
+  ],
+  "governance_summary": "The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "devices list, health, patch-exposure, software, audit-logs digest, devices brief, sync, search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "organizations create/update, sites create/update, groups create/update, devices move, devices publish, notifications create, custom-fields assign/unassign/update-assigned, webhooks create/update, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Endpoint execution",
+      "examples": "scripts run, scripts run-wait, tasks run, tasks run-wait, workflows run, workflows cancel-executions",
+      "policy": "Human-in-the-loop only: these run code on customer devices"
+    },
+    {
+      "tier": "Credential / secret-bearing",
+      "examples": "any command that can return a stored secret: custom-fields get/list, devices list-custom-fields, organization-, site- and group-custom-fields, assets list and get-device (AssetInfo holds the Windows product key), groups get-package (agent install link), webhooks get/list and regenerate-secret-key, auth",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "organizations delete, sites delete, groups delete, notifications delete, webhooks delete, local-data purge",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

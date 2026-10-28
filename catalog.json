@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27",
+  "generated_at": "2026-10-28",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -904,6 +904,26 @@
       "verification": "awaiting",
       "category": "PSA",
       "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute."
+    },
+    {
+      "name": "kaseya-vsa",
+      "system": "Kaseya VSA 10 RMM - devices, patches, software inventory, scripts, tasks, and alerts",
+      "status": "beta",
+      "skill_path": "skills/kaseya-vsa",
+      "cli_binary": "kaseya-vsa-cli",
+      "mcp_binary": "kaseya-vsa-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Kaseya VSA",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/install.sh)",
+      "install_mcp_doc": "skills/kaseya-vsa/mcp-install.md",
+      "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call."
     },
     {
       "name": "knowbe4",

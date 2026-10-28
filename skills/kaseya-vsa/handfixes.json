@@ -1,0 +1,807 @@
+{
+ "slug": "kaseya-vsa",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. First print press 4.33.5 (run 20261014-221524-7be03dd9); first release on press 4.34.2 (run 20261027-140746-e245c063). Credential-less: no vendor tenant; behaviour proven against a mock built from Kaseya's public api.vsax.net reference.",
+ "handfixes": [
+  {
+   "id": "sync-dependents-devices-notifications-only",
+   "summary": "Dependent sync fans out only to devices_notifications; custom-field values, applied policies and scope usage are never synced",
+   "why": "VSA custom-field values are where MSPs keep secrets (BitLocker keys, client passwords): the press emits per-parent dependents for devices/organizations/sites/groups custom fields, which would copy them into the local SQLite store. devices_appliedpolicies rows have no stable ID (PolicyType repeats per device), so every device 'consumed N, stored 0' and failed the whole sync. scope_usage is one call per scope for data no command reads. The explicit list commands still read all of these live. Re-apply: cli-factory/kaseya-vsa/tools/apply_handfixes.py. Press 4.34.2 already skips scripts_executions and generates the $.parent_id reconcile scope.",
+   "status": "active",
+   "spec_encode_followup": "a per-dependent sync opt-out (x-pp-sync: false on the sub-collection) in the press",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "kaseya-vsa handfix: dependent sync limited to devices_notifications",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"devices_notifications\", ParentTable: \"devices\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"devices_customfields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"organization_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"site_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"group_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"devices_appliedpolicies\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"scope_usage\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"scripts_executions\""
+    }
+   ]
+  },
+  {
+   "id": "root-display-name",
+   "summary": "Root help says 'Kaseya VSA 10 CLI', not the title-cased slug 'Kaseya Vsa CLI'",
+   "why": "root.go.tmpl renders {{humanName .Name}} and ignores the spec's x-display-name 'Kaseya VSA 10' (still true on press 4.34.2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Kaseya VSA 10 CLI",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Kaseya Vsa CLI"
+    }
+   ]
+  },
+  {
+   "id": "select-example-names-real-fields",
+   "summary": "The global --select help example names fields assets list returns, never AssetInfo",
+   "why": "The template's example (--select AntivirusEnabled,AntivirusUpToDate,AssetInfo) names AssetInfo, which assets list never returns without include=AssetInfo (the CLI warns 'matched no fields') and which carries the Windows product key.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "(e.g. --select Identifier,Name,AntivirusEnabled)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "AntivirusUpToDate,AssetInfo"
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "summary": "Mirrored MCP tools that can change VSA state preview and run only with confirm: true",
+   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "args[\"confirm\"].(bool)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kaseya_confirm_registered_test.go",
+     "contains": "\"scripts_run_wait\", \"tasks_run_wait\", \"import\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "summary": "Every API request and redirect hop goes only to the configured scheme, host and port; anything else is refused before it is resolved, dialled or given a credential",
+   "why": "Codex review r1 [P1] (2026-10-27): sync --path-context server=<host> (also on the MCP sync tool) rewrote the {server} template after the client was built, so the operator's Basic header went to that host. r2 [P1], same class: the first pin lowercased with Unicode rules, so --path-context server=\u0130.example.com compared equal to i.example.com while the transport dialled xn--i-9bb.example.com; and the generated CheckRedirect resolved an off-origin hop in DNS before the transport pin ran, so a Location whose label carried the hex-encoded secret leaked it through a DNS query. Structural fix (orchestrator order): one origin, resolved from configuration when the client is built, compared byte-for-byte with ASCII-only case folding (a host holding any non-ASCII byte never matches); originPinTripper refuses every other request and the same check runs FIRST in CheckRedirect, before the generated redirect guard, so nothing is resolved, dialled or credentialed. Registered on every CLI and MCP client through registerClientHook. To use another server, set KASEYA_VSA_SERVER (an IDN tenant host must be given in its xn-- form). Tests (seen failing first, r2-pin-seen-failing.log): TestR2PinRefusesUnicodeLookalikeHost, TestR2RedirectRefusedBeforeAnyDNSLookup, TestR2PathContextLookalikeNeverResolves, TestR1SyncPathContextCannotMoveTheAPIHost; prove_r2.sh reverts each half alone.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origin: origin, next: next}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "if origin == \"\" || normalizedOrigin(req.URL) != origin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "!isASCII(u.Scheme) || !isASCII(u.Host)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r2_test.go",
+     "contains": "func TestR2RedirectRefusedBeforeAnyDNSLookup(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r2_test.go",
+     "contains": "func TestR2PinRefusesUnicodeLookalikeHost(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "summary": "The on-disk HTTP response cache is off for every API client",
+   "why": "Codex review r1 [P1] class 'secret-bearing values persisted on disk': the 5-minute response cache wrote raw VSA bodies (custom-field GlobalValue/DefaultValue, webhook SecretKey, the asset Product Key) to files under the cache dir. The local store strips them (store-never-keeps-secrets); raw bodies must not sit in cache files either. Set in the same client hook as api-origin-pinned. Test: TestR1SecretValuesNeverReachDisk fails with this line removed (prove_r1.sh).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "summary": "Every store write strips secret-bearing VSA fields before resources, typed columns and FTS",
+   "why": "Codex review r1 [P1]: syncing custom_fields stored the documented GlobalValue/DefaultValue (vendor-docs/api.vsax.net.html#get-all-custom-fields), and the write-through cache stored them, the webhook SecretKey and the asset Product Key from live reads. mergeIncomingResourceData is the single path every store write takes (sync batches, typed upserts, write-through, keep-richer merge), so it returns withoutStoredSecrets(...): exact keys DefaultValue/GlobalValue/CustomFieldValue/SecretKey and Value/Values, plus any key containing secret/password/passwd/passphrase/apikey/privatekey/productkey/licensekey/recoverykey/credential, at any depth. Test: TestR1SecretValuesNeverReachDisk (fails with the store.go call reverted alone). r2 [P1], same class: bare value keys matched only as 'Value'/'Values', so a lowercase \"value\" survived. Structural fix: every key matches case-insensitively (the press's generic store tests moved their fixtures from \"value\" to \"label\" in internal/store/upsert_batch_test.go), and the same pass is the store's side of the output chokepoint: any string or key that repeats a held credential in any decoded form (cliutil.HeldEchoes) is withheld, and a record that still repeats one is stored as {}. Test: internal/kaseyablackbox TestNoCredentialInAnyWrittenFile scans every file the program writes after a battery of CLI and MCP runs against a server that echoes the credential in seven encodings (seen failing first, r2-bb-seen-failing.log). Review r1 (2026-10-28) [P1-A] class credential-persisted-via-ids: a record's ID or parent ID was extracted before withoutStoredSecrets ran, so an ID repeating the token secret reached resources.id, resources_fts.id and the typed table, and sync cursors, scope keys and the learn tables had no check. Structural fix: the read-write handle (OpenWithContext) opens through withholdingSQLiteDriver (internal/store/kaseya_withhold_driver.go), which wraps modernc.org/sqlite and checks every bound string or []byte of every statement except SELECT and DELETE with cliutil.HeldEchoes; a statement that would persist a held value reports zero rows changed and is not run (one stderr warning, no value in it), so the record is skipped whole and the rest of the batch is stored. Tests (seen failing first, r1-A-stored-id-seen-failing.log): internal/store TestR1AHeldValueNeverReachesAnyStoreColumn (every store write entry point, raw and ROT13, then the database files scanned) and internal/kaseyablackbox TestR1ReviewHeldIDNeverStored (sync against a server returning the secret as an organization Id).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "func withoutStoredSecrets(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "\"value\":            true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "if isStoredSecretKey(k) || cliutil.HeldEchoes(k) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "if cliutil.HeldEchoes(t) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "json.RawMessage(`{\"id\": \"ip\", \"label\": \"10.0.0.1\"}`)"
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "json.RawMessage(`{\"id\":\"spaced\",\"label\":\"Phase 2 residential\"}`)"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(withholdingSQLiteDriver, dsn)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_withhold_driver.go",
+     "contains": "const withholdingSQLiteDriver = \"kaseya-vsa-sqlite-withholding\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_withhold_driver.go",
+     "contains": "func heldInArgs(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_withhold_driver.go",
+     "contains": "if cliutil.HeldEchoes(text) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_r1a_test.go",
+     "contains": "func TestR1AHeldValueNeverReachesAnyStoreColumn(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-text-masked",
+   "summary": "Hand-written commands mask credentials in any text they build from a response",
+   "why": "Codex review r1 [P1]: scripts/tasks run-wait echoed a run response with no execution ID raw into the error, bypassing the client's credential masking (a body carrying the token secret printed it in full, through the CLI and the confirmed MCP tool). bodyForError masks before truncating, and failureText masks every per-section failure string (devices brief, tasks run-wait), both through Client.MaskCredentials, which is the client's own every-encoding masker. Test: TestR1RunWaitErrorsNeverEchoTheSecret (fails with the mask removed).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/kaseya_mask.go",
+     "contains": "return c.maskCredentialText(text)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scripts_run_wait.go",
+     "contains": "bodyForError(c, raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "contains": "bodyForError(c, raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "contains": "failureText(c, err)",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/devices_brief.go",
+     "contains": "failureText(c, err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "not_contains": "Error: err.Error()"
+    },
+    {
+     "file": "cli/internal/cli/devices_brief.go",
+     "not_contains": "Error: err.Error()"
+    }
+   ]
+  },
+  {
+   "id": "secret-echo-decoded-funnel",
+   "class": "secret-echo",
+   "summary": "One decoded output funnel for every server text the client shows, applied by tools/maintainer/apply_secret_funnel.py: maskCredentialText still masks each held credential as written and URL-escaped, then withholds the WHOLE text if a held value survives in any view of it (control characters, JSON and JavaScript escapes, the identity escape, percent, HTML entities, tags, base64 and hex, searched breadth-first and capped by total work; cliutil.FunnelWithhold, shared byte-identical across the fleet). The API error body is checked whole before the display cut; the 2xx HTML summary and the token mint, refresh and auth login error bodies are funnelled when present; the client holds its credentials when built and its resolved auth header on every request; every command error before Cobra prints it, every JSON/agent error envelope, and every MCP error result pass the same funnel over everything the process holds. Success output is never funnelled.",
+   "why": "class_harness.py secret-echo drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; before press 4.34.0 the generated masks cover only the raw, QueryEscape and PathEscape forms (cli-printing-press #5145), so a fresh print fails it. Press 4.34.0 (#5169) masks encoded forms too; the funnel stays for the connector's hand-written code (token endpoints, novel commands), which the generated masks never see. Matching encoded needles one at a time never converged in review, so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 1 MiB or work past the cap is withheld). The withheld notice keeps the auth reading of an auth failure, so exit codes still classify. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved, compressed or encrypted echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts; re-run tools/maintainer/apply_secret_funnel.py --slug <slug>.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/secret_funnel.go",
+     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_funnel_test.go",
+     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "held = append(held, value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "bodyText := truncateBody(respBody)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.shownSummary(respBody, summary, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "funnelShownError(err),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "\"error\": err.Error(),"
+    },
+    {
+     "file": "cli/internal/cliutil/secret_funnel.go",
+     "contains": "var funnelSteps = []func(string) []string{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_funnel.go",
+     "contains": "funnelTextStep(funnelIdentityUnescape),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_funnel.go",
+     "contains": "func FunnelHeld(text string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_funnel_test.go",
+     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/secret_funnel_cli.go",
+     "contains": "func funnelCommandErrors(root *cobra.Command) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/secret_funnel_cli_test.go",
+     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "funnelCommandErrors(rootCmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/secret_funnel_mcp.go",
+     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/secret_funnel_mcp_test.go",
+     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.FunnelHold(authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.holdCredentials()",
+     "min_count": 2,
+     "code_only": true
+    }
+   ],
+   "hand_wired": {
+    "class-test": "class_harness secret-echo cannot reach this connector's client error path (its fake server is plain http; the base URL is https://{server}/api/v3). The error path is proven by internal/kaseyablackbox TestNoCredentialInAnyOutput: the built CLI and MCP binaries against an https server whose 401 answer echoes the token secret in seven encodings (scopes list, kaseya-vsa_read scopes.list); no form reaches stdout, stderr or an MCP result."
+   }
+  },
+  {
+   "id": "output-chokepoint",
+   "summary": "One withholding function (cliutil.WithholdText) in front of every output path: CLI stdout, stderr and loggers, MCP results and errors, MCP stderr, --deliver, export -o and the local store",
+   "why": "Codex review r2 [P1] class secret-in-response-derived-text: the client's masker missed an ASCII85 encoding of the token secret, and run-wait printed server strings (State) raw in output and errors; the round-1 fix masked two call sites. Structural fix (orchestrator order): every credential is registered with one holder (cliutil.FunnelHold, the fleet secret funnel's held set) before any output - from the environment when the chokepoint is installed, from config.Load (holdConfigCredentials) and when a client is built - and ONE chokepoint withholds held values in any decoded form: the funnel's views (JSON/JS escapes, percent, HTML, markup, base64, hex) plus encoded needles at every byte alignment for ASCII85, Z85, base32 and base32hex. It is installed in front of: CLI stdout+stderr+standard logger (Execute swaps them for pipes filtered line by line; TTYWriter keeps the terminal check so tables stay tables), the MCP server's tool results and errors (withholdToolResults, outermost middleware, stdio and HTTP) and its stderr (init), --deliver (Deliver), export -o (WithholdingFile) and the store (store-never-keeps-secrets). Withholding is narrow: a JSON string literal, else a token, else the line, so JSON stays valid. Tests (seen failing first, r2-bb-seen-failing.log): internal/kaseyablackbox TestNoCredentialInAnyOutput and TestNoCredentialInAnyWrittenFile build the real binaries and run them against a server echoing the secret as raw, base64, Basic pair, hex, base32, ASCII85, URL- and \\u-escaped; prove_r2.sh shows each install point load-bearing. Ceiling: a held value split across two output lines, or across an idle flush of a partial line, is not joined. Review r1 (2026-10-28) [P1-B] class chokepoint-narrower-than-client-masker: the client masked a ROT13 echo of the secret in its errors while the chokepoint printed it. Structural fix: the client package registers its own masker with the chokepoint at init (cliutil.RegisterEchoDetector(maskerEchoDetector), internal/client/kaseya_mask.go), built from addEncodedCredentialMasks and credentialTextReveals, so every transform the masker has or gains is in HeldEchoes; the needle builder and span list it mirrors are pinned by body hash (TestR1BMaskCredentialTextUnchangedSinceTheChokepointMirroredIt), and the funnel's needles and each detector are built once per held set (internal/cliutil/kaseya_held.go). Tests (seen failing first, r1-B-encodings-seen-failing.log): TestR1BChokepointWithholdsEveryFormTheClientMaskerKnows (every needle plus every single and pairwise encoding; 727 of 1655 missed before) and TestClientMaskerFeedsTheChokepoint in both binaries. [P1-C] class ledger-bypasses-withholding: the learn journal, feedback.jsonl, feedback --send, the teach logs, the learnings audit and profile files were written raw. Structural fix: each such sink passes cliutil.WithholdBytes or cliutil.WithholdWriter (one call per sink), and TestR1CEveryFileAndNetworkSinkIsRouted inventories every file and network sink in internal/ and cmd/ by AST and fails on any that is neither routed nor exempt with a reason. Tests (seen failing first, r1-C-ledgers-seen-failing.log): TestR1CLedgersAndSendsWithholdHeldValues, TestR1CPrivateFilesWithholdHeldValues, internal/kaseyablackbox TestR1ReviewLedgersNeverKeepACredential.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "defer installOutputChokepoint(rootCmd)()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigCredentials(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "body = cliutil.WithholdBytes(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, err := cliutil.WithholdingFile(openExportOutput(outputFile))",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(withholdToolResults),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/kaseya_output_mcp.go",
+     "contains": "if err := cliutil.InstallStderrFunnel(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_output.go",
+     "contains": "func WithholdText(text string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_output.go",
+     "contains": "for _, core := range encodedCores(v) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_output_cli.go",
+     "contains": "restore, outTTY, errTTY, err := cliutil.InstallOutputFunnel()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kaseya_hold.go",
+     "contains": "cliutil.FunnelHold(c.KaseyaVsaTokenSecret",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyWrittenFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "return json.NewEncoder(cliutil.WithholdWriter(f)).Encode(entry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "bytes.NewReader(cliutil.WithholdBytes(body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := os.WriteFile(tmp, cliutil.WithholdBytes(data), 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "_, err = fmt.Fprintf(cliutil.WithholdWriter(f), \"%s %s\\n\", ts, line)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return json.NewEncoder(cliutil.WithholdWriter(f)).Encode(entry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return os.WriteFile(path, cliutil.WithholdBytes([]byte(strings.Join(kept, \"\\n\")+\"\\n\")), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/kaseya_journal_withhold.go",
+     "contains": "return cliutil.WithholdBytes(b), nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "cliutil.AtomicWritePrivateFile(filepath.Join(dir, journalOffsetFileName), cliutil.WithholdBytes(data), 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "if _, err := f.Write(append(cliutil.WithholdBytes(line), '\\n')); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "data = withholdPrivateFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/kaseya_withhold.go",
+     "contains": "return cliutil.WithholdBytes(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_held.go",
+     "contains": "func RegisterEchoDetector(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_held.go",
+     "contains": "func WithholdWriter(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_held.go",
+     "contains": "if funnelEchoesWith(text, s.needles) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_output.go",
+     "contains": "h.echoes(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_mask.go",
+     "contains": "cliutil.RegisterEchoDetector(maskerEchoDetector)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_r1b_test.go",
+     "contains": "func TestR1BChokepointWithholdsEveryFormTheClientMaskerKnows(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_r1b_test.go",
+     "contains": "func TestR1BMaskCredentialTextUnchangedSinceTheChokepointMirroredIt(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_held_test.go",
+     "contains": "func TestFunnelEchoesWithMatchesFunnelEchoes(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_ledger_test.go",
+     "contains": "func TestR1CLedgersAndSendsWithholdHeldValues(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_ledger_test.go",
+     "contains": "func TestR1CEveryFileAndNetworkSinkIsRouted(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_ledger_test.go",
+     "contains": "func TestClientMaskerFeedsTheChokepoint(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/kaseya_held_mcp_test.go",
+     "contains": "func TestClientMaskerFeedsTheChokepoint(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/kaseya_r1c_test.go",
+     "contains": "func TestR1CPrivateFilesWithholdHeldValues(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_r1_review_test.go",
+     "contains": "func TestR1ReviewHeldIDNeverStored(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_r1_review_test.go",
+     "contains": "func TestR1ReviewClientMaskerEncodingsNeverPrinted(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_r1_review_test.go",
+     "contains": "func TestR1ReviewLedgersNeverKeepACredential(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-env-tls-verify-off",
+   "class": "credential-sent-to-another-host",
+   "summary": "No environment variable turns TLS certificate verification off; tests trust their server through KASEYA_VSA_CA_CERT",
+   "why": "The press config reads KASEYA_VSA_SKIP_TLS_VERIFY, which the env-schema gate would make an install prompt on every channel: one tick would send the VSA 10 API token over unverified TLS. VSA 10 is hosted with publicly trusted certificates; a private CA goes in KASEYA_VSA_CA_CERT and the CLI keeps the explicit --insecure flag. Test: TestNoEnvSwitchDisablesTLSVerification fails with the env read restored. A reprint restores the read; this entry catches it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "KASEYA_VSA_SKIP_TLS_VERIFY"
+    },
+    {
+     "file": "cli/internal/config/kaseya_tls_env_test.go",
+     "contains": "func TestNoEnvSwitchDisablesTLSVerification"
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/blackbox_test.go",
+     "contains": "\"KASEYA_VSA_CA_CERT=\" + testCAFile(t, host)"
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r1_test.go",
+     "contains": "t.Setenv(\"KASEYA_VSA_CA_CERT\", testCAFile(t, host))"
+    }
+   ]
+  },
+  {
+   "id": "unparsed-config-values-held",
+   "class": "secret-in-response-derived-text",
+   "summary": "A config, legacy config or credentials file that fails to parse still has every value-like token held by the output chokepoint",
+   "why": "Startup ordering (batch brief, seen in vsphere, apple-business, exchange-online, dropsuite): Load returned on a TOML parse error before holdConfigCredentials ran, so a credential in a malformed file was not in the held set. cliutil.HoldUnparsedValues reads the whole file (no size cutoff) and holds every quoted string, key = value right-hand side and bare line of 8+ characters. Tests: TestHoldUnparsedValuesHoldsEverySecretShape; TestMalformedConfigCredentialNeverInStartupOutput drives the built CLI and MCP server.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldUnparsedValues(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldUnparsedValues(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_hold_unparsed.go",
+     "contains": "func HoldUnparsedValues(data []byte)"
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_hold_unparsed_test.go",
+     "contains": "func TestHoldUnparsedValuesHoldsEverySecretShape"
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_startup_test.go",
+     "contains": "func TestMalformedConfigCredentialNeverInStartupOutput"
+    }
+   ]
+  },
+  {
+   "id": "mcp-stderr-flushed-before-exit",
+   "class": "wrong-result",
+   "summary": "Every MCP server exit drains the filtered stderr first, so a startup refusal reaches the operator",
+   "why": "The output-chokepoint routes MCP stderr through a filter pipe; os.Exit ended the process before the filter wrote, so `kaseya-vsa-mcp --transport http` with no token exited 1 with an empty stderr (verify-msp-skills feature 3). flushAndExit closes the pipe and waits (bounded) before exiting; main.go has no bare os.Exit left. Test: TestMCPStartupRefusalReachesStderr fails with main.go restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "flushAndExit(0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/kaseya_output_mcp.go",
+     "contains": "func flushAndExit(code int)"
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_exit_test.go",
+     "contains": "func TestMCPStartupRefusalReachesStderr"
+    }
+   ]
+  },
+  {
+   "id": "chrome-transport-plain-http-h1",
+   "class": "wrong-result",
+   "summary": "The Chrome transport serves a plain-http base URL over HTTP/1.1 instead of failing on h2",
+   "why": "Press 4.34.2 chrome.go sent every request to its h2-over-TLS transport first; an http:// base URL failed with 'http2: unencrypted HTTP/2 not enabled', so no read or confirmed write reached a plain-http endpoint (verify-msp-skills features 2 and 4). https requests are unchanged. Wired from the client hook in a hand file, so chrome.go stays the template file. Test: TestPlainHTTPBaseURLIsServed fails with the hook call removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/kaseya_plain_http.go",
+     "contains": "func ServePlainHTTPOverH1(hc *http.Client)"
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "client.ServePlainHTTPOverH1(c.HTTPClient)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_exit_test.go",
+     "contains": "func TestPlainHTTPBaseURLIsServed"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "wrong-result",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial the shipped placeholder server, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "Press 4.34.2 doctor printed 'present, not verified' in every state, called an HTML page at / 'reachable', and never named KASEYA_VSA_BASE_URL when the shipped placeholder server was in force, so it could not tell a working install from a broken one. The fleet helper (cli/internal/cli/doctor_verdict.go, as on acronis) is wired by replay_handfixes.py recipe doctor-verdict. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedTemplate(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedTemplate(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
