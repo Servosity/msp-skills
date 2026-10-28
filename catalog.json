@@ -1273,7 +1273,7 @@
       "cli_binary": "microsoft-graph-cli",
       "mcp_binary": "microsoft-graph-mcp",
       "version": "0.2.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Microsoft Graph",
       "vendor_trademark_owner": "Microsoft Corporation",

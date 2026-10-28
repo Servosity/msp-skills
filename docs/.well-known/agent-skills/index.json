@@ -431,9 +431,9 @@
     {
       "name": "microsoft-graph",
       "type": "skill-md",
-      "description": "The maintained single-binary successor to the retiring mgc - every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`.",
+      "description": "The maintained single-binary successor to the retiring mgc - every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `list teams phone numbers`, `download my teams meeting transcript`, `use microsoft-graph`, `run microsoft-graph`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/SKILL.md",
-      "digest": "sha256:9f8e697fb30431cc29283ecb9c04eb5eabd895f1a42a61d37468bedbddec44fd"
+      "digest": "sha256:7c7ae905fd159e67bac6a8fe5dad02d81a3d89b558d2d0f72b4ed549422d0a24"
     },
     {
       "name": "mimecast",
