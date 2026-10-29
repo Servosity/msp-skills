@@ -13,7 +13,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -35,6 +35,12 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -402,6 +408,12 @@
      "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "if !oauthTokenSameHost(target.Hostname(), origin.Hostname()) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -409,7 +421,7 @@
    "id": "secret-echo-decoded-funnel",
    "class": "secret-echo",
    "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts. pax8 4.34.2 reprint: the token endpoint's error bodies (mint and refresh, both under the token-state lock) are masked through shownTokenErrorBody, a lock-free view of the same masks (rejected-mint-returns).",
    "status": "active",
    "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
@@ -443,13 +455,13 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body)))",
      "min_count": 1,
      "code_only": true
     },
@@ -582,6 +594,24 @@
      "code_only": true
     },
     {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/secret_funnel_mcp.go",
+     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/secret_funnel_mcp_test.go",
+     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
      "file": "cli/internal/client/client.go",
      "contains": "c.holdCredentials()",
      "min_count": 2,
@@ -592,8 +622,8 @@
   {
    "id": "oauth-audience-on-token-request",
    "class": "auth-wire",
-   "summary": "The client_credentials token request sends audience=api://p8p.client (overridable with PAX8_AUDIENCE); press 4.34.0 does not emit it",
-   "why": "Pax8's token manager (https://token-manager.pax8.com/oauth/token) requires an audience on the client_credentials request (the hand edit's own comment: without it the mint is rejected or yields an unusable token, so every command fails auth). client.go carries a hand-added resolveClientCredentialsAudience() (PAX8_AUDIENCE, default api://p8p.client) and mintClientCredentials sets it on the form. Press 4.34.0's client.go.tmpl has no audience support and no spec extension expresses one (first noted on the 4.22 reprint as not absorbed upstream), so a reprint regenerates client.go without it. The install-credentials-declared-on-every-channel entry pins only the PAX8_AUDIENCE declarations in manifest.json, server.json and mcp-install.md: a reprint that dropped the code would leave PAX8_AUDIENCE declared but unread. check_env_schema.py then fails, but its fix hint ('Drop it everywhere if the binary no longer reads it') steers toward deleting the declarations, which would remove the override for good; this entry instead fails check_handfixes.py at the dropped lines and names the hand edit to restore. These asserts are code_only so a doc comment naming the function cannot satisfy them.",
+   "summary": "Both client_credentials token requests (the automatic mint and `auth login`) send audience=api://p8p.client (overridable with PAX8_AUDIENCE) from one form builder; press 4.34.2 does not emit it",
+   "why": "Pax8's token manager (https://token-manager.pax8.com/oauth/token) requires an audience on the client_credentials request (the hand edit's own comment: without it the mint is rejected or yields an unusable token, so every command fails auth). client.go carries a hand-added resolveClientCredentialsAudience() (PAX8_AUDIENCE, default api://p8p.client) and mintClientCredentials sets it on the form. Press 4.34.0's client.go.tmpl has no audience support and no spec extension expresses one (first noted on the 4.22 reprint as not absorbed upstream), so a reprint regenerates client.go without it. The install-credentials-declared-on-every-channel entry pins only the PAX8_AUDIENCE declarations in manifest.json, server.json and mcp-install.md: a reprint that dropped the code would leave PAX8_AUDIENCE declared but unread. check_env_schema.py then fails, but its fix hint ('Drop it everywhere if the binary no longer reads it') steers toward deleting the declarations, which would remove the override for good; this entry instead fails check_handfixes.py at the dropped lines and names the hand edit to restore. These asserts are code_only so a doc comment naming the function cannot satisfy them. pax8 4.34.2 reprint: the shipped `auth login` minted without the audience, so the token it saved was unusable; both mint paths now build their body with client.ClientCredentialsTokenForm (token-request-body-credentials).",
    "status": "active",
    "spec_encode_followup": "Press fix: an OAuth audience on the client-credentials security scheme (an x-auth-audience style extension with an env override) rendered into the token form by client.go.tmpl.",
    "asserts": [
@@ -625,6 +655,1035 @@
      "file": "cli/internal/client/client.go",
      "contains": "form.Set(\"audience\", aud)",
      "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "output-chokepoint",
+   "class": "secret-echo",
+   "summary": "One holder and one withholding chokepoint in front of every output path: CLI stdout, stderr and loggers, MCP results, errors and every stdio message, --deliver, export and rvtools files, and the local store. One holder from every source before anything prints: the environment (PAX8_PASSWORD, and the Basic header built from it whole and as its base64 payload), the config file and credential store (loaded before parsing), credential flags and the auth set-credentials password in argv, MCP arguments, request params and bodies, every response (credential-named members in any spelling, gzip and BOM bodies included) and every session id Pax8 mints. pax8: the environment holder holds every credential-named PAX8_* variable (client ID and secret included) and the credentials a PAX8_*_URL carries.",
+   "why": "Work order credential rules (new-connector batch 1). Ported from the exchange-online 4.34.2 reprint (cisco-umbrella's layer plus its Codex r1/r2 class fixes). cliutil.WithholdText/WithholdBytes/HeldEchoes (pax8_output.go) withhold a held value in every view the funnel decodes plus ASCII85/Z85/base32 at every alignment and in joined views. One-line edits in generated files are re-applied by tools/apply_credential_rules.py. Tests: internal/pax8blackbox (built binaries vs a fake Pax8 echoing every credential it was sent, whole and split, including a login fault that repeats the password; scans all CLI and MCP output and every written file), pax8_output_test.go, pax8_hold_test.go, pax8_cred_rules_test.go; prove_bb.sh reverts each install point alone. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "defer installOutputChokepoint(rootCmd)()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigCredentials(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "body = cliutil.WithholdBytes(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldRequestCredentials(params, bodyBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(withholdToolResults)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_output_cli.go",
+     "contains": "holdStoredCredentials()",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/config/pax8_hold.go",
+     "contains": "cliutil.HoldKeys(c.AuthHeaderVal, c.AuthHeader())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "for _, scheme := range []string{\"bearer \", \"basic \"} {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets_test.go",
+     "contains": "func TestCredentialNamesMatchInEverySpelling(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "case SecretFieldName(strings.TrimPrefix(name, \"PAX8_\")):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "case strings.HasSuffix(name, \"_URL\"):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_hold.go",
+     "contains": "cliutil.FunnelHold(c.ClientID, c.ClientSecret, c.AccessToken, c.RefreshToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets_test.go",
+     "contains": "func TestHoldEnvCredentialsHoldsEveryCredentialVariable(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "not_contains": "\"clientid\":           true,"
+    }
+   ]
+  },
+  {
+   "id": "file-sinks-withheld",
+   "class": "secret-echo",
+   "summary": "Every file the program writes, except the 0600 credential store, passes the chokepoint: feedback, profiles, teach and learnings logs, the learn journal entry, client profiles, deliver, export --output, every rvtools export CSV tab (the whole tab at once) and the store.",
+   "why": "Work order: no credential in files. The black-box found rvtools export --out writing a VM row whose id repeated the session id. TestEveryFileWritePassesTheChokepoint fails on any write site that skips the chokepoint unless it is reviewed there; TestNoCredentialInAnyWrittenFile scans every file a battery writes. learn/journal.go stays byte-identical to the fleet; the entry is filtered where root.go builds it. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "json.NewEncoder(cliutil.WithheldWriter(f)).Encode(entry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "os.WriteFile(tmp, cliutil.WithholdBytes(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "cliutil.WithheldWriter(f)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "cliutil.WithholdBytes([]byte(strings.Join(kept",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "learn.SetJournalLearnContext(cliutil.WithholdText(result.Family), withheldStrings(result.UnresolvedEntities))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f.Write(cliutil.WithholdBytes(append(line, '\\n')))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "data = cliutil.WithholdBytes(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalInvocation(withheldJournalEntry(learn.JournalEntry{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, err := cliutil.WithholdingFile(openExportOutput(outputFile))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheChokepoint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Pax8 bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (pax8_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values and withholds any value or id that repeats a held credential; every SQL write of a read-write store (learnings, playbooks, learn events) passes the chokepoint through a database/sql driver wrapper.",
+   "why": "Work order: no credential in files. store.go carries 4 lines re-applied by tools/apply_credential_rules.py; Open uses WithholdingSQLiteDriver (hand file internal/store/pax8_withhold_driver.go, from the cisco-umbrella Codex r1 class store-write-bypasses-chokepoint). The class credential-split-across-sql-bindings is left to the fleet credential filter the publish step adopts (orchestrator ruling 2026-10-27). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "id = storedID(id)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return storedID(resourceStorageIDRaw(resourceType, id, obj))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(WithholdingSQLiteDriver, dsn)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/pax8_withhold_driver.go",
+     "contains": "sql.Register(WithholdingSQLiteDriver, withholdingDriver{inner: inner})",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Pax8 state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/pax8_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/pax8_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-protocol-messages-withheld",
+   "class": "secret-echo",
+   "summary": "Every JSON-RPC message the MCP server writes on stdio (its only transport) passes the chokepoint: a message withheld in place stays valid JSON; one that cannot be is replaced by a JSON-RPC error with the same id.",
+   "why": "exchange-online Codex review r1 class mcp-protocol-output-bypasses-chokepoint: mcp-go v0.57.0 answers an unknown tool or prompt name with an error that repeats the name before any tool middleware runs. Hand file cmd/pax8-mcp/pax8_output_mcp.go; one line in generated main.go re-applied by tools/apply_credential_rules.py. Test: TestMCPProtocolErrorsWithheld. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "if err := serveStdioWithheld(s); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/pax8_output_mcp.go",
+     "contains": "func withheldMessageLine(line string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/sinks_test.go",
+     "contains": "func TestMCPProtocolErrorsWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "network-sinks-withheld",
+   "class": "secret-echo",
+   "summary": "Every request sent anywhere but the pinned Pax8 (feedback --send to PAX8_FEEDBACK_ENDPOINT, the --deliver webhook) passes the chokepoint in its body and goes through cliutil.SendOutbound, which refuses it when its URL or a header repeats a held value and never follows a redirect.",
+   "why": "exchange-online Codex review r1/r2 class outbound-sink-bypasses-chokepoint, carried with the layer. Lines in generated feedback.go and deliver.go re-applied by tools/apply_credential_rules.py. TestEveryNetworkSendPassesTheChokepoint fails on any request site a reprint adds that does not pass the chokepoint (the API client, the session logins to the configured origin and the bodiless doctor probe are reviewed there); TestFeedbackSendWithholdsCredentials and TestNonAPISendersNeverCarryAHeldValue drive the binaries. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "body = cliutil.WithholdBytes(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "resp, err := cliutil.SendOutbound(\"PAX8_FEEDBACK_ENDPOINT\", req.Method, req.URL.String(), req.Header, body, 15*time.Second)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.SendOutbound(\"--deliver webhook URL\", req.Method, req.URL.String(), req.Header, body, 30*time.Second)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_outbound.go",
+     "contains": "if outboundHoldsSecret(u, header) || outboundReassemblesHeld(outboundParts(u, header, body)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/sinks_test.go",
+     "contains": "func TestEveryNetworkSendPassesTheChokepoint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/outbound_test.go",
+     "contains": "func TestNonAPISendersNeverCarryAHeldValue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "startup-output-held-first",
+   "class": "secret-echo",
+   "summary": "The chokepoint is installed before any startup source loads: the CLI's InstallOutputFunnel and the MCP server's InstallStderrFunnel point stdout and stderr at gated filters, then hold the environment, the stored configuration and credential store and the command line, and only then check and deliver what was printed meanwhile (a config refusal that repeats its base_url). The holder covers a base URL's userinfo password and credential-named query values and the file layer an environment value overrode.",
+   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): a refused global credential store's base_url and an unparseable base_url printed their passwords; every config and credential file value is now held when its bytes are read, used or refused (cliutil.HoldTOMLCredentials from parseConfigData, baseURLFromConfigBytes and loadCredentialsWithStatus: three generated one-liners re-applied by tools/apply_credential_rules.py), HoldURLCredentials reads the raw text before parsing, and the chokepoint redacts the password of any URL it sees, held or not (redactURLPasswords). vsphere Codex review r1 class output-before-chokepoint: config.Load printed its untrusted-route refusal (which repeats base_url) straight to stderr before the filter existed, in the CLI and the MCP server. heldStartup (internal/cliutil/pax8_output.go) drains the startup output before the installer returns so it is never lost when a process exits early. Tests: TestNothingPrintsBeforeTheChokepoint (black-box, CLI and MCP), TestLoadHoldsURLCredentialsAndTheOverriddenFileLayer; prove_bb.sh startup-order, url-holds, file-layer-holds. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_output_cli.go",
+     "contains": "restore, outTTY, errTTY, err := cliutil.InstallOutputFunnel(func() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/pax8_output_mcp.go",
+     "contains": "if err := cliutil.InstallStderrFunnel(func() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "func heldStartup(hold func(), streams []startupStream) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_hold.go",
+     "contains": "cliutil.HoldURLCredentials(c.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_hold.go",
+     "contains": "holdConfigCredentials(c.fileConfig)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/boundaries_test.go",
+     "contains": "func TestNothingPrintsBeforeTheChokepoint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_hold_test.go",
+     "contains": "func TestLoadHoldsURLCredentialsAndTheOverriddenFileLayer(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldTOMLCredentials(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldTOMLCredentials(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "func HoldTOMLCredentials(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "text = redactURLPasswords(text)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_hold_test.go",
+     "contains": "func TestLoadHoldsRefusedFileValues(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/config_sources_test.go",
+     "contains": "func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-held-arguments-refused",
+   "class": "secret-echo",
+   "summary": "The MCP server refuses any tool call whose arguments (credential-named members held and left out) repeat a value it holds, in any form the chokepoint finds, before any tool runs: a mirrored tool's CLI child holds only what it loads itself, so a session id the server minted or a credential a response carried never reaches a child's files.",
+   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): the guard read raw numbers exactly while the mirror formats them as float64, so 1e31 reached the child as a held 32-digit session id; RunCLICommand, the one place the mirror spawns the CLI, now refuses an argv that repeats a held value (one generated line in internal/mcp/cobratree/shellout.go re-applied by tools/apply_credential_rules.py); the raw-argument guard stays. vsphere Codex review r1 class held-value-crosses-process-boundary: teach called over MCP with the server's session id as its notes wrote it to the local store and learnings.jsonl. argumentsRepeatHeld in cmd/pax8-mcp/pax8_output_mcp.go (hand file), in the outermost tool middleware. Test: TestMCPChildNeverReceivesAHeldValue (both session ids and two response credentials, whole and split, with a control learning); prove_bb.sh mcp-held-args. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/pax8-mcp/pax8_output_mcp.go",
+     "contains": "if argumentsRepeatHeld(req) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/pax8_output_mcp.go",
+     "contains": "func argumentsRepeatHeld(req mcplib.CallToolRequest) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/boundaries_test.go",
+     "contains": "func TestMCPChildNeverReceivesAHeldValue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if cliutil.HeldEchoes(strings.Join(args, \"\\n\")) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/pax8_argv_test.go",
+     "contains": "func TestChildArgvNeverRepeatsAHeldValue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "undecoded-encodings-every-alignment",
+   "class": "secret-echo",
+   "summary": "Every held value of 8 or more characters is matched in base32, base32hex (both cases), ASCII85 and Z85, the encodings the shared funnel does not decode, whole and inside a longer encoded stream at every byte alignment: base32 needles are the characters whose bits lie inside the value at each of the 5 offsets, ASCII85/Z85 needles the whole groups inside it (one group at least).",
+   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): needles below the funnel's 8-character floor (one ASCII85 group, a short credential) were searched only raw, JSON-unescaped and percent-decoded; shortEchoes now searches every view the funnel's own decoders make (funnelViews, same steps and work budget, fails closed when the budget runs out), and values of 4 to 7 characters get whole-group encodings at every alignment too. vsphere Codex review r1 class undecoded-encoding-gap: an 8-character password's whole base32 form printed unchanged (no aligned 10-byte core existed); the class test found 560 misses across 8- to 14-character values. encodedCores in internal/cliutil/pax8_output.go; the earlier whole-group cores stay. Test: TestUndecodedEncodingsMatchAtEveryLengthAndAlignment; prove_bb.sh encoded-b32-offsets, encoded-a85-one-group. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "lo, hi := (8*off+4)/5, 8*(off+len(v))/5",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output_test.go",
+     "contains": "func TestUndecodedEncodingsMatchAtEveryLengthAndAlignment(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "if views, complete = funnelViews(text); !complete {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "func funnelViews(text string) (views []string, complete bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_views_test.go",
+     "contains": "func TestShortNeedlesSearchedInEveryFunnelView(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "held-forms-in-every-encoding",
+   "class": "secret-echo",
+   "summary": "Before encoding, every held value is expanded to its schemeless and needle forms (a held 'Bearer <token>' also matches the bare token), so base32, base32hex, ASCII85 and Z85 of the bare credential are withheld.",
+   "why": "Codex r1 (4.34.2 reprint) class secret-in-encoded-output: only the whole held string was encoded, so the base32/ASCII85/Z85 of a header token without its scheme printed unchanged. Test: TestSchemePrefixedHeldValueMatchesBareInEveryEncoding. Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "for _, form := range append([]string{v, funnelSchemeless(v)}, funnelNeedles([]string{v})...) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output_test.go",
+     "contains": "func TestSchemePrefixedHeldValueMatchesBareInEveryEncoding(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "partner-endpoints-pp-cli/config.toml"
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "Each credential goes only to the host it is configured for: the bearer token and every API request to the origin of PAX8_BASE_URL; the client ID and secret only to the token URL (PAX8_TOKEN_URL), whose origin receives nothing but a POST to that exact path with no Authorization header; every redirect hop stays on the origin of the request it follows. The `auth login` token client is pinned to the token URL alone.",
+   "why": "Work order credential rule (host pinning): the client sends a credential only to the configured scheme, host and port and refuses every redirect or request to anything else. Press 4.34.2 has its own redirect and dial guards, but nothing that binds the client secret to the token host or the bearer token to the API host, and the automatic mint reuses the API client's transport. Applied through registerClientHook (hand file pax8_guard.go; regen-durable) plus one anchored line in the generated root.go oauthHTTPClient for the `auth login` client, which the hooks never reach. Proved by tests that fail with each rule removed (seen/token-host-pin, seen/redirect-origin).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "func (p pax8Pins) check(req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "req.Method == http.MethodPost && req.URL.EscapedPath() == p.tokenPath && req.Header.Get(\"Authorization\") == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "normalizedOrigin(req.URL) != normalizedOrigin(via[0].URL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "guardTokenClient(hc, cfg, f.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestPinsAllowOnlyTheTokenRequestOnTheTokenHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestRedirectStaysOnItsOwnOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestOriginPinKeepsEachCredentialOnItsHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestAuthLoginMintIsPinnedAndHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestRedirectNeverReachesAnotherHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "status": "active",
+   "summary": "Every credential a response carries (the minted access_token included) is held before the body reaches any command, deflate or gzip encoded or not, at any depth.",
+   "why": "Work order credential rule (one holder: minted or refreshed tokens). The pinned transport reads each response under the client's size cap, decodes a copy as the client will, and holds its credential-named values (pax8_guard.go responseHoldTripper).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "cliutil.HoldCredentialFields(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestResponseCredentialsHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Pax8 whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/pax8_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Pax8: no write without confirm, the string \"true\" previews, and boolean true sends (control).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-request-body-credentials",
+   "status": "active",
+   "summary": "One client_credentials token body for both mint paths (client.ClientCredentialsTokenForm): grant_type, client_id, client_secret and audience in the form body (client_secret_post), optional scope; no HTTP Basic header.",
+   "why": "Pax8's token manager documents the client credentials and the audience in the request body (research brief: POST https://token-manager.pax8.com/oauth/token with grant_type, client_id, client_secret, audience); the published connector sent them that way. Press 4.34.2 moved the credentials to HTTP Basic and builds the form in two places, one of which (`auth login`) never carried the audience. A reprint re-renders both mint functions, so tools/apply_edits.py re-points them at the one builder. TestMintSendsPax8TokenForm failed on the generated code (Basic header, empty client_id/client_secret/audience).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func ClientCredentialsTokenForm(clientID, clientSecret string) url.Values {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form := ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/client/pax8_token_form_test.go",
+     "contains": "func TestMintSendsPax8TokenForm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rejected-mint-returns",
+   "status": "active",
+   "summary": "A rejected client-credentials mint returns its error instead of hanging: the rendered mint is mintClientCredentialsRaw behind a hand wrapper, and the token endpoint's error bodies are masked through shownTokenErrorBody, a view with its own lock (the ninjaone shape).",
+   "why": "The exchange runs with the token-state lock held and maskCredentialText takes the same non-reentrant lock, so the funnel's masked token-error body deadlocked every rejected mint (jamf-pro and threecx 2026-10-27; ~/printing-press/fleet/bin/mint_lock_scan.py exit 1 on this tree). TestRejectedMintReturnsWithoutTheSecret hung 15 s on the generated code (cold mint and 401 re-mint) and passes now; mint_lock_scan exit 0.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentialsRaw(ctx context.Context, clientID, clientSecret string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/pax8_token_errors.go",
+     "contains": "func (c *Client) shownTokenErrorBody(body []byte, extraCredentials ...string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/pax8_token_errors.go",
+     "contains": "view := &Client{Config: c.Config, ccMu: &sync.Mutex{}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "c.shownErrorBody(body, clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/client/pax8_token_errors_test.go",
+     "contains": "func TestRejectedMintReturnsWithoutTheSecret(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-pax8-root-not-placeholder",
+   "status": "active",
+   "summary": "doctor treats Pax8's real API root (https://api.pax8.com/v1, the shipped default) as configured and probes the credential, instead of reporting the shipped placeholder on every healthy install.",
+   "why": "press-traps section 5: doctorShippedBaseURL held a real single-endpoint vendor host (api.pax8.com was named in the fleet sweep), so doctor printed \"ERROR base_url is still the shipped placeholder\" and skipped the credential probe on every correctly configured install. The doctor-verdict replay restores doctor_verdict.go only when the reprint lacks it, so this edit survives onboard; a fleet re-mint of the doctor template would restore the placeholder value and fail this assert.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_pax8_root_test.go",
+     "contains": "func TestDoctorTreatsThePax8APIRootAsReal(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-json-empty-is-array",
+   "status": "active",
+   "summary": "On an empty store every list the novel commands print under --json (since, overage, reconcile's two finding lists) is [], never null.",
+   "why": "press-traps section 3 (nil slices marshal as [], not null): an agent reads null as \"no data was produced\" rather than \"nothing matched\". The shipped novels declared the lists with var. TestNovelJSONListsAreArraysOnAnEmptyStore failed with one reverted (seen/novel-json-null).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "changes := []subChange{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "flagged := []overageRow{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence_helpers.go",
+     "contains": "out := []map[string]any{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "BilledWithoutActiveSubscription: []reconcileFinding{}, ActiveWithoutInvoice: []reconcileFinding{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_json_test.go",
+     "contains": "func TestNovelJSONListsAreArraysOnAnEmptyStore(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "company-show-literal-registration",
+   "status": "active",
+   "summary": "The `company` novel and its `company show` leaf register with literal AddCommand, as the shipped tree did.",
+   "why": "press-traps section 3: dogfood's command walk follows only .AddCommand, so through 4.34.2's addNovelCommandIfAbsent the leaf `show` false-matched `profile show` and dogfood reported a command-depth mismatch. tools/apply_edits.py re-applies both lines after a render.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/company.go",
+     "contains": "cmd.AddCommand(newNovelCompanyShowCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelCompanyCmd(flags))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo and every credential-named or held query value; a credential-named header, or one repeating a configured or environment credential, is left out) and the write is refused when the file still repeats any held value; the legacy scrub writes through the same filter. The 0600 credential store is unchanged.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `PAX8_BASE_URL='https://api.pax8.com/v1?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/pax8_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(persist, data); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "func URLWithoutCredentials(raw string) (clean string, changed bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "every-text-encoding-withheld",
+   "status": "active",
+   "summary": "The chokepoint withholds a held value in every per-byte numeric encoding (quoted-printable with soft breaks, \\x41, 0x41, %u0041, \\u{41}, &#x41;, separated hex pairs, decimal, octal and binary byte lists), decoded as views of the text and of every view the funnel decodes, and in the fixed-alphabet and radix encodings the funnel does not decode (uuencode, xxencode, crypt and bcrypt base64, Crockford and z-base-32, RFC 1924 base85 and base45 at every alignment; base36, base58 and base62 whole), and the value reversed, case-folded, ROT13 and ROT47.",
+   "why": "Codex r1 class secret-in-encoded-output: `PAX8_CLIENT_SECRET=ABCDEFGHabcdefgh12345678 pax8-pp-cli feedback '=41=42...' --agent` kept the quoted-printable secret in stdout and feedback.jsonl. The class is any text encoding the shared funnel does not decode, so families are closed, not names (hand file internal/cliutil/pax8_encodings.go, one line each in HeldEchoes and encodedCores). TestEveryByteEncodingOfAHeldValueIsWithheld failed on 24 encodings before (seen/r1-encoded-output-seen-failing.log), and on the families added while closing the class (seen/r1b-encoded-output-families, seen/r1b-encoded-output-forms).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "shortEchoes(text, held) || byteEscapeEchoes(text, held)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_output.go",
+     "contains": "for _, n := range otherEncodingNeedles(base) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_encodings.go",
+     "contains": "func otherEncodingNeedles(v string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_encodings.go",
+     "contains": "func transformedForms(v string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_encodings.go",
+     "contains": "func groupCores(v string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_encodings.go",
+     "contains": "func byteEscapeViews(text string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_encodings.go",
+     "contains": "func alphabetCores(v string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_r1_classes_test.go",
+     "contains": "func TestEveryByteEncodingOfAHeldValueIsWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "outbound-split-parts-refused",
+   "status": "active",
+   "summary": "A non-API request (feedback --send, a --deliver webhook) is refused when any held value can be reassembled from its parts in any order: userinfo, host labels, path segments, query names and values, fragment, header names and values, and the body's string values and words, each also decoded.",
+   "why": "Codex r1 class credential-split-across-outbound-parts: `PAX8_FEEDBACK_ENDPOINT='http://127.0.0.1:9999/?a=<half1>&b=<half2>' feedback test --send` delivered both halves of the client secret: query names interrupted the joined views. Hand file internal/cliutil/pax8_outbound.go (outboundParts, coveredByParts). TestOutboundRefusesAHeldValueReassembledFromItsParts failed on all 10 shapes before (seen/r1-outbound-split-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/pax8_outbound.go",
+     "contains": "outboundReassemblesHeld(outboundParts(u, header, body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_outbound.go",
+     "contains": "func coveredByParts(h string, parts []string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_r1_classes_test.go",
+     "contains": "func TestOutboundRefusesAHeldValueReassembledFromItsParts(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-carrier-names-and-shapes-held",
+   "status": "active",
+   "summary": "The credential-name rule covers the standard auth carriers (Authorization, Proxy-Authorization, the authenticate headers, cookies, sessions, bearer and JWT values, signatures, assertions, SAML, one-time codes); a credential-named value's scheme-stripped and cookie-pair pieces are held; and a value shaped like a credential (Bearer token68, Basic base64 of user:password, a JWT) is held under any name. No Pax8 Partner API field name matches except provisioning key.",
+   "why": "Codex r1 class holder-incomplete: a response member `\"authorization\":\"Bearer X\"` was neither held nor redacted, so X printed in successful output and the store. TestStandardAuthNamesAreCredentialNames and TestResponseCredentialUnderAnyAuthNameIsHeld failed before (seen/r1-holder-auth-names-seen-failing.log); TestNoPax8SpecNameReadsAsACredential keeps the rule from redacting Pax8 data.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "|authoriz|authenticat|^auth$|^xauth|cookie|session|bearer|jwt|signature|^sig$|assertion|saml|^otp$|^totp$|^mfa)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "func holdCredentialShapedValue(v string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_secrets.go",
+     "contains": "func holdCredentialParts(v string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_r1_classes_test.go",
+     "contains": "func TestResponseCredentialUnderAnyAuthNameIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_r1_classes_test.go",
+     "contains": "func TestNoPax8SpecNameReadsAsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/pax8_r1_classes_test.go",
+     "contains": "func TestSchemeWordsInOrdinaryTextAreNotHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-documented-shapes",
+   "status": "active",
+   "summary": "The novels share one reading of each documented Pax8 shape (internal/cli/pax8_novel_rules.go): Subscription.status classified over the whole enum (Active, Activated, Trial bill; unknown statuses never count and are reported); Subscription.billingTerm (MRR is Monthly only; Annual, 2-Year, 3-Year reported beside it per term; One-Time, Activation, Trial excluded); one timestamp parser (numeric offsets with or without a colon; an unreadable date is never in a window); every collection read under the names sync and live reads store it as (usage summaries are the subscriptions_usage_summaries dependent); reconcile joins invoice lines to subscriptions by subscriptionId (a line for a period before a non-billing subscription ended is history; free trials, and in --draft mode non-monthly terms, are not expected on an invoice). After the Codex stop rule (unreviewed): a record stored under two names is read once, newest row first; a trial priced above zero bills; credit lines (InvoiceItem.type rebate, payment-credit, service-credit, invoice-credit, or a negative total) neither bill nor count as billed.",
+   "why": "Codex r1 wrong-result classes on documented shapes (spec.json Subscription.billingTerm and status, examples/subscription-history, UsageSummary as a subscription dependent, InvoiceItem.subscriptionId): One-Time charges counted as MRR; Activated subscriptions dropped; overage and company show read usage_summaries while sync writes subscriptions_usage_summaries (carried from 0.1.8); since dropped -0700 timestamps and kept unreadable ones; reconcile joined per company, so one invoice hid every other subscription's mismatch. Each test in internal/cli/pax8_novel_results_test.go failed before (seen/r1-billing-term, r1-billing-status, r1-unsynced-collection, r1-timestamp-format, r1-company-level-join, r1b-reconcile-expected-lines, r1b-reconcile-line-periods).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8SubscriptionBills(status string) (bills, known bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8BillingTermClass(term string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8ParseTime(s string) (time.Time, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "pax8UsageSummaries = []string{\"subscriptions_usage_summaries\", \"usage-summaries\", \"usage_summaries\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "switch pax8BillingTermClass(term) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "summaries, err := pax8Collection(db, pax8UsageSummaries)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "if t, ok := parseAnyDate(dateStr); !ok || t.Before(cutoff) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "sid := pax8FieldStr(line, \"subscriptionId\", \"subscription_id\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "if !pax8ExpectsInvoiceLine(s, draft) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8LineBeforeEnd(line, sub map[string]any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileReadsLinePeriodsAgainstTheSubscriptionEnd(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileExpectsLinesOnlyWhereAnInvoiceCarriesThem(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "if prev := out[i]; s.updated > prev.updated || (s.updated == prev.updated && s.seq > prev.seq) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "if price, ok := pax8FieldNum(sub, \"price\"); !ok || price <= 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8LineIsCharge(line map[string]any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "if !pax8LineIsCharge(line) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2NewerUsageSummaryWins(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2PaidTrialWithoutLineIsUnbilled(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2CreditLineIsNotBilling(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2CreditOnlyLineDoesNotCountAsBilled(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/company_show.go",
+     "contains": "*part.dst = pax8Where(rows, companyID, part.keys...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileJoinsInvoiceLinesBySubscription(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestEveryNovelCollectionIsOneSyncWrites(t *testing.T) {",
      "code_only": true
     }
    ]
