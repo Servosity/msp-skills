@@ -401,6 +401,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cisco-umbrella",
+      "displayName": "Cisco Umbrella",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/SKILL.md",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health. Trigger phrases: `is this domain blocked in umbrella`, `umbrella fleet health across customers`, `add a domain to the umbrella blocklist`, `umbrella roaming computers offline`, `use cisco umbrella`, `run cisco-umbrella-cli`.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have roaming computers off, uninstalled, stale or without web protection, and how many seats each?",
+        "In one customer, which roaming computers, virtual appliances, tunnels and networks have a deployment problem?",
+        "For a domain from a ticket: its category, risk score, security status, which of our lists block or allow it, and who resolved it?",
+        "Which allow-list entries are now categorized as malicious, conflict with a block-list entry, or were added this week?",
+        "What would I add and remove to make a destination list match my blocklist file?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cisco-umbrella.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

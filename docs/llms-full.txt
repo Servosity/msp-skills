@@ -815,6 +815,40 @@ A: Writes send immediately when called, with no confirmation prompt, so keep aut
 
 Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
 
+### Cisco Umbrella (Security)
+
+Page: [Cisco Umbrella](https://msp-skills.compoundingteams.com/skills/cisco-umbrella.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/install.sh)
+
+Ask which customers have roaming computers off, uninstalled or not checking in, and get one row per customer. Cisco Umbrella plus your AI agent mints a token for each child org in your MSP console and rolls up deployment health, instead of switching into one customer at a time. It also gives one verdict for a suspicious domain and reconciles a block list against your own file.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have roaming computers off, uninstalled, stale or without web protection, and how many seats each? -> cisco-umbrella-cli fleet health --stale-days 7 --agent
+- In one customer, which roaming computers, virtual appliances, tunnels and networks have a deployment problem? -> cisco-umbrella-cli hygiene --stale-days 14 --agent
+- For a domain from a ticket: its category, risk score, security status, which of our lists block or allow it, and who resolved it? -> cisco-umbrella-cli verdict login.example.com --agent
+- Which allow-list entries are now categorized as malicious, conflict with a block-list entry, or were added this week? -> cisco-umbrella-cli allowlist audit --since 7d --agent
+- What would I add and remove to make a destination list match my blocklist file? -> cisco-umbrella-cli destination-lists diff 1234567 --file blocklist.txt --agent
+- For one customer's QBR: request summary, top threat types and blocked categories against the prior 30 days, and deployment status? -> cisco-umbrella-cli report-card --org 8675309 --from -30days --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Cisco Umbrella MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Cisco Umbrella data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it work with an MSP or Multi-org console?
+A: Yes. Create the API key in the parent console. Every command takes --org <child org ID> (or CISCO_UMBRELLA_ORG_ID) and mints a token for that customer with the X-Umbrella-OrgId header; fleet health walks every managed customer for you. The child token stays in memory and each customer's synced data goes to its own local store.
+Q: Which API key scopes does it need?
+A: Only the scopes for what you run: Reports for activity, report-card and verdict's resolver lookup, Deployments for networks, roaming computers and fleet health, which also needs the Admin customers scope, Policies for destination lists, Investigate for categorization and risk scores, Admin for keys and users. A section the key cannot reach returns 403 and is skipped with a note where the command says so; read-only keys cannot change anything.
+Q: Will this hit the Umbrella API rate limits?
+A: It is built to stay inside them. Token requests are limited to 20 a minute, so fleet health starts customers 3 seconds apart; narrow a large fleet with --customers or --max-customers. Sync once and search, hygiene and analytics answer from the local store without new API calls.
+
+Governance: The skill reads Umbrella deployments, policies, destination lists, reports, Investigate data and MSP customer records, and keeps a local store for offline questions; credential values are withheld from its output and never kept in the SQLite store; the key, secret and bearer token are saved to an owner-only, unencrypted credentials.toml until auth logout. It can also create, change and delete networks, sites, destination lists, tunnels, users and customer records, and it can change API keys and set tunnel credentials you chose. It refuses five actions, because Umbrella returns a new secret only once and this program withholds it: api-keys create, api-keys refresh, s3-bucket-keys, tunnels add with no secret of your own and tunnels update-credentials with auto-rotate or no secret of your own. Do those in the Umbrella dashboard. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes and anything that changes a credential.
+
 ### connect-tool (Meta)
 
 Page: [connect-tool](https://msp-skills.compoundingteams.com/skills/connect-tool.md)

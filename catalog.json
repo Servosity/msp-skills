@@ -429,6 +429,25 @@
       "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal."
     },
     {
+      "name": "cisco-umbrella",
+      "system": "Cisco Umbrella DNS-layer security: destination lists, policies, deployments, reports, Investigate and MSP child orgs through the Umbrella v2 API",
+      "status": "beta",
+      "skill_path": "skills/cisco-umbrella",
+      "cli_binary": "cisco-umbrella-cli",
+      "mcp_binary": "cisco-umbrella-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Cisco Umbrella",
+      "vendor_trademark_owner": "Cisco Systems, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/install.sh)",
+      "install_mcp_doc": "skills/cisco-umbrella/mcp-install.md",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+      "verification": "awaiting",
+      "category": "Security"
+    },
+    {
       "name": "connect-tool",
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",

@@ -1481,6 +1481,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "cisco-umbrella",
+      "source": "./skills/cisco-umbrella",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "cisco-umbrella",
+        "cisco umbrella",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
