@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.ps1
 ---
 
-# Pax8  -  Printing Press CLI
+# Pax8 - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -583,7 +583,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `pax8-mcp --transport http` requires `PAX8_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `PAX8_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `PAX8_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `pax8-mcp --transport http` requires `PAX8_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default (the bare root answers 404), and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `PAX8_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `PAX8_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

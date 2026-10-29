@@ -37,13 +37,18 @@ Add (or merge with your existing `mcpServers` block):
     "pax8": {
       "command": "pax8-mcp",
       "env": {
-        "PAX8_AUDIENCE": "<your-pax8_audience>",
+        "PAX8_AUDIENCE": "api://p8p.client",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_BASE_URL": "<your-pax8_base_url>",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "<your-pax8_token_url>",
-        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "PAX8_MCP_READ_ONLY": "",
+        "PAX8_NO_LOCAL_DATA": "",
+        "PAX8_USER_AGENT": "",
+        "PAX8_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -68,13 +73,18 @@ Configuration**) and add:
       "type": "stdio",
       "command": "pax8-mcp",
       "env": {
-        "PAX8_AUDIENCE": "<your-pax8_audience>",
+        "PAX8_AUDIENCE": "api://p8p.client",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_BASE_URL": "<your-pax8_base_url>",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "<your-pax8_token_url>",
-        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "PAX8_MCP_READ_ONLY": "",
+        "PAX8_NO_LOCAL_DATA": "",
+        "PAX8_USER_AGENT": "",
+        "PAX8_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -95,13 +105,18 @@ Claude Desktop:
     "pax8": {
       "command": "pax8-mcp",
       "env": {
-        "PAX8_AUDIENCE": "<your-pax8_audience>",
+        "PAX8_AUDIENCE": "api://p8p.client",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_BASE_URL": "<your-pax8_base_url>",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "<your-pax8_token_url>",
-        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": "<your-pax8_no_config_write>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "PAX8_MCP_READ_ONLY": "",
+        "PAX8_NO_LOCAL_DATA": "",
+        "PAX8_USER_AGENT": "",
+        "PAX8_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -123,7 +138,7 @@ than loopback also needs TLS:
 
 ```bash
 export PAX8_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-PAX8_AUDIENCE=<value> PAX8_CLIENT_ID=<value> PAX8_CLIENT_SECRET=<value> PAX8_BASE_URL=<value> PAX8_OAUTH_SCOPE=<value> PAX8_TOKEN_URL=<value> PAX8_NO_CONFIG_WRITE=<value> pax8-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+PAX8_AUDIENCE=<value> PAX8_CLIENT_ID=<value> PAX8_CLIENT_SECRET=<value> PAX8_BASE_URL=<value> PAX8_OAUTH_SCOPE=<value> PAX8_TOKEN_URL=<value> PAX8_NO_CONFIG_WRITE=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> PAX8_MCP_READ_ONLY=<value> PAX8_NO_LOCAL_DATA=<value> PAX8_USER_AGENT=<value> pax8-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
