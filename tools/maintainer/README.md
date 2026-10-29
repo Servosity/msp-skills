@@ -169,6 +169,22 @@ run `disk_guard.sh gate` first on a shared Mac). A redirect case sends each clie
 two data requests across hosts (the first attempt and the retry path) and then answers normally,
 so a connector that refuses the hop is not held in its own retry backoff.
 
+**What it cannot see yet (known limits).**
+
+- The fake vendor is plain http on loopback, so contract 2(c)'s "over plain http" is not judged;
+  a request to any other host is (every foreign host goes through the second fake, and an https
+  one shows up only as its `CONNECT`).
+- It seeds what is declared today: secret environment variables, the config file's `auth_header`,
+  `[headers]` and `base_url` user and password, minted tokens, `Set-Cookie` values and vendor
+  fields. Other config credential fields, credential flags, stdin and legacy config paths need the
+  per-connector declarations of contract section 7, which no ledger records yet.
+- A declared-secret URL or host variable is held only in `each-env-var` (seeded alone with a
+  credential value); everywhere else it carries the fake vendor's address.
+- The child process sink is its argv (logged by a wrapper the MCP server starts as its CLI); its
+  environment carries the connector's own credentials by design and is not judged.
+- A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
+  retries, so its success-path cases mostly exercise its error path.
+
 **Secret-echo is a subset.** Every check the retired `class_secret_echo.py` made is a line here
 (each such line carries a `secret_echo` field naming the check): the 403 that reflects every
 credential in seven encodings plus `X-Request-Id`, `Location` and a truncated title, over four
@@ -301,6 +317,10 @@ Fleet counts at seed (84 connectors, measured 2026-10-23, a fleet-wide `--all` e
 | auth-wire | 5 | 79 | 0 |
 | write-safety | 10 | 47 | 27 (8 read-only not proven, see above; 21 whose write commands never reached the API even without `--dry-run`, so the dry run could not be proven clean) |
 
+The leak test list is not in `class_baseline.json`: its known failures are per connector AND per
+case in `corpus_baseline.json` (see [The credential leak test list](#the-credential-leak-test-list)),
+so a connector listed for one case is still gated on every other.
+
 Step 7 of the pipeline plan empties these lists. No connector is fixed here.
 
 ### Review gaps closed (#439)
@@ -347,7 +367,11 @@ commands, 8 MCP read tools, 12 MCP write tools and 4 write commands for the dry 
 process capped at 20 s). Measured serially on a warm module cache, all three classes take 6-29 s
 per connector (connectwise-automate 6, ninjaone 9, halopsa 11, threatdown 14, td-synnex 19,
 saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses the cross-host
-redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
+redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers.
+The credential leak test list runs its cases 16 at a time and takes 2-28 s per connector after the
+build on an M-series Mac (halopsa 14, zammad 15, saas-alerts 28); a connector that backs off on its
+own after an error takes longer (cisco-duo 87, bitdefender 93, backup-radar 140). The whole fleet,
+84 connectors at `--jobs 4`, took 303 s. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## The shared credential kit: `credkit`
