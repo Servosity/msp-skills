@@ -1108,7 +1108,7 @@
       "display_name": "Kaseya VSA 10",
       "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
       "has_video": true,
-      "cli_hash": "sha256:573be037f47c9c382735d996d766279efac77c339c1f8f3682605974f2ed2f03",
+      "cli_hash": "sha256:e7b497f6adc92ed0b7e1dff6e9ad5a2e24d5f351bf5cf03ea04472dc3574f403",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

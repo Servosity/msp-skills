@@ -14,10 +14,13 @@ package cobratree
 // schema) before it previews or runs. The preview runs the command with the
 // root --dry-run, so every ordinary flag reaches the CLI and the VSA client
 // sends nothing; a command whose --dry-run is not the root flag gets a
-// preview that runs nothing.
+// preview that runs nothing. Boolean true becomes a bare --flag, which a
+// flag that takes a value would read the next token (--dry-run) into, so
+// boolean true is refused for any flag that takes a value.
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
@@ -63,6 +66,14 @@ func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command) {
 		for k := range tool.InputSchema.Properties {
 			declared[k] = true
 		}
+		takesValue := map[string]bool{}
+		if cmd != nil {
+			for k := range declared {
+				if f := cmd.Flag(k); f != nil && f.NoOptDefVal == "" {
+					takesValue[k] = true
+				}
+			}
+		}
 		rootDryRun := root.PersistentFlags().Lookup("dry-run")
 		dryRun := declared["dry-run"] && rootDryRun != nil && cmd != nil && cmd.Flag("dry-run") == rootDryRun
 		tool.InputSchema.Properties["confirm"] = map[string]any{
@@ -70,11 +81,11 @@ func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command) {
 			"description": "Set to boolean true to run this command. It can change state in your VSA tenant. Any other value, including the string \"true\", returns a preview and runs nothing.",
 		}
 		tool.Description = strings.TrimSpace(tool.Description + " Returns a preview and runs nothing until confirm is boolean true.")
-		s.AddTool(tool, mirrorConfirmGate(name, path, declared, dryRun, entry.Handler))
+		s.AddTool(tool, mirrorConfirmGate(name, path, declared, takesValue, dryRun, entry.Handler))
 	}
 }
 
-func mirrorConfirmGate(name, path string, declared map[string]bool, dryRun bool, next server.ToolHandlerFunc) server.ToolHandlerFunc {
+func mirrorConfirmGate(name, path string, declared, takesValue map[string]bool, dryRun bool, next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 		args := req.GetArguments()
 		rest := make(map[string]any, len(args))
@@ -85,6 +96,11 @@ func mirrorConfirmGate(name, path string, declared map[string]bool, dryRun bool,
 		}
 		if err := validateMCPArgumentNames(rest, declared); err != nil {
 			return boundedToolResultError(err.Error()), nil
+		}
+		for k, v := range rest {
+			if v == true && takesValue[k] {
+				return boundedToolResultError(fmt.Sprintf("parameter %q takes a value; boolean true is not allowed", k)), nil
+			}
 		}
 		if confirmed, ok := args["confirm"].(bool); ok && confirmed {
 			req.Params.Arguments = rest

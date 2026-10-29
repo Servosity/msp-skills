@@ -122,6 +122,7 @@ func TestReadOnlyAndLocalOnlyMirrorsStayUngated(t *testing.T) {
 func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(t *testing.T) {
 	root := &cobra.Command{Use: "kaseya-vsa-cli"}
 	root.PersistentFlags().Bool("dry-run", false, "")
+	root.PersistentFlags().String("client-profile", "", "")
 	scripts := &cobra.Command{Use: "scripts"}
 	scripts.AddCommand(&cobra.Command{Use: "run-wait", Run: func(*cobra.Command, []string) {}})
 	shadow := &cobra.Command{Use: "shadow", Run: func(*cobra.Command, []string) {}}
@@ -131,7 +132,7 @@ func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(t *testing.T) {
 	var calls []map[string]any
 	s := server.NewMCPServer("confirm-dry-run-test", "test")
 	for name, path := range map[string]string{"scripts_run_wait": "scripts run-wait", "shadow": "shadow"} {
-		tool := mcplib.NewTool(name, mcplib.WithString("device"), mcplib.WithString("select"), mcplib.WithBoolean("dry-run"))
+		tool := mcplib.NewTool(name, mcplib.WithString("device"), mcplib.WithString("select"), mcplib.WithBoolean("dry-run"), mcplib.WithString("client-profile"))
 		tool.Meta = &mcplib.Meta{AdditionalFields: map[string]any{"pp:tenant-gate": "child-cli", mirrorCLICommandMetaKey: path}}
 		s.AddTool(tool, func(_ context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 			calls = append(calls, req.GetArguments())
@@ -151,8 +152,18 @@ func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(t *testing.T) {
 			}
 		}
 	}
+	// A bare --client-profile would read the forced --dry-run as its value.
+	for _, confirm := range []any{nil, true} {
+		args := map[string]any{"device": "PC-1", "client-profile": true}
+		if confirm != nil {
+			args["confirm"] = confirm
+		}
+		if out := callTool(t, s, "scripts_run_wait", args); !strings.Contains(out, `"client-profile" takes a value`) {
+			t.Fatalf("confirm=%v: boolean true for a value flag must be refused, got %s", confirm, out)
+		}
+	}
 	if len(calls) != 0 {
-		t.Fatalf("an undeclared argument reached the CLI: %v", calls)
+		t.Fatalf("an undeclared or mistyped argument reached the CLI: %v", calls)
 	}
 
 	out := callTool(t, s, "scripts_run_wait", map[string]any{"device": "PC-1", "select": "id", "dry-run": false})

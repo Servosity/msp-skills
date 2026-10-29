@@ -87,7 +87,7 @@
   {
    "id": "mcp-mirror-write-confirm",
    "summary": "Mirrored MCP tools that can change VSA state preview and run only with confirm: true",
-   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child. CI check_mcp_file_flags (PR #488): the preview returned before the shell-out handler's argument-name check, so a host-file flag (--config, --receipt-file, --audit-dir, ...) was dropped silently instead of refused, and no ordinary flag reached the CLI. The gate now refuses any argument the tool schema does not declare, naming it, before it previews or runs, and builds the preview by running the command with the root --dry-run (the VSA client sends nothing in dry-run), so ordinary flags reach the CLI; a command whose --dry-run is not the root flag gets a preview that runs nothing. Test: TestMirroredWritePreviewDryRunsAndRefusesUndeclared (fails with the gate reverted).",
+   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child. CI check_mcp_file_flags (PR #488): the preview returned before the shell-out handler's argument-name check, so a host-file flag (--config, --receipt-file, --audit-dir, ...) was dropped silently instead of refused, and no ordinary flag reached the CLI. The gate now refuses any argument the tool schema does not declare, naming it, before it previews or runs, and builds the preview by running the command with the root --dry-run (the VSA client sends nothing in dry-run), so ordinary flags reach the CLI; a command whose --dry-run is not the root flag gets a preview that runs nothing. Test: TestMirroredWritePreviewDryRunsAndRefusesUndeclared (fails with the gate reverted). Codex review r1 [P1]: boolean true for a flag that takes a value (client-profile: true) became a bare --client-profile that read the forced --dry-run as its value, so the preview of learnings forget deleted rows; the gate refuses boolean true for any flag without a no-value default, with or without confirm.",
    "status": "active",
    "asserts": [
     {
@@ -128,6 +128,11 @@
     {
      "file": "cli/internal/mcp/cobratree/kaseya_confirm_test.go",
      "contains": "func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "if v == true && takesValue[k] {",
      "code_only": true
     }
    ]
