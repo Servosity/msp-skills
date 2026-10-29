@@ -106,23 +106,29 @@ tool, `feedback`, `teach`, `--deliver`, a redirect). `class_secret_corpus.py` ru
 the built connector with no connector-specific code. The rules are the owner-ruled
 [credential leak contract](../../docs/credential-leak-contract.md); this list is how CI checks them.
 
-A case fails when the credential, the exact encoded payload, or every piece of a split payload
-survives in stdout, stderr, the MCP server's output, any file the run wrote under its fresh HOME,
-or a request that reached a second fake host. A credential of 8 or more characters also fails on
-any 8-character piece of it; a shorter one counts only as a whole word. The test knows what it
-injected, so it never has to guess: a new form needs an encoder, never a decoder.
+A case fails when a held credential, the exact encoded payload, or any one fragment of a split
+payload (each fragment carries a piece the contract counts) survives in stdout, stderr, the MCP
+server's output, any file the run leaves under its fresh HOME, or a request that reached a second
+fake host. A credential of 8 or more characters also fails on any 8-character piece of it; a
+shorter one counts only as a whole word. Every comparison folds case and Unicode width (contract
+section 3), and every output is read as UTF-8. The test knows what it injected, so it never has to
+guess: a new form needs an encoder, never a decoder.
 
 The credentials it holds come only from what the connector declares: each variable whose
 `user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
-`isSecret`. A variable's name means nothing. Most cases inject one credential, the first declared
-one the connector sends on the wire and already withholds when a vendor echoes it (else the first
-on the wire); `each-env-var` injects every declared variable on its own.
+`isSecret`. A variable's name means nothing. Every declared variable a run sets is held in that
+run. Most cases inject one credential, the first declared one the connector sends on the wire and
+already withholds when a vendor echoes it (else the first on the wire); `each-env-var` injects
+every declared variable on its own, a declared URL variable included. A vendor response field is
+held only when the connector declares it (the shared kit's `ResponseFields`); with none declared,
+the two vendor-field lines do not apply.
 
 The six cases in section 6 of the contract (the MCP request id echoed back, scientific notation of
 a non-digit credential, an undeclared numeric vendor field, a declared identifier, a split across
 two runs, a piece shorter than 8 characters) are **advisory**: reported, never failing. Each such
 line names its contract item in an `advisory` field, and the list does not load unless exactly
-those six are advisory. Every other line gates.
+those six are advisory. An advisory line excuses only its own exception: a held credential that
+leaks any other way during it still fails. Every other line gates.
 
 **The learning loop.** When a review finds a credential leak the list missed, the fix to the gate
 is one line, usually in minutes:
@@ -148,8 +154,9 @@ fails on main today. In the CI row a listed failure is reported as a known failu
 failure fails the row and names the case, its form, shape, source and drive, and every place the
 credential surfaced. `ci_guards.sh` guard 11 runs `class_secret_corpus.py --check-baseline --base
 <merge base>` with no build: an entry may be removed at any time, and added only for a case id the
-merge base's list does not have, and never in a change that also drops a case of the base (a
-renamed case is an existing case). A connector that has adopted the shared credential kit
+merge base's list does not have, and never in a change that also drops or rewords a case of the
+base or edits an existing line of `class_secret_corpus.py` (a renamed case is an existing case; an
+engine change that only adds lines, such as a new encoder, is fine). A connector that has adopted the shared credential kit
 (`cli/internal/credkit/` exists) may have no entries at all. When a fix lands, retire what now
 passes with `class_secret_corpus.py --update-baseline --slug <slug>` (it removes, never adds).
 
@@ -180,8 +187,10 @@ so a connector that refuses the hop is not held in its own retry backoff.
   per-connector declarations of contract section 7, which no ledger records yet.
 - A declared-secret URL or host variable is held only in `each-env-var` (seeded alone with a
   credential value); everywhere else it carries the fake vendor's address.
-- The child process sink is its argv (logged by a wrapper the MCP server starts as its CLI); its
-  environment carries the connector's own credentials by design and is not judged.
+- Files are read when the run ends, so a file written and then deleted (or overwritten) during the
+  run is not seen; the shared kit's file layer covers that sink in process.
+- The child process sink is the argv the MCP server gives its own CLI (logged by a wrapper); other
+  children and their environments are not observed.
 - A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
   retries, so its success-path cases mostly exercise its error path.
 

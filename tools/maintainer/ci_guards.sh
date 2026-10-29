@@ -56,7 +56,9 @@ if [ "${1:-}" = "--self-test" ]; then
     ( cd "$d" && git init -q && python3 -I tools/maintainer/gen_coderabbit_config.py >/dev/null && git add -A \
       && git -c user.name=t -c user.email=t@example.com commit -q -m base ) || return 1
     ( cd "$d" && eval "$setup" )
-    ( cd "$d" && bash tools/maintainer/ci_guards.sh ) >"$d.out" 2>&1
+    # The case repository has its own history: a CORPUS_BASE the caller set
+    # (CI sets the PR base) names a commit it does not have.
+    ( cd "$d" && env -u CORPUS_BASE bash tools/maintainer/ci_guards.sh ) >"$d.out" 2>&1
     rc=$?
     if [ "$rc" -eq 0 ] && grep -q 'All CI guards passed' "$d.out"; then got=pass
     elif [ "$rc" -ne 0 ] && grep -q 'CI guards FAILED' "$d.out"; then got=fail
