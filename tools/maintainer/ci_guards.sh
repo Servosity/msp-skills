@@ -184,6 +184,10 @@ if [ "${1:-}" = "--self-test" ]; then
     "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
      && printf 'ENC[\"rot13\"] = ENC[\"raw\"]\n' >> tools/maintainer/class_secret_corpus.py \
      && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
+  st_case "a credential leak baseline entry for a new case, landing with a change to a module the engine imports" fail \
+    "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf 'X = 1\n' >> tools/maintainer/registry.py \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
   st_case "a credential leak baseline with no merge base to compare against" fail \
     "$cs_case && git update-ref -d refs/remotes/origin/main"
   st_case "a credential leak baseline whose tool was removed" fail "$cs_case && rm tools/maintainer/class_secret_corpus.py"

@@ -110,26 +110,41 @@ A case fails when a held credential, the exact encoded payload, any one fragment
 payload (each fragment carries a piece the contract counts), or any piece of the payload that still
 decodes to 8 or more credential characters (a truncated or misaligned payload, decoded at every
 alignment) survives in stdout, stderr, the MCP server's output, any file the run leaves under its
-fresh HOME, or a request that reached a second fake host (every value of a repeated header). A
-credential of 8 or more characters also fails on any 8-character piece of it; a shorter one counts
-only as a whole word. Every comparison folds case and Unicode width (contract section 3); every
-output is read as bytes, with its UTF-16 readings, and its own base64, base32, hex and base85 runs
-are decoded at every alignment. A file or directory the run leaves that the test cannot read fails
-the case. The test knows what it injected: a new form needs an encoder (and a decoder only if
-section 3 of the contract lacks one).
+fresh HOME, or a request that reached a second fake host (any method, every value of a repeated
+header, every trailer of a chunked body). A credential of 8 or more characters also fails on any
+8-character piece of it; a shorter one counts only as a whole word, except in a request to the
+second host, where any form of the whole value counts (contract 2(c)). Every comparison folds case
+and Unicode width (contract section 3). Every unit (each output, file and request, binary or not)
+is read as bytes every way section 3 names (UTF-8, UTF-16 and UTF-32 at every alignment, EBCDIC
+and the CJK charsets), inflated wherever a gzip, zlib or deflate stream starts, and decoded by
+every section 3 decoder at every offset, recursively, six levels deep: base64, base32, hex,
+Ascii85, base85 and Z85 runs at every alignment of their blocks, percent, entities, escapes,
+quoted-printable, octal, character-code lists, MIME words, ROT13, adjacent JSON string values
+joined, and other integer spellings of an all-digit credential. A unit whose decodings run past the
+budget counts as a match. A file or directory the run leaves that the test cannot read, and a
+request the fake cannot parse, fail the case. The test knows what it injected: a new form needs an
+encoder (and a decoder only if section 3 of the contract lacks one).
 
 The credentials it holds come only from what the connector declares: each variable whose
 `user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
-`isSecret`. A variable's name means nothing. Every declared variable a run sets is held in that
-run, and only while the program is given it: the token-error line, which unsets static tokens so
-the client mints, seeds the declared variable the token request carries, or does not apply. Every
-token the fake vendor hands out, in any line, is held for the rest of that run, and a mint that
-never happened leaves only that token unheld. Most cases inject one credential, the first declared
+`isSecret`, plus each one the shared kit's `SecretEnv` names. A variable's name means nothing.
+Every declared variable a run sets is held in that run, and only while the program is given it: the
+token-error line, which unsets static tokens so the client mints, seeds the declared variable the
+token request carries, or does not apply. A declared URL variable is held too: it gets a path of
+its own, so its value differs from the fake's address that every undeclared URL variable shares,
+and a piece of a held value that the harness also gave the program in a value it does not hold is
+no evidence either way. Every token the fake vendor hands out, every `Set-Cookie` value and
+everything under a declared response field it sends, in any line, is held for the rest of that run,
+minted or not; a mint that never happened leaves only that token unheld. Most cases inject one credential, the first declared
 one the connector sends on the wire and already withholds when a vendor echoes it (else the first
 on the wire); `each-env-var` injects every declared variable on its own, a declared URL variable
-included. A vendor response field is held only when the connector declares it: the `ResponseFields`
-of the shared kit's `Declarations` literal, read with Go's own parser, so a comment, a string, a
-`_test.go` file or `testdata` declares nothing. With none declared, the two vendor-field lines do
+included. A vendor response field is held only when the connector declares it: the
+`ResponseFields` (and `SecretEnv`) of the one keyed literal of the shared kit's own `Declarations`
+type, imported from the connector's `internal/credkit` under any name, read with Go's own parser,
+so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares
+nothing. Anything naming those fields that the reader cannot tie to that literal (an alias, an
+assignment, another type with the same fields, a second or positional literal) stops the
+connector's run instead of holding nothing. With no field declared, the two vendor-field lines do
 not apply.
 
 The six cases in section 6 of the contract (the MCP request id echoed back, scientific notation of
@@ -148,8 +163,9 @@ is one line, usually in minutes:
    Reuse the fields an existing line uses; `refs` names the finding.
 2. If the line uses a form the engine does not know, add its encoder to `ENC` in
    `class_secret_corpus.py`. A new shape or drive is a few lines in `shape_response` or
-   `Engine.drive`. Land any engine change on its own first, because a change that touches the
-   engine at all (an added line can rebind an existing encoder) cannot add baseline entries.
+   `Engine.drive`. Land any engine change on its own first: a change that adds a baseline entry
+   may touch nothing but `secret_corpus.jsonl` and `corpus_baseline.json`, because an added line
+   anywhere the engine imports or CI runs it can rebind an existing case.
 3. Run `python3 tools/maintainer/class_secret_corpus.py --self-test`. The deliberately leaky
    stand-in must fail the new case and the clean one must pass it; the self-test says which way it
    missed.
@@ -167,8 +183,9 @@ failure fails the row and names the case, its form, shape, source and drive, and
 credential surfaced. `ci_guards.sh` guard 11 runs `class_secret_corpus.py --check-baseline --base
 <merge base>` with no build: an entry may be removed at any time, and added only for a case id the
 merge base's list does not have, and never in a change that also drops or rewords a case of the
-base or changes `class_secret_corpus.py` or `class_harness.py` at all (a renamed case is an
-existing case, and an added engine line can rebind an existing encoder). A
+base or changes any file other than the list and the baseline (the engine, a module it imports, a
+workflow that runs it: a renamed case is an existing case, and an added line can rebind an
+existing encoder). A
 connector that has adopted the shared credential kit
 (`cli/internal/credkit/` exists) may have no entries at all. When a fix lands, retire what now
 passes, or an advisory line back to its own exception, with `class_secret_corpus.py
@@ -199,8 +216,9 @@ so a connector that refuses the hop is not held in its own retry backoff.
   `[headers]` and `base_url` user and password, minted tokens, `Set-Cookie` values and vendor
   fields. Other config credential fields, credential flags, stdin and legacy config paths need the
   per-connector declarations of contract section 7, which no ledger records yet.
-- A declared-secret URL or host variable is held only in `each-env-var` (seeded alone with a
-  credential value); everywhere else it carries the fake vendor's address.
+- A declared-secret host variable cannot be given a path of its own, so it carries the fake
+  vendor's address; when an undeclared URL variable carries that address too, no piece of it is
+  evidence. `each-env-var` still seeds it alone with a credential value.
 - Files are read when the run ends, so a file written and then deleted (or overwritten) during the
   run is not seen; the shared kit's file layer covers that sink in process.
 - The child process sink is the argv the MCP server gives its own CLI (logged by a wrapper); other
