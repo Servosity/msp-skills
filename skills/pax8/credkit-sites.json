@@ -1,0 +1,92 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "installPins",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "installPins",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "installPins",
+   "what": "convert:pax8-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "under --dry-run the innermost transport refuses every request; nothing is sent, so there is nothing for the kit to check"
+  },
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "installPins",
+   "what": "convert:pax8-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "installPins",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/pax8_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and run profile files named by credwire.credentialFiles, inside Start, and the bytes go only to HoldBody"
+  },
+  {
+   "file": "internal/config/pax8_persist.go",
+   "func": "headerMayGoToAPI",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sends nothing: the request is only handed to credkit.Transport over a transport that answers without a network, to ask the kit whether the header may go to the API origin"
+  },
+  {
+   "file": "internal/config/pax8_persist.go",
+   "func": "warnLeftOut",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "prints a fixed warning naming a config field (base_url, token_url or a header name), no value, and the descriptor is the kit's once Start ran"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  }
+ ]
+}

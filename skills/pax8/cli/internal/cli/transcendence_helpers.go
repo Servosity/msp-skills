@@ -39,7 +39,7 @@ func pax8QueryObjects(ctx context.Context, db *store.Store, query string, args .
 		return nil, err
 	}
 	defer rows.Close()
-	var out []map[string]any
+	out := []map[string]any{} // pax8 handfix: novel-json-empty-is-array (never null)
 	for rows.Next() {
 		var raw []byte
 		if err := rows.Scan(&raw); err != nil {

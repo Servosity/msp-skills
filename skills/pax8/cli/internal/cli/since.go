@@ -54,23 +54,10 @@ func parseSinceWindow(s string) (time.Duration, error) {
 	return 0, fmt.Errorf("invalid window %q (use forms like 7d, 24h, 2w, or 30)", s)
 }
 
-// parseAnyDate tries the date formats Pax8 timestamps commonly use.
+// parseAnyDate reads a Pax8 timestamp through the one shared parser
+// (pax8ParseTime: numeric offsets with or without a colon included).
 func parseAnyDate(s string) (time.Time, bool) {
-	if s == "" {
-		return time.Time{}, false
-	}
-	formats := []string{
-		time.RFC3339, time.RFC3339Nano,
-		"2006-01-02T15:04:05.999999999",
-		"2006-01-02T15:04:05",
-		"2006-01-02",
-	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, true
-		}
-	}
-	return time.Time{}, false
+	return pax8ParseTime(s)
 }
 
 // pp:data-source local
@@ -133,13 +120,19 @@ Do NOT use this command for a single customer's full picture; use 'company show'
 			products, _ := pax8ListObjects(db, "products")
 			nameByID := pax8NameByID(products, []string{"id", "productId"}, []string{"name", "productName"})
 
-			var changes []subChange
+			changes := []subChange{} // pax8 handfix: novel-json-empty-is-array (null read as "no data" vs an error)
 
 			// 1) Subscription history events within the window.
-			history, _ := pax8ListObjects(db, "history")
+			// pax8 handfix: novel-documented-shapes. A row is in the window only
+			// when its date reads and falls inside it; an unreadable date is
+			// never reported as recent.
+			history, err := pax8Collection(db, pax8History)
+			if err != nil {
+				return fmt.Errorf("reading subscription history: %w", err)
+			}
 			for _, h := range history {
-				dateStr := pax8FieldStr(h, "effectiveDate", "createdDate", "date", "changedDate", "updatedDate")
-				if t, ok := parseAnyDate(dateStr); ok && t.Before(cutoff) {
+				dateStr := pax8FieldStr(h, "effectiveDate", "updatedDate", "createdDate", "date", "changedDate")
+				if t, ok := parseAnyDate(dateStr); !ok || t.Before(cutoff) {
 					continue
 				}
 				changes = append(changes, subChange{
@@ -152,7 +145,10 @@ Do NOT use this command for a single customer's full picture; use 'company show'
 			}
 
 			// 2) Current subscriptions created or updated within the window.
-			subs, _ := pax8ListObjects(db, "subscriptions")
+			subs, err := pax8Collection(db, pax8Subscriptions)
+			if err != nil {
+				return fmt.Errorf("reading subscriptions: %w", err)
+			}
 			for _, s := range subs {
 				created := pax8FieldStr(s, "createdDate", "created_date", "startDate", "start_date")
 				updated := pax8FieldStr(s, "updatedDate", "updated_date")
@@ -178,10 +174,14 @@ Do NOT use this command for a single customer's full picture; use 'company show'
 				}
 			}
 
-			sort.Slice(changes, func(i, j int) bool { return changes[i].Date > changes[j].Date })
+			sort.SliceStable(changes, func(i, j int) bool {
+				ti, _ := parseAnyDate(changes[i].Date)
+				tj, _ := parseAnyDate(changes[j].Date)
+				return ti.After(tj)
+			})
 
 			if flags.asJSON {
-				return printJSONFiltered(out, changes, flags)
+				return pax8PrintNovelJSON(out, changes, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			if len(changes) == 0 {
 				fmt.Fprintf(out, "No subscription changes in the last %s. (Run 'pax8-cli sync' first if the store is empty.)\n", windowLabel)

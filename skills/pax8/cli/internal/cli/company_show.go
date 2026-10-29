@@ -59,23 +59,44 @@ Do NOT use this command for billing-mismatch detection; use 'reconcile' instead.
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "companies", flags.maxAge)
 
-			ctx := cmd.Context()
+			// pax8 handfix: novel-documented-shapes. Every collection is read
+			// under the names sync and live reads store it as (pax8Collection),
+			// joined on the documented companyId (contacts on the parent
+			// company sync records), and a read error is an error, never an
+			// empty list.
 			res := companyShowResult{}
-
-			companyRows, err := pax8QueryObjects(ctx, db, `SELECT data FROM companies WHERE id = ? LIMIT 1`, companyID)
-			if err != nil {
-				return fmt.Errorf("reading company: %w", err)
+			read := func(names []string) ([]map[string]any, error) {
+				rows, err := pax8Collection(db, names)
+				if err != nil {
+					return nil, fmt.Errorf("reading %s: %w", names[0], err)
+				}
+				return rows, nil
 			}
+			companies, err := read(pax8Companies)
+			if err != nil {
+				return err
+			}
+			companyRows := pax8Where(companies, companyID, "id")
 			if len(companyRows) == 0 {
 				return notFoundErr(fmt.Errorf("company %q not found in local store (run 'pax8-cli sync' first)", companyID))
 			}
 			res.Company = companyRows[0]
-
-			res.Subscriptions, _ = pax8QueryObjects(ctx, db, `SELECT data FROM subscriptions WHERE company_id = ?`, companyID)
-			res.Invoices, _ = pax8QueryObjects(ctx, db, `SELECT data FROM invoices WHERE company_id = ?`, companyID)
-			res.UsageSummaries, _ = pax8QueryObjects(ctx, db, `SELECT data FROM usage_summaries WHERE company_id = ?`, companyID)
-			// Contacts are keyed by companies_id (FK column on the contacts table).
-			res.Contacts, _ = pax8QueryObjects(ctx, db, `SELECT data FROM contacts WHERE companies_id = ?`, companyID)
+			for _, part := range []struct {
+				names []string
+				dst   *[]map[string]any
+				keys  []string
+			}{
+				{pax8Subscriptions, &res.Subscriptions, []string{"companyId", "company_id"}},
+				{pax8Invoices, &res.Invoices, []string{"companyId", "company_id"}},
+				{pax8UsageSummaries, &res.UsageSummaries, []string{"companyId", "company_id"}},
+				{pax8Contacts, &res.Contacts, []string{"companyId", "companies_id", "parent_id"}},
+			} {
+				rows, err := read(part.names)
+				if err != nil {
+					return err
+				}
+				*part.dst = pax8Where(rows, companyID, part.keys...)
+			}
 
 			if flags.asJSON {
 				return printJSONFiltered(out, res, flags)

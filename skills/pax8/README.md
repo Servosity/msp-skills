@@ -1,7 +1,7 @@
 # Pax8 + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Pax8
-> API. Not affiliated with, endorsed by, or sponsored by Pax8, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Pax8, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -16,13 +16,6 @@ Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, 
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Pax8 skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `pax8-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `pax8-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `pax8-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -191,7 +184,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `pax8-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `pax8-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `pax8-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `pax8-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -226,7 +219,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `pax8-cli reconcile`, `pax8-cli mrr`, `pax8-cli overage`, `pax8-cli spend`, `pax8-cli since 7d`, `pax8-cli company show <companyId>`, `pax8-cli search "microsoft 365"`, `pax8-cli companies find`, `pax8-cli subscriptions find` | Allow |
-| Write (routine) | `pax8-cli companies create-company`, `pax8-cli companies update-company`, `pax8-cli companies contacts create`, `pax8-cli subscriptions update`, `pax8-cli orders create` - writes send immediately; `--dry-run` is an opt-in preview, not a default | Preview with `--dry-run`, then a reviewed write |
+| Write (routine) | `pax8-cli companies create-company`, `pax8-cli companies update-company`, `pax8-cli companies contacts create`, `pax8-cli subscriptions update`, `pax8-cli orders create` - the CLI sends immediately (`--dry-run` is an opt-in preview); over MCP each write previews and sends only with `confirm: true` | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | `pax8-cli subscriptions delete` (cancels a subscription), `pax8-cli companies contacts delete` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Pax8 credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
