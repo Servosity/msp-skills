@@ -1,7 +1,6 @@
 {
  "_comment": "Connectors that FAIL a class in class_harness.py on main today, listed per class. Same burn-down model as tools/maintainer/security_gate_baseline.json (issue #429): a listed connector is reported, not failed, until its fix or reprint closes the class; any other connector failing the class fails CI. This list only SHRINKS. --update-baseline removes connectors that no longer fail and never adds one (a newly broken connector is a P1 to fix, not to baseline); --seed-baseline gives a class with no entry its first list; a listed connector that now passes but is still listed fails CI (remove it with --update-baseline). On a PR the rows read the baseline from the trusted base via --policy-base, so a PR cannot widen its own baseline.",
  "classes": {
-  "secret-echo": [],
   "auth-wire": [],
   "write-safety": []
  }

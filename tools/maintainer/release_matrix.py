@@ -158,7 +158,11 @@ MACHINERY = (
     # shrink-only data file (class_baseline.json) is NOT here: retiring a
     # baselined connector is data, guarded build-free by --assert-baseline-shrinks.
     "tools/maintainer/class_harness.py",
-    "tools/maintainer/class_secret_echo.py",
+    "tools/maintainer/class_secret_corpus.py",
+    # The leak test list is what the class runs, so a new line re-tests every
+    # connector. corpus_baseline.json is shrink-only data, guarded build-free
+    # by ci_guards.sh (class_secret_corpus.py --check-baseline).
+    "tools/maintainer/secret_corpus.jsonl",
     "tools/maintainer/class_auth_wire.py",
     "tools/maintainer/class_write_safety.py",
     # The verify gate and the harness it runs (verify_gate.py --slug in each

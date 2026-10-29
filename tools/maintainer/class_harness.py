@@ -20,8 +20,12 @@ names: the command surface is read from the binary's own `agent-context` JSON
 wiring is read from `skills/<slug>/manifest.json`. Everything is stdlib Python.
 
 Three class tests live beside it and register here:
-  * class_secret_echo   - a credential value never reaches CLI output, errors
-                          or MCP results, in any encoding a server can reflect.
+  * class_secret_corpus - the credential leak test list (secret_corpus.jsonl):
+                          every way a review found a held credential leaking,
+                          one case per line, judged by
+                          docs/credential-leak-contract.md. Its known failures
+                          are listed per connector and per case in
+                          corpus_baseline.json, not in class_baseline.json.
   * class_auth_wire     - a configured credential is actually transmitted, and
                           none follows a redirect to another host.
   * class_write_safety  - every non-read MCP tool is refused under the read-only
@@ -31,7 +35,7 @@ Entry point
 -----------
     python3 tools/maintainer/class_harness.py --slug ninjaone
     python3 tools/maintainer/class_harness.py --all --report
-    python3 tools/maintainer/class_harness.py --slug ninjaone --class secret-echo
+    python3 tools/maintainer/class_harness.py --slug ninjaone --class secret-corpus
     python3 tools/maintainer/class_harness.py --self-test
     python3 tools/maintainer/class_harness.py --all --update-baseline
 
@@ -724,11 +728,11 @@ def make_ctx(slug: str, tmp: str) -> tuple[Ctx | None, str | None]:
 
 def _load_classes():
     """Import the class modules lazily so the harness file has no import cycle."""
-    import class_secret_echo
+    import class_secret_corpus
     import class_auth_wire
     import class_write_safety
     return {
-        "secret-echo": class_secret_echo,
+        "secret-corpus": class_secret_corpus,
         "auth-wire": class_auth_wire,
         "write-safety": class_write_safety,
     }
@@ -745,7 +749,10 @@ BASELINE_COMMENT = (
     "--update-baseline). On a PR the rows read the baseline from the trusted base via "
     "--policy-base, so a PR cannot widen its own baseline."
 )
-CLASS_IDS = ("secret-echo", "auth-wire", "write-safety")
+# The classes listed per connector in class_baseline.json. secret-corpus is
+# not one: its known failures are per case in corpus_baseline.json, so no
+# class-level entry can excuse a case that entry never named.
+CLASS_IDS = ("auth-wire", "write-safety")
 
 
 def _git_show(ref: str, path: str, repo: Path = ROOT) -> str | None:
@@ -963,13 +970,13 @@ def self_test_baseline_guard() -> bool:
         git("add", "-A")
         git("commit", "-q", "-m", "no baseline")
         no_file = git("rev-parse", "HEAD")
-        write({"secret-echo": ["a", "b"], "auth-wire": [], "write-safety": []})
+        write({"auth-wire": ["a", "b"], "write-safety": []})
         git("add", "-A")
         git("commit", "-q", "-m", "baseline")
         with_file = git("rev-parse", "HEAD")
-        write({"secret-echo": ["a"], "auth-wire": [], "write-safety": []})
+        write({"auth-wire": ["a"], "write-safety": []})
         expect(guard(with_file) == 0, "a baseline that only shrank must pass")
-        write({"secret-echo": ["a", "b", "c"], "auth-wire": [], "write-safety": []})
+        write({"auth-wire": ["a", "b", "c"], "write-safety": []})
         expect(guard(with_file) == 1, "a widened baseline must fail")
         expect(guard(no_file) == 0, "a base commit without the file (the introducing PR) must pass")
         expect(guard("refs/heads/no-such-base") == 1, "an unresolvable base ref must fail closed")
@@ -1122,7 +1129,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--slug", action="append", help="check one skill (repeatable)")
     ap.add_argument("--all", action="store_true", help="check every connector")
     ap.add_argument("--class", dest="only", action="append",
-                    help="run only this class (secret-echo / auth-wire / write-safety)")
+                    help="run only this class (secret-corpus / auth-wire / write-safety)")
     ap.add_argument("--report", action="store_true",
                     help="print per-class fleet counts; do not fail on baselined connectors")
     ap.add_argument("--policy-base", metavar="REF",
