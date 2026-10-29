@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-05",
+  "generated_at": "2026-11-04",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1767,6 +1767,26 @@
       "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
       "verification": "awaiting",
       "category": "Backup/DR"
+    },
+    {
+      "name": "warranty",
+      "system": "Dell, Lenovo and Apple device warranty lookups",
+      "status": "beta",
+      "skill_path": "skills/warranty",
+      "cli_binary": "warranty-cli",
+      "mcp_binary": "warranty-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Dell, Lenovo and Apple",
+      "vendor_trademark_owner": "Dell Inc., Lenovo and Apple Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/install.sh)",
+      "install_mcp_doc": "skills/warranty/mcp-install.md",
+      "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+      "verification": "awaiting",
+      "category": "Documentation",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror."
     },
     {
       "name": "watchguard",

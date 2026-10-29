@@ -1719,6 +1719,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:warranty",
+      "displayName": "Device Warranty",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/SKILL.md",
+      "description": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "Which client devices are out of warranty or expire in the next 90 days?",
+        "Which of Acme Dental's devices have already expired?",
+        "What is the warranty on these serials right now?",
+        "How many devices per client lose coverage in each of the next four quarters, and how many are past four years old?",
+        "Which devices could the report not speak for, and why?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/warranty.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:watchguard",
       "displayName": "WatchGuard Cloud",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

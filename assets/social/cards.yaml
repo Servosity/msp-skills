@@ -364,6 +364,10 @@ veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
 
+warranty:
+  vendor: "Device Warranty"
+  example_command: "Which devices go out of warranty this quarter?"
+
 watchguard:
   vendor: "WatchGuard"
   example_command: "Which customer needs attention first?"
