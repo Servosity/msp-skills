@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `PAX8_CLIENT_ID` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `pax8-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `PAX8_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`pax8-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `PAX8_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `PAX8_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export PAX8_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+pax8-mcp --transport http
+```
+
+Set `PAX8_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Pax8 uses OAuth2 client-credentials. Set PAX8_CLIENT_ID and PAX8_CLIENT_SECRET (create an API key in the Pax8 portal under Integrations). The CLI exchanges them at https://token-manager.pax8.com/oauth/token with the required audience (override with PAX8_AUDIENCE, default api://p8p.client) and caches the bearer token until it expires. Run `pax8-cli doctor` to verify the token exchange; `pax8-cli auth status` shows the active credential source and `pax8-cli auth login` stores credentials interactively.
+Pax8 uses OAuth2 client-credentials. Set PAX8_CLIENT_ID and PAX8_CLIENT_SECRET (create an API key in the Pax8 portal under Integrations). The CLI exchanges them at https://token-manager.pax8.com/oauth/token with the required audience (override with PAX8_AUDIENCE, default api://p8p.client) and caches the bearer token until it expires. Run `pax8-cli doctor` to verify the token exchange; `pax8-cli auth login` mints and stores a token.
 
 ## Quick Start
 
@@ -108,7 +117,7 @@ pax8-cli doctor
 pax8-cli sync
 
 # list the customers you serve through Pax8
-pax8-cli companies find --json
+pax8-cli companies list --json
 
 # flag billing mismatches between invoices and subscriptions
 pax8-cli reconcile
@@ -156,7 +165,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this when an agent needs a full picture of one customer in a single call._
 
   ```bash
-  pax8-cli company show <companyId> --agent --select subscriptions.productName,invoices.total
+  pax8-cli company show <companyId> --agent --select subscriptions.productName,subscriptions.quantity
   ```
 - **`spend`**  -  Roll up invoice-items by company to show what each customer is costing across invoices.
 
@@ -167,7 +176,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Billing reconciliation for the current period
 
@@ -188,7 +196,7 @@ Returns just the revenue numbers an agent needs from a wide aggregate, using dot
 ### Customer 360 in one call
 
 ```bash
-pax8-cli company show <companyId> --agent --select subscriptions.productName,subscriptions.quantity,invoices.total
+pax8-cli company show <companyId> --agent --select subscriptions.productName,subscriptions.quantity
 ```
 
 Joins a company to its subscriptions and invoices locally and narrows the deeply nested result.
@@ -199,19 +207,94 @@ Joins a company to its subscriptions and invoices locally and narrows the deeply
 pax8-cli since 7d --agent
 ```
 
-Lists the synced subscription history plus the subscriptions created or updated in the last 7 days.
+Reads synced subscription history plus subscriptions created or updated in the window: new, cancelled, and quantity-changed.
 
 ### Find a product by vendor
 
 ```bash
-pax8-cli search 'microsoft 365' --json
+pax8-cli products find-all --vendor-name Microsoft --json
 ```
 
-Full-text search across the offline store with no API round-trip.
+Lists the products one vendor sells through Pax8, straight from the Partner API.
 
 ## Usage
 
 Run `pax8-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `PAX8_CONFIG_DIR`, `PAX8_DATA_DIR`, `PAX8_STATE_DIR`, or `PAX8_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `PAX8_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export PAX8_HOME=/srv/pax8
+pax8-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:PAX8_HOME = "C:\ProgramData\pax8"
+pax8-cli doctor
+```
+
+Under `PAX8_HOME=/srv/pax8`, the four dirs resolve to `/srv/pax8/config`, `/srv/pax8/data`, `/srv/pax8/state`, and `/srv/pax8/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:PAX8_HOME = "C:\srv\pax8"
+pax8-cli doctor
+```
+
+Under `$env:PAX8_HOME = "C:\srv\pax8"`, the four dirs resolve to `C:\srv\pax8\config`, `C:\srv\pax8\data`, `C:\srv\pax8\state`, and `C:\srv\pax8\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "pax8": {
+      "command": "pax8-mcp",
+      "env": {
+        "PAX8_HOME": "/srv/pax8"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `PAX8_DATA_DIR` overrides an explicit `--home` for that kind. Use `PAX8_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `PAX8_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `pax8-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `pax8-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `pax8-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `PAX8_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `PAX8_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -265,24 +348,80 @@ Manage usage summaries
 - **`pax8-cli usage-summaries <usageSummaryId>`** - Fetch a paginated list of usage summaries. Default page is 0 and default size is 10. The maximum page size is 200
 
 
+### company
+
+
+- **`pax8-cli company show`** - One view of a company with its subscriptions, contacts, invoices, and usage.
+
+
+### mrr
+
+
+- **`pax8-cli mrr`** - Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown.
+
+
+### overage
+
+
+- **`pax8-cli overage`** - Aggregate usage-lines per subscription and surface overages before they land on the customer invoice.
+
+
+### reconcile
+
+
+- **`pax8-cli reconcile`** - Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice.
+
+
+### since
+
+
+- **`pax8-cli since`** - Show subscription changes in a window: synced history events plus subscriptions created or updated in it.
+
+
+### spend
+
+
+- **`pax8-cli spend`** - Roll up invoice-items by company to show what each customer is costing across invoices.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`pax8-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`pax8-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`pax8-cli learnings list`** - Inspect taught rows
+- **`pax8-cli learnings forget <query>`** - Undo a teach
+- **`pax8-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`pax8-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`pax8-cli teach-pattern`** - Install a query/resource template up front
+- **`pax8-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `PAX8_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `pax8-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-pax8-cli companies get <id>
+pax8-cli companies get mock-value
 
 # JSON for scripting and agents
-pax8-cli companies get <id> --json
-
+pax8-cli companies get mock-value --json
 # Filter to specific fields
-pax8-cli companies get <id> --json --select id,name,status
+pax8-cli companies get mock-value --json --select address,billOnBehalfOfEnabled,contacts
 
 # Dry run  -  show the request without sending
-pax8-cli companies get <id> --dry-run
+pax8-cli companies get mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-pax8-cli companies get <id> --agent
+pax8-cli companies get mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -290,15 +429,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -310,9 +449,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/pax8-cli/config.toml`
+Run `pax8-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/pax8-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\pax8-cli\config.toml` on Windows; `--home`, `PAX8_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `PAX8_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `PAX8_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -324,6 +465,13 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `pax8-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The client ID and secret go only to the token URL (`PAX8_TOKEN_URL`, default `https://token-manager.pax8.com/oauth/token`), and that host receives nothing but the token request. The bearer token and every API request go only to the scheme, host and port of `PAX8_BASE_URL` (default `https://api.pax8.com/v1`). A redirect to any other host is refused, so a credential never reaches it.
+- Any output, file or MCP result that would repeat the client ID, the client secret, a minted token or a credential-named value from a response prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential. Set `PAX8_NO_CONFIG_WRITE=1` to keep even the minted token off disk.
+- `--dry-run` sends nothing and mints no token. Over MCP, a tool that creates, updates, orders or cancels returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ### Keeping credentials off disk (optional)
 

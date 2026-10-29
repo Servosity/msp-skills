@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:06:22.520708Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-28T15:43:54.452224Z",
+  "printing_press_version": "4.34.2",
   "api_name": "pax8",
   "display_name": "Pax8",
   "cli_name": "pax8-pp-cli",
@@ -20,8 +20,9 @@
   "printer_name": "Damien Stevens",
   "spec_path": "spec.json",
   "spec_format": "openapi3",
+  "spec_source": "official",
   "spec_checksum": "sha256:eaa147c5030e5b1a49cc369d963c156708838cf78329f5661ed11f3737b0d1c6",
-  "run_id": "20260605-215919",
+  "run_id": "20261028-092331-61ec6f51",
   "category": "commerce",
   "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
   "mcp_binary": "pax8-pp-mcp",
@@ -53,7 +54,7 @@
     {
       "name": "Subscription change feed",
       "command": "since",
-      "description": "Diff subscription snapshots and history over time to show new, cancelled, and quantity-changed subscriptions."
+      "description": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it."
     },
     {
       "name": "Customer 360",
@@ -65,5 +66,52 @@
       "command": "spend",
       "description": "Roll up invoice-items by company to show what each customer is costing across invoices."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "Billing reconciliation",
+      "command": "reconcile",
+      "description": "Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice."
+    },
+    {
+      "name": "MRR and margin",
+      "command": "mrr",
+      "description": "Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown."
+    },
+    {
+      "name": "Usage overage detection",
+      "command": "overage",
+      "description": "Aggregate usage-lines per subscription and surface overages before they land on the customer invoice."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "since",
+      "description": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it."
+    },
+    {
+      "name": "Customer 360",
+      "command": "company show",
+      "description": "One view of a company with its subscriptions, contacts, invoices, and usage."
+    },
+    {
+      "name": "Spend per company",
+      "command": "spend",
+      "description": "Roll up invoice-items by company to show what each customer is costing across invoices."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 65,
+    "total": 65,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
 }

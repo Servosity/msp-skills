@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written novel feature (Phase 3): usage overage detection. Not generator-managed.
 
 package cli
@@ -59,9 +59,11 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 				return fmt.Errorf("opening local database: %w\nRun 'pax8-cli sync' first.", err)
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "usage_summaries", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, pax8UsageSummaries[0], flags.maxAge)
 
-			summaries, err := pax8ListObjects(db, "usage_summaries")
+			// pax8 handfix: novel-documented-shapes (usage summaries are a
+			// subscription dependent: subscriptions_usage_summaries).
+			summaries, err := pax8Collection(db, pax8UsageSummaries)
 			if err != nil {
 				return fmt.Errorf("reading usage summaries: %w", err)
 			}
@@ -94,7 +96,7 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 			}
 
 			// Pass 2: flag summaries above threshold x product average.
-			var flagged []overageRow
+			flagged := []overageRow{} // pax8 handfix: novel-json-empty-is-array
 			for _, s := range summaries {
 				pid := pax8FieldStr(s, "productId", "product_id")
 				charge, ok := pax8FieldNum(s, "currentCharges", "current_charges")

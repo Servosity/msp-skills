@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written novel-feature helpers (Phase 3). Shared by the reconcile, mrr,
 // overage, since, spend, and company-show commands. Not generator-managed.
 
@@ -39,7 +39,7 @@ func pax8QueryObjects(ctx context.Context, db *store.Store, query string, args .
 		return nil, err
 	}
 	defer rows.Close()
-	var out []map[string]any
+	out := []map[string]any{} // pax8 handfix: novel-json-empty-is-array (never null)
 	for rows.Next() {
 		var raw []byte
 		if err := rows.Scan(&raw); err != nil {

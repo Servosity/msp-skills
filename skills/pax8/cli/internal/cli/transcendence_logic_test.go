@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written (Phase 3): table-driven tests for the novel-feature pure helpers.
 
 package cli
@@ -59,8 +59,11 @@ func TestPax8FieldAndNum(t *testing.T) {
 }
 
 func TestMrrIsActive(t *testing.T) {
-	active := []string{"", "Active", "active", "ENABLED", "trial"}
-	inactive := []string{"Cancelled", "cancelled", "PendingCancel", "suspended", "deleted"}
+	// The documented Subscription.status enum (pax8 handfix:
+	// novel-documented-shapes); anything outside it is not active.
+	active := []string{"Active", "active", "Activated", "Trial", "trial", "PendingCancel"}
+	inactive := []string{"", "ENABLED", "Cancelled", "cancelled", "PendingManual", "PendingAutomated",
+		"WaitingForDetails", "PendingActivation", "Converted", "suspended", "deleted"}
 	for _, s := range active {
 		if !mrrIsActive(s) {
 			t.Errorf("expected %q to be active", s)
@@ -110,6 +113,9 @@ func TestParseAnyDate(t *testing.T) {
 		"2026-05-28T12:00:00Z",
 		"2026-05-28T12:00:00",
 		"2026-05-28",
+		"2020-12-01T13:20:13.153-0700", // spec.json#/components/examples/subscription-history
+		"2000-10-31T01:30:00.000-05:00",
+		"2026-05-28T12:00:00.5+0530",
 	}
 	for _, s := range good {
 		if _, ok := parseAnyDate(s); !ok {
