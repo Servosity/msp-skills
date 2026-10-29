@@ -186,6 +186,10 @@ kaseya-bms:
   vendor: "Kaseya BMS"
   example_command: "What's ready to bill, by account?"
 
+kaseya-vsa:
+  vendor: "Kaseya VSA 10"
+  example_command: "Which critical patches are missing everywhere?"
+
 knowbe4:
   vendor: "KnowBe4"
   example_command: "Who keeps clicking phishing?"

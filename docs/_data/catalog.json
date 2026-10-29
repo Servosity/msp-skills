@@ -1,5 +1,5 @@
 {
-  "count": 84,
+  "count": 85,
   "connectors": [
     {
       "slug": "abnormal",
@@ -533,6 +533,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/kaseya-bms/"
+    },
+    {
+      "slug": "kaseya-vsa",
+      "display_name": "Kaseya VSA 10",
+      "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/kaseya-vsa/"
     },
     {
       "slug": "knowbe4",

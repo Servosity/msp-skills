@@ -133,6 +133,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Kaseya BMS (PSA) - ask "Which queues are underwater and what's going stale before standup?" - Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
+- Kaseya VSA 10 (RMM) - ask "Which pending OS updates are exposed on the most devices, across every client?" - Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/kaseya-vsa/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/install.sh)
 - KnowBe4 (Security) - ask "Who clicked the bait in more than one phishing test?" - Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)

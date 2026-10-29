@@ -1,0 +1,110 @@
+{
+  "manifest_version": "0.3",
+  "name": "kaseya-vsa-mcp",
+  "display_name": "Kaseya VSA 10",
+  "version": "0.1.0",
+  "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/kaseya-vsa-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/kaseya-vsa-mcp",
+      "args": [],
+      "env": {
+        "KASEYA_VSA_SERVER": "${user_config.kaseya_vsa_server}",
+        "KASEYA_VSA_TOKEN_ID": "${user_config.kaseya_vsa_token_id}",
+        "KASEYA_VSA_TOKEN_SECRET": "${user_config.kaseya_vsa_token_secret}",
+        "KASEYA_VSA_MCP_READ_ONLY": "${user_config.kaseya_vsa_mcp_read_only}",
+        "KASEYA_VSA_NO_LOCAL_DATA": "${user_config.kaseya_vsa_no_local_data}",
+        "KASEYA_VSA_MCP_HTTP_TOKEN": "${user_config.kaseya_vsa_mcp_http_token}",
+        "KASEYA_VSA_BASE_URL": "${user_config.kaseya_vsa_base_url}",
+        "KASEYA_VSA_USER_AGENT": "${user_config.kaseya_vsa_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "kaseya_vsa_server": {
+      "type": "string",
+      "title": "KASEYA_VSA_SERVER",
+      "description": "Your VSA 10 instance host name, for example yourcompany.vsax.net (no https://).",
+      "required": true,
+      "sensitive": false
+    },
+    "kaseya_vsa_token_id": {
+      "type": "string",
+      "title": "KASEYA_VSA_TOKEN_ID",
+      "description": "VSA 10 API token ID (Administration > Configuration > API Access).",
+      "required": true,
+      "sensitive": true
+    },
+    "kaseya_vsa_token_secret": {
+      "type": "string",
+      "title": "KASEYA_VSA_TOKEN_SECRET",
+      "description": "VSA 10 API token secret, shown once when the token is created.",
+      "sensitive": true,
+      "required": true
+    },
+    "kaseya_vsa_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "kaseya_vsa_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "kaseya_vsa_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "kaseya_vsa_base_url": {
+      "type": "string",
+      "title": "VSA 10 API base URL (optional)",
+      "description": "Optional. The full VSA 10 API base URL, https://<server>/api/v3, instead of KASEYA_VSA_SERVER. Leave blank to build it from KASEYA_VSA_SERVER.",
+      "required": false,
+      "sensitive": false
+    },
+    "kaseya_vsa_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Optional. Overrides the User-Agent the CLI sends on VSA 10 requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T19:26:03.940963Z",
+    "spec_checksum": "sha256:d50fd767beb8bb954b6afbe7e11999dfd3b8c6a9401f4ee94c2a7f3b0e78a2b7",
+    "spec_format": "openapi3"
+  }
+}
