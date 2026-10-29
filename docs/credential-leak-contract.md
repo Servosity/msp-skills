@@ -3,7 +3,7 @@ layout: default
 title: "Credential leak contract - what every connector must never print, store or send | MSP Skills"
 description: "The fixed rules every MSP Skills connector and its review are judged against: which values count as held credentials, what counts as a leak (a whole value at any length, pieces of 8 or more characters, credentials sent off their declared hosts), the closed list of encodings checked, public text, and the cases that are tracked but never block."
 permalink: /credential-leak-contract/
-last_modified_at: 2026-10-29
+last_modified_at: 2026-11-02
 ---
 
 # Credential leak contract
@@ -16,6 +16,23 @@ covers in a reading section 3 names. Changing a rule here needs the owner; a rev
 Amended 2026-10-29, owner-approved: section 3 is a closed list, the budget is an invariant with no clean exit, public
 text is defined and used only for collisions (it exempts no piece), and the kit's matcher is the one implementation
 (section 8).
+
+Amended 2026-10-30, owner-approved: section 3 names eight reading bounds, and a reading the bounds leave out is out
+of scope, P2 at most, the same as an encoding the closed list does not name.
+
+Amended 2026-10-31, owner-approved: a ninth reading bound says which spans of a run decoder are decoded further. A
+credential reachable only through an end of a span that bound leaves out is out of scope, P2 at most. Section 6 gains
+item 8, the destination host inside an https tunnel through a proxy.
+
+Amended 2026-11-01, owner-approved: section 6 gains item 9, a single write to stdout or stderr that the platform splits
+at a pause.
+
+Amended 2026-11-02, owner-approved: section 6 gains item 10, a JSON document that a modal charset reading holds only
+after a further decoding.
+
+Amended 2026-11-02, owner order: a tenth reading bound says ROT13 reads a text view the kit reads whole, not the runs it
+cuts from a charset reading or a decoder's text output. A credential reachable only through ROT13 of such a run is out
+of scope, P2 at most.
 
 ## 1. Held credentials
 
@@ -127,7 +144,7 @@ this section names; a match there withholds the unit, but the absence of an unna
 
 **Views.** A view is the raw bytes of a unit, or what one decoder below produces from a view. Every view, whatever its
 length or content (text, binary, mixed, one character), is compared under section 2 and read by every decoder
-(Recursion). A candidate that a decoder's rule does not accept gives no view.
+(Recursion), within the reading bounds below. A candidate that a decoder's rule does not accept gives no view.
 
 **Candidates.** Each decoder below is of one of three kinds, and its kind fixes where its candidates start and end:
 
@@ -208,8 +225,42 @@ Also:
   recalled: before the write that completes a credential or a piece, fewer than 8 of its characters in a row have
   reached the sink, the residue section 6, item 6 already tracks.
 - **Recursion.** Every decoder above, normalization, case folding and charsets included, reads every view, its own
-  output and joined values included, so decodings chain in any order. The raw unit is depth 0, and each decoding adds
+  output and joined values included, within the reading bounds below, so decodings chain in any order. The raw unit is depth 0, and each decoding adds
   one level. Chains continue to the kit's depth limit; a view the limit stops spends the budget.
+- **Reading bounds** (owner amendments, 2026-10-30, 2026-10-31 and 2026-11-02). Ten fixed rules, the same for every unit, say which decoders read
+  some views. They are part of the decoder rules, so following them is not a stop under Budget; reading past them is
+  allowed. A view is a byte view, a text view or a final view:
+  - A byte view is read by every decoder. The raw unit, and every view this bullet does not name a text view or a
+    final view, is a byte view.
+  - A text view is read by the text decoders: base64, base32, hex, percent-encoding, quoted-printable, character
+    references, string escapes, MIME encoded words, character-code lists, ROT13, normalization, case folding and
+    joined values. It is not read by the compressed streams or the charsets. A charset reading, and the ROT13 and
+    normalized views of a text view, are text views.
+  - A final view is read by the text decoders plus gzip, zlib, UTF-16 and UTF-32, and what those produce from it is
+    compared under section 2 and not decoded further. The bytes a broken raw deflate stream yields before its error,
+    and a JSON document's joined values, are final views.
+  - A decoding shorter than 4 bytes is compared under section 2, after normalization and case folding, and not decoded
+    further.
+  - The bytes after a raw deflate stream that has no gzip or zlib header are read in place in the view that holds
+    them, not as a view of their own.
+  - The case-folded view is compared under section 2 and not decoded further.
+  - ROT13 reads text views only: it does not read a byte view or a final view.
+  - ROT13 reads a text view the kit reads whole. The runs it cuts from a charset reading, or from a decoder's text
+    output, are compared and read by the other text decoders, but not rotated. A credential reachable only through
+    ROT13 of such a run is out of scope, P2 at most.
+  - An Ascii85 span may hold tab, carriage return and line feed, but no space and no other control byte: a span ends
+    at one. Of the bytes Go's `encoding/ascii85` ignores (Candidates), only those three are inside a span.
+  - A run decoder decodes further only the longest spans it reads, not every span inside them. For base64, base32 and
+    base85 that is the whole run of the alphabet's characters, read from each place a whole group can start (the
+    first four characters of a base64 run, the first eight of a base32 run, the first five of a base85 run); for hex,
+    the whole chain of pairs from where it starts; for a character-code list, the whole list. That output is compared
+    under section 2 with a short value counted anywhere in it, and is read by the decoders in turn. A shorter span
+    inside one of these is not decoded further as a view of its own, so a decoder that reads a sequence greedily (a
+    string escape's octal digits, a character reference's name, a code point) sees the run's own continuation, not
+    every end a shorter span would give it.
+  The kit names each bound next to its constant in `limits.go`. A reading these bounds leave out is out of scope, the
+  same as an encoding the closed list does not name: a unit that carries a held credential only through one is not a
+  leak, and a review may raise it as P2 at most. A leak through a reading the bounds do require stays P1.
 - **Budget.** The kit sets a depth limit and a total decoded-bytes limit per unit. The budget is an invariant: every view
   this section defines is either checked in full or the unit is withheld exactly as for a match (section 4). A view is
   checked in full when it has been compared under section 2 and read by every decoder, and each view that produces is
@@ -258,6 +309,18 @@ A review may raise these as P2, never as P1:
 5. A credential split across two separate runs of the program.
 6. Pieces shorter than 8 characters, other than the whole-token rule in 2(a).
 7. Ordinary output that exhausts the budget (section 3, budget quality target).
+8. The destination host, in its Punycode (IDNA) spelling, inside the https request a CONNECT tunnel carries through a
+   proxy. The CONNECT line the proxy receives, which names that host too, is judged under section 2(c) like any
+   outbound request.
+9. A single write to stdout or stderr that the platform splits at a pause (the pipe stays empty for the pause length
+   while the kit waits): the two parts are checked as two writes of the stream, so no held credential passes whole and
+   fewer than 8 of its characters reach the sink before the part that completes it.
+10. A JSON document that a modal charset reading (ISO-2022-JP or HZ) holds only after a further decoding of that
+   reading, such as percent-encoding, when the reading also holds a character that is in no held value. The kit joins
+   a modal reading whole as it reads it, but a reading that must be decoded again is decoded in its runs of relevant
+   characters, so that character splits the document before the join reads it. Example: the hex of an ISO-2022-JP
+   text that reads `%7B"あ":0,"a":"secr","b":"et!!"}` needs hex, ISO-2022-JP, percent-encoding and the join, four
+   decodings in a row.
 
 ## 7. Per-connector declarations
 
