@@ -16,21 +16,27 @@ contract in docs/credential-leak-contract.md.
 
 How a case is judged
 --------------------
-The harness knows what it injected, so it never decodes to guess: a case FAILS
-when a held credential (whole, or any contiguous piece of 8 or more
-characters, contract 2(a) and 2(b)), the exact encoded payload carrying it, or
-any one fragment of a split payload (each carries a piece the contract counts)
-survives into any sink, compared after NFKC and case folding (contract 3) and
-read as UTF-8:
+The harness knows what it injected: a case FAILS when a held credential (whole,
+or any contiguous piece of 8 or more characters, contract 2(a) and 2(b)), the
+exact encoded payload carrying it, any one fragment of a split payload, or any
+contiguous piece of the payload that still decodes to 8 or more credential
+characters (a truncated or misaligned payload: the contract 3 decoders, each
+at every alignment, recursively) survives into any sink, compared after NFKC
+and case folding (contract 3). Every sink is read as bytes, with its UTF-16
+LE and BE readings; the unit's own base64, base32, hex and base85 runs are
+also decoded at every alignment:
 
   * the CLI's stdout or stderr;
   * the MCP server's stdout (results, errors, protocol frames) or stderr;
   * any file the run wrote under its fresh HOME (a config file the harness
-    wrote is skipped only while its bytes are unchanged);
-  * any request that reached a SECOND fake host (contract 2(c)).
+    wrote is skipped only while its bytes are unchanged; a file or directory
+    the harness cannot read fails the case);
+  * any request that reached a SECOND fake host, every value of a repeated
+    header included (contract 2(c)).
 
-A new form needs an encoder, not a decoder. A credential shorter than 8
-characters counts only as a whole token (contract 2(a)).
+A new form needs an encoder (and, if section 3 lacks it, a decoder). A
+credential shorter than 8 characters counts only as a whole token (contract
+2(a)).
 
 Which credentials are held
 --------------------------
@@ -40,16 +46,25 @@ union every variable server.json marks `isSecret`. The PRIMARY credential, the
 one most cases seed, is measured: every declared variable gets a distinct
 marker, one read runs against the fake host, and the first declared variable
 (manifest order) whose marker arrived on the wire is primary. Every declared
-variable a run sets is held in that run. `each-env-var` seeds every declared
-variable alone, a URL variable included. A vendor response field is held only
-when the connector declares it (the kit's `ResponseFields`).
+variable a run sets is held in that run, and only while the process is given
+it: a token-error case, which unsets the static tokens so the client mints,
+seeds the declared variable the token request carries (measured), or does not
+apply. Every token the fake vendor hands out, in any row, is held for the
+rest of that run; a mint that never happened leaves only that token unheld.
+`each-env-var` seeds every declared variable alone, a URL variable included.
+A vendor response field is held only when the connector declares it: the
+`ResponseFields` of the kit's `Declarations` literal, read with Go's parser
+(never a comment, a string, a _test.go file or testdata).
 
 Policy
 ------
 The six cases in contract section 6 are advisory (reported, never failing):
 each row says which one in its `advisory` field, and loading the list fails
 unless exactly those six are advisory. An advisory row excuses only its own
-exception: any other leak of a held value during it fails. Every other row gates. A connector's
+section 6 shape: 6.1 only the top-level id of a response frame echoing the
+client's own request id, never a nested `id`; 6.2 never the scientific spelling
+of an all-digit credential; 6.3 never a numeric field the connector declares.
+Any other leak of a held value during it fails. Every other row gates. A connector's
 known failures are listed per case in corpus_baseline.json, which only shrinks
 (see `--check-baseline`); a connector that vendors the shared credential kit
 (cli/internal/credkit/) may have no entries.
@@ -75,6 +90,7 @@ import os
 import re
 import secrets as _secrets
 import shutil
+import stat
 import string
 import subprocess
 import sys
@@ -192,25 +208,125 @@ def encode(form: str, s: str) -> str:
     return s
 
 
-def _carries_piece(s: str, cred: str, depth: int = 3) -> bool:
+# Contract 3's binary-to-text decoders, each at every alignment of its block
+# and with a truncated last block kept: (run pattern for any length, run
+# pattern long enough to carry 8 bytes, normaliser, block, allowed tail
+# lengths, decoder).
+_B85 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~"
+_Z85_TO_B85 = str.maketrans(_Z85, _B85)
+_HEX_SEP = re.compile(r"[\s:,.-]")
+ALIGNED = {
+    "base64": (r"[A-Za-z0-9+/_-]", 11, lambda r: r.replace("-", "+").replace("_", "/"), 4, (0, 2, 3),
+               lambda u: base64.b64decode(u + "=" * (-len(u) % 4))),
+    "base32": (r"[A-Za-z2-7]", 13, str.upper, 8, (0, 2, 4, 5, 7),
+               lambda u: base64.b32decode(u + "=" * (-len(u) % 8))),
+    "base32hex": (r"[0-9A-Va-v]", 13, str.upper, 8, (0, 2, 4, 5, 7),
+                  lambda u: base64.b32hexdecode(u + "=" * (-len(u) % 8))),
+    "hex": (r"(?:[0-9A-Fa-f]{2}[\s:,.-]?)", 8, lambda r: _HEX_SEP.sub("", r), 2, (0,), bytes.fromhex),
+    "ascii85": (r"[!-uz]", 10, lambda r: r, 5, (0, 2, 3, 4), base64.a85decode),
+    "base85": (re.escape(_B85).join("[]"), 10, lambda r: r, 5, (0, 2, 3, 4), base64.b85decode),
+    "z85": (re.escape(_Z85).join("[]"), 10, lambda r: r.translate(_Z85_TO_B85), 5, (0, 2, 3, 4), base64.b85decode),
+}
+_ALIGNED_RX = {k: (re.compile(f"{c}{{2,}}"), re.compile(f"{c}{{{m},}}")) for k, (c, m, *_r) in ALIGNED.items()}
+
+
+def _bytes_views(b: bytes) -> list[str]:
+    out = [b.decode("latin-1")]
+    if b"\x00" in b or b"\xff" in b:   # UTF-16, LE and BE, at both byte alignments
+        out += [b[k:].decode(e, "replace") for e in ("utf-16-le", "utf-16-be") for k in (0, 1)]
+    return out
+
+
+def aligned_decodings(s: str, carry: bool = False) -> set[str]:
+    """Every base64, base32 (both alphabets, any case), hex (with or without
+    separators) and Ascii85/base85/Z85 run in `s`, decoded at every alignment
+    of its block, truncated last block kept. `carry` decodes runs of any
+    length; otherwise only runs long enough to carry 8 bytes."""
+    out: set[str] = set()
+    for kind, (_c, _m, norm, block, tails, dec) in ALIGNED.items():
+        for run in set(_ALIGNED_RX[kind][0 if carry else 1].findall(s)):
+            u = norm(run).rstrip("=")
+            for shift in range(min(block, len(u))):
+                v = u[shift:]
+                n = len(v)
+                while n and n % block not in tails:
+                    n -= 1
+                if n < 2:
+                    continue
+                try:
+                    out.update(_bytes_views(dec(v[:n])))
+                except (ValueError, TypeError):   # binascii.Error is a ValueError
+                    pass
+    return out
+
+
+_QP = re.compile(r"=([0-9A-Fa-f]{2})")
+_OCTAL = re.compile(r"\\([0-7]{3})")
+_CODES = re.compile(r"(?:(?:0[xX][0-9A-Fa-f]{1,6}|\d{1,7})[,\s]+)+(?:0[xX][0-9A-Fa-f]{1,6}|\d{1,7})")
+
+
+def _codes(s: str) -> str:
+    def chars(m):
+        vals = [int(t, 16) if t[:2].lower() == "0x" else int(t) for t in re.findall(r"0[xX][0-9A-Fa-f]+|\d+", m.group(0))]
+        return "".join(chr(v) for v in vals) if all(v <= 0x10FFFF for v in vals) else m.group(0)
+    return _CODES.sub(chars, s)
+
+
+def text_decodings(s: str) -> set[str]:
+    """One step of every contract 3 decoder that keeps text text: ROT13,
+    percent-encoding, entities, string escapes, octal, quoted-printable and
+    MIME Q, character-code lists, plus the aligned binary-to-text decoders."""
+    out = {codecs.encode(s, "rot13"), urllib.parse.unquote(s), html.unescape(s), ch.json_unescape(s),
+           _OCTAL.sub(lambda m: chr(int(m.group(1), 8)), s), _QP.sub(lambda m: chr(int(m.group(1), 16)), s),
+           _codes(s)}
+    out |= aligned_decodings(s, carry=True)
+    out.discard(s)
+    return out
+
+
+def _texty(s: str) -> bool:
+    """A decoding worth decoding again: almost all printable. A decoding at
+    the wrong alignment is random bytes and stops here."""
+    return bool(s) and sum(c.isprintable() or c in "\t\r\n" for c in s) >= 0.9 * len(s)
+
+
+def _carries_piece(s: str, cred: str, depth: int = 6, seen: set | None = None) -> bool:
     """Whether `s` holds a contiguous piece of `cred` PIECE characters long
-    (the whole of a shorter one), as written or after base64 at any alignment
-    or ROT13, recursively: what contract 2(b) and section 3 count in a
-    fragment on its own."""
-    if (len(cred) >= PIECE and _piece(s, cred)) or (len(cred) < PIECE and cred in s):
-        return True
-    if depth == 0:
+    (the whole of a shorter one), as written or after the contract 3
+    decoders, each at every alignment, recursively (folded, NFKC and case):
+    what contract 2(b) and section 3 count in a fragment on its own."""
+    seen = set() if seen is None else seen
+    if s in seen:
         return False
-    cands = {codecs.encode(s, "rot13")}
-    t = re.sub(r"[^A-Za-z0-9+/_=-]", "", s).rstrip("=").replace("-", "+").replace("_", "/")
-    for shift in range(4):
-        u = t[shift:]
-        u = u[:len(u) // 4 * 4]
-        try:
-            cands.add(base64.b64decode(u, validate=True).decode("latin-1"))
-        except (ValueError, TypeError):
-            pass
-    return any(_carries_piece(c, cred, depth - 1) for c in cands if c and c != s)
+    seen.add(s)
+    f, fc = _fold(s), _fold(cred)
+    if (len(cred) >= PIECE and _piece(f, fc)) or (len(cred) < PIECE and fc in f):
+        return True
+    if depth == 0 or not _texty(s):
+        return False
+    return any(_carries_piece(c, cred, depth - 1, seen) for c in text_decodings(s))
+
+
+def segment_piece(view: str, needle: str, creds: list[str]) -> str | None:
+    """A contiguous piece of an injected payload that survives in `view` and
+    still carries a piece of a held credential the contract counts (2(b),
+    after section 3 decoding at every alignment): a truncated or misaligned
+    payload. Credentials shorter than PIECE count only whole (contract 2(a)),
+    so only longer ones are looked for in pieces."""
+    creds = [c for c in creds if len(c) >= PIECE]
+    n, prev_end = len(needle), 0
+    for i in range(n - PIECE + 1):
+        if not creds or needle[i:i + PIECE] not in view:
+            continue
+        j = max(i + PIECE, prev_end)
+        while j < n and needle[i:j + 1] in view:
+            j += 1
+        if i < prev_end and j == prev_end:
+            continue   # inside a piece already judged: it carries no more
+        prev_end = j
+        if any(_carries_piece(needle[i:j], c) for c in creds):
+            return needle[i:j]
+    return None
 
 
 def _halves(payload: str) -> list[str]:
@@ -398,7 +514,8 @@ class Fake:
                 except (ValueError, OSError):
                     body, fake.unreadable = b"", True   # judged as a leak: it could not be read
                 with fake.lock:
-                    fake.requests.append((self.command, self.path, dict(self.headers.items()), body))
+                    # Every occurrence of a repeated header, in order.
+                    fake.requests.append((self.command, self.path, list(self.headers.items()), body))
                 st, hd, bd = token() if _is_token_request(self.command, self.path, body) else respond(self.path)
                 self.send_response(st)
                 for k, v in hd.items():
@@ -448,13 +565,14 @@ def _token_ok(tok: str = "cls-fake-access-token"):
         {"access_token": tok, "token_type": "Bearer", "expires_in": 3600}).encode()
 
 
-def request_view(path: str, headers: dict, raw: bytes) -> str:
-    """All text of one request, plus base64-decoded header and body tokens, so a
-    credential inside a Basic or composite header is still found."""
-    body = raw.decode("utf-8", "replace")
-    blob = path + "\n" + "\n".join(f"{k}: {v}" for k, v in headers.items()) + "\n" + body
+def request_view(path: str, headers: list[tuple[str, str]], raw: bytes) -> str:
+    """All text of one request (every value of a repeated header), plus
+    base64-decoded header and body tokens, so a credential inside a Basic or
+    composite header is still found."""
+    body = raw.decode("utf-8", "surrogateescape")
+    blob = path + "\n" + "\n".join(f"{k}: {v}" for k, v in headers) + "\n" + body
     extra = []
-    for v in list(headers.values()) + [body]:
+    for v in [v for _k, v in headers] + [body]:
         for token in v.replace(",", " ").split():
             if len(token) < 8:
                 continue
@@ -512,10 +630,33 @@ def _views(text: str) -> tuple[str, set]:
     return text, views
 
 
-def leaked(text: str, creds: list[str], needle_sets: list[list[str]]) -> str | None:
+def _raw(text: str) -> bytes:
+    """The bytes a sink carried: text is read with surrogateescape, so every
+    byte that is not UTF-8 comes back exactly."""
+    try:
+        return text.encode("utf-8", "surrogateescape")
+    except UnicodeEncodeError:
+        return text.encode("utf-8", "surrogatepass")
+
+
+def utf16_texts(text: str) -> list[str]:
+    """Contract 3: the UTF-16 LE and BE readings of a unit, at both byte
+    alignments, BOM or not. Only a unit with a NUL or 0xFF byte can carry a
+    credential in UTF-16 (ASCII has a zero high byte, fullwidth forms 0xFF)."""
+    raw = _raw(text)
+    if b"\x00" not in raw and b"\xff" not in raw:
+        return []
+    return [raw[k:].decode(enc, "replace") for enc in ("utf-16-le", "utf-16-be") for k in (0, 1)]
+
+
+def leaked(text: str, creds: list[str], needle_sets: list[list[str]], utf16: bool = True) -> str | None:
     """How a held credential survives in `text`, or None."""
     if not text:
         return None
+    for u in utf16_texts(text) if utf16 else []:
+        how = leaked(u, creds, needle_sets, utf16=False)
+        if how:
+            return how + " (UTF-16)"
     text, views = _views(text)
     fsets = [[_fold(n) for n in ns] for ns in needle_sets]
     fcreds = [_fold(c) for c in creds]
@@ -530,6 +671,18 @@ def leaked(text: str, creds: list[str], needle_sets: list[list[str]]) -> str | N
                     return "credential" + tag
                 if len(c) > PIECE and _piece(vv, c):
                     return "8+ character piece of the credential" + tag
+            for n in {n for ns in sets for n in ns}:
+                if segment_piece(vv, n, creds):
+                    return "a piece of the payload carrying 8+ credential characters" + tag
+    # The unit's own binary-to-text runs at every alignment (a connector that
+    # encodes and truncates a credential itself). Random bytes decoded this
+    # way would match a short credential by chance, so only 8+ are sought.
+    if len(text) < 64_000:
+        long_creds = [_fold(c) for c in creds if len(c) >= PIECE]
+        for v in aligned_decodings(text) if long_creds else ():
+            fv = _fold(v)
+            if any(_piece(fv, c) for c in long_creds):
+                return "8+ character piece of the credential (decoded at an alignment)"
     for c in creds:
         if len(c) >= PIECE:
             hits = ch.leaks(text, c)
@@ -542,9 +695,18 @@ def leaked_file(text: str, creds: list[str], needle_sets: list[list[str]]) -> st
     """Files (SQLite pages, JSONL ledgers, caches) keep the strings they were
     given, so a large or binary file is searched for the payload, the
     credential, any 8+ piece and its precomputed encodings directly; a small text
-    file also gets the decode views."""
+    file also gets the decode views. Each of its UTF-16 readings is searched
+    the same way."""
+    for t in [text] + utf16_texts(text):
+        how = _leaked_file1(t, creds, needle_sets)
+        if how:
+            return how + ("" if t is text else " (UTF-16)")
+    return None
+
+
+def _leaked_file1(text: str, creds: list[str], needle_sets: list[list[str]]) -> str | None:
     if len(text) < 64_000 and "\x00" not in text[:4096]:
-        return leaked(text, creds, needle_sets)
+        return leaked(text, creds, needle_sets, utf16=False)
     for t, f in ((text, lambda x: x), (_fold(text), _fold)):
         for ns in needle_sets:
             if ns and all(_present(t, f(n)) for n in ns):
@@ -561,28 +723,55 @@ def leaked_file(text: str, creds: list[str], needle_sets: list[list[str]]) -> st
 MAX_FILE = 512 * 1024 * 1024
 
 
-def scan_files(home: str, unchanged: dict[str, bytes]) -> list[tuple[str, str | None]]:
-    """Every regular file under `home`, except a file the harness wrote whose
-    bytes are still exactly what it wrote. A file over MAX_FILE comes back as
-    None: it cannot be scanned, so it fails the case (closed)."""
-    out = []
-    for root, _dirs, files in os.walk(home):
+def scan_files(home: str, unchanged: dict[str, bytes]) -> list[tuple[str, str | None, str]]:
+    """Every file under `home`, read as bytes, except a file the harness wrote
+    whose bytes are still exactly what it wrote: (path, text, ""). A file or
+    directory the harness cannot read, anything that is not a regular file,
+    and a file over MAX_FILE come back as (path, None, why): it cannot be
+    scanned, so it fails the case (closed). Symbolic links are not followed."""
+    out: list[tuple[str, str | None, str]] = []
+
+    def unreadable(e: OSError) -> None:
+        out.append((os.path.relpath(e.filename or home, home), None, "could not be read"))
+
+    for root, _dirs, files in os.walk(home, onerror=unreadable):
         for f in files:
             p = os.path.join(root, f)
-            if os.path.islink(p):
-                continue
+            rel = os.path.relpath(p, home)
             try:
-                if os.path.getsize(p) > MAX_FILE:
-                    out.append((os.path.relpath(p, home), None))
+                st = os.lstat(p)
+                if stat.S_ISLNK(st.st_mode):
+                    continue
+                if not stat.S_ISREG(st.st_mode):
+                    out.append((rel, None, "not a regular file, so it could not be read"))
+                    continue
+                if st.st_size > MAX_FILE:
+                    out.append((rel, None, "too large to scan"))
                     continue
                 with open(p, "rb") as fh:
                     data = fh.read()
             except OSError:
+                out.append((rel, None, "could not be read"))
                 continue
             if unchanged.get(p) == data:
                 continue
-            out.append((os.path.relpath(p, home), data.decode("utf-8", "replace")))
+            out.append((rel, data.decode("utf-8", "surrogateescape"), ""))
     return out
+
+
+def rmtree(path: str) -> None:
+    """Remove a run's HOME even when the run left a directory unreadable."""
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
+    for root, dirs, _files in os.walk(path):
+        for d in dirs:
+            try:
+                os.chmod(os.path.join(root, d), 0o700)
+            except OSError:
+                pass
+    shutil.rmtree(path, ignore_errors=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -610,7 +799,142 @@ def read_server_json(slug: str) -> dict | None:
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
-_RESPONSE_FIELDS = re.compile(r"ResponseFields:\s*\[\]string\{([^}]*)\}")
+# The connector's declarations are read by Go's own parser, never by text
+# matching: a comment, a string, a _test.go file or testdata that spells a
+# declaration declares nothing. This stdlib-only program (go/parser; no
+# module) walks one directory and prints {"fields": [...], "errors": [...]}:
+# every string element of `ResponseFields` in a `Declarations` composite
+# literal (or an assignment to a `.ResponseFields`) in a non-test .go file
+# outside testdata, vendor, hidden directories and the vendored kit itself. An
+# element that is not a string literal, or a file that does not parse, is an
+# error: the declarations cannot be read, so the engine refuses to run.
+RESPONSE_FIELDS_GO = """package main
+
+import (
+	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+type result struct {
+	Fields []string `json:"fields"`
+	Errors []string `json:"errors"`
+}
+
+func main() {
+	root := os.Args[1]
+	kit := filepath.Join(root, "internal", "credkit")
+	res := result{Fields: []string{}, Errors: []string{}}
+	fset := token.NewFileSet()
+	take := func(where string, v ast.Expr) {
+		lit, ok := v.(*ast.CompositeLit)
+		if !ok {
+			res.Errors = append(res.Errors, where+": ResponseFields is not a literal")
+			return
+		}
+		for _, e := range lit.Elts {
+			b, ok := e.(*ast.BasicLit)
+			if !ok || b.Kind != token.STRING {
+				res.Errors = append(res.Errors, where+": a ResponseFields element is not a string literal")
+				continue
+			}
+			if s, err := strconv.Unquote(b.Value); err == nil {
+				res.Fields = append(res.Fields, s)
+			}
+		}
+	}
+	declType := func(t ast.Expr) bool {
+		switch x := t.(type) {
+		case nil:
+			return true // an elided type inside a []Declarations literal
+		case *ast.Ident:
+			return x.Name == "Declarations"
+		case *ast.SelectorExpr:
+			return x.Sel.Name == "Declarations"
+		}
+		return false
+	}
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			res.Errors = append(res.Errors, err.Error())
+			return nil
+		}
+		if d.IsDir() {
+			n := d.Name()
+			if p != root && (p == kit || n == "testdata" || n == "vendor" || strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		f, perr := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if perr != nil {
+			res.Errors = append(res.Errors, perr.Error())
+			return nil
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.CompositeLit:
+				if !declType(x.Type) {
+					return true
+				}
+				for _, e := range x.Elts {
+					if kv, ok := e.(*ast.KeyValueExpr); ok {
+						if k, ok := kv.Key.(*ast.Ident); ok && k.Name == "ResponseFields" {
+							take(fset.Position(kv.Pos()).String(), kv.Value)
+						}
+					}
+				}
+			case *ast.AssignStmt:
+				for i, l := range x.Lhs {
+					if sel, ok := l.(*ast.SelectorExpr); ok && sel.Sel.Name == "ResponseFields" && i < len(x.Rhs) {
+						take(fset.Position(x.Pos()).String(), x.Rhs[i])
+					}
+				}
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		res.Errors = append(res.Errors, err.Error())
+	}
+	_ = json.NewEncoder(os.Stdout).Encode(res)
+}
+"""
+_FIELDS_BIN = {"path": None}
+_FIELDS_LOCK = threading.Lock()
+
+
+def _fields_helper() -> str:
+    """Build RESPONSE_FIELDS_GO once per process with the toolchain on the
+    machine (GOTOOLCHAIN=local, no module, no user go env), into a temporary
+    directory removed at exit."""
+    with _FIELDS_LOCK:
+        if _FIELDS_BIN["path"] is None:
+            import atexit
+            tmp = tempfile.mkdtemp(prefix="corpus-fields-")
+            atexit.register(shutil.rmtree, tmp, True)
+            Path(tmp, "main.go").write_text(RESPONSE_FIELDS_GO, encoding="utf-8")
+            env = {**os.environ, "GOTOOLCHAIN": "local", "GOWORK": "off", "GOENV": "off", "GOFLAGS": "",
+                   "GO111MODULE": "on", "CGO_ENABLED": "0", "GOOS": "", "GOARCH": ""}
+            try:
+                b = subprocess.run(["go", "build", "-o", os.path.join(tmp, "fields"), "main.go"], cwd=tmp,
+                                   env=env, capture_output=True, text=True, timeout=300)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                raise ValueError(f"the declaration reader did not build: {e}")
+            if b.returncode != 0:
+                raise ValueError(f"the declaration reader did not build: {b.stderr.strip()[:300]}")
+            _FIELDS_BIN["path"] = os.path.join(tmp, "fields")
+        return _FIELDS_BIN["path"]
 
 
 def response_fields(slug: str) -> list[str]:
@@ -621,11 +945,21 @@ def response_fields(slug: str) -> list[str]:
         cli = ch.registry.skill_path(slug) / "cli"
     except (KeyError, SystemExit):
         return []
-    out: list[str] = []
-    for p in sorted(cli.rglob("*.go")) if (cli / "internal" / "credkit").is_dir() else []:
-        for m in _RESPONSE_FIELDS.finditer(p.read_text(encoding="utf-8", errors="replace")):
-            out += [f for f in re.findall(r'"([^"]+)"', m.group(1)) if f not in out]
-    return out
+    return response_fields_in(cli) if (cli / "internal" / "credkit").is_dir() else []
+
+
+def response_fields_in(cli: Path) -> list[str]:
+    """Every ResponseFields string the Go code under `cli` declares. Raises
+    ValueError when a declaration cannot be read (fail closed)."""
+    try:
+        p = subprocess.run([_fields_helper(), str(cli)], capture_output=True, text=True, timeout=120)
+        res = json.loads(p.stdout)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+        raise ValueError(f"the declaration reader failed on {cli}: {e}")
+    if p.returncode != 0 or res.get("errors"):
+        raise ValueError(f"the response field declarations under {cli} cannot be read: "
+                         f"{'; '.join(res.get('errors') or [p.stderr.strip()])[:400]}")
+    return list(dict.fromkeys(res["fields"]))
 
 
 def has_kit(slug: str) -> bool:
@@ -652,6 +986,48 @@ def _read_tools(ctx: ch.Ctx, tools: list[dict]) -> list[dict]:
 
 class NotApplicable(Exception):
     pass
+
+
+# The numeric fields of the 6.3 row's response, and the string field beside
+# them that carries the same digits.
+NUMERIC_FIELDS = ("otp", "pin", "name")
+
+
+def _last(field: str) -> str:
+    return field.rsplit(".", 1)[-1]
+
+
+def _declares(fields: list[str], key: str) -> bool:
+    """Whether a declared response field names `key`: compared without case by
+    the last segment of a dotted name, as the kit does."""
+    return any(_last(f).casefold() == key.casefold() for f in fields)
+
+
+def _no_dup_keys(pairs):
+    keys = [k for k, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate key")
+    return dict(pairs)
+
+
+def strip_rpc_id(text: str, rid: str) -> str:
+    """Contract 6.1, and nothing wider: the client's own request id where a
+    response frame (one JSON line with `result` or `error` and no `method`)
+    echoes it as its top-level `id`. A nested `id`, a server request, a line
+    that is not JSON, or a frame with a duplicate key keeps every byte."""
+    out = []
+    for line in text.split("\n"):
+        try:
+            frame = json.loads(line, object_pairs_hook=_no_dup_keys)
+        except ValueError:
+            out.append(line)
+            continue
+        hit = False
+        for f in frame if isinstance(frame, list) else [frame]:
+            if isinstance(f, dict) and f.get("id") == rid and "method" not in f and ("result" in f or "error" in f):
+                f["id"], hit = None, True
+        out.append(json.dumps(frame, ensure_ascii=False) if hit else line)
+    return "\n".join(out)
 
 
 # Sources whose credential is the primary declared variable's value.
@@ -718,6 +1094,7 @@ class Engine:
         self.top = {c["name"] for c in ctx.surface.get("commands") or []}
         self.has_token_url = any(k.upper().endswith("_TOKEN_URL") for k in w.url_vars)
         self.primary, self.static_vars = self._find_primary()
+        self.mint_vars = self._find_mint_vars()
         self.mcp_read = []
         self.mcp_tool = self._find_reaching_tool()
 
@@ -756,6 +1133,28 @@ class Engine:
             if self._withheld(marks, v):
                 return v, static
         return (on_wire or self.seedable)[0], static
+
+    def _find_mint_vars(self) -> list[str]:
+        """The declared variables a token request carries once the static
+        tokens are unset: where a token-error case seeds the value the vendor
+        reflects, so it is a value the connector was given."""
+        marks = {v: "clsM" + _rand(16) for v in self.seedable if v not in self.static_vars}
+        if not (self.has_token_url and marks):
+            return []
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok)
+        try:
+            env = self.base_env(srv.url, tempfile.mkdtemp(prefix="mint-", dir=self.tmp))
+            for v in self.static_vars:
+                env.pop(v, None)
+            env.update(marks)
+            if self.api_first:
+                self.cli(list(self.api_first[0].path) + ["--json", "--no-input"], env)
+            if not any(_is_token_request(m, p, b) for (m, p, _h, b) in srv.requests):
+                self.cli(["doctor", "--json"], env)
+        finally:
+            srv.stop()
+        views = [request_view(p, h, b) for (m, p, h, b) in srv.requests if _is_token_request(m, p, b)]
+        return [v for v in self.seedable if v in marks and any(marks[v] in x for x in views)]
 
     def _withheld(self, marks: dict[str, str], var: str) -> bool:
         if not self.api_first:
@@ -867,7 +1266,7 @@ class Engine:
     def cli(self, args: list[str], env: dict) -> tuple[str, str]:
         try:
             p = subprocess.run([str(self.cli_bin)] + args, input="", capture_output=True,
-                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="replace")
+                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="surrogateescape")
             return p.stdout or "", p.stderr or ""
         except subprocess.TimeoutExpired as e:
             return _s(e.stdout), _s(e.stderr) + TIMED_OUT
@@ -878,7 +1277,7 @@ class Engine:
         payload = "".join(json.dumps(m) + "\n" for m in msgs)
         try:
             p = subprocess.run([str(self.mcp_bin)] + (args or []), input=payload, capture_output=True,
-                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="replace")
+                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="surrogateescape")
             return p.stdout or "", p.stderr or ""
         except subprocess.TimeoutExpired as e:
             return _s(e.stdout), _s(e.stderr) + TIMED_OUT
@@ -905,6 +1304,7 @@ class Engine:
         src, shape, form = res["source"], res["shape"], res["form"]
         second = Fake(lambda p: (200, {"Content-Type": "application/json"}, b"{}"), lambda: (200, {}, b"{}"))
         minted = {"n": 0}
+        issued: list[str] = []
         hops = {"n": REDIRECT_HOPS}
         primary = None
         try:
@@ -926,15 +1326,21 @@ class Engine:
             cred = creds[0]
             payload = cred if src.startswith("vendor-field") or src == "set-cookie" else encode(form, cred)
 
+            # Every token the fake hands out, in any row, is held from then
+            # until the run ends (contract 1: tokens minted at run time).
+            run_token = cred if src == "minted" else "clsT" + _rand(20)
+
             def token():
                 minted["n"] += 1
                 if shape == "token-error":
+                    issued.append(cred)
                     return 400, {"Content-Type": "application/json"}, json.dumps(
                         {"error": "invalid_client", "access_token": cred, "error_description": f"rejected {cred}"}).encode()
                 if shape == "token-error-secret":
                     return 400, {"Content-Type": "application/json"}, json.dumps(
                         {"error": "invalid_client", "error_description": f"Rejected {payload}"}).encode()
-                return _token_ok(cred if src == "minted" else "cls-fake-access-token")
+                issued.append(run_token)
+                return _token_ok(run_token)
 
             if shape in ("redirect-userinfo", "redirect-query"):
                 needles = [[cred]]
@@ -945,11 +1351,12 @@ class Engine:
                 if src == "vendor-field":
                     # The value arrives in each declared field; once held, it
                     # is held wherever else the response repeats it.
-                    rsp = (200, {"Content-Type": "application/json"}, _rows({**_named(cred), **{f: cred for f in self.fields}}))
+                    rsp = (200, {"Content-Type": "application/json"},
+                           _rows({**_named(cred), **{_last(f): cred for f in self.fields}}))
                     needles = [[cred]]
                 elif src == "vendor-field-key":
                     rsp = (200, {"Content-Type": "application/json"}, _rows({"customfields": [
-                        {"id": 1, "name": "CFSettings", "value": {f: {cred: True} for f in self.fields}}]}))
+                        {"id": 1, "name": "CFSettings", "value": {_last(f): {cred: True} for f in self.fields}}]}))
                     needles = [[cred]]
                 elif src == "set-cookie":
                     rsp = (200, {"Content-Type": "application/json", "Set-Cookie": f"sid={cred}; Path=/; HttpOnly"},
@@ -957,7 +1364,7 @@ class Engine:
                     needles = [[cred]]
                 elif src == "vendor-field-numeric":
                     rsp = (200, {"Content-Type": "application/json"},
-                           _rows({"otp": "@@N@@", "pin": "@@N@@", "name": cred}).replace(b'"@@N@@"', cred.encode()))
+                           _rows({**{k: "@@N@@" for k in NUMERIC_FIELDS}, "name": cred}).replace(b'"@@N@@"', cred.encode()))
                     needles = [[cred]]
                 else:
                     st, hd, bd, needles = shape_response(case, payload, creds)
@@ -984,6 +1391,14 @@ class Engine:
                     raise NotApplicable("no token URL (no mint)")
                 for v in self.static_vars:
                     env.pop(v, None)
+            # A value seeded into the environment is held, and reflected,
+            # only while the process is given it: unsetting the static tokens
+            # moves it to a declared variable the token request carries.
+            if var is not None or src in ENV_SOURCES + ("skipped-env", "all-env"):
+                if cred not in env.values() and shape.startswith("token-error") and self.mint_vars:
+                    env[self.mint_vars[0]] = cred
+                if cred not in env.values():
+                    raise NotApplicable("no declared secret the connector is given reaches its token request")
             os.makedirs(os.path.join(mcp_home, ".tmp"), exist_ok=True)
             mcp_env = {**env, "HOME": mcp_home, "TMPDIR": os.path.join(mcp_home, ".tmp"),
                        "CLS_CHILD_LOG": os.path.join(mcp_home, CHILD_LOG)}
@@ -996,27 +1411,34 @@ class Engine:
             if shape.startswith("token-error"):
                 reached += minted["n"]
             # Held: every declared value this run carries (contract 1), and the
-            # injected one unless its source is not a credential (an undeclared
-            # numeric field, 6.3; a declared identifier, 6.4).
+            # injected one unless its source is not a credential (a numeric
+            # field the connector does not declare, 6.3; a declared
+            # identifier, 6.4).
             adv = res["advisory"]
-            held = [] if src in ("vendor-field-numeric", "each-ident") else list(creds)
+            num_declared = src == "vendor-field-numeric" and any(_declares(self.fields, k) for k in NUMERIC_FIELDS)
+            held = [] if (src == "each-ident" or (src == "vendor-field-numeric" and not num_declared)
+                          or (src == "minted" and cred not in issued)) else list(creds)
             held += [env[v] for v in self.declared if env.get(v) and (v not in self.plumbing or v == var)
                      and env[v] not in held]
-            # An advisory row excuses only its own exception: every other
-            # leak of a held value in it still fails.
-            gated_needles = [] if adv else needles
+            held += [t for t in dict.fromkeys(issued) if t not in held]
+            # An advisory row excuses only its own section 6 shape: never the
+            # scientific spelling of an all-digit credential (6.2) or a
+            # declared numeric field (6.3), and every other leak of a held
+            # value in it still fails.
+            excused = bool(adv) and not (adv == "6.2" and cred.isdigit()) and not num_declared
+            gated_needles = needles if not excused and cred in held else []
             texts: list[str] = []
             for where, text in outs:
                 texts.append(text)
                 if adv == "6.1" and where.startswith("mcp") and where.endswith("stdout"):
-                    text = re.sub(r'"id"\s*:\s*' + re.escape(json.dumps(cred)), '"id":null', text)
+                    text = strip_rpc_id(text, cred)
                 how = leaked(text, held, gated_needles)
                 if how:
                     res["where"].append(f"{where}: {how}")
             for label, h in (("", home), ("mcp ", mcp_home)):
-                for rel, text in scan_files(h, written):
+                for rel, text, why in scan_files(h, written):
                     texts.append(text or "")
-                    how = "too large to scan" if text is None else leaked_file(text, held, gated_needles)
+                    how = why if text is None else leaked_file(text, held, gated_needles)
                     if how:
                         sink = "argv the MCP server gave its CLI child" if rel == CHILD_LOG else f"{label}file {rel}"
                         res["where"].append(f"{sink}: {how}")
@@ -1027,12 +1449,13 @@ class Engine:
             if second.unreadable:
                 res["where"].append("request to a second host: its body could not be read")
             drive = case.get("drive", "reads")
-            if (src == "minted" or shape.startswith("token-error")) and minted["n"] == 0:
-                # Never minted: the "token" is only a vendor field, not held.
-                res["verdict"], res["note"], res["where"] = "N/A", "connector never minted", []
-            elif res["where"]:
+            if res["where"]:
                 res["verdict"] = "FAIL"
-            elif adv and (how := leaked("\n\x00\n".join(texts), [] if cred in held else [cred], needles)):
+            elif (src == "minted" or shape.startswith("token-error")) and minted["n"] == 0:
+                # Never minted: no token was acquired, so none was held; every
+                # other held value was still checked above.
+                res["verdict"], res["note"] = "N/A", "connector never minted"
+            elif excused and (how := leaked("\n\x00\n".join(texts), [] if cred in held else [cred], needles)):
                 # The exception itself, across every output of the run.
                 res["verdict"], res["where"] = "ADVISORY", [f"the run's outputs: {how}"]
             elif any(t.endswith(TIMED_OUT) for _w, t in outs):
@@ -1049,8 +1472,8 @@ class Engine:
             if primary is not None:
                 primary.stop()
             second.stop()
-            shutil.rmtree(home, ignore_errors=True)
-            shutil.rmtree(mcp_home, ignore_errors=True)
+            rmtree(home)
+            rmtree(mcp_home)
         res["t"] = round(time.time() - t_start, 2)
         return res
 
@@ -1139,7 +1562,7 @@ class Engine:
 
 
 def _s(x) -> str:
-    return x.decode("utf-8", "replace") if isinstance(x, bytes) else (x or "")
+    return x.decode("utf-8", "surrogateescape") if isinstance(x, bytes) else (x or "")
 
 
 def _call(mid, name: str, args: dict) -> dict:
@@ -1350,21 +1773,22 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
         base_ids = {c.get("id") for c in base_cases}
         # A case renamed, or reworded in place with its old meaning moved to a
         # new id, would read as new; so a change that drops or rewords a case
-        # of the base, or edits (not only adds) a line of the engine that
-        # gives the cases their meaning, adds no entry at all.
+        # of the base, or changes the engine at all, adds no entry.
         dropped = sorted(i for i in base_ids - set(by_id) if isinstance(i, str))
         dropped += sorted(c["id"] for c in base_cases if isinstance(c.get("id"), str)
                           and c["id"] in by_id and by_id[c["id"]] != c)
-        # The engine and the oracle helpers it imports give every case its meaning.
+        # The engine, its encoders and the oracle helpers it imports give every
+        # case its meaning, and an added line can rebind an existing one, so
+        # any difference counts (a new encoder lands on its own first).
         for rel_e in ("tools/maintainer/class_secret_corpus.py", "tools/maintainer/class_harness.py"):
-            if rel_c not in present or _git(repo, "cat-file", "-e", f"{sha}:{rel_e}").returncode != 0:
+            if rel_c not in present:
                 continue
-            ns = _git(repo, "diff", "--numstat", sha, "--", rel_e)
-            if ns.returncode != 0:
+            d = _git(repo, "diff", "--quiet", sha, "--", rel_e)
+            if d.returncode not in (0, 1):
                 out(f"FAIL: cannot diff {Path(rel_e).name} against {base!r}; the guard fails closed")
                 return 1
-            if any(ln.split("\t")[1] not in ("0", "-") or ln.startswith("-") for ln in ns.stdout.splitlines() if ln):
-                dropped.append(f"(an edited line of {Path(rel_e).name})")
+            if d.returncode == 1:
+                dropped.append(f"(a change to {Path(rel_e).name})")
         added = 0
         for slug, entries in sorted(head.items()):
             for e in sorted(entries - base_line.get(slug, set())):
@@ -1396,6 +1820,16 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
 # --------------------------------------------------------------------------- #
 
 
+RETIRES = ("PASS", "N/A", "ADVISORY", None)
+
+
+def still_failing(listed: set[str], verdict: dict[str, str]) -> set[str]:
+    """The baseline entries --update-baseline keeps: those whose case still
+    did not pass this run. An advisory row back to its own exception
+    (ADVISORY) passes."""
+    return {e for e in listed if verdict.get(e) not in RETIRES}
+
+
 def label(r: dict) -> str:
     return (f"{r['id']} (form {r['form']}, shape {r['shape']}, source {r['source']}, drive {r['drive']})")
 
@@ -1415,7 +1849,7 @@ def findings(slug: str, results: list[dict], listed: set[str], kit: bool) -> lis
             out.append(f"NOTE: [{slug}] advisory case (contract {r['advisory']}) {label(r)}: {sinks}")
         elif r["verdict"] == "NOTE":
             out.append(f"NOTE: [{slug}] case {r['id']} not exercised: {r['note']}")
-        if r["id"] in listed and r["verdict"] in ("PASS", "N/A"):
+        if r["id"] in listed and r["verdict"] in RETIRES:
             out.append(f"NOTE: [{slug}] case {r['id']} now passes; retire it from corpus_baseline.json "
                        f"(class_secret_corpus.py --update-baseline --slug {slug})")
     for e in sorted(listed - ran):
@@ -1430,6 +1864,8 @@ def run(ctx: ch.Ctx) -> list[str]:
     tmp = tempfile.mkdtemp(prefix="corpus-", dir=ctx.home)
     try:
         results = run_cases(ctx, tmp)
+    except ValueError as e:   # the declarations cannot be read: fail closed
+        return [f"[{ctx.slug}] {e}"]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return findings(ctx.slug, results, load_baseline().get(ctx.slug, set()), has_kit(ctx.slug))
@@ -1441,7 +1877,8 @@ def run(ctx: ch.Ctx) -> list[str]:
 
 # What both stand-ins share, like a real connector: the base URL and
 # auth_header may come from the config file (--config or ACME_CONFIG); the key
-# is sent as a bearer token, else a token is minted from ACME_TOKEN_URL; URL
+# is sent as a bearer token, else a token is minted from ACME_TOKEN_URL with
+# ACME_CLIENT_SECRET; URL
 # userinfo becomes Basic auth; a gzip body is decompressed (Go's transport
 # does this transparently). TOKEN_LOG keeps each mint's (status, body).
 STANDIN = r"""
@@ -1480,7 +1917,8 @@ def auth():
     if CFG.get("auth_header"):
         return {"Authorization": CFG["auth_header"]}
     if os.environ.get("ACME_TOKEN_URL"):
-        st, hd, body = fetch("POST", os.environ["ACME_TOKEN_URL"], b"grant_type=client_credentials")
+        form = "grant_type=client_credentials&client_secret=" + _up.quote(os.environ.get("ACME_CLIENT_SECRET", ""))
+        st, hd, body = fetch("POST", os.environ["ACME_TOKEN_URL"], form.encode())
         TOKEN_LOG.append((st, body))
         try:
             return {"Authorization": "Bearer " + json.loads(body)["access_token"]}
@@ -1627,7 +2065,9 @@ def _corpus_fixture(tmp: str, cli: str, mcp: str) -> ch.Ctx:
     env = ctx.manifest["server"]["mcp_config"]["env"]
     env["ACME_MCP_HTTP_TOKEN"] = "${user_config.http_token}"
     env["ACME_REGION"] = "${user_config.region}"
+    env["ACME_CLIENT_SECRET"] = "${user_config.client_secret}"
     ctx.manifest["user_config"]["http_token"] = {"sensitive": True}
+    ctx.manifest["user_config"]["client_secret"] = {"sensitive": True}
     ctx.wiring = ch.classify_env(ctx.manifest)
     return ctx
 
@@ -2008,6 +2448,219 @@ def _self_test_held_and_sinks() -> bool:
     return ok
 
 
+# Round 2: one probe set per open class, both directions. A stand-in that
+# sends a bearer key (static) or mints with an optional client secret.
+_AUTH = '''def get(path, key):
+    req = urllib.request.Request(BASE + path, headers={"Authorization": "Bearer " + key})
+    with OPENER.open(req, timeout=10) as r:
+        return r.read().decode()
+def mint(secret=""):
+    body = b"grant_type=client_credentials" + (b"&client_secret=" + urllib.parse.quote(secret).encode() if secret else b"")
+    req = urllib.request.Request(os.environ["ACME_TOKEN_URL"], data=body, method="POST")
+    try:
+        with OPENER.open(req, timeout=10) as r:
+            return r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+import urllib.parse
+'''
+_SECRET = {"ACME_CLIENT_SECRET": "${user_config.client_secret}"}
+
+
+def _verdicts(case: str, kw: dict, fields: list[str] | None = None) -> list[dict]:
+    with tempfile.TemporaryDirectory(prefix="corpus-r2-") as tmp:
+        return run_cases(_fx(tmp, **kw), tmp, only=[case], server={}, fields=fields or [])
+
+
+def _probes(name: str, probes: list) -> bool:
+    ok = True
+    for why, case, want, kw, *fields in probes:
+        if want == "FAIL-UNLESS-ROOT":
+            want = "PASS" if os.geteuid() == 0 else "FAIL"
+        got = _verdicts(case, kw, fields[0] if fields else None)
+        if {r["verdict"] for r in got} != {want}:
+            print(f"    corpus self-test: {name}: {why} ({case}): want {want}, got "
+                  f"{[(r['id'], r['verdict'], r['where'][:2], r['note']) for r in got]}")
+            ok = False
+    return ok
+
+
+def _r2_held_set() -> bool:
+    """A token minted in any row is held for the whole run; a mint that never
+    happened clears only the token, never another held leak; the token-error
+    row holds only a value the process was given."""
+    sec = dict(env=_SECRET, sensitive={"client_secret": True})
+    minting = _AUTH + 'st, body = mint()\ntok = json.loads(body)["access_token"]\nget("/v1/items", tok)\nprint(__OUT__)\n'
+    static_or_mint = _AUTH + ('key = os.environ.get("ACME_API_KEY")\nif key:\n    get("/v1/items", key)\n'
+                              'else:\n    st, body = mint(__SECRET__)\n    print(__OUT__)\n')
+    return _probes("held set", [
+        ("a token minted on a plain read and printed", "succ-raw", "FAIL", dict(cli=minting.replace("__OUT__", "tok"))),
+        ("a token minted on a plain read, never printed", "succ-raw", "PASS", dict(cli=minting.replace("__OUT__", '"ok"'))),
+        ("a declared secret printed before a mint that never happens", "minted-echo", "FAIL",
+         dict(cli='print(os.environ.get("ACME_CLIENT_SECRET", ""))\nsys.exit(1)\n', **sec)),
+        ("nothing printed and no mint", "minted-echo", "N/A", dict(cli="sys.exit(1)\n", **sec)),
+        ("a token error reflecting a value the process was never given", "secret-in-token-error", "N/A",
+         dict(cli=static_or_mint.replace("__SECRET__", '""').replace("__OUT__", "body"))),
+        ("a token error reflecting the client secret it was sent", "secret-in-token-error", "FAIL",
+         dict(cli=static_or_mint.replace("__SECRET__", 'os.environ.get("ACME_CLIENT_SECRET", "")')
+              .replace("__OUT__", "body"), **sec)),
+        ("a token error reported by status alone", "secret-in-token-error", "PASS",
+         dict(cli=static_or_mint.replace("__SECRET__", 'os.environ.get("ACME_CLIENT_SECRET", "")')
+              .replace("__OUT__", "st"), **sec)),
+    ])
+
+
+def _r2_advisory_scope() -> bool:
+    """Each advisory row excuses only its own section 6 shape: 6.1 only the
+    top-level id of the client's own request; 6.3 never a declared field; 6.2
+    never a credential made only of digits."""
+    nested = ('TOOLS = [{"name": "t", "_meta": {"id": os.environ.get("ACME_API_KEY", "")}, '
+              '"inputSchema": {"type": "object"}}]\nserve(TOOLS, lambda p: None)\n')
+    ok = _probes("advisory scope", [
+        ("the held credential in a nested id beside the echoed request id", "mcp-rpc-id", "FAIL",
+         dict(cli='print("ok")\n', mcp=nested)),
+        ("an undeclared numeric field printed", "vendor-field-numeric", "ADVISORY", dict(cli=_BODY), []),
+        ("a declared numeric field printed", "vendor-field-numeric", "FAIL", dict(cli=_BODY), ["otp"]),
+        ("a declared numeric field, dotted and in another case", "vendor-field-numeric", "FAIL", dict(cli=_BODY),
+         ["data.OTP"]),
+    ])
+    for cred_len, want in (("digits6", "FAIL"), ("decimal", "ADVISORY")):
+        with tempfile.TemporaryDirectory(prefix="corpus-r2-") as tmp:
+            eng = Engine(_fx(tmp, _BODY), tmp, {}, [])
+            got = eng.run_case({"id": "zz-sci", "advisory": "6.2", "len": cred_len, "shape": "num-sci"})
+        if got["verdict"] != want:
+            print(f"    corpus self-test: advisory scope: scientific notation of a {cred_len} credential: "
+                  f"want {want}, got {got['verdict']} {got['where'][:2]}")
+            ok = False
+    return ok
+
+
+def _r2_response_fields() -> bool:
+    """Response fields come from the connector's real declarations: never a
+    comment, a string, a _test.go file or testdata."""
+    ok = True
+    decl = 'var D = credkit.Declarations{SecretEnv: []string{"X"}, ResponseFields: []string{%s}}\n'
+    files = {
+        "internal/credkit/kit.go": "package credkit\n\ntype Declarations struct{ ResponseFields []string }\n",
+        "main.go": ('package main\n\n// credkit.Declarations{ResponseFields: []string{"name"}}\n'
+                    'var s = "credkit.Declarations{ResponseFields: []string{\\"title\\"}}"\n'
+                    '/* ResponseFields: []string{"note"} */\nfunc main() {}\n'),
+        "main_test.go": "package main\n\n" + decl % '"description"',
+        "testdata/fx.go": "package fx\n\n" + decl % '"message"',
+    }
+
+    def fields(extra: dict[str, str]):
+        with tempfile.TemporaryDirectory(prefix="corpus-r2-go-") as tmp:
+            for rel, body in {**files, **extra}.items():
+                p = Path(tmp) / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(body, encoding="utf-8")
+            try:
+                return sorted(response_fields_in(Path(tmp)))
+            except ValueError as e:
+                return f"error: {e}"
+
+    for extra, want, why in (
+            ({}, [], "only comments, strings, a _test.go file and testdata declare fields"),
+            ({"wire.go": "package main\n\n" + decl % '"password", `session_id`'}, ["password", "session_id"],
+             "a real declaration (a raw string included)"),
+            ({"wire.go": "package main\n\nconst f = \"x\"\n\n" + decl % "f"}, "error",
+             "a declaration whose element is not a string literal fails closed")):
+        got = fields(extra)
+        if (got if want != "error" else str(got).split(":")[0]) != want:
+            print(f"    corpus self-test: response fields: {why}: want {want}, got {got}")
+            ok = False
+    return ok
+
+
+def _r2_decoder_pieces() -> bool:
+    """A piece of the payload carrying 8 or more credential characters is a
+    leak at every alignment, truncated or not, in every form; one carrying
+    fewer is not. Contract section 3."""
+    pr = lambda expr: dict(cli=_ITEMS + f"print({expr})\n")  # noqa: E731
+    ok = _probes("decoder pieces", [
+        ("a truncated base32 payload", "succ-base32", "FAIL", pr("name[:16]")),
+        ("a misaligned base32 payload", "succ-base32", "FAIL", pr("name[5:30]")),
+        ("a misaligned base32hex payload", "succ-base32hex", "FAIL", pr("name[3:29]")),
+        ("a misaligned base64 payload", "succ-base64", "FAIL", pr("name[3:25]")),
+        ("a misaligned hex payload", "succ-hex", "FAIL", pr("name[1:33]")),
+        ("a hex payload with separators", "succ-hex", "FAIL", pr('":".join(name[i:i + 2] for i in range(0, 40, 2))')),
+        ("a misaligned Ascii85 payload", "succ-ascii85", "FAIL", pr("name[3:33]")),
+        ("a misaligned base85 payload", "succ-base85", "FAIL", pr("name[2:30]")),
+        ("a misaligned Z85 payload", "succ-z85", "FAIL", pr("name[4:31]")),
+        ("a piece of a five-times base64 payload", "succ-b64x5", "FAIL", pr("name[7:-9]")),
+        ("a base32 piece carrying 5 characters", "succ-base32", "PASS", pr("name[:8]")),
+        ("a hex piece carrying 7 characters", "succ-hex", "PASS", pr("name[:14]")),
+    ])
+    cred = make_cred("long")
+    raw = cred.encode()
+    for text, hit, why in (
+            (base64.b32encode(raw).decode()[3:29], True, "the connector's own base32, misaligned"),
+            (" ".join(f"{b:02x}" for b in raw[2:14]), True, "the connector's own hex with spaces"),
+            (base64.a85encode(raw).decode()[6:30], True, "the connector's own Ascii85, misaligned"),
+            (base64.b64encode(raw).decode()[2:22], True, "the connector's own base64, misaligned"),
+            (base64.b32encode(raw[:7]).decode(), False, "base32 of 7 characters")):
+        if bool(leaked(f"x {text} y", [cred], [])) != hit:
+            print(f"    corpus self-test: decoder pieces: oracle {'missed' if hit else 'false positive on'} {why}")
+            ok = False
+    return ok
+
+
+def _r2_sink_capture() -> bool:
+    """Every sink read as bytes with its UTF-16 views; every value of a
+    repeated outbound header; a file the run leaves that cannot be read fails."""
+    key = 'os.environ.get("ACME_API_KEY", "")'
+    hdr = ('import http.client, urllib.parse\ncall("GET", "/v1/items")\na = sys.argv[1:]\n'
+           'u = urllib.parse.urlsplit(a[a.index("--deliver") + 1][len("webhook:"):])\n'
+           'c = http.client.HTTPConnection(u.hostname, u.port, timeout=10)\nc.putrequest("POST", u.path)\n'
+           'c.putheader("X-Copy", __FIRST__)\nc.putheader("X-Copy", "clean")\nc.putheader("Content-Length", "2")\n'
+           'c.endheaders(b"{}")\nc.getresponse().read()\nprint("ok")\n')
+    locked = ('call("GET", "/v1/items")\np = os.path.join(HOME, __DIR__ "notes")\n'
+              'os.makedirs(os.path.dirname(p), exist_ok=True)\nopen(p, "w").write(__BODY__)\n'
+              'os.chmod(__LOCK__, 0)\nprint("ok")\n')
+    return _probes("sink capture", [
+        ("a UTF-16 payload written to a file", "succ-utf16hex", "FAIL",
+         dict(cli=_ITEMS + 'open(os.path.join(HOME, "cache.bin"), "wb").write(bytes.fromhex(name))\nprint("ok")\n')),
+        ("the credential as UTF-16LE on stdout", "succ-raw", "FAIL",
+         dict(cli=f'call("GET", "/v1/items")\nsys.stdout.buffer.write({key}.encode("utf-16-le"))\n')),
+        ("the credential as UTF-16BE at an odd offset in a file", "succ-raw", "FAIL",
+         dict(cli=f'call("GET", "/v1/items")\nopen(os.path.join(HOME, "c.bin"), "wb").write(b"x" + {key}.encode("utf-16-be"))\n')),
+        ("a UTF-16 file with no credential", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nopen(os.path.join(HOME, "c.bin"), "wb").write("ok".encode("utf-16"))\n')),
+        ("the credential in the first of two repeated outbound headers", "out-deliver-webhook", "FAIL",
+         dict(cli=hdr.replace("__FIRST__", key))),
+        ("two clean repeated outbound headers", "out-deliver-webhook", "PASS", dict(cli=hdr.replace("__FIRST__", '"clean0"'))),
+        ("the credential in a file left unreadable", "succ-raw", "FAIL",
+         dict(cli=locked.replace("__DIR__", '""').replace("__BODY__", key).replace("__LOCK__", "p"))),
+        ("a clean file left unreadable (fail closed)", "succ-raw", "FAIL-UNLESS-ROOT",
+         dict(cli=locked.replace("__DIR__", '""').replace("__BODY__", '"ok"').replace("__LOCK__", "p"))),
+        ("the credential in a directory left untraversable", "succ-raw", "FAIL",
+         dict(cli=locked.replace("__DIR__", '"d/" +').replace("__BODY__", key).replace("__LOCK__", "os.path.dirname(p)"))),
+    ])
+
+
+def _r2_update_baseline() -> bool:
+    """--update-baseline retires an advisory row back to its own exception."""
+    ok = True
+    listed = {"mcp-rpc-id", "succ-raw", "succ-url"}
+    got = still_failing(listed, {"mcp-rpc-id": "ADVISORY", "succ-raw": "FAIL", "succ-url": "NOTE"})
+    if got != {"succ-raw", "succ-url"}:
+        print(f"    corpus self-test: update baseline: an advisory row back to ADVISORY must retire: kept {sorted(got)}")
+        ok = False
+    notes = findings("acme", [{"id": "mcp-rpc-id", "verdict": "ADVISORY", "advisory": "6.1", "where": ["x"],
+                               "form": "raw", "shape": "row", "source": "env", "drive": "mcp-id"}],
+                     {"mcp-rpc-id"}, False)
+    if not any("now passes; retire it" in n for n in notes):
+        print(f"    corpus self-test: update baseline: no retire notice for an advisory row back to ADVISORY: {notes}")
+        ok = False
+    return ok
+
+
+R2_PROBES = {"held-set-runtime-tokens": _r2_held_set, "advisory-exception-scope": _r2_advisory_scope,
+             "response-field-declarations": _r2_response_fields, "decoder-pieces": _r2_decoder_pieces,
+             "sink-capture": _r2_sink_capture, "update-baseline-advisory": _r2_update_baseline}
+
+
 def _self_test_guard() -> bool:
     import contextlib
     import io
@@ -2090,8 +2743,17 @@ def _self_test_guard() -> bool:
         write({"acme": [g[0], g[1], "zz-new-case"]}, new)
         expect(guard(base) == 1, "a change that edits an existing line of the engine adds no entry")
         engine.write_text("ENGINE = 1\nEXTRA = 1\n", encoding="utf-8")
-        expect(guard(base) == 0, "an engine change that only adds lines (a new encoder) may land with a new case")
+        expect(guard(base) == 1, "an engine change that only adds lines (a new encoder) adds no entry")
+        engine.write_text("ENGINE = 1\nENC['original_rot13'], ENC['rot13'] = ENC['rot13'], ENC['raw']\n",
+                          encoding="utf-8")
+        expect(guard(base) == 1, "an added line that rebinds an existing encoder adds no entry")
+        write({"acme": [g[0]]})
+        expect(guard(base) == 0, "a change that edits the engine may still remove entries")
         engine.write_text("ENGINE = 1\n", encoding="utf-8")
+        (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\nEXTRA = 1\n", encoding="utf-8")
+        write({"acme": [g[0], g[1], "zz-new-case"]}, new)
+        expect(guard(base) == 1, "a harness change that only adds lines adds no entry")
+        (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\n", encoding="utf-8")
         write({"acme": [g[0], g[1]]}, drop=g[5])
         expect(guard(base) == 0, "a case removed on its own, with no entry added, passes")
         write({"acme": [g[0], adv]})
@@ -2138,6 +2800,7 @@ def self_test() -> bool:
                      ("success HOME", _self_test_success_home), ("guard", _self_test_guard),
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
+                     *R2_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
@@ -2170,7 +2833,10 @@ def run_slug(slug: str, only=None, workers=WORKERS, covers=None, bindir=None) ->
         if ctx is None:
             return {"slug": slug, "error": err or "no CLI", "results": []}
         t1 = time.time()
-        results = run_cases(ctx, tmp, only, workers, covers)
+        try:
+            results = run_cases(ctx, tmp, only, workers, covers)
+        except ValueError as e:
+            return {"slug": slug, "error": str(e), "results": []}
     return {"slug": slug, "build_s": round(t1 - t0, 1), "corpus_s": round(time.time() - t1, 1), "results": results}
 
 
@@ -2251,7 +2917,7 @@ def main(argv: list[str]) -> int:
             if a.seed_baseline:
                 new[slug] = set() if has_kit(slug) else fails
             else:
-                keep = {e for e in new.get(slug, set()) if verdict.get(e) not in ("PASS", "N/A", None)}
+                keep = still_failing(new.get(slug, set()), verdict)
                 retired = new.get(slug, set()) - keep
                 if retired:
                     print(f"  {slug}: retired {sorted(retired)}")

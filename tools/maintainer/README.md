@@ -106,29 +106,40 @@ tool, `feedback`, `teach`, `--deliver`, a redirect). `class_secret_corpus.py` ru
 the built connector with no connector-specific code. The rules are the owner-ruled
 [credential leak contract](../../docs/credential-leak-contract.md); this list is how CI checks them.
 
-A case fails when a held credential, the exact encoded payload, or any one fragment of a split
-payload (each fragment carries a piece the contract counts) survives in stdout, stderr, the MCP
-server's output, any file the run leaves under its fresh HOME, or a request that reached a second
-fake host. A credential of 8 or more characters also fails on any 8-character piece of it; a
-shorter one counts only as a whole word. Every comparison folds case and Unicode width (contract
-section 3), and every output is read as UTF-8. The test knows what it injected, so it never has to
-guess: a new form needs an encoder, never a decoder.
+A case fails when a held credential, the exact encoded payload, any one fragment of a split
+payload (each fragment carries a piece the contract counts), or any piece of the payload that still
+decodes to 8 or more credential characters (a truncated or misaligned payload, decoded at every
+alignment) survives in stdout, stderr, the MCP server's output, any file the run leaves under its
+fresh HOME, or a request that reached a second fake host (every value of a repeated header). A
+credential of 8 or more characters also fails on any 8-character piece of it; a shorter one counts
+only as a whole word. Every comparison folds case and Unicode width (contract section 3); every
+output is read as bytes, with its UTF-16 readings, and its own base64, base32, hex and base85 runs
+are decoded at every alignment. A file or directory the run leaves that the test cannot read fails
+the case. The test knows what it injected: a new form needs an encoder (and a decoder only if
+section 3 of the contract lacks one).
 
 The credentials it holds come only from what the connector declares: each variable whose
 `user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
 `isSecret`. A variable's name means nothing. Every declared variable a run sets is held in that
-run. Most cases inject one credential, the first declared one the connector sends on the wire and
-already withholds when a vendor echoes it (else the first on the wire); `each-env-var` injects
-every declared variable on its own, a declared URL variable included. A vendor response field is
-held only when the connector declares it (the shared kit's `ResponseFields`); with none declared,
-the two vendor-field lines do not apply.
+run, and only while the program is given it: the token-error line, which unsets static tokens so
+the client mints, seeds the declared variable the token request carries, or does not apply. Every
+token the fake vendor hands out, in any line, is held for the rest of that run, and a mint that
+never happened leaves only that token unheld. Most cases inject one credential, the first declared
+one the connector sends on the wire and already withholds when a vendor echoes it (else the first
+on the wire); `each-env-var` injects every declared variable on its own, a declared URL variable
+included. A vendor response field is held only when the connector declares it: the `ResponseFields`
+of the shared kit's `Declarations` literal, read with Go's own parser, so a comment, a string, a
+`_test.go` file or `testdata` declares nothing. With none declared, the two vendor-field lines do
+not apply.
 
 The six cases in section 6 of the contract (the MCP request id echoed back, scientific notation of
 a non-digit credential, an undeclared numeric vendor field, a declared identifier, a split across
 two runs, a piece shorter than 8 characters) are **advisory**: reported, never failing. Each such
 line names its contract item in an `advisory` field, and the list does not load unless exactly
-those six are advisory. An advisory line excuses only its own exception: a held credential that
-leaks any other way during it still fails. Every other line gates.
+those six are advisory. An advisory line excuses only its own exception, in its own shape: the
+request id only as the top-level `id` of a response frame (never a nested `id`), scientific
+notation never for an all-digit credential, a numeric field never when the connector declares it.
+A held credential that leaks any other way during it still fails. Every other line gates.
 
 **The learning loop.** When a review finds a credential leak the list missed, the fix to the gate
 is one line, usually in minutes:
@@ -136,9 +147,9 @@ is one line, usually in minutes:
 1. Write the case as a line: `{"id":"succ-rot47","family":"fold","form":"rot47","refs":["acme r2 #12"]}`.
    Reuse the fields an existing line uses; `refs` names the finding.
 2. If the line uses a form the engine does not know, add its encoder to `ENC` in
-   `class_secret_corpus.py` (one added line). A new shape or drive is a few lines in
-   `shape_response` or `Engine.drive`; when that edits an existing line, land the engine change
-   on its own first, because a change that edits the engine cannot add baseline entries.
+   `class_secret_corpus.py`. A new shape or drive is a few lines in `shape_response` or
+   `Engine.drive`. Land any engine change on its own first, because a change that touches the
+   engine at all (an added line can rebind an existing encoder) cannot add baseline entries.
 3. Run `python3 tools/maintainer/class_secret_corpus.py --self-test`. The deliberately leaky
    stand-in must fail the new case and the clean one must pass it; the self-test says which way it
    missed.
@@ -156,11 +167,12 @@ failure fails the row and names the case, its form, shape, source and drive, and
 credential surfaced. `ci_guards.sh` guard 11 runs `class_secret_corpus.py --check-baseline --base
 <merge base>` with no build: an entry may be removed at any time, and added only for a case id the
 merge base's list does not have, and never in a change that also drops or rewords a case of the
-base or edits an existing line of `class_secret_corpus.py` or `class_harness.py` (a renamed case
-is an existing case; an engine change that only adds lines, such as a new encoder, is fine). A
+base or changes `class_secret_corpus.py` or `class_harness.py` at all (a renamed case is an
+existing case, and an added engine line can rebind an existing encoder). A
 connector that has adopted the shared credential kit
 (`cli/internal/credkit/` exists) may have no entries at all. When a fix lands, retire what now
-passes with `class_secret_corpus.py --update-baseline --slug <slug>` (it removes, never adds).
+passes, or an advisory line back to its own exception, with `class_secret_corpus.py
+--update-baseline --slug <slug>` (it removes, never adds).
 
 **Run it on one connector, or all of them:**
 
@@ -382,7 +394,7 @@ redirect retries with its own backoff). A whole-fleet run takes about 4 minutes 
 The credential leak test list runs its cases 16 at a time and takes 2-28 s per connector after the
 build on an M-series Mac (halopsa 14, zammad 15, saas-alerts 28); a connector that backs off on its
 own after an error takes longer (cisco-duo 87, bitdefender 93, backup-radar 140). The whole fleet,
-84 connectors at `--jobs 4`, took 369 s. The classes run per changed connector in the `build` matrix row; a change
+84 connectors at `--jobs 4`, took 443 s (582 s with a cold Go build cache). The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## The shared credential kit: `credkit`
