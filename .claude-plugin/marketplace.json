@@ -1372,6 +1372,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "mimecast",
+      "source": "./skills/mimecast",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "mimecast",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
