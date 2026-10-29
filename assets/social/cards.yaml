@@ -210,6 +210,10 @@ itglue:
   vendor: "IT Glue"
   example_command: "Which clients are under-documented?"
 
+jamf-pro:
+  vendor: "Jamf Pro"
+  example_command: "Which clients have FileVault off?"
+
 jira-service-management:
   vendor: "Jira Service Mgmt"
   example_command: "Which tickets breach SLA in the next two hours?"

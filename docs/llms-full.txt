@@ -1787,6 +1787,44 @@ A: No. The CLI reads, and creates or updates contacts, passwords, configurations
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
 
+### Jamf Pro (MDM)
+
+Page: [Jamf Pro](https://msp-skills.compoundingteams.com/skills/jamf-pro.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/install.sh)
+
+Ask which client has this Mac, or which clients have FileVault off and patches behind, and get one answer across every client's Jamf Pro. Jamf Pro plus your AI agent reads each client's own server in parallel, with that client's own API client, so a question that means logging in to every console one at a time becomes one reply.
+
+Outcomes (question -> command your AI agent runs):
+- Which client has this Mac, iPad or iPhone, by serial, name, username or email? -> jamf-pro-cli fleet find C02XK1ABJG5H --agent
+- Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off? -> jamf-pro-cli fleet posture --stale-days 14 --min-os 14.6 --agent
+- Which patch titles are behind latest, and which clients have failed managed OS updates? -> jamf-pro-cli fleet patch --behind-only --agent
+- A vendor advisory landed: which clients and computers have this app below the fixed version? -> jamf-pro-cli fleet app "Google Chrome" --below 129.0.6668.100 --agent
+- Which policies are disabled, can never run, have no scope, or point at a missing script or package? -> jamf-pro-cli fleet policy-hygiene --agent
+- Which ADE or VPP tokens expire soon, which enrollment syncs failed, and which Jamf Pro versions are clients on? -> jamf-pro-cli fleet health --within 30d --agent
+- Which clients are missing objects from our template instance, or run a different copy of its scripts? -> jamf-pro-cli fleet baseline --golden msp-template --agent
+- Does every client's API client still work? -> jamf-pro-cli instance test --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Jamf Pro MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Jamf Pro data safe?
+A: Your data stays on your machine. The CLI, the MCP server and the local mirror all run locally. The AI sees query results, and credentials are never bundled or transmitted by MSP Skills: they go to your own Jamf Pro server and nowhere else, and any output that repeats one is withheld.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need a separate API client for each client's Jamf Pro?
+A: Yes. Create one in each instance under Settings > System > API roles and clients, with only the read privileges the reports need, then register it once with `jamf-pro-cli instance add`. Each secret stays in the JAMF_PRO_FLEET_SECRETS environment variable (name=secret entries separated by commas) and is never written to the registry.
+Q: Will this replace Jamf Account or the Jamf Pro console?
+A: No. Jamf Account is where a service provider manages customers and their products, and each console is where you build policies and enroll devices. This skill answers questions across the data inside those instances.
+Q: Can it read LAPS passwords, FileVault keys or lock PINs?
+A: No. Those endpoints are not included, `fleet exec` refuses them by path, and any password, key, token or PIN field in another response prints as [redacted]. Read them in the Jamf Pro console.
+Q: We run one Jamf Pro with sites. Does it help?
+A: Partly. Register that server once and every read works, but fleet reports count per instance, not per site. Fleet reports earn their keep when each client has its own instance.
+
+Governance: It reads inventory, policies, patch status and enrollment health from every Jamf Pro instance you register, and can change one instance at a time with the writes that instance's API client allows. Passwords, keys, tokens and PINs in responses are redacted, and the endpoints that return LAPS passwords, FileVault keys, recovery-lock passwords and lock PINs are not included. Let an agent read freely, preview routine writes, and keep a human on anything that touches credentials or acts on a device.
+
 ### Jira Service Management (PSA)
 
 Page: [Jira Service Management](https://msp-skills.compoundingteams.com/skills/jira-service-management.md)

@@ -1,0 +1,149 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T01:52:15.134743Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "jamf-pro",
+  "display_name": "Jamf Pro",
+  "cli_name": "jamf-pro-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_url": "https://developer.jamf.com/jamf-pro/reference",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "docs",
+  "spec_checksum": "sha256:eebf35228ccd8421afc5c5a818f4dcbc69f158c4b62ed2e674ec3f4aeb6246df",
+  "run_id": "20261027-192641-141a3db2",
+  "category": "devices",
+  "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+  "mcp_binary": "jamf-pro-pp-mcp",
+  "mcp_tool_count": 288,
+  "mcp_ready": "full",
+  "api_version": "11.33.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "ApiClient",
+  "auth_env_vars": [
+    "JAMF_PRO_CLIENT_ID",
+    "JAMF_PRO_CLIENT_SECRET"
+  ],
+  "endpoint_template_vars": [
+    "server"
+  ],
+  "endpoint_template_env_overrides": {
+    "server": "JAMF_PRO_SERVER"
+  },
+  "auth_key_url": "https://developer.jamf.com/jamf-pro/reference/postoauthtoken",
+  "novel_features": [
+    {
+      "name": "Cross-instance device finder",
+      "command": "fleet find",
+      "description": "Find which client's Jamf Pro instance has a Mac, iPad or iPhone, by serial, name, username or email, across every registered instance at once."
+    },
+    {
+      "name": "Fleet posture",
+      "command": "fleet posture",
+      "description": "Per-client counts of stale check-ins, Macs below a macOS floor, FileVault off, firewall off and expiring MDM profiles, with Macs that inventory cannot fully judge reported as incomplete."
+    },
+    {
+      "name": "Patch posture",
+      "command": "fleet patch",
+      "description": "Patch titles behind latest and failing patch-policy installs (one patch_title row per client and title), plus failed managed OS updates (one os_updates row per client)."
+    },
+    {
+      "name": "Policy hygiene",
+      "command": "fleet policy-hygiene",
+      "description": "Flags policies that are disabled, can never run, have no scope, are expired, uncategorized, or point at a missing script or package."
+    },
+    {
+      "name": "Instance registry",
+      "command": "instance",
+      "description": "Register each client's Jamf Pro instance once (server and API client id; its secret goes in JAMF_PRO_FLEET_SECRETS), then target it with --instance or report on all of them with the fleet commands."
+    },
+    {
+      "name": "Service-plane health",
+      "command": "fleet health",
+      "description": "ADE and VPP token expiry, failed enrollment syncs, health check and Jamf Pro version spread for every client."
+    },
+    {
+      "name": "Fan-out exec",
+      "command": "fleet exec",
+      "description": "Run any read-only Jamf Pro or Classic API GET on every client instance and get one merged table with an instance column; credential fields are redacted and credential endpoints refused."
+    },
+    {
+      "name": "App version exposure",
+      "command": "fleet app",
+      "description": "Which clients and computers have an installed application below a version floor."
+    },
+    {
+      "name": "Baseline drift",
+      "command": "fleet baseline",
+      "description": "Compare every client instance against a golden instance: scripts by content, packages, policies, profiles, extension attributes and smart groups."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-instance device finder",
+      "command": "fleet find",
+      "description": "Find which client's Jamf Pro instance has a Mac, iPad or iPhone, by serial, name, username or email, across every registered instance at once."
+    },
+    {
+      "name": "Fleet posture",
+      "command": "fleet posture",
+      "description": "Per-client counts of stale check-ins, Macs below a macOS floor, FileVault off, firewall off and expiring MDM profiles, with Macs that inventory cannot fully judge reported as incomplete."
+    },
+    {
+      "name": "Patch posture",
+      "command": "fleet patch",
+      "description": "Patch titles behind latest and failing patch-policy installs (one patch_title row per client and title), plus failed managed OS updates (one os_updates row per client)."
+    },
+    {
+      "name": "Policy hygiene",
+      "command": "fleet policy-hygiene",
+      "description": "Flags policies that are disabled, can never run, have no scope, are expired, uncategorized, or point at a missing script or package."
+    },
+    {
+      "name": "Instance registry",
+      "command": "instance",
+      "description": "Register each client's Jamf Pro instance once (server and API client id; its secret goes in JAMF_PRO_FLEET_SECRETS), then target it with --instance or report on all of them with the fleet commands."
+    },
+    {
+      "name": "Service-plane health",
+      "command": "fleet health",
+      "description": "ADE and VPP token expiry, failed enrollment syncs, health check and Jamf Pro version spread for every client."
+    },
+    {
+      "name": "Fan-out exec",
+      "command": "fleet exec",
+      "description": "Run any read-only Jamf Pro or Classic API GET on every client instance and get one merged table with an instance column; credential fields are redacted and credential endpoints refused."
+    },
+    {
+      "name": "App version exposure",
+      "command": "fleet app",
+      "description": "Which clients and computers have an installed application below a version floor."
+    },
+    {
+      "name": "Baseline drift",
+      "command": "fleet baseline",
+      "description": "Compare every client instance against a golden instance: scripts by content, packages, policies, profiles, extension attributes and smart groups."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 278,
+    "total": 278,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}
