@@ -140,6 +140,14 @@ domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
 
+exchange-online:
+  vendor: "Exchange Online"
+  example_command: "Is any client mail auto-forwarding out?"
+  response_lines:
+    - "2 mailboxes forward outside"
+    - "Outbound policy allows it"
+  outcome_line: "Ask Exchange anything, no PowerShell session."
+
 fortinet:
   vendor: "Fortinet"
   example_command: "Which client FortiGates expose SSL-VPN?"

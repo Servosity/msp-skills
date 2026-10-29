@@ -233,6 +233,13 @@
       "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
     },
     {
+      "name": "exchange-online",
+      "type": "skill-md",
+      "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session. Trigger phrases: `audit mailbox forwarding`, `which mailboxes still have EWS on`, `offboard this user's mailbox`, `why didn't this email arrive`, `release quarantined email`, `use exchange-online`, `run exchange-online`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/SKILL.md",
+      "digest": "sha256:6412cee730706895008b0149a7a822b9b2632e7e8d58150071eebd6d2e9da620"
+    },
+    {
       "name": "fortinet",
       "type": "skill-md",
       "description": "Use when the user asks to audit, inventory or back up client FortiGate firewalls, or read FortiManager or FortiGate Cloud: grades every FortiGate in a devices file for firmware, SSL-VPN exposure, admin accounts and license expiry in one read-only pass, plus HA, tunnel and certificate health, policy hygiene and config changes. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `which fortigates need a firmware update`, `fortiguard license expiry across clients`, `back up every fortigate config`, `what changed on the firewall`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`.",

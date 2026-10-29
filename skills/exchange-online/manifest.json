@@ -1,0 +1,102 @@
+{
+  "manifest_version": "0.3",
+  "name": "exchange-online-mcp",
+  "display_name": "Microsoft Exchange Online",
+  "version": "0.1.0",
+  "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/exchange-online-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/exchange-online-mcp",
+      "args": [],
+      "env": {
+        "EXCHANGE_ONLINE_TOKEN": "${user_config.exchange_online_token}",
+        "EXCHANGE_ONLINE_BASE_URL": "${user_config.exchange_online_base_url}",
+        "EXCHANGE_ONLINE_ANCHOR_MAILBOX": "${user_config.exchange_online_anchor_mailbox}",
+        "EXCHANGE_ONLINE_MCP_READ_ONLY": "${user_config.exchange_online_mcp_read_only}",
+        "EXCHANGE_ONLINE_NO_LOCAL_DATA": "${user_config.exchange_online_no_local_data}",
+        "EXCHANGE_ONLINE_MCP_HTTP_TOKEN": "${user_config.exchange_online_mcp_http_token}",
+        "EXCHANGE_ONLINE_USER_AGENT": "${user_config.exchange_online_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "exchange_online_token": {
+      "type": "string",
+      "title": "Exchange Online access token",
+      "description": "Sets EXCHANGE_ONLINE_TOKEN for the Exchange Online Admin MCP server. Get a credential from https://learn.microsoft.com/en-us/exchange/reference/admin-api-authentication.",
+      "sensitive": true,
+      "required": true
+    },
+    "exchange_online_base_url": {
+      "type": "string",
+      "title": "Exchange Online API base URL",
+      "description": "Optional. Leave blank to use https://outlook.office365.com. Set it only for a national cloud or a test server; the token then goes to that host.",
+      "required": false,
+      "sensitive": false
+    },
+    "exchange_online_anchor_mailbox": {
+      "type": "string",
+      "title": "Routing mailbox",
+      "description": "Optional. The X-AnchorMailbox value for calls with no target mailbox, for example UPN:admin@example.com with a delegated token. Leave blank to use the organization system mailbox Microsoft documents for app-only calls.",
+      "required": false,
+      "sensitive": false
+    },
+    "exchange_online_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to keep only read tools: exchange-online_read still serves the Get-* cmdlets, and every write tool is removed.",
+      "required": false,
+      "sensitive": false
+    },
+    "exchange_online_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to stop saving reads locally; reads go to the API. An inbox-rule sweep or quarantine snapshot you run is still saved.",
+      "required": false,
+      "sensitive": false
+    },
+    "exchange_online_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "exchange_online_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends on Exchange requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank; each call names its tenant ID.",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T02:04:20.586292Z",
+    "spec_checksum": "sha256:ad2ed400822551f3902f8147044dfa67ce7cf7e2c5081cc318abc12b0b22015b",
+    "spec_format": "openapi3"
+  }
+}
