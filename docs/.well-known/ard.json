@@ -1919,6 +1919,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:threecx",
+      "displayName": "3CX",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "description": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Which client phone systems are failing or warning, and why?",
+        "Which trunks are offline, misconfigured or in an unknown state across every client?",
+        "Whose licence or maintenance expires in the next 60 days?",
+        "Which PBXes are behind the newest 3CX build in our fleet or have updates pending?",
+        "Which clients have no backup in the last two days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/threecx.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:unifi-network",
       "displayName": "UniFi Network",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

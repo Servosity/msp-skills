@@ -139,7 +139,7 @@ No. It reports and analyzes; it is not where you edit the schedule. Writes go th
 
 ## More Other connectors
 
-Run more than one Other tool, or comparing options? These connectors work the same way: [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
+Run more than one Other tool, or comparing options? These connectors work the same way: [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md) · [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
 
 ## Status
 

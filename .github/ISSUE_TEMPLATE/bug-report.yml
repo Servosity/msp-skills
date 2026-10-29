@@ -115,6 +115,7 @@ body:
         - td-synnex
         - threatdown
         - threatlocker
+        - threecx
         - unifi-network
         - veeam
         - vsphere

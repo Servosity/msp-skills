@@ -3602,6 +3602,38 @@ A: No. The Portal stays best for authoring policies and the interactive approve/
 
 Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
 
+### 3CX (Other)
+
+Page: [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/install.sh)
+
+Ask which client's 3CX phone system needs you today and get one ranked answer across every PBX you manage: trunks down, builds behind, licences and maintenance running out, backups gone stale. Each PBX keeps its own API credential, nothing is cached between runs, and the full 3CX Configuration API stays one command away on any single system.
+
+Outcomes (question -> command your AI agent runs):
+- Which client phone systems are failing or warning, and why? -> threecx-cli fleet health --agent
+- Which trunks are offline, misconfigured or in an unknown state across every client? -> threecx-cli fleet trunks --offline --agent
+- Whose licence or maintenance expires in the next 60 days? -> threecx-cli fleet licences --within 60d --agent
+- Which PBXes are behind the newest 3CX build in our fleet or have updates pending? -> threecx-cli fleet versions --behind --agent
+- Which clients have no backup in the last two days? -> threecx-cli fleet backups --stale 48h --problems --agent
+- What changed on our phone systems since yesterday? -> threecx-cli fleet changes --since 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the 3CX MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my 3CX data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything on my clients' phone systems?
+A: The fleet commands only read. The single-PBX commands cover the whole Configuration API, including writes such as restarting services or rebooting phones; in the MCP server every write returns a preview until the agent sends confirm: true, and on the CLI you preview any write with --dry-run first. MCP read-only mode (THREECX_MCP_READ_ONLY) removes the write tools entirely.
+Q: Which 3CX versions and licences does this need?
+A: 3CX V20 or later with the Configuration API, which 3CX documents as needing an 8SC or higher licence. On each PBX, create an API client under Admin Console > Integrations > API with Configuration API access; its client ID is the DN number shown there and the API key is shown once. A PBX on a lower edition reports an error in its own row instead of stopping the whole fleet run.
+
+Governance: The fleet commands and every GET command only read. Writes (setting changes, user edits), phone-system control (service restarts, phone reboots, firmware pushes, updates, backup restores), credential commands (API keys, tokens, provisioning links) and deletes or purges are separate tiers that should need a human. Scope each PBX's API client to the department and role your workflow needs.
+
 ### UniFi Network (Network Monitoring)
 
 Page: [UniFi Network](https://msp-skills.compoundingteams.com/skills/unifi-network.md)

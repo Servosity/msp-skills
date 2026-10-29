@@ -1,5 +1,5 @@
 {
-  "count": 103,
+  "count": 104,
   "connectors": [
     {
       "slug": "abnormal",
@@ -1222,6 +1222,19 @@
       "verified_version": "0.2.0",
       "verified_code": "changed",
       "url": "/skills/threatlocker/"
+    },
+    {
+      "slug": "threecx",
+      "display_name": "3CX",
+      "tagline": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/threecx/"
     },
     {
       "slug": "unifi-network",

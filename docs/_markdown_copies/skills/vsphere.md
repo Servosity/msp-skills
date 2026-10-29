@@ -139,7 +139,7 @@ Yes. Set VSPHERE_TLS_FINGERPRINT to the certificate's SHA-256 fingerprint and th
 
 ## More Other connectors
 
-Run more than one Other tool, or comparing options? These connectors work the same way: [Resource Guru](https://msp-skills.compoundingteams.com/skills/resourceguru.md)
+Run more than one Other tool, or comparing options? These connectors work the same way: [Resource Guru](https://msp-skills.compoundingteams.com/skills/resourceguru.md) · [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md)
 
 ## Status
 

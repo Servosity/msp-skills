@@ -681,6 +681,13 @@
       "digest": "sha256:64c5f2fdf31bd8d513800a6041c44cfa24673d72632955f06becae51ad0f8d77"
     },
     {
+      "name": "threecx",
+      "type": "skill-md",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX. Trigger phrases: `check all our 3CX phone systems`, `which client has a 3CX trunk down`, `3CX licence renewals this quarter`, `which PBXes are behind on 3CX updates`, `are 3CX backups running for every client`, `find broken 3CX call routing`, `what changed on our phone systems overnight`, `use threecx`, `run threecx`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "digest": "sha256:65ba7e5e453a752723754565aebe36ed80fb8f0e8fe67988a8ad84fe6dafdecf"
+    },
+    {
       "name": "unifi-network",
       "type": "skill-md",
       "description": "Use when the user asks to audit a UniFi Network gateway: list adopted devices and connected clients, review firewall policies, ACL rules, VLANs and WiFi broadcasts, see what changed in site config since the last check, spot hardware that just joined the network, or check switch port and PoE headroom. Wraps the local UniFi Network integration API on a self-hosted UniFi OS gateway - not the Site Manager cloud API, UniFi Protect, or UniFi Access - plus a local SQLite mirror that answers change-over-time questions the live API cannot. Trigger phrases: `audit my unifi network`, `what changed on my unifi site`, `list unifi devices`, `which clients are on my unifi network`, `check unifi firewall rules`, `unifi port audit`, `who just joined the network`, `use unifi-network-cli`, `run unifi-network-cli`.",

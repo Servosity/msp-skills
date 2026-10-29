@@ -412,6 +412,10 @@ threatlocker:
   vendor: "ThreatLocker"
   example_command: "What approvals are pending everywhere?"
 
+threecx:
+  vendor: "3CX"
+  example_command: "Which client has a 3CX trunk down?"
+
 unifi-network:
   vendor: "UniFi Network"
   example_command: "What changed on this UniFi site?"
