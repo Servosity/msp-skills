@@ -87,7 +87,7 @@
   {
    "id": "mcp-mirror-write-confirm",
    "summary": "Mirrored MCP tools that can change VSA state preview and run only with confirm: true",
-   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child.",
+   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child. CI check_mcp_file_flags (PR #488): the preview returned before the shell-out handler's argument-name check, so a host-file flag (--config, --receipt-file, --audit-dir, ...) was dropped silently instead of refused, and no ordinary flag reached the CLI. The gate now refuses any argument the tool schema does not declare, naming it, before it previews or runs, and builds the preview by running the command with the root --dry-run (the VSA client sends nothing in dry-run), so ordinary flags reach the CLI; a command whose --dry-run is not the root flag gets a preview that runs nothing. Test: TestMirroredWritePreviewDryRunsAndRefusesUndeclared (fails with the gate reverted).",
    "status": "active",
    "asserts": [
     {
@@ -109,13 +109,33 @@
      "file": "cli/internal/mcp/kaseya_confirm_registered_test.go",
      "contains": "\"scripts_run_wait\", \"tasks_run_wait\", \"import\"",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "validateMCPArgumentNames(rest, declared)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "dry[\"dry-run\"] = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "cmd.Flag(\"dry-run\") == rootDryRun",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm_test.go",
+     "contains": "func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(",
+     "code_only": true
     }
    ]
   },
   {
    "id": "api-origin-pinned",
    "summary": "Every API request and redirect hop goes only to the configured scheme, host and port; anything else is refused before it is resolved, dialled or given a credential",
-   "why": "Codex review r1 [P1] (2026-10-27): sync --path-context server=<host> (also on the MCP sync tool) rewrote the {server} template after the client was built, so the operator's Basic header went to that host. r2 [P1], same class: the first pin lowercased with Unicode rules, so --path-context server=\u0130.example.com compared equal to i.example.com while the transport dialled xn--i-9bb.example.com; and the generated CheckRedirect resolved an off-origin hop in DNS before the transport pin ran, so a Location whose label carried the hex-encoded secret leaked it through a DNS query. Structural fix (orchestrator order): one origin, resolved from configuration when the client is built, compared byte-for-byte with ASCII-only case folding (a host holding any non-ASCII byte never matches); originPinTripper refuses every other request and the same check runs FIRST in CheckRedirect, before the generated redirect guard, so nothing is resolved, dialled or credentialed. Registered on every CLI and MCP client through registerClientHook. To use another server, set KASEYA_VSA_SERVER (an IDN tenant host must be given in its xn-- form). Tests (seen failing first, r2-pin-seen-failing.log): TestR2PinRefusesUnicodeLookalikeHost, TestR2RedirectRefusedBeforeAnyDNSLookup, TestR2PathContextLookalikeNeverResolves, TestR1SyncPathContextCannotMoveTheAPIHost; prove_r2.sh reverts each half alone.",
+   "why": "Codex review r1 [P1] (2026-10-27): sync --path-context server=<host> (also on the MCP sync tool) rewrote the {server} template after the client was built, so the operator's Basic header went to that host. r2 [P1], same class: the first pin lowercased with Unicode rules, so --path-context server=İ.example.com compared equal to i.example.com while the transport dialled xn--i-9bb.example.com; and the generated CheckRedirect resolved an off-origin hop in DNS before the transport pin ran, so a Location whose label carried the hex-encoded secret leaked it through a DNS query. Structural fix (orchestrator order): one origin, resolved from configuration when the client is built, compared byte-for-byte with ASCII-only case folding (a host holding any non-ASCII byte never matches); originPinTripper refuses every other request and the same check runs FIRST in CheckRedirect, before the generated redirect guard, so nothing is resolved, dialled or credentialed. Registered on every CLI and MCP client through registerClientHook. To use another server, set KASEYA_VSA_SERVER (an IDN tenant host must be given in its xn-- form). Tests (seen failing first, r2-pin-seen-failing.log): TestR2PinRefusesUnicodeLookalikeHost, TestR2RedirectRefusedBeforeAnyDNSLookup, TestR2PathContextLookalikeNeverResolves, TestR1SyncPathContextCannotMoveTheAPIHost; prove_r2.sh reverts each half alone.",
    "status": "active",
    "asserts": [
     {
