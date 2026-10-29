@@ -82,9 +82,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "acronis": [
    "argv-bad-duration",
@@ -169,9 +167,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "action1": [
    "argv-bad-duration",
@@ -257,9 +253,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "afi": [
    "argv-bad-duration",
@@ -342,9 +336,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "appdirect": [
    "argv-bad-duration",
@@ -440,9 +432,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "atera": [
    "argv-bad-duration",
@@ -526,9 +516,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "autotask": [
    "argv-bad-duration",
@@ -613,9 +601,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "auvik": [
    "argv-bad-duration",
@@ -701,9 +687,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "avanan": [
    "argv-bad-duration",
@@ -803,9 +787,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "axcient": [
    "argv-bad-duration",
@@ -888,9 +870,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "backup-radar": [
    "argv-bad-duration",
@@ -976,9 +956,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "betterstack": [
    "argv-bad-duration",
@@ -1060,9 +1038,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "bitdefender": [
    "argv-bad-duration",
@@ -1179,9 +1155,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "cipp": [
    "argv-bad-duration",
@@ -1222,14 +1196,11 @@
    "succ-charcodes",
    "succ-markup",
    "succ-octal",
-   "succ-qp-mixed",
    "succ-sci",
    "succ-split-b64",
    "succ-split-gap",
    "succ-split2",
-   "succ-z85",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-z85"
   ],
   "cisco-duo": [
    "argv-bad-duration",
@@ -1313,8 +1284,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo"
+   "succ-zwsp"
   ],
   "cisco-meraki": [
    "argv-bad-duration",
@@ -1400,9 +1370,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "connectsecure": [
    "argv-bad-duration",
@@ -1491,9 +1459,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "connectwise-automate": [
    "argv-bad-duration",
@@ -1585,9 +1551,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "connectwise-control": [
    "argv-bad-duration",
@@ -1670,9 +1634,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "connectwise-manage": [
    "argv-bad-duration",
@@ -1754,9 +1716,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "connectwise-rmm": [
    "argv-bad-duration",
@@ -1778,6 +1738,7 @@
    "each-env-var[CONNECTWISE_RMM_CLIENT_SECRET]",
    "each-env-var[CONNECTWISE_RMM_MCP_HTTP_TOKEN]",
    "each-env-var[PRINTING_PRESS_CLIENT_PROFILE]",
+   "each-identifier-var[CONNECTWISE_RMM_OAUTH_SCOPE]",
    "err-ascii85",
    "err-base32",
    "err-base32-header",
@@ -1809,7 +1770,9 @@
    "out-redirect-query",
    "out-redirect-userinfo",
    "out-user-agent",
+   "partial7-prefix",
    "partial8-prefix",
+   "set-cookie-echo",
    "short-binary-nul-percent",
    "short3-base64",
    "short3-raw",
@@ -1851,6 +1814,7 @@
    "succ-rot13",
    "succ-rot13-b64",
    "succ-sci",
+   "succ-sci-decimal",
    "succ-spaces",
    "succ-split-b64",
    "succ-split-gap",
@@ -1861,8 +1825,7 @@
    "succ-utf16hex",
    "succ-z85",
    "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "vendor-field-numeric"
   ],
   "cork": [
    "argv-bad-duration",
@@ -1947,9 +1910,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "cove": [
    "argv-bad-duration",
@@ -2007,9 +1968,7 @@
    "succ-split-gap",
    "succ-split2",
    "succ-upper",
-   "succ-z85",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-z85"
   ],
   "crowdstrike": [
    "argv-bad-duration",
@@ -2106,9 +2065,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "datagate": [
    "argv-bad-duration",
@@ -2188,9 +2145,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "datto-bcdr": [
    "argv-bad-duration",
@@ -2279,9 +2234,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "datto-rmm": [
    "argv-bad-duration",
@@ -2366,9 +2319,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "domotz": [
    "argv-bad-duration",
@@ -2451,9 +2402,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "fortinet": [
    "argv-bad-duration",
@@ -2540,9 +2489,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "google-workspace": [
    "argv-bad-duration",
@@ -2620,9 +2567,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "gradient": [
    "argv-bad-duration",
@@ -2707,9 +2652,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "halopsa": [
    "argv-bad-duration",
@@ -2797,6 +2740,7 @@
    "succ-rot13",
    "succ-rot13-b64",
    "succ-sci",
+   "succ-sci-decimal",
    "succ-spaces",
    "succ-split-b64",
    "succ-split-gap",
@@ -2806,9 +2750,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "hubspot": [
    "argv-bad-duration",
@@ -2902,9 +2844,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "hudu": [
    "argv-bad-duration",
@@ -2988,9 +2928,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "huntress": [
    "argv-bad-duration",
@@ -3046,9 +2984,7 @@
    "succ-rot13-b64",
    "succ-sci",
    "succ-upper",
-   "succ-z85",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-z85"
   ],
   "immybot": [
    "argv-bad-duration",
@@ -3146,9 +3082,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "itglue": [
    "argv-bad-duration",
@@ -3231,9 +3165,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "jira-service-management": [
    "argv-bad-duration",
@@ -3319,9 +3251,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "kaseya-bms": [
    "argv-bad-duration",
@@ -3406,9 +3336,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "knowbe4": [
    "argv-bad-duration",
@@ -3493,9 +3421,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "levelio": [
    "argv-bad-duration",
@@ -3577,9 +3503,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "liongard": [
    "argv-bad-duration",
@@ -3664,9 +3588,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "maxio": [
    "argv-bad-duration",
@@ -3753,9 +3675,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "microsoft-graph": [
    "argv-bad-duration",
@@ -3838,9 +3758,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "mspbots": [
    "argv-bad-duration",
@@ -3973,9 +3891,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "ninjaone": [
    "argv-bad-duration",
@@ -4063,9 +3979,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "pagerduty": [
    "argv-bad-duration",
@@ -4148,9 +4062,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "pandadoc": [
    "argv-bad-duration",
@@ -4233,9 +4145,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "pax8": [
    "argv-bad-duration",
@@ -4322,9 +4232,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "pipedrive": [
    "argv-bad-duration",
@@ -4407,9 +4315,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "proofpoint": [
    "argv-bad-duration",
@@ -4488,9 +4394,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "proxmox": [
    "argv-bad-duration",
@@ -4592,9 +4496,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "quotewerks": [
    "argv-bad-duration",
@@ -4681,9 +4583,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "resourceguru": [
    "argv-bad-duration",
@@ -4768,9 +4668,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "rewst": [
    "argv-bad-duration",
@@ -4853,9 +4751,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "riverside-fm": [
    "cfg-auth-header",
@@ -4864,9 +4760,7 @@
    "cfg-headers-cookie",
    "cfg-url-userinfo",
    "cfg-url-userinfo-doctor",
-   "cfg-url-userinfo-malformed",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "cfg-url-userinfo-malformed"
   ],
   "rocketcyber": [
    "argv-bad-duration",
@@ -4949,9 +4843,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "rootly": [
    "argv-bad-duration",
@@ -5035,9 +4927,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "runzero": [
    "argv-bad-duration",
@@ -5120,9 +5010,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "saas-alerts": [
    "argv-bad-duration",
@@ -5189,15 +5077,14 @@
    "succ-rot13",
    "succ-rot13-b64",
    "succ-sci",
+   "succ-sci-decimal",
    "succ-spaces",
    "succ-split-b64",
    "succ-split-gap",
    "succ-split2",
    "succ-upper",
    "succ-utf16hex",
-   "succ-z85",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-z85"
   ],
   "salesbuildr": [
    "argv-bad-duration",
@@ -5279,9 +5166,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "sentinelone": [
    "argv-bad-duration",
@@ -5322,14 +5207,12 @@
    "succ-base85",
    "succ-charcodes",
    "succ-octal",
-   "succ-qp-mixed",
+   "succ-qp",
    "succ-sci",
    "succ-split-b64",
    "succ-split-gap",
    "succ-split2",
-   "succ-z85",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-z85"
   ],
   "servosity": [
    "argv-bad-duration",
@@ -5411,9 +5294,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "sherweb": [
    "argv-bad-duration",
@@ -5501,9 +5382,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "skykick": [
    "argv-bad-duration",
@@ -5583,9 +5462,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "sonicwall": [
    "argv-bad-duration",
@@ -5671,9 +5548,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "sophos-central": [
    "argv-bad-duration",
@@ -5695,6 +5570,8 @@
    "each-env-var[SOPHOS_CENTRAL_CLIENT_ID]",
    "each-env-var[SOPHOS_CENTRAL_CLIENT_SECRET]",
    "each-env-var[SOPHOS_CENTRAL_MCP_HTTP_TOKEN]",
+   "each-identifier-var[SOPHOS_CENTRAL_OAUTH_SCOPE]",
+   "each-identifier-var[SOPHOS_CENTRAL_TENANT_ID]",
    "err-ascii85",
    "err-base32",
    "err-base32-header",
@@ -5726,7 +5603,9 @@
    "out-redirect-query",
    "out-redirect-userinfo",
    "out-user-agent",
+   "partial7-prefix",
    "partial8-prefix",
+   "set-cookie-echo",
    "short-binary-nul-percent",
    "short3-base64",
    "short3-raw",
@@ -5768,6 +5647,7 @@
    "succ-rot13",
    "succ-rot13-b64",
    "succ-sci",
+   "succ-sci-decimal",
    "succ-spaces",
    "succ-split-b64",
    "succ-split-gap",
@@ -5778,8 +5658,7 @@
    "succ-utf16hex",
    "succ-z85",
    "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "vendor-field-numeric"
   ],
   "superops": [
    "argv-bad-duration",
@@ -5862,9 +5741,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "syncro": [
    "argv-bad-duration",
@@ -5948,9 +5825,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "tactical-rmm": [
    "argv-bad-duration",
@@ -6033,9 +5908,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "td-synnex": [
    "argv-bad-duration",
@@ -6084,6 +5957,7 @@
    "succ-base64url",
    "succ-base85",
    "succ-bom",
+   "succ-fullwidth",
    "succ-gzip",
    "succ-hex",
    "succ-html",
@@ -6110,8 +5984,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo"
+   "succ-zwsp"
   ],
   "threatdown": [
    "argv-bad-duration",
@@ -6200,9 +6073,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "threatlocker": [
    "argv-bad-duration",
@@ -6283,9 +6154,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "unifi-network": [
    "argv-bad-duration",
@@ -6371,9 +6240,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "veeam": [
    "argv-bad-duration",
@@ -6456,9 +6323,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "watchguard": [
    "argv-bad-duration",
@@ -6553,9 +6418,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "wordpress": [
    "argv-bad-duration",
@@ -6642,9 +6505,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "xero": [
    "argv-bad-duration",
@@ -6730,9 +6591,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ],
   "zammad": [
    "argv-bad-duration",
@@ -6818,9 +6677,7 @@
    "succ-url5",
    "succ-utf16hex",
    "succ-z85",
-   "succ-zwsp",
-   "vendor-field-echo",
-   "vendor-key-as-name"
+   "succ-zwsp"
   ]
  }
 }

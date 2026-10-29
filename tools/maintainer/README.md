@@ -136,8 +136,9 @@ is one line, usually in minutes:
 1. Write the case as a line: `{"id":"succ-rot47","family":"fold","form":"rot47","refs":["acme r2 #12"]}`.
    Reuse the fields an existing line uses; `refs` names the finding.
 2. If the line uses a form the engine does not know, add its encoder to `ENC` in
-   `class_secret_corpus.py` (one line). A new shape or drive is a few lines in `shape_response` or
-   `Engine.drive`.
+   `class_secret_corpus.py` (one added line). A new shape or drive is a few lines in
+   `shape_response` or `Engine.drive`; when that edits an existing line, land the engine change
+   on its own first, because a change that edits the engine cannot add baseline entries.
 3. Run `python3 tools/maintainer/class_secret_corpus.py --self-test`. The deliberately leaky
    stand-in must fail the new case and the clean one must pass it; the self-test says which way it
    missed.
@@ -155,8 +156,9 @@ failure fails the row and names the case, its form, shape, source and drive, and
 credential surfaced. `ci_guards.sh` guard 11 runs `class_secret_corpus.py --check-baseline --base
 <merge base>` with no build: an entry may be removed at any time, and added only for a case id the
 merge base's list does not have, and never in a change that also drops or rewords a case of the
-base or edits an existing line of `class_secret_corpus.py` (a renamed case is an existing case; an
-engine change that only adds lines, such as a new encoder, is fine). A connector that has adopted the shared credential kit
+base or edits an existing line of `class_secret_corpus.py` or `class_harness.py` (a renamed case
+is an existing case; an engine change that only adds lines, such as a new encoder, is fine). A
+connector that has adopted the shared credential kit
 (`cli/internal/credkit/` exists) may have no entries at all. When a fix lands, retire what now
 passes with `class_secret_corpus.py --update-baseline --slug <slug>` (it removes, never adds).
 
@@ -380,7 +382,7 @@ redirect retries with its own backoff). A whole-fleet run takes about 4 minutes 
 The credential leak test list runs its cases 16 at a time and takes 2-28 s per connector after the
 build on an M-series Mac (halopsa 14, zammad 15, saas-alerts 28); a connector that backs off on its
 own after an error takes longer (cisco-duo 87, bitdefender 93, backup-radar 140). The whole fleet,
-84 connectors at `--jobs 4`, took 303 s. The classes run per changed connector in the `build` matrix row; a change
+84 connectors at `--jobs 4`, took 369 s. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## The shared credential kit: `credkit`

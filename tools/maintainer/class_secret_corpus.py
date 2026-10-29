@@ -803,6 +803,10 @@ class Engine:
         for k in list(e):
             if k.endswith("_NO_CONFIG_WRITE"):
                 e[k] = "1"
+            elif k in self.declared and k not in self.plumbing and e[k]:
+                # Held, so random end to end: the harness sentinels share a
+                # suffix, and a piece of it would match any other sentinel.
+                e[k] = make_cred("long")
         return e
 
     # ---- seeding --------------------------------------------------------------
@@ -911,8 +915,8 @@ class Engine:
             if src in ("vendor-field", "vendor-field-key") and not self.fields:
                 raise NotApplicable("the connector declares no credential response field (contract 7)")
             if src == "all-env":
-                held = {v: make_cred(case.get("len", "long")) for v in self.seedable}
-                creds = list(held.values())
+                all_env = {v: make_cred(case.get("len", "long")) for v in self.seedable}
+                creds = list(all_env.values())
             elif src == "vendor-field-numeric":
                 creds = ["8642093"]
             elif src.startswith("vendor-field") or src == "set-cookie":
@@ -972,7 +976,7 @@ class Engine:
                 if self.primary and var != self.primary:
                     env[self.primary] = make_cred("long")
             elif src == "all-env":
-                env.update(held)
+                env.update(all_env)
             else:
                 extra, written = self.seed(case, cred, env, home, primary.url)
             if shape.startswith("token-error"):
@@ -1281,7 +1285,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
 
 def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int:
     """The build-free guard. Always: the list parses (six advisory rows), the
-    baseline parses, every entry names a gated case of the list, and no
+    baseline parses, every entry names a case of the list, and no
     connector that vendors the shared kit has an entry. With `base`: the
     baseline only shrank against it, except entries for a case id the base's
     list does not have (and whose definition is not an existing case renamed)."""
@@ -1298,7 +1302,6 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
     except (OSError, ValueError, KeyError, TypeError) as e:
         out(f"FAIL: {BASELINE.name} is missing or malformed ({e})")
         return 1
-    gated = {c["id"] for c in cases if "advisory" not in c}
     by_id = {c["id"]: c for c in cases}
     for slug, entries in sorted(head.items()):
         if not (repo / "skills" / slug / "cli").is_dir():
@@ -1306,11 +1309,11 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
         if (repo / "skills" / slug / "cli" / "internal" / "credkit").is_dir() and entries:
             bad.append(f"{slug}: has adopted the shared credential kit (cli/internal/credkit/) but still lists "
                        f"{len(entries)} known failure(s); a kit connector passes every gated case")
+        # An advisory row fails too when another held value leaks during it,
+        # so its entries are judged like any other case's.
         for e in sorted(entries):
             if case_of(e) not in by_id:
                 bad.append(f"{slug}: {e}: no such case in {CORPUS.name}")
-            elif case_of(e) not in gated:
-                bad.append(f"{slug}: {e}: an advisory case never fails, so it is never baselined")
     if base is not None:
         rp = _git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
         if rp.returncode != 0 or not rp.stdout.strip():
@@ -1352,11 +1355,13 @@ def check_baseline(base: str | None, repo: Path | None = None, out=print) -> int
         dropped = sorted(i for i in base_ids - set(by_id) if isinstance(i, str))
         dropped += sorted(c["id"] for c in base_cases if isinstance(c.get("id"), str)
                           and c["id"] in by_id and by_id[c["id"]] != c)
-        rel_e = "tools/maintainer/class_secret_corpus.py"
-        if rel_c in present and _git(repo, "cat-file", "-e", f"{sha}:{rel_e}").returncode == 0:
+        # The engine and the oracle helpers it imports give every case its meaning.
+        for rel_e in ("tools/maintainer/class_secret_corpus.py", "tools/maintainer/class_harness.py"):
+            if rel_c not in present or _git(repo, "cat-file", "-e", f"{sha}:{rel_e}").returncode != 0:
+                continue
             ns = _git(repo, "diff", "--numstat", sha, "--", rel_e)
             if ns.returncode != 0:
-                out(f"FAIL: cannot diff the engine against {base!r}; the guard fails closed")
+                out(f"FAIL: cannot diff {Path(rel_e).name} against {base!r}; the guard fails closed")
                 return 1
             if any(ln.split("\t")[1] not in ("0", "-") or ln.startswith("-") for ln in ns.stdout.splitlines() if ln):
                 dropped.append(f"(an edited line of {Path(rel_e).name})")
@@ -1955,6 +1960,10 @@ def _self_test_held_and_sinks() -> bool:
               env=secret, sensitive={"client_secret": True})),
         ("a second declared secret never printed", "succ-raw", "PASS",
          dict(cli='call("GET", "/v1/items")\nprint("ok")\n', env=secret, sensitive={"client_secret": True})),
+        ("an undeclared variable printed beside a declared one", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_OTHER_TOKEN", ""))\n',
+              env={**secret, "ACME_OTHER_TOKEN": "${user_config.other}"},
+              sensitive={"client_secret": True, "other": False})),
         ("a declared URL variable printed", "each-env-var", "FAIL",
          dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_SECRET_URL", ""))\n',
               env=sec_url, sensitive={"secret_url": True, "api_key": False})),
@@ -2049,9 +2058,14 @@ def _self_test_guard() -> bool:
         write({"acme": [g[0], g[1], "each-env-var[ACME_TOKEN]"]})
         expect(guard(none) == 0, "the PR that introduces the list and its baseline passes")
         write({"acme": [g[0], g[1]]})
+        (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\n", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "baseline")
         base = git("rev-parse", "HEAD")
+        (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return []\n", encoding="utf-8")
+        write({"acme": [g[0], g[1], "zz-new-case"]}, {"id": "zz-new-case", "family": "test", "form": "rot13>base32"})
+        expect(guard(base) == 1, "a change that edits an oracle helper line in class_harness.py adds no entry")
+        (tm / "class_harness.py").write_text("def leaks(text, secret):\n    return [1]\n", encoding="utf-8")
         write({"acme": [g[0]]})
         expect(guard(base) == 0, "a baseline that only shrank must pass")
         write({"acme": [g[0], g[1], g[2]]})
@@ -2081,7 +2095,7 @@ def _self_test_guard() -> bool:
         write({"acme": [g[0], g[1]]}, drop=g[5])
         expect(guard(base) == 0, "a case removed on its own, with no entry added, passes")
         write({"acme": [g[0], adv]})
-        expect(guard(base) == 1, "an advisory case is never baselined")
+        expect(guard(base) == 1, "an entry added for an existing advisory case must fail")
         write({"acme": [g[0], "no-such-case"]})
         expect(guard(base) == 1, "an entry for a case that does not exist must fail")
         write({"acme": [g[0], "each-env-var[ACME_TOKEN]"]})
