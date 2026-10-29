@@ -67,29 +67,32 @@ detail and the recent-detections list; omit it for a counts-only summary. Run
 			resolvedID := lgID(env)
 			envName := lgStr(env, "Name", "name")
 
-			systems, _ := loadObjs(db, rtSystems)
-			launchpoints, _ := loadObjs(db, rtLaunchpoints)
-			agents, _ := loadObjs(db, rtAgents)
-			timeline, _ := loadObjs(db, rtTimeline)
-			detections, _ := loadObjs(db, rtDetections)
+			// Every resource the overview counts must be a complete local copy
+			// (Codex r1 class incomplete-snapshot-read-as-complete): a load
+			// error refuses instead of counting zero.
+			var systems, launchpoints, agents, timeline, detections []map[string]any
+			for _, l := range []struct {
+				rt  string
+				dst *[]map[string]any
+			}{{rtSystems, &systems}, {rtLaunchpoints, &launchpoints}, {rtAgents, &agents}, {rtTimeline, &timeline}, {rtDetections, &detections}} {
+				objs, err := loadObjs(db, l.rt)
+				if err != nil {
+					return err
+				}
+				*l.dst = objs
+			}
 
-			// Newest inspection per launchpoint (timeline carries a Launchpoint ref).
-			latestByLP := map[string]time.Time{}
+			// Newest inspection per launchpoint: this environment's timeline
+			// entries (an entry naming another environment is skipped) and the
+			// launchpoint's own documented last-run timestamps.
+			envTimeline := make([]map[string]any, 0, len(timeline))
 			for _, t := range timeline {
-				// Restrict to this environment's timeline when the entry names one.
 				if e := lgRefID(t, "Environment", "EnvironmentID"); e != "" && e != resolvedID {
 					continue
 				}
-				lpID := lgRefID(t, "Launchpoint", "LaunchpointID")
-				if lpID == "" {
-					continue
-				}
-				if ts, ok := lgTime(t, tsKeysInspection...); ok {
-					if cur, seen := latestByLP[lpID]; !seen || ts.After(cur) {
-						latestByLP[lpID] = ts
-					}
-				}
+				envTimeline = append(envTimeline, t)
 			}
+			latestByLP := lastRunByLaunchpoint(envTimeline, launchpoints)
 
 			type systemRow struct {
 				SystemID       string `json:"system_id"`

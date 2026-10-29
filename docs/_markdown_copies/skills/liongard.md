@@ -4,7 +4,7 @@
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Liongard, Inc..
+> Not affiliated with, endorsed by, or sponsored by Liongard, Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
@@ -26,9 +26,9 @@ Your agent runs: `liongard-cli drift --since 7d`
 **just ask:** *"Which Liongard collectors have gone stale?"*
 Your agent runs: `liongard-cli launchpoints stale --older-than 7d`
 
-**Instead of** Write an API script to pull one metric across every system for the QBR deck.
-**just ask:** *"Give me the MFA-enabled count for every system as a CSV."*
-Your agent runs: `liongard-cli metrics pivot "MFA Enabled Count" --csv`
+**Instead of** Open every environment to check which clients still lack an inspector before the QBR.
+**just ask:** *"Which environments are still missing the Microsoft 365 inspector?"*
+Your agent runs: `liongard-cli inspectors coverage --inspector "Microsoft 365"`
 
 ## See it in 30 seconds
 
@@ -46,8 +46,7 @@ Demo data is simulated. Every command shown exists in the real CLI.
 | Give me one health scorecard for the whole estate. | `liongard-cli health --agent` |
 | Show me one client's complete picture in a single command. | `liongard-cli environments overview 42` |
 | Which inspections failed or errored across the estate? | `liongard-cli detections failures --since 7d` |
-| Pull one metric across every system, CSV-ready for a report. | `liongard-cli metrics pivot "MFA Enabled Count" --csv` |
-| Which systems breach a threshold, like patch age over 30 days? | `liongard-cli metrics breach "Patch Age Days" --op gt --value 30` |
+| Which systems does one metric cover, CSV-ready for a report? | `liongard-cli metrics pivot "MFA Enabled Count" --csv` |
 | Where are my monitoring gaps (systems with no launchpoint, environments with no systems)? | `liongard-cli coverage` |
 | Which environments are still missing a given inspector? | `liongard-cli inspectors coverage --inspector "Microsoft 365"` |
 | What is the full change history for one system? | `liongard-cli systems history 4821` |
@@ -117,7 +116,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way liongard-mcp runs, and shares MCP configuration with Codex: add liongard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way liongard-mcp runs, and shares MCP configuration with Codex: add liongard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see Remote agents in the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

@@ -1,0 +1,293 @@
+{
+ "sites": [
+  {
+   "file": "cmd/liongard-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is handed straight to requireBearerAuthWithOrigins, whose gate runs inside credkit.MCPHTTP, so every response it writes passes the kit (credkit-mcphttp-outermost)"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "installPin",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "client.OutboundGuard is credkit.Transport, a function variable the origin pin wraps (in-process unit tests set it to the identity)"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "installPin",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the inner transport when the client carries none; it is passed to client.OutboundGuard (credkit.Transport) on the next line"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin around credkit.Transport (client.OutboundGuard): it narrows where a request may go, and every send still passes the kit"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "installPin",
+   "what": "convert:liongard-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a tripper of this file between the origin pin and credkit.Transport; it refuses or holds, it never sends another way"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "installPin",
+   "what": "convert:liongard-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "under --dry-run the pin's inner tripper refuses every request; nothing is sent"
+  },
+  {
+   "file": "internal/cli/liongard_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "calls the next tripper of the chain, which ends in credkit.Transport (client.OutboundGuard) or the dry-run refusal"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdProfileStore",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a saved profile store inside Files, during Start; credkit.HoldBody holds every credential-named value in it before Start returns, and nothing is printed from it"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "wraps a connection credkit.SQLDriver already wrapped, only to set the SQLite length limit; runs no query and outputs nothing"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty, exclusive temp file only; it is closed unwritten and the body is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves into place a temp file whose bytes credkit.WriteFile wrote and checked; the destination receives only those bytes"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the webhook client built in the same function with Transport: credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the client built in the same function with Transport: credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "newFeedbackListCmd",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads feedback.jsonl, which this program appends through credkit.OpenFile; never a credential file"
+  },
+  {
+   "file": "internal/cli/profile.go",
+   "func": "saveProfileStore",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves into place a temp file whose bytes credkit.WriteFile wrote and checked; the destination receives only those bytes (profile save refuses credential flags)"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "rotateLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "rotates a learnings or teach-error log, written through the kit, to its .1 name; never a credential file"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "scrubLogFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a learnings or teach-error log the kit wrote, to drop one query's lines; the rewrite goes through credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads the store's scope-hash marker (a hex hash) this program wrote through the kit; never a credential file"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty, exclusive marker temp file only; its content is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "links the marker temp file, written by credkit.WriteFile, to its final name; the destination is the scope-hash marker, never a credential file"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.readCacheWithHeaders",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a response cache file this program writes through credkit.WriteFile (the cache is also off: no-response-cache)"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.platformCacheMetadataMatches",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads cache metadata this program writes through credkit.WriteFile; never a credential file"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.doInternal",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by c.HTTPClient, whose transport the origin pin hook replaces with the pin around credkit.Transport (client.OutboundGuard) before any request"
+  },
+  {
+   "file": "internal/cliutil/probe.go",
+   "func": "ProbeReachable",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the probe client built in the same function with Transport: credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cache/cache.go",
+   "func": "Store.Get",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a cache file Store.Set writes through credkit.WriteFile; never a credential file"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.WriteFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a credential-store write: a SOURCE, outside the kit by design; it puts back the 0600 credentials file Declarations.Files names (config.ReadPaths) after a failed save"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.Symlink",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a credential-store write: a SOURCE, outside the kit by design; it puts back the credentials file's own symlink after a failed save"
+  },
+  {
+   "file": "internal/mcp/cobratree/shellout.go",
+   "func": "mcpChildEnviron",
+   "what": "os.Environ",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "copies this process's environment for a mirrored CLI child, dropping LIONGARD_MCP_HTTP_TOKEN; credkit.RunCommand checks the child's environment and hands the held set over",
+   "names": []
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty, exclusive temp file only; it is closed and then written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves into place a temp file whose bytes credkit.WriteFile wrote and checked; the destination receives only those bytes"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "repairJournalSegmentTail",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the last byte of a learn journal segment under the state dir to repair a torn tail; a journal segment is never a credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "ReadJournalFrom",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads learn journal segments the kit wrote under the state dir; never a credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "LoadJournalOffset",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the derivation offset the kit wrote under the state dir; never a credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "journalHashedHarnessSession",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the harness session id variables in JournalHarnessSessionEnvVars; only a 64-bit hash of the first is stored",
+   "names": [
+    "CODEX_THREAD_ID",
+    "CODEX_SESSION_ID",
+    "CLAUDE_SESSION_ID",
+    "CLAUDE_CODE_SESSION",
+    "CURSOR_SESSION_ID",
+    "CURSOR_TRACE_ID"
+   ]
+  },
+  {
+   "file": "internal/learn/teach_log.go",
+   "func": "rotateTeachLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "rotates teach.log to teach.log.1 under the state dir; the destination is the learn log the kit wrote, never a credential file"
+  }
+ ]
+}

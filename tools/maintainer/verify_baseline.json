@@ -161,12 +161,6 @@
    "read-only",
    "local-data"
   ],
-  "liongard": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "maxio": [
    "mcp-http",
    "write-gating",

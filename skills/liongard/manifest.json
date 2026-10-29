@@ -19,15 +19,42 @@
         "LIONGARD_ACCESS_KEY_SECRET": "${user_config.liongard_access_key_secret}",
         "LIONGARD_API_KEY": "${user_config.liongard_api_key}",
         "LIONGARD_BASE_URL": "${user_config.liongard_base_url}",
-        "LIONGARD_INSTANCE": "${user_config.liongard_instance}"
+        "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH": "${user_config.liongard_endpoints_session_token_auth}",
+        "LIONGARD_INSTANCE": "${user_config.liongard_instance}",
+        "LIONGARD_MCP_READ_ONLY": "${user_config.liongard_mcp_read_only}",
+        "LIONGARD_NO_LOCAL_DATA": "${user_config.liongard_no_local_data}",
+        "LIONGARD_MCP_HTTP_TOKEN": "${user_config.liongard_mcp_http_token}",
+        "LIONGARD_USER_AGENT": "${user_config.liongard_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
   "user_config": {
+    "liongard_access_key_id": {
+      "type": "string",
+      "title": "Liongard Access Key ID",
+      "description": "Liongard Access Key ID, the half that pairs with LIONGARD_ACCESS_KEY_SECRET; the server composes the two into the base64 X-ROAR-API-KEY. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
+      "sensitive": true,
+      "required": false
+    },
+    "liongard_access_key_secret": {
+      "type": "string",
+      "title": "Liongard Access Key Secret",
+      "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
+      "sensitive": true,
+      "required": false
+    },
     "liongard_api_key": {
       "type": "string",
       "title": "LIONGARD_API_KEY",
       "description": "Pre-encoded X-ROAR-API-KEY: base64 of 'accessKeyId:accessKeySecret'. One of two ways to authenticate - set EITHER this key OR the LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET pair, never both. This key wins when it is set, and the pair is ignored.",
+      "sensitive": true,
+      "required": false
+    },
+    "liongard_endpoints_session_token_auth": {
+      "type": "string",
+      "title": "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH",
+      "description": "Optional Liongard session token (from `authentication log-in`), sent as X-Auth-Token only to the endpoints that accept a session token (verify-token, access-key create). Leave blank to use the access key.",
       "sensitive": true,
       "required": false
     },
@@ -44,19 +71,39 @@
       "description": "Full API base URL. Leave blank: the CLI builds it from LIONGARD_INSTANCE. Set it only to point at a different host.",
       "required": false
     },
-    "liongard_access_key_id": {
+    "liongard_mcp_read_only": {
       "type": "string",
-      "title": "Liongard Access Key ID",
-      "description": "Liongard Access Key ID, the half that pairs with LIONGARD_ACCESS_KEY_SECRET; the server composes the two into the base64 X-ROAR-API-KEY. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
-      "sensitive": true,
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "liongard_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "liongard_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses; leave blank.",
+      "required": false,
+      "sensitive": true
+    },
+    "liongard_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Liongard requests. Leave blank to use the CLI's own built-in User-Agent.",
       "required": false
     },
-    "liongard_access_key_secret": {
+    "printing_press_client_profile": {
       "type": "string",
-      "title": "Liongard Access Key Secret",
-      "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
-      "sensitive": true,
-      "required": false
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -67,11 +114,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:10:04.595258Z",
-    "spec_checksum": "sha256:369e071df713d1be383ab5b568b5bdc16b420fd8a82c395c329d97c6ef91fdfc",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T18:13:10.946066Z",
+    "spec_checksum": "sha256:8d9c6f4309c514e82a5628690e3c6f709f07917375dfcf8e43ae88162dcb8d9c",
     "spec_format": "openapi3"
   }
 }

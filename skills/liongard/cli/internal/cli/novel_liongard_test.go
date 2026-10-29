@@ -52,19 +52,24 @@ func seedStore(t *testing.T) *store.Store {
 		"Environment": ref(1, "Acme"), "Inspector": ref(5, "Microsoft 365"),
 		"Launchpoint": ref(100, "M365 LP"),
 	})
-	// sys 11: UNINSPECTED (no Launchpoint), inspector 6, env Acme
+	// sys 11: UNINSPECTED (Launchpoint null), inspector 6, env Acme
 	put("systems", "11", map[string]any{
 		"ID": 11.0, "Name": "AD Forest", "Status": "Active",
 		"Environment": ref(1, "Acme"), "Inspector": ref(6, "Active Directory"),
+		"Launchpoint": nil,
 	})
 
 	put("launchpoints", "100", map[string]any{
 		"ID": 100.0, "Alias": "M365 LP", "Status": "Active",
 		"Environment": ref(1, "Acme"), "Inspector": ref(5, "Microsoft 365"),
+		"LastScheduledRun": "2021/09/10 19:25:00", "LastAdHocRun": nil,
+		"TotalScheduledRuns": 1.0, "TotalAdHocRuns": 0.0,
 	})
-	put("launchpoints", "101", map[string]any{ // never inspected (no timeline)
+	put("launchpoints", "101", map[string]any{ // never inspected (no timeline, no runs)
 		"ID": 101.0, "Alias": "Idle LP", "Status": "Active",
 		"Environment": ref(1, "Acme"), "Inspector": ref(7, "DNS"),
+		"LastScheduledRun": nil, "LastAdHocRun": nil,
+		"TotalScheduledRuns": 0.0, "TotalAdHocRuns": 0.0,
 	})
 
 	// One old inspection for LP 100 (slash date format).
@@ -77,17 +82,21 @@ func seedStore(t *testing.T) *store.Store {
 
 	put("agents", "200", map[string]any{
 		"ID": 200.0, "Name": "agent-acme", "Status": "Active", "Hostname": "acme-01",
-		"Environment": ref(1, "Acme"),
+		"Environment": ref(1, "Acme"), "LastHeartbeat": nil,
 	})
 	put("agents", "201", map[string]any{
 		"ID": 201.0, "Name": "agent-beta", "Status": "Offline", "Hostname": "beta-01",
-		"Environment": ref(2, "Beta"),
+		"Environment": ref(2, "Beta"), "LastHeartbeat": nil,
 	})
 
 	put("metrics", "400", map[string]any{
 		"ID": 400.0, "Name": "MFA Enabled Count",
 		"Inspector": ref(5, "Microsoft 365"), "Environment": ref(1, "Acme"),
 	})
+	// A complete, unnarrowed snapshot: the novels refuse a resource whose
+	// sync never finished or was narrowed (Codex r1/r2 class
+	// incomplete-snapshot-read-as-complete).
+	markFullSnapshot(t, db, "environments", "systems", "launchpoints", "timeline", "agents", "detections", "metrics")
 	return db
 }
 

@@ -57,7 +57,7 @@
           "name": "AccessKeyID",
           "type": "string",
           "location": "path",
-          "description": "ID of Access Key",
+          "description": "ID of Access Key (e.g. 12a3b45678cd912e3f4g)",
           "required": true
         }
       ]
@@ -86,19 +86,20 @@
           "name": "AgentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Agent",
+          "description": "ID of Agent (e.g. 17)",
           "required": true
         }
       ]
     },
     {
       "name": "agents_get",
-      "description": "List all agents. Optional: fields[]. Returns array of Agents.",
+      "description": "List all agents. Optional: fields. Returns array of Agents.",
       "method": "GET",
       "path": "/agents",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -107,7 +108,7 @@
     },
     {
       "name": "agents_get-agentid",
-      "description": "Get a specific Agent. Required: AgentID. Optional: fields[]. Returns array of Agents.",
+      "description": "Get a specific Agent. Required: AgentID. Optional: fields. Returns array of Agents.",
       "method": "GET",
       "path": "/agents/{AgentID}",
       "params": [
@@ -115,11 +116,12 @@
           "name": "AgentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Agent",
+          "description": "ID of Agent (e.g. 17)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -143,7 +145,7 @@
           "name": "AgentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Agent",
+          "description": "ID of Agent (e.g. 17)",
           "required": true
         },
         {
@@ -178,7 +180,7 @@
           "name": "AgentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Agent",
+          "description": "ID of Agent (e.g. 17)",
           "required": true
         }
       ]
@@ -220,18 +222,20 @@
     },
     {
       "name": "detections_detections",
-      "description": "Returns a list of all detection events. Optional: fields[], conditions[].",
+      "description": "Returns a list of all detection events. Optional: fields, conditions.",
       "method": "GET",
       "path": "/detections",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -240,7 +244,7 @@
     },
     {
       "name": "detections_detectionsby-id",
-      "description": "Gets a specific detection. Required: DetectionID. Optional: fields[]. Returns array of Detection.",
+      "description": "Gets a specific detection. Required: DetectionID. Optional: fields. Returns array of Detection.",
       "method": "GET",
       "path": "/detections/{DetectionID}",
       "params": [
@@ -248,11 +252,12 @@
           "name": "DetectionID",
           "type": "int",
           "location": "path",
-          "description": "ID of Detection",
+          "description": "ID of Detection (e.g. 77001)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -325,25 +330,27 @@
           "name": "EnvironmentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Environment",
+          "description": "ID of Environment (e.g. 42)",
           "required": true
         }
       ]
     },
     {
       "name": "environments_get",
-      "description": "Fetch all environments in your Service Provider. Optional: fields[], conditions[]. Returns array of Environments.",
+      "description": "Fetch all environments in your Service Provider. Optional: fields, conditions. Returns array of Environments.",
       "method": "GET",
       "path": "/environments",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -352,7 +359,7 @@
     },
     {
       "name": "environments_get-environmentid",
-      "description": "Get a single environment. Required: EnvironmentID. Optional: fields[]. Returns the Environments.",
+      "description": "Get a single environment. Required: EnvironmentID. Optional: fields. Returns the Environments.",
       "method": "GET",
       "path": "/environments/{EnvironmentID}",
       "params": [
@@ -360,11 +367,12 @@
           "name": "EnvironmentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Environment",
+          "description": "ID of Environment (e.g. 42)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -381,7 +389,7 @@
           "name": "EnvironmentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Environment",
+          "description": "ID of Environment (e.g. 42)",
           "required": true
         },
         {
@@ -430,25 +438,27 @@
           "name": "EnvironmentID",
           "type": "int",
           "location": "path",
-          "description": "ID of Environment",
+          "description": "ID of Environment (e.g. 42)",
           "required": true
         }
       ]
     },
     {
       "name": "groups_get",
-      "description": "Returns a List of available Assignable Roles for a user. Optional: fields[], conditions[].",
+      "description": "Returns a List of available Assignable Roles for a user. Optional: fields, conditions.",
       "method": "GET",
       "path": "/groups",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -457,7 +467,7 @@
     },
     {
       "name": "inspector_templates_get-inspectors",
-      "description": "Get Inspector Config and SecureConfig Fields. Each Inspector has a set of variables used for configuring the launchpoint of an inspector. The Name key under variables is what is needed for completing the launchpoint configuration, the Secure and Required keys are used to determine if the configuration fields are SecureConfig or Config and if they are required. Required: InspectorId. Optional: fields[]. Returns array of InspectorTemplate.",
+      "description": "Get Inspector Config and SecureConfig Fields. Each Inspector has a set of variables used for configuring the launchpoint of an inspector. The Name key under variables is what is needed for completing the launchpoint configuration, the Secure and Required keys are used to determine if the configuration fields are SecureConfig or Config and if they are required. Required: InspectorId. Optional: fields. Returns array of InspectorTemplate.",
       "method": "GET",
       "path": "/inspector/{InspectorId}/templates",
       "params": [
@@ -465,11 +475,12 @@
           "name": "InspectorId",
           "type": "int",
           "location": "path",
-          "description": "ID of Inspector",
+          "description": "ID of Inspector (e.g. 8)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -478,7 +489,7 @@
     },
     {
       "name": "inspector_versions_get-inspector",
-      "description": "Returns a List of Inspector Versions, This ID is required for creating a metric and determining the latest version of the inspector to run against. The Latest version of the inspector can be determined by the Lastest ID in the List (Highest ID) or you can use the 'CreatedOn' field to determine the latest ID. We recommend sorting by 'desc' to return the latest ID at the top of the list. Required: InspectorId. Optional: fields[], orderBy[].",
+      "description": "Returns a List of Inspector Versions, This ID is required for creating a metric and determining the latest version of the inspector to run against. The Latest version of the inspector can be determined by the Lastest ID in the List (Highest ID) or you can use the 'CreatedOn' field to determine the latest ID. We recommend sorting by 'desc' to return the latest ID at the top of the list. Required: InspectorId. Optional: fields, orderBy.",
       "method": "GET",
       "path": "/inspector/{InspectorId}/versions",
       "params": [
@@ -486,17 +497,19 @@
           "name": "InspectorId",
           "type": "int",
           "location": "path",
-          "description": "ID of Inspector",
+          "description": "ID of Inspector (e.g. 8)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "orderBy[]",
+          "name": "orderBy",
+          "wire_name": "orderBy[]",
           "type": "string",
           "location": "query",
           "description": "Sort response key by Ascending or Descending order"
@@ -505,12 +518,13 @@
     },
     {
       "name": "inspectors_get",
-      "description": "Lists all avaialble Inspectors in Liongard. Optional: fields[]. Returns the Inspector.",
+      "description": "Lists all avaialble Inspectors in Liongard. Optional: fields. Returns the Inspector.",
       "method": "GET",
       "path": "/inspectors",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -556,25 +570,27 @@
           "name": "LaunchpointID",
           "type": "int",
           "location": "path",
-          "description": "ID of Launchpoint",
+          "description": "ID of Launchpoint (e.g. 1203)",
           "required": true
         }
       ]
     },
     {
       "name": "launchpoints_get",
-      "description": "Lists all launchpoints. Optional: fields[], conditions[]. Returns array of Launchpoints.",
+      "description": "Lists all launchpoints. Optional: fields, conditions. Returns array of Launchpoints.",
       "method": "GET",
       "path": "/launchpoints",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -590,7 +606,7 @@
     },
     {
       "name": "launchpoints_launchpoint",
-      "description": "Create a launchpoint. You will need to reference the inspector templates for building out the config and secure config objects for this launchpoint. Each Inspector has a different template that contains the necessary configuration fields. Required: ActiveEnd, ActiveStart, Agent, Alias, Config, Enabled, Environment, FreqInterval, FreqType, Inspector, Version, Visible. Optional: ParentID, SecureConfig. Returns array of LaunchpointsLaunchpointItem.",
+      "description": "Create a launchpoint. You will need to reference the inspector templates for building out the config and secure config objects for this launchpoint. Each Inspector has a different template that contains the necessary configuration fields. Required: ActiveEnd, ActiveStart, Agent, Alias, Config, Enabled, Environment, FreqInterval, FreqType, Inspector, Version, Visible. Optional: ParentID, SecureConfig. Returns the new Launchpoints.",
       "method": "POST",
       "path": "/launchpoints",
       "params": [
@@ -694,7 +710,7 @@
     },
     {
       "name": "launchpoints_launchpointsby-id",
-      "description": "Return a specific launchpoint by ID. Required: LaunchpointID. Optional: fields[]. Returns array of Launchpoints.",
+      "description": "Return a specific launchpoint by ID. Required: LaunchpointID. Optional: fields. Returns array of Launchpoints.",
       "method": "GET",
       "path": "/launchpoints/{LaunchpointID}",
       "params": [
@@ -702,11 +718,12 @@
           "name": "LaunchpointID",
           "type": "int",
           "location": "path",
-          "description": "ID of Launchpoint",
+          "description": "ID of Launchpoint (e.g. 1203)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -723,7 +740,7 @@
           "name": "LaunchpointID",
           "type": "int",
           "location": "path",
-          "description": "ID of Launchpoint",
+          "description": "ID of Launchpoint (e.g. 1203)",
           "required": true
         },
         {
@@ -870,7 +887,7 @@
           "name": "LaunchpointID",
           "type": "int",
           "location": "path",
-          "description": "ID of Launchpoint",
+          "description": "ID of Launchpoint (e.g. 1203)",
           "required": true
         }
       ]
@@ -948,7 +965,7 @@
           "name": "MetricID",
           "type": "int",
           "location": "path",
-          "description": "ID of the Metric",
+          "description": "ID of the Metric (e.g. 12)",
           "required": true
         }
       ]
@@ -1027,12 +1044,13 @@
     },
     {
       "name": "metrics_metrics",
-      "description": "Returns a list of metrics that have been created. Optional: conditions[].",
+      "description": "Returns a list of metrics that have been created. Optional: conditions.",
       "method": "GET",
       "path": "/metrics",
       "params": [
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -1049,7 +1067,7 @@
           "name": "MetricID",
           "type": "int",
           "location": "path",
-          "description": "ID of the Metric",
+          "description": "ID of the Metric (e.g. 12)",
           "required": true
         },
         {
@@ -1096,18 +1114,20 @@
     },
     {
       "name": "systems_systems",
-      "description": "List all systems. Optional: fields[], conditions[]. Returns array of Systems.",
+      "description": "List all systems. Optional: fields, conditions. Returns array of Systems.",
       "method": "GET",
       "path": "/systems",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -1124,14 +1144,14 @@
           "name": "SystemID",
           "type": "int",
           "location": "path",
-          "description": "ID of System",
+          "description": "ID of System (e.g. 5501)",
           "required": true
         }
       ]
     },
     {
       "name": "tasks_get-alert",
-      "description": "Returns a single alert that has been raised. Required: TaskID. Optional: fields[].",
+      "description": "Returns a single alert that has been raised. Required: TaskID. Optional: fields.",
       "method": "GET",
       "path": "/tasks/{TaskID}",
       "params": [
@@ -1139,11 +1159,12 @@
           "name": "TaskID",
           "type": "int",
           "location": "path",
-          "description": "ID of Alert",
+          "description": "ID of Alert (e.g. 3301)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -1159,12 +1180,13 @@
     },
     {
       "name": "tasks_list-alerts",
-      "description": "Returns a list of alerts that have been raised. Optional: fields[].",
+      "description": "Returns a list of alerts that have been raised. Optional: fields.",
       "method": "GET",
       "path": "/tasks",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -1180,18 +1202,20 @@
     },
     {
       "name": "timeline_timeline",
-      "description": "Fetch all timeline entries. Optional: fields[], conditions[]. Returns array of Timeline.",
+      "description": "Fetch all timeline entries. Optional: fields, conditions. Returns array of Timeline.",
       "method": "GET",
       "path": "/timeline",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -1200,7 +1224,7 @@
     },
     {
       "name": "timeline_timelineby-id",
-      "description": "Fetch a specific timeline. Required: TimelineID. Optional: fields[]. Returns array of Timeline.",
+      "description": "Fetch a specific timeline. Required: TimelineID. Optional: fields. Returns array of Timeline.",
       "method": "GET",
       "path": "/timeline/{TimelineID}",
       "params": [
@@ -1208,11 +1232,12 @@
           "name": "TimelineID",
           "type": "int",
           "location": "path",
-          "description": "ID of Timeline",
+          "description": "ID of Timeline (e.g. 90210)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -1229,7 +1254,7 @@
           "name": "TimelineID",
           "type": "int",
           "location": "path",
-          "description": "ID of Timeline",
+          "description": "ID of Timeline (e.g. 90210)",
           "required": true
         }
       ]
@@ -1307,25 +1332,27 @@
           "name": "UserID",
           "type": "int",
           "location": "path",
-          "description": "ID of User",
+          "description": "ID of User (e.g. 9)",
           "required": true
         }
       ]
     },
     {
       "name": "users_get",
-      "description": "Returns a list of users in your Liongard Instance. Optional: fields[], conditions[].",
+      "description": "Returns a list of users in your Liongard Instance. Optional: fields, conditions.",
       "method": "GET",
       "path": "/users",
       "params": [
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
         },
         {
-          "name": "conditions[]",
+          "name": "conditions",
+          "wire_name": "conditions[]",
           "type": "string",
           "location": "query",
           "description": "conditions[]={'path':'Field Path','op':'Operator','value':'value'}"
@@ -1334,7 +1361,7 @@
     },
     {
       "name": "users_get-single",
-      "description": "Returns a Single User. Required: UserID. Optional: fields[].",
+      "description": "Returns a Single User. Required: UserID. Optional: fields.",
       "method": "GET",
       "path": "/users/{UserID}",
       "params": [
@@ -1342,11 +1369,12 @@
           "name": "UserID",
           "type": "int",
           "location": "path",
-          "description": "ID of User",
+          "description": "ID of User (e.g. 9)",
           "required": true
         },
         {
-          "name": "fields[]",
+          "name": "fields",
+          "wire_name": "fields[]",
           "type": "array",
           "location": "query",
           "description": "Will only return the fields specified from this parameter, multiple uses of the parameter..."
@@ -1363,7 +1391,7 @@
           "name": "UserID",
           "type": "int",
           "location": "path",
-          "description": "ID of User",
+          "description": "ID of User (e.g. 9)",
           "required": true
         },
         {
@@ -1415,6 +1443,68 @@
           "description": "Username"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-estate drift window",
+      "command": "drift",
+      "description": "Every change detected across all your client environments within a time window, joined to the owning environment and system."
+    },
+    {
+      "name": "Environment 360",
+      "command": "environments overview",
+      "description": "One client's complete picture in a single command: its systems, each system's launchpoints, agent, latest inspection, open detections, and key metrics."
+    },
+    {
+      "name": "Stale launchpoints sweep",
+      "command": "launchpoints stale",
+      "description": "Every launchpoint whose newest inspection is older than a threshold, with the owning environment and system named."
+    },
+    {
+      "name": "Agent-offline sweep",
+      "command": "agents offline",
+      "description": "Every offline agent across the estate, joined to the environment it serves."
+    },
+    {
+      "name": "Coverage reconcile",
+      "command": "coverage",
+      "description": "Monitoring gaps: systems with no launchpoint bound, and environments with no systems at all."
+    },
+    {
+      "name": "Metric pivot",
+      "command": "metrics pivot",
+      "description": "One RoarPath metric pulled across every system as a system-by-value table, CSV-ready for reports."
+    },
+    {
+      "name": "Metric threshold scan",
+      "command": "metrics breach",
+      "description": "Every system whose RoarPath metric value crosses a numeric threshold."
+    },
+    {
+      "name": "Bulk inspection kick",
+      "command": "launchpoints run-stale",
+      "description": "Find stale launchpoints and trigger an inspection run on each, in one guarded command."
+    },
+    {
+      "name": "System change history",
+      "command": "systems history",
+      "description": "The full chronological change history of one system: every detection and inspection entry in time order."
+    },
+    {
+      "name": "Inspection-failure sweep",
+      "command": "detections failures",
+      "description": "Every inspection that ran but failed or errored across the estate, joined to the owning environment."
+    },
+    {
+      "name": "Inspector adoption gap",
+      "command": "inspectors coverage",
+      "description": "Which environments are missing a given inspector type - the estate-wide rollout-gap view."
+    },
+    {
+      "name": "Estate health rollup",
+      "command": "health",
+      "description": "One estate-wide health scorecard: stale launchpoints, offline agents, failed inspections, and coverage gaps as a single summary with a typed exit code."
     }
   ]
 }
