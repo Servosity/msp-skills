@@ -1666,6 +1666,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "windows-server",
+      "source": "./skills/windows-server",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "windows-server",
+        "windows server",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

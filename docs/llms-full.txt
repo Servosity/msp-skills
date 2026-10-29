@@ -3816,6 +3816,41 @@ A: Not yet. Every command was built from WatchGuard's published OpenAPI specific
 
 Governance: The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the response cache never stores them and the local mirror drops them (a software license key in an allocation row is replaced by a one-way fingerprint; Firebox serial numbers are kept). Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.
 
+### Windows Server (Monitoring)
+
+Page: [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/install.sh)
+
+Ask your AI "which of my Windows servers need attention today, and why?" and get one ok, warn, crit or unknown verdict per server: pending reboot, low disks, stopped automatic services, System log errors, patch age, pending updates, expiring certificates, Defender, time sync and failed scheduled tasks. It connects over WinRM with HTTPS, runs only fixed read scripts, and changes nothing except a service you confirm.
+
+Outcomes (question -> command your AI agent runs):
+- Which of my servers need attention today, and why? -> windows-server-cli health --agent
+- Which automatic services are stopped, and which Service Control Manager event explains each stop? -> windows-server-cli services down --agent
+- Which System and Application errors are new on a server compared with its own last 7 days? -> windows-server-cli eventlog new --window 24h --baseline 7d --agent
+- Who added or removed a local Administrators member this week, and when? -> windows-server-cli local-admins changes --hours 168 --agent
+- What changed in roles, shares, local admins, certificates and updates since the last snapshot? -> windows-server-cli inventory diff --agent
+- Which volumes are low on free space? -> windows-server-cli volumes --agent --select server,drive_letter,size_bytes,percent_free
+- Which scheduled tasks failed their last run? -> windows-server-cli scheduled-tasks --failed --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Windows Server MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Windows Server data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to install an agent on each server?
+A: No. It uses WinRM over HTTPS (port 5986), which is built into Windows Server. Enable an HTTPS listener and give the CLI a local or domain account in the server's Administrators group. Nothing is installed on the server.
+Q: Can the AI run its own PowerShell on my client's server?
+A: No. Every command runs one fixed script that ships inside the binary and is checked by hash before it runs. Arguments such as a service name are validated against a strict pattern and passed as typed data, never pasted into script text.
+Q: What does it change on a server?
+A: Only two things, and only after a preview: restarting one service, or starting one stopped automatic service. Over MCP the change runs only with confirm: true; on the CLI only with --yes.
+
+Governance: It reads server state over WinRM with fixed scripts and writes nothing to the server except two service actions: restart a service, or start a stopped automatic one, each previewed first and sent only with --yes (CLI) or confirm: true (MCP). Locally it writes the server list's stored passwords (0600 store), the health and inventory history, and the agent learning store. Keep agents on reads; have a human approve every service action.
+
 ### WordPress (Marketing)
 
 Page: [WordPress](https://msp-skills.compoundingteams.com/skills/wordpress.md)

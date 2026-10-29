@@ -2531,6 +2531,29 @@
         "evidence": null
       }
     },
+    "windows-server": {
+      "system": "Windows Server 2016 to 2025 health, inventory and safe service actions over WinRM",
+      "status": "beta",
+      "cli_binary": "windows-server-cli",
+      "mcp_binary": "windows-server-mcp",
+      "vendor": "Windows Server",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Monitoring",
+      "display_name": "Windows Server",
+      "tagline": "Check every Windows server's health, disks, services, updates and certificates by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:7b4b0bfd4fb413d42c265d42147502fca4c1d16fad1f1c04e9685422a08e0803",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "wordpress": {
       "system": "Publish and manage WordPress pages, posts, and media",
       "status": "live-verified",
