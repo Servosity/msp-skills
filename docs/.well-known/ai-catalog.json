@@ -1011,6 +1011,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:keeper",
+      "displayName": "Keeper Admin and MSP Console",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "description": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "How is every client doing on 2FA, weak passwords and BreachWatch?",
+        "Which clients have users without 2FA, admins first?",
+        "What changed since the last posture run, by client and by user?",
+        "Which invites went stale, and who is inactive or locked?",
+        "Which managed company does this user belong to?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/keeper.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:knowbe4",
       "displayName": "KnowBe4",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

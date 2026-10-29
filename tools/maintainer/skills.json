@@ -1282,6 +1282,29 @@
         "evidence": null
       }
     },
+    "keeper": {
+      "system": "Password manager administration for MSPs: managed companies, users, 2FA and admin posture, and licences across every client",
+      "status": "beta",
+      "cli_binary": "keeper-cli",
+      "mcp_binary": "keeper-mcp",
+      "vendor": "Keeper Security",
+      "vendor_trademark_owner": "Keeper Security, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Keeper Admin and MSP Console",
+      "tagline": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "has_video": true,
+      "cli_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "knowbe4": {
       "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
       "status": "beta",

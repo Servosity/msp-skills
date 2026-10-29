@@ -1556,6 +1556,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "keeper",
+      "source": "./skills/keeper",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "keeper",
+        "keeper security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

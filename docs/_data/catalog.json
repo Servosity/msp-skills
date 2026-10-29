@@ -1,5 +1,5 @@
 {
-  "count": 97,
+  "count": 98,
   "connectors": [
     {
       "slug": "abnormal",
@@ -637,6 +637,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/kaseya-vsa/"
+    },
+    {
+      "slug": "keeper",
+      "display_name": "Keeper Admin and MSP Console",
+      "tagline": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/keeper/"
     },
     {
       "slug": "knowbe4",

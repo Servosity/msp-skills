@@ -359,6 +359,13 @@
       "digest": "sha256:54cab9ace2b990a3059a41b671ab496c8bf0fe6067b7bca8240a5bbee67f0195"
     },
     {
+      "name": "keeper",
+      "type": "skill-md",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret. Trigger phrases: `which keeper clients have users without 2fa`, `keeper msp posture report`, `keeper seats per managed company`, `keeper breachwatch exposure across clients`, `use keeper`, `run keeper`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "digest": "sha256:de8bdaabaf5fd2640b8ceae87d8fec9087565c829bf514aa4a2429d05d7bc87e"
+    },
+    {
       "name": "knowbe4",
       "type": "skill-md",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",

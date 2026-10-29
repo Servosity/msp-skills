@@ -1,0 +1,21 @@
+{
+  "name": "keeper",
+  "version": "0.1.0",
+  "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/keeper",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "keeper",
+    "keeper security",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}
