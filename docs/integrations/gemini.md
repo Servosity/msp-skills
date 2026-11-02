@@ -5,11 +5,11 @@ description: "Use HaloPSA and Servosity in Google Gemini via MCP. Gemini CLI is 
 permalink: /integrations/gemini/
 faqs:
   - q: "Does Google Gemini support HaloPSA?"
-    a: "Yes, via MSP Skills' free HaloPSA MCP server. Gemini CLI runs it locally (add an mcpServers block to ~/.gemini/settings.json). The Gemini app connects to it over HTTPS, like ChatGPT."
+    a: "Yes, via MSP Skills' free HaloPSA MCP server. Gemini CLI runs it locally (add an mcpServers block to ~/.gemini/settings.json). The Gemini app connects to it over HTTPS, like ChatGPT on the web."
   - q: "Does Gemini support MCP?"
     a: "Yes. Google's Gemini API, SDK, and CLI all speak MCP as of early-mid 2026. Gemini CLI runs local stdio MCP servers directly; the Gemini app uses remote HTTPS endpoints."
   - q: "What's the difference between Gemini CLI and the Gemini app for MCP?"
-    a: "Gemini CLI is local - it launches the MSP Skills binary on your machine, no hosting, just like Claude Code. The Gemini app does not launch local binaries, so you host the MCP server over HTTPS and connect that URL, like ChatGPT's Developer Mode."
+    a: "Gemini CLI is local - it launches the MSP Skills binary on your machine, no hosting, just like Claude Code. The Gemini app does not launch local binaries, so you host the MCP server over HTTPS and connect that URL, like ChatGPT on the web."
 ---
 
 # HaloPSA and Servosity in Google Gemini
@@ -17,7 +17,7 @@ faqs:
 Google's Gemini comes in two shapes that consume MCP differently. Pick the one you have.
 
 - **Gemini CLI** - local, self-serve, no hosting. Like Claude Code. **Start here if you can.**
-- **Gemini app / web** - remote-only. You host the MCP server over HTTPS, like ChatGPT.
+- **Gemini app / web** - remote-only. You host the MCP server over HTTPS, like ChatGPT on the web.
 
 ## What you need
 
@@ -80,7 +80,7 @@ HALOPSA_TENANT=<tenant> HALOPSA_CLIENT_ID=<id> HALOPSA_CLIENT_SECRET=<secret> \
   halopsa-mcp --transport http --addr :7777
 ```
 
-Expose `http://localhost:7777/mcp` as a public **HTTPS** URL via a secure tunnel (Cloudflare Tunnel, ngrok), then connect that endpoint in the Gemini app. The path is part of the endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the bare root. Treat the URL as a credential. This is the same pattern as the [ChatGPT integration](/integrations/chatgpt/) - if you want a no-hosting path on Google, use Gemini CLI above instead.
+Expose `http://localhost:7777/mcp` as a public **HTTPS** URL via a secure tunnel (Cloudflare Tunnel, ngrok), then connect that endpoint in the Gemini app. The path is part of the endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the bare root. Treat the URL as a credential. If you want a no-hosting path on Google, use Gemini CLI above instead.
 
 ## Troubleshooting
 

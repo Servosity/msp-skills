@@ -1,6 +1,6 @@
 # Install an MCP server (Claude Desktop, ChatGPT Desktop)
 
-This page is for users of a desktop AI app that speaks MCP (Model Context Protocol). Claude Desktop launches the MCP server as a local binary; ChatGPT (Developer Mode, beta) connects to a remote MCP server over HTTPS instead, so its setup differs - see the per-skill `mcp-install.md` for the ChatGPT path. If you use Claude Code or Codex CLI, install the Skill instead via [install-skill.md](./install-skill.md).
+This page is for users of a desktop AI app that speaks MCP (Model Context Protocol). Claude Desktop and the ChatGPT desktop app both launch the MCP server as a local binary. ChatGPT on the web is not supported today (see below). If you use Claude Code or Codex CLI, install the Skill instead via [install-skill.md](./install-skill.md).
 
 ## What MCP gives you
 
@@ -43,7 +43,7 @@ Open the per-skill `mcp-install.md` for the exact JSON snippet:
 The two desktop apps wire MCP differently:
 
 - **Claude Desktop:** edit `claude_desktop_config.json`, add a `mcpServers` block pointing at the local MCP binary, set the env vars for credentials, restart the app. This is the simple, supported local path.
-- **ChatGPT (Developer Mode, beta):** ChatGPT connects only to remote MCP servers over HTTPS - it does not launch a local binary. Run the MCP binary in HTTP mode (`--transport http`) and expose its `/mcp` endpoint as a public HTTPS URL via a secure tunnel, then register that URL as a custom connector. Six connectors (avanan, blumira, connectwise-automate, cork, levelio, n-central) have no HTTP mode and are published with a `supergateway` bridge instead. Full steps, per connector, are in each skill's `mcp-install.md`.
+- **ChatGPT desktop app:** open **Settings**, select **MCP servers**, add a server, choose **STDIO**, and give the local MCP binary as the command. The app shares MCP configuration with Codex CLI, so a server already in `~/.codex/config.toml` is there too ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server instead, and HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so it is not supported today.
 
 ## Restart is required
 

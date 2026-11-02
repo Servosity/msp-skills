@@ -287,7 +287,7 @@ The five agents MSP owners actually use:
 | Your AI agent | Why MSPs use it | How to install MSP Skills |
 | --- | --- | --- |
 | **Claude Desktop** (Mac/Windows app) | The most common MSP-owner choice - no terminal, just a chat window | Run installer, then Settings > Extensions to register the MCP server |
-| **ChatGPT** (paid plans) | The brand most MSPs already pay for; pair with Developer Mode | Run installer, expose MCP over HTTPS, register as a Developer Mode connector |
+| **ChatGPT** (desktop app) | The brand most MSPs already pay for | Run installer, then add the MCP server in Settings > MCP servers as a local (STDIO) server. ChatGPT on the web is not supported yet |
 | **Claude Code** (CLI) | For the technical-leaning MSP owner or your senior tech | Paste the install prompt above |
 | **Codex CLI** (OpenAI) | OpenAI's terminal agent for the same audience | Paste the install prompt above |
 | **Claude Cowork** (Anthropic, GA Mar 2026) | Desktop agent that runs shell on your behalf | Paste the install prompt above |
@@ -323,7 +323,9 @@ These skills hold privileged, multi-tenant access to systems that run MSP busine
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not to local binaries directly. MSP Skills ships local binaries. Most of them serve Streamable HTTP themselves - run one with `--transport http` and put its `/mcp` endpoint behind an HTTPS tunnel; the six stdio-only connectors go behind a `supergateway` bridge instead. Step-by-step, per connector: each skill's `mcp-install.md`.
+In the **ChatGPT desktop app**, yes. It runs MCP servers locally (STDIO), which is how MSP Skills runs, and shares MCP configuration with Codex on the same machine ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). Add a connector under **Settings > MCP servers** as a STDIO server whose command is its MCP binary (for example `halopsa-mcp`), or add it once to Codex's `~/.codex/config.toml`. We ran our live-verified Zammad connector in local mode through the Codex engine built into the desktop app: all 38 tools loaded and a read-only query came back.
+
+**ChatGPT on the web** is not supported today. It needs a remote (HTTP) server, and [SECURITY.md](./SECURITY.md) says not to run a connector in HTTP mode until it is reprinted. If your team works there, a [hosted gateway or your vendor's own hosted server](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick. Step-by-step: [ChatGPT setup](https://msp-skills.compoundingteams.com/integrations/chatgpt/).
 
 ### Does this work with Claude?
 

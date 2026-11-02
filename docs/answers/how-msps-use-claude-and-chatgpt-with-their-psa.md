@@ -7,7 +7,7 @@ faqs:
   - q: "How do MSPs use Claude and ChatGPT with their PSA?"
     a: "They install a free MCP server connector for the PSA that runs locally on their own machine, then ask plain-English questions in Claude, ChatGPT, Codex, or Copilot. The AI runs the underlying command for them - triage the queue, build a client card, find SLA breaches, run cross-client analytics. No code is required; you paste one sentence to install and then just ask questions."
   - q: "Can ChatGPT connect to my PSA?"
-    a: "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the connector's local binary on your machine and expose it over HTTPS - most of them serve Streamable HTTP themselves with `--transport http`, and the stdio-only ones go behind a supergateway bridge. Claude Desktop and Claude Code connect to the same local connector more directly."
+    a: "Yes, through the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way these connectors run, so you add the connector's MCP binary under Settings > MCP servers, or once in Codex's config file, which the desktop app shares. ChatGPT on the web needs a remote server, and connector HTTP mode is paused until each connector is reprinted, so it is not supported today. Claude Desktop and Claude Code connect to the same local connector."
   - q: "Do I need to write code to connect Claude to my PSA?"
     a: "No. You install a connector by pasting one sentence into Claude Code or Codex - your agent does the install - or by running a one-line installer for your OS. After that you ask questions in plain English and never type the underlying command yourself; the AI runs it for you. You do enter your PSA's API credentials once."
 ---
@@ -30,7 +30,7 @@ You never type the command. The connector keeps a local copy of your data, so cr
 ## Which AI works with this
 
 - **Claude Desktop** and **Claude Code** connect to the local connector directly - the most common MSP-owner starting points.
-- **ChatGPT** (Plus and up) connects to remote MCP servers over HTTPS; you expose the local binary via a bridge.
+- **ChatGPT desktop app** runs the local connector too (Settings > MCP servers). ChatGPT on the web isn't supported yet.
 - **Codex CLI** and **GitHub Copilot** (Agent mode) run the local connector too.
 
 Full per-agent setup is on the [which agent? →](/which-agent/) page.

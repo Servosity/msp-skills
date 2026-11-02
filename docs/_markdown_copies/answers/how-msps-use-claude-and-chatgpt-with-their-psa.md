@@ -18,7 +18,7 @@ You never type the command. The connector keeps a local copy of your data, so cr
 ## Which AI works with this
 
 - **Claude Desktop** and **Claude Code** connect to the local connector directly - the most common MSP-owner starting points.
-- **ChatGPT** (Plus and up) connects to remote MCP servers over HTTPS; you expose the local binary via a bridge.
+- **ChatGPT desktop app** runs the local connector too (Settings > MCP servers). ChatGPT on the web isn't supported yet.
 - **Codex CLI** and **GitHub Copilot** (Agent mode) run the local connector too.
 
 Full per-agent setup is on the [which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) page.

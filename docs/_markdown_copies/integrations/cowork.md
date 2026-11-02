@@ -33,7 +33,7 @@ Cowork reads the SKILL.md (it sits at `~/.claude/skills/halopsa/SKILL.md` after 
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions).
-- **Switching agents?** Same skills work in [Claude Desktop](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md), [Claude Code](https://msp-skills.compoundingteams.com/integrations/claude-code.md), [Codex CLI](https://msp-skills.compoundingteams.com/integrations/codex.md), and [ChatGPT (Plus/Pro+)](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) - no reinstall needed.
+- **Switching agents?** Same skills work in [Claude Desktop](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md), [Claude Code](https://msp-skills.compoundingteams.com/integrations/claude-code.md), [Codex CLI](https://msp-skills.compoundingteams.com/integrations/codex.md), and [the ChatGPT desktop app](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) - no reinstall needed.
 - **Want a different platform?** [Request a Skill →](https://msp-skills.compoundingteams.com/requesting-a-skill.md).
 
 [← Back to main install](https://msp-skills.compoundingteams.com/#install-in-60-seconds)
