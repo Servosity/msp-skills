@@ -65,6 +65,8 @@ opencli browser <slug> extract                       # page text as markdown (na
 clipboard read, or a screenshot of a revealed value. Capture via
 `grab_secret.py`/`oauth_login.py`.
 
+A native click into a hidden background window fails on OpenCLI 2.x ("Native input requires a visible browser page"); `guard_click.py` then falls back to a page-script click on the same single-match selector and prints `click_path=native` or `click_path=page-script (...)`.
+
 ### The clipboard gotcha (verified)
 
 OpenCLI's page **"Copy to clipboard" button does not reliably reach the system clipboard**;

@@ -13,16 +13,23 @@ it through, which is how a consent click gets driven.
 Extra deny verbs can be added per run via HOLD_EXTRA (comma-separated), which is
 where a recipe's `holds:` list goes.
 
+If the native click fails without landing (OpenCLI 2.x refuses native input to a
+hidden background window), it falls back to a page-script click on the same
+selector, still requiring exactly one match. The receipt line `click_path=` says
+which path ran. A timeout is never retried, because the click may have landed.
+
   uv run guard_click.py <session> "<selector-or-text>"
   ALLOW=authorize uv run guard_click.py <session> "button:has-text('Authorize')"
   uv run guard_click.py --selfcheck
 """
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
 import ctplatform as ct
@@ -72,9 +79,52 @@ def guard(session: str, target: str) -> int:
         print(f"HOLD: '{target}' matches irreversible verb '{hit}'. {shot} saved. "
               "NOT clicking; surfaced for the user.", file=sys.stderr)
         return 10
-    r = ct.run(ct.browser_argv(oc, session, "click", target), timeout=90)
-    sys.stdout.write(r.stdout or "")
-    return r.returncode
+    try:
+        r = ct.run(ct.browser_argv(oc, session, "click", target), timeout=90)
+    except subprocess.TimeoutExpired:
+        # Dispatch state unknown: a retry could click twice. Surface, never retry.
+        print(f"FAIL: native click on '{target}' timed out; it may or may not have landed. "
+              "NOT retrying.", file=sys.stderr)
+        return 12
+    out = r.stdout or ""
+    if r.returncode == 0 and not re.search(r'"ok"\s*:\s*false', out):
+        sys.stdout.write(out)
+        print("click_path=native")
+        return 0
+    # The native click failed without landing (e.g. OpenCLI 2.x "Native input requires
+    # a visible browser page; input was not dispatched" when the background window is
+    # hidden). Fall back to a page-script click on the SAME selector, which must still
+    # resolve to exactly one element. The HOLD checks above have already passed.
+    code = re.search(r'"code"\s*:\s*"([A-Za-z0-9_.]+)"', out + (r.stderr or ""))
+    why = code.group(1) if code else f"exit {r.returncode}"
+    try:
+        p = ct.run(ct.browser_argv(oc, session, "eval", _page_click_js(target)), timeout=90)
+    except subprocess.TimeoutExpired:
+        print(f"FAIL: page-script click on '{target}' timed out. NOT retrying.", file=sys.stderr)
+        return 12
+    pm = re.search(r"PAGE_CLICK:(\d+):(\d+)", p.stdout or "")
+    if not pm or pm.group(1) != "1":
+        n = pm.group(2) if pm else "?"
+        print(f"FAIL: native click failed ({why}) and the page-script fallback did not click "
+              f"('{target}' matched {n}).", file=sys.stderr)
+        return r.returncode or 1
+    print(f"click_path=page-script (native failed: {why})")
+    return 0
+
+
+def _page_click_js(selector: str) -> str:
+    """Page script that clicks the element `selector` resolves to, only when it
+    resolves to exactly one. The selector is base64'd so no quoting can break out."""
+    sel_b64 = base64.b64encode(selector.encode()).decode()
+    return (
+        "(() => {"
+        f' const sel = new TextDecoder().decode(Uint8Array.from(atob("{sel_b64}"), c => c.charCodeAt(0)));'
+        " const ns = document.querySelectorAll(sel);"
+        ' if (ns.length !== 1) return "PAGE_CLICK:0:" + ns.length;'
+        " ns[0].click();"
+        ' return "PAGE_CLICK:1:1";'
+        "})()"
+    )
 
 
 def _selfcheck() -> None:
@@ -95,7 +145,14 @@ def _selfcheck() -> None:
                         sys.exit(1)
                     print('{"matches_n":' + n + ',"entries":[{"label":"Save changes"}]}')
                 elif cmd == "click":
+                    if os.environ.get("NATIVE_FAIL"):
+                        print('{"ok":false,"error":{"code":"COMMAND_EXEC","message":'
+                              '"Native input requires a visible browser page; input was not dispatched."}}')
+                        sys.exit(1)
                     print("CLICKED " + sys.argv[4])
+                elif cmd == "eval":
+                    n = os.environ.get("PAGE_N", "1")
+                    print("PAGE_CLICK:1:1" if n == "1" else "PAGE_CLICK:0:" + n)
             """))
         launcher = os.path.join(td, "opencli")
         with open(launcher, "w") as fh:
@@ -126,8 +183,35 @@ def _selfcheck() -> None:
                 rc = guard("sess", "Save changes")
             assert rc == 11, f"MATCH_N={n} did not fail closed (got {rc})"
             assert "CLICKED" not in buf.getvalue(), f"MATCH_N={n} clicked anyway"
-        del os.environ["MATCH_N"], os.environ["ALLOW"], os.environ["RUN_DIR"]
-    print("guard_click.py selfcheck OK (hold, ALLOW override, HOLD_EXTRA, fails closed)")
+        del os.environ["MATCH_N"]
+        # native click fails without landing -> page-script fallback, receipt names the path
+        os.environ["NATIVE_FAIL"] = "1"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            assert guard("sess", "Save changes") == 0, "fallback did not click"
+        assert "click_path=page-script (native failed: COMMAND_EXEC)" in buf.getvalue(), buf.getvalue()
+        # fallback still needs exactly one element
+        os.environ["PAGE_N"] = "2"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            assert guard("sess", "Save changes") != 0, "ambiguous fallback reported success"
+        assert "click_path" not in buf.getvalue()
+        del os.environ["PAGE_N"], os.environ["NATIVE_FAIL"]
+        # the native path names itself too
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            assert guard("sess", "Save changes") == 0
+        assert "click_path=native" in buf.getvalue()
+        # a HOLD never reaches either click path
+        del os.environ["ALLOW"]
+        os.environ["NATIVE_FAIL"] = "1"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            assert guard("sess", "Save changes") == 10
+        assert "click_path" not in buf.getvalue() and "CLICKED" not in buf.getvalue()
+        del os.environ["NATIVE_FAIL"], os.environ["RUN_DIR"]
+    print("guard_click.py selfcheck OK (hold, ALLOW override, HOLD_EXTRA, fails closed, "
+          "page-script fallback)")
 
 
 if __name__ == "__main__":
