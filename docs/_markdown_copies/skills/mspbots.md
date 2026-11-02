@@ -24,7 +24,7 @@ Your agent runs: `mspbots-cli trend open_tickets --agg count`
 
 **Instead of** Hand-encoding filters into URL query params - price=12.6,56.3 for a range, a trailing comma for on-or-after - one undocumented comma rule per operator
 **just ask:** *"Pull the open tickets updated since June 1"*
-Your agent runs: `mspbots-cli pull open_tickets --where "Update Date &gt;= 2026-06-01"`
+Your agent runs: `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"`
 
 **Instead of** Paging a dataset 50 rows at a time and stitching the pages together by hand to get the full table into a spreadsheet
 **just ask:** *"Export the whole tickets dataset to CSV for the QBR deck"*
