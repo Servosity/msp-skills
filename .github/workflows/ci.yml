@@ -207,6 +207,7 @@ jobs:
           # the connector, and doctor truth over a TLS stub.
           python3 tools/maintainer/check_env_schema.py --self-test
           python3 tools/maintainer/check_doctor_truth.py --self-test
+          python3 tools/maintainer/backup_vendor_note.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -325,6 +326,12 @@ jobs:
 
       - name: Vocabulary contract (banned + required terms)
         run: python3 tools/maintainer/check_vocabulary.py
+
+      - name: Backup-vendor note matches its single source (README blocks)
+        # The docs pages get the note from render_docs_page.py (catalog drift
+        # gate); the README blocks are written by backup_vendor_note.py --write.
+        # This catches a README hand edit or a source change nobody re-ran.
+        run: python3 tools/maintainer/backup_vendor_note.py --check
 
       - name: No connector's -pp- name on a user-facing surface (full audit)
         # Every skill's pages, manifests, installers, cli/NOTICE and Go help

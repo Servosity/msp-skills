@@ -98,6 +98,8 @@ It complements the x360Portal rather than replacing it: the portal and the appli
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=axcient&utm_content=docs)
+
 ## The pain this closes
 
 - Axcient's x360Recover Public API is built around per-entity endpoints - one call for appliances, another for a device, another for that device's jobs - and it does not hand you the client-to-device mapping directly. So the question every MSP asks each morning, "whose backups failed," has no single fleet-wide endpoint; you walk each appliance and device by hand or click through the portal.

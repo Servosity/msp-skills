@@ -1,0 +1,21 @@
+{
+ "_comment": "Single source for the 'Comparing backup vendors?' note on backup-vendor connector pages. backup_vendor_note.py renders it into docs/skills/<slug>.md (through render_docs_page.py) and into a marker block in skills/<slug>/README.md. Edit the text here only; then run `python3 tools/maintainer/backup_vendor_note.py --write` and `python3 tools/maintainer/build-catalog.py`. Onboarding (msp-skills-publish) should read this same file rather than carry its own copy, so a new backup connector gets the note with no second source of the text.",
+ "applies_to": {
+  "_comment": "A connector gets the note when its registry category is listed here, or its slug is in extra_slugs (a vendor that sells backup whose connector is filed under another category, e.g. NinjaOne Backup inside an RMM connector). first_party connectors (Servosity) and markdown-only skills never get it.",
+  "categories": [
+   "Backup/DR"
+  ],
+  "extra_slugs": [
+   "ninjaone"
+  ],
+  "exclude_slugs": []
+ },
+ "label": "Comparing backup vendors?",
+ "body": "One of our MSP partners told us, \"My guys now spend a tenth of the time on backups.\" Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did.",
+ "link_text": "See how co-managed backup works",
+ "url": "https://servosity.com/",
+ "utm": {
+  "utm_source": "msp-skills",
+  "utm_medium": "connector-note"
+ }
+}
