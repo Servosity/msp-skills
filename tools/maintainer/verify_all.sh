@@ -767,15 +767,18 @@ llms_idempotent() {
   local bak="$WORK/llms.bak"
   mkdir -p "$bak"
   cp docs/llms.txt "$bak/llms.txt"; cp docs/llms-full.txt "$bak/llms-full.txt"
+  rm -rf "$bak/copies" "$bak/well-known"
+  cp -R docs/_markdown_copies "$bak/copies"; cp -R docs/.well-known "$bak/well-known"
   python3 tools/maintainer/build-llms.py || { echo "build-llms.py failed during the idempotency check"; return 1; }
-  if diff -q docs/llms.txt "$bak/llms.txt" && diff -q docs/llms-full.txt "$bak/llms-full.txt"; then
+  if diff -q docs/llms.txt "$bak/llms.txt" && diff -q docs/llms-full.txt "$bak/llms-full.txt" \
+     && diff -r docs/_markdown_copies "$bak/copies" && diff -r docs/.well-known "$bak/well-known"; then
     return 0
   fi
   echo "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
   return 1
 }
 gate "catalog + README + docs/_data/catalog.json + docs/skills in sync" repo "" 0 catalog_idempotent
-gate "llms.txt + llms-full.txt in sync" repo "" 0 llms_idempotent
+gate "llms.txt + llms-full.txt + Markdown copies + .well-known in sync" repo "" 0 llms_idempotent
 
 # --------------------------------------------- best effort (local tools) ----
 echo "== Best-effort (warn if a tool is missing locally; CI installs them) =="

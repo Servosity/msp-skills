@@ -1,0 +1,614 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "abnormal",
+      "type": "skill-md",
+      "description": "The full Abnormal Security REST API as an agent-ready CLI - with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/SKILL.md",
+      "digest": "sha256:5b770759ee4d8f6c8194597ff6b06b7fdd950c098702b76a3f49b392fbc59e5b"
+    },
+    {
+      "name": "acronis",
+      "type": "skill-md",
+      "description": "The first real CLI for the Acronis Cyber Protect Cloud platform - every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns. Trigger phrases: `acronis backup health across tenants`, `find offline acronis agents`, `acronis usage and billing report`, `which acronis customers aren't protected`, `acronis agent version compliance`, `use acronis cyber protect`, `run acronis-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/SKILL.md",
+      "digest": "sha256:6a8d2ebabdde840a57e26de18a2b422952c6bc8ae6e98edf1c888996b51be903"
+    },
+    {
+      "name": "action1",
+      "type": "skill-md",
+      "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you. Trigger phrases: `action1 patch posture`, `which endpoints are missing patches`, `triage action1 vulnerabilities`, `find stale action1 agents`, `action1 fleet view across organizations`, `use action1`, `run action1-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/SKILL.md",
+      "digest": "sha256:78f554bf8e5952d64cc7468f74fc84263412eccc7ef9811b56b6afd134a33f79"
+    },
+    {
+      "name": "afi",
+      "type": "skill-md",
+      "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
+      "digest": "sha256:16f64b992e380a239e533385aa9917911f8899e7b9cbfe35add69e188b9033cb"
+    },
+    {
+      "name": "appdirect",
+      "type": "skill-md",
+      "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins. Trigger phrases: `reconcile appdirect billing`, `which appdirect payments failed this week`, `what changed in appdirect subscriptions`, `show my appdirect pipeline`, `appdirect company 360`, `use appdirect`, `run appdirect-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/SKILL.md",
+      "digest": "sha256:c7cf452982fa6da85a72f066534cdacb361967355cff0e3c4cf45773c48c1935"
+    },
+    {
+      "name": "atera",
+      "type": "skill-md",
+      "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can. Trigger phrases: `which atera agents are offline`, `atera tickets about to breach sla`, `atera book of business`, `what changed in atera since yesterday`, `sync atera to my machine`, `use atera`, `run atera-cli`, `which customers are under-contracted`, `patch compliance across the fleet`, `what contracts are expiring`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/SKILL.md",
+      "digest": "sha256:017c58b5050a5097e056ecbe2b8e2d5dc9b9f2518b0c6bb8a7c7ddff084d76de"
+    },
+    {
+      "name": "autotask",
+      "type": "skill-md",
+      "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
+      "digest": "sha256:ab556f8770af8630eb6d98c7ef4465b05402482bee27030ed9336a64d66c1558"
+    },
+    {
+      "name": "auvik",
+      "type": "skill-md",
+      "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you. Trigger phrases: `what is end of life across my clients`, `which devices have no config backup`, `what devices disappeared from auvik`, `reconcile auvik billable device counts`, `why can't auvik see this device`, `which client is generating the most alerts`, `use auvik`, `run auvik`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/SKILL.md",
+      "digest": "sha256:6cd75461f4992ff735fa21d8ec1c9eb9a5e477e7c3d3d83c619c5d10106bcffb"
+    },
+    {
+      "name": "avanan",
+      "type": "skill-md",
+      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation as one CLI and MCP server, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, exception conflict auditing, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/SKILL.md",
+      "digest": "sha256:d3f5b50da6ddb3d478a0afeee3bc23038e284170e5016d7f5b83a589e5456484"
+    },
+    {
+      "name": "aws-billing",
+      "type": "skill-md",
+      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
+      "digest": "sha256:b45b415c025c1f2be3f736b7ed6841bb8e812f0baee415f934bf92e72f82b8e0"
+    },
+    {
+      "name": "axcient",
+      "type": "skill-md",
+      "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give - offline, joined, and agent-ready. Trigger phrases: `check axcient backups`, `which backups failed last night`, `x360recover fleet health`, `backup compliance report for client`, `axcient usage reconciliation`, `use axcient`, `run axcient-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/SKILL.md",
+      "digest": "sha256:71f3d5d5d1579597bd6ee254a6173abb27beaaa6f39a5d643b5ada9c31aff67f"
+    },
+    {
+      "name": "backup-radar",
+      "type": "skill-md",
+      "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching. Trigger phrases: `which backups is nobody watching`, `morning backup check`, `backup compliance for a client`, `retire stale backups`, `backup radar failures today`, `use backup-radar`, `run backup-radar`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/SKILL.md",
+      "digest": "sha256:019d52842e0d2f2f344b152965005ae4eb45d3047dd4b53fc63bbfbbb170722a"
+    },
+    {
+      "name": "betterstack",
+      "type": "skill-md",
+      "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics - what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift - that the API alone can't answer. Trigger phrases: `which monitors are down`, `find unprotected monitors`, `incident MTTR report`, `who is on call`, `noisy monitors`, `use betterstack`, `run betterstack-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/SKILL.md",
+      "digest": "sha256:0321d219126f29ee2c460564c02e10e4c11636e12c05392d6441bd97936e15ca"
+    },
+    {
+      "name": "bitdefender",
+      "type": "skill-md",
+      "description": "Use when the user asks about Bitdefender GravityZone across every customer: which child companies have unmanaged, outdated or unscanned endpoints, what changed since the last check, the open EDR/XDR incident queue, malware quarantined at several clients, which company a machine is in, RMM devices with no agent, or monthly seat usage for billing. Covers 140 GravityZone Public API methods as commands. Trigger phrases: `which customers have unprotected endpoints`, `gravityzone monthly usage for billing`, `open bitdefender incidents across all clients`, `find a machine across all gravityzone customers`, `same malware quarantined at several clients`, `use bitdefender gravityzone`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/SKILL.md",
+      "digest": "sha256:5bb4dedcfe042f9669d3ef7e3c89bb3c2d9f771fe8096aadb52905e8246bd823"
+    },
+    {
+      "name": "blumira",
+      "type": "skill-md",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Trigger phrases: `blumira findings`, `triage blumira across accounts`, `what changed in blumira since yesterday`, `blumira detection coverage`, `blumira domain controller exposure`, `blumira MTTR report`, `use blumira`, `run blumira`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/SKILL.md",
+      "digest": "sha256:5f80f3971e6a81d8902fb5e76fe0e64d74fadce31ec52e232c20e7204f1f47d4"
+    },
+    {
+      "name": "cipp",
+      "type": "skill-md",
+      "description": "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with a local store, offline joins across endpoints, and history over time. Trigger phrases: `check MFA across all my tenants`, `which tenants are missing a conditional access policy`, `what standards regressed this week`, `find unused Microsoft 365 licenses`, `which GDAP relationships expire soon`, `offboard these users across tenants`, `what changed in admin roles since last week`, `which disabled users still have mail forwarding`, `stale accounts across my tenants`, `scorecard for one client tenant`, `use cipp`, `run cipp-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/SKILL.md",
+      "digest": "sha256:e2d2c0db5668ed8be54871a35db1d6103db249764a6b69286ffb76d7401a983a"
+    },
+    {
+      "name": "cisco-duo",
+      "type": "skill-md",
+      "description": "Use when the user asks to fix a Cisco Duo MFA lockout, issue a Duo bypass code, move a user to a new phone, find which customer a Duo user belongs to, or see Duo risk and capacity across every MSP customer subaccount. Signed Duo Admin API calls from a CLI and MCP server. Trigger phrases: `user locked out of duo`, `issue a duo bypass code`, `reactivate duo mobile`, `duo mfa lockout`, `which customers are near their duo user limit`, `use cisco duo`, `run cisco-duo`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-duo/SKILL.md",
+      "digest": "sha256:8d43c80e739e1c127c04bdf141386a771c717b00e140e04345e5f939f722c12c"
+    },
+    {
+      "name": "cisco-meraki",
+      "type": "skill-md",
+      "description": "Use when the user asks about Cisco Meraki across one or many client organizations: what is offline or alerting right now, failed MX WAN uplinks, license, subscription and end-of-support renewals, who changed the Dashboard config, which org owns a MAC, IP or serial, admins without two-factor or a departed tech's access, or any Meraki Dashboard API operation. Trigger phrases: `which meraki devices are offline`, `meraki license expirations across clients`, `find this mac in meraki`, `who changed the meraki config`, `did a change take this site down`, `meraki admins without 2fa`, `use cisco-meraki`, `run cisco-meraki`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/SKILL.md",
+      "digest": "sha256:cf5c3851fd5a2796f70cee74e7c21ed267ea37dc62745bac1836201c6cd81481"
+    },
+    {
+      "name": "connect-tool",
+      "type": "skill-md",
+      "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/SKILL.md",
+      "digest": "sha256:977ea5d1785da0ac94bcdd1c38b1ae1cbe688d1872e4ca1c84d152ded2716656"
+    },
+    {
+      "name": "connectsecure",
+      "type": "skill-md",
+      "description": "Use when the user asks to rank ConnectSecure (formerly CyberCNS) vulnerabilities across every client, find which clients and assets a CVE hits, prep a client QBR risk pack, find assets with stale or unauthenticated scans or silent agents, audit expired or self-approved vulnerability suppressions, review Active Directory password hygiene across clients, or run any ConnectSecure V4 API operation. Trigger phrases: `which clients have critical vulnerabilities`, `connectsecure exposure across all clients`, `are we affected by this CVE`, `prep the QBR risk numbers`, `find stale or unauthenticated scans`, `audit vulnerability suppressions`, `check AD password hygiene across clients`, `use connectsecure`, `run connectsecure`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/SKILL.md",
+      "digest": "sha256:77f54a2aa306125df5d0aa5c8cbda57eca6dd833002718e9008488bbeb39534a"
+    },
+    {
+      "name": "connectwise-automate",
+      "type": "skill-md",
+      "description": "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/SKILL.md",
+      "digest": "sha256:9ee5f6d9e6a236d9e4972869b37268fb6a1f76311b8de868ce65c1012c9c16a8"
+    },
+    {
+      "name": "connectwise-control",
+      "type": "skill-md",
+      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
+      "digest": "sha256:04e959d85eb395ebe2a3801a9e6b01d5ceecc84256876c59e6970082cd22b9f5"
+    },
+    {
+      "name": "connectwise-manage",
+      "type": "skill-md",
+      "description": "Every ConnectWise PSA workflow from the terminal - with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you. Trigger phrases: `list connectwise tickets`, `triage the help desk board`, `find unbilled time in connectwise`, `connectwise account 360 for a client`, `log time on a connectwise ticket`, `use connectwise-manage`, `run connectwise-manage-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/SKILL.md",
+      "digest": "sha256:9a6a636b99be4fdf86f0958c856a535fda186450ccdde9bda10740160fb4c886"
+    },
+    {
+      "name": "connectwise-rmm",
+      "type": "skill-md",
+      "description": "Use when the user asks to find offline or silent ConnectWise RMM (Asio) agents across clients, rank clients by patch compliance, build the patch-week reboot queue, find which machine a user is logged on to, prepare one client's health card, run a script on endpoints with a preview first, or see why a script run failed. Syncs companies, sites, endpoints and tickets into a local SQLite mirror so cross-client questions answer in one command. Trigger phrases: `which endpoints are offline in ConnectWise RMM`, `patch compliance for a client in Asio`, `run a script on an endpoint with ConnectWise RMM`, `which machine is a user logged on to in ConnectWise RMM`, `list ConnectWise RMM companies`, `use connectwise-rmm`, `run connectwise-rmm`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/SKILL.md",
+      "digest": "sha256:f6519ee0a27e043e3c5a9815346af30b20ee8d737852321654ed9a3b2741f53c"
+    },
+    {
+      "name": "cork",
+      "type": "skill-md",
+      "description": "Every Cork API operation as one CLI and MCP server, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call. Trigger phrases: `which Cork clients got worse this week`, `why did this client's Cork score drop`, `what should we patch first in Cork`, `are we exposed to this CVE`, `which Cork integrations are stale`, `which clients have no cyber warranty`, `use cork`, `run cork`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/SKILL.md",
+      "digest": "sha256:065259df3a046761e33bddb503747ccfc95fd988f1308ec3453f544d1d619e4f"
+    },
+    {
+      "name": "cove",
+      "type": "skill-md",
+      "description": "Fleet-wide Cove backup health, billing usage and storage trends, with local history. Trigger phrases: `which backups failed last night`, `check cove backup status`, `stale cove devices`, `cove storage growth`, `cove billing usage report`, `use cove`, `run cove-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/SKILL.md",
+      "digest": "sha256:b2bd7a185b99cf55814943b3cafa5ee037fd5db43aaa396c83c360b4729fd5ff"
+    },
+    {
+      "name": "crowdstrike",
+      "type": "skill-md",
+      "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once - something no other Falcon tool (including the official MCP server) does. Trigger phrases: `check crowdstrike alerts across all tenants`, `show stale falcon sensors`, `critical vulnerabilities across my crowdstrike fleet`, `crowdstrike tenant scorecard`, `list falcon child CIDs`, `use crowdstrike-cli`, `run crowdstrike-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/SKILL.md",
+      "digest": "sha256:eff167fcd0bbf04de79478a60e585bb0f280431b13c1ac5cf914927280bb09bd"
+    },
+    {
+      "name": "datagate",
+      "type": "skill-md",
+      "description": "Every DataGate telecom billing API resource - customers, agreements, invoices, sites, products, and more - plus a local SQLite mirror and offline search. Trigger phrases: `datagate invoices`, `datagate customer lookup`, `pull this month's datagate invoices`, `use datagate`, `run datagate`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/SKILL.md",
+      "digest": "sha256:9f05747b44d737a3bc0258aa472ee9d9d68ef7980bf3a4ec02103a13fde0f617"
+    },
+    {
+      "name": "datto-bcdr",
+      "type": "skill-md",
+      "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk. Trigger phrases: `which datto backups failed screenshot verification`, `datto bcdr fleet health`, `which clients are at risk in datto`, `find stale datto backups`, `datto storage runway`, `use datto-bcdr`, `run datto-bcdr-cli`, `datto recoverability score`, `client backup report for qbr`, `triage datto alerts fleet-wide`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/SKILL.md",
+      "digest": "sha256:470c7f127cba03e35e543d166bd6dfcd35cda6b83f86360805255f40d9124f62"
+    },
+    {
+      "name": "datto-rmm",
+      "type": "skill-md",
+      "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has. Trigger phrases: `datto rmm stale devices`, `which endpoints have antivirus disabled`, `datto rmm patch gaps`, `qbr scorecard for a site`, `warranty expiring devices`, `use datto-rmm`, `run datto-rmm-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/SKILL.md",
+      "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
+    },
+    {
+      "name": "domotz",
+      "type": "skill-md",
+      "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/SKILL.md",
+      "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
+    },
+    {
+      "name": "fortinet",
+      "type": "skill-md",
+      "description": "Use when the user asks to audit, inventory or back up client FortiGate firewalls, or read FortiManager or FortiGate Cloud: grades every FortiGate in a devices file for firmware, SSL-VPN exposure, admin accounts and license expiry in one read-only pass, plus HA, tunnel and certificate health, policy hygiene and config changes. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `which fortigates need a firmware update`, `fortiguard license expiry across clients`, `back up every fortigate config`, `what changed on the firewall`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/SKILL.md",
+      "digest": "sha256:c547d2eb58482b339d12a0af70d809a0d663f26236861655254b8d4fbed0ee36"
+    },
+    {
+      "name": "google-workspace",
+      "type": "skill-md",
+      "description": "Use when the user asks to audit or administer Google Workspace across several client domains: find accounts without 2-Step Verification, reclaim paid licenses on suspended or idle accounts, check that leavers were fully offboarded, offboard a leaver with suspension last, review Drive, Calendar and app-sharing setting changes and new external shares, inventory risky third-party OAuth apps, or pull a one-row-per-client posture summary for a QBR. Drives the Google Workspace Admin SDK (Directory, Reports, Enterprise License Manager, Data Transfer, Reseller) per client tenant via service accounts with domain-wide delegation. Trigger phrases: `who doesn't have 2SV across my clients`, `google workspace license waste`, `google workspace licence waste`, `offboard a google workspace user`, `did our google workspace leavers get cleaned up`, `external sharing changes in google workspace`, `risky oauth apps in google workspace`, `google workspace posture for every client`, `use google-workspace`, `run...",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/SKILL.md",
+      "digest": "sha256:c5f30595a07f1b00706f7490cb6e1fb876e567cce234978deb5f31afda22763c"
+    },
+    {
+      "name": "grab-cookie",
+      "type": "skill-md",
+      "description": "Capture, store, wire, and verify a browser-session credential for any site that has no API key and no OAuth path: an httpOnly session cookie, an opaque localStorage bearer token, or a custom auth header. The human step is one DevTools \"Copy as cURL\" paste, and everything around it is automated: parse the request, extract the secret per a per-site JSON profile, store it in the Windows Credential Manager or the macOS Keychain without the value entering the agent's context, regenerate whatever config file consumes it, and prove the result with a real authenticated call. A daily doctor re-probes every stored credential and warns before a known expiry instead of after. Use when the user says a tool stopped working after about a month, my session expired, re-auth this site, the cookie died again, refresh my token, this vendor has no API key, or set up auth for a site that only works when logged in. This Skill does NOT drive a browser. It reads a cURL command the user pastes. For vendors that DO expose OAuth or...",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/grab-cookie/SKILL.md",
+      "digest": "sha256:8854d1167967d336f58f3dd7024ec61c94a741cc15d0bbd5ad92990977d40d8b"
+    },
+    {
+      "name": "gradient",
+      "type": "skill-md",
+      "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has. Trigger phrases: `push usage counts to gradient`, `sync usage to synthesize`, `check my synthesize integration status`, `find unmapped gradient accounts`, `did my gradient alert create a ticket`, `use gradient`, `run gradient-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/SKILL.md",
+      "digest": "sha256:71bb143277e3083f417347ec92a689b3fc9e33115e26607edee4436943d1a8f4"
+    },
+    {
+      "name": "halopsa",
+      "type": "skill-md",
+      "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return. Trigger phrases: `triage my Halo queue`, `check SLA breaches in HaloPSA`, `who is overloaded in Halo`, `client card for Acme in Halo`, `Halo contract burn-down`, `what changed in Halo since this morning`, `find time gaps in my Halo timesheet`, `use halopsa`, `run halopsa`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/SKILL.md",
+      "digest": "sha256:0041a3fa91ab9e639927d2a49341d89f2dfdc1e150522960de2716bc5a0c8d70"
+    },
+    {
+      "name": "hubspot",
+      "type": "skill-md",
+      "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history. Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/SKILL.md",
+      "digest": "sha256:775d286abe1c222545bb7df13a75a5f62a91bb80934c6aacb76ebaea465747fa"
+    },
+    {
+      "name": "hudu",
+      "type": "skill-md",
+      "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships. Trigger phrases: `hudu hygiene scorecard`, `audit hudu documentation`, `find stale hudu passwords`, `what hudu certs expire soon`, `score hudu documentation completeness`, `onboard a new client in hudu`, `use hudu`, `run hudu`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/SKILL.md",
+      "digest": "sha256:b6d83cad3e5606fab7ad50571a91dfcf46f0b4622597b2aa12caa8a596b4e44a"
+    },
+    {
+      "name": "huntress",
+      "type": "skill-md",
+      "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't. Trigger phrases: `show me all critical huntress incidents`, `huntress coverage gaps across my orgs`, `huntress blast radius for this IP`, `reconcile huntress billing`, `huntress agent health report`, `use huntress`, `run huntress`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/SKILL.md",
+      "digest": "sha256:f9feaef8a6c946dc349fcbafab5e85de1b9fc9f63b1e6709e4b4416c89651545"
+    },
+    {
+      "name": "immybot",
+      "type": "skill-md",
+      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot. Trigger phrases: `what failed in last night's maintenance window`, `which tenants are still on an old version of chrome`, `why didn't this computer get the deployment`, `what changed in the fleet since yesterday`, `which computers does this script reach`, `which machines are stuck onboarding`, `use immybot`, `run immybot`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/SKILL.md",
+      "digest": "sha256:d6160e3eeb0e0e4435fb1e8a49d46ff31f7825494c76b3946dfbc0c0d6353030"
+    },
+    {
+      "name": "itglue",
+      "type": "skill-md",
+      "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers. Trigger phrases: `find this device across all my IT Glue clients`, `which IT Glue organizations are under-documented`, `audit stale passwords in IT Glue`, `sync IT Glue to a local database`, `what changed in IT Glue since last week`, `use itglue`, `run itglue`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/SKILL.md",
+      "digest": "sha256:8aaee2a34f233f9ae1eb30aee973c4ae61c2e154e06872a738e72dc02a06b6fb"
+    },
+    {
+      "name": "jira-service-management",
+      "type": "skill-md",
+      "description": "Use when the user asks to triage Jira Service Management (JSM) queues by SLA risk, add an internal note to a service desk ticket, read a ticket's full history, manage JSM customers and client organizations, or look up and reconcile Assets (CMDB) objects: ranks open tickets across every queue by SLA time remaining, posts agent-only notes that error if JSM stores them as public, joins Assets objects to the tickets that touch them, and diffs Assets against an RMM or PSA export. Trigger phrases: `which tickets are about to breach SLA`, `add an internal note to this service desk ticket`, `show the full timeline for SD-123`, `which tickets touch this server in Assets`, `reconcile Assets against my RMM export`, `use jira service management`, `run jira-service-management-cli`, `jsm queues`, `jira service desk sla`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/SKILL.md",
+      "digest": "sha256:ebf0c36440b4bfe17f5a889fe603be22e15bf2e3a335a0fbd1a87c76322bfa26"
+    },
+    {
+      "name": "kaseya-bms",
+      "type": "skill-md",
+      "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute. Trigger phrases: `check the BMS queue`, `stale tickets in Kaseya BMS`, `how many contract hours are left`, `unbilled time in BMS`, `BMS sales pipeline`, `use kaseya-bms`, `run kaseya-bms`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/SKILL.md",
+      "digest": "sha256:03f47661cd1d4c451a1d2e6411fcff9635302554ef38418727439b972c092922"
+    },
+    {
+      "name": "knowbe4",
+      "type": "skill-md",
+      "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/SKILL.md",
+      "digest": "sha256:a52339febf17162331e5e8ea59c146924bf8fd8bcdb67036f08fd1fc38752280"
+    },
+    {
+      "name": "levelio",
+      "type": "skill-md",
+      "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command. Trigger phrases: `check my level fleet`, `what level devices are at risk`, `level patch posture`, `level stale devices`, `level client scorecard`, `triage level alerts`, `use levelio`, `run levelio-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/SKILL.md",
+      "digest": "sha256:9d91fe421df79cb695259b6d3ac15047a4e4805784f8b7ab78f553d0ccb62271"
+    },
+    {
+      "name": "liongard",
+      "type": "skill-md",
+      "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/SKILL.md",
+      "digest": "sha256:7ab58c55bbc74f52dda461eb53724269edf3b00b95aef52c7756eafcca6d260f"
+    },
+    {
+      "name": "maxio",
+      "type": "skill-md",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing - MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/SKILL.md",
+      "digest": "sha256:5e07069313b462676a164776589f1285fc194943214d22101b00c54080b39fdd"
+    },
+    {
+      "name": "microsoft-graph",
+      "type": "skill-md",
+      "description": "The maintained single-binary successor to the retiring mgc - every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/SKILL.md",
+      "digest": "sha256:9f8e697fb30431cc29283ecb9c04eb5eabd895f1a42a61d37468bedbddec44fd"
+    },
+    {
+      "name": "msp-skills-concierge",
+      "type": "skill-md",
+      "description": "Use when the user has msp-skills installed and wants help choosing or installing connectors - it reads the live catalog, learns their PSA/RMM/backup/security/billing stack, recommends the connectors that fit, and installs only the ones they approve. Trigger phrases: `recommend which connectors I should install`, `which msp-skills connector for my stack`, `set up the right connectors for me`, `concierge`, `msp-skills concierge`, `what connectors should I install`, `pick connectors for my MSP`, `using everything you know about me, recommend connectors`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/_meta/SKILL.md",
+      "digest": "sha256:60d6a7937eedd71dee76e18122efd8bfbae8edab35779e26da865137c188f895"
+    },
+    {
+      "name": "mspbots",
+      "type": "skill-md",
+      "description": "The first MSPbots tool anywhere - readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Trigger phrases: `pull the open tickets dataset from MSPbots`, `export MSPbots data to CSV`, `snapshot our MSPbots KPIs`, `is our ticket backlog up or down this week`, `what columns does this MSPbots dataset have`, `use mspbots`, `run mspbots-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/SKILL.md",
+      "digest": "sha256:0dca93b1549196c3d4ee7cc36e7a8b8a735ee813972517f297e7decd602345c4"
+    },
+    {
+      "name": "n-central",
+      "type": "skill-md",
+      "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/SKILL.md",
+      "digest": "sha256:aa7232e5bc0e05afded676b24bb0c5e0d6a76d6885ed7c7990fb9a630ecc45dd"
+    },
+    {
+      "name": "nerdio",
+      "type": "skill-md",
+      "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has. Trigger phrases: `list nerdio accounts`, `audit autoscale across customers`, `which AVD hosts are running`, `nerdio billing rollup`, `wait for nerdio job`, `use nerdio`, `run nerdio-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/SKILL.md",
+      "digest": "sha256:bb9c3cf04db8e5d709a15f47b939c8b71eff7909447d62a9ce0e9ebe7a419ff5"
+    },
+    {
+      "name": "ninjaone",
+      "type": "skill-md",
+      "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift. Trigger phrases: `check patch compliance in ninjaone`, `which ninjaone devices have no backup`, `ninjaone av threat sweep`, `ninjaone fleet health for an org`, `show stale ninjaone devices`, `use ninjaone`, `run ninjaone`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/SKILL.md",
+      "digest": "sha256:e7f092d3f14dc852b5722d76437fe177f8b8686c5669ab6ed47bb0681d70179a"
+    },
+    {
+      "name": "pagerduty",
+      "type": "skill-md",
+      "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions - MTTA/MTTR, on-call coverage gaps, responder load - that neither the API nor the web UI can. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/SKILL.md",
+      "digest": "sha256:d2bf2caeaf354f4e46bfce6278e0b2e4b43f0d41d212f0adadfcdcf3f9bb070f"
+    },
+    {
+      "name": "pandadoc",
+      "type": "skill-md",
+      "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has - stalled deals, aging, recipient engagement, and open quote value from a local store. Trigger phrases: `check my pandadoc pipeline`, `which proposals are stalled`, `list pandadoc documents`, `create a document from a template`, `how much quote value is open`, `use pandadoc`, `run pandadoc`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/SKILL.md",
+      "digest": "sha256:4837206f772738fae3cb14308c5b0b7c1c309d137fc6f8965e12e4af65e59f86"
+    },
+    {
+      "name": "pax8",
+      "type": "skill-md",
+      "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces. Trigger phrases: `reconcile pax8 billing`, `what is my pax8 mrr`, `list pax8 companies`, `check pax8 usage overages`, `pax8 customer 360`, `use pax8`, `run pax8-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/SKILL.md",
+      "digest": "sha256:19ab3c649a0e4300c987e54629224f3aac9c3ffdf7b2520e7a07d47b5953b81f"
+    },
+    {
+      "name": "pipedrive",
+      "type": "skill-md",
+      "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards. Trigger phrases: `which deals are going stale in pipedrive`, `what's my weighted pipeline forecast`, `who do I need to follow up with today`, `find duplicate contacts in pipedrive`, `show the sales rep leaderboard`, `use pipedrive`, `run pipedrive`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/SKILL.md",
+      "digest": "sha256:5a9987b0a61aae87ed1bdcceba67581c9d2d76b73c6e29cd7d78fd39c220e1a6"
+    },
+    {
+      "name": "proofpoint",
+      "type": "skill-md",
+      "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions - who is both attacked and clicking, what touched this user - inside Proofpoint's punishing daily quotas. Trigger phrases: `pull proofpoint siem events`, `who are my VAPs`, `decode this urldefense link`, `proofpoint incident brief`, `top clickers this month`, `use proofpoint`, `run proofpoint-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/SKILL.md",
+      "digest": "sha256:e08b118d62afae48b6b47ac8fdce7624c036da669ed95b7766ac47c264db80d3"
+    },
+    {
+      "name": "proxmox",
+      "type": "skill-md",
+      "description": "Use when the user asks whether Proxmox VE or Proxmox Backup Server (PBS) backups are good across client clusters: which VMs are unprotected, stale or failed verification, what failed overnight, when a datastore fills, or which restore points exist. Read-only (GET-only) CLI and MCP server with per-guest backup verdicts. Trigger phrases: `are my proxmox backups good`, `which VMs are not backed up`, `check PBS verify failures`, `proxmox backup posture for all clients`, `when will the backup datastore fill up`, `use proxmox`, `run proxmox-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/SKILL.md",
+      "digest": "sha256:3fe95b17ff259a76f1323b0da1ef7fb7bac36ecabe532308bba68343eea88100"
+    },
+    {
+      "name": "quickbooks",
+      "type": "skill-md",
+      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/SKILL.md",
+      "digest": "sha256:f56a0dbe208ed3c3eeb44145b6b0e4cf57876613947ae25bb437029898bacae2"
+    },
+    {
+      "name": "quotewerks",
+      "type": "skill-md",
+      "description": "Use when the user asks to find, read, build, audit or reprice QuoteWerks Web quotes, orders or invoices, add a product to a quote by part number, re-quote an earlier order with current prices, or answer margin, win-rate, open-pipeline and distributor cost-drift questions across QuoteWerks documents. Typed writes preview first and need --confirm. Trigger phrases: `find the Acme quote in QuoteWerks`, `reprice the quote lines`, `which QuoteWerks quotes are stale`, `quotewerks margin by rep`, `re-quote an earlier order`, `use quotewerks`, `run quotewerks`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/SKILL.md",
+      "digest": "sha256:9102d471b9460e6e6b862ad8008b89285529c1c6864d3351f8820d27f3c47c30"
+    },
+    {
+      "name": "resourceguru",
+      "type": "skill-md",
+      "description": "Use when the user asks to see who is overbooked in Resource Guru, find who is on the bench, check a resource's day-by-day utilization, work out remaining capacity before booking a project, or report what changed on the schedule. Syncs your whole Resource Guru schedule into a local SQLite mirror so it computes the per-day, fleet-wide utilization the reports never expose. Trigger phrases: `resource utilization by day`, `who is overbooked in resource guru`, `who is on the bench`, `remaining capacity in resource guru`, `use resource guru`, `run resourceguru-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/SKILL.md",
+      "digest": "sha256:7ac036ce1ef643eefc9fa0885b3a7cb1b8a4dd0160ffe70bc0536eec75f5acfd"
+    },
+    {
+      "name": "rewst",
+      "type": "skill-md",
+      "description": "Use when the user asks to check Rewst automation health, find failed or dormant workflows, report automation ROI/time-saved, compare config drift between client orgs, or check integration-pack coverage across tenants. Turns Rewst's GraphQL-only gateway into typed commands and adds cross-org rollups the web app makes you assemble one client at a time. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/SKILL.md",
+      "digest": "sha256:71a44cb7f7d61e34e1808f4e911f36b26d43f2d648379a48cfd95d20cce934ff"
+    },
+    {
+      "name": "riverside-fm",
+      "type": "skill-md",
+      "description": "Use when the user asks to download, back up, export, or search their own Riverside.com (Riverside.fm) podcast or video account: bulk-export a studio's transcripts, audio, and video; grab a single recording; convert a transcript to VTT/SRT/Markdown; compute per-speaker talktime; or harvest Magic Clips with fresh URLs. Works on Pro/Live/Webinar accounts with no Business-plan API key. Trigger phrases: `download my riverside transcripts`, `back up my riverside studio`, `bulk export riverside studio`, `search riverside transcripts`, `convert riverside transcript to vtt`, `harvest magic clips`, `use riverside-fm`, `run riverside-fm`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/SKILL.md",
+      "digest": "sha256:977a06a0c37fd9a896e80052b454b92e42beabc1a4185cff2c8a137250089b9f"
+    },
+    {
+      "name": "rocketcyber",
+      "type": "skill-md",
+      "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes. Trigger phrases: `check rocketcyber incidents`, `soc triage board`, `which rocketcyber agents are offline`, `rocketcyber secure score trend`, `audit rocketcyber suppression rules`, `use rocketcyber`, `run rocketcyber-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/SKILL.md",
+      "digest": "sha256:cd66a19bf358be5c9711e1470c91b435ad1332b27bb3e8bf8eda9a6c45ac633c"
+    },
+    {
+      "name": "rootly",
+      "type": "skill-md",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics. Trigger phrases: `who is on call right now`, `find incidents similar to this one`, `what fixed this service last time`, `compute MTTR by service`, `find on-call coverage gaps`, `use rootly`, `run rootly`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/SKILL.md",
+      "digest": "sha256:4b431ed88391805090f92ea13e42f3055b868f03f28e663a6fa2f10ad0a4eb8b"
+    },
+    {
+      "name": "runzero",
+      "type": "skill-md",
+      "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice. Trigger phrases: `list runzero assets`, `triage my runzero exposure`, `what changed on my attack surface`, `which assets are affected by this CVE`, `find stale assets in runzero`, `use runzero`, `run runzero-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/SKILL.md",
+      "digest": "sha256:6f7e072855d8ff410760d5a85f21bcf0b72403aeb3a723b929ae6d4d2440ab1a"
+    },
+    {
+      "name": "saas-alerts",
+      "type": "skill-md",
+      "description": "Use when the user asks about SaaS Alerts across their customers: what fired overnight, critical first; which Respond triggers expire or auto-ignore soonest and what approving them would do; approving, rejecting or ignoring Respond triggers in bulk; whether one IP, ASN or country is hitting several customers; everything about one suspicious account; which customers went silent or lost Respond; webhook (PSA ticket) feed health; or containing a compromised Microsoft 365 account. Covers the Reports, Manage, Respond and Webhooks APIs with one partner key and mints the Respond access token itself. Trigger phrases: `what fired overnight in SaaS Alerts`, `triage SaaS Alerts critical alerts`, `approve pending Respond triggers`, `investigate this user in SaaS Alerts`, `re-enable SaaS Alerts webhooks`, `use saas-alerts`, `run saas-alerts`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/saas-alerts/SKILL.md",
+      "digest": "sha256:4e7af4336aef7b6c9710668f236992aa068947b8a9e89675ea0c24b588388038"
+    },
+    {
+      "name": "salesbuildr",
+      "type": "skill-md",
+      "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics. Trigger phrases: `salesbuildr stale quotes`, `check quote margins`, `salesbuildr pipeline velocity`, `sync salesbuildr catalog`, `company whitespace salesbuildr`, `use salesbuildr`, `run salesbuildr`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/SKILL.md",
+      "digest": "sha256:1c7c2946d0194797970cb47ec026ac25a1b4627a762c5665262ba14a218613d1"
+    },
+    {
+      "name": "sentinelone",
+      "type": "skill-md",
+      "description": "Every SentinelOne v2.1 endpoint plus offline cross-tenant fleet health and threat triage. Trigger phrases: `triage sentinelone threats`, `check sentinelone threats`, `sentinelone fleet health`, `which endpoints have active threats`, `what changed in sentinelone overnight`, `sentinelone agent status`, `use sentinelone`, `run sentinelone-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/SKILL.md",
+      "digest": "sha256:8c72998c153a00df026a6f472bd6119115144ceab7a87082e70dd884be3a54d6"
+    },
+    {
+      "name": "servosity",
+      "type": "skill-md",
+      "description": "Use when the user asks where their attention is needed across Servosity clients, which backups went stale, what changed since yesterday, to build QBR backup reports, draft stale-backup follow-up emails, watch restore queues during a DR event, reconcile the Servosity bill against client invoicing, find unprovisioned agents, audit retention tiers against a required minimum, or group this month's backup failures by root cause. Wraps the Servosity partner API plus a local fleet mirror with snapshot history. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `servosity retention audit`, `cluster servosity backup failures`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/SKILL.md",
+      "digest": "sha256:a22490945fbbe32de57f20a50bdd4e063cb72b48d760e87c453605ae60933cc3"
+    },
+    {
+      "name": "sherweb",
+      "type": "skill-md",
+      "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has. Trigger phrases: `reconcile sherweb billing`, `what's my margin per customer in sherweb`, `find orphaned sherweb subscriptions`, `list sherweb customers`, `preview a sherweb seat change`, `use sherweb`, `run sherweb-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/SKILL.md",
+      "digest": "sha256:50eb248e4fdd4dd254e6044f0ebab4fd671a1dcd827df083fc790d288c44067d"
+    },
+    {
+      "name": "skykick",
+      "type": "skill-md",
+      "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show. Trigger phrases: `check skykick backups`, `which customers aren't backed up`, `stale skykick snapshots`, `skykick fleet health`, `skykick backup alerts`, `audit m365 backup retention`, `use skykick`, `run skykick-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/SKILL.md",
+      "digest": "sha256:3670666d831152a001dcba2ee09817752b0837bb7af0ddd7f65b116848cfcbc8"
+    },
+    {
+      "name": "sonicwall",
+      "type": "skill-md",
+      "description": "Use when the user asks about client SonicWall firewalls through NSM SaaS or MySonicWall: grades every firewall for firmware, end of support, PSIRT advisories, licence expiry, admin TOTP and SSL-VPN exposure in one read-only pass, triages one advisory or CVE across the fleet, lists SSL-VPN users without MFA, builds the licence renewal list and finds MySonicWall firewalls NSM cannot see. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `which clients are hit by CVE-2024-40766`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `firewalls missing from NSM`, `use sonicwall`, `run sonicwall-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/SKILL.md",
+      "digest": "sha256:249dcdce6221f2cb281dc22dc4cc9c0e4b176218f41a00470be3f99175b7fe87"
+    },
+    {
+      "name": "sophos-central",
+      "type": "skill-md",
+      "description": "Use when the user asks to check Sophos Central across every customer: a ranked triage queue of alerts and unhealthy machines, Account Health Check rankings, security and licence gaps, tamper protection off, partner billing against deployment, or to isolate a machine by hostname without knowing its tenant. Covers the Sophos Central partner, organization and tenant APIs with tenant and region routing handled for you. Trigger phrases: `check sophos alerts across all customers`, `which sophos endpoints have tamper protection off`, `isolate this machine in sophos`, `sophos health check scores for my tenants`, `reconcile sophos partner billing`, `use sophos central`, `run sophos-central`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/SKILL.md",
+      "digest": "sha256:5dc2d99cbf4611bfc366643de04c8525b99b57548ac38a7a4809565bd257dfaf"
+    },
+    {
+      "name": "superops",
+      "type": "skill-md",
+      "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Trigger phrases: `list superops tickets`, `which tickets are breaching sla`, `show unbilled worklog in superops`, `assets missing patches with open tickets`, `client 360 in superops`, `use superops`, `run superops`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/SKILL.md",
+      "digest": "sha256:3609d0592fbfb97bb69f0b5e2a7db6a1554d8da505e82bfcacf2fb26839e3a8a"
+    },
+    {
+      "name": "syncro",
+      "type": "skill-md",
+      "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has. Trigger phrases: `list syncro tickets`, `show uninvoiced time in syncro`, `syncro ar aging`, `which syncro assets are missing patches`, `triage stale syncro tickets`, `use syncro`, `run syncro`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/SKILL.md",
+      "digest": "sha256:fd6a774df99358b74f98a1364ce754065d4568a7eacece9dd11ef5e4ccac6149"
+    },
+    {
+      "name": "tactical-rmm",
+      "type": "skill-md",
+      "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/SKILL.md",
+      "digest": "sha256:734556c3a3dfc3ab00231a568b59835060cb44118a1f22224b86d7d3ac7c1db5"
+    },
+    {
+      "name": "td-synnex",
+      "type": "skill-md",
+      "description": "Use when the user asks about TD SYNNEX StreamOne ION (the ION reseller marketplace for Microsoft 365, Azure and security licences): subscriptions renewing soon or with auto-renew off, margin per customer or SKU, seat true-up against Pax8, Sherweb or PSA exports, stuck or failed orders, recent seat and renewal changes, one customer's full picture, or changing seats, renewal settings or status on an ION subscription. Trigger phrases: `what TD SYNNEX subscriptions renew this month`, `which ION customers am I losing money on`, `change seats on a StreamOne ION subscription`, `true up licences across TD SYNNEX and Pax8`, `which ION orders are stuck on hold`, `use td-synnex`, `run td-synnex`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/SKILL.md",
+      "digest": "sha256:dd8bf31e494fea0269e50a1a4033cbfab1e25e1c947a27848973a6d50813fd0a"
+    },
+    {
+      "name": "threatdown",
+      "type": "skill-md",
+      "description": "Use when the user asks to find ThreatDown (Malwarebytes) OneView endpoints that stopped checking in across customer sites, rank sites by what needs attention, reconcile seats before billing, triage detections and threats spreading across customers, profile one customer site, isolate, scan, reboot, update or release endpoints with a preview first, or find response jobs that never ran. Trigger phrases: `which endpoints haven't checked in`, `isolate this machine in threatdown`, `threatdown fleet health`, `malwarebytes oneview detections`, `use threatdown`, `run threatdown`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/SKILL.md",
+      "digest": "sha256:f87a6bb7e24a6f8fd0cbf48a7f105e5efdfa5b140b3407c85eb01703948649cc"
+    },
+    {
+      "name": "threatlocker",
+      "type": "skill-md",
+      "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Trigger phrases: `triage threatlocker approvals`, `approve this hash across all tenants`, `export the threatlocker audit log`, `which threatlocker agents are offline`, `why is threatlocker returning 401`, `use threatlocker`, `run threatlocker`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/SKILL.md",
+      "digest": "sha256:64c5f2fdf31bd8d513800a6041c44cfa24673d72632955f06becae51ad0f8d77"
+    },
+    {
+      "name": "unifi-network",
+      "type": "skill-md",
+      "description": "Use when the user asks to audit a UniFi Network gateway: list adopted devices and connected clients, review firewall policies, ACL rules, VLANs and WiFi broadcasts, see what changed in site config since the last check, spot hardware that just joined the network, or check switch port and PoE headroom. Wraps the local UniFi Network integration API on a self-hosted UniFi OS gateway - not the Site Manager cloud API, UniFi Protect, or UniFi Access - plus a local SQLite mirror that answers change-over-time questions the live API cannot. Trigger phrases: `audit my unifi network`, `what changed on my unifi site`, `list unifi devices`, `which clients are on my unifi network`, `check unifi firewall rules`, `unifi port audit`, `who just joined the network`, `use unifi-network-cli`, `run unifi-network-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/unifi-network/SKILL.md",
+      "digest": "sha256:610b09a6334e4303a30f95c0e1c69c07a6080c5cad3c2465f77881a165b3b09a"
+    },
+    {
+      "name": "veeam",
+      "type": "skill-md",
+      "description": "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `use veeam`, `run veeam`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/SKILL.md",
+      "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
+    },
+    {
+      "name": "watchguard",
+      "type": "skill-md",
+      "description": "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/SKILL.md",
+      "digest": "sha256:6c743bcfbe6ed412d05b3162a6d7633b40801f1f162c8a61796eb0b0e96072ec"
+    },
+    {
+      "name": "wordpress",
+      "type": "skill-md",
+      "description": "Use when the user asks to publish, update, search, or clean up WordPress pages, posts, or media from the terminal or an AI agent - drives the WordPress REST API and keeps a local SQLite mirror for offline full-text search. Trigger phrases: `publish a wordpress page`, `create a wordpress post`, `list draft pages`, `upload media to wordpress`, `search my wordpress site`, `use wordpress`, `run wordpress`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/SKILL.md",
+      "digest": "sha256:f4da13701638a4a54de57d9b663468c72b0887d6376eca960b4f0999322e32c0"
+    },
+    {
+      "name": "xero",
+      "type": "skill-md",
+      "description": "Every Xero Accounting read plus a local SQLite ledger - aging, reconciliation, and GL tie-out that no other Xero tool computes offline. Trigger phrases: `xero aging report`, `who owes us money in xero`, `reconcile xero payments`, `tie out the general ledger`, `what changed in xero since`, `use xero`, `run xero-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/SKILL.md",
+      "digest": "sha256:1fbb76418249d45f2277139b097e5ca2c31b65c1a7e88020e7c8753eaa112cb7"
+    },
+    {
+      "name": "zammad",
+      "type": "skill-md",
+      "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server - plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
+      "digest": "sha256:773860dc0243cc99c99ac6b92b6814d9d336463b0b308a35a863b5f1052d4013"
+    }
+  ]
+}

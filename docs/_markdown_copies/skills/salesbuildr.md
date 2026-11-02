@@ -1,0 +1,153 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/salesbuildr/
+
+# The Salesbuildr MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Salesbuildr.
+
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Salesbuildr. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Salesbuildr to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+Ask your AI which quotes are aging, which lines are bleeding margin, and where your pipeline is stalling - and get the answer from your own Salesbuildr data in seconds. salesbuildr-cli syncs your quotes, opportunities, products, and pricing books into a local mirror, so the cross-quote questions the portal can't answer in one click become a single command.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/salesbuildr/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/salesbuildr)
+
+## Instead of clicking through Salesbuildr, just ask
+
+**Instead of** Export the quotes report to a spreadsheet and eyeball which sent proposals have gone cold.
+**just ask:** *"Which quotes have been sitting sent or approved for two weeks, and how much revenue is at risk?"*
+Your agent runs: `salesbuildr-cli quote stale --days 14`
+
+**Instead of** Open every open quote and check each line's markup by hand to find the ones below floor.
+**just ask:** *"Show me every quote line priced under 20% markup."*
+Your agent runs: `salesbuildr-cli quote thin --floor 20`
+
+**Instead of** Pull a CSV from Salesbuildr and a CSV from the PSA, then VLOOKUP to find what never synced.
+**just ask:** *"Which companies, contacts, and products are missing the external ID my PSA sync needs?"*
+Your agent runs: `salesbuildr-cli reconcile-psa`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/salesbuildr/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Which sent or approved quotes are aging, and how much is at risk? | `salesbuildr-cli quote stale --days 14` |
+| Which quote line items are priced below my markup floor? | `salesbuildr-cli quote thin --floor 20` |
+| How does my quote pipeline convert stage by stage, in count and dollars? | `salesbuildr-cli quote funnel` |
+| Where have per-company pricing-book prices drifted from the master catalog? | `salesbuildr-cli pricing drift` |
+| What's my win rate by owner, stage, or category? | `salesbuildr-cli opportunity winrate --by owner` |
+| What's my probability-weighted recurring-revenue forecast on the open pipeline? | `salesbuildr-cli opportunity mrr-forecast` |
+| Which catalog products have I never quoted to a given company? | `salesbuildr-cli company whitespace "Acme Managed IT"` |
+| Which records are missing the external ID my PSA sync depends on? | `salesbuildr-cli reconcile-psa` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/salesbuildr/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/salesbuildr/guide.md).
+
+## What makes this one different
+
+Most Salesbuildr integrations proxy each question into a live API call - fine for one record, useless for "across every open quote." This skill syncs Salesbuildr into a local SQLite mirror with full-text search, so margin, pipeline, and pricing-drift questions resolve as one local join: instant, offline, and the AI sees the answer, not your raw catalog.
+
+Salesbuildr's portal shows you one quote, one opportunity, one pricing book at a time. This skill answers the cross-entity questions - every stale quote, every thin-margin line, every company you've never cross-sold - that the portal makes you assemble by hand. It complements the portal; it doesn't replace it.
+
+## The pain this closes
+
+- Quotes go out and then go quiet. On a lean MSP nobody has time to babysit every sent proposal, so deals worth real money quietly age past their expiry - a recurring r/msp complaint about quote follow-up.
+- Margin leaks one line at a time. A tech swaps in a part at cost and forgets the markup; you don't catch it until the QBR, and by then it has already shipped.
+- Per-company pricing books drift away from the master catalog, so two clients pay different prices for the same SKU and nobody decided that on purpose.
+- Records that never got an external ID silently fall out of the Autotask/ConnectWise sync, so your PSA and your quoting tool quietly disagree about who your customers are.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (Plus/Pro+) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.ps1 | iex
+```
+
+After install, authenticate once with your Salesbuildr credentials, then verify with `salesbuildr-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | every `public-get` / `public-get-list`, the analytics (`quote stale`, `quote thin`, `quote funnel`, `pricing drift`, `opportunity velocity` / `winrate` / `mrr-forecast`, `product velocity`, `company whitespace`), `reconcile-psa`, `search`, `sql`, `export`, and `sync` (local mirror only) | Allow |
+| Write (routine) | company / contact / product / pricing-book / quote / quote-template create & update, the upserts, `opportunity public-win` / `public-lose` / `public-upsert`, `field public-update-values`, `product inventory`, the contact undeletes, and the bulk `import` - 30 routine-write commands in all | Preview with --dry-run, then a reviewed write |
+| Destructive / config | the 6 delete commands (`company` / `contact` / `product public-delete*`), plus the local credential commands (`auth set-token`, `auth setup`, `auth logout`) | Human-in-the-loop only |
+
+The skill reads your Salesbuildr quotes, opportunities, products, companies, and pricing books, and can create, update, or delete those records through the Public API. Reads - every get/list, the analytics rollups, search, sql, export, and sync - are safe to run unattended. Routine writes (create/update/upsert, the bulk import, winning or losing an opportunity) should be previewed with --dry-run and approved. The delete commands and the local auth/credential commands are human-in-the-loop only. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/salesbuildr/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for Salesbuildr?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Salesbuildr, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Salesbuildr MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `SALESBUILDR_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `SALESBUILDR_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running salesbuildr-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+
+### Is my Salesbuildr data safe?
+
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### Will this hammer my Salesbuildr API rate limits?
+
+No. The analytics read a local SQLite mirror, not the live API - you sync once, then ask as many questions as you want offline with zero further API calls. The sync itself honors a configurable --rate-limit, and you control how often it runs.
+
+### Do I need to be a Salesbuildr customer, and will this replace my PSA sync?
+
+You need a Salesbuildr account, a Public API key from your portal, and your tenant subdomain. It does not replace your Autotask/ConnectWise sync - it reads your Salesbuildr data and flags the records missing the external ID that sync depends on, so you can fix the gaps. It never writes to your PSA.
+
+## More CRM connectors
+
+Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](https://msp-skills.compoundingteams.com/skills/hubspot.md) · [Pipedrive](https://msp-skills.compoundingteams.com/skills/pipedrive.md) · [QuoteWerks](https://msp-skills.compoundingteams.com/skills/quotewerks.md)
+
+## Status
+
+Beta. Validated against the Salesbuildr API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

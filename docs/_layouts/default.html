@@ -11,6 +11,17 @@
   <link rel="canonical" href="{{ page.url | replace:'index.html','' | absolute_url }}">
   <link rel="alternate" type="application/llms+txt" href="/llms.txt">
   <link rel="alternate" type="application/llms+txt" href="/llms-full.txt" title="full corpus">
+  <link rel="ard" href="/.well-known/ard.json">
+  {%- comment -%} The page's Markdown copy (tools/maintainer/build-llms.py writes them to
+  the markdown_copies collection): /skills/acronis/ -> /skills/acronis.md, / -> /index.md. {%- endcomment -%}
+  {%- if page.url == "/" -%}{%- assign md_url = "/index.md" -%}
+  {%- else -%}{%- assign md_url = page.url | append: "#" | replace: "/#", ".md" | remove: "#" -%}{%- endif -%}
+  {%- assign md_collection = site.collections | where: "label", "markdown_copies" | first -%}
+  {%- assign md_path = "_markdown_copies" | append: md_url -%}
+  {%- assign md_copy = md_collection.files | where: "path", md_path | first -%}
+  {%- if md_copy %}
+  <link rel="alternate" type="text/markdown" href="{{ md_url | absolute_url }}">
+  {%- endif %}
 
   <!-- Display face: Fraunces (variable serif). Degrades to Georgia if the font fails to load. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -293,9 +304,12 @@
       font-size: 0.95rem;
     }
     .build-room-line strong { font-family: var(--serif); }
+    .agent-note { margin: 0 0 0.4rem; font-size: 0.75rem; color: var(--muted); }
+    .agent-note a { color: var(--muted); }
   </style>
 </head>
 <body{% if page.body_class %} class="{{ page.body_class }}"{% endif %}>
+  <p class="agent-note">For AI agents: every page on this site is listed at <a href="/llms.txt">/llms.txt</a>{% if md_copy %}, and this page is also available as <a href="{{ md_url }}">Markdown</a>{% endif %}.</p>
   <nav class="site-nav">
     <a class="brand" href="/">MSP Skills</a>
     <a href="/skills/">Connectors</a>
