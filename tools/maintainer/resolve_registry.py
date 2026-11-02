@@ -131,7 +131,8 @@ def is_derived(path: str) -> bool:
 #                    skill` dropdown options). Everything else in them is
 #                    hand-written prose and must never be discarded or hidden.
 FULL_DERIVED_EXACT = ("catalog.json", "docs/_data/catalog.json", "docs/llms.txt", "docs/llms-full.txt",
-                      "docs/.well-known/agent-skills/index.json", "docs/.well-known/ai-catalog.json")
+                      "docs/.well-known/agent-skills/index.json", "docs/.well-known/ard.json",
+                      "docs/.well-known/ai-catalog.json")
 # build-llms.py owns this whole folder (the Markdown copy of every docs page).
 FULL_DERIVED_PREFIX = ("docs/_markdown_copies/",)
 PARTIAL_DERIVED = ("README.md", ".github/ISSUE_TEMPLATE/it-works.yml", ".github/ISSUE_TEMPLATE/bug-report.yml")

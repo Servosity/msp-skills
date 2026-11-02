@@ -6,7 +6,8 @@ registry, the skills' SKILL.md files and the docs pages:
   docs/llms-full.txt                   expanded corpus
   docs/_markdown_copies/**.md          a clean Markdown copy of each page
   docs/.well-known/agent-skills/index.json   Agent Skills discovery index (v0.2.0)
-  docs/.well-known/ai-catalog.json     ai-catalog (ARD 1.0) listing the same Skills
+  docs/.well-known/ard.json            ARD manifest (spec section 5.1) listing the same Skills
+  docs/.well-known/ai-catalog.json     the same entries at ARD's predecessor path
 
 Why two llms files: llms.txt is the short, skimmable index AI search engines
 fetch first (one linked line per page); llms-full.txt is the full corpus they
@@ -57,6 +58,7 @@ COPIES = DOCS / "_markdown_copies"
 INCLUDES = DOCS / "_includes"
 AGENT_SKILLS_INDEX = DOCS / ".well-known" / "agent-skills" / "index.json"
 AI_CATALOG = DOCS / ".well-known" / "ai-catalog.json"
+ARD = DOCS / ".well-known" / "ard.json"
 
 SITE = "https://msp-skills.compoundingteams.com"
 SITE_HOST = "msp-skills.compoundingteams.com"
@@ -638,11 +640,11 @@ def render_agent_skills(entries: list[dict]) -> str:
     return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
 
 
-def render_ai_catalog(entries: list[dict], data: dict[str, dict]) -> str:
-    """ai-catalog.json (ARD 1.0): the same Skills, each with the questions it
-    answers. It describes Skills (Markdown an agent reads), not hosted MCP
-    endpoints: every MCP server here is a local program, so there is no URL to
-    advertise for one."""
+def ard_entries(entries: list[dict], data: dict[str, dict]) -> list[dict]:
+    """ARD entries for the same Skills, each with the questions it answers.
+    They describe Skills (Markdown an agent reads), not hosted MCP endpoints:
+    every MCP server here is a local program, so there is no URL to advertise
+    for one."""
     items = []
     for e in entries:
         d = data.get(e["slug"], {})
@@ -662,6 +664,18 @@ def render_ai_catalog(entries: list[dict], data: dict[str, dict]) -> str:
         if not item["metadata"]:
             del item["metadata"]
         items.append(item)
+    return items
+
+
+def render_ard(items: list[dict]) -> str:
+    """/.well-known/ard.json: the path an ARD consumer MUST fetch (spec 5.1).
+    The manifest is just the `entries` array."""
+    return json.dumps({"entries": items}, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_ai_catalog(items: list[dict]) -> str:
+    """/.well-known/ai-catalog.json: ARD's predecessor path, still what
+    Lighthouse's ard-schema audit reads (its schema wants specVersion + host)."""
     doc = {
         "specVersion": "1.0",
         "host": {"displayName": "MSP Skills", "documentationUrl": SITE + "/"},
@@ -690,6 +704,10 @@ def page_link(url: str, copies: dict[str, str]) -> str:
 
 def render_index(pages: list[dict], site: dict[str, dict], copies: dict[str, str],
                  with_install: bool = True) -> str:
+    no_copy = ", ".join(SITE + u for u in sorted(set(site) - set(copies))) or "none"
+    on_github = [p["name"] for p in pages if p["link"].startswith(REPO_URL)]
+    github_note = (f", and {', '.join(on_github)}, which links {'its folder' if len(on_github) == 1 else 'their folders'}"
+                   " on GitHub") if on_github else ""
     lines = [
         "# MSP Skills",
         "",
@@ -705,9 +723,10 @@ def render_index(pages: list[dict], site: dict[str, dict], copies: dict[str, str
         "and Claude Code calls a Skill - all the same MCP standard. Full "
         f"answer: [What is an MCP server?]({page_link('/what-is-an-mcp-server/', copies)})",
         "",
-        "Each link below is a clean Markdown copy of the page; the HTML page is the same "
-        "address with a trailing slash in place of `.md`. Every Skill is also listed for "
-        f"agents at {SITE}/.well-known/agent-skills/index.json",
+        "Links ending in `.md` are clean Markdown copies; the HTML page is the same "
+        "address with a trailing slash in place of `.md`. The other links are HTML pages "
+        f"with no Markdown copy ({no_copy}), the full corpus (llms-full.txt){github_note}. "
+        f"Every Skill is also listed for agents at {SITE}/.well-known/agent-skills/index.json",
         "",
         "## Connectors",
         "",
@@ -834,12 +853,14 @@ def main() -> int:
     write_if_changed(LLMS_FULL, render_full(pages))
     write_copies(files)
     write_if_changed(AGENT_SKILLS_INDEX, render_agent_skills(entries))
-    write_if_changed(AI_CATALOG, render_ai_catalog(entries, {p["slug"]: p for p in pages}))
+    items = ard_entries(entries, {p["slug"]: p for p in pages})
+    write_if_changed(ARD, render_ard(items))
+    write_if_changed(AI_CATALOG, render_ai_catalog(items))
     skipped = sorted(set(site) - set(copies))
     print(f"Wrote {LLMS.relative_to(ROOT)} ({len(index):,} chars) and {LLMS_FULL.relative_to(ROOT)} "
           f"({len(pages)} connectors), {len(files)} Markdown copies "
           f"(no copy: {', '.join(skipped) or 'none'}), {len(entries)} Skills in "
-          f"{AGENT_SKILLS_INDEX.relative_to(ROOT)} and {AI_CATALOG.relative_to(ROOT)}.")
+          f"{AGENT_SKILLS_INDEX.relative_to(ROOT)}, {ARD.relative_to(ROOT)} and {AI_CATALOG.relative_to(ROOT)}.")
     return 0
 
 
@@ -891,6 +912,18 @@ def self_test() -> int:
         rel = e["url"][len(RAW_BASE) + 1:]
         assert e["digest"] == "sha256:" + hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
         assert 0 < len(e["description"]) <= 1024 and re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", e["name"])
+    for p in pages:  # main() links a connector with no docs page to GitHub
+        if "/skills/" + p["slug"] + "/" not in site:
+            p["link"] = REPO_URL + "/tree/main/x"
+    head = render_index(pages, site, copies).split("## Connectors")[0]
+    assert "Links ending in `.md`" in head and SITE + "/skills/" in head, head
+    items = ard_entries(entries, {p["slug"]: p for p in pages})
+    ard = json.loads(render_ard(items))
+    assert list(ard) == ["entries"] and len(ard["entries"]) == len(entries)
+    for item in ard["entries"]:  # ARD 4.2: these three, and exactly one of url / data
+        assert item["identifier"].startswith("urn:air:") and item["displayName"] and item["type"]
+        assert ("url" in item) != ("data" in item), item["identifier"]
+    assert json.loads(render_ai_catalog(items))["entries"] == ard["entries"]
     print(f"self-test OK: {len(files)} copies, {len(links)} links in llms.txt, {len(entries)} skills")
     return 0
 

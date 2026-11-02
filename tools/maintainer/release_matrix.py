@@ -190,6 +190,7 @@ DERIVED_EXACT = (
     "docs/llms.txt",
     "docs/llms-full.txt",
     "docs/.well-known/agent-skills/index.json",
+    "docs/.well-known/ard.json",
     "docs/.well-known/ai-catalog.json",
     "docs/_data/catalog.json",
     "docs/_data/pending.json",

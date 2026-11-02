@@ -11,6 +11,7 @@
   <link rel="canonical" href="{{ page.url | replace:'index.html','' | absolute_url }}">
   <link rel="alternate" type="application/llms+txt" href="/llms.txt">
   <link rel="alternate" type="application/llms+txt" href="/llms-full.txt" title="full corpus">
+  <link rel="ard" href="/.well-known/ard.json">
   {%- comment -%} The page's Markdown copy (tools/maintainer/build-llms.py writes them to
   the markdown_copies collection): /skills/acronis/ -> /skills/acronis.md, / -> /index.md. {%- endcomment -%}
   {%- if page.url == "/" -%}{%- assign md_url = "/index.md" -%}
