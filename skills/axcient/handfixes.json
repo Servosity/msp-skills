@@ -818,6 +818,32 @@
      "not_contains": "\"error\": err.Error(),"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The narrative says \"An open-source CLI and MCP server\" for x360Recover, not \"The only CLI and MCP surface\"",
+   "why": "The press narrative (research.json value_prop) claimed this was the only CLI and MCP surface for x360Recover. That stopped being supportable when a third-party x360Recover AI agent launched in October 2026, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates SKILL.md and guide.md from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "An open-source CLI and MCP server for Axcient's x360Recover",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "The only CLI and MCP surface"
+    },
+    {
+     "file": "guide.md",
+     "contains": "An open-source CLI and MCP server for Axcient's x360Recover",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "The only CLI and MCP surface"
+    }
+   ]
   }
  ]
 }
