@@ -1,5 +1,5 @@
 title: "MSP Skills"
-description: "Free, open source MCP servers and Claude Code Skills that connect your MSP tools (PSA, RMM, backup, security, billing, Microsoft 365) to Claude, ChatGPT, Copilot and other AI agents. Built for MSP owners."
+description: "Free, open source MCP servers and Claude Code Skills that connect your MSP tools (PSA, RMM, backup, security, billing, Microsoft 365) to Claude, Codex, Cursor, GitHub Copilot and other AI agents. Built for MSP owners."
 url: "https://msp-skills.compoundingteams.com"
 baseurl: ""
 github_repo: "servosity/msp-skills"
