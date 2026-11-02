@@ -467,6 +467,30 @@ jobs:
       - name: Component-flag validators reject hostile values (one place, not 31 connectors)
         run: python3 tools/maintainer/check_mcp_file_flags.py --check-component-validators
 
+  # The kit's wiring checker (tools/maintainer/credkit_verify) proved both
+  # directions on a fixture connector: testdata/base is wired completely and
+  # yields nothing, and each case changes one shape (an aliased import, a
+  # method value, an env wrapper, an embedded field, a windows-only file...)
+  # that must yield exactly the findings it names, or its routed twin nothing.
+  # One job, not one per matrix row: the fixture does not change per connector.
+  credkit-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit_verify/go.mod
+          cache-dependency-path: tools/maintainer/credkit_verify/go.sum
+
+      - name: Checker self-test (race detector)
+        working-directory: tools/maintainer/credkit_verify
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+
   # Its own job, deliberately. This check is RED BY DESIGN for a release that
   # was never cut: once a version bump has been on main for longer than the
   # in-flight window (PINS_INFLIGHT_HOURS, default 24) with no tag, every run
@@ -722,6 +746,27 @@ jobs:
         # tool hands request data to a filesystem call. Needs no credentials.
         timeout-minutes: 20
         run: python3 tools/maintainer/check_mcp_file_flags.py --slug ${{ matrix.skill.name }}
+
+      - name: Credential kit wired completely (this skill)
+        # ADVISORY for now (loop ruling 17): continue-on-error keeps a finding
+        # visible on the row without failing it. Measured on real adopters,
+        # zammad 248, axcient 1197 and avanan 1652 sites are unclassified, most
+        # of them press-template code, so a hard gate would block every adopter
+        # the moment it merged. It goes hard, here and in verify_connector.sh,
+        # once the fleet sweep has classified those sites centrally and comes
+        # back clean. The checker's self-test (the credkit-verify job) stays hard.
+        # A connector without the shared credential kit (its
+        # cli/internal/credkit/) is skipped with a note.
+        # tools/maintainer/credkit_verify reads the connector with
+        # go/types, as linux, darwin and windows build it, and VERIFIES the
+        # hand-written wiring: credkit.Start first in every main, every sink
+        # routed through the kit or listed with a reason in
+        # skills/<slug>/credkit-sites.json, every Config field and environment
+        # variable classified in the Declarations, every file read listed, and
+        # an allowed origin for every credential. It never guesses: a site it
+        # cannot classify fails with the site named. Needs no credentials.
+        continue-on-error: true
+        run: go -C tools/maintainer/credkit_verify run . --slug ${{ matrix.skill.name }}
 
       - name: Doctor reports a verdict that tracks reality (this skill)
         # Hard gate: build this skill's CLI and run `doctor --json` against a
