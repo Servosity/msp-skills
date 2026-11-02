@@ -54,15 +54,15 @@ Ask your AI "is automation healthy for this client?" or "which workflows failed 
 
 **Instead of** Opening the Rewst web app per client to check whether last night's automations succeeded or failed
 **just ask:** *"Is automation healthy for this client right now?"*
-<sub>Your agent runs: <code>rewst-cli health --org <orgId> --since 24h --agent</code></sub>
+<sub>Your agent runs: <code>rewst-cli health --org &lt;orgId&gt; --since 24h --agent</code></sub>
 
 **Instead of** Hunting through execution history in the console to find which workflows broke overnight
 **just ask:** *"What workflows failed for this org in the last 12 hours?"*
-<sub>Your agent runs: <code>rewst-cli failures --org <orgId> --since 12h --agent</code></sub>
+<sub>Your agent runs: <code>rewst-cli failures --org &lt;orgId&gt; --since 12h --agent</code></sub>
 
 **Instead of** Manually comparing two tenants' variables and installed packs when an automation works in one but not the other
 **just ask:** *"What does this org have that the other is missing?"*
-<sub>Your agent runs: <code>rewst-cli drift --org <orgId> --against <otherOrgId> --agent</code></sub>
+<sub>Your agent runs: <code>rewst-cli drift --org &lt;orgId&gt; --against &lt;otherOrgId&gt; --agent</code></sub>
 
 
 ## See it in 30 seconds

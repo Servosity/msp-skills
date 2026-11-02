@@ -28,7 +28,7 @@ Your agent runs: `connectwise-control-cli audit query-log --session-name "ACME-W
 
 **Instead of** Opening a session and typing the same command into the console command box on each machine
 **just ask:** *"Run this command on the guest (gated for my approval)"*
-Your agent runs: `connectwise-control-cli sessions run-command --session-id <sessionId> --command "..." --agent`
+Your agent runs: `connectwise-control-cli sessions run-command --session-id &lt;sessionId&gt; --command "..." --agent`
 
 ## See it in 30 seconds
 

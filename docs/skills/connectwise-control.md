@@ -62,7 +62,7 @@ Drive ConnectWise Control (ScreenConnect) from the terminal or your AI agent ins
 
 **Instead of** Opening a session and typing the same command into the console command box on each machine
 **just ask:** *"Run this command on the guest (gated for my approval)"*
-<sub>Your agent runs: <code>connectwise-control-cli sessions run-command --session-id <sessionId> --command "..." --agent</code></sub>
+<sub>Your agent runs: <code>connectwise-control-cli sessions run-command --session-id &lt;sessionId&gt; --command "..." --agent</code></sub>
 
 
 ## See it in 30 seconds

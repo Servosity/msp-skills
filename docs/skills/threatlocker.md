@@ -60,7 +60,7 @@ Running ThreatLocker across a whole book of customer tenants? Ask your AI "what 
 
 **Instead of** Approving the same known-good file (a Chrome update, a line-of-business installer) by hand in every tenant where it got blocked, one Portal session at a time
 **just ask:** *"Approve this file everywhere it's pending, but show me the plan before you do"*
-<sub>Your agent runs: <code>threatlocker-cli approvals approve-batch --hash <sha256> --all-tenants --dry-run</code></sub>
+<sub>Your agent runs: <code>threatlocker-cli approvals approve-batch --hash &lt;sha256&gt; --all-tenants --dry-run</code></sub>
 
 **Instead of** Remembering to export each tenant's Unified Audit log to CSV every month before it ages past the 31-day retention window, for the cyber-insurance and compliance evidence you can't regenerate later
 **just ask:** *"Which clients are about to lose audit evidence, and pull it before they do"*
