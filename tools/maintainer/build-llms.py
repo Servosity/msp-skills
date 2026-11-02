@@ -40,6 +40,7 @@ Self-check:                python3 tools/maintainer/build-llms.py --self-test
 from __future__ import annotations
 
 import hashlib
+from html import unescape
 import json
 import re
 import sys
@@ -393,7 +394,7 @@ def html_to_markdown(html: str) -> str:
     Anything else (a placeholder like <TENANT_ID>) is left exactly as written."""
     s = re.sub(r"<video\b([^>]*)>(.*?)</video>", _video_link, html, flags=re.S)
     s = re.sub(r'<a\s[^>]*?href="([^"]*)"[^>]*>(.*?)</a>', r"[\2](\1)", s, flags=re.S)
-    s = re.sub(r"<code>(.*?)</code>", r"`\1`", s, flags=re.S)
+    s = re.sub(r"<code>(.*?)</code>", lambda m: f"`{unescape(m.group(1))}`", s, flags=re.S)
     s = re.sub(r"</?(?:strong|b)>", "**", s)
     s = re.sub(r"</?(?:em|i)>", "*", s)
     s = re.sub(r"</p>", "\n\n", s)
@@ -872,6 +873,7 @@ def self_test() -> int:
     assert copy_path("/") == "/index.md" and copy_path("/skills/acronis/") == "/skills/acronis.md"
     assert plain_text("a \u2014 b") == "a - b", plain_text("a \u2014 b")
     assert html_to_markdown('<a href="/x/">X</a> <code>y</code>&nbsp;z') == "[X](/x/) `y` z"
+    assert html_to_markdown("<code>a --org &lt;id&gt;</code>") == "`a --org <id>`"
     assert _prose_to_markdown("`<a>` [t](/x/){: .btn}", DOCS / "x.md", lambda t, s: "ABS" + t) \
         == "`<a>` [t](ABS/x/)"
     tmp = ROOT / ".build-llms-selftest.md"

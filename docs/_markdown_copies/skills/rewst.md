@@ -20,15 +20,15 @@ New to the term? An **MCP server** is the same thing ChatGPT calls an app or con
 
 **Instead of** Opening the Rewst web app per client to check whether last night's automations succeeded or failed
 **just ask:** *"Is automation healthy for this client right now?"*
-Your agent runs: `rewst-cli health --org &lt;orgId&gt; --since 24h --agent`
+Your agent runs: `rewst-cli health --org <orgId> --since 24h --agent`
 
 **Instead of** Hunting through execution history in the console to find which workflows broke overnight
 **just ask:** *"What workflows failed for this org in the last 12 hours?"*
-Your agent runs: `rewst-cli failures --org &lt;orgId&gt; --since 12h --agent`
+Your agent runs: `rewst-cli failures --org <orgId> --since 12h --agent`
 
 **Instead of** Manually comparing two tenants' variables and installed packs when an automation works in one but not the other
 **just ask:** *"What does this org have that the other is missing?"*
-Your agent runs: `rewst-cli drift --org &lt;orgId&gt; --against &lt;otherOrgId&gt; --agent`
+Your agent runs: `rewst-cli drift --org <orgId> --against <otherOrgId> --agent`
 
 ## See it in 30 seconds
 

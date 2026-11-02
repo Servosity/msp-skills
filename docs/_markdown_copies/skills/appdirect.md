@@ -28,7 +28,7 @@ Your agent runs: `appdirect-cli reconcile --since 30d --agent`
 
 **Instead of** Click through four console screens - users, subscriptions, invoices, opportunities - to brief one customer before a renewal call.
 **just ask:** *"Show me everything on AppDirect company <companyId>."*
-Your agent runs: `appdirect-cli company show &lt;companyId&gt;`
+Your agent runs: `appdirect-cli company show <companyId>`
 
 ## See it in 30 seconds
 

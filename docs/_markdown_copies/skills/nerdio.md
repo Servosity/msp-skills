@@ -28,7 +28,7 @@ Your agent runs: `nerdio-cli fleet billing-rollup --period 2026-05-01:2026-05-31
 
 **Instead of** Kick off a scripted action in one tenant, then refresh the Jobs page over and over to see if it finished
 **just ask:** *"Run script 42 on these three accounts and tell me when all of them are done"*
-Your agent runs: `nerdio-cli scripted-actions fan-run &lt;script_id&gt; --accounts 101,102,103 --wait`
+Your agent runs: `nerdio-cli scripted-actions fan-run <script_id> --accounts 101,102,103 --wait`
 
 ## See it in 30 seconds
 

@@ -20,7 +20,7 @@ New to the term? An **MCP server** is the same thing ChatGPT calls an app or con
 
 **Instead of** Log into wp-admin, open the block editor, paste the HTML, wrestle the SEO fields, then click Publish - one page at a time
 **just ask:** *"Publish this landing page as a draft and give me its id"*
-Your agent runs: `wordpress-cli pages create --title "Spring Promo" --content "&lt;h1&gt;Spring Promo&lt;/h1&gt;" --status draft`
+Your agent runs: `wordpress-cli pages create --title "Spring Promo" --content "<h1>Spring Promo</h1>" --status draft`
 
 **Instead of** Hunt through the wp-admin media library to find an uploaded image's id before you can set it as a featured image
 **just ask:** *"Upload this hero image and tell me its media id"*
