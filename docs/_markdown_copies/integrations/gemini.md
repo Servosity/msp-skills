@@ -5,7 +5,7 @@
 Google's Gemini comes in two shapes that consume MCP differently. Pick the one you have.
 
 - **Gemini CLI** - local, self-serve, no hosting. Like Claude Code. **Start here if you can.**
-- **Gemini app / web** - remote-only. You host the MCP server over HTTPS, like ChatGPT on the web.
+- **Gemini app / web** - remote-only. You host the MCP server over HTTPS.
 
 ## What you need
 

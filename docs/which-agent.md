@@ -31,7 +31,7 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | AI agent | Supports MCP? | What it takes | Verified |
 | --- | --- | --- | --- |
 | [Microsoft 365 Copilot / Copilot Studio](#microsoft-365-copilot--copilot-studio) | Yes³ (remote only) | Host over HTTPS + Copilot Studio license + tenant admin | 2026-05-29 |
-| [Google Gemini](#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: remote (like ChatGPT on the web). | 2026-05-29 |
+| [Google Gemini](#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: remote. | 2026-05-29 |
 
 **Skill-native agents (secondary)** - they read this skill's `SKILL.md` directly *and* speak MCP:
 
