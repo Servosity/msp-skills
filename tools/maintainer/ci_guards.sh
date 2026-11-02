@@ -188,11 +188,21 @@ if [ "${1:-}" = "--self-test" ]; then
     "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
      && printf 'X = 1\n' >> tools/maintainer/registry.py \
      && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
+  # corpus3: only an untracked bytecode cache is skipped; a committed one
+  # counts as a change, and none runs in place of its source.
+  cs_new="printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl \
+     && mkdir -p tools/maintainer/__pycache__ && printf 'not bytecode' > tools/maintainer/__pycache__/registry.cpython-312.pyc"
+  st_case "a credential leak baseline entry for a new case, beside an untracked bytecode cache" pass "$cs_case && $cs_new"
+  st_case "a credential leak baseline entry for a new case, landing with a committed bytecode cache" fail \
+    "$cs_case && $cs_new && git add -f tools/maintainer/__pycache__/registry.cpython-312.pyc"
   st_case "a credential leak baseline with no merge base to compare against" fail \
     "$cs_case && git update-ref -d refs/remotes/origin/main"
   st_case "a credential leak baseline whose tool was removed" fail "$cs_case && rm tools/maintainer/class_secret_corpus.py"
   st_case "a connector on the shared credential kit with a known failure" fail \
-    "$cs_case && mkdir -p skills/acme/cli/internal/credkit && printf 'package credkit\n' > skills/acme/cli/internal/credkit/kit.go"
+    "$cs_case && $ck_install && $ck_carrier"
+  st_case "a connector on the shared credential kit with no known failure" pass \
+    "$cs_case && $ck_install && $ck_carrier && printf '{\"connectors\": {}}\n' > $cs_bl"
   # Guards 8 and 9 read pages and manifests the way a reader and a JSON
   # parser do (Codex review, round 1). The phrase is assembled from two halves
   # so this script never carries it.
@@ -551,9 +561,13 @@ if [ -f "$cs_tool" ]; then
     echo "  no merge base: CORPUS_BASE is unset and HEAD has no merge base with origin/main"
     note "fetch origin/main, or set CORPUS_BASE to the commit this change is based on"
     fail=1
-  elif cs_out="$(python3 -I "$cs_tool" --check-baseline --base "$cs_base" 2>&1)"; then
+  # A bytecode cache a change commits must not run in place of its source:
+  # caches are read and written only under a fresh prefix.
+  elif cs_pyc="$(mktemp -d)" && cs_out="$(python3 -I -X pycache_prefix="$cs_pyc" "$cs_tool" --check-baseline --base "$cs_base" 2>&1)"; then
+    rm -rf "$cs_pyc"
     printf '  %s\n' "$cs_out"
   else
+    rm -rf "${cs_pyc:-}"
     printf '%s\n' "$cs_out"
     note "fix the connector instead of listing it; only a case new to secret_corpus.jsonl may land with entries"
     fail=1

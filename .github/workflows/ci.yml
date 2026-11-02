@@ -40,11 +40,19 @@ jobs:
         with:
           fetch-depth: 0 # full history so the DCO range check works on PRs
 
+      # The credential leak test list's self-test builds the kit's matcher
+      # command (tools/maintainer/credkit/cmd/credmatch) with the kit's Go.
+      - name: Setup Go (the kit's version)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit/go.mod
+          cache-dependency-path: tools/maintainer/credkit/go.sum
+
       - name: Repo hygiene guards (placeholder, em-dash, personal paths)
         # Decides on each guard's OUTPUT, so a tracked file missing from disk
         # can no longer turn a printed violation into "All CI guards passed"
         # (the xargs/grep exit-status false GREEN). The self-test proves it.
-        # Guard 11 compares corpus_baseline.json with the PR base (on a push,
+        # Guard 12 compares corpus_baseline.json with the PR base (on a push,
         # the merge base with origin/main, which is HEAD itself).
         env:
           CORPUS_BASE: ${{ github.event.pull_request.base.sha }}
