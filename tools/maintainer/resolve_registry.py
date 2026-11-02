@@ -130,7 +130,10 @@ def is_derived(path: str) -> bool:
 #                    the skills-count badge) and the two issue forms (the `id:
 #                    skill` dropdown options). Everything else in them is
 #                    hand-written prose and must never be discarded or hidden.
-FULL_DERIVED_EXACT = ("catalog.json", "docs/_data/catalog.json", "docs/llms.txt", "docs/llms-full.txt")
+FULL_DERIVED_EXACT = ("catalog.json", "docs/_data/catalog.json", "docs/llms.txt", "docs/llms-full.txt",
+                      "docs/.well-known/agent-skills/index.json", "docs/.well-known/ai-catalog.json")
+# build-llms.py owns this whole folder (the Markdown copy of every docs page).
+FULL_DERIVED_PREFIX = ("docs/_markdown_copies/",)
 PARTIAL_DERIVED = ("README.md", ".github/ISSUE_TEMPLATE/it-works.yml", ".github/ISSUE_TEMPLATE/bug-report.yml")
 README_MARKERS = ("catalog", "hero-live", "install-featured", "agent-can-do", "footer-releases")
 _BADGE_RE = re.compile(r"img\.shields\.io/badge/skills-\d+-green")
@@ -162,7 +165,7 @@ def connector_pages(skills_json_text: str | None) -> set[str]:
 
 
 def is_full_derived(path: str, pages: set[str]) -> bool:
-    return path in FULL_DERIVED_EXACT or path in pages
+    return path in FULL_DERIVED_EXACT or path in pages or path.startswith(FULL_DERIVED_PREFIX)
 
 
 def mask_generated(path: str, text: str | None) -> str | None:

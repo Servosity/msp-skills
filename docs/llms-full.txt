@@ -36,7 +36,7 @@ The vision is simple: one install pattern, every MSP tool. HaloPSA and Servosity
 
 ### Abnormal Security (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/abnormal/
+Page: [Abnormal Security](https://msp-skills.compoundingteams.com/skills/abnormal.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
 
@@ -74,7 +74,7 @@ Governance: The skill authenticates with a single ABNORMAL_API_TOKEN scoped to y
 
 ### Acronis Cyber Protect Cloud (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/acronis/
+Page: [Acronis Cyber Protect Cloud](https://msp-skills.compoundingteams.com/skills/acronis.md)
 Verification: Live-verified by @asterisk79 (MSP) (2026-09-11)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
 
@@ -116,7 +116,7 @@ Governance: The skill drives the acronis-cli and acronis-mcp binaries, authentic
 
 ### Action1 (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/action1/
+Page: [Action1](https://msp-skills.compoundingteams.com/skills/action1.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
 
@@ -152,7 +152,7 @@ Governance: The skill reads freely - fleet rollups, lists, reports, search, expo
 
 ### Afi (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/afi/
+Page: [Afi](https://msp-skills.compoundingteams.com/skills/afi.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/install.sh)
 
@@ -187,7 +187,7 @@ Governance: The skill reads your Afi fleet (installations, orgs, tenants, resour
 
 ### AppDirect (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/appdirect/
+Page: [AppDirect](https://msp-skills.compoundingteams.com/skills/appdirect.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/install.sh)
 
@@ -221,7 +221,7 @@ Governance: The skill reads marketplace data - companies, users, subscriptions, 
 
 ### Atera (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/atera/
+Page: [Atera](https://msp-skills.compoundingteams.com/skills/atera.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/install.sh)
 
@@ -259,7 +259,7 @@ Governance: The skill reads everything - agents, tickets, customers, contracts, 
 
 ### Autotask PSA (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/autotask/
+Page: [Autotask PSA](https://msp-skills.compoundingteams.com/skills/autotask.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/install.sh)
 
@@ -300,7 +300,7 @@ Governance: The skill drives the autotask-cli and autotask-mcp binaries, authent
 
 ### Auvik (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/auvik/
+Page: [Auvik](https://msp-skills.compoundingteams.com/skills/auvik.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/install.sh)
 
@@ -334,7 +334,7 @@ Governance: Auvik's API is read-only in practice and this CLI reflects that: the
 
 ### Avanan (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/avanan/
+Page: [Avanan](https://msp-skills.compoundingteams.com/skills/avanan.md)
 Verification: Live-verified by @geekbrownbear (Bearium Networks, MSP) (2026-08-23)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/install.sh)
 
@@ -375,7 +375,7 @@ Governance: The skill reads your Avanan detections, scanned messages and files, 
 
 ### AWS (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/aws-billing/
+Page: [AWS](https://msp-skills.compoundingteams.com/skills/aws-billing.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
 
@@ -413,7 +413,7 @@ Governance: Every command is read-only against the AWS billing & Cost Explorer A
 
 ### Axcient x360Recover (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/axcient/
+Page: [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md)
 Verification: Live-verified by @Xenith-B (MSP) (2026-06-25)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/install.sh)
 
@@ -453,7 +453,7 @@ Governance: The skill drives the axcient-cli and axcient-mcp binaries, authentic
 
 ### Backup Radar (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/backup-radar/
+Page: [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/install.sh)
 
@@ -491,7 +491,7 @@ Governance: The skill reads client health, devices and backup lists with whichev
 
 ### Better Stack (Monitoring)
 
-Page: https://msp-skills.compoundingteams.com/skills/betterstack/
+Page: [Better Stack](https://msp-skills.compoundingteams.com/skills/betterstack.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
 
@@ -529,7 +529,7 @@ Governance: The skill reads your Better Stack monitors, heartbeats, incidents, o
 
 ### Bitdefender GravityZone (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/bitdefender/
+Page: [Bitdefender GravityZone](https://msp-skills.compoundingteams.com/skills/bitdefender.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/install.sh)
 
@@ -575,7 +575,7 @@ Governance: The skill authenticates with a GravityZone Control Center API key yo
 
 ### Blumira (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/blumira/
+Page: [Blumira](https://msp-skills.compoundingteams.com/skills/blumira.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)
 
@@ -612,7 +612,7 @@ Governance: The skill reads findings, detections, agents, and evidence through y
 
 ### CIPP + Microsoft 365 (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/cipp/
+Page: [CIPP + Microsoft 365](https://msp-skills.compoundingteams.com/skills/cipp.md)
 Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 
@@ -658,7 +658,7 @@ Governance: The skill drives the cipp-cli and cipp-mcp binaries against your sel
 
 ### Cisco Duo (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/cisco-duo/
+Page: [Cisco Duo](https://msp-skills.compoundingteams.com/skills/cisco-duo.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-duo/install.sh)
 
@@ -699,7 +699,7 @@ Governance: The skill reads Duo users, phones, groups, bypass codes, hardware to
 
 ### Cisco Meraki (Network Monitoring)
 
-Page: https://msp-skills.compoundingteams.com/skills/cisco-meraki/
+Page: [Cisco Meraki](https://msp-skills.compoundingteams.com/skills/cisco-meraki.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/install.sh)
 
@@ -739,7 +739,7 @@ Governance: Reads - the fleet views, every GET, sync and search - change nothing
 
 ### connect-tool (Meta)
 
-Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
+Page: [connect-tool](https://msp-skills.compoundingteams.com/skills/connect-tool.md)
 Verification: Awaiting live verification
 
 Get any vendor's API key connected to your AI, and prove it actually worked.
@@ -758,7 +758,7 @@ A: It runs on Windows and macOS from one codebase, with the credential going to 
 
 ### ConnectSecure (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/connectsecure/
+Page: [ConnectSecure](https://msp-skills.compoundingteams.com/skills/connectsecure.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/install.sh)
 
@@ -795,7 +795,7 @@ Governance: Read commands - the seven analysis commands, sync, search, and every
 
 ### ConnectWise Automate (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/connectwise-automate/
+Page: [ConnectWise Automate](https://msp-skills.compoundingteams.com/skills/connectwise-automate.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.sh)
 
@@ -830,7 +830,7 @@ Governance: The skill is read-first: fleet roll-ups, stale-agent sweeps, patch p
 
 ### ConnectWise Control (Remote Access)
 
-Page: https://msp-skills.compoundingteams.com/skills/connectwise-control/
+Page: [ConnectWise Control](https://msp-skills.compoundingteams.com/skills/connectwise-control.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/install.sh)
 
@@ -865,7 +865,7 @@ Governance: The skill is read-first: listing and inspecting sessions, session gr
 
 ### ConnectWise PSA (Manage) (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/connectwise-manage/
+Page: [ConnectWise PSA (Manage)](https://msp-skills.compoundingteams.com/skills/connectwise-manage.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/install.sh)
 
@@ -915,7 +915,7 @@ Governance: The skill drives the connectwise-manage-cli and connectwise-manage-m
 
 ### ConnectWise RMM (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/connectwise-rmm/
+Page: [ConnectWise RMM](https://msp-skills.compoundingteams.com/skills/connectwise-rmm.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/install.sh)
 
@@ -946,7 +946,7 @@ Governance: The skill is read-first: fleet roll-ups, patch posture, user lookup,
 
 ### Cork (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/cork/
+Page: [Cork](https://msp-skills.compoundingteams.com/skills/cork.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/install.sh)
 
@@ -982,7 +982,7 @@ Governance: The skill reads your Cork clients, devices, risk scores, compliance 
 
 ### Cove Data Protection (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/cove/
+Page: [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md)
 Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/install.sh)
 
@@ -1015,7 +1015,7 @@ Governance: The skill is read-first: every command that touches Cove reads (fail
 
 ### CrowdStrike Falcon (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
+Page: [CrowdStrike Falcon](https://msp-skills.compoundingteams.com/skills/crowdstrike.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
 
@@ -1055,7 +1055,7 @@ Governance: The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, a
 
 ### DataGate (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/datagate/
+Page: [DataGate](https://msp-skills.compoundingteams.com/skills/datagate.md)
 Verification: Live-verified by a real MSP (2026-09-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/install.sh)
 
@@ -1069,7 +1069,7 @@ Outcomes (question -> command your AI agent runs):
 
 ### Datto BCDR (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
+Page: [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md)
 Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
 
@@ -1108,7 +1108,7 @@ Governance: The datto-bcdr skill is read-only against Datto: it reads your Datto
 
 ### Datto RMM (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/datto-rmm/
+Page: [Datto RMM](https://msp-skills.compoundingteams.com/skills/datto-rmm.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/install.sh)
 
@@ -1142,7 +1142,7 @@ Governance: The skill reads your Datto RMM fleet and writes only when you ask it
 
 ### Domotz (Network Monitoring)
 
-Page: https://msp-skills.compoundingteams.com/skills/domotz/
+Page: [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
 
@@ -1176,7 +1176,7 @@ Governance: The skill reads your Domotz fleet - Collectors, devices, variables, 
 
 ### Fortinet (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/fortinet/
+Page: [Fortinet](https://msp-skills.compoundingteams.com/skills/fortinet.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/install.sh)
 
@@ -1214,7 +1214,7 @@ Governance: This connector is read-only against FortiOS, FortiManager and FortiG
 
 ### Google Workspace (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/google-workspace/
+Page: [Google Workspace](https://msp-skills.compoundingteams.com/skills/google-workspace.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.sh)
 
@@ -1251,7 +1251,7 @@ Governance: Each client is a registered tenant whose service account impersonate
 
 ### grab-cookie (Meta)
 
-Page: https://msp-skills.compoundingteams.com/skills/grab-cookie/
+Page: [grab-cookie](https://msp-skills.compoundingteams.com/skills/grab-cookie.md)
 Verification: Awaiting live verification
 
 Re-auth the tools that never issue an API key, in one paste.
@@ -1270,7 +1270,7 @@ A: Partly, and the part that is proven is the storage layer. The skill is verifi
 
 ### Gradient MSP (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/gradient/
+Page: [Gradient MSP](https://msp-skills.compoundingteams.com/skills/gradient.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/install.sh)
 
@@ -1304,7 +1304,7 @@ Governance: The skill reads your Synthesize accounts, services, mappings, integr
 
 ### HaloPSA (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/halopsa/
+Page: [HaloPSA](https://msp-skills.compoundingteams.com/skills/halopsa.md)
 Verification: Live-verified by Servosity (maintainer) (2026-06-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/install.sh)
 
@@ -1340,7 +1340,7 @@ Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authentic
 
 ### HubSpot (CRM)
 
-Page: https://msp-skills.compoundingteams.com/skills/hubspot/
+Page: [HubSpot](https://msp-skills.compoundingteams.com/skills/hubspot.md)
 Verification: Live-verified by Servosity (maintainer) (2026-06-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/install.sh)
 
@@ -1376,7 +1376,7 @@ Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authentic
 
 ### Hudu (Documentation)
 
-Page: https://msp-skills.compoundingteams.com/skills/hudu/
+Page: [Hudu](https://msp-skills.compoundingteams.com/skills/hudu.md)
 Verification: Live-verified by @Xenith-B (MSP) (2026-07-17)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
 
@@ -1410,7 +1410,7 @@ Governance: The skill reads everything over a local mirror - audits, search, res
 
 ### Huntress (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/huntress/
+Page: [Huntress](https://msp-skills.compoundingteams.com/skills/huntress.md)
 Verification: Live-verified by @Xenith-B (MSP) (2026-06-26)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/install.sh)
 
@@ -1446,7 +1446,7 @@ Governance: The skill authenticates with your Huntress API key and secret and is
 
 ### ImmyBot (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/immybot/
+Page: [ImmyBot](https://msp-skills.compoundingteams.com/skills/immybot.md)
 Verification: Live-verified by @geekbrownbear (MSP) (2026-08-22)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/install.sh)
 
@@ -1484,7 +1484,7 @@ Governance: The skill authenticates with a Microsoft Entra ID app registration y
 
 ### IT Glue (Documentation)
 
-Page: https://msp-skills.compoundingteams.com/skills/itglue/
+Page: [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
 
@@ -1522,7 +1522,7 @@ Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticat
 
 ### Jira Service Management (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/jira-service-management/
+Page: [Jira Service Management](https://msp-skills.compoundingteams.com/skills/jira-service-management.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/install.sh)
 
@@ -1572,7 +1572,7 @@ Governance: The skill drives jira-service-management-cli and jira-service-manage
 
 ### Kaseya BMS (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
+Page: [Kaseya BMS](https://msp-skills.compoundingteams.com/skills/kaseya-bms.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
 
@@ -1608,7 +1608,7 @@ Governance: The skill reads everything - tickets, CRM, contracts, finance, proje
 
 ### KnowBe4 (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/knowbe4/
+Page: [KnowBe4](https://msp-skills.compoundingteams.com/skills/knowbe4.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/install.sh)
 
@@ -1642,7 +1642,7 @@ Governance: The skill reads your KnowBe4 reporting data - accounts, users, group
 
 ### Level (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/levelio/
+Page: [Level](https://msp-skills.compoundingteams.com/skills/levelio.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/install.sh)
 
@@ -1678,7 +1678,7 @@ Governance: The skill reads everything - reports, rollups, search, and a sync to
 
 ### Liongard (Documentation)
 
-Page: https://msp-skills.compoundingteams.com/skills/liongard/
+Page: [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/install.sh)
 
@@ -1714,7 +1714,7 @@ Governance: Read commands (drift, health, coverage, the stale/offline/failure ro
 
 ### Maxio (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/maxio/
+Page: [Maxio](https://msp-skills.compoundingteams.com/skills/maxio.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 
@@ -1749,7 +1749,7 @@ Governance: Read commands - every MRR, retention, cohort, triage, and reconcile 
 
 ### Microsoft Graph (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/microsoft-graph/
+Page: [Microsoft Graph](https://msp-skills.compoundingteams.com/skills/microsoft-graph.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)
 
@@ -1788,12 +1788,12 @@ Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp bin
 
 ### Concierge (Meta)
 
-Page: https://msp-skills.compoundingteams.com/skills/msp-skills-concierge/
+Page: [Concierge](https://github.com/servosity/msp-skills/tree/main/skills/_meta)
 Verification: Awaiting live verification
 
 ### MSPbots (Analytics)
 
-Page: https://msp-skills.compoundingteams.com/skills/mspbots/
+Page: [MSPbots](https://msp-skills.compoundingteams.com/skills/mspbots.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
 
@@ -1833,7 +1833,7 @@ Governance: The skill drives the mspbots-cli and mspbots-mcp binaries, authentic
 
 ### N-able N-central (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/n-central/
+Page: [N-able N-central](https://msp-skills.compoundingteams.com/skills/n-central.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/install.sh)
 
@@ -1873,7 +1873,7 @@ Governance: The skill drives the n-central-cli and n-central-mcp binaries, authe
 
 ### Nerdio Manager (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/nerdio/
+Page: [Nerdio Manager](https://msp-skills.compoundingteams.com/skills/nerdio.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
 
@@ -1911,7 +1911,7 @@ Governance: The skill reads your whole NMM fleet - accounts, host pools, session
 
 ### NinjaOne (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/ninjaone/
+Page: [NinjaOne](https://msp-skills.compoundingteams.com/skills/ninjaone.md)
 Verification: Live-verified by @Xenith-B (MSP) (2026-06-29)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/install.sh)
 
@@ -1961,7 +1961,7 @@ Governance: The skill drives the ninjaone-cli and ninjaone-mcp binaries, authent
 
 ### PagerDuty (Incident Response)
 
-Page: https://msp-skills.compoundingteams.com/skills/pagerduty/
+Page: [PagerDuty](https://msp-skills.compoundingteams.com/skills/pagerduty.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/install.sh)
 
@@ -1997,7 +1997,7 @@ Governance: The skill reads everything through your PagerDuty REST API key and w
 
 ### PandaDoc (Documentation)
 
-Page: https://msp-skills.compoundingteams.com/skills/pandadoc/
+Page: [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/install.sh)
 
@@ -2035,7 +2035,7 @@ Governance: Reads (pipeline, stalled, aging, value, search, list commands) are a
 
 ### Pax8 (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/pax8/
+Page: [Pax8](https://msp-skills.compoundingteams.com/skills/pax8.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/install.sh)
 
@@ -2071,7 +2071,7 @@ Governance: The skill drives the pax8-cli and pax8-mcp binaries, authenticating 
 
 ### Pipedrive (CRM)
 
-Page: https://msp-skills.compoundingteams.com/skills/pipedrive/
+Page: [Pipedrive](https://msp-skills.compoundingteams.com/skills/pipedrive.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/install.sh)
 
@@ -2107,7 +2107,7 @@ Governance: The skill can read your whole pipeline and can create, update, and d
 
 ### Proofpoint TAP (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
+Page: [Proofpoint TAP](https://msp-skills.compoundingteams.com/skills/proofpoint.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
 
@@ -2143,7 +2143,7 @@ Governance: The skill reads your Proofpoint TAP threat data - SIEM click and mes
 
 ### Proxmox (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/proxmox/
+Page: [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/install.sh)
 
@@ -2180,7 +2180,7 @@ Governance: Every request this skill sends to Proxmox VE or Proxmox Backup Serve
 
 ### QuickBooks Online (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
+Page: [QuickBooks Online](https://msp-skills.compoundingteams.com/skills/quickbooks.md)
 Verification: Live-verified by a real MSP (2026-06-15)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
 
@@ -2218,7 +2218,7 @@ Governance: The skill reads everything - aging, balances, DSO, cash forecast, re
 
 ### QuoteWerks (CRM)
 
-Page: https://msp-skills.compoundingteams.com/skills/quotewerks/
+Page: [QuoteWerks](https://msp-skills.compoundingteams.com/skills/quotewerks.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/install.sh)
 
@@ -2254,7 +2254,7 @@ Governance: The skill reads your QuoteWerks Web quotes, orders, invoices, line i
 
 ### Resource Guru (Other)
 
-Page: https://msp-skills.compoundingteams.com/skills/resourceguru/
+Page: [Resource Guru](https://msp-skills.compoundingteams.com/skills/resourceguru.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/install.sh)
 
@@ -2289,7 +2289,7 @@ Governance: The skill reads your schedule and computes analytics locally, and it
 
 ### Rewst (Automation)
 
-Page: https://msp-skills.compoundingteams.com/skills/rewst/
+Page: [Rewst](https://msp-skills.compoundingteams.com/skills/rewst.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/install.sh)
 
@@ -2323,7 +2323,7 @@ Governance: The skill is read-first: the six cross-org rollups (health, failures
 
 ### Riverside.fm (Marketing)
 
-Page: https://msp-skills.compoundingteams.com/skills/riverside-fm/
+Page: [Riverside.fm](https://msp-skills.compoundingteams.com/skills/riverside-fm.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)
 
@@ -2359,7 +2359,7 @@ Governance: The Riverside data commands in this skill read: they download, searc
 
 ### RocketCyber (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
+Page: [RocketCyber](https://msp-skills.compoundingteams.com/skills/rocketcyber.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)
 
@@ -2390,7 +2390,7 @@ Governance: The skill reads your RocketCyber SOC data - incidents, agents, detec
 
 ### Rootly (Incident Response)
 
-Page: https://msp-skills.compoundingteams.com/skills/rootly/
+Page: [Rootly](https://msp-skills.compoundingteams.com/skills/rootly.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/install.sh)
 
@@ -2424,7 +2424,7 @@ Governance: The skill reads incidents, alerts, schedules, and on-call data, and 
 
 ### runZero (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/runzero/
+Page: [runZero](https://msp-skills.compoundingteams.com/skills/runzero.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
 
@@ -2462,7 +2462,7 @@ Governance: The skill reads your runZero attack surface - assets, services, soft
 
 ### SaaS Alerts (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/saas-alerts/
+Page: [SaaS Alerts](https://msp-skills.compoundingteams.com/skills/saas-alerts.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/saas-alerts/install.sh)
 
@@ -2508,7 +2508,7 @@ Governance: The skill authenticates with your SaaS Alerts partner API key, and t
 
 ### Salesbuildr (CRM)
 
-Page: https://msp-skills.compoundingteams.com/skills/salesbuildr/
+Page: [Salesbuildr](https://msp-skills.compoundingteams.com/skills/salesbuildr.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/install.sh)
 
@@ -2542,7 +2542,7 @@ Governance: The skill reads your Salesbuildr quotes, opportunities, products, co
 
 ### SentinelOne (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/sentinelone/
+Page: [SentinelOne](https://msp-skills.compoundingteams.com/skills/sentinelone.md)
 Verification: Live-verified by a real MSP (2026-06-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/install.sh)
 
@@ -2582,7 +2582,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 
 ### Servosity (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/servosity/
+Page: [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
@@ -2622,7 +2622,7 @@ Governance: First-party: published by Servosity for MSP partners. The skill driv
 
 ### Sherweb (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/sherweb/
+Page: [Sherweb](https://msp-skills.compoundingteams.com/skills/sherweb.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/install.sh)
 
@@ -2659,7 +2659,7 @@ Governance: The skill drives the sherweb-cli and sherweb-mcp binaries, authentic
 
 ### SkyKick (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/skykick/
+Page: [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
 
@@ -2691,7 +2691,7 @@ Governance: The skill is read-first: every posture, staleness, coverage, retenti
 
 ### SonicWall (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/sonicwall/
+Page: [SonicWall](https://msp-skills.compoundingteams.com/skills/sonicwall.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.sh)
 
@@ -2727,7 +2727,7 @@ Governance: This connector is read-only against SonicWall: no command changes a 
 
 ### Sophos Central (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/sophos-central/
+Page: [Sophos Central](https://msp-skills.compoundingteams.com/skills/sophos-central.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/install.sh)
 
@@ -2772,7 +2772,7 @@ Governance: The skill authenticates with a Sophos Central API credential you cre
 
 ### SuperOps (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/superops/
+Page: [SuperOps](https://msp-skills.compoundingteams.com/skills/superops.md)
 Verification: Live-verified by @AvlCompCo (MSP) (2026-06-18)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/install.sh)
 
@@ -2808,7 +2808,7 @@ Governance: The skill drives the superops-cli and superops-mcp binaries, authent
 
 ### Syncro (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/syncro/
+Page: [Syncro](https://msp-skills.compoundingteams.com/skills/syncro.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
 
@@ -2845,7 +2845,7 @@ Governance: The skill is read-first: reporting, rollups, and cross-entity views 
 
 ### Tactical RMM (RMM)
 
-Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
+Page: [Tactical RMM](https://msp-skills.compoundingteams.com/skills/tactical-rmm.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)
 
@@ -2886,7 +2886,7 @@ Governance: The skill reads everything across your fleet - agents, clients, site
 
 ### TD SYNNEX StreamOne ION (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/td-synnex/
+Page: [TD SYNNEX StreamOne ION](https://msp-skills.compoundingteams.com/skills/td-synnex.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/install.sh)
 
@@ -2929,7 +2929,7 @@ Governance: The skill drives td-synnex-cli and td-synnex-mcp with an ION access 
 
 ### ThreatDown (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/threatdown/
+Page: [ThreatDown](https://msp-skills.compoundingteams.com/skills/threatdown.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/install.sh)
 
@@ -2969,7 +2969,7 @@ Governance: The skill is read-first: the fleet reports, seat reconciliation, thr
 
 ### ThreatLocker (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/threatlocker/
+Page: [ThreatLocker](https://msp-skills.compoundingteams.com/skills/threatlocker.md)
 Verification: Live-verified by @geekbrownbear (MSP) (2026-08-14)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/install.sh)
 
@@ -3010,7 +3010,7 @@ Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries,
 
 ### UniFi Network (Network Monitoring)
 
-Page: https://msp-skills.compoundingteams.com/skills/unifi-network/
+Page: [UniFi Network](https://msp-skills.compoundingteams.com/skills/unifi-network.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/unifi-network/install.sh)
 
@@ -3046,7 +3046,7 @@ Governance: Most read commands - the local-mirror views, reports, and the non-mu
 
 ### Veeam (Backup/DR)
 
-Page: https://msp-skills.compoundingteams.com/skills/veeam/
+Page: [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
 
@@ -3081,7 +3081,7 @@ Governance: The skill is read-first: cross-tenant health, stale-backup and at-ri
 
 ### WatchGuard Cloud (Security)
 
-Page: https://msp-skills.compoundingteams.com/skills/watchguard/
+Page: [WatchGuard Cloud](https://msp-skills.compoundingteams.com/skills/watchguard.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/install.sh)
 
@@ -3123,7 +3123,7 @@ Governance: The skill is read-first: the cross-customer reports, sync, search an
 
 ### WordPress (Marketing)
 
-Page: https://msp-skills.compoundingteams.com/skills/wordpress/
+Page: [WordPress](https://msp-skills.compoundingteams.com/skills/wordpress.md)
 Verification: Live-verified by Servosity (maintainer) (2026-08-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)
 
@@ -3158,7 +3158,7 @@ Governance: The skill reads pages, posts, media, categories, tags, users, and se
 
 ### Xero (Billing)
 
-Page: https://msp-skills.compoundingteams.com/skills/xero/
+Page: [Xero](https://msp-skills.compoundingteams.com/skills/xero.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/install.sh)
 
@@ -3196,7 +3196,7 @@ Governance: Everything analytical reads from a local mirror - aging, exposure, r
 
 ### Zammad (PSA)
 
-Page: https://msp-skills.compoundingteams.com/skills/zammad/
+Page: [Zammad](https://msp-skills.compoundingteams.com/skills/zammad.md)
 Verification: Live-verified by Servosity (maintainer) (2026-08-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/install.sh)
 

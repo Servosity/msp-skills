@@ -1,0 +1,239 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/reprint-survival/
+
+# Surviving a reprint: how connector fixes outlive cli-printing-press
+
+Every connector under `skills/<slug>/cli` is **generated** by
+[cli-printing-press](https://github.com/mvanhorn/cli-printing-press) and then
+carries connector-specific edits: live-API quirks, synthesized identifiers,
+corrected examples, and bug-fix back-ports. The press is upstream and refreshes
+on its own cadence; we pull new binaries and **reprint** connectors whenever it
+improves.
+
+A reprint regenerates those `DO NOT EDIT` files. The danger is that it can
+**silently clobber** a hand-fix - and `go build` / `go test` stay green while
+the fix is gone, because nothing tests the live-API behavior the fix encoded.
+This happened with axcient: a full reprint reverted the Python-style `id_`
+primary-key fallback, reintroducing `all_items_failed_id_extraction` (0 rows)
+for appliances/vaults. Only an adversarial review caught it.
+
+This doc is how we keep msp-skills and the press **independent** - fix
+connectors at any time, refresh the press at any time - while features,
+bug-fixes, and live-API lessons survive.
+
+## Why regen-merge isn't enough
+
+`cli-printing-press regen-merge` preserves whole hand-authored files (`NOVEL`)
+and new top-level declarations (`TEMPLATED-WITH-ADDITIONS`). It does **not**
+preserve **inline body edits** to generated files - adding `"id_"` to an
+existing slice literal, or a `Hand-wired:` block inside an existing function,
+is classified `TEMPLATED-BODY-DRIFT` and left for a human to merge by hand. A
+blind "overwrite every `DO NOT EDIT` file" reprint drops them. The decl-set
+comparison is structural; it can't see that a one-line change inside a function
+is load-bearing.
+
+## The three layers (use them in this order)
+
+### 1. Encode it in the spec (best - survives by construction)
+
+If the press can express the behavior as a spec extension, that's the most
+reprint-proof home: it becomes *input* to generation, so any press version
+regenerates it correctly. The `id_` case is the textbook example - the
+generated code itself prints *"Annotate the spec with `x-resource-id` to fix"*.
+Prefer `x-resource-id`, `x-pp-resource`, sync-hints, `x-auth-*` over a hand-edit
+whenever the press supports it. (For true independence the annotated spec should
+travel with the connector; today the spec lives in the press library, so
+spec-encoding also means a press change or a vendored spec.)
+
+When the press *can't* express it (e.g. synthesizing an id for a resource that
+has none), or you need the fix shipped now, fall through to layer 2.
+
+### 2. Record it in the hand-fix ledger (enforced safety net)
+
+Each connector may carry **`skills/<slug>/handfixes.json`** recording every
+edit to a generated file with a grep-able marker. `check_handfixes.py` asserts
+every marker is still present (and any banned anti-pattern still absent) and
+**fails CI** if a reprint dropped one - turning a silent clobber into a loud,
+blocking failure. It runs in the per-skill CI `build` job and in
+`verify_all.sh`. Skills without a ledger are a no-op.
+
+Add an entry whenever you hand-edit a generated file:
+
+```json
+{
+  "slug": "<slug>",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "short-kebab-id",
+      "summary": "one line",
+      "why": "the live-API truth / rationale a future maintainer needs",
+      "status": "active",
+      "spec_encode_followup": "optional: the x-... annotation this should become",
+      "asserts": [
+        {"file": "cli/internal/store/store.go", "contains": "\"id_\"", "min_count": 2},
+        {"file": "cli/internal/mcp/tools.go", "not_contains": "fmt.Sprintf(\"%v\", v), 1)"},
+        {"file": "cli/internal/config/config.go", "contains": "stripAuthScheme(",
+         "min_count": 1, "code_only": true}
+      ]
+    }
+  ]
+}
+```
+
+- `file` is relative to `skills/<slug>/`.
+- `contains` + `min_count` (default 1): the marker that must be present.
+- `not_contains`: an anti-pattern that must stay gone (e.g. the buggy line a fix removed).
+- `code_only` (optional, JSON boolean, `contains` only): where the `contains`
+  needle is counted. See the next section.
+- `status`: `active` = connector-only, a reprint would clobber it; `upstreamed`
+  = also fixed in the press, so a reprint from a fixed press regenerates it -
+  but the back-port must still be present today. Both are asserted present.
+
+Pick markers that are **specific** (a distinctive substring of the fix), not
+generic. When you intentionally change a fix, update its ledger entry in the
+same PR.
+
+#### `code_only`: what the `contains` needle is counted in
+
+An assert counts its needle in the **whole file, comments included**. So an
+assert whose needle a doc comment also carries stays green after the code it
+guards is deleted - the exact failure the gate exists to catch (issue #252).
+`code_only` is how you say which one you meant:
+
+| value | what it does | when to use it |
+| --- | --- | --- |
+| absent (default) | whole-file count | fine when the needle cannot appear in prose |
+| `true` | count **comment-stripped source** only - strictly stronger, the needle must survive in code | the normal fix for a needle a comment also contains |
+| `false` | whole-file count, and the lint stays quiet | the comment **is** the thing a reprint must not drop (a `Hand-wired:` marker, an explanatory paragraph) |
+
+Three rules the gate enforces, each of them a hard ledger error rather than a
+silent no-op:
+
+- **It must be a JSON boolean.** `"code_only": "true"` (a string) changes no
+  counting at all while reading like a declared intent - a gate failing open in
+  the quietest possible way.
+- **It only ever makes an assert stronger.** `code_only` scopes a `contains`
+  count and nothing else, so setting it on an assert with no `contains` is
+  refused. A `not_contains` assert is *always* checked whole-file, which is
+  already its strongest form: the banned pattern must be absent from code AND
+  from comments. Stripping comments there could only hide a banned line
+  resurrected inside a comment.
+- **The target's language must have comments.** `code_only` on a `.json` file
+  is refused: JSON has no comment syntax, so accepting it would report a
+  stronger check than was run. Strippers exist for `.go`, `.mod`, `.py`, `.sh`,
+  `.bash` and `.md`.
+
+Two ways this is checked. `check_handfixes.py --lint-asserts` reports every
+comment-satisfiable `contains` assert repo-wide; it is **advisory** (exit 0) and
+runs on every CI run, because 26 asserts are in that shape today and some of
+them deliberately. The **hard** gate is `--changed`, which fires only on an
+assert a change *adds or weakens* - editing an entry's `why` never trips it.
+
+    python3 tools/maintainer/check_handfixes.py --lint-asserts   # advisory report
+
+### 3. Capture the lesson (this doc + press retros)
+
+Process lessons live here. Things the **press itself** should fix generically
+(e.g. handle Python-`id_` keys, or have regen-merge detect body-level slice
+edits) go upstream as a `/printing-press-retro` issue, so the whole fleet
+benefits and we stop carrying the hand-fix.
+
+Unique / transcendent novel commands (e.g. axcient's `health`, `client-rollup`)
+are already mostly safe - they're whole hand-authored files regen-merge keeps,
+recorded in `.printing-press.json`. A ledger entry asserting "the novel command
+still resolves" is a cheap backstop.
+
+## Fleet-wide hand-fixes: retire or replay, settled once
+
+Some hand-fixes are not connector quirks but press gaps every connector
+inherited, so the same id sits in dozens of ledgers (16 ids in 10 or more
+ledgers held 678 of 1,485 entries on 2026-10-23). Reconciling each of them by
+hand on every reprint is the expensive part of a reprint, and the answer is the
+same for every connector. `tools/maintainer/fleet_handfixes.json` settles it
+once per press release:
+
+- **retire**: the press now generates the behavior, proven by execution on
+  fresh renders (the entry's own tests, or the class checks that cover it, pass
+  on the new press and fail on the old one). From `retire_at` on,
+  `check_handfixes.py` stops demanding the entry and demands the registry's
+  `native_asserts`, which pin the press's own shape, so the behavior keeps a CI
+  guard. A connector below `retire_at` keeps every entry.
+- **replay**: the press still lacks it. `tools/maintainer/replay_handfixes.py
+  --slug <slug>` re-applies it after a reprint (onboard.py runs it), restores the
+  hand-written files the entry pins that the reprint lacks from the pre-reprint
+  revision, pins every edit it makes, and proves the result by build, vet (on
+  every release OS), tests and the id's gates. A file the reprint carries is kept
+  as printed, never replaced by its pre-reprint copy; if it lacks the entry's
+  needle, the run names it for a person.
+- **delegated**: another tool owns the id (the secret-echo funnel).
+- **keep_manual**: the shared id carries a connector's own part; a person
+  reconciles that connector.
+
+The registry also lists dependency **floors**: a module a new press resolves
+below a patched version is raised on every print from `applies_from` on.
+
+When a new press release lands, re-settle the registry against it: re-run the
+proofs, move ids from replay to retire as the press takes them, and retire a
+floor once the press resolves it.
+
+## When fixing or reprinting a connector
+
+The gate above is the *reactive* half (CI blocks a clobbered merge). The
+`--brief` mode is the *proactive* half: read the ledger **before** you
+regenerate so you know what to preserve. The repo's `AGENTS.md` makes this
+mandatory for any agent.
+
+**First, check for open fleet advisories.** Before any reprint or re-vendor,
+read the findings that apply to *every* connector. They tell you whether a
+reprint is even the right fix, what it will and will not resolve, and what to
+verify afterwards:
+
+```bash
+gh issue list --repo Servosity/msp-skills --state open --label fleet-advisory
+```
+
+These are fleet-scope findings - a generator defect, an MCP boundary gap, a
+security issue inherited by every printed CLI - not per-connector bugs. A
+reprint inherits whatever the engine has already fixed and nothing it has not,
+so the advisory is what tells you which half you are in. Occasionally it will
+also tell you that the obvious hand-patch is the *wrong* fix because the engine
+solved it a different way, in which case patching by hand just creates drift in
+a `DO NOT EDIT` file that the reprint would have resolved for free.
+
+When you file a finding that affects every connector, label it
+`fleet-advisory` so this check keeps working for the next agent.
+
+1. **Before** reprinting / re-onboarding / bulk-overwriting `cli/`, read what
+   you must preserve:
+
+   ```bash
+   python3 tools/maintainer/check_handfixes.py --brief --slug <slug>
+   ```
+
+2. **Prefer surgical over a full reprint** when the goal is a targeted fix.
+   Revert the cli tree to `main`, apply only the fix. A full reprint absorbs all
+   upstream improvements but risks clobbering hand-fixes and can't be
+   live-verified without credentials.
+3. If you *do* full-reprint, **3-way merge every `BODY-DRIFT` file** (preserve
+   the hand-fix, apply the template delta) - never blind-overwrite.
+4. **After** regenerating, run `python3 tools/maintainer/check_handfixes.py
+   --slug <slug>` (it's also in `verify_all.sh` and CI). Restore anything it
+   flags before committing, and add/refresh ledger entries for any new hand-edit.
+5. Link the originating GitHub issue to the ledger entry. Issues are for triage;
+   the **ledger** is the source of truth a reprint is checked against.
+
+Find connectors whose hand-fixes are not yet recorded (back-fill candidates):
+`python3 tools/maintainer/check_handfixes.py --discover`.
+
+## Why not "GitHub issues as the source of truth"?
+
+Issues are where bugs arrive and get discussed, but they're the wrong durable
+home for reprint-survival: not co-located with the code, no mechanical
+enforcement, they close and get buried, and a reprint shouldn't have to parse
+prose from a closed issue. The ledger is versioned with the connector and
+*checked in CI*; issues link to it.
+
+Fleet advisories (above) are not an exception to this. They are not
+per-connector facts a reprint is checked *against* - that is still the ledger's
+job, enforced in CI. They are fleet-scope notices about whether and how to
+reprint at all, which no per-connector ledger can carry.
