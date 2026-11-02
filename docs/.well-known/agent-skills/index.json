@@ -76,7 +76,7 @@
       "type": "skill-md",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give - offline, joined, and agent-ready. Trigger phrases: `check axcient backups`, `which backups failed last night`, `x360recover fleet health`, `backup compliance report for client`, `axcient usage reconciliation`, `use axcient`, `run axcient-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/SKILL.md",
-      "digest": "sha256:71f3d5d5d1579597bd6ee254a6173abb27beaaa6f39a5d643b5ada9c31aff67f"
+      "digest": "sha256:8408aa593e619d96b4de282655cf41c77afcf571c193b5b12d06672d99b83a06"
     },
     {
       "name": "backup-radar",
