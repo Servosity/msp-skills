@@ -32,7 +32,7 @@ Install only the skills you'll use.
 
 ## Step 2 - Add the connector to the ChatGPT desktop app
 
-**Option A - in the app.** Open **Settings**, then select **MCP servers**. Add a server, choose **STDIO**, and give the connector's MCP binary as the command: `halopsa-mcp` (or `servosity-mcp`). If it isn't found, use its full path, for example `/Users/<you>/.local/bin/halopsa-mcp` on macOS. The connector reads its credentials from environment variables; each skill's `mcp-install.md` lists them.
+**Option A - in the app.** Open **Settings**, then select **MCP servers**. Add a server, choose **STDIO**, and give the connector's MCP binary as the command: `halopsa-mcp` (or `servosity-mcp`). If it isn't found, use its full path, for example `/Users/<you>/.local/bin/halopsa-mcp` on macOS. The connector reads its credentials from environment variables; each skill's `mcp-install.md` lists them, and Option B shows where to put them in a config file.
 
 **Option B - once in Codex's config.** The desktop app shares MCP configuration with Codex, so a connector in `~/.codex/config.toml` is available in both. Already set one up for [Codex CLI](https://msp-skills.compoundingteams.com/integrations/codex.md)? It's already there.
 
