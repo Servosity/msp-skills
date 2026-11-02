@@ -70,7 +70,7 @@ def grab(session: str, selector: str, service: str, account: str, attr: str = "a
     try:
         # Captured, NEVER printed. shell=False AND a real argv (never a .cmd
         # shim), so the selector cannot be re-parsed as a command.
-        raw = ct.run([*oc, "browser", session, "eval", _js(selector, attr)], timeout=90).stdout or ""
+        raw = ct.run(ct.browser_argv(oc, session, "eval", _js(selector, attr)), timeout=90).stdout or ""
     except Exception:
         print("FAIL: browser eval failed", file=sys.stderr)   # fixed message, no detail
         return 3

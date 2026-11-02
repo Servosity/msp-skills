@@ -122,7 +122,9 @@ Run a target through these phases; loop 3-5 until the verify receipt passes.
    walk the user through `references/opencli-bootstrap.md` rather than installing anything
    unasked. Never fall through to another browser tool.
 3. **Drive** the operation. Navigate with `opencli browser <slug> open|state|find|click|fill|
-   upload|wait` (crib: `references/browser-and-keychain.md`). If a recipe exists use its nav;
+   upload|wait` (crib: `references/browser-and-keychain.md`). On OpenCLI 2.x the session is a
+   flag instead (`opencli browser open --session <slug> <url>`); the helpers detect the
+   installed version and build the right argv. If a recipe exists use its nav;
    else discover live from `state`/`find`/`extract`. Route every click that could be
    irreversible through `uv run scripts/guard_click.py <slug> "<selector>"`.
 4. **Capture the secret out-of-context** by lane (decision order in `security-model.md`):

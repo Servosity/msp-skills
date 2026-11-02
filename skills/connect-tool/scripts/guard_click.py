@@ -48,7 +48,7 @@ def guard(session: str, target: str) -> int:
     if not oc:
         print("FAIL: opencli not installed", file=sys.stderr)
         return 3
-    found = ct.run([*oc, "browser", session, "find", "--selector", target], timeout=90)
+    found = ct.run(ct.browser_argv(oc, session, "find", ct.find_css_flag(oc), target), timeout=90)
     label = found.stdout or ""
     # FAIL CLOSED. A gate that cannot see what it is about to click must refuse,
     # not shrug and click: an unreadable or ambiguous target is exactly the case
@@ -68,11 +68,11 @@ def guard(session: str, target: str) -> int:
     allow = os.environ.get("ALLOW", "").strip().lower()
     if hit and allow != hit:
         shot = hold_dir() / f"HOLD-{dt.datetime.now(dt.UTC).strftime('%Y%m%d-%H%M%S')}.png"
-        ct.run([*oc, "browser", session, "screenshot", str(shot)], timeout=90)
+        ct.run(ct.browser_argv(oc, session, "screenshot", str(shot)), timeout=90)
         print(f"HOLD: '{target}' matches irreversible verb '{hit}'. {shot} saved. "
               "NOT clicking; surfaced for the user.", file=sys.stderr)
         return 10
-    r = ct.run([*oc, "browser", session, "click", target], timeout=90)
+    r = ct.run(ct.browser_argv(oc, session, "click", target), timeout=90)
     sys.stdout.write(r.stdout or "")
     return r.returncode
 

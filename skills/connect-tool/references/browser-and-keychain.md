@@ -2,6 +2,12 @@
 
 ## Binding the user's real Chrome
 
+**OpenCLI 2.x syntax.** From 2.0 the session is a flag, not a positional argument:
+`opencli browser bind --session <slug>`, `opencli browser eval --session <slug> "<js>"`.
+The positional form below is rejected as an unknown command, and `doctor` prints a JSON
+envelope (`data.daemonRunning`, `data.extensionConnected`) instead of `[OK]` lines. The
+helpers read `opencli --version` and build either shape; `find` takes `--css` from 1.8.
+
 ```bash
 opencli doctor                          # want [OK] Daemon + [OK] Extension connected
 opencli browser <slug> bind             # bind the CURRENTLY FOCUSED Chrome tab/window
