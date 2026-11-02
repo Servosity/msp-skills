@@ -22,6 +22,7 @@ Pure stdlib. Invoked automatically by build-catalog.py.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import sys
@@ -307,7 +308,7 @@ def render_page(slug: str) -> Path:
     insteads = "\n".join(
         f"**Instead of** {i['instead']}\n"
         f"**just ask:** *\"{i['say']}\"*\n"
-        + (f"<sub>Your agent runs: <code>{i['cli']}</code></sub>\n" if i.get("cli") else "")
+        + (f"<sub>Your agent runs: <code>{html.escape(i['cli'], quote=False)}</code></sub>\n" if i.get("cli") else "")
         for i in page.get("instead_of_say", [])
     )
     video_section = ""

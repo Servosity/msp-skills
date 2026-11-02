@@ -54,7 +54,7 @@ Ask your AI why a client's Cork risk score moved and get the component that actu
 
 **Instead of** Export two score snapshots from Cork and subtract the four components in a spreadsheet to work out what moved before a QBR
 **just ask:** *"Why did this client's Cork score drop this month?"*
-<sub>Your agent runs: <code>cork-cli score attribute <client-uuid> --since 30d</code></sub>
+<sub>Your agent runs: <code>cork-cli score attribute &lt;client-uuid&gt; --since 30d</code></sub>
 
 **Instead of** Pull the vulnerability inventory and re-sort it by hand because the API can only sort by vendor and product name
 **just ask:** *"What should we patch first across all our clients?"*

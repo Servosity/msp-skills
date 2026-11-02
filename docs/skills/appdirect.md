@@ -60,7 +60,7 @@ Ask 'which AppDirect payments failed this week?' or 'reconcile billing before mo
 
 **Instead of** Click through four console screens - users, subscriptions, invoices, opportunities - to brief one customer before a renewal call.
 **just ask:** *"Show me everything on AppDirect company <companyId>."*
-<sub>Your agent runs: <code>appdirect-cli company show <companyId></code></sub>
+<sub>Your agent runs: <code>appdirect-cli company show &lt;companyId&gt;</code></sub>
 
 
 ## See it in 30 seconds

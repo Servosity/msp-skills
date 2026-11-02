@@ -28,7 +28,7 @@ Your agent runs: `datagate-cli agreements list --select id,customerId,name,statu
 
 **Instead of** Re-fetching the same customer list from the live API every time you need to look something up
 **just ask:** *"Search DataGate for this customer by name."*
-Your agent runs: `datagate-cli search "<customer name>" --data-source local`
+Your agent runs: `datagate-cli search "&lt;customer name&gt;" --data-source local`
 
 ## What it does
 
