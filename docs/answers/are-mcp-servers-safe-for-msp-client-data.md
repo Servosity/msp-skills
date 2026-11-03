@@ -34,4 +34,5 @@ An MCP server is a connector that lets your AI call a real system on your behalf
 - The plain-language basics: [what is an MCP server? →](/what-is-an-mcp-server/)
 - How this compares to vendor AI: [MCP server vs vendor built-in AI →](/answers/mcp-server-vs-vendor-built-in-ai/)
 - How MSPs actually use this: [using Claude and ChatGPT with your PSA →](/answers/how-msps-use-claude-and-chatgpt-with-their-psa/)
+- Comparing your options? [MCP servers for MSPs in 2026, compared →](/answers/mcp-servers-for-msps-2026/)
 - See it on a real tool: [ConnectWise PSA →](/skills/connectwise-manage/) · [Autotask →](/skills/autotask/) · [HaloPSA →](/skills/halopsa/) · [NinjaOne →](/skills/ninjaone/) · [Datto RMM →](/skills/datto-rmm/)

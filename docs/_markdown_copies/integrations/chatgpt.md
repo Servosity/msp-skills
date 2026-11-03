@@ -2,15 +2,14 @@
 
 # HaloPSA and Servosity in ChatGPT
 
-ChatGPT (Plus / Pro / Team / Business / Enterprise / Education) added native MCP support in September 2025 as **Developer Mode** beta. This guide installs the MSP Skills HaloPSA and Servosity MCP servers in ChatGPT.
+The **ChatGPT desktop app** runs MCP servers locally (STDIO), which is how MSP Skills connectors run. It shares MCP configuration with Codex CLI on the same machine ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). This guide adds the MSP Skills HaloPSA and Servosity MCP servers to it.
 
-**Two caveats up front:** ChatGPT Free does not yet expose Developer Mode, and ChatGPT only connects to **remote / HTTPS** MCP servers - not to local stdio binaries directly. MSP Skills ships local binaries. Most of them serve Streamable HTTP themselves, so you run one with `--transport http` and put a tunnel in front; six connectors are stdio-only and need a `supergateway` bridge first. Either way it is one extra step; everything else is the same as the [Claude Desktop install](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md).
+**ChatGPT on the web is not supported today.** It needs a remote (HTTP) MCP server, and our [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to run any connector in HTTP mode until it is reprinted. If your team works in ChatGPT on the web, a hosted gateway or your vendor's own hosted server is the better pick ([how they compare](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)).
 
 ## What you need
 
-- **A paid ChatGPT plan** (Plus, Pro, Team, Business, Enterprise, or Education)
+- **The ChatGPT desktop app**
 - **A HaloPSA tenant + OAuth credentials** **or** a **Servosity MSP partner API token** - or both
-- **A secure tunnel** (Cloudflare Tunnel, ngrok with HTTPS), plus **`supergateway`** if your connector is stdio-only
 - A terminal for install (after that, ChatGPT chat handles the rest)
 
 ## Step 1 - Install MSP Skills binaries
@@ -31,42 +30,25 @@ iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ser
 
 Install only the skills you'll use.
 
-## Step 2 - Choose your HTTPS bridge
+## Step 2 - Add the connector to the ChatGPT desktop app
 
-**Option A - run `halopsa-mcp` in HTTP mode (simplest, and what most connectors support).** Most MSP Skills MCP binaries parse `--transport http` and serve Streamable HTTP themselves:
+**Option A - in the app.** Open **Settings**, then select **MCP servers**. Add a server, choose **STDIO**, and give the connector's MCP binary as the command: `halopsa-mcp` (or `servosity-mcp`). If it isn't found, use its full path, for example `/Users/<you>/.local/bin/halopsa-mcp` on macOS. The connector reads its credentials from environment variables; each skill's `mcp-install.md` lists them, and Option B shows where to put them in a config file.
 
-```bash
-HALOPSA_TENANT=<tenant> \
-HALOPSA_CLIENT_ID=<id> \
-HALOPSA_CLIENT_SECRET=<secret> \
-halopsa-mcp --transport http --addr :7777
+**Option B - once in Codex's config.** The desktop app shares MCP configuration with Codex, so a connector in `~/.codex/config.toml` is available in both. Already set one up for [Codex CLI](https://msp-skills.compoundingteams.com/integrations/codex.md)? It's already there.
+
+```toml
+[mcp_servers.halopsa]
+command = "halopsa-mcp"
+env = { HALOPSA_TENANT = "<your-tenant>", HALOPSA_CLIENT_ID = "<id>", HALOPSA_CLIENT_SECRET = "<secret>" }
+
+[mcp_servers.servosity]
+command = "servosity-mcp"
+env = { SERVOSITY_MSP_TOKEN = "<token>" }
 ```
 
-The server answers at `http://localhost:7777/mcp`. The bare root returns 404, so the path is part of the endpoint. Expose it via Cloudflare Tunnel:
+**What we tested (November 2, 2026):** the ChatGPT desktop app (v26.1027) bundles its own Codex engine. We ran that engine with our live-verified [Zammad connector](https://msp-skills.compoundingteams.com/skills/zammad.md) in local (STDIO) mode: it loaded all 38 of the connector's tools and answered a read-only query. We have not yet walked through the app's settings screen ourselves, so Option A follows OpenAI's docs.
 
-```bash
-cloudflared tunnel --url http://localhost:7777
-```
-
-Cloudflare prints a public HTTPS URL - register `<that-url>/mcp` in ChatGPT. Treat the URL as sensitive.
-
-**Option B - `supergateway` bridge, for the stdio-only connectors.** Six connectors (avanan, blumira, connectwise-automate, cork, levelio, n-central) have no HTTP mode: their MCP binary never parses `--transport`, so passing it opens no listener at all. Publish those with a bridge:
-
-```bash
-HALOPSA_TENANT=<tenant> npx -y supergateway --stdio "halopsa-mcp" --port 7777
-```
-
-That serves SSE at `http://localhost:7777/sse`. For a consumer that takes Streamable HTTP only (Microsoft 365 Copilot), add `--outputTransport streamableHttp --streamableHttpPath /mcp`. Tunnel it the same way.
-
-Do **not** reach for `mcp-remote` here: it bridges the other direction (a remote HTTPS server down to a local stdio client) and exits with `ERR_INVALID_URL` when handed `--stdio`. <!-- install-docs:ignore -->
-
-(Repeat the equivalent setup for `servosity-mcp` on a different port.)
-
-## Step 3 - Enable Developer Mode in ChatGPT
-
-In ChatGPT: **Settings → Advanced → Developer Mode** (toggle on). Then go to **Connectors → Add MCP server**. Enter the public HTTPS URL from your tunnel.
-
-## Step 4 - Ask a real question
+## Step 3 - Ask a real question
 
 In ChatGPT chat:
 
@@ -78,27 +60,24 @@ ChatGPT discovers the MCP tools the connector exposes and runs them.
 ## Cost
 
 - **MSP Skills:** Free (Apache-2.0).
-- **ChatGPT plan:** see [OpenAI's pricing](https://openai.com/chatgpt/pricing). Plus, Pro, Team, Business, Enterprise, and Education all support MCP. Free does not (as of 2026-05-28).
+- **ChatGPT:** see [OpenAI's pricing](https://openai.com/chatgpt/pricing).
 - **HaloPSA / Servosity access:** your existing license / partner agreement.
-- **Tunneling:** Cloudflare Tunnel is free. ngrok has a free tier with HTTPS.
 
 ## Security
 
-- The HTTPS tunnel URL is effectively a key to your MCP server. Treat it like a credential. **Don't post it publicly.**
-- For team / enterprise deployments, host MSP Skills on a server inside your network and expose via Cloudflare Access (or equivalent SSO-gated tunnel) so only authenticated users hit it.
-- HaloPSA + Servosity credentials are in your local environment, never transmitted to MSP Skills or to OpenAI.
+- The connector runs on your machine over STDIO: no listener and no public URL to protect.
+- Don't run a connector in HTTP mode or put it behind a tunnel to reach ChatGPT on the web. [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says why.
+- HaloPSA + Servosity credentials stay in your local environment or config file and are never transmitted to MSP Skills.
 
 ## Troubleshooting
 
-**ChatGPT can't connect to the MCP server:** check the path first - the endpoint is `/mcp` (or `/sse` behind supergateway), never the bare root. Then confirm the tunnel URL responds when you visit it in a browser (you should get an MCP-protocol response or an error - not a connection refused). Test the underlying server with `halopsa-cli doctor` or `servosity-cli doctor` first.
+**ChatGPT doesn't show the connector's tools:** test the underlying connector with `halopsa-cli doctor` or `servosity-cli doctor` first. Then check that the command is the MCP binary (`halopsa-mcp`, not `halopsa-cli`), using its full path if the app can't find it.
 
-**Developer Mode toggle missing:** you're on the Free tier, or your plan admin disabled it. Check your ChatGPT plan at [chatgpt.com/#pricing](https://chatgpt.com/).
-
-**`supergateway: command not found`:** install Node.js (the bridge runs under npx). `brew install node` on macOS, the official Windows installer, or whichever package manager your distro uses. You only need it for the stdio-only connectors in Option B.
+**`401 Unauthorized` from the connector:** the credentials are wrong. Recheck them against the vendor portal.
 
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions) - we'll work it live with the MSP cohort.
-- **No paid ChatGPT plan?** Use [Claude Desktop](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) instead - Claude Desktop is free and supports MCP natively without HTTPS bridges.
+- **Prefer Claude?** [Claude Desktop](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) runs the same local connector.
 
 [← Back to main install](https://msp-skills.compoundingteams.com/#install-in-60-seconds)
