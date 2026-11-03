@@ -57,7 +57,7 @@ func newDisksScanLvmthinCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <node>"))
 			}
 			if !cmd.Flags().Changed("vg") && flagVg == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "vg")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "vg"))
 			}
 			path := "/nodes/{node}/scan/lvmthin"
 			if len(args) < 1 || args[0] == "" {

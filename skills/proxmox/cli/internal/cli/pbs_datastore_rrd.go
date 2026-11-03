@@ -59,10 +59,10 @@ func newPbsDatastoreRrdCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <store>"))
 			}
 			if !cmd.Flags().Changed("cf") && flagCf == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "cf")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "cf"))
 			}
 			if !cmd.Flags().Changed("timeframe") && flagTimeframe == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "timeframe")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "timeframe"))
 			}
 			if cmd.Flags().Changed("cf") {
 				allowedCf := []string{"MAX", "AVERAGE"}
@@ -74,7 +74,7 @@ func newPbsDatastoreRrdCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validCf {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCf, "cf", allowedCf)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCf, "cf", allowedCf))
 				}
 			}
 			if cmd.Flags().Changed("timeframe") {
@@ -87,7 +87,7 @@ func newPbsDatastoreRrdCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validTimeframe {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTimeframe, "timeframe", allowedTimeframe)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTimeframe, "timeframe", allowedTimeframe))
 				}
 			}
 			path := "https://localhost:8007/api2/json/admin/datastore/{store}/rrd"

@@ -195,13 +195,13 @@
   {
    "id": "x-text-above-go-2026-6629",
    "summary": "`golang.org/x/text` is pinned at v0.41.0, above the press-emitted v0.39.0 that osv-scanner flags for GO-2026-6629",
-   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency (modernc.org/sqlite). osv-scanner flags GO-2026-6629 (panic parsing crafted input in x/text/secure/precis) against it. It is presence-only today, but the fleet rule since 2026-10-14 is to ship above it, and a reprint from a press that still emits v0.39.0 silently restores the old version. Mirrors avanan's x-text-above-go-2026-5970 entry.",
+   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency (modernc.org/sqlite). osv-scanner flags GO-2026-6629 (panic parsing crafted input in x/text/secure/precis) against it. It is presence-only today, but the fleet rule since 2026-10-14 is to ship above it, and a reprint from a press that still emits v0.39.0 silently restores the old version. Mirrors avanan's x-text-above-go-2026-5970 entry. Reprint 4.35.1 (2026-11-02): the render emits v0.39.0 again; raised to the fleet floor v0.42.0 (replay_handfixes floor), so the keep-assert moves from v0.41.0 to v0.42.0.",
    "status": "active",
    "spec_encode_followup": "Raise the golang.org/x/text floor in the press module template (retro item against the generator).",
    "asserts": [
     {
      "file": "cli/go.mod",
-     "contains": "golang.org/x/text v0.41.0",
+     "contains": "golang.org/x/text v0.42.0",
      "min_count": 1
     },
     {
@@ -274,38 +274,6 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "c.GetWithHeadersNoCache(cmd.Context(), healthPath"
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer also refuses the local-file READ flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file), and a tree test fails the build when any shell-out tool forwards a flag whose usage text names a filesystem path",
-   "why": "Press 4.33.5 ships blockedDestinationFlags for write destinations (--db, --output and friends) but not for read sources. Forwarded, --playbook-file or --input let one MCP tool call load any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back. isFilesystemPathFlag classifies by USAGE TEXT, not flag name, so generated vendor body fields named like paths stay forwarded. Proven both directions: removing home and playbook-file from the map makes TestNoShellOutToolCanDirectAFilesystemPath fail naming them; restored, it passes. Same gate as skills/acronis and the rest of the fleet.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"playbook-file\":       true,"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"home\":                true,"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath("
     }
    ]
   },
@@ -505,92 +473,6 @@
     {
      "file": "cli/internal/cli/codex_round31_test.go",
      "contains": "func TestVMConfigNotCached("
-    }
-   ]
-  },
-  {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
     }
    ]
   },
@@ -812,61 +694,6 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; PROXMOX_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"PROXMOX_MCP_READ_ONLY\": \"1\"",
-     "min_count": 3
-    },
-    {
-     "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
    "id": "derive-lock-tests-deterministic",
    "class": "test-determinism",
    "summary": "The two derive-lock tests (ContendedAppendIsDerivedBeforeReturn, CaughtUpPassDoesNotWait) wait on what the pass is doing, read from goroutine stacks, instead of fixed 200 ms, 500 ms and 5 s windows; every remaining wait is bounded by the test binary's own deadline",
@@ -893,6 +720,145 @@
     {
      "file": "cli/internal/learn/derive_test.go",
      "not_contains": "if time.Since(start) > 500*time.Millisecond {"
+    }
+   ]
+  },
+  {
+   "id": "spec-get-reads-not-mutating",
+   "status": "active",
+   "summary": "the spec declares x-pp-mutation: false on ten documented Proxmox GET reads whose names (scan, sync, cmd-safety) press 4.35.1 classifies as mutating",
+   "why": "Reprint 4.35.1 (2026-11-02). 4.35.1 classifies GET operations by name: /nodes/{node}/scan{,/lvm,/lvmthin,/zfs}, /nodes/{node}/ceph/cmd-safety and PBS /admin/sync, /config/sync{,/{id}}, /tape/scan-changers, /tape/scan-drives became mutating, so the CLI called GetMutating (verify short-circuits it) and the MCP surface moved them behind a new proxmox_execute + confirm tool whose default hints are destructive, on a connector that never writes. Each is a read in the official apidoc (x-source on each operation). x-pp-mutation: false is the press's own per-operation override, so the fix lives in the spec and survives reprints; with it the 4.35.1 render registers no proxmox_execute tool and the ten commands read through the normal resolveReadWithStrategy path. TestToolsAdvertiseReadOnly fails on the unrepaired render (proxmox_execute destructive).",
+   "spec-encode": "Done in the library spec.yaml (reprint bin/prep.sh). Fold it into cli-factory/proxmox/spec/build_spec.py before the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pbs_jobs_sync-config.go",
+     "not_contains": "GetMutating"
+    },
+    {
+     "file": "cli/internal/cli/disks_scan.go",
+     "not_contains": "GetMutating"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "NewTool(\"proxmox_execute\""
+    }
+   ]
+  },
+  {
+   "id": "unpinned-service-keeps-press-tls-trust",
+   "status": "active",
+   "summary": "SetServicePins keeps the press's TLS trust (--ca-cert / PROXMOX_CA_CERT, --tls-server-name) for a service with no fingerprint pin; a pin still replaces it for that service only",
+   "why": "Reprint 4.35.1 (2026-11-02). 4.35.1 adds --ca-cert and --tls-server-name to the generated transport. The per-service pin hook cloned that transport and then set TLSClientConfig = strictPinConfig(...), which is nil without pins, so an unpinned PVE or PBS dropped the CA and server name: an MSP with an internal CA got 'x509: unknown authority' and doctor still reported the ca-cert. Fails closed (no leak), but the advertised flag did nothing. Now the clone keeps the press config unless that service has pins. TestUnpinnedServiceKeepsCACert failed first (logs/seen/unpinned-ca-cert-fails.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "if cfg := strictPinConfig(\"PVE\", pvePins); cfg != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "if cfg := strictPinConfig(\"PBS\", pbsPins); cfg != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_ca_cert_test.go",
+     "contains": "func TestUnpinnedServiceKeepsCACert(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-token-ignores-mcpb-placeholder",
+   "status": "active",
+   "summary": "the MCP HTTP-transport bearer token is read through cliutil.EnvOverride, and EffectiveEnv treats a whitespace-padded unresolved ${...} template as unset, so an MCPB placeholder is never accepted as the secret",
+   "why": "Reprint 4.35.1 (2026-11-02). The skill manifest maps PROXMOX_MCP_HTTP_TOKEN to ${user_config.proxmox_mcp_http_token}; a host that leaves the template unresolved passes that public 37-character literal, and 4.35.1's requireHTTPCallerToken read it with os.Getenv and accepted it (32-character minimum), so --transport http could start off loopback with a publicly known bearer. Codex 2026-11-02 r1 found the padded form ' ${...} ' passed EffectiveEnv too (checked before trimming); the check now trims, in the one helper every env read uses. GENERATED cmd/proxmox-pp-mcp/main.go and internal/cliutil/verifyenv.go, re-applied by the reprint's bin/reapply.py. Both tests failed first (logs/seen/).",
+   "asserts": [
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "not_contains": "os.Getenv(httpTokenEnvVar)"
+    },
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "if UnresolvedUserConfigPlaceholder(strings.TrimSpace(v)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/http_token_placeholder_test.go",
+     "contains": "func TestRequireHTTPCallerTokenRejectsUnresolvedPlaceholder(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/effective_env_test.go",
+     "contains": "func TestEffectiveEnvIgnoresPaddedPlaceholder(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "share-identity-follows-host-addresses",
+   "status": "active",
+   "summary": "cross-cluster collision detection identifies a network share or an unpinned PBS by every spelling of its host (name plus resolved addresses), so a NAS named by host in one cluster and by IP in another is one share; a host name that does not resolve on this machine has unknown identity and overlaps every share of the same type and path (an unpinned PBS name joins every PBS on its port)",
+   "why": "Codex review 2026-11-02 round 1 (P1, wrong cluster or store; GET /nodes/{node}/storage/{storage}/content rows carry a VMID but no originating cluster). netStorageID keyed NFS/CIFS/CephFS/Gluster shares by the configured server spelling, so client A mounting nas.example:/backups and client B mounting 10.0.0.9:/backups were judged distinct and B's VM 100 archive counted as A's VM 100 restore point. One shared hostAliases (canonHost + LookupHost addresses, cached, 2 s) now feeds netStorageID and the PBS serviceTokens; resolution only adds spellings, so sharing is detected more often, never less. TestShareIdentityFollowsHostAddresses / TestPBSServiceFollowsHostAddresses failed first (logs/seen/r1-host-alias-fails.log). Round 2 (P1, same class): a name this machine cannot resolve kept one spelling, so nas.client.lan in one cluster and 10.0.0.9 in another still looked like two shares. Fail closed: hostUnknown marks the share token (unknownHostMark, matched by tokenMatch in overlaps and netMounters, the peer named with the unresolved host) and pbsServices.joinUnknown merges an unresolved unpinned PBS endpoint with every PBS on its port, called once in markSharedPBS. TestUnresolvedShareHostIsNotProofOfDistinctShares / TestUnresolvedUnpinnedPBSIsNotProofOfDistinctServices failed first (logs/seen/r2-fix-red.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "func hostAliases(host string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "for _, a := range hostAliases(h) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/host_alias_test.go",
+     "contains": "func TestShareIdentityFollowsHostAddresses(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "func hostUnknown(host string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "if tokenMatch(x, y) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "if !tokenMatch(mine, tok) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "own.svc.joinUnknown()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/unresolved_host_test.go",
+     "contains": "func TestUnresolvedShareHostIsNotProofOfDistinctShares(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -950,6 +916,170 @@
    ]
   },
   {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal; both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit; every HTTP client (API, per-service TLS pins, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand or StartCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. A Proxmox token is USER@REALM!TOKENID=SECRET (PBS: ...:SECRET); only the SECRET is held (cliutil.TokenSecret), under minted:pve-token, minted:pbs-token or minted:cluster:<home>:<name>:<service>, each bound to that token's own origin (PVE base URL or PROXMOX_HOST, PROXMOX_PBS_HOST, each clusters.toml entry's own hosts); the raw env, config and Authorization forms are exempt with that reason, because Proxmox lists the token id in ordinary reads. The credential store and config are sources, written outside the kit.",
+   "why": "One contract, one matcher and one set of sinks; proxmox had no earlier credential layer (no funnel, no holder). response-secret-redaction stays: storage plugins name their own secret fields, which an exact-name ResponseFields list cannot cover. Classes closed, each by a built-binary test in internal/credwire/leak_test.go seen failing first on the pre-kit build (.review/seen-fail-kit.log): an API error echoing part of the token secret (CLI, --agent, MCP); tokens in config.toml, the credential store and a config that does not parse held at startup; PROXMOX_API_TOKEN, PROXMOX_PBS_API_TOKEN and clusters.toml tokens held at startup; each token sent only to its own service or cluster, never to a --deliver webhook; SPACEFAST_TOKEN held; and the learn journal never recording a held secret. TestTokenIDInOrdinaryReadIsShown failed on a build that held whole tokens: a task list naming root@pam!monitor printed only the kit's notice.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:pve-token\", Allowed: pveOrigins()},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:pbs-token\", Allowed: pbsOrigins()},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "}, clusterOrigins()...),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"header:authorization\", Reason: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/proxmox_token_secret.go",
+     "contains": "func TokenSecret(v string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_clusters.go",
+     "contains": "func ClusterTokenSources() []ClusterTokenSource {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", cliutil.TokenSecret(authHeader))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "c.HTTPClient.Transport = pinnedGuard{RoundTripper: cliutil.OutboundGuard(pins), pins: pins}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", cliutil.TokenSecret(token))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "_ = os.WriteFile(cacheFile"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTokenIDInOrdinaryReadIsShown(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestClusterTokensHeldAndBound(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEachTokenGoesOnlyToItsService(",
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "sync-event-writer-serialized",
    "class": "concurrent-writer",
    "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
@@ -976,6 +1106,28 @@
      "code_only": true
     }
    ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

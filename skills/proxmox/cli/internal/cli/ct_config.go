@@ -61,7 +61,7 @@ func newCtConfigCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("snapshot") || flagSnapshot != "" {
 				params["snapshot"] = formatCLIParamValue(flagSnapshot)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "ct", false, path, params, nil, "lxc", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "ct", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

@@ -59,7 +59,7 @@ func newVmFeatureCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <node> <vmid>"))
 			}
 			if !cmd.Flags().Changed("feature") && flagFeature == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "feature")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "feature"))
 			}
 			if cmd.Flags().Changed("feature") {
 				allowedFeature := []string{"snapshot", "clone", "copy"}
@@ -71,7 +71,7 @@ func newVmFeatureCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validFeature {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFeature, "feature", allowedFeature)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFeature, "feature", allowedFeature))
 				}
 			}
 			path := "/nodes/{node}/qemu/{vmid}/feature"
@@ -94,7 +94,7 @@ func newVmFeatureCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("snapname") || flagSnapname != "" {
 				params["snapname"] = formatCLIParamValue(flagSnapname)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "vm", false, path, params, nil, "nodes", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "vm", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

@@ -56,7 +56,7 @@ func newSdnZonesGetCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("running") || flagRunning != false {
 				params["running"] = formatCLIParamValue(flagRunning)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "sdn", false, path, params, nil, "secondary-controllers", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "sdn", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -83,7 +83,7 @@ func newSdnZonesGetCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"state": true, "type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -115,7 +115,7 @@ func newSdnZonesGetCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"state": true, "type": true})
 		},
 	}
 	cmd.Flags().BoolVar(&flagPending, "pending", false, "Display pending config.")

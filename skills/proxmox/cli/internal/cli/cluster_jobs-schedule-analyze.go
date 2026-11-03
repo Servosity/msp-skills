@@ -42,7 +42,7 @@ func newClusterJobsScheduleAnalyzeCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("schedule") && flagSchedule == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "schedule")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "schedule"))
 			}
 			path := "/cluster/jobs/schedule-analyze"
 			c, err := flags.newClient()

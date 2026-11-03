@@ -49,7 +49,7 @@ func newNodesConfigCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProperty {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProperty, "property", allowedProperty)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProperty, "property", allowedProperty))
 				}
 			}
 			path := "/nodes/{node}/config"

@@ -20,7 +20,7 @@ func newPbsJobsSyncConfigCmd(flags *rootFlags) *cobra.Command {
 		Short:       "List all sync jobs.",
 		Example:     "  proxmox-cli pbs-jobs sync-config",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "pbs_jobs.sync-config", "pp:method": "GET", "pp:path": "https://localhost:8007/api2/json/config/sync"},
+		Annotations: map[string]string{"pp:endpoint": "pbs_jobs.sync-config", "pp:method": "GET", "pp:path": "https://localhost:8007/api2/json/config/sync", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("sync-direction") {
 				allowedSyncDirection := []string{"all", "push", "pull"}
@@ -32,7 +32,7 @@ func newPbsJobsSyncConfigCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSyncDirection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSyncDirection, "sync-direction", allowedSyncDirection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSyncDirection, "sync-direction", allowedSyncDirection))
 				}
 			}
 			path := "https://localhost:8007/api2/json/config/sync"
@@ -44,11 +44,7 @@ func newPbsJobsSyncConfigCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("sync-direction") {
 				params["sync-direction"] = formatCLIParamValue(flagSyncDirection)
 			}
-			var prov DataProvenance
-			data, err := c.GetMutating(cmd.Context(), path, params)
-			if err == nil {
-				prov = attachFreshness(DataProvenance{Source: "live"}, flags)
-			}
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "pbs_jobs", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

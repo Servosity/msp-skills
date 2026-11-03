@@ -19,6 +19,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"proxmox-pp-cli/internal/credsql"
 	"regexp"
 	"sort"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
+	"proxmox-pp-cli/internal/cliutil"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -53,14 +55,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v12 for the
-// parent-key storage-id migration, on top of v11's trigram resources_fts
-// rebuild (CJK substring search), v10's learn_candidates and learn_events
-// tables plus the latest-sync-attempt completion marker, the v8
-// learning_playbooks table, and the v6 canonical learn-loop tables
-// (including the v3 resources_fts rowid rehash and v4 resources_fts content
-// extraction).
-const StoreSchemaVersion = 12
+// checked on every open. Learn-enabled CLIs advance to v14
+// to record which surface wrote each learning_playbooks row, on top of v13's
+// checkpoint scope beside each resource, v12's
+// parent-key storage-id migration, v11's trigram resources_fts rebuild
+// (CJK substring search), v10's learn_candidates and learn_events tables
+// plus the latest-sync-attempt completion marker, the v8 learning_playbooks
+// table, and the v6 canonical learn-loop tables (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 14
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -135,13 +138,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 
 	// Writable directories stay on the first open so committed WAL frames
@@ -163,11 +182,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -197,6 +219,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenOwnDataDir(filepath.Dir(dbPath))
 	hardenSQLiteFiles(dbPath)
 	defer hardenSQLiteFiles(dbPath)
 	if err := rejectNewerSchemaBeforeJournalMode(ctx, dbPath); err != nil {
@@ -214,7 +237,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -245,7 +268,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -281,6 +304,23 @@ func hardenSQLiteFiles(dbPath string) {
 		}
 		_ = os.Chmod(path, 0o600)
 	}
+}
+
+// hardenOwnDataDir drops group and other access from this CLI's own data
+// directory. MkdirAll leaves an existing directory's mode alone, so one created
+// world-listable by an older release would otherwise stay that way. It is
+// best-effort, follows no symlink, and skips a directory the operator chose:
+// a --db parent or an explicit per-kind data directory.
+func hardenOwnDataDir(dir string) {
+	own, err := cliutil.ResolveKindDir(cliutil.PathKindData)
+	if err != nil || own.Rung == "per-kind-env" || filepath.Clean(own.Dir) != filepath.Clean(dir) {
+		return
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	_ = os.Chmod(dir, info.Mode().Perm()&0o700)
 }
 
 // ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
@@ -320,7 +360,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -379,51 +419,95 @@ func (s *Store) SchemaVersion() (int, error) {
 	return v, nil
 }
 
-// ensureColumn adds a column to an existing table if it isn't already
-// present. It is the upgrade-path safety valve for schema additions:
-// CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
-// columns added by newer binaries (e.g. parent_id from the dependent-
-// resources work) never land on databases created by older binaries —
-// which then trip "no such column" when a follow-on CREATE INDEX runs.
+// backfillStatsKey carries a *backfillStats on the context when a test
+// wants to observe how many schema probes and ALTERs one Open performed.
+// Production callers never set it. The counters are not safe to share
+// across goroutines; Open's migration runs on the caller's goroutine.
+type backfillStatsKey struct{}
+
+type backfillStats struct {
+	probes int
+	alters int
+}
+
+func contextWithBackfillStats(ctx context.Context) (context.Context, *backfillStats) {
+	stats := &backfillStats{}
+	return context.WithValue(ctx, backfillStatsKey{}, stats), stats
+}
+
+func noteBackfillProbe(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.probes++
+	}
+}
+
+func noteBackfillAlter(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.alters++
+	}
+}
+
+// snapshotTableColumns reads every existing table's columns once,
+// including generated columns. table_info omits VIRTUAL/STORED columns,
+// so a later Open would try to ADD a column CREATE TABLE already
+// declared (bare_id). Per-column sqlite_master and table_xinfo probes
+// made Open scale with the spec; one join does not.
 //
-// Skips silently if the table doesn't yet exist (fresh install — the
-// CREATE TABLE migration will create it with the column already declared)
-// or if the column already exists. Runs on the pinned migration
-// connection so it sees the writes performed by the in-flight BEGIN
-// IMMEDIATE transaction; using s.db here would route through the pool
-// and BUSY against the holding writer under concurrent migrators.
-func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
-	var name string
-	err := conn.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	).Scan(&name)
-	if err == sql.ErrNoRows {
-		return nil
-	}
+// A table absent from the map does not exist yet. Fresh installs create
+// it later in the migration with the column already declared.
+func snapshotTableColumns(ctx context.Context, conn *sql.Conn) (map[string]map[string]struct{}, error) {
+	noteBackfillProbe(ctx)
+	rows, err := conn.QueryContext(ctx, `
+		SELECT m.name, p.name
+		FROM sqlite_master AS m, pragma_table_xinfo(m.name) AS p
+		WHERE m.type = 'table'`)
 	if err != nil {
-		return fmt.Errorf("checking table %s: %w", table, err)
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	defer rows.Close()
 
-	// table_info omits generated columns (VIRTUAL/STORED). table_xinfo
-	// reports them so a later Open does not re-ADD a column CREATE TABLE
-	// already declared, and so upgrades can see a prior ADD of bare_id.
-	var existing string
-	err = conn.QueryRowContext(ctx,
-		`SELECT name FROM pragma_table_xinfo(?) WHERE name=?`,
-		table, column,
-	).Scan(&existing)
-	if err == nil {
-		return nil
+	known := map[string]map[string]struct{}{}
+	for rows.Next() {
+		var table, column string
+		if err := rows.Scan(&table, &column); err != nil {
+			return nil, fmt.Errorf("reading table columns: %w", err)
+		}
+		markColumnPresent(known, table, column)
 	}
-	if err != sql.ErrNoRows {
-		return fmt.Errorf("table_xinfo %s: %w", table, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	return known, nil
+}
 
+// columnNeedsBackfill reports whether table exists and lacks column.
+// Lookup is case-sensitive, matching SQLite's BINARY collation on the
+// name probes this replaced.
+func columnNeedsBackfill(known map[string]map[string]struct{}, table, column string) bool {
+	cols, ok := known[table]
+	if !ok {
+		return false
+	}
+	_, present := cols[column]
+	return !present
+}
+
+func markColumnPresent(known map[string]map[string]struct{}, table, column string) {
+	cols := known[table]
+	if cols == nil {
+		cols = map[string]struct{}{}
+		known[table] = cols
+	}
+	cols[column] = struct{}{}
+}
+
+// addColumn ALTERs a column onto a table the snapshot says is missing it.
+// A concurrent Open may have added the column between the snapshot and
+// this ALTER. SQLite returns SQLITE_ERROR with "duplicate column name",
+// which busy_timeout does not retry. The DB is in the desired state
+// regardless of who won.
+func addColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, table, column, decl)); err != nil {
-		// A concurrent Open() may have added the column between our
-		// PRAGMA check and this ALTER. SQLite returns SQLITE_ERROR with
-		// "duplicate column name", which busy_timeout does not retry.
-		// The DB is now in the desired state regardless of who won.
 		if strings.Contains(err.Error(), "duplicate column name") {
 			return nil
 		}
@@ -439,18 +523,27 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // table. Idempotent: safe to call on fresh DBs (table-not-found short-
 // circuit) and on already-current DBs (column-exists short-circuit).
 //
-// Table names are emitted bare (no safeName) — ensureColumn double-quotes
-// them at SQL emit time and uses parameter binding for the sqlite_master
-// lookup, so the values flow as Go string literals first and SQL
-// identifiers second. Wrapping with safeName here would embed literal
-// double-quote characters into the Go string and break compilation for
-// any spec whose dependent-resource snake_cased name is a SQL reserved
-// word.
+// Table names are emitted bare (no safeName) — addColumn double-quotes
+// them at SQL emit time, so the values flow as Go string literals first
+// and SQL identifiers second. Wrapping with safeName here would embed
+// literal double-quote characters into the Go string and break
+// compilation for any spec whose dependent-resource snake_cased name is
+// a SQL reserved word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
+	known, err := snapshotTableColumns(ctx, conn)
+	if err != nil {
+		return err
+	}
 	for _, c := range []struct{ table, column, decl string }{
 		// Legacy checkpoints cannot prove lossless completion: even an empty
 		// cursor may have come from a capped or partially stored page.
 		{table: "sync_state", column: "last_attempt_complete", decl: "INTEGER NOT NULL DEFAULT 0"},
+		// scope_key is not part of the primary key: one row per resource, and a
+		// changed scope resets the cursor instead of keeping both tenants.
+		{table: "sync_state", column: "scope_key", decl: "TEXT NOT NULL DEFAULT ''"},
+		// Pre-v14 playbook rows have no surface. Default cli so existing
+		// notes stay on the trusted recall fields.
+		{table: "learning_playbooks", column: "ingress_surface", decl: "TEXT NOT NULL DEFAULT 'cli'"},
 		{table: "access", column: "path", decl: "TEXT"},
 		{table: "access", column: "propagate", decl: "INTEGER"},
 		{table: "access", column: "roleid", decl: "TEXT"},
@@ -523,6 +616,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "access", column: "keys", decl: "TEXT"},
 		{table: "access", column: "lastname", decl: "TEXT"},
 		{table: "access", column: "realm_type", decl: "TEXT"},
+		{table: "access", column: "user", decl: "TEXT"},
 		{table: "access", column: "privsep", decl: "INTEGER"},
 		{table: "access", column: "tokenid", decl: "TEXT"},
 		{table: "acme", column: "directory", decl: "TEXT"},
@@ -572,19 +666,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ceph", column: "sticky", decl: "INTEGER"},
 		{table: "ceph", column: "summary", decl: "TEXT"},
 		{table: "ceph", column: "ttl", decl: "TEXT"},
-		{table: "ceph", column: "back_addr", decl: "TEXT"},
-		{table: "ceph", column: "ceph_release", decl: "TEXT"},
-		{table: "ceph", column: "ceph_version", decl: "TEXT"},
-		{table: "ceph", column: "ceph_version_short", decl: "TEXT"},
-		{table: "ceph", column: "device_ids", decl: "TEXT"},
-		{table: "ceph", column: "device_paths", decl: "TEXT"},
-		{table: "ceph", column: "devices", decl: "TEXT"},
-		{table: "ceph", column: "front_addr", decl: "TEXT"},
-		{table: "ceph", column: "hostname", decl: "TEXT"},
-		{table: "ceph", column: "mem_swap_kb", decl: "INTEGER"},
-		{table: "ceph", column: "mem_total_kb", decl: "INTEGER"},
-		{table: "ceph", column: "osd_data", decl: "TEXT"},
-		{table: "ceph", column: "osd_objectstore", decl: "TEXT"},
 		{table: "ceph", column: "safe", decl: "INTEGER"},
 		{table: "ceph", column: "status", decl: "TEXT"},
 		{table: "ceph", column: "data_pool", decl: "TEXT"},
@@ -593,6 +674,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ceph", column: "n", decl: "INTEGER"},
 		{table: "ceph", column: "t", decl: "TEXT"},
 		{table: "ceph", column: "addr", decl: "TEXT"},
+		{table: "ceph", column: "ceph_version", decl: "TEXT"},
+		{table: "ceph", column: "ceph_version_short", decl: "TEXT"},
 		{table: "ceph", column: "direxists", decl: "INTEGER"},
 		{table: "ceph", column: "fs_name", decl: "TEXT"},
 		{table: "ceph", column: "host", decl: "TEXT"},
@@ -608,12 +691,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ceph", column: "lv_size", decl: "INTEGER"},
 		{table: "ceph", column: "lv_uuid", decl: "TEXT"},
 		{table: "ceph", column: "vg_name", decl: "TEXT"},
-		{table: "ceph", column: "dev_node", decl: "TEXT"},
-		{table: "ceph", column: "device", decl: "TEXT"},
-		{table: "ceph", column: "physical_device", decl: "TEXT"},
-		{table: "ceph", column: "size", decl: "INTEGER"},
-		{table: "ceph", column: "support_discard", decl: "INTEGER"},
-		{table: "ceph", column: "type", decl: "TEXT"},
 		{table: "ceph", column: "bytes_used", decl: "INTEGER"},
 		{table: "ceph", column: "crush_rule", decl: "INTEGER"},
 		{table: "ceph", column: "crush_rule_name", decl: "TEXT"},
@@ -625,25 +702,32 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ceph", column: "pg_num_min", decl: "INTEGER"},
 		{table: "ceph", column: "pool", decl: "INTEGER"},
 		{table: "ceph", column: "pool_name", decl: "TEXT"},
+		{table: "ceph", column: "size", decl: "INTEGER"},
 		{table: "ceph", column: "target_size", decl: "INTEGER"},
 		{table: "ceph", column: "target_size_ratio", decl: "REAL"},
+		{table: "ceph", column: "type", decl: "TEXT"},
+		{table: "ceph", column: "application", decl: "TEXT"},
+		{table: "ceph", column: "fast_read", decl: "INTEGER"},
+		{table: "ceph", column: "hashpspool", decl: "INTEGER"},
+		{table: "ceph", column: "nodeep_scrub", decl: "INTEGER"},
+		{table: "ceph", column: "nodelete", decl: "INTEGER"},
+		{table: "ceph", column: "nopgchange", decl: "INTEGER"},
+		{table: "ceph", column: "noscrub", decl: "INTEGER"},
+		{table: "ceph", column: "nosizechange", decl: "INTEGER"},
+		{table: "ceph", column: "pgp_num", decl: "INTEGER"},
+		{table: "ceph", column: "use_gmt_hitset", decl: "INTEGER"},
+		{table: "ceph", column: "write_fadvise_dontneed", decl: "INTEGER"},
 		{table: "ceph", column: "available", decl: "INTEGER"},
 		{table: "ceph", column: "is_default", decl: "INTEGER"},
 		{table: "ceph", column: "release", decl: "TEXT"},
 		{table: "ceph", column: "unsupported", decl: "INTEGER"},
 		{table: "ceph", column: "version", decl: "TEXT"},
-		{table: "ceph", column: "parent_id", decl: "TEXT"},
-		{table: "ceph", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "cluster", column: "console", decl: "TEXT"},
 		{table: "cluster", column: "release", decl: "TEXT"},
 		{table: "cluster", column: "repoid", decl: "TEXT"},
 		{table: "cluster", column: "version", decl: "TEXT"},
-		{table: "cluster", column: "name", decl: "TEXT"},
-		{table: "cluster", column: "nodeid", decl: "INTEGER"},
-		{table: "cluster", column: "pve_addr", decl: "TEXT"},
-		{table: "cluster", column: "pve_fp", decl: "TEXT"},
-		{table: "cluster", column: "quorum_votes", decl: "INTEGER"},
-		{table: "cluster", column: "ring0_addr", decl: "TEXT"},
+		{table: "cluster", column: "config_digest", decl: "TEXT"},
+		{table: "cluster", column: "preferred_node", decl: "TEXT"},
 		{table: "cluster", column: "node", decl: "TEXT"},
 		{table: "cluster", column: "comment", decl: "TEXT"},
 		{table: "cluster", column: "enabled", decl: "INTEGER"},
@@ -662,6 +746,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "cluster", column: "port", decl: "INTEGER"},
 		{table: "cluster", column: "server", decl: "TEXT"},
 		{table: "cluster", column: "description", decl: "TEXT"},
+		{table: "cluster", column: "name", decl: "TEXT"},
 		{table: "cluster", column: "cputype", decl: "TEXT"},
 		{table: "cluster", column: "digest", decl: "TEXT"},
 		{table: "cluster", column: "flags", decl: "TEXT"},
@@ -703,13 +788,46 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "cluster", column: "zone_type", decl: "TEXT"},
 		{table: "cluster", column: "ip", decl: "TEXT"},
 		{table: "cluster", column: "local", decl: "INTEGER"},
+		{table: "cluster", column: "nodeid", decl: "INTEGER"},
 		{table: "cluster", column: "nodes", decl: "INTEGER"},
 		{table: "cluster", column: "online", decl: "INTEGER"},
 		{table: "cluster", column: "quorate", decl: "INTEGER"},
+		{table: "ct", column: "arch", decl: "TEXT"},
+		{table: "ct", column: "cmode", decl: "TEXT"},
+		{table: "ct", column: "console", decl: "INTEGER"},
+		{table: "ct", column: "cores", decl: "INTEGER"},
+		{table: "ct", column: "cpulimit", decl: "REAL"},
+		{table: "ct", column: "cpuunits", decl: "INTEGER"},
+		{table: "ct", column: "debug", decl: "INTEGER"},
+		{table: "ct", column: "description", decl: "TEXT"},
+		{table: "ct", column: "dev[n]", decl: "TEXT"},
+		{table: "ct", column: "digest", decl: "TEXT"},
+		{table: "ct", column: "entrypoint", decl: "TEXT"},
+		{table: "ct", column: "env", decl: "TEXT"},
+		{table: "ct", column: "features", decl: "TEXT"},
+		{table: "ct", column: "hookscript", decl: "TEXT"},
+		{table: "ct", column: "hostname", decl: "TEXT"},
+		{table: "ct", column: "lock", decl: "TEXT"},
+		{table: "ct", column: "memory", decl: "INTEGER"},
+		{table: "ct", column: "mp[n]", decl: "TEXT"},
+		{table: "ct", column: "nameserver", decl: "TEXT"},
+		{table: "ct", column: "net[n]", decl: "TEXT"},
+		{table: "ct", column: "onboot", decl: "INTEGER"},
+		{table: "ct", column: "ostype", decl: "TEXT"},
+		{table: "ct", column: "protection", decl: "INTEGER"},
+		{table: "ct", column: "rootfs", decl: "TEXT"},
+		{table: "ct", column: "searchdomain", decl: "TEXT"},
+		{table: "ct", column: "startup", decl: "TEXT"},
+		{table: "ct", column: "swap", decl: "INTEGER"},
+		{table: "ct", column: "tags", decl: "TEXT"},
+		{table: "ct", column: "template", decl: "INTEGER"},
+		{table: "ct", column: "timezone", decl: "TEXT"},
+		{table: "ct", column: "tty", decl: "INTEGER"},
+		{table: "ct", column: "unprivileged", decl: "INTEGER"},
+		{table: "ct", column: "unused[n]", decl: "TEXT"},
 		{table: "ct", column: "has_feature", decl: "INTEGER"},
 		{table: "ct", column: "cidr", decl: "TEXT"},
 		{table: "ct", column: "comment", decl: "TEXT"},
-		{table: "ct", column: "digest", decl: "TEXT"},
 		{table: "ct", column: "name", decl: "TEXT"},
 		{table: "ct", column: "nomatch", decl: "INTEGER"},
 		{table: "ct", column: "n", decl: "INTEGER"},
@@ -748,7 +866,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ct", column: "disk", decl: "INTEGER"},
 		{table: "ct", column: "diskread", decl: "INTEGER"},
 		{table: "ct", column: "diskwrite", decl: "INTEGER"},
-		{table: "ct", column: "lock", decl: "TEXT"},
 		{table: "ct", column: "maxdisk", decl: "INTEGER"},
 		{table: "ct", column: "maxmem", decl: "INTEGER"},
 		{table: "ct", column: "maxswap", decl: "INTEGER"},
@@ -761,8 +878,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ct", column: "pressurememoryfull", decl: "REAL"},
 		{table: "ct", column: "pressurememorysome", decl: "REAL"},
 		{table: "ct", column: "status", decl: "TEXT"},
-		{table: "ct", column: "tags", decl: "TEXT"},
-		{table: "ct", column: "template", decl: "INTEGER"},
 		{table: "ct", column: "uptime", decl: "INTEGER"},
 		{table: "ct", column: "vmid", decl: "INTEGER"},
 		{table: "ct", column: "running", decl: "INTEGER"},
@@ -771,7 +886,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ct", column: "pending", decl: "TEXT"},
 		{table: "ct", column: "value", decl: "TEXT"},
 		{table: "ct", column: "filename", decl: "TEXT"},
-		{table: "ct", column: "description", decl: "TEXT"},
 		{table: "ct", column: "parent", decl: "TEXT"},
 		{table: "ct", column: "snaptime", decl: "INTEGER"},
 		{table: "disks", column: "device", decl: "TEXT"},
@@ -791,9 +905,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "disks", column: "used", decl: "TEXT"},
 		{table: "disks", column: "vendor", decl: "TEXT"},
 		{table: "disks", column: "wwn", decl: "TEXT"},
-		{table: "disks", column: "free", decl: "INTEGER"},
 		{table: "disks", column: "leaf", decl: "INTEGER"},
-		{table: "disks", column: "name", decl: "TEXT"},
 		{table: "disks", column: "lv", decl: "TEXT"},
 		{table: "disks", column: "lv_size", decl: "INTEGER"},
 		{table: "disks", column: "metadata_size", decl: "INTEGER"},
@@ -801,14 +913,17 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "disks", column: "vg", decl: "TEXT"},
 		{table: "disks", column: "method", decl: "TEXT"},
 		{table: "disks", column: "pool", decl: "TEXT"},
+		{table: "disks", column: "text", decl: "TEXT"},
 		{table: "disks", column: "alloc", decl: "INTEGER"},
 		{table: "disks", column: "dedup", decl: "REAL"},
 		{table: "disks", column: "frag", decl: "INTEGER"},
-		{table: "disks", column: "cksum", decl: "REAL"},
-		{table: "disks", column: "msg", decl: "TEXT"},
-		{table: "disks", column: "read", decl: "REAL"},
+		{table: "disks", column: "free", decl: "INTEGER"},
+		{table: "disks", column: "name", decl: "TEXT"},
+		{table: "disks", column: "action", decl: "TEXT"},
+		{table: "disks", column: "errors", decl: "TEXT"},
+		{table: "disks", column: "scan", decl: "TEXT"},
 		{table: "disks", column: "state", decl: "TEXT"},
-		{table: "disks", column: "write", decl: "REAL"},
+		{table: "disks", column: "status", decl: "TEXT"},
 		{table: "firewall", column: "cidr", decl: "TEXT"},
 		{table: "firewall", column: "comment", decl: "TEXT"},
 		{table: "firewall", column: "digest", decl: "TEXT"},
@@ -857,8 +972,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "firewall", column: "policy_out", decl: "TEXT"},
 		{table: "firewall", column: "ref", decl: "TEXT"},
 		{table: "firewall", column: "scope", decl: "TEXT"},
-		{table: "firewall", column: "parent_id", decl: "TEXT"},
-		{table: "firewall", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "ha", column: "group", decl: "TEXT"},
 		{table: "ha", column: "sid", decl: "TEXT"},
 		{table: "ha", column: "auto_rebalance", decl: "INTEGER"},
@@ -998,6 +1111,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "nodes", column: "service", decl: "TEXT"},
 		{table: "nodes", column: "state", decl: "TEXT"},
 		{table: "nodes", column: "unit_state", decl: "TEXT"},
+		{table: "nodes", column: "pveversion", decl: "TEXT"},
 		{table: "nodes", column: "n", decl: "INTEGER"},
 		{table: "nodes", column: "t", decl: "TEXT"},
 		{table: "nodes", column: "localtime", decl: "INTEGER"},
@@ -1005,8 +1119,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "nodes", column: "timezone", decl: "TEXT"},
 		{table: "nodes", column: "release", decl: "TEXT"},
 		{table: "nodes", column: "repoid", decl: "TEXT"},
-		{table: "nodes", column: "parent_id", decl: "TEXT"},
-		{table: "nodes", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "notifications", column: "comment", decl: "TEXT"},
 		{table: "notifications", column: "disable", decl: "INTEGER"},
 		{table: "notifications", column: "name", decl: "TEXT"},
@@ -1254,12 +1366,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "pbs_nodes", column: "vendor", decl: "TEXT"},
 		{table: "pbs_nodes", column: "wearout", decl: "REAL"},
 		{table: "pbs_nodes", column: "wwn", decl: "TEXT"},
-		{table: "pbs_nodes", column: "flags", decl: "TEXT"},
-		{table: "pbs_nodes", column: "normalized", decl: "REAL"},
-		{table: "pbs_nodes", column: "raw", decl: "TEXT"},
-		{table: "pbs_nodes", column: "threshold", decl: "REAL"},
-		{table: "pbs_nodes", column: "value", decl: "TEXT"},
-		{table: "pbs_nodes", column: "worst", decl: "REAL"},
 		{table: "pbs_nodes", column: "alloc", decl: "INTEGER"},
 		{table: "pbs_nodes", column: "dedup", decl: "REAL"},
 		{table: "pbs_nodes", column: "frag", decl: "INTEGER"},
@@ -1294,6 +1400,10 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "pbs_nodes", column: "service", decl: "TEXT"},
 		{table: "pbs_nodes", column: "state", decl: "TEXT"},
 		{table: "pbs_nodes", column: "unit_state", decl: "TEXT"},
+		{table: "pbs_nodes", column: "cpu", decl: "REAL"},
+		{table: "pbs_nodes", column: "kversion", decl: "TEXT"},
+		{table: "pbs_nodes", column: "uptime", decl: "INTEGER"},
+		{table: "pbs_nodes", column: "wait", decl: "REAL"},
 		{table: "pbs_nodes", column: "n", decl: "INTEGER"},
 		{table: "pbs_nodes", column: "t", decl: "TEXT"},
 		{table: "pbs_nodes", column: "endtime", decl: "INTEGER"},
@@ -1415,10 +1525,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "pbs_tape", column: "kind", decl: "TEXT"},
 		{table: "pbs_tape", column: "major", decl: "INTEGER"},
 		{table: "pbs_tape", column: "minor", decl: "INTEGER"},
-		{table: "pools", column: "node", decl: "TEXT"},
-		{table: "pools", column: "storage", decl: "TEXT"},
-		{table: "pools", column: "type", decl: "TEXT"},
-		{table: "pools", column: "vmid", decl: "INTEGER"},
 		{table: "pools", column: "comment", decl: "TEXT"},
 		{table: "pools", column: "poolid", decl: "TEXT"},
 		{table: "replication", column: "comment", decl: "TEXT"},
@@ -1542,8 +1648,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "storage", column: "vmid", decl: "INTEGER"},
 		{table: "storage", column: "volid", decl: "TEXT"},
 		{table: "storage", column: "path", decl: "TEXT"},
-		{table: "storage", column: "key", decl: "TEXT"},
-		{table: "storage", column: "value", decl: "TEXT"},
+		{table: "storage", column: "source", decl: "TEXT"},
 		{table: "storage", column: "mark", decl: "TEXT"},
 		{table: "storage", column: "filename", decl: "TEXT"},
 		{table: "tasks", column: "upid", decl: "TEXT"},
@@ -1558,8 +1663,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "tasks", column: "n", decl: "INTEGER"},
 		{table: "tasks", column: "t", decl: "TEXT"},
 		{table: "tasks", column: "exitstatus", decl: "TEXT"},
-		{table: "tasks", column: "parent_id", decl: "TEXT"},
-		{table: "tasks", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "vm", column: "delete", decl: "INTEGER"},
 		{table: "vm", column: "key", decl: "TEXT"},
 		{table: "vm", column: "pending", decl: "TEXT"},
@@ -1653,6 +1756,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "vm", column: "vmstate", decl: "TEXT"},
 		{table: "vm", column: "vmstatestorage", decl: "TEXT"},
 		{table: "vm", column: "watchdog", decl: "TEXT"},
+		{table: "vm", column: "has_feature", decl: "INTEGER"},
 		{table: "vm", column: "cidr", decl: "TEXT"},
 		{table: "vm", column: "comment", decl: "TEXT"},
 		{table: "vm", column: "nomatch", decl: "INTEGER"},
@@ -1715,9 +1819,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
 		{table: "sync_state", column: "total_count", decl: "INTEGER DEFAULT 0"},
 	} {
-		if err := s.ensureColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
+		if !columnNeedsBackfill(known, c.table, c.column) {
+			continue
+		}
+		noteBackfillAlter(ctx)
+		if err := addColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
 			return err
 		}
+		markColumnPresent(known, c.table, c.column)
 	}
 	return nil
 }
@@ -1774,7 +1883,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			last_cursor TEXT,
 			last_synced_at DATETIME,
 			total_count INTEGER DEFAULT 0,
-			last_attempt_complete INTEGER NOT NULL DEFAULT 0
+			last_attempt_complete INTEGER NOT NULL DEFAULT 0,
+			scope_key TEXT NOT NULL DEFAULT ''
 		)`,
 		resourcesFTSCreateSQL,
 		// CLI Printing Press: learn migrations
@@ -1877,6 +1987,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			notes_text TEXT,
 			source TEXT NOT NULL DEFAULT 'taught',
 			confidence INTEGER NOT NULL DEFAULT 2,
+			ingress_surface TEXT NOT NULL DEFAULT 'cli',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_observed_at TIMESTAMP
 		)`,
@@ -2003,6 +2114,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"keys" TEXT,
 			"lastname" TEXT,
 			"realm_type" TEXT,
+			"user" TEXT,
 			"privsep" INTEGER,
 			"tokenid" TEXT
 		)`,
@@ -2107,19 +2219,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"sticky" INTEGER,
 			"summary" TEXT,
 			"ttl" TEXT,
-			"back_addr" TEXT,
-			"ceph_release" TEXT,
-			"ceph_version" TEXT,
-			"ceph_version_short" TEXT,
-			"device_ids" TEXT,
-			"device_paths" TEXT,
-			"devices" TEXT,
-			"front_addr" TEXT,
-			"hostname" TEXT,
-			"mem_swap_kb" INTEGER,
-			"mem_total_kb" INTEGER,
-			"osd_data" TEXT,
-			"osd_objectstore" TEXT,
 			"safe" INTEGER,
 			"status" TEXT,
 			"data_pool" TEXT,
@@ -2128,6 +2227,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"n" INTEGER,
 			"t" TEXT,
 			"addr" TEXT,
+			"ceph_version" TEXT,
+			"ceph_version_short" TEXT,
 			"direxists" INTEGER,
 			"fs_name" TEXT,
 			"host" TEXT,
@@ -2143,12 +2244,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"lv_size" INTEGER,
 			"lv_uuid" TEXT,
 			"vg_name" TEXT,
-			"dev_node" TEXT,
-			"device" TEXT,
-			"physical_device" TEXT,
-			"size" INTEGER,
-			"support_discard" INTEGER,
-			"type" TEXT,
 			"bytes_used" INTEGER,
 			"crush_rule" INTEGER,
 			"crush_rule_name" TEXT,
@@ -2160,19 +2255,28 @@ func (s *Store) migrate(ctx context.Context) error {
 			"pg_num_min" INTEGER,
 			"pool" INTEGER,
 			"pool_name" TEXT,
+			"size" INTEGER,
 			"target_size" INTEGER,
 			"target_size_ratio" REAL,
+			"type" TEXT,
+			"application" TEXT,
+			"fast_read" INTEGER,
+			"hashpspool" INTEGER,
+			"nodeep_scrub" INTEGER,
+			"nodelete" INTEGER,
+			"nopgchange" INTEGER,
+			"noscrub" INTEGER,
+			"nosizechange" INTEGER,
+			"pgp_num" INTEGER,
+			"use_gmt_hitset" INTEGER,
+			"write_fadvise_dontneed" INTEGER,
 			"available" INTEGER,
 			"is_default" INTEGER,
 			"release" TEXT,
 			"unsupported" INTEGER,
-			"version" TEXT,
-			"parent_id" TEXT,
-			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+			"version" TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_ceph_metadata_pool_id" ON "ceph"("metadata_pool_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_ceph_parent_id" ON "ceph"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_ceph_bare_id" ON "ceph"("bare_id")`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "ceph_fts" USING fts5(
 			"description",
 			"name",
@@ -2202,12 +2306,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"release" TEXT,
 			"repoid" TEXT,
 			"version" TEXT,
-			"name" TEXT,
-			"nodeid" INTEGER,
-			"pve_addr" TEXT,
-			"pve_fp" TEXT,
-			"quorum_votes" INTEGER,
-			"ring0_addr" TEXT,
+			"config_digest" TEXT,
+			"preferred_node" TEXT,
 			"node" TEXT,
 			"comment" TEXT,
 			"enabled" INTEGER,
@@ -2226,6 +2326,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"port" INTEGER,
 			"server" TEXT,
 			"description" TEXT,
+			"name" TEXT,
 			"cputype" TEXT,
 			"digest" TEXT,
 			"flags" TEXT,
@@ -2267,41 +2368,74 @@ func (s *Store) migrate(ctx context.Context) error {
 			"zone_type" TEXT,
 			"ip" TEXT,
 			"local" INTEGER,
+			"nodeid" INTEGER,
 			"nodes" INTEGER,
 			"online" INTEGER,
 			"quorate" INTEGER
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "cluster_fts" USING fts5(
-			"name",
 			"comment",
 			"description",
+			"name",
 			"content",
 			"tags",
 			content='cluster',
 			content_rowid='rowid'
 		)`,
 		`CREATE TRIGGER IF NOT EXISTS "cluster_ai" AFTER INSERT ON "cluster" BEGIN
-			INSERT INTO "cluster_fts"(rowid, "name", "comment", "description", "content", "tags")
-			VALUES (new.rowid,new."name", new."comment", new."description", new."content", new."tags");
+			INSERT INTO "cluster_fts"(rowid, "comment", "description", "name", "content", "tags")
+			VALUES (new.rowid,new."comment", new."description", new."name", new."content", new."tags");
 		END`,
 		`CREATE TRIGGER IF NOT EXISTS "cluster_ad" AFTER DELETE ON "cluster" BEGIN
-			INSERT INTO "cluster_fts"("cluster_fts", rowid, "name", "comment", "description", "content", "tags")
-			VALUES ('delete', old.rowid,old."name", old."comment", old."description", old."content", old."tags");
+			INSERT INTO "cluster_fts"("cluster_fts", rowid, "comment", "description", "name", "content", "tags")
+			VALUES ('delete', old.rowid,old."comment", old."description", old."name", old."content", old."tags");
 		END`,
 		`CREATE TRIGGER IF NOT EXISTS "cluster_au" AFTER UPDATE ON "cluster" BEGIN
-			INSERT INTO "cluster_fts"("cluster_fts", rowid, "name", "comment", "description", "content", "tags")
-			VALUES ('delete', old.rowid,old."name", old."comment", old."description", old."content", old."tags");
-			INSERT INTO "cluster_fts"(rowid, "name", "comment", "description", "content", "tags")
-			VALUES (new.rowid,new."name", new."comment", new."description", new."content", new."tags");
+			INSERT INTO "cluster_fts"("cluster_fts", rowid, "comment", "description", "name", "content", "tags")
+			VALUES ('delete', old.rowid,old."comment", old."description", old."name", old."content", old."tags");
+			INSERT INTO "cluster_fts"(rowid, "comment", "description", "name", "content", "tags")
+			VALUES (new.rowid,new."comment", new."description", new."name", new."content", new."tags");
 		END`,
 		`CREATE TABLE IF NOT EXISTS "ct" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"arch" TEXT,
+			"cmode" TEXT,
+			"console" INTEGER,
+			"cores" INTEGER,
+			"cpulimit" REAL,
+			"cpuunits" INTEGER,
+			"debug" INTEGER,
+			"description" TEXT,
+			"dev[n]" TEXT,
+			"digest" TEXT,
+			"entrypoint" TEXT,
+			"env" TEXT,
+			"features" TEXT,
+			"hookscript" TEXT,
+			"hostname" TEXT,
+			"lock" TEXT,
+			"memory" INTEGER,
+			"mp[n]" TEXT,
+			"nameserver" TEXT,
+			"net[n]" TEXT,
+			"onboot" INTEGER,
+			"ostype" TEXT,
+			"protection" INTEGER,
+			"rootfs" TEXT,
+			"searchdomain" TEXT,
+			"startup" TEXT,
+			"swap" INTEGER,
+			"tags" TEXT,
+			"template" INTEGER,
+			"timezone" TEXT,
+			"tty" INTEGER,
+			"unprivileged" INTEGER,
+			"unused[n]" TEXT,
 			"has_feature" INTEGER,
 			"cidr" TEXT,
 			"comment" TEXT,
-			"digest" TEXT,
 			"name" TEXT,
 			"nomatch" INTEGER,
 			"n" INTEGER,
@@ -2340,7 +2474,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"disk" INTEGER,
 			"diskread" INTEGER,
 			"diskwrite" INTEGER,
-			"lock" TEXT,
 			"maxdisk" INTEGER,
 			"maxmem" INTEGER,
 			"maxswap" INTEGER,
@@ -2353,8 +2486,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"pressurememoryfull" REAL,
 			"pressurememorysome" REAL,
 			"status" TEXT,
-			"tags" TEXT,
-			"template" INTEGER,
 			"uptime" INTEGER,
 			"vmid" INTEGER,
 			"running" INTEGER,
@@ -2363,31 +2494,30 @@ func (s *Store) migrate(ctx context.Context) error {
 			"pending" TEXT,
 			"value" TEXT,
 			"filename" TEXT,
-			"description" TEXT,
 			"parent" TEXT,
 			"snaptime" INTEGER
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "ct_fts" USING fts5(
+			"description",
+			"tags",
 			"comment",
 			"name",
-			"tags",
-			"description",
 			content='ct',
 			content_rowid='rowid'
 		)`,
 		`CREATE TRIGGER IF NOT EXISTS "ct_ai" AFTER INSERT ON "ct" BEGIN
-			INSERT INTO "ct_fts"(rowid, "comment", "name", "tags", "description")
-			VALUES (new.rowid,new."comment", new."name", new."tags", new."description");
+			INSERT INTO "ct_fts"(rowid, "description", "tags", "comment", "name")
+			VALUES (new.rowid,new."description", new."tags", new."comment", new."name");
 		END`,
 		`CREATE TRIGGER IF NOT EXISTS "ct_ad" AFTER DELETE ON "ct" BEGIN
-			INSERT INTO "ct_fts"("ct_fts", rowid, "comment", "name", "tags", "description")
-			VALUES ('delete', old.rowid,old."comment", old."name", old."tags", old."description");
+			INSERT INTO "ct_fts"("ct_fts", rowid, "description", "tags", "comment", "name")
+			VALUES ('delete', old.rowid,old."description", old."tags", old."comment", old."name");
 		END`,
 		`CREATE TRIGGER IF NOT EXISTS "ct_au" AFTER UPDATE ON "ct" BEGIN
-			INSERT INTO "ct_fts"("ct_fts", rowid, "comment", "name", "tags", "description")
-			VALUES ('delete', old.rowid,old."comment", old."name", old."tags", old."description");
-			INSERT INTO "ct_fts"(rowid, "comment", "name", "tags", "description")
-			VALUES (new.rowid,new."comment", new."name", new."tags", new."description");
+			INSERT INTO "ct_fts"("ct_fts", rowid, "description", "tags", "comment", "name")
+			VALUES ('delete', old.rowid,old."description", old."tags", old."comment", old."name");
+			INSERT INTO "ct_fts"(rowid, "description", "tags", "comment", "name")
+			VALUES (new.rowid,new."description", new."tags", new."comment", new."name");
 		END`,
 		`CREATE TABLE IF NOT EXISTS "disks" (
 			"id" TEXT PRIMARY KEY,
@@ -2410,9 +2540,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"used" TEXT,
 			"vendor" TEXT,
 			"wwn" TEXT,
-			"free" INTEGER,
 			"leaf" INTEGER,
-			"name" TEXT,
 			"lv" TEXT,
 			"lv_size" INTEGER,
 			"metadata_size" INTEGER,
@@ -2420,15 +2548,38 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vg" TEXT,
 			"method" TEXT,
 			"pool" TEXT,
+			"text" TEXT,
 			"alloc" INTEGER,
 			"dedup" REAL,
 			"frag" INTEGER,
-			"cksum" REAL,
-			"msg" TEXT,
-			"read" REAL,
+			"free" INTEGER,
+			"name" TEXT,
+			"action" TEXT,
+			"errors" TEXT,
+			"scan" TEXT,
 			"state" TEXT,
-			"write" REAL
+			"status" TEXT
 		)`,
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "disks_fts" USING fts5(
+			"text",
+			"name",
+			content='disks',
+			content_rowid='rowid'
+		)`,
+		`CREATE TRIGGER IF NOT EXISTS "disks_ai" AFTER INSERT ON "disks" BEGIN
+			INSERT INTO "disks_fts"(rowid, "text", "name")
+			VALUES (new.rowid,new."text", new."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "disks_ad" AFTER DELETE ON "disks" BEGIN
+			INSERT INTO "disks_fts"("disks_fts", rowid, "text", "name")
+			VALUES ('delete', old.rowid,old."text", old."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "disks_au" AFTER UPDATE ON "disks" BEGIN
+			INSERT INTO "disks_fts"("disks_fts", rowid, "text", "name")
+			VALUES ('delete', old.rowid,old."text", old."name");
+			INSERT INTO "disks_fts"(rowid, "text", "name")
+			VALUES (new.rowid,new."text", new."name");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "firewall" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2480,12 +2631,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"policy_in" TEXT,
 			"policy_out" TEXT,
 			"ref" TEXT,
-			"scope" TEXT,
-			"parent_id" TEXT,
-			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+			"scope" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_firewall_parent_id" ON "firewall"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_firewall_bare_id" ON "firewall"("bare_id")`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "firewall_fts" USING fts5(
 			"comment",
 			"name",
@@ -2659,18 +2806,15 @@ func (s *Store) migrate(ctx context.Context) error {
 			"service" TEXT,
 			"state" TEXT,
 			"unit_state" TEXT,
+			"pveversion" TEXT,
 			"n" INTEGER,
 			"t" TEXT,
 			"localtime" INTEGER,
 			"time" INTEGER,
 			"timezone" TEXT,
 			"release" TEXT,
-			"repoid" TEXT,
-			"parent_id" TEXT,
-			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+			"repoid" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_nodes_parent_id" ON "nodes"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_nodes_bare_id" ON "nodes"("bare_id")`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "nodes_fts" USING fts5(
 			"description",
 			"title",
@@ -3049,12 +3193,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vendor" TEXT,
 			"wearout" REAL,
 			"wwn" TEXT,
-			"flags" TEXT,
-			"normalized" REAL,
-			"raw" TEXT,
-			"threshold" REAL,
-			"value" TEXT,
-			"worst" REAL,
 			"alloc" INTEGER,
 			"dedup" REAL,
 			"frag" INTEGER,
@@ -3089,6 +3227,10 @@ func (s *Store) migrate(ctx context.Context) error {
 			"service" TEXT,
 			"state" TEXT,
 			"unit_state" TEXT,
+			"cpu" REAL,
+			"kversion" TEXT,
+			"uptime" INTEGER,
+			"wait" REAL,
 			"n" INTEGER,
 			"t" TEXT,
 			"endtime" INTEGER,
@@ -3288,10 +3430,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"node" TEXT,
-			"storage" TEXT,
-			"type" TEXT,
-			"vmid" INTEGER,
 			"comment" TEXT,
 			"poolid" TEXT
 		)`,
@@ -3453,8 +3591,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vmid" INTEGER,
 			"volid" TEXT,
 			"path" TEXT,
-			"key" TEXT,
-			"value" TEXT,
+			"source" TEXT,
 			"mark" TEXT,
 			"filename" TEXT
 		)`,
@@ -3493,12 +3630,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"user" TEXT,
 			"n" INTEGER,
 			"t" TEXT,
-			"exitstatus" TEXT,
-			"parent_id" TEXT,
-			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+			"exitstatus" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_tasks_parent_id" ON "tasks"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_tasks_bare_id" ON "tasks"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "vm" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -3596,6 +3729,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vmstate" TEXT,
 			"vmstatestorage" TEXT,
 			"watchdog" TEXT,
+			"has_feature" INTEGER,
 			"cidr" TEXT,
 			"comment" TEXT,
 			"nomatch" INTEGER,
@@ -4639,6 +4773,13 @@ func (s *Store) TypedListScan(resourceType string, fn func(id string, data json.
 }
 
 func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	return s.SearchContext(context.Background(), query, limit, resourceTypes...)
+}
+
+func (s *Store) SearchContext(ctx context.Context, query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -4692,7 +4833,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			args = []any{matchQuery, limit}
 		}
 	}
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -5435,9 +5576,9 @@ func extendedJSONIDMapString(object map[string]any) string {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertAccessTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "access" ("id", "data", "synced_at", "path", "propagate", "roleid", "type", "ugid", "comment", "realm", "tfa", "groupid", "users", "privs", "special", "datastore_allocate", "datastore_allocate_space", "datastore_allocate_template", "datastore_audit", "group_allocate", "mapping_audit", "mapping_modify", "mapping_use", "permissions_modify", "pool_allocate", "pool_audit", "realm_allocate", "realm_allocate_user", "sdn_allocate", "sdn_audit", "sdn_use", "sys_access_network", "sys_audit", "sys_console", "sys_incoming", "sys_modify", "sys_power_mgmt", "sys_syslog", "user_modify", "vm_allocate", "vm_audit", "vm_backup", "vm_clone", "vm_config_cdrom", "vm_config_cpu", "vm_config_cloudinit", "vm_config_disk", "vm_config_hw_type", "vm_config_memory", "vm_config_network", "vm_config_options", "vm_console", "vm_guest_agent_audit", "vm_guest_agent_file_read", "vm_guest_agent_file_system_mgmt", "vm_guest_agent_file_write", "vm_guest_agent_unrestricted", "vm_migrate", "vm_power_mgmt", "vm_replicate", "vm_snapshot", "vm_snapshot_rollback", "tfa_locked_until", "totp_locked", "userid", "created", "description", "enable", "email", "expire", "firstname", "groups", "keys", "lastname", "realm_type", "privsep", "tokenid")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "path" = excluded."path", "propagate" = excluded."propagate", "roleid" = excluded."roleid", "type" = excluded."type", "ugid" = excluded."ugid", "comment" = excluded."comment", "realm" = excluded."realm", "tfa" = excluded."tfa", "groupid" = excluded."groupid", "users" = excluded."users", "privs" = excluded."privs", "special" = excluded."special", "datastore_allocate" = excluded."datastore_allocate", "datastore_allocate_space" = excluded."datastore_allocate_space", "datastore_allocate_template" = excluded."datastore_allocate_template", "datastore_audit" = excluded."datastore_audit", "group_allocate" = excluded."group_allocate", "mapping_audit" = excluded."mapping_audit", "mapping_modify" = excluded."mapping_modify", "mapping_use" = excluded."mapping_use", "permissions_modify" = excluded."permissions_modify", "pool_allocate" = excluded."pool_allocate", "pool_audit" = excluded."pool_audit", "realm_allocate" = excluded."realm_allocate", "realm_allocate_user" = excluded."realm_allocate_user", "sdn_allocate" = excluded."sdn_allocate", "sdn_audit" = excluded."sdn_audit", "sdn_use" = excluded."sdn_use", "sys_access_network" = excluded."sys_access_network", "sys_audit" = excluded."sys_audit", "sys_console" = excluded."sys_console", "sys_incoming" = excluded."sys_incoming", "sys_modify" = excluded."sys_modify", "sys_power_mgmt" = excluded."sys_power_mgmt", "sys_syslog" = excluded."sys_syslog", "user_modify" = excluded."user_modify", "vm_allocate" = excluded."vm_allocate", "vm_audit" = excluded."vm_audit", "vm_backup" = excluded."vm_backup", "vm_clone" = excluded."vm_clone", "vm_config_cdrom" = excluded."vm_config_cdrom", "vm_config_cpu" = excluded."vm_config_cpu", "vm_config_cloudinit" = excluded."vm_config_cloudinit", "vm_config_disk" = excluded."vm_config_disk", "vm_config_hw_type" = excluded."vm_config_hw_type", "vm_config_memory" = excluded."vm_config_memory", "vm_config_network" = excluded."vm_config_network", "vm_config_options" = excluded."vm_config_options", "vm_console" = excluded."vm_console", "vm_guest_agent_audit" = excluded."vm_guest_agent_audit", "vm_guest_agent_file_read" = excluded."vm_guest_agent_file_read", "vm_guest_agent_file_system_mgmt" = excluded."vm_guest_agent_file_system_mgmt", "vm_guest_agent_file_write" = excluded."vm_guest_agent_file_write", "vm_guest_agent_unrestricted" = excluded."vm_guest_agent_unrestricted", "vm_migrate" = excluded."vm_migrate", "vm_power_mgmt" = excluded."vm_power_mgmt", "vm_replicate" = excluded."vm_replicate", "vm_snapshot" = excluded."vm_snapshot", "vm_snapshot_rollback" = excluded."vm_snapshot_rollback", "tfa_locked_until" = excluded."tfa_locked_until", "totp_locked" = excluded."totp_locked", "userid" = excluded."userid", "created" = excluded."created", "description" = excluded."description", "enable" = excluded."enable", "email" = excluded."email", "expire" = excluded."expire", "firstname" = excluded."firstname", "groups" = excluded."groups", "keys" = excluded."keys", "lastname" = excluded."lastname", "realm_type" = excluded."realm_type", "privsep" = excluded."privsep", "tokenid" = excluded."tokenid"`,
+		`INSERT INTO "access" ("id", "data", "synced_at", "path", "propagate", "roleid", "type", "ugid", "comment", "realm", "tfa", "groupid", "users", "privs", "special", "datastore_allocate", "datastore_allocate_space", "datastore_allocate_template", "datastore_audit", "group_allocate", "mapping_audit", "mapping_modify", "mapping_use", "permissions_modify", "pool_allocate", "pool_audit", "realm_allocate", "realm_allocate_user", "sdn_allocate", "sdn_audit", "sdn_use", "sys_access_network", "sys_audit", "sys_console", "sys_incoming", "sys_modify", "sys_power_mgmt", "sys_syslog", "user_modify", "vm_allocate", "vm_audit", "vm_backup", "vm_clone", "vm_config_cdrom", "vm_config_cpu", "vm_config_cloudinit", "vm_config_disk", "vm_config_hw_type", "vm_config_memory", "vm_config_network", "vm_config_options", "vm_console", "vm_guest_agent_audit", "vm_guest_agent_file_read", "vm_guest_agent_file_system_mgmt", "vm_guest_agent_file_write", "vm_guest_agent_unrestricted", "vm_migrate", "vm_power_mgmt", "vm_replicate", "vm_snapshot", "vm_snapshot_rollback", "tfa_locked_until", "totp_locked", "userid", "created", "description", "enable", "email", "expire", "firstname", "groups", "keys", "lastname", "realm_type", "user", "privsep", "tokenid")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "path" = excluded."path", "propagate" = excluded."propagate", "roleid" = excluded."roleid", "type" = excluded."type", "ugid" = excluded."ugid", "comment" = excluded."comment", "realm" = excluded."realm", "tfa" = excluded."tfa", "groupid" = excluded."groupid", "users" = excluded."users", "privs" = excluded."privs", "special" = excluded."special", "datastore_allocate" = excluded."datastore_allocate", "datastore_allocate_space" = excluded."datastore_allocate_space", "datastore_allocate_template" = excluded."datastore_allocate_template", "datastore_audit" = excluded."datastore_audit", "group_allocate" = excluded."group_allocate", "mapping_audit" = excluded."mapping_audit", "mapping_modify" = excluded."mapping_modify", "mapping_use" = excluded."mapping_use", "permissions_modify" = excluded."permissions_modify", "pool_allocate" = excluded."pool_allocate", "pool_audit" = excluded."pool_audit", "realm_allocate" = excluded."realm_allocate", "realm_allocate_user" = excluded."realm_allocate_user", "sdn_allocate" = excluded."sdn_allocate", "sdn_audit" = excluded."sdn_audit", "sdn_use" = excluded."sdn_use", "sys_access_network" = excluded."sys_access_network", "sys_audit" = excluded."sys_audit", "sys_console" = excluded."sys_console", "sys_incoming" = excluded."sys_incoming", "sys_modify" = excluded."sys_modify", "sys_power_mgmt" = excluded."sys_power_mgmt", "sys_syslog" = excluded."sys_syslog", "user_modify" = excluded."user_modify", "vm_allocate" = excluded."vm_allocate", "vm_audit" = excluded."vm_audit", "vm_backup" = excluded."vm_backup", "vm_clone" = excluded."vm_clone", "vm_config_cdrom" = excluded."vm_config_cdrom", "vm_config_cpu" = excluded."vm_config_cpu", "vm_config_cloudinit" = excluded."vm_config_cloudinit", "vm_config_disk" = excluded."vm_config_disk", "vm_config_hw_type" = excluded."vm_config_hw_type", "vm_config_memory" = excluded."vm_config_memory", "vm_config_network" = excluded."vm_config_network", "vm_config_options" = excluded."vm_config_options", "vm_console" = excluded."vm_console", "vm_guest_agent_audit" = excluded."vm_guest_agent_audit", "vm_guest_agent_file_read" = excluded."vm_guest_agent_file_read", "vm_guest_agent_file_system_mgmt" = excluded."vm_guest_agent_file_system_mgmt", "vm_guest_agent_file_write" = excluded."vm_guest_agent_file_write", "vm_guest_agent_unrestricted" = excluded."vm_guest_agent_unrestricted", "vm_migrate" = excluded."vm_migrate", "vm_power_mgmt" = excluded."vm_power_mgmt", "vm_replicate" = excluded."vm_replicate", "vm_snapshot" = excluded."vm_snapshot", "vm_snapshot_rollback" = excluded."vm_snapshot_rollback", "tfa_locked_until" = excluded."tfa_locked_until", "totp_locked" = excluded."totp_locked", "userid" = excluded."userid", "created" = excluded."created", "description" = excluded."description", "enable" = excluded."enable", "email" = excluded."email", "expire" = excluded."expire", "firstname" = excluded."firstname", "groups" = excluded."groups", "keys" = excluded."keys", "lastname" = excluded."lastname", "realm_type" = excluded."realm_type", "user" = excluded."user", "privsep" = excluded."privsep", "tokenid" = excluded."tokenid"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5513,6 +5654,7 @@ func (s *Store) upsertAccessTx(tx *sql.Tx, id string, obj map[string]any, data j
 		lookupFieldValue(obj, "keys"),
 		lookupFieldValue(obj, "lastname"),
 		lookupFieldValue(obj, "realm_type"),
+		lookupFieldValue(obj, "user"),
 		lookupFieldValue(obj, "privsep"),
 		lookupFieldValue(obj, "tokenid"),
 	); err != nil {
@@ -5717,9 +5859,9 @@ func (s *Store) UpsertBackup(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertCephTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "ceph" ("id", "data", "synced_at", "description", "name", "value", "code", "sticky", "summary", "ttl", "back_addr", "ceph_release", "ceph_version", "ceph_version_short", "device_ids", "device_paths", "devices", "front_addr", "hostname", "mem_swap_kb", "mem_total_kb", "osd_data", "osd_objectstore", "safe", "status", "data_pool", "metadata_pool", "metadata_pool_id", "n", "t", "addr", "direxists", "fs_name", "host", "rank", "service", "standby_replay", "state", "quorum", "flags", "creation_time", "lv_name", "lv_path", "lv_size", "lv_uuid", "vg_name", "dev_node", "device", "physical_device", "size", "support_discard", "type", "bytes_used", "crush_rule", "crush_rule_name", "min_size", "percent_used", "pg_autoscale_mode", "pg_num", "pg_num_final", "pg_num_min", "pool", "pool_name", "target_size", "target_size_ratio", "available", "is_default", "release", "unsupported", "version", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "description" = excluded."description", "name" = excluded."name", "value" = excluded."value", "code" = excluded."code", "sticky" = excluded."sticky", "summary" = excluded."summary", "ttl" = excluded."ttl", "back_addr" = excluded."back_addr", "ceph_release" = excluded."ceph_release", "ceph_version" = excluded."ceph_version", "ceph_version_short" = excluded."ceph_version_short", "device_ids" = excluded."device_ids", "device_paths" = excluded."device_paths", "devices" = excluded."devices", "front_addr" = excluded."front_addr", "hostname" = excluded."hostname", "mem_swap_kb" = excluded."mem_swap_kb", "mem_total_kb" = excluded."mem_total_kb", "osd_data" = excluded."osd_data", "osd_objectstore" = excluded."osd_objectstore", "safe" = excluded."safe", "status" = excluded."status", "data_pool" = excluded."data_pool", "metadata_pool" = excluded."metadata_pool", "metadata_pool_id" = excluded."metadata_pool_id", "n" = excluded."n", "t" = excluded."t", "addr" = excluded."addr", "direxists" = excluded."direxists", "fs_name" = excluded."fs_name", "host" = excluded."host", "rank" = excluded."rank", "service" = excluded."service", "standby_replay" = excluded."standby_replay", "state" = excluded."state", "quorum" = excluded."quorum", "flags" = excluded."flags", "creation_time" = excluded."creation_time", "lv_name" = excluded."lv_name", "lv_path" = excluded."lv_path", "lv_size" = excluded."lv_size", "lv_uuid" = excluded."lv_uuid", "vg_name" = excluded."vg_name", "dev_node" = excluded."dev_node", "device" = excluded."device", "physical_device" = excluded."physical_device", "size" = excluded."size", "support_discard" = excluded."support_discard", "type" = excluded."type", "bytes_used" = excluded."bytes_used", "crush_rule" = excluded."crush_rule", "crush_rule_name" = excluded."crush_rule_name", "min_size" = excluded."min_size", "percent_used" = excluded."percent_used", "pg_autoscale_mode" = excluded."pg_autoscale_mode", "pg_num" = excluded."pg_num", "pg_num_final" = excluded."pg_num_final", "pg_num_min" = excluded."pg_num_min", "pool" = excluded."pool", "pool_name" = excluded."pool_name", "target_size" = excluded."target_size", "target_size_ratio" = excluded."target_size_ratio", "available" = excluded."available", "is_default" = excluded."is_default", "release" = excluded."release", "unsupported" = excluded."unsupported", "version" = excluded."version", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "ceph" ("id", "data", "synced_at", "description", "name", "value", "code", "sticky", "summary", "ttl", "safe", "status", "data_pool", "metadata_pool", "metadata_pool_id", "n", "t", "addr", "ceph_version", "ceph_version_short", "direxists", "fs_name", "host", "rank", "service", "standby_replay", "state", "quorum", "flags", "creation_time", "lv_name", "lv_path", "lv_size", "lv_uuid", "vg_name", "bytes_used", "crush_rule", "crush_rule_name", "min_size", "percent_used", "pg_autoscale_mode", "pg_num", "pg_num_final", "pg_num_min", "pool", "pool_name", "size", "target_size", "target_size_ratio", "type", "application", "fast_read", "hashpspool", "nodeep_scrub", "nodelete", "nopgchange", "noscrub", "nosizechange", "pgp_num", "use_gmt_hitset", "write_fadvise_dontneed", "available", "is_default", "release", "unsupported", "version")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "description" = excluded."description", "name" = excluded."name", "value" = excluded."value", "code" = excluded."code", "sticky" = excluded."sticky", "summary" = excluded."summary", "ttl" = excluded."ttl", "safe" = excluded."safe", "status" = excluded."status", "data_pool" = excluded."data_pool", "metadata_pool" = excluded."metadata_pool", "metadata_pool_id" = excluded."metadata_pool_id", "n" = excluded."n", "t" = excluded."t", "addr" = excluded."addr", "ceph_version" = excluded."ceph_version", "ceph_version_short" = excluded."ceph_version_short", "direxists" = excluded."direxists", "fs_name" = excluded."fs_name", "host" = excluded."host", "rank" = excluded."rank", "service" = excluded."service", "standby_replay" = excluded."standby_replay", "state" = excluded."state", "quorum" = excluded."quorum", "flags" = excluded."flags", "creation_time" = excluded."creation_time", "lv_name" = excluded."lv_name", "lv_path" = excluded."lv_path", "lv_size" = excluded."lv_size", "lv_uuid" = excluded."lv_uuid", "vg_name" = excluded."vg_name", "bytes_used" = excluded."bytes_used", "crush_rule" = excluded."crush_rule", "crush_rule_name" = excluded."crush_rule_name", "min_size" = excluded."min_size", "percent_used" = excluded."percent_used", "pg_autoscale_mode" = excluded."pg_autoscale_mode", "pg_num" = excluded."pg_num", "pg_num_final" = excluded."pg_num_final", "pg_num_min" = excluded."pg_num_min", "pool" = excluded."pool", "pool_name" = excluded."pool_name", "size" = excluded."size", "target_size" = excluded."target_size", "target_size_ratio" = excluded."target_size_ratio", "type" = excluded."type", "application" = excluded."application", "fast_read" = excluded."fast_read", "hashpspool" = excluded."hashpspool", "nodeep_scrub" = excluded."nodeep_scrub", "nodelete" = excluded."nodelete", "nopgchange" = excluded."nopgchange", "noscrub" = excluded."noscrub", "nosizechange" = excluded."nosizechange", "pgp_num" = excluded."pgp_num", "use_gmt_hitset" = excluded."use_gmt_hitset", "write_fadvise_dontneed" = excluded."write_fadvise_dontneed", "available" = excluded."available", "is_default" = excluded."is_default", "release" = excluded."release", "unsupported" = excluded."unsupported", "version" = excluded."version"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5730,19 +5872,6 @@ func (s *Store) upsertCephTx(tx *sql.Tx, id string, obj map[string]any, data jso
 		lookupFieldValue(obj, "sticky"),
 		lookupFieldValue(obj, "summary"),
 		lookupFieldValue(obj, "ttl"),
-		lookupFieldValue(obj, "back_addr"),
-		lookupFieldValue(obj, "ceph_release"),
-		lookupFieldValue(obj, "ceph_version"),
-		lookupFieldValue(obj, "ceph_version_short"),
-		lookupFieldValue(obj, "device_ids"),
-		lookupFieldValue(obj, "device_paths"),
-		lookupFieldValue(obj, "devices"),
-		lookupFieldValue(obj, "front_addr"),
-		lookupFieldValue(obj, "hostname"),
-		lookupFieldValue(obj, "mem_swap_kb"),
-		lookupFieldValue(obj, "mem_total_kb"),
-		lookupFieldValue(obj, "osd_data"),
-		lookupFieldValue(obj, "osd_objectstore"),
 		lookupFieldValue(obj, "safe"),
 		lookupFieldValue(obj, "status"),
 		lookupFieldValue(obj, "data_pool"),
@@ -5751,6 +5880,8 @@ func (s *Store) upsertCephTx(tx *sql.Tx, id string, obj map[string]any, data jso
 		lookupFieldValue(obj, "n"),
 		lookupFieldValue(obj, "t"),
 		lookupFieldValue(obj, "addr"),
+		lookupFieldValue(obj, "ceph_version"),
+		lookupFieldValue(obj, "ceph_version_short"),
 		lookupFieldValue(obj, "direxists"),
 		lookupFieldValue(obj, "fs_name"),
 		lookupFieldValue(obj, "host"),
@@ -5766,12 +5897,6 @@ func (s *Store) upsertCephTx(tx *sql.Tx, id string, obj map[string]any, data jso
 		lookupFieldValue(obj, "lv_size"),
 		lookupFieldValue(obj, "lv_uuid"),
 		lookupFieldValue(obj, "vg_name"),
-		lookupFieldValue(obj, "dev_node"),
-		lookupFieldValue(obj, "device"),
-		lookupFieldValue(obj, "physical_device"),
-		lookupFieldValue(obj, "size"),
-		lookupFieldValue(obj, "support_discard"),
-		lookupFieldValue(obj, "type"),
 		lookupFieldValue(obj, "bytes_used"),
 		lookupFieldValue(obj, "crush_rule"),
 		lookupFieldValue(obj, "crush_rule_name"),
@@ -5783,14 +5908,26 @@ func (s *Store) upsertCephTx(tx *sql.Tx, id string, obj map[string]any, data jso
 		lookupFieldValue(obj, "pg_num_min"),
 		lookupFieldValue(obj, "pool"),
 		lookupFieldValue(obj, "pool_name"),
+		lookupFieldValue(obj, "size"),
 		lookupFieldValue(obj, "target_size"),
 		lookupFieldValue(obj, "target_size_ratio"),
+		lookupFieldValue(obj, "type"),
+		lookupFieldValue(obj, "application"),
+		lookupFieldValue(obj, "fast_read"),
+		lookupFieldValue(obj, "hashpspool"),
+		lookupFieldValue(obj, "nodeep_scrub"),
+		lookupFieldValue(obj, "nodelete"),
+		lookupFieldValue(obj, "nopgchange"),
+		lookupFieldValue(obj, "noscrub"),
+		lookupFieldValue(obj, "nosizechange"),
+		lookupFieldValue(obj, "pgp_num"),
+		lookupFieldValue(obj, "use_gmt_hitset"),
+		lookupFieldValue(obj, "write_fadvise_dontneed"),
 		lookupFieldValue(obj, "available"),
 		lookupFieldValue(obj, "is_default"),
 		lookupFieldValue(obj, "release"),
 		lookupFieldValue(obj, "unsupported"),
 		lookupFieldValue(obj, "version"),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into ceph: %w", err)
 	}
@@ -5841,9 +5978,9 @@ func (s *Store) UpsertCeph(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertClusterTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "cluster" ("id", "data", "synced_at", "console", "release", "repoid", "version", "name", "nodeid", "pve_addr", "pve_fp", "quorum_votes", "ring0_addr", "node", "comment", "enabled", "last_run", "next_run", "realm", "remove_vanished", "schedule", "scope", "timestamp", "utc", "metric", "type", "value", "disable", "port", "server", "description", "cputype", "digest", "flags", "guest_phys_bits", "hidden", "hv_vendor_id", "level", "phys_bits", "reported_model", "cgroup_mode", "content", "cpu", "disk", "diskread", "diskwrite", "hastate", "host_arch", "lock", "maxcpu", "maxdisk", "maxmem", "mem", "memhost", "netin", "netout", "network", "network_type", "plugintype", "pool", "protocol", "sdn", "shared", "status", "storage", "tags", "template", "uptime", "vmid", "zone_type", "ip", "local", "nodes", "online", "quorate")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "console" = excluded."console", "release" = excluded."release", "repoid" = excluded."repoid", "version" = excluded."version", "name" = excluded."name", "nodeid" = excluded."nodeid", "pve_addr" = excluded."pve_addr", "pve_fp" = excluded."pve_fp", "quorum_votes" = excluded."quorum_votes", "ring0_addr" = excluded."ring0_addr", "node" = excluded."node", "comment" = excluded."comment", "enabled" = excluded."enabled", "last_run" = excluded."last_run", "next_run" = excluded."next_run", "realm" = excluded."realm", "remove_vanished" = excluded."remove_vanished", "schedule" = excluded."schedule", "scope" = excluded."scope", "timestamp" = excluded."timestamp", "utc" = excluded."utc", "metric" = excluded."metric", "type" = excluded."type", "value" = excluded."value", "disable" = excluded."disable", "port" = excluded."port", "server" = excluded."server", "description" = excluded."description", "cputype" = excluded."cputype", "digest" = excluded."digest", "flags" = excluded."flags", "guest_phys_bits" = excluded."guest_phys_bits", "hidden" = excluded."hidden", "hv_vendor_id" = excluded."hv_vendor_id", "level" = excluded."level", "phys_bits" = excluded."phys_bits", "reported_model" = excluded."reported_model", "cgroup_mode" = excluded."cgroup_mode", "content" = excluded."content", "cpu" = excluded."cpu", "disk" = excluded."disk", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "hastate" = excluded."hastate", "host_arch" = excluded."host_arch", "lock" = excluded."lock", "maxcpu" = excluded."maxcpu", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "memhost" = excluded."memhost", "netin" = excluded."netin", "netout" = excluded."netout", "network" = excluded."network", "network_type" = excluded."network_type", "plugintype" = excluded."plugintype", "pool" = excluded."pool", "protocol" = excluded."protocol", "sdn" = excluded."sdn", "shared" = excluded."shared", "status" = excluded."status", "storage" = excluded."storage", "tags" = excluded."tags", "template" = excluded."template", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "zone_type" = excluded."zone_type", "ip" = excluded."ip", "local" = excluded."local", "nodes" = excluded."nodes", "online" = excluded."online", "quorate" = excluded."quorate"`,
+		`INSERT INTO "cluster" ("id", "data", "synced_at", "console", "release", "repoid", "version", "config_digest", "preferred_node", "node", "comment", "enabled", "last_run", "next_run", "realm", "remove_vanished", "schedule", "scope", "timestamp", "utc", "metric", "type", "value", "disable", "port", "server", "description", "name", "cputype", "digest", "flags", "guest_phys_bits", "hidden", "hv_vendor_id", "level", "phys_bits", "reported_model", "cgroup_mode", "content", "cpu", "disk", "diskread", "diskwrite", "hastate", "host_arch", "lock", "maxcpu", "maxdisk", "maxmem", "mem", "memhost", "netin", "netout", "network", "network_type", "plugintype", "pool", "protocol", "sdn", "shared", "status", "storage", "tags", "template", "uptime", "vmid", "zone_type", "ip", "local", "nodeid", "nodes", "online", "quorate")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "console" = excluded."console", "release" = excluded."release", "repoid" = excluded."repoid", "version" = excluded."version", "config_digest" = excluded."config_digest", "preferred_node" = excluded."preferred_node", "node" = excluded."node", "comment" = excluded."comment", "enabled" = excluded."enabled", "last_run" = excluded."last_run", "next_run" = excluded."next_run", "realm" = excluded."realm", "remove_vanished" = excluded."remove_vanished", "schedule" = excluded."schedule", "scope" = excluded."scope", "timestamp" = excluded."timestamp", "utc" = excluded."utc", "metric" = excluded."metric", "type" = excluded."type", "value" = excluded."value", "disable" = excluded."disable", "port" = excluded."port", "server" = excluded."server", "description" = excluded."description", "name" = excluded."name", "cputype" = excluded."cputype", "digest" = excluded."digest", "flags" = excluded."flags", "guest_phys_bits" = excluded."guest_phys_bits", "hidden" = excluded."hidden", "hv_vendor_id" = excluded."hv_vendor_id", "level" = excluded."level", "phys_bits" = excluded."phys_bits", "reported_model" = excluded."reported_model", "cgroup_mode" = excluded."cgroup_mode", "content" = excluded."content", "cpu" = excluded."cpu", "disk" = excluded."disk", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "hastate" = excluded."hastate", "host_arch" = excluded."host_arch", "lock" = excluded."lock", "maxcpu" = excluded."maxcpu", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "memhost" = excluded."memhost", "netin" = excluded."netin", "netout" = excluded."netout", "network" = excluded."network", "network_type" = excluded."network_type", "plugintype" = excluded."plugintype", "pool" = excluded."pool", "protocol" = excluded."protocol", "sdn" = excluded."sdn", "shared" = excluded."shared", "status" = excluded."status", "storage" = excluded."storage", "tags" = excluded."tags", "template" = excluded."template", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "zone_type" = excluded."zone_type", "ip" = excluded."ip", "local" = excluded."local", "nodeid" = excluded."nodeid", "nodes" = excluded."nodes", "online" = excluded."online", "quorate" = excluded."quorate"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5851,12 +5988,8 @@ func (s *Store) upsertClusterTx(tx *sql.Tx, id string, obj map[string]any, data 
 		lookupFieldValue(obj, "release"),
 		lookupFieldValue(obj, "repoid"),
 		lookupFieldValue(obj, "version"),
-		lookupFieldValue(obj, "name"),
-		lookupFieldValue(obj, "nodeid"),
-		lookupFieldValue(obj, "pve_addr"),
-		lookupFieldValue(obj, "pve_fp"),
-		lookupFieldValue(obj, "quorum_votes"),
-		lookupFieldValue(obj, "ring0_addr"),
+		lookupFieldValue(obj, "config_digest"),
+		lookupFieldValue(obj, "preferred_node"),
 		lookupFieldValue(obj, "node"),
 		lookupFieldValue(obj, "comment"),
 		lookupFieldValue(obj, "enabled"),
@@ -5875,6 +6008,7 @@ func (s *Store) upsertClusterTx(tx *sql.Tx, id string, obj map[string]any, data 
 		lookupFieldValue(obj, "port"),
 		lookupFieldValue(obj, "server"),
 		lookupFieldValue(obj, "description"),
+		lookupFieldValue(obj, "name"),
 		lookupFieldValue(obj, "cputype"),
 		lookupFieldValue(obj, "digest"),
 		lookupFieldValue(obj, "flags"),
@@ -5916,6 +6050,7 @@ func (s *Store) upsertClusterTx(tx *sql.Tx, id string, obj map[string]any, data 
 		lookupFieldValue(obj, "zone_type"),
 		lookupFieldValue(obj, "ip"),
 		lookupFieldValue(obj, "local"),
+		lookupFieldValue(obj, "nodeid"),
 		lookupFieldValue(obj, "nodes"),
 		lookupFieldValue(obj, "online"),
 		lookupFieldValue(obj, "quorate"),
@@ -5969,16 +6104,48 @@ func (s *Store) UpsertCluster(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertCtTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "ct" ("id", "data", "synced_at", "has_feature", "cidr", "comment", "digest", "name", "nomatch", "n", "t", "dhcp", "enable", "ipfilter", "log_level_in", "log_level_out", "macfilter", "ndp", "policy_in", "policy_out", "radv", "ref", "scope", "type", "action", "dest", "dport", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "hardware_address", "hwaddr", "inet", "inet6", "cpu", "cpus", "disk", "diskread", "diskwrite", "lock", "maxdisk", "maxmem", "maxswap", "mem", "netin", "netout", "pressurecpusome", "pressureiofull", "pressureiosome", "pressurememoryfull", "pressurememorysome", "status", "tags", "template", "uptime", "vmid", "running", "delete", "key", "pending", "value", "filename", "description", "parent", "snaptime")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "has_feature" = excluded."has_feature", "cidr" = excluded."cidr", "comment" = excluded."comment", "digest" = excluded."digest", "name" = excluded."name", "nomatch" = excluded."nomatch", "n" = excluded."n", "t" = excluded."t", "dhcp" = excluded."dhcp", "enable" = excluded."enable", "ipfilter" = excluded."ipfilter", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "macfilter" = excluded."macfilter", "ndp" = excluded."ndp", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "radv" = excluded."radv", "ref" = excluded."ref", "scope" = excluded."scope", "type" = excluded."type", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "hardware_address" = excluded."hardware_address", "hwaddr" = excluded."hwaddr", "inet" = excluded."inet", "inet6" = excluded."inet6", "cpu" = excluded."cpu", "cpus" = excluded."cpus", "disk" = excluded."disk", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "lock" = excluded."lock", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "maxswap" = excluded."maxswap", "mem" = excluded."mem", "netin" = excluded."netin", "netout" = excluded."netout", "pressurecpusome" = excluded."pressurecpusome", "pressureiofull" = excluded."pressureiofull", "pressureiosome" = excluded."pressureiosome", "pressurememoryfull" = excluded."pressurememoryfull", "pressurememorysome" = excluded."pressurememorysome", "status" = excluded."status", "tags" = excluded."tags", "template" = excluded."template", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "running" = excluded."running", "delete" = excluded."delete", "key" = excluded."key", "pending" = excluded."pending", "value" = excluded."value", "filename" = excluded."filename", "description" = excluded."description", "parent" = excluded."parent", "snaptime" = excluded."snaptime"`,
+		`INSERT INTO "ct" ("id", "data", "synced_at", "arch", "cmode", "console", "cores", "cpulimit", "cpuunits", "debug", "description", "dev[n]", "digest", "entrypoint", "env", "features", "hookscript", "hostname", "lock", "memory", "mp[n]", "nameserver", "net[n]", "onboot", "ostype", "protection", "rootfs", "searchdomain", "startup", "swap", "tags", "template", "timezone", "tty", "unprivileged", "unused[n]", "has_feature", "cidr", "comment", "name", "nomatch", "n", "t", "dhcp", "enable", "ipfilter", "log_level_in", "log_level_out", "macfilter", "ndp", "policy_in", "policy_out", "radv", "ref", "scope", "type", "action", "dest", "dport", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "hardware_address", "hwaddr", "inet", "inet6", "cpu", "cpus", "disk", "diskread", "diskwrite", "maxdisk", "maxmem", "maxswap", "mem", "netin", "netout", "pressurecpusome", "pressureiofull", "pressureiosome", "pressurememoryfull", "pressurememorysome", "status", "uptime", "vmid", "running", "delete", "key", "pending", "value", "filename", "parent", "snaptime")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "arch" = excluded."arch", "cmode" = excluded."cmode", "console" = excluded."console", "cores" = excluded."cores", "cpulimit" = excluded."cpulimit", "cpuunits" = excluded."cpuunits", "debug" = excluded."debug", "description" = excluded."description", "dev[n]" = excluded."dev[n]", "digest" = excluded."digest", "entrypoint" = excluded."entrypoint", "env" = excluded."env", "features" = excluded."features", "hookscript" = excluded."hookscript", "hostname" = excluded."hostname", "lock" = excluded."lock", "memory" = excluded."memory", "mp[n]" = excluded."mp[n]", "nameserver" = excluded."nameserver", "net[n]" = excluded."net[n]", "onboot" = excluded."onboot", "ostype" = excluded."ostype", "protection" = excluded."protection", "rootfs" = excluded."rootfs", "searchdomain" = excluded."searchdomain", "startup" = excluded."startup", "swap" = excluded."swap", "tags" = excluded."tags", "template" = excluded."template", "timezone" = excluded."timezone", "tty" = excluded."tty", "unprivileged" = excluded."unprivileged", "unused[n]" = excluded."unused[n]", "has_feature" = excluded."has_feature", "cidr" = excluded."cidr", "comment" = excluded."comment", "name" = excluded."name", "nomatch" = excluded."nomatch", "n" = excluded."n", "t" = excluded."t", "dhcp" = excluded."dhcp", "enable" = excluded."enable", "ipfilter" = excluded."ipfilter", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "macfilter" = excluded."macfilter", "ndp" = excluded."ndp", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "radv" = excluded."radv", "ref" = excluded."ref", "scope" = excluded."scope", "type" = excluded."type", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "hardware_address" = excluded."hardware_address", "hwaddr" = excluded."hwaddr", "inet" = excluded."inet", "inet6" = excluded."inet6", "cpu" = excluded."cpu", "cpus" = excluded."cpus", "disk" = excluded."disk", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "maxswap" = excluded."maxswap", "mem" = excluded."mem", "netin" = excluded."netin", "netout" = excluded."netout", "pressurecpusome" = excluded."pressurecpusome", "pressureiofull" = excluded."pressureiofull", "pressureiosome" = excluded."pressureiosome", "pressurememoryfull" = excluded."pressurememoryfull", "pressurememorysome" = excluded."pressurememorysome", "status" = excluded."status", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "running" = excluded."running", "delete" = excluded."delete", "key" = excluded."key", "pending" = excluded."pending", "value" = excluded."value", "filename" = excluded."filename", "parent" = excluded."parent", "snaptime" = excluded."snaptime"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "arch"),
+		lookupFieldValue(obj, "cmode"),
+		lookupFieldValue(obj, "console"),
+		lookupFieldValue(obj, "cores"),
+		lookupFieldValue(obj, "cpulimit"),
+		lookupFieldValue(obj, "cpuunits"),
+		lookupFieldValue(obj, "debug"),
+		lookupFieldValue(obj, "description"),
+		lookupFieldValue(obj, "dev[n]"),
+		lookupFieldValue(obj, "digest"),
+		lookupFieldValue(obj, "entrypoint"),
+		lookupFieldValue(obj, "env"),
+		lookupFieldValue(obj, "features"),
+		lookupFieldValue(obj, "hookscript"),
+		lookupFieldValue(obj, "hostname"),
+		lookupFieldValue(obj, "lock"),
+		lookupFieldValue(obj, "memory"),
+		lookupFieldValue(obj, "mp[n]"),
+		lookupFieldValue(obj, "nameserver"),
+		lookupFieldValue(obj, "net[n]"),
+		lookupFieldValue(obj, "onboot"),
+		lookupFieldValue(obj, "ostype"),
+		lookupFieldValue(obj, "protection"),
+		lookupFieldValue(obj, "rootfs"),
+		lookupFieldValue(obj, "searchdomain"),
+		lookupFieldValue(obj, "startup"),
+		lookupFieldValue(obj, "swap"),
+		lookupFieldValue(obj, "tags"),
+		lookupFieldValue(obj, "template"),
+		lookupFieldValue(obj, "timezone"),
+		lookupFieldValue(obj, "tty"),
+		lookupFieldValue(obj, "unprivileged"),
+		lookupFieldValue(obj, "unused[n]"),
 		lookupFieldValue(obj, "has_feature"),
 		lookupFieldValue(obj, "cidr"),
 		lookupFieldValue(obj, "comment"),
-		lookupFieldValue(obj, "digest"),
 		lookupFieldValue(obj, "name"),
 		lookupFieldValue(obj, "nomatch"),
 		lookupFieldValue(obj, "n"),
@@ -6017,7 +6184,6 @@ func (s *Store) upsertCtTx(tx *sql.Tx, id string, obj map[string]any, data json.
 		lookupFieldValue(obj, "disk"),
 		lookupFieldValue(obj, "diskread"),
 		lookupFieldValue(obj, "diskwrite"),
-		lookupFieldValue(obj, "lock"),
 		lookupFieldValue(obj, "maxdisk"),
 		lookupFieldValue(obj, "maxmem"),
 		lookupFieldValue(obj, "maxswap"),
@@ -6030,8 +6196,6 @@ func (s *Store) upsertCtTx(tx *sql.Tx, id string, obj map[string]any, data json.
 		lookupFieldValue(obj, "pressurememoryfull"),
 		lookupFieldValue(obj, "pressurememorysome"),
 		lookupFieldValue(obj, "status"),
-		lookupFieldValue(obj, "tags"),
-		lookupFieldValue(obj, "template"),
 		lookupFieldValue(obj, "uptime"),
 		lookupFieldValue(obj, "vmid"),
 		lookupFieldValue(obj, "running"),
@@ -6040,7 +6204,6 @@ func (s *Store) upsertCtTx(tx *sql.Tx, id string, obj map[string]any, data json.
 		lookupFieldValue(obj, "pending"),
 		lookupFieldValue(obj, "value"),
 		lookupFieldValue(obj, "filename"),
-		lookupFieldValue(obj, "description"),
 		lookupFieldValue(obj, "parent"),
 		lookupFieldValue(obj, "snaptime"),
 	); err != nil {
@@ -6093,9 +6256,9 @@ func (s *Store) UpsertCt(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertDisksTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "disks" ("id", "data", "synced_at", "device", "options", "path", "type", "unitfile", "devpath", "gpt", "health", "model", "mounted", "osdid", "parent", "serial", "size", "used", "vendor", "wwn", "free", "leaf", "name", "lv", "lv_size", "metadata_size", "metadata_used", "vg", "method", "pool", "alloc", "dedup", "frag", "cksum", "msg", "read", "state", "write")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "device" = excluded."device", "options" = excluded."options", "path" = excluded."path", "type" = excluded."type", "unitfile" = excluded."unitfile", "devpath" = excluded."devpath", "gpt" = excluded."gpt", "health" = excluded."health", "model" = excluded."model", "mounted" = excluded."mounted", "osdid" = excluded."osdid", "parent" = excluded."parent", "serial" = excluded."serial", "size" = excluded."size", "used" = excluded."used", "vendor" = excluded."vendor", "wwn" = excluded."wwn", "free" = excluded."free", "leaf" = excluded."leaf", "name" = excluded."name", "lv" = excluded."lv", "lv_size" = excluded."lv_size", "metadata_size" = excluded."metadata_size", "metadata_used" = excluded."metadata_used", "vg" = excluded."vg", "method" = excluded."method", "pool" = excluded."pool", "alloc" = excluded."alloc", "dedup" = excluded."dedup", "frag" = excluded."frag", "cksum" = excluded."cksum", "msg" = excluded."msg", "read" = excluded."read", "state" = excluded."state", "write" = excluded."write"`,
+		`INSERT INTO "disks" ("id", "data", "synced_at", "device", "options", "path", "type", "unitfile", "devpath", "gpt", "health", "model", "mounted", "osdid", "parent", "serial", "size", "used", "vendor", "wwn", "leaf", "lv", "lv_size", "metadata_size", "metadata_used", "vg", "method", "pool", "text", "alloc", "dedup", "frag", "free", "name", "action", "errors", "scan", "state", "status")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "device" = excluded."device", "options" = excluded."options", "path" = excluded."path", "type" = excluded."type", "unitfile" = excluded."unitfile", "devpath" = excluded."devpath", "gpt" = excluded."gpt", "health" = excluded."health", "model" = excluded."model", "mounted" = excluded."mounted", "osdid" = excluded."osdid", "parent" = excluded."parent", "serial" = excluded."serial", "size" = excluded."size", "used" = excluded."used", "vendor" = excluded."vendor", "wwn" = excluded."wwn", "leaf" = excluded."leaf", "lv" = excluded."lv", "lv_size" = excluded."lv_size", "metadata_size" = excluded."metadata_size", "metadata_used" = excluded."metadata_used", "vg" = excluded."vg", "method" = excluded."method", "pool" = excluded."pool", "text" = excluded."text", "alloc" = excluded."alloc", "dedup" = excluded."dedup", "frag" = excluded."frag", "free" = excluded."free", "name" = excluded."name", "action" = excluded."action", "errors" = excluded."errors", "scan" = excluded."scan", "state" = excluded."state", "status" = excluded."status"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -6116,9 +6279,7 @@ func (s *Store) upsertDisksTx(tx *sql.Tx, id string, obj map[string]any, data js
 		lookupFieldValue(obj, "used"),
 		lookupFieldValue(obj, "vendor"),
 		lookupFieldValue(obj, "wwn"),
-		lookupFieldValue(obj, "free"),
 		lookupFieldValue(obj, "leaf"),
-		lookupFieldValue(obj, "name"),
 		lookupFieldValue(obj, "lv"),
 		lookupFieldValue(obj, "lv_size"),
 		lookupFieldValue(obj, "metadata_size"),
@@ -6126,14 +6287,17 @@ func (s *Store) upsertDisksTx(tx *sql.Tx, id string, obj map[string]any, data js
 		lookupFieldValue(obj, "vg"),
 		lookupFieldValue(obj, "method"),
 		lookupFieldValue(obj, "pool"),
+		lookupFieldValue(obj, "text"),
 		lookupFieldValue(obj, "alloc"),
 		lookupFieldValue(obj, "dedup"),
 		lookupFieldValue(obj, "frag"),
-		lookupFieldValue(obj, "cksum"),
-		lookupFieldValue(obj, "msg"),
-		lookupFieldValue(obj, "read"),
+		lookupFieldValue(obj, "free"),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "action"),
+		lookupFieldValue(obj, "errors"),
+		lookupFieldValue(obj, "scan"),
 		lookupFieldValue(obj, "state"),
-		lookupFieldValue(obj, "write"),
+		lookupFieldValue(obj, "status"),
 	); err != nil {
 		return fmt.Errorf("insert into disks: %w", err)
 	}
@@ -6184,9 +6348,9 @@ func (s *Store) UpsertDisks(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertFirewallTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "firewall" ("id", "data", "synced_at", "cidr", "comment", "digest", "name", "group", "action", "dest", "dport", "enable", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "type", "nomatch", "descr", "n", "t", "log_level_forward", "log_level_in", "log_level_out", "log_nf_conntrack", "ndp", "nf_conntrack_allow_invalid", "nf_conntrack_helpers", "nf_conntrack_max", "nf_conntrack_tcp_timeout_established", "nf_conntrack_tcp_timeout_syn_recv", "nftables", "nosmurfs", "protection_synflood", "protection_synflood_burst", "protection_synflood_rate", "smurf_log_level", "tcp_flags_log_level", "tcpflags", "ebtables", "log_ratelimit", "policy_forward", "policy_in", "policy_out", "ref", "scope", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cidr" = excluded."cidr", "comment" = excluded."comment", "digest" = excluded."digest", "name" = excluded."name", "group" = excluded."group", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "enable" = excluded."enable", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "type" = excluded."type", "nomatch" = excluded."nomatch", "descr" = excluded."descr", "n" = excluded."n", "t" = excluded."t", "log_level_forward" = excluded."log_level_forward", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "log_nf_conntrack" = excluded."log_nf_conntrack", "ndp" = excluded."ndp", "nf_conntrack_allow_invalid" = excluded."nf_conntrack_allow_invalid", "nf_conntrack_helpers" = excluded."nf_conntrack_helpers", "nf_conntrack_max" = excluded."nf_conntrack_max", "nf_conntrack_tcp_timeout_established" = excluded."nf_conntrack_tcp_timeout_established", "nf_conntrack_tcp_timeout_syn_recv" = excluded."nf_conntrack_tcp_timeout_syn_recv", "nftables" = excluded."nftables", "nosmurfs" = excluded."nosmurfs", "protection_synflood" = excluded."protection_synflood", "protection_synflood_burst" = excluded."protection_synflood_burst", "protection_synflood_rate" = excluded."protection_synflood_rate", "smurf_log_level" = excluded."smurf_log_level", "tcp_flags_log_level" = excluded."tcp_flags_log_level", "tcpflags" = excluded."tcpflags", "ebtables" = excluded."ebtables", "log_ratelimit" = excluded."log_ratelimit", "policy_forward" = excluded."policy_forward", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "ref" = excluded."ref", "scope" = excluded."scope", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "firewall" ("id", "data", "synced_at", "cidr", "comment", "digest", "name", "group", "action", "dest", "dport", "enable", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "type", "nomatch", "descr", "n", "t", "log_level_forward", "log_level_in", "log_level_out", "log_nf_conntrack", "ndp", "nf_conntrack_allow_invalid", "nf_conntrack_helpers", "nf_conntrack_max", "nf_conntrack_tcp_timeout_established", "nf_conntrack_tcp_timeout_syn_recv", "nftables", "nosmurfs", "protection_synflood", "protection_synflood_burst", "protection_synflood_rate", "smurf_log_level", "tcp_flags_log_level", "tcpflags", "ebtables", "log_ratelimit", "policy_forward", "policy_in", "policy_out", "ref", "scope")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cidr" = excluded."cidr", "comment" = excluded."comment", "digest" = excluded."digest", "name" = excluded."name", "group" = excluded."group", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "enable" = excluded."enable", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "type" = excluded."type", "nomatch" = excluded."nomatch", "descr" = excluded."descr", "n" = excluded."n", "t" = excluded."t", "log_level_forward" = excluded."log_level_forward", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "log_nf_conntrack" = excluded."log_nf_conntrack", "ndp" = excluded."ndp", "nf_conntrack_allow_invalid" = excluded."nf_conntrack_allow_invalid", "nf_conntrack_helpers" = excluded."nf_conntrack_helpers", "nf_conntrack_max" = excluded."nf_conntrack_max", "nf_conntrack_tcp_timeout_established" = excluded."nf_conntrack_tcp_timeout_established", "nf_conntrack_tcp_timeout_syn_recv" = excluded."nf_conntrack_tcp_timeout_syn_recv", "nftables" = excluded."nftables", "nosmurfs" = excluded."nosmurfs", "protection_synflood" = excluded."protection_synflood", "protection_synflood_burst" = excluded."protection_synflood_burst", "protection_synflood_rate" = excluded."protection_synflood_rate", "smurf_log_level" = excluded."smurf_log_level", "tcp_flags_log_level" = excluded."tcp_flags_log_level", "tcpflags" = excluded."tcpflags", "ebtables" = excluded."ebtables", "log_ratelimit" = excluded."log_ratelimit", "policy_forward" = excluded."policy_forward", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "ref" = excluded."ref", "scope" = excluded."scope"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -6238,7 +6402,6 @@ func (s *Store) upsertFirewallTx(tx *sql.Tx, id string, obj map[string]any, data
 		lookupFieldValue(obj, "policy_out"),
 		lookupFieldValue(obj, "ref"),
 		lookupFieldValue(obj, "scope"),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into firewall: %w", err)
 	}
@@ -6422,9 +6585,9 @@ func (s *Store) UpsertMapping(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertNodesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "nodes" ("id", "data", "synced_at", "arch", "description", "notify_status", "old_version", "origin", "package", "priority", "section", "title", "version", "current_state", "manager_version", "running_kernel", "abstract", "custom", "name", "vendor", "changes", "type", "has_dbus_vmstate", "filename", "fingerprint", "issuer", "notafter", "notbefore", "pem", "public_key_bits", "public_key_type", "subject", "acme", "acmedomain[n]", "ballooning_target", "digest", "location", "startall_onboot_delay", "wakeonlan", "dns1", "dns2", "dns3", "search", "class", "device", "device_name", "iommugroup", "mdev", "subsystem_device", "subsystem_device_name", "subsystem_vendor", "subsystem_vendor_name", "vendor_name", "method", "available", "busnum", "devnum", "level", "manufacturer", "port", "prodid", "product", "serial", "speed", "usbpath", "vendid", "cpu", "maxcpu", "maxmem", "mem", "node", "ssl_fingerprint", "status", "uptime", "active", "address", "address6", "autostart", "bond_primary", "bond_mode", "bond_xmit_hash_policy", "bridge_access", "bridge_arp_nd_suppress", "bridge_learning", "bridge_multicast_flood", "bridge_unicast_flood", "bridge_ports", "bridge_vids", "bridge_vlan_aware", "cidr", "cidr6", "comments", "comments6", "exists", "gateway", "gateway6", "iface", "link_type", "method6", "mtu", "netmask", "netmask6", "ovs_bonds", "ovs_bridge", "ovs_options", "ovs_ports", "ovs_tag", "slaves", "uplink_id", "vlan_id", "vlan_protocol", "vlan_raw_device", "vxlan_id", "vxlan_local_tunnelip", "vxlan_physdev", "vxlan_svcnodeip", "active_state", "desc", "service", "state", "unit_state", "n", "t", "localtime", "time", "timezone", "release", "repoid", "parent_id")
+		`INSERT INTO "nodes" ("id", "data", "synced_at", "arch", "description", "notify_status", "old_version", "origin", "package", "priority", "section", "title", "version", "current_state", "manager_version", "running_kernel", "abstract", "custom", "name", "vendor", "changes", "type", "has_dbus_vmstate", "filename", "fingerprint", "issuer", "notafter", "notbefore", "pem", "public_key_bits", "public_key_type", "subject", "acme", "acmedomain[n]", "ballooning_target", "digest", "location", "startall_onboot_delay", "wakeonlan", "dns1", "dns2", "dns3", "search", "class", "device", "device_name", "iommugroup", "mdev", "subsystem_device", "subsystem_device_name", "subsystem_vendor", "subsystem_vendor_name", "vendor_name", "method", "available", "busnum", "devnum", "level", "manufacturer", "port", "prodid", "product", "serial", "speed", "usbpath", "vendid", "cpu", "maxcpu", "maxmem", "mem", "node", "ssl_fingerprint", "status", "uptime", "active", "address", "address6", "autostart", "bond_primary", "bond_mode", "bond_xmit_hash_policy", "bridge_access", "bridge_arp_nd_suppress", "bridge_learning", "bridge_multicast_flood", "bridge_unicast_flood", "bridge_ports", "bridge_vids", "bridge_vlan_aware", "cidr", "cidr6", "comments", "comments6", "exists", "gateway", "gateway6", "iface", "link_type", "method6", "mtu", "netmask", "netmask6", "ovs_bonds", "ovs_bridge", "ovs_options", "ovs_ports", "ovs_tag", "slaves", "uplink_id", "vlan_id", "vlan_protocol", "vlan_raw_device", "vxlan_id", "vxlan_local_tunnelip", "vxlan_physdev", "vxlan_svcnodeip", "active_state", "desc", "service", "state", "unit_state", "pveversion", "n", "t", "localtime", "time", "timezone", "release", "repoid")
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "arch" = excluded."arch", "description" = excluded."description", "notify_status" = excluded."notify_status", "old_version" = excluded."old_version", "origin" = excluded."origin", "package" = excluded."package", "priority" = excluded."priority", "section" = excluded."section", "title" = excluded."title", "version" = excluded."version", "current_state" = excluded."current_state", "manager_version" = excluded."manager_version", "running_kernel" = excluded."running_kernel", "abstract" = excluded."abstract", "custom" = excluded."custom", "name" = excluded."name", "vendor" = excluded."vendor", "changes" = excluded."changes", "type" = excluded."type", "has_dbus_vmstate" = excluded."has_dbus_vmstate", "filename" = excluded."filename", "fingerprint" = excluded."fingerprint", "issuer" = excluded."issuer", "notafter" = excluded."notafter", "notbefore" = excluded."notbefore", "pem" = excluded."pem", "public_key_bits" = excluded."public_key_bits", "public_key_type" = excluded."public_key_type", "subject" = excluded."subject", "acme" = excluded."acme", "acmedomain[n]" = excluded."acmedomain[n]", "ballooning_target" = excluded."ballooning_target", "digest" = excluded."digest", "location" = excluded."location", "startall_onboot_delay" = excluded."startall_onboot_delay", "wakeonlan" = excluded."wakeonlan", "dns1" = excluded."dns1", "dns2" = excluded."dns2", "dns3" = excluded."dns3", "search" = excluded."search", "class" = excluded."class", "device" = excluded."device", "device_name" = excluded."device_name", "iommugroup" = excluded."iommugroup", "mdev" = excluded."mdev", "subsystem_device" = excluded."subsystem_device", "subsystem_device_name" = excluded."subsystem_device_name", "subsystem_vendor" = excluded."subsystem_vendor", "subsystem_vendor_name" = excluded."subsystem_vendor_name", "vendor_name" = excluded."vendor_name", "method" = excluded."method", "available" = excluded."available", "busnum" = excluded."busnum", "devnum" = excluded."devnum", "level" = excluded."level", "manufacturer" = excluded."manufacturer", "port" = excluded."port", "prodid" = excluded."prodid", "product" = excluded."product", "serial" = excluded."serial", "speed" = excluded."speed", "usbpath" = excluded."usbpath", "vendid" = excluded."vendid", "cpu" = excluded."cpu", "maxcpu" = excluded."maxcpu", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "node" = excluded."node", "ssl_fingerprint" = excluded."ssl_fingerprint", "status" = excluded."status", "uptime" = excluded."uptime", "active" = excluded."active", "address" = excluded."address", "address6" = excluded."address6", "autostart" = excluded."autostart", "bond_primary" = excluded."bond_primary", "bond_mode" = excluded."bond_mode", "bond_xmit_hash_policy" = excluded."bond_xmit_hash_policy", "bridge_access" = excluded."bridge_access", "bridge_arp_nd_suppress" = excluded."bridge_arp_nd_suppress", "bridge_learning" = excluded."bridge_learning", "bridge_multicast_flood" = excluded."bridge_multicast_flood", "bridge_unicast_flood" = excluded."bridge_unicast_flood", "bridge_ports" = excluded."bridge_ports", "bridge_vids" = excluded."bridge_vids", "bridge_vlan_aware" = excluded."bridge_vlan_aware", "cidr" = excluded."cidr", "cidr6" = excluded."cidr6", "comments" = excluded."comments", "comments6" = excluded."comments6", "exists" = excluded."exists", "gateway" = excluded."gateway", "gateway6" = excluded."gateway6", "iface" = excluded."iface", "link_type" = excluded."link_type", "method6" = excluded."method6", "mtu" = excluded."mtu", "netmask" = excluded."netmask", "netmask6" = excluded."netmask6", "ovs_bonds" = excluded."ovs_bonds", "ovs_bridge" = excluded."ovs_bridge", "ovs_options" = excluded."ovs_options", "ovs_ports" = excluded."ovs_ports", "ovs_tag" = excluded."ovs_tag", "slaves" = excluded."slaves", "uplink_id" = excluded."uplink_id", "vlan_id" = excluded."vlan_id", "vlan_protocol" = excluded."vlan_protocol", "vlan_raw_device" = excluded."vlan_raw_device", "vxlan_id" = excluded."vxlan_id", "vxlan_local_tunnelip" = excluded."vxlan_local_tunnelip", "vxlan_physdev" = excluded."vxlan_physdev", "vxlan_svcnodeip" = excluded."vxlan_svcnodeip", "active_state" = excluded."active_state", "desc" = excluded."desc", "service" = excluded."service", "state" = excluded."state", "unit_state" = excluded."unit_state", "n" = excluded."n", "t" = excluded."t", "localtime" = excluded."localtime", "time" = excluded."time", "timezone" = excluded."timezone", "release" = excluded."release", "repoid" = excluded."repoid", "parent_id" = excluded."parent_id"`,
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "arch" = excluded."arch", "description" = excluded."description", "notify_status" = excluded."notify_status", "old_version" = excluded."old_version", "origin" = excluded."origin", "package" = excluded."package", "priority" = excluded."priority", "section" = excluded."section", "title" = excluded."title", "version" = excluded."version", "current_state" = excluded."current_state", "manager_version" = excluded."manager_version", "running_kernel" = excluded."running_kernel", "abstract" = excluded."abstract", "custom" = excluded."custom", "name" = excluded."name", "vendor" = excluded."vendor", "changes" = excluded."changes", "type" = excluded."type", "has_dbus_vmstate" = excluded."has_dbus_vmstate", "filename" = excluded."filename", "fingerprint" = excluded."fingerprint", "issuer" = excluded."issuer", "notafter" = excluded."notafter", "notbefore" = excluded."notbefore", "pem" = excluded."pem", "public_key_bits" = excluded."public_key_bits", "public_key_type" = excluded."public_key_type", "subject" = excluded."subject", "acme" = excluded."acme", "acmedomain[n]" = excluded."acmedomain[n]", "ballooning_target" = excluded."ballooning_target", "digest" = excluded."digest", "location" = excluded."location", "startall_onboot_delay" = excluded."startall_onboot_delay", "wakeonlan" = excluded."wakeonlan", "dns1" = excluded."dns1", "dns2" = excluded."dns2", "dns3" = excluded."dns3", "search" = excluded."search", "class" = excluded."class", "device" = excluded."device", "device_name" = excluded."device_name", "iommugroup" = excluded."iommugroup", "mdev" = excluded."mdev", "subsystem_device" = excluded."subsystem_device", "subsystem_device_name" = excluded."subsystem_device_name", "subsystem_vendor" = excluded."subsystem_vendor", "subsystem_vendor_name" = excluded."subsystem_vendor_name", "vendor_name" = excluded."vendor_name", "method" = excluded."method", "available" = excluded."available", "busnum" = excluded."busnum", "devnum" = excluded."devnum", "level" = excluded."level", "manufacturer" = excluded."manufacturer", "port" = excluded."port", "prodid" = excluded."prodid", "product" = excluded."product", "serial" = excluded."serial", "speed" = excluded."speed", "usbpath" = excluded."usbpath", "vendid" = excluded."vendid", "cpu" = excluded."cpu", "maxcpu" = excluded."maxcpu", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "node" = excluded."node", "ssl_fingerprint" = excluded."ssl_fingerprint", "status" = excluded."status", "uptime" = excluded."uptime", "active" = excluded."active", "address" = excluded."address", "address6" = excluded."address6", "autostart" = excluded."autostart", "bond_primary" = excluded."bond_primary", "bond_mode" = excluded."bond_mode", "bond_xmit_hash_policy" = excluded."bond_xmit_hash_policy", "bridge_access" = excluded."bridge_access", "bridge_arp_nd_suppress" = excluded."bridge_arp_nd_suppress", "bridge_learning" = excluded."bridge_learning", "bridge_multicast_flood" = excluded."bridge_multicast_flood", "bridge_unicast_flood" = excluded."bridge_unicast_flood", "bridge_ports" = excluded."bridge_ports", "bridge_vids" = excluded."bridge_vids", "bridge_vlan_aware" = excluded."bridge_vlan_aware", "cidr" = excluded."cidr", "cidr6" = excluded."cidr6", "comments" = excluded."comments", "comments6" = excluded."comments6", "exists" = excluded."exists", "gateway" = excluded."gateway", "gateway6" = excluded."gateway6", "iface" = excluded."iface", "link_type" = excluded."link_type", "method6" = excluded."method6", "mtu" = excluded."mtu", "netmask" = excluded."netmask", "netmask6" = excluded."netmask6", "ovs_bonds" = excluded."ovs_bonds", "ovs_bridge" = excluded."ovs_bridge", "ovs_options" = excluded."ovs_options", "ovs_ports" = excluded."ovs_ports", "ovs_tag" = excluded."ovs_tag", "slaves" = excluded."slaves", "uplink_id" = excluded."uplink_id", "vlan_id" = excluded."vlan_id", "vlan_protocol" = excluded."vlan_protocol", "vlan_raw_device" = excluded."vlan_raw_device", "vxlan_id" = excluded."vxlan_id", "vxlan_local_tunnelip" = excluded."vxlan_local_tunnelip", "vxlan_physdev" = excluded."vxlan_physdev", "vxlan_svcnodeip" = excluded."vxlan_svcnodeip", "active_state" = excluded."active_state", "desc" = excluded."desc", "service" = excluded."service", "state" = excluded."state", "unit_state" = excluded."unit_state", "pveversion" = excluded."pveversion", "n" = excluded."n", "t" = excluded."t", "localtime" = excluded."localtime", "time" = excluded."time", "timezone" = excluded."timezone", "release" = excluded."release", "repoid" = excluded."repoid"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -6546,6 +6709,7 @@ func (s *Store) upsertNodesTx(tx *sql.Tx, id string, obj map[string]any, data js
 		lookupFieldValue(obj, "service"),
 		lookupFieldValue(obj, "state"),
 		lookupFieldValue(obj, "unit_state"),
+		lookupFieldValue(obj, "pveversion"),
 		lookupFieldValue(obj, "n"),
 		lookupFieldValue(obj, "t"),
 		lookupFieldValue(obj, "localtime"),
@@ -6553,7 +6717,6 @@ func (s *Store) upsertNodesTx(tx *sql.Tx, id string, obj map[string]any, data js
 		lookupFieldValue(obj, "timezone"),
 		lookupFieldValue(obj, "release"),
 		lookupFieldValue(obj, "repoid"),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into nodes: %w", err)
 	}
@@ -7091,9 +7254,9 @@ func (s *Store) UpsertPbsJobs(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertPbsNodesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "pbs_nodes" ("id", "data", "synced_at", "release", "repoid", "version", "arch", "description", "extra_info", "old_version", "origin", "package", "priority", "section", "title", "filename", "fingerprint", "issuer", "notafter", "notbefore", "pem", "public_key_bits", "public_key_type", "subject", "device", "filesystem", "name", "options", "path", "removable", "unitfile", "devpath", "disk_type", "gpt", "model", "rpm", "serial", "size", "status", "used", "vendor", "wearout", "wwn", "flags", "normalized", "raw", "threshold", "value", "worst", "alloc", "dedup", "frag", "free", "health", "digest", "dns1", "dns2", "dns3", "search", "pbs_instance_id", "active", "autostart", "bond_primary", "bond_mode", "bond_xmit_hash_policy", "bridge_vlan_aware", "cidr", "cidr6", "comments", "comments6", "gateway", "gateway6", "method", "method6", "mtu", "type", "vlan_id", "vlan_raw_device", "pong", "desc", "service", "state", "unit_state", "n", "t", "endtime", "node", "pid", "pstart", "starttime", "upid", "user", "worker_id", "worker_type", "exitstatus", "tokenid", "localtime", "time", "timezone")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "release" = excluded."release", "repoid" = excluded."repoid", "version" = excluded."version", "arch" = excluded."arch", "description" = excluded."description", "extra_info" = excluded."extra_info", "old_version" = excluded."old_version", "origin" = excluded."origin", "package" = excluded."package", "priority" = excluded."priority", "section" = excluded."section", "title" = excluded."title", "filename" = excluded."filename", "fingerprint" = excluded."fingerprint", "issuer" = excluded."issuer", "notafter" = excluded."notafter", "notbefore" = excluded."notbefore", "pem" = excluded."pem", "public_key_bits" = excluded."public_key_bits", "public_key_type" = excluded."public_key_type", "subject" = excluded."subject", "device" = excluded."device", "filesystem" = excluded."filesystem", "name" = excluded."name", "options" = excluded."options", "path" = excluded."path", "removable" = excluded."removable", "unitfile" = excluded."unitfile", "devpath" = excluded."devpath", "disk_type" = excluded."disk_type", "gpt" = excluded."gpt", "model" = excluded."model", "rpm" = excluded."rpm", "serial" = excluded."serial", "size" = excluded."size", "status" = excluded."status", "used" = excluded."used", "vendor" = excluded."vendor", "wearout" = excluded."wearout", "wwn" = excluded."wwn", "flags" = excluded."flags", "normalized" = excluded."normalized", "raw" = excluded."raw", "threshold" = excluded."threshold", "value" = excluded."value", "worst" = excluded."worst", "alloc" = excluded."alloc", "dedup" = excluded."dedup", "frag" = excluded."frag", "free" = excluded."free", "health" = excluded."health", "digest" = excluded."digest", "dns1" = excluded."dns1", "dns2" = excluded."dns2", "dns3" = excluded."dns3", "search" = excluded."search", "pbs_instance_id" = excluded."pbs_instance_id", "active" = excluded."active", "autostart" = excluded."autostart", "bond_primary" = excluded."bond_primary", "bond_mode" = excluded."bond_mode", "bond_xmit_hash_policy" = excluded."bond_xmit_hash_policy", "bridge_vlan_aware" = excluded."bridge_vlan_aware", "cidr" = excluded."cidr", "cidr6" = excluded."cidr6", "comments" = excluded."comments", "comments6" = excluded."comments6", "gateway" = excluded."gateway", "gateway6" = excluded."gateway6", "method" = excluded."method", "method6" = excluded."method6", "mtu" = excluded."mtu", "type" = excluded."type", "vlan_id" = excluded."vlan_id", "vlan_raw_device" = excluded."vlan_raw_device", "pong" = excluded."pong", "desc" = excluded."desc", "service" = excluded."service", "state" = excluded."state", "unit_state" = excluded."unit_state", "n" = excluded."n", "t" = excluded."t", "endtime" = excluded."endtime", "node" = excluded."node", "pid" = excluded."pid", "pstart" = excluded."pstart", "starttime" = excluded."starttime", "upid" = excluded."upid", "user" = excluded."user", "worker_id" = excluded."worker_id", "worker_type" = excluded."worker_type", "exitstatus" = excluded."exitstatus", "tokenid" = excluded."tokenid", "localtime" = excluded."localtime", "time" = excluded."time", "timezone" = excluded."timezone"`,
+		`INSERT INTO "pbs_nodes" ("id", "data", "synced_at", "release", "repoid", "version", "arch", "description", "extra_info", "old_version", "origin", "package", "priority", "section", "title", "filename", "fingerprint", "issuer", "notafter", "notbefore", "pem", "public_key_bits", "public_key_type", "subject", "device", "filesystem", "name", "options", "path", "removable", "unitfile", "devpath", "disk_type", "gpt", "model", "rpm", "serial", "size", "status", "used", "vendor", "wearout", "wwn", "alloc", "dedup", "frag", "free", "health", "digest", "dns1", "dns2", "dns3", "search", "pbs_instance_id", "active", "autostart", "bond_primary", "bond_mode", "bond_xmit_hash_policy", "bridge_vlan_aware", "cidr", "cidr6", "comments", "comments6", "gateway", "gateway6", "method", "method6", "mtu", "type", "vlan_id", "vlan_raw_device", "pong", "desc", "service", "state", "unit_state", "cpu", "kversion", "uptime", "wait", "n", "t", "endtime", "node", "pid", "pstart", "starttime", "upid", "user", "worker_id", "worker_type", "exitstatus", "tokenid", "localtime", "time", "timezone")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "release" = excluded."release", "repoid" = excluded."repoid", "version" = excluded."version", "arch" = excluded."arch", "description" = excluded."description", "extra_info" = excluded."extra_info", "old_version" = excluded."old_version", "origin" = excluded."origin", "package" = excluded."package", "priority" = excluded."priority", "section" = excluded."section", "title" = excluded."title", "filename" = excluded."filename", "fingerprint" = excluded."fingerprint", "issuer" = excluded."issuer", "notafter" = excluded."notafter", "notbefore" = excluded."notbefore", "pem" = excluded."pem", "public_key_bits" = excluded."public_key_bits", "public_key_type" = excluded."public_key_type", "subject" = excluded."subject", "device" = excluded."device", "filesystem" = excluded."filesystem", "name" = excluded."name", "options" = excluded."options", "path" = excluded."path", "removable" = excluded."removable", "unitfile" = excluded."unitfile", "devpath" = excluded."devpath", "disk_type" = excluded."disk_type", "gpt" = excluded."gpt", "model" = excluded."model", "rpm" = excluded."rpm", "serial" = excluded."serial", "size" = excluded."size", "status" = excluded."status", "used" = excluded."used", "vendor" = excluded."vendor", "wearout" = excluded."wearout", "wwn" = excluded."wwn", "alloc" = excluded."alloc", "dedup" = excluded."dedup", "frag" = excluded."frag", "free" = excluded."free", "health" = excluded."health", "digest" = excluded."digest", "dns1" = excluded."dns1", "dns2" = excluded."dns2", "dns3" = excluded."dns3", "search" = excluded."search", "pbs_instance_id" = excluded."pbs_instance_id", "active" = excluded."active", "autostart" = excluded."autostart", "bond_primary" = excluded."bond_primary", "bond_mode" = excluded."bond_mode", "bond_xmit_hash_policy" = excluded."bond_xmit_hash_policy", "bridge_vlan_aware" = excluded."bridge_vlan_aware", "cidr" = excluded."cidr", "cidr6" = excluded."cidr6", "comments" = excluded."comments", "comments6" = excluded."comments6", "gateway" = excluded."gateway", "gateway6" = excluded."gateway6", "method" = excluded."method", "method6" = excluded."method6", "mtu" = excluded."mtu", "type" = excluded."type", "vlan_id" = excluded."vlan_id", "vlan_raw_device" = excluded."vlan_raw_device", "pong" = excluded."pong", "desc" = excluded."desc", "service" = excluded."service", "state" = excluded."state", "unit_state" = excluded."unit_state", "cpu" = excluded."cpu", "kversion" = excluded."kversion", "uptime" = excluded."uptime", "wait" = excluded."wait", "n" = excluded."n", "t" = excluded."t", "endtime" = excluded."endtime", "node" = excluded."node", "pid" = excluded."pid", "pstart" = excluded."pstart", "starttime" = excluded."starttime", "upid" = excluded."upid", "user" = excluded."user", "worker_id" = excluded."worker_id", "worker_type" = excluded."worker_type", "exitstatus" = excluded."exitstatus", "tokenid" = excluded."tokenid", "localtime" = excluded."localtime", "time" = excluded."time", "timezone" = excluded."timezone"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -7137,12 +7300,6 @@ func (s *Store) upsertPbsNodesTx(tx *sql.Tx, id string, obj map[string]any, data
 		lookupFieldValue(obj, "vendor"),
 		lookupFieldValue(obj, "wearout"),
 		lookupFieldValue(obj, "wwn"),
-		lookupFieldValue(obj, "flags"),
-		lookupFieldValue(obj, "normalized"),
-		lookupFieldValue(obj, "raw"),
-		lookupFieldValue(obj, "threshold"),
-		lookupFieldValue(obj, "value"),
-		lookupFieldValue(obj, "worst"),
 		lookupFieldValue(obj, "alloc"),
 		lookupFieldValue(obj, "dedup"),
 		lookupFieldValue(obj, "frag"),
@@ -7177,6 +7334,10 @@ func (s *Store) upsertPbsNodesTx(tx *sql.Tx, id string, obj map[string]any, data
 		lookupFieldValue(obj, "service"),
 		lookupFieldValue(obj, "state"),
 		lookupFieldValue(obj, "unit_state"),
+		lookupFieldValue(obj, "cpu"),
+		lookupFieldValue(obj, "kversion"),
+		lookupFieldValue(obj, "uptime"),
+		lookupFieldValue(obj, "wait"),
 		lookupFieldValue(obj, "n"),
 		lookupFieldValue(obj, "t"),
 		lookupFieldValue(obj, "endtime"),
@@ -7460,16 +7621,12 @@ func (s *Store) UpsertPbsTape(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertPoolsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "pools" ("id", "data", "synced_at", "node", "storage", "type", "vmid", "comment", "poolid")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "node" = excluded."node", "storage" = excluded."storage", "type" = excluded."type", "vmid" = excluded."vmid", "comment" = excluded."comment", "poolid" = excluded."poolid"`,
+		`INSERT INTO "pools" ("id", "data", "synced_at", "comment", "poolid")
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "comment" = excluded."comment", "poolid" = excluded."poolid"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "node"),
-		lookupFieldValue(obj, "storage"),
-		lookupFieldValue(obj, "type"),
-		lookupFieldValue(obj, "vmid"),
 		lookupFieldValue(obj, "comment"),
 		lookupFieldValue(obj, "poolid"),
 	); err != nil {
@@ -7733,9 +7890,9 @@ func (s *Store) UpsertSdn(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertStorageTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "storage" ("id", "data", "synced_at", "storage", "active", "avail", "content", "enabled", "select_existing", "shared", "total", "type", "used", "used_fraction", "approximate_size", "ctime", "encrypted", "format", "notes", "parent", "protected", "size", "vmid", "volid", "path", "key", "value", "mark", "filename")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "storage" = excluded."storage", "active" = excluded."active", "avail" = excluded."avail", "content" = excluded."content", "enabled" = excluded."enabled", "select_existing" = excluded."select_existing", "shared" = excluded."shared", "total" = excluded."total", "type" = excluded."type", "used" = excluded."used", "used_fraction" = excluded."used_fraction", "approximate_size" = excluded."approximate_size", "ctime" = excluded."ctime", "encrypted" = excluded."encrypted", "format" = excluded."format", "notes" = excluded."notes", "parent" = excluded."parent", "protected" = excluded."protected", "size" = excluded."size", "vmid" = excluded."vmid", "volid" = excluded."volid", "path" = excluded."path", "key" = excluded."key", "value" = excluded."value", "mark" = excluded."mark", "filename" = excluded."filename"`,
+		`INSERT INTO "storage" ("id", "data", "synced_at", "storage", "active", "avail", "content", "enabled", "select_existing", "shared", "total", "type", "used", "used_fraction", "approximate_size", "ctime", "encrypted", "format", "notes", "parent", "protected", "size", "vmid", "volid", "path", "source", "mark", "filename")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "storage" = excluded."storage", "active" = excluded."active", "avail" = excluded."avail", "content" = excluded."content", "enabled" = excluded."enabled", "select_existing" = excluded."select_existing", "shared" = excluded."shared", "total" = excluded."total", "type" = excluded."type", "used" = excluded."used", "used_fraction" = excluded."used_fraction", "approximate_size" = excluded."approximate_size", "ctime" = excluded."ctime", "encrypted" = excluded."encrypted", "format" = excluded."format", "notes" = excluded."notes", "parent" = excluded."parent", "protected" = excluded."protected", "size" = excluded."size", "vmid" = excluded."vmid", "volid" = excluded."volid", "path" = excluded."path", "source" = excluded."source", "mark" = excluded."mark", "filename" = excluded."filename"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -7761,8 +7918,7 @@ func (s *Store) upsertStorageTx(tx *sql.Tx, id string, obj map[string]any, data 
 		lookupFieldValue(obj, "vmid"),
 		lookupFieldValue(obj, "volid"),
 		lookupFieldValue(obj, "path"),
-		lookupFieldValue(obj, "key"),
-		lookupFieldValue(obj, "value"),
+		lookupFieldValue(obj, "source"),
 		lookupFieldValue(obj, "mark"),
 		lookupFieldValue(obj, "filename"),
 	); err != nil {
@@ -7815,9 +7971,9 @@ func (s *Store) UpsertStorage(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertTasksTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "tasks" ("id", "data", "synced_at", "upid", "endtime", "node", "pid", "pstart", "starttime", "status", "type", "user", "n", "t", "exitstatus", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "upid" = excluded."upid", "endtime" = excluded."endtime", "node" = excluded."node", "pid" = excluded."pid", "pstart" = excluded."pstart", "starttime" = excluded."starttime", "status" = excluded."status", "type" = excluded."type", "user" = excluded."user", "n" = excluded."n", "t" = excluded."t", "exitstatus" = excluded."exitstatus", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "tasks" ("id", "data", "synced_at", "upid", "endtime", "node", "pid", "pstart", "starttime", "status", "type", "user", "n", "t", "exitstatus")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "upid" = excluded."upid", "endtime" = excluded."endtime", "node" = excluded."node", "pid" = excluded."pid", "pstart" = excluded."pstart", "starttime" = excluded."starttime", "status" = excluded."status", "type" = excluded."type", "user" = excluded."user", "n" = excluded."n", "t" = excluded."t", "exitstatus" = excluded."exitstatus"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -7833,7 +7989,6 @@ func (s *Store) upsertTasksTx(tx *sql.Tx, id string, obj map[string]any, data js
 		lookupFieldValue(obj, "n"),
 		lookupFieldValue(obj, "t"),
 		lookupFieldValue(obj, "exitstatus"),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into tasks: %w", err)
 	}
@@ -7884,9 +8039,9 @@ func (s *Store) UpsertTasks(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertVmTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "vm" ("id", "data", "synced_at", "delete", "key", "pending", "value", "acpi", "affinity", "agent", "allow_ksm", "amd_sev", "arch", "args", "audio0", "autostart", "balloon", "bios", "boot", "bootdisk", "cdrom", "cicustom", "cipassword", "citype", "ciupgrade", "ciuser", "cores", "cpu", "cpulimit", "cpuunits", "description", "digest", "efidisk0", "freeze", "hookscript", "hostpci[n]", "hotplug", "hugepages", "ide[n]", "intel_tdx", "ipconfig[n]", "ivshmem", "keephugepages", "keyboard", "kvm", "localtime", "lock", "machine", "memory", "meta", "migrate_downtime", "migrate_speed", "name", "nameserver", "net[n]", "numa", "numa[n]", "onboot", "ostype", "parallel[n]", "parent", "protection", "reboot", "rng0", "running_nets_host_mtu", "runningcpu", "runningmachine", "sata[n]", "scsi[n]", "scsihw", "searchdomain", "serial[n]", "shares", "smbios1", "smp", "snaptime", "sockets", "spice_enhancements", "sshkeys", "startdate", "startup", "tablet", "tags", "tdf", "template", "tpmstate0", "unused[n]", "usb[n]", "vcpus", "vga", "virtio[n]", "virtiofs[n]", "vmgenid", "vmstate", "vmstatestorage", "watchdog", "cidr", "comment", "nomatch", "n", "t", "dhcp", "enable", "ipfilter", "log_level_in", "log_level_out", "macfilter", "ndp", "policy_in", "policy_out", "radv", "ref", "scope", "type", "action", "dest", "dport", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "cpus", "diskread", "diskwrite", "maxdisk", "maxmem", "mem", "memhost", "netin", "netout", "pid", "pressurecpufull", "pressurecpusome", "pressureiofull", "pressureiosome", "pressurememoryfull", "pressurememorysome", "qmpstatus", "running_machine", "running_qemu", "serial", "status", "uptime", "vmid", "has_dbus_vmstate", "running", "filename", "clipboard", "spice")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "delete" = excluded."delete", "key" = excluded."key", "pending" = excluded."pending", "value" = excluded."value", "acpi" = excluded."acpi", "affinity" = excluded."affinity", "agent" = excluded."agent", "allow_ksm" = excluded."allow_ksm", "amd_sev" = excluded."amd_sev", "arch" = excluded."arch", "args" = excluded."args", "audio0" = excluded."audio0", "autostart" = excluded."autostart", "balloon" = excluded."balloon", "bios" = excluded."bios", "boot" = excluded."boot", "bootdisk" = excluded."bootdisk", "cdrom" = excluded."cdrom", "cicustom" = excluded."cicustom", "cipassword" = excluded."cipassword", "citype" = excluded."citype", "ciupgrade" = excluded."ciupgrade", "ciuser" = excluded."ciuser", "cores" = excluded."cores", "cpu" = excluded."cpu", "cpulimit" = excluded."cpulimit", "cpuunits" = excluded."cpuunits", "description" = excluded."description", "digest" = excluded."digest", "efidisk0" = excluded."efidisk0", "freeze" = excluded."freeze", "hookscript" = excluded."hookscript", "hostpci[n]" = excluded."hostpci[n]", "hotplug" = excluded."hotplug", "hugepages" = excluded."hugepages", "ide[n]" = excluded."ide[n]", "intel_tdx" = excluded."intel_tdx", "ipconfig[n]" = excluded."ipconfig[n]", "ivshmem" = excluded."ivshmem", "keephugepages" = excluded."keephugepages", "keyboard" = excluded."keyboard", "kvm" = excluded."kvm", "localtime" = excluded."localtime", "lock" = excluded."lock", "machine" = excluded."machine", "memory" = excluded."memory", "meta" = excluded."meta", "migrate_downtime" = excluded."migrate_downtime", "migrate_speed" = excluded."migrate_speed", "name" = excluded."name", "nameserver" = excluded."nameserver", "net[n]" = excluded."net[n]", "numa" = excluded."numa", "numa[n]" = excluded."numa[n]", "onboot" = excluded."onboot", "ostype" = excluded."ostype", "parallel[n]" = excluded."parallel[n]", "parent" = excluded."parent", "protection" = excluded."protection", "reboot" = excluded."reboot", "rng0" = excluded."rng0", "running_nets_host_mtu" = excluded."running_nets_host_mtu", "runningcpu" = excluded."runningcpu", "runningmachine" = excluded."runningmachine", "sata[n]" = excluded."sata[n]", "scsi[n]" = excluded."scsi[n]", "scsihw" = excluded."scsihw", "searchdomain" = excluded."searchdomain", "serial[n]" = excluded."serial[n]", "shares" = excluded."shares", "smbios1" = excluded."smbios1", "smp" = excluded."smp", "snaptime" = excluded."snaptime", "sockets" = excluded."sockets", "spice_enhancements" = excluded."spice_enhancements", "sshkeys" = excluded."sshkeys", "startdate" = excluded."startdate", "startup" = excluded."startup", "tablet" = excluded."tablet", "tags" = excluded."tags", "tdf" = excluded."tdf", "template" = excluded."template", "tpmstate0" = excluded."tpmstate0", "unused[n]" = excluded."unused[n]", "usb[n]" = excluded."usb[n]", "vcpus" = excluded."vcpus", "vga" = excluded."vga", "virtio[n]" = excluded."virtio[n]", "virtiofs[n]" = excluded."virtiofs[n]", "vmgenid" = excluded."vmgenid", "vmstate" = excluded."vmstate", "vmstatestorage" = excluded."vmstatestorage", "watchdog" = excluded."watchdog", "cidr" = excluded."cidr", "comment" = excluded."comment", "nomatch" = excluded."nomatch", "n" = excluded."n", "t" = excluded."t", "dhcp" = excluded."dhcp", "enable" = excluded."enable", "ipfilter" = excluded."ipfilter", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "macfilter" = excluded."macfilter", "ndp" = excluded."ndp", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "radv" = excluded."radv", "ref" = excluded."ref", "scope" = excluded."scope", "type" = excluded."type", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "cpus" = excluded."cpus", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "memhost" = excluded."memhost", "netin" = excluded."netin", "netout" = excluded."netout", "pid" = excluded."pid", "pressurecpufull" = excluded."pressurecpufull", "pressurecpusome" = excluded."pressurecpusome", "pressureiofull" = excluded."pressureiofull", "pressureiosome" = excluded."pressureiosome", "pressurememoryfull" = excluded."pressurememoryfull", "pressurememorysome" = excluded."pressurememorysome", "qmpstatus" = excluded."qmpstatus", "running_machine" = excluded."running_machine", "running_qemu" = excluded."running_qemu", "serial" = excluded."serial", "status" = excluded."status", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "has_dbus_vmstate" = excluded."has_dbus_vmstate", "running" = excluded."running", "filename" = excluded."filename", "clipboard" = excluded."clipboard", "spice" = excluded."spice"`,
+		`INSERT INTO "vm" ("id", "data", "synced_at", "delete", "key", "pending", "value", "acpi", "affinity", "agent", "allow_ksm", "amd_sev", "arch", "args", "audio0", "autostart", "balloon", "bios", "boot", "bootdisk", "cdrom", "cicustom", "cipassword", "citype", "ciupgrade", "ciuser", "cores", "cpu", "cpulimit", "cpuunits", "description", "digest", "efidisk0", "freeze", "hookscript", "hostpci[n]", "hotplug", "hugepages", "ide[n]", "intel_tdx", "ipconfig[n]", "ivshmem", "keephugepages", "keyboard", "kvm", "localtime", "lock", "machine", "memory", "meta", "migrate_downtime", "migrate_speed", "name", "nameserver", "net[n]", "numa", "numa[n]", "onboot", "ostype", "parallel[n]", "parent", "protection", "reboot", "rng0", "running_nets_host_mtu", "runningcpu", "runningmachine", "sata[n]", "scsi[n]", "scsihw", "searchdomain", "serial[n]", "shares", "smbios1", "smp", "snaptime", "sockets", "spice_enhancements", "sshkeys", "startdate", "startup", "tablet", "tags", "tdf", "template", "tpmstate0", "unused[n]", "usb[n]", "vcpus", "vga", "virtio[n]", "virtiofs[n]", "vmgenid", "vmstate", "vmstatestorage", "watchdog", "has_feature", "cidr", "comment", "nomatch", "n", "t", "dhcp", "enable", "ipfilter", "log_level_in", "log_level_out", "macfilter", "ndp", "policy_in", "policy_out", "radv", "ref", "scope", "type", "action", "dest", "dport", "icmp_type", "iface", "ipversion", "log", "macro", "pos", "proto", "source", "sport", "cpus", "diskread", "diskwrite", "maxdisk", "maxmem", "mem", "memhost", "netin", "netout", "pid", "pressurecpufull", "pressurecpusome", "pressureiofull", "pressureiosome", "pressurememoryfull", "pressurememorysome", "qmpstatus", "running_machine", "running_qemu", "serial", "status", "uptime", "vmid", "has_dbus_vmstate", "running", "filename", "clipboard", "spice")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "delete" = excluded."delete", "key" = excluded."key", "pending" = excluded."pending", "value" = excluded."value", "acpi" = excluded."acpi", "affinity" = excluded."affinity", "agent" = excluded."agent", "allow_ksm" = excluded."allow_ksm", "amd_sev" = excluded."amd_sev", "arch" = excluded."arch", "args" = excluded."args", "audio0" = excluded."audio0", "autostart" = excluded."autostart", "balloon" = excluded."balloon", "bios" = excluded."bios", "boot" = excluded."boot", "bootdisk" = excluded."bootdisk", "cdrom" = excluded."cdrom", "cicustom" = excluded."cicustom", "cipassword" = excluded."cipassword", "citype" = excluded."citype", "ciupgrade" = excluded."ciupgrade", "ciuser" = excluded."ciuser", "cores" = excluded."cores", "cpu" = excluded."cpu", "cpulimit" = excluded."cpulimit", "cpuunits" = excluded."cpuunits", "description" = excluded."description", "digest" = excluded."digest", "efidisk0" = excluded."efidisk0", "freeze" = excluded."freeze", "hookscript" = excluded."hookscript", "hostpci[n]" = excluded."hostpci[n]", "hotplug" = excluded."hotplug", "hugepages" = excluded."hugepages", "ide[n]" = excluded."ide[n]", "intel_tdx" = excluded."intel_tdx", "ipconfig[n]" = excluded."ipconfig[n]", "ivshmem" = excluded."ivshmem", "keephugepages" = excluded."keephugepages", "keyboard" = excluded."keyboard", "kvm" = excluded."kvm", "localtime" = excluded."localtime", "lock" = excluded."lock", "machine" = excluded."machine", "memory" = excluded."memory", "meta" = excluded."meta", "migrate_downtime" = excluded."migrate_downtime", "migrate_speed" = excluded."migrate_speed", "name" = excluded."name", "nameserver" = excluded."nameserver", "net[n]" = excluded."net[n]", "numa" = excluded."numa", "numa[n]" = excluded."numa[n]", "onboot" = excluded."onboot", "ostype" = excluded."ostype", "parallel[n]" = excluded."parallel[n]", "parent" = excluded."parent", "protection" = excluded."protection", "reboot" = excluded."reboot", "rng0" = excluded."rng0", "running_nets_host_mtu" = excluded."running_nets_host_mtu", "runningcpu" = excluded."runningcpu", "runningmachine" = excluded."runningmachine", "sata[n]" = excluded."sata[n]", "scsi[n]" = excluded."scsi[n]", "scsihw" = excluded."scsihw", "searchdomain" = excluded."searchdomain", "serial[n]" = excluded."serial[n]", "shares" = excluded."shares", "smbios1" = excluded."smbios1", "smp" = excluded."smp", "snaptime" = excluded."snaptime", "sockets" = excluded."sockets", "spice_enhancements" = excluded."spice_enhancements", "sshkeys" = excluded."sshkeys", "startdate" = excluded."startdate", "startup" = excluded."startup", "tablet" = excluded."tablet", "tags" = excluded."tags", "tdf" = excluded."tdf", "template" = excluded."template", "tpmstate0" = excluded."tpmstate0", "unused[n]" = excluded."unused[n]", "usb[n]" = excluded."usb[n]", "vcpus" = excluded."vcpus", "vga" = excluded."vga", "virtio[n]" = excluded."virtio[n]", "virtiofs[n]" = excluded."virtiofs[n]", "vmgenid" = excluded."vmgenid", "vmstate" = excluded."vmstate", "vmstatestorage" = excluded."vmstatestorage", "watchdog" = excluded."watchdog", "has_feature" = excluded."has_feature", "cidr" = excluded."cidr", "comment" = excluded."comment", "nomatch" = excluded."nomatch", "n" = excluded."n", "t" = excluded."t", "dhcp" = excluded."dhcp", "enable" = excluded."enable", "ipfilter" = excluded."ipfilter", "log_level_in" = excluded."log_level_in", "log_level_out" = excluded."log_level_out", "macfilter" = excluded."macfilter", "ndp" = excluded."ndp", "policy_in" = excluded."policy_in", "policy_out" = excluded."policy_out", "radv" = excluded."radv", "ref" = excluded."ref", "scope" = excluded."scope", "type" = excluded."type", "action" = excluded."action", "dest" = excluded."dest", "dport" = excluded."dport", "icmp_type" = excluded."icmp_type", "iface" = excluded."iface", "ipversion" = excluded."ipversion", "log" = excluded."log", "macro" = excluded."macro", "pos" = excluded."pos", "proto" = excluded."proto", "source" = excluded."source", "sport" = excluded."sport", "cpus" = excluded."cpus", "diskread" = excluded."diskread", "diskwrite" = excluded."diskwrite", "maxdisk" = excluded."maxdisk", "maxmem" = excluded."maxmem", "mem" = excluded."mem", "memhost" = excluded."memhost", "netin" = excluded."netin", "netout" = excluded."netout", "pid" = excluded."pid", "pressurecpufull" = excluded."pressurecpufull", "pressurecpusome" = excluded."pressurecpusome", "pressureiofull" = excluded."pressureiofull", "pressureiosome" = excluded."pressureiosome", "pressurememoryfull" = excluded."pressurememoryfull", "pressurememorysome" = excluded."pressurememorysome", "qmpstatus" = excluded."qmpstatus", "running_machine" = excluded."running_machine", "running_qemu" = excluded."running_qemu", "serial" = excluded."serial", "status" = excluded."status", "uptime" = excluded."uptime", "vmid" = excluded."vmid", "has_dbus_vmstate" = excluded."has_dbus_vmstate", "running" = excluded."running", "filename" = excluded."filename", "clipboard" = excluded."clipboard", "spice" = excluded."spice"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -7983,6 +8138,7 @@ func (s *Store) upsertVmTx(tx *sql.Tx, id string, obj map[string]any, data json.
 		lookupFieldValue(obj, "vmstate"),
 		lookupFieldValue(obj, "vmstatestorage"),
 		lookupFieldValue(obj, "watchdog"),
+		lookupFieldValue(obj, "has_feature"),
 		lookupFieldValue(obj, "cidr"),
 		lookupFieldValue(obj, "comment"),
 		lookupFieldValue(obj, "nomatch"),
@@ -8106,11 +8262,9 @@ var resourceIDFieldOverrides = map[string]string{
 	"api2_json_nodes_tasks":                  "upid",
 	"backup":                                 "id",
 	"backup-not-backed-up":                   "name",
-	"ceph":                                   "n",
+	"ceph":                                   "name",
 	"ceph-health-mute":                       "code",
-	"ceph-metadata":                          "id",
-	"cluster":                                "name",
-	"cluster-config-nodes":                   "node",
+	"cluster":                                "node",
 	"cluster-jobs-realm-sync":                "id",
 	"cluster-jobs-schedule-analyze":          "timestamp+utc",
 	"cluster-metrics-export":                 "id",
@@ -8118,7 +8272,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"cluster-qemu-cpu-flags":                 "name",
 	"cluster-resources":                      "id",
 	"cluster-status":                         "id",
-	"firewall":                               "n",
+	"firewall":                               "name",
 	"firewall-groups":                        "digest",
 	"firewall-ipset":                         "name",
 	"firewall-macros":                        "descr",
@@ -8132,10 +8286,13 @@ var resourceIDFieldOverrides = map[string]string{
 	"mapping":                                "id",
 	"mapping-pci":                            "id",
 	"mapping-usb":                            "id",
-	"nodes":                                  "n",
+	"nodes":                                  "node",
+	"nodes_ceph_log":                         "n",
+	"nodes_firewall_log":                     "n",
 	"nodes_lxc_firewall_log":                 "n",
 	"nodes_qemu_firewall_log":                "n",
-	"nodes_tasks_log":                        "n",
+	"nodes_syslog":                           "n",
+	"nodes_tasks":                            "upid",
 	"notifications":                          "name",
 	"notifications-endpoints-sendmail":       "name",
 	"notifications-endpoints-smtp":           "name",
@@ -8184,7 +8341,6 @@ var resourceIDFieldOverrides = map[string]string{
 	"pbs_tape-tape-encryption-keys":          "created",
 	"pools":                                  "poolid",
 	"replication":                            "id",
-	"replication_log":                        "n",
 	"sdn":                                    "id",
 	"sdn-controllers":                        "controller",
 	"sdn-fabrics-fabric":                     "id",
@@ -8214,17 +8370,14 @@ var genericDescriptiveIDFieldFallbacks = []string{"name", "slug", "key", "code"}
 // resourceIDBaseOverrides preserves the complete final collection name for
 // composed dependents whose child segment is itself multiword.
 var resourceIDBaseOverrides = map[string]string{
-	"api2_json_nodes_syslog":    "syslog",
-	"api2_json_nodes_tasks":     "tasks",
-	"api2_json_nodes_tasks_log": "log",
-	"ceph":                      "log",
-	"firewall":                  "log",
-	"nodes":                     "syslog",
-	"nodes_lxc_firewall_log":    "log",
-	"nodes_qemu_firewall_log":   "log",
-	"nodes_tasks_log":           "log",
-	"replication_log":           "log",
-	"tasks":                     "tasks",
+	"api2_json_nodes_syslog":  "syslog",
+	"api2_json_nodes_tasks":   "tasks",
+	"nodes_ceph_log":          "log",
+	"nodes_firewall_log":      "log",
+	"nodes_lxc_firewall_log":  "log",
+	"nodes_qemu_firewall_log": "log",
+	"nodes_syslog":            "syslog",
+	"nodes_tasks":             "tasks",
 }
 
 // resourceParentKeyColumns identifies generated dependent resources whose
@@ -8232,17 +8385,14 @@ var resourceIDBaseOverrides = map[string]string{
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{
-	"api2_json_nodes_syslog":    {"parent_id"},
-	"api2_json_nodes_tasks":     {"parent_id"},
-	"api2_json_nodes_tasks_log": {"parent_id"},
-	"ceph":                      {"parent_id"},
-	"firewall":                  {"parent_id"},
-	"nodes":                     {"parent_id"},
-	"nodes_lxc_firewall_log":    {"parent_id"},
-	"nodes_qemu_firewall_log":   {"parent_id"},
-	"nodes_tasks_log":           {"parent_id"},
-	"replication_log":           {"parent_id"},
-	"tasks":                     {"parent_id"},
+	"api2_json_nodes_syslog":  {"parent_id"},
+	"api2_json_nodes_tasks":   {"parent_id"},
+	"nodes_ceph_log":          {"parent_id"},
+	"nodes_firewall_log":      {"parent_id"},
+	"nodes_lxc_firewall_log":  {"parent_id"},
+	"nodes_qemu_firewall_log": {"parent_id"},
+	"nodes_syslog":            {"parent_id"},
+	"nodes_tasks":             {"parent_id"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -8938,9 +9088,7 @@ func BareResourceID(storageID string) string {
 // scope column — still satisfy the typed table's NOT NULL scope column instead
 // of stranding the row in generic resources.
 var childScopeColumnSources = map[string]string{
-	"nodes_id":       "node",
-	"replication_id": "replication",
-	"tasks_id":       "task",
+	"nodes_id": "node",
 }
 
 // deriveScopeColumns backfills a typed child table's scope column from the
@@ -9307,6 +9455,38 @@ func (s *Store) SearchCt(query string, limit int) ([]json.RawMessage, error) {
 		 JOIN "ct_fts" ON "ct_fts".rowid = t.rowid
 		 WHERE "ct_fts" MATCH ?
 		 ORDER BY "ct_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
+// SearchDisks searches the disks_fts index with optional filters.
+func (s *Store) SearchDisks(query string, limit int) ([]json.RawMessage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := FTSMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "disks" t
+		 JOIN "disks_fts" ON "disks_fts".rowid = t.rowid
+		 WHERE "disks_fts" MATCH ?
+		 ORDER BY "disks_fts".rank LIMIT ?`,
 		matchQuery, limit,
 	)
 	if err != nil {
@@ -9745,6 +9925,50 @@ func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
 	return err
 }
 
+// SaveSyncStateInScope records a completed checkpoint for a walk that already
+// bound scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.SaveSyncStateAtInScope(resourceType, scopeKey, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAtInScope stores the watermark for a walk that already bound
+// scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateAtInScope(resourceType, scopeKey, cursor string, count int, at time.Time) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, last_synced_at = ?, total_count = ?, last_attempt_complete = 1
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, at.UTC().Format(time.RFC3339), count, resourceType, scopeKey,
+	)
+}
+
+// SaveSyncProgressInScope stores pagination progress for a walk that already
+// bound scopeKey and leaves the last completed watermark in place. A row
+// another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncProgressInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, total_count = ?, last_attempt_complete = 0
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, count, resourceType, scopeKey,
+	)
+}
+
+func (s *Store) updateSyncCheckpointInScope(resourceType, query string, args ...any) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	res, err := s.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("sync scope for %s changed before the checkpoint was saved", resourceType)
+	}
+	return nil
+}
+
 func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced time.Time, count int, err error) {
 	var savedCursor sql.NullString
 	var savedTime sql.NullTime
@@ -9781,6 +10005,115 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 		return cursor.String
 	}
 	return ""
+}
+
+// BindSyncScope returns the checkpoint when scopeKey matches the stored scope.
+// A different scope drops the cursor and watermark so a later tenant cannot
+// resume the previous one. The primary key stays resource_type; scope_key is
+// recorded beside it so existing ON CONFLICT(resource_type) writers keep working.
+func (s *Store) BindSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	return s.readSyncScope(resourceType, scopeKey, true)
+}
+
+// ReadSyncScope is the dry-run twin. A scope mismatch reports an empty
+// checkpoint and leaves the stored row alone.
+func (s *Store) ReadSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	return s.readSyncScope(resourceType, scopeKey, false)
+}
+
+func (s *Store) readSyncScope(resourceType, scopeKey string, bind bool) (string, time.Time, int, error) {
+	var savedCursor sql.NullString
+	var savedTime sql.NullTime
+	var savedScope sql.NullString
+	var count int
+	err := s.db.QueryRow(
+		`SELECT last_cursor, last_synced_at, total_count, scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedCursor, &savedTime, &count, &savedScope)
+	if err == sql.ErrNoRows {
+		if !bind {
+			return "", time.Time{}, 0, nil
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete, scope_key)
+			 VALUES (?, '', NULL, 0, 0, ?)`,
+			resourceType, scopeKey,
+		)
+		return "", time.Time{}, 0, err
+	}
+	if err != nil {
+		return "", time.Time{}, 0, err
+	}
+	if savedScope.String == scopeKey {
+		return savedCursor.String, savedTime.Time, count, nil
+	}
+	if !bind {
+		return "", time.Time{}, 0, nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET scope_key = ?, last_cursor = '', last_synced_at = NULL, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		scopeKey, resourceType,
+	)
+	return "", time.Time{}, 0, err
+}
+
+// ClearSyncScopeIfCurrent drops the resume cursor when scopeKey is already
+// the stored scope. A different scope is left intact so a full sync cannot
+// wipe another tenant before that tenant's walk starts. No row stays absent.
+// Completion stays unset: the clear has not walked the resource, so a crash
+// before the walk must not read as a finished sync of zero rows.
+func (s *Store) ClearSyncScopeIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_cursor = '', last_synced_at = ?, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		time.Time{}.UTC().Format(time.RFC3339), resourceType,
+	)
+	return err
+}
+
+// MarkSyncAttemptIncompleteIfCurrent clears the completion flag when scopeKey
+// is already stored. Cursor, watermark, and count stay. A different scope and
+// a missing row are left alone so a failed parent lookup cannot reset another
+// tenant before a request is made.
+func (s *Store) MarkSyncAttemptIncompleteIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ? AND scope_key = ?`,
+		resourceType, scopeKey,
+	)
+	return err
 }
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic

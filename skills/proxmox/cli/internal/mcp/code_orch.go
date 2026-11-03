@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("proxmox_search",
-			mcplib.WithDescription("Search the proxmox API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the proxmox API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,18 +60,16 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
 	s.AddTool(
-		mcplib.NewTool("proxmox_execute",
-			mcplib.WithDescription("Execute one proxmox API endpoint by its endpoint_id (from proxmox_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by proxmox_search (e.g., \"users.list\").")),
-			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
-			// proxmox hand-fix (mcp-read-only-hints): every registered endpoint is a GET (code-orch-get-only).
+		mcplib.NewTool("proxmox_read",
+			mcplib.WithDescription("Call one read-only proxmox API endpoint by its endpoint_id (from proxmox_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by proxmox_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		handleCodeOrchExecute,
+		handleCodeOrchRead,
 	)
 }
 
@@ -106,8 +107,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -129,6 +140,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "acl", "Get Access Control List (ACLs).", "/access/acl"),
 	},
@@ -141,6 +153,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "domains", "Authentication domain index.", "/access/domains"),
 	},
@@ -153,6 +166,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "groups", "Group index.", "/access/groups"),
 	},
@@ -165,6 +179,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "groups-get", "Get group configuration. Required privilege: Sys.Audit, Group.Allocate (any) on /access/groups", "/access/groups/{groupid}"),
 	},
@@ -177,6 +192,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "path", WireName: "path"}, {PublicName: "userid", WireName: "userid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "permissions", "Retrieve effective permissions of given user/token.", "/access/permissions"),
 	},
@@ -189,6 +205,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "roles", "Role index. Required privilege: any authenticated user", "/access/roles"),
 	},
@@ -201,6 +218,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "roles-get", "Get role configuration. Required privilege: any authenticated user", "/access/roles/{roleid}"),
 	},
@@ -213,6 +231,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "tfa", "List TFA configurations of users. Required privilege: Returns all or just the logged-in user, depending on privileges.", "/access/tfa"),
 	},
@@ -225,6 +244,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "tfa-get", "List TFA configurations of users.", "/access/tfa/{userid}"),
 	},
@@ -237,6 +257,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "tfa-id-get", "Fetch a requested TFA entry if present.", "/access/tfa/{userid}/{id}"),
 	},
@@ -249,6 +270,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "enabled", WireName: "enabled"}, {PublicName: "full", WireName: "full"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "users", "User index.", "/access/users"),
 	},
@@ -261,6 +283,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "users-get", "Get user configuration. Required privilege: user or group management privileges on /access", "/access/users/{userid}"),
 	},
@@ -273,6 +296,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "multiple", WireName: "multiple"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "users-tfa", "Get user TFA types (Personal and Realm).", "/access/users/{userid}/tfa"),
 	},
@@ -285,6 +309,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "users-token", "Get user API tokens.", "/access/users/{userid}/token"),
 	},
@@ -297,6 +322,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("access", "users-token-get", "Get specific API token information.", "/access/users/{userid}/token/{tokenid}"),
 	},
@@ -309,6 +335,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("acme", "account", "ACMEAccount index. Required privilege: any authenticated user", "/cluster/acme/account"),
 	},
@@ -321,6 +348,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("acme", "account-get", "Return existing ACME account information.", "/cluster/acme/account/{name}"),
 	},
@@ -333,6 +361,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("acme", "challenge-schema", "Get schema of ACME challenge types. Required privilege: any authenticated user", "/cluster/acme/challenge-schema"),
 	},
@@ -345,6 +374,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("acme", "directories", "Get named known ACME directory endpoints. Required privilege: any authenticated user", "/cluster/acme/directories"),
 	},
@@ -357,6 +387,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup", "job", "List vzdump backup schedule. Required privilege: Sys.Audit on /", "/cluster/backup"),
 	},
@@ -369,6 +400,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup", "job-get", "Read vzdump backup job definition. Required privilege: Sys.Audit on /", "/cluster/backup/{id}"),
 	},
@@ -381,6 +413,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup", "job-included-volumes", "Returns included guests and the backup status of their disks. Optimized to be used in ExtJS tree views.", "/cluster/backup/{id}/included_volumes"),
 	},
@@ -393,6 +426,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup", "not-backed-up", "Shows all guests which are not covered by any backup job. Required privilege: Sys.Audit on /", "/cluster/backup-info/not-backed-up"),
 	},
@@ -405,6 +439,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "storage", WireName: "storage"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup", "vzdump-defaults", "Get the currently configured vzdump defaults.", "/nodes/{node}/vzdump/defaults"),
 	},
@@ -417,6 +452,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cluster-flags", "get the status of all ceph flags. Required privilege: Sys.Audit on /", "/cluster/ceph/flags"),
 	},
@@ -429,6 +465,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cluster-flags-get", "Get the status of a specific ceph flag. Required privilege: Sys.Audit on /", "/cluster/ceph/flags/{flag}"),
 	},
@@ -441,6 +478,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cluster-health-mute", "Get the currently muted Ceph health checks. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/cluster/ceph/health-mute"),
 	},
@@ -453,6 +491,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "scope", WireName: "scope"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cluster-metadata", "Get ceph metadata. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/cluster/ceph/metadata"),
 	},
@@ -465,6 +504,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cluster-status", "Get ceph status. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/cluster/ceph/status"),
 	},
@@ -477,7 +517,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "action", WireName: "action"}, {PublicName: "id", WireName: "id"}, {PublicName: "service", WireName: "service"}},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       true,
+		NeedsConfirm:   false,
+		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "cmd-safety", "Heuristical check if it is safe to perform an action. Required privilege: Sys.Audit on /", "/nodes/{node}/ceph/cmd-safety"),
 	},
 	{
@@ -489,6 +530,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "crush", "Get OSD crush map. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/crush"),
 	},
@@ -501,6 +543,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "fs", "Directory index. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/fs"),
 	},
@@ -513,6 +556,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "start", WireName: "start"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "log", "Read ceph log. Required privilege: Sys.Syslog on /nodes/{node}", "/nodes/{node}/ceph/log"),
 	},
@@ -525,6 +569,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "mds", "MDS directory index. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/mds"),
 	},
@@ -537,6 +582,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "mgr", "MGR directory index. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/mgr"),
 	},
@@ -549,6 +595,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "mon", "Get Ceph monitor list. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/mon"),
 	},
@@ -561,6 +608,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "osd", "Get Ceph osd list/tree. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/osd"),
 	},
@@ -573,6 +621,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "osd-lv-info", "Get OSD volume details. Required privilege: Sys.Audit on /", "/nodes/{node}/ceph/osd/{osdid}/lv-info"),
 	},
@@ -585,6 +634,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "osd-metadata", "Get OSD details. Required privilege: Sys.Audit on /", "/nodes/{node}/ceph/osd/{osdid}/metadata"),
 	},
@@ -597,6 +647,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "pool", "List all pools and their settings (which are settable by the POST/PUT endpoints).", "/nodes/{node}/ceph/pool"),
 	},
@@ -609,6 +660,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "verbose", WireName: "verbose"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "pool-status", "Show the current pool status. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/pool/{name}/status"),
 	},
@@ -621,6 +673,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "releases", "List all known Ceph releases, marking which ones can be installed on this node.", "/nodes/{node}/ceph/releases"),
 	},
@@ -633,6 +686,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "rules", "List ceph rules. Required privilege: Sys.Audit, Datastore.Audit (any) on /", "/nodes/{node}/ceph/rules"),
 	},
@@ -645,6 +699,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ceph", "status", "Get the Ceph cluster status (raw 'ceph status' output).", "/nodes/{node}/ceph/status"),
 	},
@@ -657,6 +712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "api-version", "API version details, including some parts of the global datacenter config. Required privilege: any authenticated user", "/version"),
 	},
@@ -669,6 +725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "config-apiversion", "Return the version of the cluster join API available on this node. Required privilege: Sys.Audit on /", "/cluster/config/apiversion"),
 	},
@@ -681,6 +738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "node", WireName: "node"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "config-join", "Get information needed to join this cluster over the connected node. Required privilege: Sys.Audit on /", "/cluster/config/join"),
 	},
@@ -693,6 +751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "config-nodes", "Corosync node list. Required privilege: Sys.Audit on /", "/cluster/config/nodes"),
 	},
@@ -705,6 +764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "config-qdevice", "Get QDevice status. Required privilege: Sys.Audit on /", "/cluster/config/qdevice"),
 	},
@@ -717,6 +777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "config-totem", "Get corosync totem protocol settings. Required privilege: Sys.Audit on /", "/cluster/config/totem"),
 	},
@@ -729,6 +790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "jobs-realm-sync", "List configured realm-sync-jobs. Required privilege: Sys.Audit on /", "/cluster/jobs/realm-sync"),
 	},
@@ -741,6 +803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "jobs-realm-sync-get", "Read realm-sync job definition. Required privilege: Sys.Audit on /", "/cluster/jobs/realm-sync/{id}"),
 	},
@@ -753,6 +816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "iterations", WireName: "iterations"}, {PublicName: "schedule", WireName: "schedule"}, {PublicName: "starttime", WireName: "starttime"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "jobs-schedule-analyze", "Returns a list of future schedule runtimes. Required privilege: any authenticated user", "/cluster/jobs/schedule-analyze"),
 	},
@@ -765,6 +829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "max", WireName: "max"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "log", "Read cluster log. Required privilege: The user needs 'Sys.Syslog' on '/' in order to get all logs.", "/cluster/log"),
 	},
@@ -777,6 +842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "history", WireName: "history"}, {PublicName: "local-only", WireName: "local-only"}, {PublicName: "node-list", WireName: "node-list"}, {PublicName: "start-time", WireName: "start-time"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "metrics-export", "Retrieve metrics of the cluster. Required privilege: Sys.Audit on /", "/cluster/metrics/export"),
 	},
@@ -789,6 +855,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "metrics-server", "List configured metric servers. Required privilege: Sys.Audit on /", "/cluster/metrics/server"),
 	},
@@ -801,6 +868,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "metrics-server-get", "Read metric server configuration. Required privilege: Sys.Audit on /", "/cluster/metrics/server/{id}"),
 	},
@@ -813,6 +881,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "vmid", WireName: "vmid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "nextid", "Get next free VMID. Pass a VMID to assert that its free (at time of check). Required privilege: any authenticated user", "/cluster/nextid"),
 	},
@@ -825,6 +894,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "accel", WireName: "accel"}, {PublicName: "arch", WireName: "arch"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "qemu-cpu-flags", "List of available CPU flags. Currently only implemented for x86_64, returns an empty list for aarch64.", "/cluster/qemu/cpu-flags"),
 	},
@@ -837,6 +907,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "qemu-custom-cpu-models", "List all custom CPU model definitions visible to the user.", "/cluster/qemu/custom-cpu-models"),
 	},
@@ -849,6 +920,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "qemu-custom-cpu-models-get", "Retrieve details about a specific custom CPU model.", "/cluster/qemu/custom-cpu-models/{cputype}"),
 	},
@@ -861,6 +933,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "resources", "Resources index (cluster wide). Required privilege: any authenticated user", "/cluster/resources"),
 	},
@@ -873,6 +946,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cluster", "status", "Get cluster status information. Required privilege: Sys.Audit on /", "/cluster/status"),
 	},
@@ -885,6 +959,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "current", WireName: "current"}, {PublicName: "snapshot", WireName: "snapshot"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "config", "Get container configuration. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/config"),
 	},
@@ -897,6 +972,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "feature", WireName: "feature"}, {PublicName: "snapname", WireName: "snapname"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "feature", "Check if feature for virtual machine is available. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/feature"),
 	},
@@ -909,6 +985,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-aliases", "List aliases. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/aliases"),
 	},
@@ -921,6 +998,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-aliases-get", "Read alias. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/aliases/{name}"),
 	},
@@ -933,6 +1011,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-ipset", "List IPSets. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/ipset"),
 	},
@@ -945,6 +1024,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-ipset-cidr-get", "Read IP or Network settings from IPSet. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/ipset/{name}/{cidr}"),
 	},
@@ -957,6 +1037,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-ipset-get", "List IPSet content. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/ipset/{name}"),
 	},
@@ -969,6 +1050,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-log", "Read firewall log. Required privilege: VM.Console on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/log"),
 	},
@@ -981,6 +1063,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-options", "Get VM firewall options. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/options"),
 	},
@@ -993,6 +1076,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-refs", "Lists possible IPSet/Alias reference which are allowed in source/dest properties.", "/nodes/{node}/lxc/{vmid}/firewall/refs"),
 	},
@@ -1005,6 +1089,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-rules", "List rules. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/rules"),
 	},
@@ -1017,6 +1102,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "firewall-rules-get", "Get single rule data. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/firewall/rules/{pos}"),
 	},
@@ -1029,6 +1115,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "interfaces", "Get IP addresses of the specified container interface. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/interfaces"),
 	},
@@ -1041,6 +1128,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "list", "LXC container index (per node). Required privilege: Only list CTs where you have VM.Audit permission on /vms/<vmid>.", "/nodes/{node}/lxc"),
 	},
@@ -1053,6 +1141,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "target", WireName: "target"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "migrate", "Get preconditions for migration. Required privilege: VM.Migrate on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/migrate"),
 	},
@@ -1065,6 +1154,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "pending", "Get container configuration, including pending changes. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/pending"),
 	},
@@ -1077,6 +1167,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "ds", WireName: "ds"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "rrd", "Read VM RRD statistics (returns PNG) Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/rrd"),
 	},
@@ -1089,6 +1180,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "rrddata", "Read VM RRD statistics. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/rrddata"),
 	},
@@ -1101,6 +1193,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "snapshot", "List all snapshots. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/snapshot"),
 	},
@@ -1113,6 +1206,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "snapshot-config", "Get snapshot configuration. Required privilege: VM.Snapshot, VM.Snapshot.Rollback, VM.Audit (any) on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/snapshot/{snapname}/config"),
 	},
@@ -1125,6 +1219,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "snapshot-get", "Read /nodes/{node}/lxc/{vmid}/snapshot/{snapname}. Required privilege: any authenticated user", "/nodes/{node}/lxc/{vmid}/snapshot/{snapname}"),
 	},
@@ -1137,6 +1232,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ct", "status-current", "Get virtual machine status. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/lxc/{vmid}/status/current"),
 	},
@@ -1149,6 +1245,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "directory", "PVE Managed Directory storages. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/directory"),
 	},
@@ -1161,6 +1258,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include-partitions", WireName: "include-partitions"}, {PublicName: "skipsmart", WireName: "skipsmart"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "list", "List local disks. Required privilege: Sys.Audit on / or Sys.Audit on /nodes/{node}", "/nodes/{node}/disks/list"),
 	},
@@ -1173,6 +1271,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "lvm", "List LVM Volume Groups. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/lvm"),
 	},
@@ -1185,6 +1284,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "lvmthin", "List LVM thinpools. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/lvmthin"),
 	},
@@ -1197,6 +1297,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "scan", "Index of available scan methods. Required privilege: any authenticated user", "/nodes/{node}/scan"),
 	},
@@ -1209,6 +1310,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "scan-lvm", "List local LVM volume groups. Required privilege: Datastore.Allocate on /storage", "/nodes/{node}/scan/lvm"),
 	},
@@ -1221,6 +1323,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "vg", WireName: "vg"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "scan-lvmthin", "List local LVM Thin Pools. Required privilege: Datastore.Allocate on /storage", "/nodes/{node}/scan/lvmthin"),
 	},
@@ -1233,6 +1336,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "scan-zfs", "Scan zfs pool list on local node. Required privilege: Datastore.Allocate on /storage", "/nodes/{node}/scan/zfs"),
 	},
@@ -1245,6 +1349,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "disk", WireName: "disk"}, {PublicName: "healthonly", WireName: "healthonly"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "smart", "Get SMART Health of a disk. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/smart"),
 	},
@@ -1257,6 +1362,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "zfs", "List Zpools. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/zfs"),
 	},
@@ -1269,6 +1375,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("disks", "zfs-get", "Get details about a zpool. Required privilege: Sys.Audit on /", "/nodes/{node}/disks/zfs/{name}"),
 	},
@@ -1281,6 +1388,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "aliases", "List aliases. Required privilege: Sys.Audit on /", "/cluster/firewall/aliases"),
 	},
@@ -1293,6 +1401,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "aliases-get", "Read alias. Required privilege: Sys.Audit on /", "/cluster/firewall/aliases/{name}"),
 	},
@@ -1305,6 +1414,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "groups", "List security groups. Required privilege: any authenticated user", "/cluster/firewall/groups"),
 	},
@@ -1317,6 +1427,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "groups-get", "List rules. Required privilege: Sys.Audit on /", "/cluster/firewall/groups/{group}"),
 	},
@@ -1329,6 +1440,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "groups-pos-get", "Get single rule data. Required privilege: Sys.Audit on /", "/cluster/firewall/groups/{group}/{pos}"),
 	},
@@ -1341,6 +1453,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "ipset", "List IPSets. Required privilege: Sys.Audit on /", "/cluster/firewall/ipset"),
 	},
@@ -1353,6 +1466,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "ipset-cidr-get", "Read IP or Network settings from IPSet. Required privilege: Sys.Audit on /", "/cluster/firewall/ipset/{name}/{cidr}"),
 	},
@@ -1365,6 +1479,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "ipset-get", "List IPSet content. Required privilege: Sys.Audit on /", "/cluster/firewall/ipset/{name}"),
 	},
@@ -1377,6 +1492,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "macros", "List available macros. Required privilege: any authenticated user", "/cluster/firewall/macros"),
 	},
@@ -1389,6 +1505,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "node-log", "Read firewall log. Required privilege: Sys.Syslog on /nodes/{node}", "/nodes/{node}/firewall/log"),
 	},
@@ -1401,6 +1518,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "node-options", "Get host firewall options. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/firewall/options"),
 	},
@@ -1413,6 +1531,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "node-rules", "List rules. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/firewall/rules"),
 	},
@@ -1425,6 +1544,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "node-rules-get", "Get single rule data. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/firewall/rules/{pos}"),
 	},
@@ -1437,6 +1557,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "options", "Get Firewall options. Required privilege: Sys.Audit on /", "/cluster/firewall/options"),
 	},
@@ -1449,6 +1570,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "refs", "Lists possible IPSet/Alias reference which are allowed in source/dest properties. Required privilege: Sys.Audit on /", "/cluster/firewall/refs"),
 	},
@@ -1461,6 +1583,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "rules", "List rules. Required privilege: Sys.Audit on /", "/cluster/firewall/rules"),
 	},
@@ -1473,6 +1596,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "rules-get", "Get single rule data. Required privilege: Sys.Audit on /", "/cluster/firewall/rules/{pos}"),
 	},
@@ -1485,6 +1609,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "groups", "Get HA groups. (deprecated in favor of HA rules) Required privilege: Sys.Audit on /", "/cluster/ha/groups"),
 	},
@@ -1497,6 +1622,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "groups-get", "Read ha group configuration. (deprecated in favor of HA rules) Required privilege: Sys.Audit on /", "/cluster/ha/groups/{group}"),
 	},
@@ -1509,6 +1635,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "list", "Directory index. Required privilege: Sys.Audit on /", "/cluster/ha"),
 	},
@@ -1521,6 +1648,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "resources", "List HA resources. Required privilege: Sys.Audit on /", "/cluster/ha/resources"),
 	},
@@ -1533,6 +1661,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "resources-get", "Read resource configuration. Required privilege: Sys.Audit on /", "/cluster/ha/resources/{sid}"),
 	},
@@ -1545,6 +1674,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "resource", WireName: "resource"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "rules", "Get HA rules. Required privilege: Sys.Audit on /", "/cluster/ha/rules"),
 	},
@@ -1557,6 +1687,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "rules-get", "Read HA rule. Required privilege: Sys.Audit on /", "/cluster/ha/rules/{rule}"),
 	},
@@ -1569,6 +1700,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "status-current", "Get HA manager status. Required privilege: Sys.Audit on /", "/cluster/ha/status/current"),
 	},
@@ -1581,6 +1713,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ha", "status-manager-status", "Get full HA manager status, including LRM status. Required privilege: Sys.Audit on /", "/cluster/ha/status/manager_status"),
 	},
@@ -1593,6 +1726,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "check-node", WireName: "check-node"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "dir", "List directory mapping.", "/cluster/mapping/dir"),
 	},
@@ -1605,6 +1739,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "dir-get", "Get directory mapping.", "/cluster/mapping/dir/{id}"),
 	},
@@ -1617,6 +1752,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "check-node", WireName: "check-node"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "pci", "List PCI Hardware Mapping.", "/cluster/mapping/pci"),
 	},
@@ -1629,6 +1765,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "pci-get", "Get PCI Mapping.", "/cluster/mapping/pci/{id}"),
 	},
@@ -1641,6 +1778,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "check-node", WireName: "check-node"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "usb", "List USB Hardware Mappings.", "/cluster/mapping/usb"),
 	},
@@ -1653,6 +1791,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mapping", "usb-get", "Get USB Mapping.", "/cluster/mapping/usb/{id}"),
 	},
@@ -1665,6 +1804,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "aplinfo", "Get list of appliances. Required privilege: any authenticated user", "/nodes/{node}/aplinfo"),
 	},
@@ -1677,6 +1817,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "apt", "Directory index for apt (Advanced Package Tool). Required privilege: any authenticated user", "/nodes/{node}/apt"),
 	},
@@ -1689,6 +1830,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "name", WireName: "name"}, {PublicName: "version", WireName: "version"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "apt-changelog", "Get package changelogs. Required privilege: Sys.Modify on /nodes/{node}", "/nodes/{node}/apt/changelog"),
 	},
@@ -1701,6 +1843,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "apt-update", "List available updates. Required privilege: Sys.Modify on /nodes/{node}", "/nodes/{node}/apt/update"),
 	},
@@ -1713,6 +1856,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "apt-versions", "Get package information for important Proxmox packages. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/apt/versions"),
 	},
@@ -1725,6 +1869,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "arch", WireName: "arch"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "capabilities-qemu-cpu", "List all custom and default CPU models.", "/nodes/{node}/capabilities/qemu/cpu"),
 	},
@@ -1737,6 +1882,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "accel", WireName: "accel"}, {PublicName: "arch", WireName: "arch"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "capabilities-qemu-cpu-flags", "List of available VM-specific CPU flags.", "/nodes/{node}/capabilities/qemu/cpu-flags"),
 	},
@@ -1749,6 +1895,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "arch", WireName: "arch"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "capabilities-qemu-machines", "Get available QEMU/KVM machine types. Required privilege: any authenticated user", "/nodes/{node}/capabilities/qemu/machines"),
 	},
@@ -1761,6 +1908,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "capabilities-qemu-migration", "Get node-specific QEMU migration capabilities of the node. Requires the 'Sys.Audit' permission on '/nodes/<node>'.", "/nodes/{node}/capabilities/qemu/migration"),
 	},
@@ -1773,6 +1921,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "certificates-info", "Get information about node's certificates. Required privilege: any authenticated user", "/nodes/{node}/certificates/info"),
 	},
@@ -1785,6 +1934,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "property", WireName: "property"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "config", "Get node configuration options. Required privilege: Sys.Audit on /", "/nodes/{node}/config"),
 	},
@@ -1797,6 +1947,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "dns", "Read DNS settings. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/dns"),
 	},
@@ -1809,6 +1960,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hardware", "Index of hardware types. Required privilege: any authenticated user", "/nodes/{node}/hardware"),
 	},
@@ -1821,6 +1973,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pci-class-blacklist", WireName: "pci-class-blacklist"}, {PublicName: "verbose", WireName: "verbose"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hardware-pci", "List local PCI devices. Required privilege: Sys.Audit, Sys.Modify (any) on /", "/nodes/{node}/hardware/pci"),
 	},
@@ -1833,6 +1986,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hardware-pci-get", "Index of available pci methods. Required privilege: any authenticated user", "/nodes/{node}/hardware/pci/{pci-id-or-mapping}"),
 	},
@@ -1845,6 +1999,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hardware-pci-mdev", "List mediated device types for given PCI device. Required privilege: Sys.Audit, Sys.Modify (any) on /", "/nodes/{node}/hardware/pci/{pci-id-or-mapping}/mdev"),
 	},
@@ -1857,6 +2012,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hardware-usb", "List local USB devices. Required privilege: Sys.Modify on /", "/nodes/{node}/hardware/usb"),
 	},
@@ -1869,6 +2025,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "hosts", "Get the content of /etc/hosts. Required privilege: Sys.Audit on /", "/nodes/{node}/hosts"),
 	},
@@ -1881,6 +2038,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "endcursor", WireName: "endcursor"}, {PublicName: "identifiers", WireName: "identifiers"}, {PublicName: "kernel", WireName: "kernel"}, {PublicName: "lastentries", WireName: "lastentries"}, {PublicName: "priority", WireName: "priority"}, {PublicName: "service", WireName: "service"}, {PublicName: "since", WireName: "since"}, {PublicName: "startcursor", WireName: "startcursor"}, {PublicName: "structured", WireName: "structured"}, {PublicName: "unit", WireName: "unit"}, {PublicName: "units", WireName: "units"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "journal", "Read Journal. Required privilege: Sys.Syslog on /nodes/{node}", "/nodes/{node}/journal"),
 	},
@@ -1893,6 +2051,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "list", "Cluster node index. Required privilege: any authenticated user", "/nodes"),
 	},
@@ -1905,6 +2064,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "netstat", "Read tap/vm network device interface counters. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/netstat"),
 	},
@@ -1917,6 +2077,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "network", "List available networks. Required privilege: any authenticated user", "/nodes/{node}/network"),
 	},
@@ -1929,6 +2090,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "network-get", "Read network device configuration. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/network/{iface}"),
 	},
@@ -1941,6 +2103,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "ds", WireName: "ds"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "rrd", "Read node RRD statistics (returns PNG) Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/rrd"),
 	},
@@ -1953,6 +2116,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "rrddata", "Read node RRD statistics. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/rrddata"),
 	},
@@ -1965,6 +2129,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "services", "Service list. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/services"),
 	},
@@ -1977,6 +2142,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "services-state", "Read service properties. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/services/{service}/state"),
 	},
@@ -1989,6 +2155,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "status", "Read node status. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/status"),
 	},
@@ -2001,6 +2168,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "service", WireName: "service"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "syslog", "Read system log. Required privilege: Sys.Syslog on /nodes/{node}", "/nodes/{node}/syslog"),
 	},
@@ -2013,6 +2181,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "time", "Read server time and time zone settings. Required privilege: Sys.Audit on /nodes/{node}", "/nodes/{node}/time"),
 	},
@@ -2025,6 +2194,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nodes", "version", "API version details. Required privilege: any authenticated user", "/nodes/{node}/version"),
 	},
@@ -2037,6 +2207,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-gotify", "Returns a list of all gotify endpoints. Required privilege: Mapping.Audit on /mapping/notifications", "/cluster/notifications/endpoints/gotify"),
 	},
@@ -2049,6 +2220,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-gotify-get", "Return a specific gotify endpoint.", "/cluster/notifications/endpoints/gotify/{name}"),
 	},
@@ -2061,6 +2233,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-sendmail", "Returns a list of all sendmail endpoints.", "/cluster/notifications/endpoints/sendmail"),
 	},
@@ -2073,6 +2246,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-sendmail-get", "Return a specific sendmail endpoint.", "/cluster/notifications/endpoints/sendmail/{name}"),
 	},
@@ -2085,6 +2259,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-smtp", "Returns a list of all smtp endpoints.", "/cluster/notifications/endpoints/smtp"),
 	},
@@ -2097,6 +2272,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "endpoints-smtp-get", "Return a specific smtp endpoint.", "/cluster/notifications/endpoints/smtp/{name}"),
 	},
@@ -2109,6 +2285,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "matcher-field-values", "Returns known notification metadata fields and their known values.", "/cluster/notifications/matcher-field-values"),
 	},
@@ -2121,6 +2298,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "matcher-fields", "Returns known notification metadata fields.", "/cluster/notifications/matcher-fields"),
 	},
@@ -2133,6 +2311,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "matchers", "Returns a list of all matchers.", "/cluster/notifications/matchers"),
 	},
@@ -2145,6 +2324,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "matchers-get", "Return a specific matcher.", "/cluster/notifications/matchers/{name}"),
 	},
@@ -2157,6 +2337,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "targets", "Returns a list of all entities that can be used as notification targets.", "/cluster/notifications/targets"),
 	},
@@ -2169,6 +2350,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "exact", WireName: "exact"}, {PublicName: "path", WireName: "path"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "acl", "Read Access Control List (ACLs).", "https://localhost:8007/api2/json/access/acl"),
 	},
@@ -2181,6 +2363,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-ad", "List configured AD realms. Required privilege: Realm.Allocate on /access/domains", "https://localhost:8007/api2/json/config/access/ad"),
 	},
@@ -2193,6 +2376,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-ad-get", "Read the AD realm configuration. Required privilege: Sys.Audit on /access/domains", "https://localhost:8007/api2/json/config/access/ad/{realm}"),
 	},
@@ -2205,6 +2389,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-ldap", "List configured LDAP realms. Required privilege: Realm.Allocate on /access/domains", "https://localhost:8007/api2/json/config/access/ldap"),
 	},
@@ -2217,6 +2402,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-ldap-get", "Read the LDAP realm configuration. Required privilege: Sys.Audit on /access/domains", "https://localhost:8007/api2/json/config/access/ldap/{realm}"),
 	},
@@ -2229,6 +2415,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-pam", "Read the PAM realm configuration. Required privilege: Sys.Audit on /access/domains", "https://localhost:8007/api2/json/config/access/pam"),
 	},
@@ -2241,6 +2428,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-pbs", "Read the Proxmox Backup authentication server realm configuration. Required privilege: Sys.Audit on /access/domains", "https://localhost:8007/api2/json/config/access/pbs"),
 	},
@@ -2253,6 +2441,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "config-tfa-webauthn", "Get the TFA configuration. Required privilege: any authenticated user", "https://localhost:8007/api2/json/config/access/tfa/webauthn"),
 	},
@@ -2265,6 +2454,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "domains", "Authentication domain/realm index.", "https://localhost:8007/api2/json/access/domains"),
 	},
@@ -2277,6 +2467,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "auth-id", WireName: "auth-id"}, {PublicName: "path", WireName: "path"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "permissions", "List permissions of given or currently authenticated user / API token. Optionally limited to specific path.", "https://localhost:8007/api2/json/access/permissions"),
 	},
@@ -2289,6 +2480,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "roles", "Role list. Required privilege: any authenticated user", "https://localhost:8007/api2/json/access/roles"),
 	},
@@ -2301,6 +2493,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "tfa", "List user TFA configuration. Required privilege: Returns all or just the logged-in user, depending on privileges.", "https://localhost:8007/api2/json/access/tfa"),
 	},
@@ -2313,6 +2506,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "tfa-get", "List a user's TFA entries (types and descriptions; no secrets). Required privilege: Permissions.Modify on /access/users or the user named by {userid}", "https://localhost:8007/api2/json/access/tfa/{userid}"),
 	},
@@ -2325,6 +2519,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "tfa-id-get", "Get a single TFA entry. Required privilege: Permissions.Modify on /access/users or the user named by {userid}", "https://localhost:8007/api2/json/access/tfa/{userid}/{id}"),
 	},
@@ -2337,6 +2532,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_tokens", WireName: "include_tokens"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "users", "List users. Required privilege: Returns all or just the logged-in user (/API token owner), depending on privileges.", "https://localhost:8007/api2/json/access/users"),
 	},
@@ -2349,6 +2545,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "users-get", "Read user configuration data. Required privilege: Sys.Audit on /access/users or the user named by {userid}", "https://localhost:8007/api2/json/access/users/{userid}"),
 	},
@@ -2361,6 +2558,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "users-token", "List user's API tokens. Required privilege: Sys.Audit on /access/users or the user named by {userid}", "https://localhost:8007/api2/json/access/users/{userid}/token"),
 	},
@@ -2373,6 +2571,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_access", "users-token-get", "Read user's API token metadata. Required privilege: Sys.Audit on /access/users or the user named by {userid}", "https://localhost:8007/api2/json/access/users/{userid}/token/{token-name}"),
 	},
@@ -2385,6 +2584,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "acme-account", "List ACME accounts. Required privilege: Sys.Modify on /system/certificates", "https://localhost:8007/api2/json/config/acme/account"),
 	},
@@ -2397,6 +2597,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "acme-account-get", "Return existing ACME account information. Required privilege: Sys.Modify on /system/certificates", "https://localhost:8007/api2/json/config/acme/account/{name}"),
 	},
@@ -2409,6 +2610,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "acme-challenge-schema", "Get the ACME challenge plugin schema. Required privilege: any authenticated user", "https://localhost:8007/api2/json/config/acme/challenge-schema"),
 	},
@@ -2421,6 +2623,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "acme-directories", "Get named known ACME directory endpoints. Required privilege: any authenticated user", "https://localhost:8007/api2/json/config/acme/directories"),
 	},
@@ -2433,6 +2636,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "admin-metrics", "List configured metric servers. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/admin/metrics"),
 	},
@@ -2445,6 +2649,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "admin-traffic-control", "Show current traffic for all traffic control rules. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/admin/traffic-control"),
 	},
@@ -2457,6 +2662,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include-archived", WireName: "include-archived"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "encryption-keys", "List configured encryption keys. Required privilege: List configured encryption keys filtered by Sys.Audit privileges", "https://localhost:8007/api2/json/config/encryption-keys"),
 	},
@@ -2469,6 +2675,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "metrics-influxdb-udp", "List configured InfluxDB udp metric servers. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/config/metrics/influxdb-udp"),
 	},
@@ -2481,6 +2688,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "metrics-influxdb-udp-get", "Read the InfluxDB udp server configuration. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/config/metrics/influxdb-udp/{name}"),
 	},
@@ -2493,6 +2701,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "remote", "List all remotes. Required privilege: List configured remotes filtered by Remote.Audit privileges", "https://localhost:8007/api2/json/config/remote"),
 	},
@@ -2505,6 +2714,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "remote-get", "Read remote configuration data. Required privilege: Remote.Audit on /remote/{name}", "https://localhost:8007/api2/json/config/remote/{name}"),
 	},
@@ -2517,6 +2727,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "remote-scan", "List datastores of a remote.cfg entry. Required privilege: Remote.Audit on /remote/{name}", "https://localhost:8007/api2/json/config/remote/{name}/scan"),
 	},
@@ -2529,6 +2740,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "namespace", WireName: "namespace"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "remote-scan-groups", "List groups of a remote.cfg entry's datastore. Required privilege: Remote.Audit on /remote/{name}", "https://localhost:8007/api2/json/config/remote/{name}/scan/{store}/groups"),
 	},
@@ -2541,6 +2753,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "remote-scan-namespaces", "List namespaces of a datastore of a remote.cfg entry. Required privilege: Remote.Audit on /remote/{name}", "https://localhost:8007/api2/json/config/remote/{name}/scan/{store}/namespaces"),
 	},
@@ -2553,6 +2766,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "s3", "List all s3 client configurations. Required privilege: List configured s3 endpoints filtered by Sys.Audit privileges", "https://localhost:8007/api2/json/config/s3"),
 	},
@@ -2565,6 +2779,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "s3-get", "Read an s3 client configuration. Required privilege: Sys.Audit on /system/s3-endpoint/{id}", "https://localhost:8007/api2/json/config/s3/{id}"),
 	},
@@ -2577,6 +2792,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "s3-list-buckets", "List buckets accessible by given s3 client configuration. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/config/s3/{id}/list-buckets"),
 	},
@@ -2589,6 +2805,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "traffic-control", "List traffic control rules. Required privilege: Sys.Modify on /", "https://localhost:8007/api2/json/config/traffic-control"),
 	},
@@ -2601,6 +2818,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_config", "traffic-control-get", "Read traffic control configuration data. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/config/traffic-control/{name}"),
 	},
@@ -2613,6 +2831,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "active-operations", "Read datastore stats. Required privilege: Datastore.Audit on /datastore/{store}", "https://localhost:8007/api2/json/admin/datastore/{store}/active-operations"),
 	},
@@ -2625,6 +2844,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "archive-name", WireName: "archive-name"}, {PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-time", WireName: "backup-time"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "filepath", WireName: "filepath"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "catalog", "Get the entries of the given path of the catalog.", "https://localhost:8007/api2/json/admin/datastore/{store}/catalog"),
 	},
@@ -2637,6 +2857,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "config", "List all datastores. Required privilege: any authenticated user", "https://localhost:8007/api2/json/config/datastore"),
 	},
@@ -2649,6 +2870,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "config-get", "Read a datastore configuration. Required privilege: Datastore.Audit on /datastore/{name}", "https://localhost:8007/api2/json/config/datastore/{name}"),
 	},
@@ -2661,6 +2883,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-time", WireName: "backup-time"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "files", "List snapshot files.", "https://localhost:8007/api2/json/admin/datastore/{store}/files"),
 	},
@@ -2673,6 +2896,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "gc", "Garbage collection status. Required privilege: Datastore.Audit on /datastore/{store}", "https://localhost:8007/api2/json/admin/datastore/{store}/gc"),
 	},
@@ -2685,6 +2909,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "group-notes", "Get 'notes' for a backup group.", "https://localhost:8007/api2/json/admin/datastore/{store}/group-notes"),
 	},
@@ -2697,6 +2922,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "groups", "List backup groups.", "https://localhost:8007/api2/json/admin/datastore/{store}/groups"),
 	},
@@ -2709,6 +2935,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "list", "Datastore list. Required privilege: any authenticated user", "https://localhost:8007/api2/json/admin/datastore"),
 	},
@@ -2721,6 +2948,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "max-depth", WireName: "max-depth"}, {PublicName: "parent", WireName: "parent"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "namespace", "List the namespaces of a datastore.", "https://localhost:8007/api2/json/admin/datastore/{store}/namespace"),
 	},
@@ -2733,6 +2961,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-time", WireName: "backup-time"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "notes", "Get 'notes' for a specific backup.", "https://localhost:8007/api2/json/admin/datastore/{store}/notes"),
 	},
@@ -2745,6 +2974,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-time", WireName: "backup-time"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "protected", "Query protection for a specific backup.", "https://localhost:8007/api2/json/admin/datastore/{store}/protected"),
 	},
@@ -2757,6 +2987,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "rrd", "Read datastore stats. Required privilege: Datastore.Audit, Datastore.Backup (any) on /datastore/{store}", "https://localhost:8007/api2/json/admin/datastore/{store}/rrd"),
 	},
@@ -2769,6 +3000,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "ns", WireName: "ns"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "snapshots", "List backup snapshots.", "https://localhost:8007/api2/json/admin/datastore/{store}/snapshots"),
 	},
@@ -2781,6 +3013,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "verbose", WireName: "verbose"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "status", "Get datastore status.", "https://localhost:8007/api2/json/admin/datastore/{store}/status"),
 	},
@@ -2793,6 +3026,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_datastore", "usage", "List Datastore usages and estimates. Required privilege: any authenticated user", "https://localhost:8007/api2/json/status/datastore-usage"),
 	},
@@ -2805,6 +3039,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "store", WireName: "store"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "gc", "List all GC jobs (max one per datastore) Required privilege: Requires Datastore.Audit or Datastore.Modify on datastore.", "https://localhost:8007/api2/json/admin/gc"),
 	},
@@ -2817,6 +3052,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "gc-get", "List all GC jobs (max one per datastore) Required privilege: Requires Datastore.Audit or Datastore.Modify on datastore.", "https://localhost:8007/api2/json/admin/gc/{store}"),
 	},
@@ -2829,6 +3065,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "store", WireName: "store"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "prune", "List all prune jobs. Required privilege: Requires Datastore.Audit or Datastore.Modify on datastore.", "https://localhost:8007/api2/json/admin/prune"),
 	},
@@ -2841,6 +3078,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "prune-config", "List all scheduled prune jobs. Required privilege: Requires Datastore.Audit.", "https://localhost:8007/api2/json/config/prune"),
 	},
@@ -2853,6 +3091,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "prune-config-get", "Read a prune job configuration. Required privilege: Requires Datastore.Audit or Datastore.Verify on job's datastore.", "https://localhost:8007/api2/json/config/prune/{id}"),
 	},
@@ -2865,7 +3104,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "store", WireName: "store"}, {PublicName: "sync-direction", WireName: "sync-direction"}},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       true,
+		NeedsConfirm:   false,
+		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "sync", "List all configured sync jobs.", "https://localhost:8007/api2/json/admin/sync"),
 	},
 	{
@@ -2877,7 +3117,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sync-direction", WireName: "sync-direction"}},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       true,
+		NeedsConfirm:   false,
+		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "sync-config", "List all sync jobs.", "https://localhost:8007/api2/json/config/sync"),
 	},
 	{
@@ -2889,7 +3130,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       true,
+		NeedsConfirm:   false,
+		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "sync-config-get", "Read a sync job configuration.", "https://localhost:8007/api2/json/config/sync/{id}"),
 	},
 	{
@@ -2901,6 +3143,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "store", WireName: "store"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "verify", "List all verification jobs. Required privilege: Requires Datastore.Audit or Datastore.Verify on datastore.", "https://localhost:8007/api2/json/admin/verify"),
 	},
@@ -2913,6 +3156,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "verify-config", "List all verification jobs. Required privilege: Requires Datastore.Audit or Datastore.Verify on datastore.", "https://localhost:8007/api2/json/config/verify"),
 	},
@@ -2925,6 +3169,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_jobs", "verify-config-get", "Read a verification job configuration.", "https://localhost:8007/api2/json/config/verify/{id}"),
 	},
@@ -2937,6 +3182,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "api-version", "Proxmox Backup Server API version. Required privilege: any authenticated user", "https://localhost:8007/api2/json/version"),
 	},
@@ -2949,6 +3195,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "name", WireName: "name"}, {PublicName: "version", WireName: "version"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "apt-changelog", "Retrieve the changelog of the specified package. Required privilege: Sys.Modify on /", "https://localhost:8007/api2/json/nodes/{node}/apt/changelog"),
 	},
@@ -2961,6 +3208,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "apt-update", "List available APT updates. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/nodes/{node}/apt/update"),
 	},
@@ -2973,6 +3221,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "apt-versions", "Get package information for important Proxmox Backup Server packages. Required privilege: Sys.Audit on /", "https://localhost:8007/api2/json/nodes/{node}/apt/versions"),
 	},
@@ -2985,6 +3234,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "certificates-info", "Get certificate info. Required privilege: Sys.Modify on /system/certificates", "https://localhost:8007/api2/json/nodes/{node}/certificates/info"),
 	},
@@ -2997,6 +3247,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "disks-directory", "List systemd datastore mount units. Required privilege: Sys.Audit on /system/disks", "https://localhost:8007/api2/json/nodes/{node}/disks/directory"),
 	},
@@ -3009,6 +3260,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include-partitions", WireName: "include-partitions"}, {PublicName: "skipsmart", WireName: "skipsmart"}, {PublicName: "usage-type", WireName: "usage-type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "disks-list", "List local disks. Required privilege: Sys.Audit on /system/disks", "https://localhost:8007/api2/json/nodes/{node}/disks/list"),
 	},
@@ -3021,6 +3273,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "disk", WireName: "disk"}, {PublicName: "healthonly", WireName: "healthonly"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "disks-smart", "Get SMART attributes and health of a disk. Required privilege: Sys.Audit on /system/disks", "https://localhost:8007/api2/json/nodes/{node}/disks/smart"),
 	},
@@ -3033,6 +3286,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "disks-zfs", "List zfs pools. Required privilege: Sys.Audit on /system/disks", "https://localhost:8007/api2/json/nodes/{node}/disks/zfs"),
 	},
@@ -3045,6 +3299,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "disks-zfs-get", "Get zpool status details. Required privilege: Sys.Audit on /system/disks", "https://localhost:8007/api2/json/nodes/{node}/disks/zfs/{name}"),
 	},
@@ -3057,6 +3312,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "dns", "Read DNS settings. Required privilege: Sys.Audit on /system/network/dns", "https://localhost:8007/api2/json/nodes/{node}/dns"),
 	},
@@ -3069,6 +3325,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "identity", "Returns a unique server identity. The ID is derived from `/etc/machine-id`. Required privilege: any authenticated user", "https://localhost:8007/api2/json/nodes/{node}/identity"),
 	},
@@ -3081,6 +3338,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "endcursor", WireName: "endcursor"}, {PublicName: "identifiers", WireName: "identifiers"}, {PublicName: "kernel", WireName: "kernel"}, {PublicName: "lastentries", WireName: "lastentries"}, {PublicName: "priority", WireName: "priority"}, {PublicName: "service", WireName: "service"}, {PublicName: "since", WireName: "since"}, {PublicName: "startcursor", WireName: "startcursor"}, {PublicName: "structured", WireName: "structured"}, {PublicName: "unit", WireName: "unit"}, {PublicName: "units", WireName: "units"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "journal", "Read syslog entries. Required privilege: Sys.Audit on /system/log", "https://localhost:8007/api2/json/nodes/{node}/journal"),
 	},
@@ -3093,6 +3351,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "list", "List Nodes (only for compatibility)", "https://localhost:8007/api2/json/nodes"),
 	},
@@ -3105,6 +3364,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "network", "List network interfaces. Required privilege: Sys.Audit on /system/network/interfaces", "https://localhost:8007/api2/json/nodes/{node}/network"),
 	},
@@ -3117,6 +3377,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "network-get", "Read a network interface configuration. Required privilege: Sys.Audit on /system/network/interfaces/{iface}", "https://localhost:8007/api2/json/nodes/{node}/network/{iface}"),
 	},
@@ -3129,6 +3390,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "ping", "Dummy method which replies with `{ 'pong': True }`.", "https://localhost:8007/api2/json/ping"),
 	},
@@ -3141,6 +3403,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "rrd", "Read node stats. Required privilege: Sys.Audit on /system/status", "https://localhost:8007/api2/json/nodes/{node}/rrd"),
 	},
@@ -3153,6 +3416,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "services", "Service list. Required privilege: Sys.Audit on /system/services", "https://localhost:8007/api2/json/nodes/{node}/services"),
 	},
@@ -3165,6 +3429,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "services-state", "Read service properties. Required privilege: Sys.Audit on /system/services/{service}", "https://localhost:8007/api2/json/nodes/{node}/services/{service}/state"),
 	},
@@ -3177,6 +3442,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "status", "Read node memory, CPU and (root) disk usage. Required privilege: Sys.Audit on /system/status", "https://localhost:8007/api2/json/nodes/{node}/status"),
 	},
@@ -3189,6 +3455,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "history", WireName: "history"}, {PublicName: "start-time", WireName: "start-time"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "status-metrics", "Return backup server metrics.", "https://localhost:8007/api2/json/status/metrics"),
 	},
@@ -3201,6 +3468,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "service", WireName: "service"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "syslog", "Read syslog entries. Required privilege: Sys.Audit on /system/log", "https://localhost:8007/api2/json/nodes/{node}/syslog"),
 	},
@@ -3213,6 +3481,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "errors", WireName: "errors"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "running", WireName: "running"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "statusfilter", WireName: "statusfilter"}, {PublicName: "store", WireName: "store"}, {PublicName: "typefilter", WireName: "typefilter"}, {PublicName: "until", WireName: "until"}, {PublicName: "userfilter", WireName: "userfilter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "tasks", "List tasks. Required privilege: Users can only see their own tasks, unless they have Sys.Audit on /system/tasks.", "https://localhost:8007/api2/json/nodes/{node}/tasks"),
 	},
@@ -3225,6 +3494,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "download", WireName: "download"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "start", WireName: "start"}, {PublicName: "test-status", WireName: "test-status"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "tasks-log", "Read the task log. Required privilege: Users can access their own tasks, or need Sys.Audit on /system/tasks.", "https://localhost:8007/api2/json/nodes/{node}/tasks/{upid}/log"),
 	},
@@ -3237,6 +3507,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "tasks-status", "Get task status. Required privilege: Users can access their own tasks, or need Sys.Audit on /system/tasks.", "https://localhost:8007/api2/json/nodes/{node}/tasks/{upid}/status"),
 	},
@@ -3249,6 +3520,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_nodes", "time", "Read server time and time zone settings. Required privilege: any authenticated user", "https://localhost:8007/api2/json/nodes/{node}/time"),
 	},
@@ -3261,6 +3533,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-gotify", "List all gotify endpoints. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/gotify"),
 	},
@@ -3273,6 +3546,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-gotify-get", "Get a gotify endpoint. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/gotify/{name}"),
 	},
@@ -3285,6 +3559,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-sendmail", "List all sendmail endpoints. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/sendmail"),
 	},
@@ -3297,6 +3572,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-sendmail-get", "Get a sendmail endpoint. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/sendmail/{name}"),
 	},
@@ -3309,6 +3585,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-smtp", "List all smtp endpoints. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/smtp"),
 	},
@@ -3321,6 +3598,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "endpoints-smtp-get", "Get a smtp endpoint. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/endpoints/smtp/{name}"),
 	},
@@ -3333,6 +3611,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "matcher-field-values", "List all known, matchable metadata field values. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/matcher-field-values"),
 	},
@@ -3345,6 +3624,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "matcher-fields", "Get all known metadata fields. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/matcher-fields"),
 	},
@@ -3357,6 +3637,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "matchers", "List all notification matchers. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/matchers"),
 	},
@@ -3369,6 +3650,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "matchers-get", "Get a notification matcher. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/matchers/{name}"),
 	},
@@ -3381,6 +3663,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_notifications", "targets", "List all notification targets. Required privilege: Sys.Audit on /system/notifications", "https://localhost:8007/api2/json/config/notifications/targets"),
 	},
@@ -3393,6 +3676,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "backup", "List all tape backup jobs. Required privilege: List configured tape jobs filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/tape/backup"),
 	},
@@ -3405,6 +3689,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "backup-job-config", "List all tape backup jobs. Required privilege: List configured tape jobs filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/config/tape-backup-job"),
 	},
@@ -3417,6 +3702,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "backup-job-config-get", "Read a tape backup job configuration. Required privilege: Tape.Audit on /tape/job/{id}", "https://localhost:8007/api2/json/config/tape-backup-job/{id}"),
 	},
@@ -3429,6 +3715,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "changer", "List changers. Required privilege: List configured tape changer filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/tape/changer"),
 	},
@@ -3441,6 +3728,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "changer-config", "List changers. Required privilege: List configured tape changer filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/config/changer"),
 	},
@@ -3453,6 +3741,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "changer-config-get", "Get tape changer configuration. Required privilege: Tape.Audit on /tape/device/{name}", "https://localhost:8007/api2/json/config/changer/{name}"),
 	},
@@ -3465,6 +3754,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "changer", WireName: "changer"}, {PublicName: "query-activity", WireName: "query-activity"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive", "List drives. Required privilege: List configured tape drives filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/tape/drive"),
 	},
@@ -3477,6 +3767,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive-cartridge-memory", "Read Cartridge Memory (Medium auxiliary memory attributes) Required privilege: Tape.Audit on /tape/device/{drive}", "https://localhost:8007/api2/json/tape/drive/{drive}/cartridge-memory"),
 	},
@@ -3489,6 +3780,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive-config", "List drives. Required privilege: List configured tape drives filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/config/drive"),
 	},
@@ -3501,6 +3793,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive-config-get", "Get drive configuration. Required privilege: Tape.Audit on /tape/device/{name}", "https://localhost:8007/api2/json/config/drive/{name}"),
 	},
@@ -3513,6 +3806,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive-status", "Get drive/media status. Required privilege: Tape.Audit on /tape/device/{drive}", "https://localhost:8007/api2/json/tape/drive/{drive}/status"),
 	},
@@ -3525,6 +3819,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "drive-volume-statistics", "Read Volume Statistics (SCSI log page 17h) Required privilege: Tape.Audit on /tape/device/{drive}", "https://localhost:8007/api2/json/tape/drive/{drive}/volume-statistics"),
 	},
@@ -3537,6 +3832,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "encryption-keys", "List existing keys. Required privilege: Tape.Audit on /tape/pool", "https://localhost:8007/api2/json/config/tape-encryption-keys"),
 	},
@@ -3549,6 +3845,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "encryption-keys-get", "Get key config (public key part) Required privilege: Tape.Audit on /tape/pool", "https://localhost:8007/api2/json/config/tape-encryption-keys/{fingerprint}"),
 	},
@@ -3561,6 +3858,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "backup-id", WireName: "backup-id"}, {PublicName: "backup-type", WireName: "backup-type"}, {PublicName: "label-text", WireName: "label-text"}, {PublicName: "media", WireName: "media"}, {PublicName: "media-set", WireName: "media-set"}, {PublicName: "pool", WireName: "pool"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "media-content", "List media content. Required privilege: List content filtered by Tape.Audit privilege on pool", "https://localhost:8007/api2/json/tape/media/content"),
 	},
@@ -3573,6 +3871,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "media-list-status", "Get current media status.", "https://localhost:8007/api2/json/tape/media/list/{uuid}/status"),
 	},
@@ -3585,6 +3884,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "media-media-sets", "List Media sets. Required privilege: List of media sets filtered by Tape.Audit privileges on pool", "https://localhost:8007/api2/json/tape/media/media-sets"),
 	},
@@ -3597,6 +3897,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "media-pool-config", "List media pools. Required privilege: List configured media pools filtered by Tape.Audit privileges", "https://localhost:8007/api2/json/config/media-pool"),
 	},
@@ -3609,6 +3910,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "media-pool-config-get", "Get media pool configuration. Required privilege: Tape.Audit on /tape/pool/{name}", "https://localhost:8007/api2/json/config/media-pool/{name}"),
 	},
@@ -3621,6 +3923,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "scan-changers", "Scan for SCSI tape changers.", "https://localhost:8007/api2/json/tape/scan-changers"),
 	},
@@ -3633,6 +3936,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pbs_tape", "scan-drives", "Scan tape drives.", "https://localhost:8007/api2/json/tape/scan-drives"),
 	},
@@ -3645,6 +3949,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pools", "get", "Get pool configuration (deprecated, no support for nested pools, use 'GET /pools/?poolid={poolid}').", "/pools/{poolid}"),
 	},
@@ -3657,6 +3962,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "poolid", WireName: "poolid"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pools", "list", "List pools or get pool configuration.", "/pools"),
 	},
@@ -3669,6 +3975,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("replication", "get", "Read replication job configuration. Required privilege: Requires the VM.Audit permission on /vms/<vmid>.", "/cluster/replication/{id}"),
 	},
@@ -3681,6 +3988,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("replication", "list", "List replication jobs.", "/cluster/replication"),
 	},
@@ -3693,6 +4001,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "guest", WireName: "guest"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("replication", "node", "List status of all replication jobs on this node. Required privilege: Requires the VM.Audit permission on /vms/<vmid>.", "/nodes/{node}/replication"),
 	},
@@ -3705,6 +4014,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "start", WireName: "start"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("replication", "node-log", "Read replication job log.", "/nodes/{node}/replication/{id}/log"),
 	},
@@ -3717,6 +4027,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("replication", "node-status", "Get replication job status. Required privilege: Requires the VM.Audit permission on /vms/<vmid>.", "/nodes/{node}/replication/{id}/status"),
 	},
@@ -3729,6 +4040,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "controllers", "SDN controllers index.", "/cluster/sdn/controllers"),
 	},
@@ -3741,6 +4053,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "controllers-get", "Read sdn controller configuration. Required privilege: SDN.Allocate on /sdn/controllers/{controller}", "/cluster/sdn/controllers/{controller}"),
 	},
@@ -3753,6 +4066,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-all", "SDN Fabrics Index.", "/cluster/sdn/fabrics/all"),
 	},
@@ -3765,6 +4079,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-fabric", "SDN Fabrics Index.", "/cluster/sdn/fabrics/fabric"),
 	},
@@ -3777,6 +4092,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-fabric-get", "Read a fabric's configuration. (The upstream schema describes this GET as 'Update a fabric.'; it is the read.)", "/cluster/sdn/fabrics/fabric/{id}"),
 	},
@@ -3789,6 +4105,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-node", "SDN Fabrics Index.", "/cluster/sdn/fabrics/node"),
 	},
@@ -3801,6 +4118,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-node-get", "SDN Fabrics Index. Required privilege: Only returns nodes where you have 'Sys.Audit' or 'Sys.Modify' permissions.", "/cluster/sdn/fabrics/node/{fabric_id}"),
 	},
@@ -3813,6 +4131,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "fabrics-node-node-id-get", "Get a node.", "/cluster/sdn/fabrics/node/{fabric_id}/{node_id}"),
 	},
@@ -3825,6 +4144,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "ipams-status", "List PVE IPAM Entries.", "/cluster/sdn/ipams/{ipam}/status"),
 	},
@@ -3837,6 +4157,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "list", "Directory index. Required privilege: SDN.Audit on /sdn", "/cluster/sdn"),
 	},
@@ -3849,6 +4170,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-fabrics-interfaces", "Get all interfaces for a fabric. Required privilege: SDN.Audit on /sdn/fabrics/{fabric}", "/nodes/{node}/sdn/fabrics/{fabric}/interfaces"),
 	},
@@ -3861,6 +4183,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-fabrics-neighbors", "Get all neighbors for a fabric. Required privilege: SDN.Audit on /sdn/fabrics/{fabric}", "/nodes/{node}/sdn/fabrics/{fabric}/neighbors"),
 	},
@@ -3873,6 +4196,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-fabrics-routes", "Get all routes for a fabric. Required privilege: SDN.Audit on /sdn/fabrics/{fabric}", "/nodes/{node}/sdn/fabrics/{fabric}/routes"),
 	},
@@ -3885,6 +4209,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-vnets-mac-vrf", "Get the MAC VRF for a VNet in an EVPN zone.", "/nodes/{node}/sdn/vnets/{vnet}/mac-vrf"),
 	},
@@ -3897,6 +4222,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-zones", "Get status for all zones. Required privilege: Only list entries where you have 'SDN.Audit'", "/nodes/{node}/sdn/zones"),
 	},
@@ -3909,6 +4235,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-zones-bridges", "Get a list of all bridges (vnets) that are part of a zone, as well as the ports that are members of that bridge.", "/nodes/{node}/sdn/zones/{zone}/bridges"),
 	},
@@ -3921,6 +4248,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-zones-content", "List zone content. Required privilege: SDN.Audit on /sdn/zones/{zone}", "/nodes/{node}/sdn/zones/{zone}/content"),
 	},
@@ -3933,6 +4261,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "node-zones-ip-vrf", "Get the IP VRF of an EVPN zone. Required privilege: SDN.Audit on /sdn/zones/{zone}", "/nodes/{node}/sdn/zones/{zone}/ip-vrf"),
 	},
@@ -3945,6 +4274,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}, {PublicName: "verbose", WireName: "verbose"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "prefix-lists", "List Prefix Lists.", "/cluster/sdn/prefix-lists"),
 	},
@@ -3957,6 +4287,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "prefix-lists-entries", "List Prefix List Entries. Required privilege: SDN.Audit on /sdn/prefix-lists/{id}", "/cluster/sdn/prefix-lists/{id}/entries"),
 	},
@@ -3969,6 +4300,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "prefix-lists-entries-get", "Get Prefix List Entry. Required privilege: SDN.Audit on /sdn/prefix-lists/{id}", "/cluster/sdn/prefix-lists/{id}/entries/{url_seq}"),
 	},
@@ -3981,6 +4313,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "prefix-lists-get", "Get Prefix List. Required privilege: SDN.Audit on /sdn/prefix-lists/{id}", "/cluster/sdn/prefix-lists/{id}"),
 	},
@@ -3993,6 +4326,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "route-maps", "List Route Maps. Required privilege: Only returns route maps where you have 'SDN.Audit' or 'SDN.Allocate' permissions.", "/cluster/sdn/route-maps"),
 	},
@@ -4005,6 +4339,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "route-maps-entries", "Lists all route map entries.", "/cluster/sdn/route-maps/entries"),
 	},
@@ -4017,6 +4352,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "route-maps-entries-entry-get", "Get Route Map Entry. Required privilege: SDN.Audit, SDN.Allocate (any) on /sdn/route-maps/{route-map-id}", "/cluster/sdn/route-maps/entries/{route-map-id}/entry/{order}"),
 	},
@@ -4029,6 +4365,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "route-maps-entries-get", "List all entries for a given Route Map.", "/cluster/sdn/route-maps/entries/{route-map-id}"),
 	},
@@ -4041,6 +4378,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets", "SDN vnets index.", "/cluster/sdn/vnets"),
 	},
@@ -4053,6 +4391,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-firewall-options", "Get vnet firewall options. Required privilege: Needs SDN.Audit or SDN.Allocate permissions on '/sdn/zones/<zone>/<vnet>'", "/cluster/sdn/vnets/{vnet}/firewall/options"),
 	},
@@ -4065,6 +4404,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-firewall-rules", "List rules. Required privilege: Needs SDN.Audit or SDN.Allocate permissions on '/sdn/zones/<zone>/<vnet>'", "/cluster/sdn/vnets/{vnet}/firewall/rules"),
 	},
@@ -4077,6 +4417,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-firewall-rules-get", "Get single rule data. Required privilege: Needs SDN.Audit or SDN.Allocate permissions on '/sdn/zones/<zone>/<vnet>'", "/cluster/sdn/vnets/{vnet}/firewall/rules/{pos}"),
 	},
@@ -4089,6 +4430,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-get", "Read sdn vnet configuration.", "/cluster/sdn/vnets/{vnet}"),
 	},
@@ -4101,6 +4443,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-subnets", "SDN subnets index.", "/cluster/sdn/vnets/{vnet}/subnets"),
 	},
@@ -4113,6 +4456,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "vnets-subnets-get", "Read sdn subnet configuration.", "/cluster/sdn/vnets/{vnet}/subnets/{subnet}"),
 	},
@@ -4125,6 +4469,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "zones", "SDN zones index.", "/cluster/sdn/zones"),
 	},
@@ -4137,6 +4482,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pending", WireName: "pending"}, {PublicName: "running", WireName: "running"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sdn", "zones-get", "Read sdn zone configuration. Required privilege: SDN.Allocate on /sdn/zones/{zone}", "/cluster/sdn/zones/{zone}"),
 	},
@@ -4149,6 +4495,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "get", "Read storage configuration. Required privilege: Datastore.Allocate on /storage/{storage}", "/storage/{storage}"),
 	},
@@ -4161,6 +4508,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "list", "Storage index.", "/storage"),
 	},
@@ -4173,6 +4521,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "content", WireName: "content"}, {PublicName: "enabled", WireName: "enabled"}, {PublicName: "format", WireName: "format"}, {PublicName: "storage", WireName: "storage"}, {PublicName: "target", WireName: "target"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node", "Get status for all datastores.", "/nodes/{node}/storage"),
 	},
@@ -4185,6 +4534,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "content", WireName: "content"}, {PublicName: "vmid", WireName: "vmid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-content", "List storage content. Required privilege: Datastore.Audit, Datastore.AllocateSpace (any) on /storage/{storage}", "/nodes/{node}/storage/{storage}/content"),
 	},
@@ -4197,6 +4547,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-content-get", "Get volume attributes. Required privilege: You need read access for the volume.", "/nodes/{node}/storage/{storage}/content/{volume}"),
 	},
@@ -4209,6 +4560,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-identity", "Return identity information for this storage instance.", "/nodes/{node}/storage/{storage}/identity"),
 	},
@@ -4221,6 +4573,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "volume", WireName: "volume"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-import-metadata", "Get the base parameters for creating a guest which imports data from a foreign importable guest, like an ESXi VM.", "/nodes/{node}/storage/{storage}/import-metadata"),
 	},
@@ -4233,6 +4586,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "prune-backups", WireName: "prune-backups"}, {PublicName: "type", WireName: "type"}, {PublicName: "vmid", WireName: "vmid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-prunebackups", "Get prune information for backups.", "/nodes/{node}/storage/{storage}/prunebackups"),
 	},
@@ -4245,6 +4599,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "ds", WireName: "ds"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-rrd", "Read storage RRD statistics (returns PNG).", "/nodes/{node}/storage/{storage}/rrd"),
 	},
@@ -4257,6 +4612,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-rrddata", "Read storage RRD statistics. Required privilege: Datastore.Audit, Datastore.AllocateSpace (any) on /storage/{storage}", "/nodes/{node}/storage/{storage}/rrddata"),
 	},
@@ -4269,6 +4625,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("storage", "node-status", "Read storage status. Required privilege: Datastore.Audit, Datastore.AllocateSpace (any) on /storage/{storage}", "/nodes/{node}/storage/{storage}/status"),
 	},
@@ -4281,6 +4638,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "cluster", "List recent tasks (cluster wide). Required privilege: any authenticated user", "/cluster/tasks"),
 	},
@@ -4293,6 +4651,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "get", "Read /nodes/{node}/tasks/{upid}. Required privilege: any authenticated user", "/nodes/{node}/tasks/{upid}"),
 	},
@@ -4305,6 +4664,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "errors", WireName: "errors"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "since", WireName: "since"}, {PublicName: "source", WireName: "source"}, {PublicName: "start", WireName: "start"}, {PublicName: "statusfilter", WireName: "statusfilter"}, {PublicName: "typefilter", WireName: "typefilter"}, {PublicName: "until", WireName: "until"}, {PublicName: "userfilter", WireName: "userfilter"}, {PublicName: "vmid", WireName: "vmid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "list", "Read task list for one node (finished tasks).", "/nodes/{node}/tasks"),
 	},
@@ -4317,6 +4677,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "download", WireName: "download"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "start", WireName: "start"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "log", "Read task log.", "/nodes/{node}/tasks/{upid}/log"),
 	},
@@ -4329,6 +4690,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "status", "Read task status.", "/nodes/{node}/tasks/{upid}/status"),
 	},
@@ -4341,6 +4703,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-fsinfo", "Execute get-fsinfo. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-fsinfo"),
 	},
@@ -4353,6 +4716,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-host-name", "Execute get-host-name. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-host-name"),
 	},
@@ -4365,6 +4729,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-memory-block-info", "Execute get-memory-block-info. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-memory-block-info"),
 	},
@@ -4377,6 +4742,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-memory-blocks", "Execute get-memory-blocks. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-memory-blocks"),
 	},
@@ -4389,6 +4755,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-osinfo", "Execute get-osinfo. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-osinfo"),
 	},
@@ -4401,6 +4768,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-time", "Execute get-time. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-time"),
 	},
@@ -4413,6 +4781,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-timezone", "Execute get-timezone. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-timezone"),
 	},
@@ -4425,6 +4794,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-users", "Execute get-users. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-users"),
 	},
@@ -4437,6 +4807,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-get-vcpus", "Execute get-vcpus. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/get-vcpus"),
 	},
@@ -4449,6 +4820,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-info", "Execute info. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/info"),
 	},
@@ -4461,6 +4833,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "agent-network-get-interfaces", "Execute network-get-interfaces. Required privilege: VM.GuestAgent.Audit, VM.GuestAgent.Unrestricted (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/agent/network-get-interfaces"),
 	},
@@ -4473,6 +4846,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "cloudinit", "Get the cloudinit configuration with both current and pending values. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/cloudinit"),
 	},
@@ -4485,6 +4859,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "current", WireName: "current"}, {PublicName: "snapshot", WireName: "snapshot"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "config", "Get the virtual machine configuration with pending configuration changes applied.", "/nodes/{node}/qemu/{vmid}/config"),
 	},
@@ -4497,6 +4872,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "feature", WireName: "feature"}, {PublicName: "snapname", WireName: "snapname"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "feature", "Check if feature for virtual machine is available. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/feature"),
 	},
@@ -4509,6 +4885,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-aliases", "List aliases. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/aliases"),
 	},
@@ -4521,6 +4898,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-aliases-get", "Read alias. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/aliases/{name}"),
 	},
@@ -4533,6 +4911,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-ipset", "List IPSets. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/ipset"),
 	},
@@ -4545,6 +4924,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-ipset-cidr-get", "Read IP or Network settings from IPSet. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/ipset/{name}/{cidr}"),
 	},
@@ -4557,6 +4937,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-ipset-get", "List IPSet content. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/ipset/{name}"),
 	},
@@ -4569,6 +4950,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "since", WireName: "since"}, {PublicName: "start", WireName: "start"}, {PublicName: "until", WireName: "until"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-log", "Read firewall log. Required privilege: VM.Console on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/log"),
 	},
@@ -4581,6 +4963,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-options", "Get VM firewall options. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/options"),
 	},
@@ -4593,6 +4976,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-refs", "Lists possible IPSet/Alias reference which are allowed in source/dest properties.", "/nodes/{node}/qemu/{vmid}/firewall/refs"),
 	},
@@ -4605,6 +4989,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-rules", "List rules. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/rules"),
 	},
@@ -4617,6 +5002,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "firewall-rules-get", "Get single rule data. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/firewall/rules/{pos}"),
 	},
@@ -4629,6 +5015,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "full", WireName: "full"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "list", "Virtual machine index (per node). Required privilege: Only list VMs where you have VM.Audit permissions on /vms/<vmid>.", "/nodes/{node}/qemu"),
 	},
@@ -4641,6 +5028,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "target", WireName: "target"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "migrate", "Get preconditions for migration. Required privilege: VM.Migrate on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/migrate"),
 	},
@@ -4653,6 +5041,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "pending", "Get the virtual machine configuration with both current and pending values. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/pending"),
 	},
@@ -4665,6 +5054,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "ds", WireName: "ds"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "rrd", "Read VM RRD statistics (returns PNG) Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/rrd"),
 	},
@@ -4677,6 +5067,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cf", WireName: "cf"}, {PublicName: "timeframe", WireName: "timeframe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "rrddata", "Read VM RRD statistics. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/rrddata"),
 	},
@@ -4689,6 +5080,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "snapshot", "List all snapshots. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/snapshot"),
 	},
@@ -4701,6 +5093,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "snapshot-config", "Get snapshot configuration. Required privilege: VM.Snapshot, VM.Snapshot.Rollback, VM.Audit (any) on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/snapshot/{snapname}/config"),
 	},
@@ -4713,6 +5106,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "snapshot-get", "Read /nodes/{node}/qemu/{vmid}/snapshot/{snapname}. Required privilege: any authenticated user", "/nodes/{node}/qemu/{vmid}/snapshot/{snapname}"),
 	},
@@ -4725,6 +5119,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vm", "status-current", "Get virtual machine status. Required privilege: VM.Audit on /vms/{vmid}", "/nodes/{node}/qemu/{vmid}/status/current"),
 	},
@@ -4774,6 +5169,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -4871,10 +5270,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -4885,11 +5305,12 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call proxmox_search to discover valid ids", id)), nil
 	}
-	if ep.Method != "GET" { // proxmox hand-fix (code-orch-get-only): read-only toward Proxmox, switch or not
+	method := codeOrchNormalizeMethod(ep.Method)
+	if method != "GET" { // proxmox hand-fix (code-orch-get-only): read-only toward Proxmox, switch or not
 		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s: this connector never writes to Proxmox", ep.Method, id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -4937,11 +5358,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -4966,8 +5408,52 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	resolvedPath = codeOrchPreviewPath(path, c.Config.TemplateVars)
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call proxmox_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -5010,12 +5496,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -5082,4 +5578,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

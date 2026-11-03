@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"proxmox-pp-cli/internal/credkit"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -45,7 +46,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://pve.proxmox.com/wiki/User_Management#pveum_tokens")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export PROXMOX_API_TOKEN=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "PROXMOX_API_TOKEN", "your-token-here"))
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | proxmox-cli auth set-token")
 			if !launch {
 				return nil
@@ -79,7 +80,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
@@ -140,7 +141,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export PROXMOX_API_TOKEN=\"your-token-here\" # Proxmox VE API token as USER@REALM!TOKENID=SECRET (e.g. root@pam!cli=<uuid>); the CLI sends it as PVEAPIToken=...")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "PROXMOX_API_TOKEN", "your-token-here")+" # Proxmox VE API token as USER@REALM!TOKENID=SECRET (e.g. root@pam!cli=<uuid>); the CLI sends it as PVEAPIToken=...")
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | proxmox-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -151,7 +152,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set your API key with: export PROXMOX_API_TOKEN=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set your API key with: "+cliutil.EnvAssignHint(true, "PROXMOX_API_TOKEN", "your-token-here"))
 				}
 			}
 			return nil

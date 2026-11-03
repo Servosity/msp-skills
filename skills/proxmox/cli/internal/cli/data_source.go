@@ -419,6 +419,9 @@ var writeThroughNestedEnvelopeKeys = []string{"data", "Data", "result", "Result"
 // FTS search covers everything the user has looked up — not just explicit syncs.
 // Best-effort: failures are silently ignored (the live result already succeeded).
 func writeThroughCache(ctx context.Context, resourceType string, data json.RawMessage) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("proxmox-cli"))
 	if err != nil {
 		return
@@ -653,6 +656,9 @@ func isRawJSONNull(raw json.RawMessage) bool {
 }
 
 func writeMutationResponseToStore(ctx context.Context, resourceType string, data json.RawMessage, responsePath string) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("proxmox-cli"))
 	if err != nil {
 		return
@@ -683,15 +689,12 @@ var syncOwnedPartitions = map[string]struct{}{
 	"acme-directories":                       {},
 	"api2_json_nodes_syslog":                 {},
 	"api2_json_nodes_tasks":                  {},
-	"api2_json_nodes_tasks_log":              {},
 	"backup":                                 {},
 	"backup-not-backed-up":                   {},
 	"ceph":                                   {},
 	"ceph-health-mute":                       {},
-	"ceph-metadata":                          {},
 	"ceph-status":                            {},
 	"cluster":                                {},
-	"cluster-config-nodes":                   {},
 	"cluster-config-qdevice":                 {},
 	"cluster-config-totem":                   {},
 	"cluster-jobs-realm-sync":                {},
@@ -719,9 +722,12 @@ var syncOwnedPartitions = map[string]struct{}{
 	"mapping-pci":                            {},
 	"mapping-usb":                            {},
 	"nodes":                                  {},
+	"nodes_ceph_log":                         {},
+	"nodes_firewall_log":                     {},
 	"nodes_lxc_firewall_log":                 {},
 	"nodes_qemu_firewall_log":                {},
-	"nodes_tasks_log":                        {},
+	"nodes_syslog":                           {},
+	"nodes_tasks":                            {},
 	"notifications":                          {},
 	"notifications-endpoints-sendmail":       {},
 	"notifications-endpoints-smtp":           {},
@@ -773,7 +779,6 @@ var syncOwnedPartitions = map[string]struct{}{
 	"pbs_tape-tape-encryption-keys":          {},
 	"pools":                                  {},
 	"replication":                            {},
-	"replication_log":                        {},
 	"sdn":                                    {},
 	"sdn-controllers":                        {},
 	"sdn-fabrics-fabric":                     {},

@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -2318,6 +2325,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Access(t *testing.T) {
 		"keys",
 		"lastname",
 		"realm_type",
+		"user",
 		"privsep",
 		"tokenid",
 	} {
@@ -2574,19 +2582,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ceph(t *testing.T) {
 		"sticky",
 		"summary",
 		"ttl",
-		"back_addr",
-		"ceph_release",
-		"ceph_version",
-		"ceph_version_short",
-		"device_ids",
-		"device_paths",
-		"devices",
-		"front_addr",
-		"hostname",
-		"mem_swap_kb",
-		"mem_total_kb",
-		"osd_data",
-		"osd_objectstore",
 		"safe",
 		"status",
 		"data_pool",
@@ -2595,6 +2590,8 @@ func TestMigrate_AddsColumnsOnUpgrade_Ceph(t *testing.T) {
 		"n",
 		"t",
 		"addr",
+		"ceph_version",
+		"ceph_version_short",
 		"direxists",
 		"fs_name",
 		"host",
@@ -2610,12 +2607,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ceph(t *testing.T) {
 		"lv_size",
 		"lv_uuid",
 		"vg_name",
-		"dev_node",
-		"device",
-		"physical_device",
-		"size",
-		"support_discard",
-		"type",
 		"bytes_used",
 		"crush_rule",
 		"crush_rule_name",
@@ -2627,15 +2618,26 @@ func TestMigrate_AddsColumnsOnUpgrade_Ceph(t *testing.T) {
 		"pg_num_min",
 		"pool",
 		"pool_name",
+		"size",
 		"target_size",
 		"target_size_ratio",
+		"type",
+		"application",
+		"fast_read",
+		"hashpspool",
+		"nodeep_scrub",
+		"nodelete",
+		"nopgchange",
+		"noscrub",
+		"nosizechange",
+		"pgp_num",
+		"use_gmt_hitset",
+		"write_fadvise_dontneed",
 		"available",
 		"is_default",
 		"release",
 		"unsupported",
 		"version",
-		"parent_id",
-		"bare_id",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from ceph after migrate", want)
@@ -2644,8 +2646,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ceph(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_ceph_metadata_pool_id",
-		"idx_ceph_parent_id",
-		"idx_ceph_bare_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -2713,12 +2713,8 @@ func TestMigrate_AddsColumnsOnUpgrade_Cluster(t *testing.T) {
 		"release",
 		"repoid",
 		"version",
-		"name",
-		"nodeid",
-		"pve_addr",
-		"pve_fp",
-		"quorum_votes",
-		"ring0_addr",
+		"config_digest",
+		"preferred_node",
 		"node",
 		"comment",
 		"enabled",
@@ -2737,6 +2733,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Cluster(t *testing.T) {
 		"port",
 		"server",
 		"description",
+		"name",
 		"cputype",
 		"digest",
 		"flags",
@@ -2778,6 +2775,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Cluster(t *testing.T) {
 		"zone_type",
 		"ip",
 		"local",
+		"nodeid",
 		"nodes",
 		"online",
 		"quorate",
@@ -2850,10 +2848,42 @@ func TestMigrate_AddsColumnsOnUpgrade_Ct(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"arch",
+		"cmode",
+		"console",
+		"cores",
+		"cpulimit",
+		"cpuunits",
+		"debug",
+		"description",
+		"dev[n]",
+		"digest",
+		"entrypoint",
+		"env",
+		"features",
+		"hookscript",
+		"hostname",
+		"lock",
+		"memory",
+		"mp[n]",
+		"nameserver",
+		"net[n]",
+		"onboot",
+		"ostype",
+		"protection",
+		"rootfs",
+		"searchdomain",
+		"startup",
+		"swap",
+		"tags",
+		"template",
+		"timezone",
+		"tty",
+		"unprivileged",
+		"unused[n]",
 		"has_feature",
 		"cidr",
 		"comment",
-		"digest",
 		"name",
 		"nomatch",
 		"n",
@@ -2892,7 +2922,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ct(t *testing.T) {
 		"disk",
 		"diskread",
 		"diskwrite",
-		"lock",
 		"maxdisk",
 		"maxmem",
 		"maxswap",
@@ -2905,8 +2934,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ct(t *testing.T) {
 		"pressurememoryfull",
 		"pressurememorysome",
 		"status",
-		"tags",
-		"template",
 		"uptime",
 		"vmid",
 		"running",
@@ -2915,7 +2942,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Ct(t *testing.T) {
 		"pending",
 		"value",
 		"filename",
-		"description",
 		"parent",
 		"snaptime",
 	} {
@@ -3004,9 +3030,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Disks(t *testing.T) {
 		"used",
 		"vendor",
 		"wwn",
-		"free",
 		"leaf",
-		"name",
 		"lv",
 		"lv_size",
 		"metadata_size",
@@ -3014,14 +3038,17 @@ func TestMigrate_AddsColumnsOnUpgrade_Disks(t *testing.T) {
 		"vg",
 		"method",
 		"pool",
+		"text",
 		"alloc",
 		"dedup",
 		"frag",
-		"cksum",
-		"msg",
-		"read",
+		"free",
+		"name",
+		"action",
+		"errors",
+		"scan",
 		"state",
-		"write",
+		"status",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from disks after migrate", want)
@@ -3139,18 +3166,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Firewall(t *testing.T) {
 		"policy_out",
 		"ref",
 		"scope",
-		"parent_id",
-		"bare_id",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from firewall after migrate", want)
 		}
 	}
 
-	for _, wantIdx := range []string{
-		"idx_firewall_parent_id",
-		"idx_firewall_bare_id",
-	} {
+	for _, wantIdx := range []string{} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
@@ -3490,6 +3512,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Nodes(t *testing.T) {
 		"service",
 		"state",
 		"unit_state",
+		"pveversion",
 		"n",
 		"t",
 		"localtime",
@@ -3497,18 +3520,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Nodes(t *testing.T) {
 		"timezone",
 		"release",
 		"repoid",
-		"parent_id",
-		"bare_id",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from nodes after migrate", want)
 		}
 	}
 
-	for _, wantIdx := range []string{
-		"idx_nodes_parent_id",
-		"idx_nodes_bare_id",
-	} {
+	for _, wantIdx := range []string{} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
@@ -4163,12 +4181,6 @@ func TestMigrate_AddsColumnsOnUpgrade_PbsNodes(t *testing.T) {
 		"vendor",
 		"wearout",
 		"wwn",
-		"flags",
-		"normalized",
-		"raw",
-		"threshold",
-		"value",
-		"worst",
 		"alloc",
 		"dedup",
 		"frag",
@@ -4203,6 +4215,10 @@ func TestMigrate_AddsColumnsOnUpgrade_PbsNodes(t *testing.T) {
 		"service",
 		"state",
 		"unit_state",
+		"cpu",
+		"kversion",
+		"uptime",
+		"wait",
 		"n",
 		"t",
 		"endtime",
@@ -4533,10 +4549,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Pools(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"node",
-		"storage",
-		"type",
-		"vmid",
 		"comment",
 		"poolid",
 	} {
@@ -4870,8 +4882,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Storage(t *testing.T) {
 		"vmid",
 		"volid",
 		"path",
-		"key",
-		"value",
+		"source",
 		"mark",
 		"filename",
 	} {
@@ -4955,18 +4966,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Tasks(t *testing.T) {
 		"n",
 		"t",
 		"exitstatus",
-		"parent_id",
-		"bare_id",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from tasks after migrate", want)
 		}
 	}
 
-	for _, wantIdx := range []string{
-		"idx_tasks_parent_id",
-		"idx_tasks_bare_id",
-	} {
+	for _, wantIdx := range []string{} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
@@ -5122,6 +5128,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Vm(t *testing.T) {
 		"vmstate",
 		"vmstatestorage",
 		"watchdog",
+		"has_feature",
 		"cidr",
 		"comment",
 		"nomatch",
@@ -5266,5 +5273,1751 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"access", "path"},
+		{"access", "propagate"},
+		{"access", "roleid"},
+		{"access", "type"},
+		{"access", "ugid"},
+		{"access", "comment"},
+		{"access", "realm"},
+		{"access", "tfa"},
+		{"access", "groupid"},
+		{"access", "users"},
+		{"access", "privs"},
+		{"access", "special"},
+		{"access", "datastore_allocate"},
+		{"access", "datastore_allocate_space"},
+		{"access", "datastore_allocate_template"},
+		{"access", "datastore_audit"},
+		{"access", "group_allocate"},
+		{"access", "mapping_audit"},
+		{"access", "mapping_modify"},
+		{"access", "mapping_use"},
+		{"access", "permissions_modify"},
+		{"access", "pool_allocate"},
+		{"access", "pool_audit"},
+		{"access", "realm_allocate"},
+		{"access", "realm_allocate_user"},
+		{"access", "sdn_allocate"},
+		{"access", "sdn_audit"},
+		{"access", "sdn_use"},
+		{"access", "sys_access_network"},
+		{"access", "sys_audit"},
+		{"access", "sys_console"},
+		{"access", "sys_incoming"},
+		{"access", "sys_modify"},
+		{"access", "sys_power_mgmt"},
+		{"access", "sys_syslog"},
+		{"access", "user_modify"},
+		{"access", "vm_allocate"},
+		{"access", "vm_audit"},
+		{"access", "vm_backup"},
+		{"access", "vm_clone"},
+		{"access", "vm_config_cdrom"},
+		{"access", "vm_config_cpu"},
+		{"access", "vm_config_cloudinit"},
+		{"access", "vm_config_disk"},
+		{"access", "vm_config_hw_type"},
+		{"access", "vm_config_memory"},
+		{"access", "vm_config_network"},
+		{"access", "vm_config_options"},
+		{"access", "vm_console"},
+		{"access", "vm_guest_agent_audit"},
+		{"access", "vm_guest_agent_file_read"},
+		{"access", "vm_guest_agent_file_system_mgmt"},
+		{"access", "vm_guest_agent_file_write"},
+		{"access", "vm_guest_agent_unrestricted"},
+		{"access", "vm_migrate"},
+		{"access", "vm_power_mgmt"},
+		{"access", "vm_replicate"},
+		{"access", "vm_snapshot"},
+		{"access", "vm_snapshot_rollback"},
+		{"access", "tfa_locked_until"},
+		{"access", "totp_locked"},
+		{"access", "userid"},
+		{"access", "created"},
+		{"access", "description"},
+		{"access", "enable"},
+		{"access", "email"},
+		{"access", "expire"},
+		{"access", "firstname"},
+		{"access", "groups"},
+		{"access", "keys"},
+		{"access", "lastname"},
+		{"access", "realm_type"},
+		{"access", "user"},
+		{"access", "privsep"},
+		{"access", "tokenid"},
+		{"acme", "directory"},
+		{"acme", "location"},
+		{"acme", "tos"},
+		{"acme", "name"},
+		{"acme", "type"},
+		{"acme", "url"},
+		{"backup", "all"},
+		{"backup", "bwlimit"},
+		{"backup", "comment"},
+		{"backup", "compress"},
+		{"backup", "dumpdir"},
+		{"backup", "enabled"},
+		{"backup", "exclude"},
+		{"backup", "ionice"},
+		{"backup", "lockwait"},
+		{"backup", "mailnotification"},
+		{"backup", "mailto"},
+		{"backup", "mode"},
+		{"backup", "next_run"},
+		{"backup", "node"},
+		{"backup", "notes_template"},
+		{"backup", "notification_mode"},
+		{"backup", "pbs_change_detection_mode"},
+		{"backup", "pigz"},
+		{"backup", "pool"},
+		{"backup", "protected"},
+		{"backup", "quiet"},
+		{"backup", "remove"},
+		{"backup", "repeat_missed"},
+		{"backup", "schedule"},
+		{"backup", "script"},
+		{"backup", "stdexcludes"},
+		{"backup", "stop"},
+		{"backup", "stopwait"},
+		{"backup", "storage"},
+		{"backup", "tmpdir"},
+		{"backup", "vmid"},
+		{"backup", "zstd"},
+		{"backup", "name"},
+		{"backup", "type"},
+		{"ceph", "description"},
+		{"ceph", "name"},
+		{"ceph", "value"},
+		{"ceph", "code"},
+		{"ceph", "sticky"},
+		{"ceph", "summary"},
+		{"ceph", "ttl"},
+		{"ceph", "safe"},
+		{"ceph", "status"},
+		{"ceph", "data_pool"},
+		{"ceph", "metadata_pool"},
+		{"ceph", "metadata_pool_id"},
+		{"ceph", "n"},
+		{"ceph", "t"},
+		{"ceph", "addr"},
+		{"ceph", "ceph_version"},
+		{"ceph", "ceph_version_short"},
+		{"ceph", "direxists"},
+		{"ceph", "fs_name"},
+		{"ceph", "host"},
+		{"ceph", "rank"},
+		{"ceph", "service"},
+		{"ceph", "standby_replay"},
+		{"ceph", "state"},
+		{"ceph", "quorum"},
+		{"ceph", "flags"},
+		{"ceph", "creation_time"},
+		{"ceph", "lv_name"},
+		{"ceph", "lv_path"},
+		{"ceph", "lv_size"},
+		{"ceph", "lv_uuid"},
+		{"ceph", "vg_name"},
+		{"ceph", "bytes_used"},
+		{"ceph", "crush_rule"},
+		{"ceph", "crush_rule_name"},
+		{"ceph", "min_size"},
+		{"ceph", "percent_used"},
+		{"ceph", "pg_autoscale_mode"},
+		{"ceph", "pg_num"},
+		{"ceph", "pg_num_final"},
+		{"ceph", "pg_num_min"},
+		{"ceph", "pool"},
+		{"ceph", "pool_name"},
+		{"ceph", "size"},
+		{"ceph", "target_size"},
+		{"ceph", "target_size_ratio"},
+		{"ceph", "type"},
+		{"ceph", "application"},
+		{"ceph", "fast_read"},
+		{"ceph", "hashpspool"},
+		{"ceph", "nodeep_scrub"},
+		{"ceph", "nodelete"},
+		{"ceph", "nopgchange"},
+		{"ceph", "noscrub"},
+		{"ceph", "nosizechange"},
+		{"ceph", "pgp_num"},
+		{"ceph", "use_gmt_hitset"},
+		{"ceph", "write_fadvise_dontneed"},
+		{"ceph", "available"},
+		{"ceph", "is_default"},
+		{"ceph", "release"},
+		{"ceph", "unsupported"},
+		{"ceph", "version"},
+		{"cluster", "console"},
+		{"cluster", "release"},
+		{"cluster", "repoid"},
+		{"cluster", "version"},
+		{"cluster", "config_digest"},
+		{"cluster", "preferred_node"},
+		{"cluster", "node"},
+		{"cluster", "comment"},
+		{"cluster", "enabled"},
+		{"cluster", "last_run"},
+		{"cluster", "next_run"},
+		{"cluster", "realm"},
+		{"cluster", "remove_vanished"},
+		{"cluster", "schedule"},
+		{"cluster", "scope"},
+		{"cluster", "timestamp"},
+		{"cluster", "utc"},
+		{"cluster", "metric"},
+		{"cluster", "type"},
+		{"cluster", "value"},
+		{"cluster", "disable"},
+		{"cluster", "port"},
+		{"cluster", "server"},
+		{"cluster", "description"},
+		{"cluster", "name"},
+		{"cluster", "cputype"},
+		{"cluster", "digest"},
+		{"cluster", "flags"},
+		{"cluster", "guest_phys_bits"},
+		{"cluster", "hidden"},
+		{"cluster", "hv_vendor_id"},
+		{"cluster", "level"},
+		{"cluster", "phys_bits"},
+		{"cluster", "reported_model"},
+		{"cluster", "cgroup_mode"},
+		{"cluster", "content"},
+		{"cluster", "cpu"},
+		{"cluster", "disk"},
+		{"cluster", "diskread"},
+		{"cluster", "diskwrite"},
+		{"cluster", "hastate"},
+		{"cluster", "host_arch"},
+		{"cluster", "lock"},
+		{"cluster", "maxcpu"},
+		{"cluster", "maxdisk"},
+		{"cluster", "maxmem"},
+		{"cluster", "mem"},
+		{"cluster", "memhost"},
+		{"cluster", "netin"},
+		{"cluster", "netout"},
+		{"cluster", "network"},
+		{"cluster", "network_type"},
+		{"cluster", "plugintype"},
+		{"cluster", "pool"},
+		{"cluster", "protocol"},
+		{"cluster", "sdn"},
+		{"cluster", "shared"},
+		{"cluster", "status"},
+		{"cluster", "storage"},
+		{"cluster", "tags"},
+		{"cluster", "template"},
+		{"cluster", "uptime"},
+		{"cluster", "vmid"},
+		{"cluster", "zone_type"},
+		{"cluster", "ip"},
+		{"cluster", "local"},
+		{"cluster", "nodeid"},
+		{"cluster", "nodes"},
+		{"cluster", "online"},
+		{"cluster", "quorate"},
+		{"ct", "arch"},
+		{"ct", "cmode"},
+		{"ct", "console"},
+		{"ct", "cores"},
+		{"ct", "cpulimit"},
+		{"ct", "cpuunits"},
+		{"ct", "debug"},
+		{"ct", "description"},
+		{"ct", "dev[n]"},
+		{"ct", "digest"},
+		{"ct", "entrypoint"},
+		{"ct", "env"},
+		{"ct", "features"},
+		{"ct", "hookscript"},
+		{"ct", "hostname"},
+		{"ct", "lock"},
+		{"ct", "memory"},
+		{"ct", "mp[n]"},
+		{"ct", "nameserver"},
+		{"ct", "net[n]"},
+		{"ct", "onboot"},
+		{"ct", "ostype"},
+		{"ct", "protection"},
+		{"ct", "rootfs"},
+		{"ct", "searchdomain"},
+		{"ct", "startup"},
+		{"ct", "swap"},
+		{"ct", "tags"},
+		{"ct", "template"},
+		{"ct", "timezone"},
+		{"ct", "tty"},
+		{"ct", "unprivileged"},
+		{"ct", "unused[n]"},
+		{"ct", "has_feature"},
+		{"ct", "cidr"},
+		{"ct", "comment"},
+		{"ct", "name"},
+		{"ct", "nomatch"},
+		{"ct", "n"},
+		{"ct", "t"},
+		{"ct", "dhcp"},
+		{"ct", "enable"},
+		{"ct", "ipfilter"},
+		{"ct", "log_level_in"},
+		{"ct", "log_level_out"},
+		{"ct", "macfilter"},
+		{"ct", "ndp"},
+		{"ct", "policy_in"},
+		{"ct", "policy_out"},
+		{"ct", "radv"},
+		{"ct", "ref"},
+		{"ct", "scope"},
+		{"ct", "type"},
+		{"ct", "action"},
+		{"ct", "dest"},
+		{"ct", "dport"},
+		{"ct", "icmp_type"},
+		{"ct", "iface"},
+		{"ct", "ipversion"},
+		{"ct", "log"},
+		{"ct", "macro"},
+		{"ct", "pos"},
+		{"ct", "proto"},
+		{"ct", "source"},
+		{"ct", "sport"},
+		{"ct", "hardware_address"},
+		{"ct", "hwaddr"},
+		{"ct", "inet"},
+		{"ct", "inet6"},
+		{"ct", "cpu"},
+		{"ct", "cpus"},
+		{"ct", "disk"},
+		{"ct", "diskread"},
+		{"ct", "diskwrite"},
+		{"ct", "maxdisk"},
+		{"ct", "maxmem"},
+		{"ct", "maxswap"},
+		{"ct", "mem"},
+		{"ct", "netin"},
+		{"ct", "netout"},
+		{"ct", "pressurecpusome"},
+		{"ct", "pressureiofull"},
+		{"ct", "pressureiosome"},
+		{"ct", "pressurememoryfull"},
+		{"ct", "pressurememorysome"},
+		{"ct", "status"},
+		{"ct", "uptime"},
+		{"ct", "vmid"},
+		{"ct", "running"},
+		{"ct", "delete"},
+		{"ct", "key"},
+		{"ct", "pending"},
+		{"ct", "value"},
+		{"ct", "filename"},
+		{"ct", "parent"},
+		{"ct", "snaptime"},
+		{"disks", "device"},
+		{"disks", "options"},
+		{"disks", "path"},
+		{"disks", "type"},
+		{"disks", "unitfile"},
+		{"disks", "devpath"},
+		{"disks", "gpt"},
+		{"disks", "health"},
+		{"disks", "model"},
+		{"disks", "mounted"},
+		{"disks", "osdid"},
+		{"disks", "parent"},
+		{"disks", "serial"},
+		{"disks", "size"},
+		{"disks", "used"},
+		{"disks", "vendor"},
+		{"disks", "wwn"},
+		{"disks", "leaf"},
+		{"disks", "lv"},
+		{"disks", "lv_size"},
+		{"disks", "metadata_size"},
+		{"disks", "metadata_used"},
+		{"disks", "vg"},
+		{"disks", "method"},
+		{"disks", "pool"},
+		{"disks", "text"},
+		{"disks", "alloc"},
+		{"disks", "dedup"},
+		{"disks", "frag"},
+		{"disks", "free"},
+		{"disks", "name"},
+		{"disks", "action"},
+		{"disks", "errors"},
+		{"disks", "scan"},
+		{"disks", "state"},
+		{"disks", "status"},
+		{"firewall", "cidr"},
+		{"firewall", "comment"},
+		{"firewall", "digest"},
+		{"firewall", "name"},
+		{"firewall", "group"},
+		{"firewall", "action"},
+		{"firewall", "dest"},
+		{"firewall", "dport"},
+		{"firewall", "enable"},
+		{"firewall", "icmp_type"},
+		{"firewall", "iface"},
+		{"firewall", "ipversion"},
+		{"firewall", "log"},
+		{"firewall", "macro"},
+		{"firewall", "pos"},
+		{"firewall", "proto"},
+		{"firewall", "source"},
+		{"firewall", "sport"},
+		{"firewall", "type"},
+		{"firewall", "nomatch"},
+		{"firewall", "descr"},
+		{"firewall", "n"},
+		{"firewall", "t"},
+		{"firewall", "log_level_forward"},
+		{"firewall", "log_level_in"},
+		{"firewall", "log_level_out"},
+		{"firewall", "log_nf_conntrack"},
+		{"firewall", "ndp"},
+		{"firewall", "nf_conntrack_allow_invalid"},
+		{"firewall", "nf_conntrack_helpers"},
+		{"firewall", "nf_conntrack_max"},
+		{"firewall", "nf_conntrack_tcp_timeout_established"},
+		{"firewall", "nf_conntrack_tcp_timeout_syn_recv"},
+		{"firewall", "nftables"},
+		{"firewall", "nosmurfs"},
+		{"firewall", "protection_synflood"},
+		{"firewall", "protection_synflood_burst"},
+		{"firewall", "protection_synflood_rate"},
+		{"firewall", "smurf_log_level"},
+		{"firewall", "tcp_flags_log_level"},
+		{"firewall", "tcpflags"},
+		{"firewall", "ebtables"},
+		{"firewall", "log_ratelimit"},
+		{"firewall", "policy_forward"},
+		{"firewall", "policy_in"},
+		{"firewall", "policy_out"},
+		{"firewall", "ref"},
+		{"firewall", "scope"},
+		{"ha", "group"},
+		{"ha", "sid"},
+		{"ha", "auto_rebalance"},
+		{"ha", "comment"},
+		{"ha", "digest"},
+		{"ha", "failback"},
+		{"ha", "max_relocate"},
+		{"ha", "max_restart"},
+		{"ha", "state"},
+		{"ha", "type"},
+		{"ha", "rule"},
+		{"ha", "armed_state"},
+		{"ha", "crm_state"},
+		{"ha", "node"},
+		{"ha", "quorate"},
+		{"ha", "request_state"},
+		{"ha", "resource_mode"},
+		{"ha", "status"},
+		{"ha", "timestamp"},
+		{"mapping", "description"},
+		{"mapping", "error"},
+		{"nodes", "arch"},
+		{"nodes", "description"},
+		{"nodes", "notify_status"},
+		{"nodes", "old_version"},
+		{"nodes", "origin"},
+		{"nodes", "package"},
+		{"nodes", "priority"},
+		{"nodes", "section"},
+		{"nodes", "title"},
+		{"nodes", "version"},
+		{"nodes", "current_state"},
+		{"nodes", "manager_version"},
+		{"nodes", "running_kernel"},
+		{"nodes", "abstract"},
+		{"nodes", "custom"},
+		{"nodes", "name"},
+		{"nodes", "vendor"},
+		{"nodes", "changes"},
+		{"nodes", "type"},
+		{"nodes", "has_dbus_vmstate"},
+		{"nodes", "filename"},
+		{"nodes", "fingerprint"},
+		{"nodes", "issuer"},
+		{"nodes", "notafter"},
+		{"nodes", "notbefore"},
+		{"nodes", "pem"},
+		{"nodes", "public_key_bits"},
+		{"nodes", "public_key_type"},
+		{"nodes", "subject"},
+		{"nodes", "acme"},
+		{"nodes", "acmedomain[n]"},
+		{"nodes", "ballooning_target"},
+		{"nodes", "digest"},
+		{"nodes", "location"},
+		{"nodes", "startall_onboot_delay"},
+		{"nodes", "wakeonlan"},
+		{"nodes", "dns1"},
+		{"nodes", "dns2"},
+		{"nodes", "dns3"},
+		{"nodes", "search"},
+		{"nodes", "class"},
+		{"nodes", "device"},
+		{"nodes", "device_name"},
+		{"nodes", "iommugroup"},
+		{"nodes", "mdev"},
+		{"nodes", "subsystem_device"},
+		{"nodes", "subsystem_device_name"},
+		{"nodes", "subsystem_vendor"},
+		{"nodes", "subsystem_vendor_name"},
+		{"nodes", "vendor_name"},
+		{"nodes", "method"},
+		{"nodes", "available"},
+		{"nodes", "busnum"},
+		{"nodes", "devnum"},
+		{"nodes", "level"},
+		{"nodes", "manufacturer"},
+		{"nodes", "port"},
+		{"nodes", "prodid"},
+		{"nodes", "product"},
+		{"nodes", "serial"},
+		{"nodes", "speed"},
+		{"nodes", "usbpath"},
+		{"nodes", "vendid"},
+		{"nodes", "cpu"},
+		{"nodes", "maxcpu"},
+		{"nodes", "maxmem"},
+		{"nodes", "mem"},
+		{"nodes", "node"},
+		{"nodes", "ssl_fingerprint"},
+		{"nodes", "status"},
+		{"nodes", "uptime"},
+		{"nodes", "active"},
+		{"nodes", "address"},
+		{"nodes", "address6"},
+		{"nodes", "autostart"},
+		{"nodes", "bond_primary"},
+		{"nodes", "bond_mode"},
+		{"nodes", "bond_xmit_hash_policy"},
+		{"nodes", "bridge_access"},
+		{"nodes", "bridge_arp_nd_suppress"},
+		{"nodes", "bridge_learning"},
+		{"nodes", "bridge_multicast_flood"},
+		{"nodes", "bridge_unicast_flood"},
+		{"nodes", "bridge_ports"},
+		{"nodes", "bridge_vids"},
+		{"nodes", "bridge_vlan_aware"},
+		{"nodes", "cidr"},
+		{"nodes", "cidr6"},
+		{"nodes", "comments"},
+		{"nodes", "comments6"},
+		{"nodes", "exists"},
+		{"nodes", "gateway"},
+		{"nodes", "gateway6"},
+		{"nodes", "iface"},
+		{"nodes", "link_type"},
+		{"nodes", "method6"},
+		{"nodes", "mtu"},
+		{"nodes", "netmask"},
+		{"nodes", "netmask6"},
+		{"nodes", "ovs_bonds"},
+		{"nodes", "ovs_bridge"},
+		{"nodes", "ovs_options"},
+		{"nodes", "ovs_ports"},
+		{"nodes", "ovs_tag"},
+		{"nodes", "slaves"},
+		{"nodes", "uplink_id"},
+		{"nodes", "vlan_id"},
+		{"nodes", "vlan_protocol"},
+		{"nodes", "vlan_raw_device"},
+		{"nodes", "vxlan_id"},
+		{"nodes", "vxlan_local_tunnelip"},
+		{"nodes", "vxlan_physdev"},
+		{"nodes", "vxlan_svcnodeip"},
+		{"nodes", "active_state"},
+		{"nodes", "desc"},
+		{"nodes", "service"},
+		{"nodes", "state"},
+		{"nodes", "unit_state"},
+		{"nodes", "pveversion"},
+		{"nodes", "n"},
+		{"nodes", "t"},
+		{"nodes", "localtime"},
+		{"nodes", "time"},
+		{"nodes", "timezone"},
+		{"nodes", "release"},
+		{"nodes", "repoid"},
+		{"notifications", "comment"},
+		{"notifications", "disable"},
+		{"notifications", "name"},
+		{"notifications", "origin"},
+		{"notifications", "server"},
+		{"notifications", "digest"},
+		{"notifications", "author"},
+		{"notifications", "from_address"},
+		{"notifications", "mode"},
+		{"notifications", "port"},
+		{"notifications", "username"},
+		{"notifications", "field"},
+		{"notifications", "value"},
+		{"notifications", "invert_match"},
+		{"notifications", "type"},
+		{"pbs_access", "path"},
+		{"pbs_access", "propagate"},
+		{"pbs_access", "roleid"},
+		{"pbs_access", "ugid"},
+		{"pbs_access", "ugid_type"},
+		{"pbs_access", "base_dn"},
+		{"pbs_access", "bind_dn"},
+		{"pbs_access", "capath"},
+		{"pbs_access", "comment"},
+		{"pbs_access", "default"},
+		{"pbs_access", "filter"},
+		{"pbs_access", "mode"},
+		{"pbs_access", "port"},
+		{"pbs_access", "realm"},
+		{"pbs_access", "server1"},
+		{"pbs_access", "server2"},
+		{"pbs_access", "sync_attributes"},
+		{"pbs_access", "sync_defaults_options"},
+		{"pbs_access", "user_classes"},
+		{"pbs_access", "verify"},
+		{"pbs_access", "user_attr"},
+		{"pbs_access", "type"},
+		{"pbs_access", "allow_subdomains"},
+		{"pbs_access", "origin"},
+		{"pbs_access", "rp"},
+		{"pbs_access", "tfa_locked_until"},
+		{"pbs_access", "totp_locked"},
+		{"pbs_access", "userid"},
+		{"pbs_access", "created"},
+		{"pbs_access", "description"},
+		{"pbs_access", "enable"},
+		{"pbs_access", "email"},
+		{"pbs_access", "expire"},
+		{"pbs_access", "firstname"},
+		{"pbs_access", "lastname"},
+		{"pbs_access", "token_name"},
+		{"pbs_access", "tokenid"},
+		{"pbs_config", "name"},
+		{"pbs_config", "directory"},
+		{"pbs_config", "location"},
+		{"pbs_config", "tos"},
+		{"pbs_config", "type"},
+		{"pbs_config", "url"},
+		{"pbs_config", "comment"},
+		{"pbs_config", "enable"},
+		{"pbs_config", "server"},
+		{"pbs_config", "burst_in"},
+		{"pbs_config", "burst_out"},
+		{"pbs_config", "cur_rate_in"},
+		{"pbs_config", "cur_rate_out"},
+		{"pbs_config", "rate_in"},
+		{"pbs_config", "rate_out"},
+		{"pbs_config", "archived_at"},
+		{"pbs_config", "created"},
+		{"pbs_config", "fingerprint"},
+		{"pbs_config", "hint"},
+		{"pbs_config", "kdf"},
+		{"pbs_config", "modified"},
+		{"pbs_config", "path"},
+		{"pbs_config", "host"},
+		{"pbs_config", "mtu"},
+		{"pbs_config", "auth_id"},
+		{"pbs_config", "port"},
+		{"pbs_config", "use_node_proxy"},
+		{"pbs_config", "backend_type"},
+		{"pbs_config", "maintenance"},
+		{"pbs_config", "mount_status"},
+		{"pbs_config", "store"},
+		{"pbs_config", "backup_count"},
+		{"pbs_config", "backup_id"},
+		{"pbs_config", "backup_type"},
+		{"pbs_config", "last_backup"},
+		{"pbs_config", "owner"},
+		{"pbs_config", "ns"},
+		{"pbs_config", "access_key"},
+		{"pbs_config", "endpoint"},
+		{"pbs_config", "limit_active_requests"},
+		{"pbs_config", "limit_passive_requests"},
+		{"pbs_config", "path_style"},
+		{"pbs_config", "put_rate_limit"},
+		{"pbs_config", "region"},
+		{"pbs_datastore", "backend"},
+		{"pbs_datastore", "backing_device"},
+		{"pbs_datastore", "comment"},
+		{"pbs_datastore", "counter_reset_schedule"},
+		{"pbs_datastore", "gc_on_unmount"},
+		{"pbs_datastore", "gc_schedule"},
+		{"pbs_datastore", "keep_daily"},
+		{"pbs_datastore", "keep_hourly"},
+		{"pbs_datastore", "keep_last"},
+		{"pbs_datastore", "keep_monthly"},
+		{"pbs_datastore", "keep_weekly"},
+		{"pbs_datastore", "keep_yearly"},
+		{"pbs_datastore", "maintenance_mode"},
+		{"pbs_datastore", "name"},
+		{"pbs_datastore", "notification_mode"},
+		{"pbs_datastore", "notification_thresholds"},
+		{"pbs_datastore", "notify"},
+		{"pbs_datastore", "notify_user"},
+		{"pbs_datastore", "path"},
+		{"pbs_datastore", "prune_schedule"},
+		{"pbs_datastore", "tuning"},
+		{"pbs_datastore", "verify_new"},
+		{"pbs_datastore", "crypt_mode"},
+		{"pbs_datastore", "filename"},
+		{"pbs_datastore", "size"},
+		{"pbs_datastore", "disk_bytes"},
+		{"pbs_datastore", "disk_chunks"},
+		{"pbs_datastore", "duration"},
+		{"pbs_datastore", "index_data_bytes"},
+		{"pbs_datastore", "index_file_count"},
+		{"pbs_datastore", "last_run_endtime"},
+		{"pbs_datastore", "last_run_state"},
+		{"pbs_datastore", "next_run"},
+		{"pbs_datastore", "pending_bytes"},
+		{"pbs_datastore", "pending_chunks"},
+		{"pbs_datastore", "removed_bad"},
+		{"pbs_datastore", "removed_bytes"},
+		{"pbs_datastore", "removed_chunks"},
+		{"pbs_datastore", "schedule"},
+		{"pbs_datastore", "still_bad"},
+		{"pbs_datastore", "store"},
+		{"pbs_datastore", "upid"},
+		{"pbs_datastore", "backup_count"},
+		{"pbs_datastore", "backup_id"},
+		{"pbs_datastore", "backup_type"},
+		{"pbs_datastore", "last_backup"},
+		{"pbs_datastore", "owner"},
+		{"pbs_datastore", "backend_type"},
+		{"pbs_datastore", "maintenance"},
+		{"pbs_datastore", "mount_status"},
+		{"pbs_datastore", "ns"},
+		{"pbs_datastore", "backup_time"},
+		{"pbs_datastore", "fingerprint"},
+		{"pbs_datastore", "protected"},
+		{"pbs_datastore", "avail"},
+		{"pbs_datastore", "total"},
+		{"pbs_datastore", "used"},
+		{"pbs_datastore", "error"},
+		{"pbs_datastore", "estimated_full_date"},
+		{"pbs_datastore", "history_delta"},
+		{"pbs_datastore", "history_start"},
+		{"pbs_jobs", "disk_bytes"},
+		{"pbs_jobs", "disk_chunks"},
+		{"pbs_jobs", "duration"},
+		{"pbs_jobs", "index_data_bytes"},
+		{"pbs_jobs", "index_file_count"},
+		{"pbs_jobs", "last_run_endtime"},
+		{"pbs_jobs", "last_run_state"},
+		{"pbs_jobs", "next_run"},
+		{"pbs_jobs", "pending_bytes"},
+		{"pbs_jobs", "pending_chunks"},
+		{"pbs_jobs", "removed_bad"},
+		{"pbs_jobs", "removed_bytes"},
+		{"pbs_jobs", "removed_chunks"},
+		{"pbs_jobs", "schedule"},
+		{"pbs_jobs", "still_bad"},
+		{"pbs_jobs", "store"},
+		{"pbs_jobs", "upid"},
+		{"pbs_jobs", "comment"},
+		{"pbs_jobs", "disable"},
+		{"pbs_jobs", "keep_daily"},
+		{"pbs_jobs", "keep_hourly"},
+		{"pbs_jobs", "keep_last"},
+		{"pbs_jobs", "keep_monthly"},
+		{"pbs_jobs", "keep_weekly"},
+		{"pbs_jobs", "keep_yearly"},
+		{"pbs_jobs", "last_run_upid"},
+		{"pbs_jobs", "max_depth"},
+		{"pbs_jobs", "ns"},
+		{"pbs_jobs", "active_encryption_key"},
+		{"pbs_jobs", "burst_in"},
+		{"pbs_jobs", "burst_out"},
+		{"pbs_jobs", "encrypted_only"},
+		{"pbs_jobs", "owner"},
+		{"pbs_jobs", "rate_in"},
+		{"pbs_jobs", "rate_out"},
+		{"pbs_jobs", "remote"},
+		{"pbs_jobs", "remote_ns"},
+		{"pbs_jobs", "remote_store"},
+		{"pbs_jobs", "remove_vanished"},
+		{"pbs_jobs", "resync_corrupt"},
+		{"pbs_jobs", "run_on_mount"},
+		{"pbs_jobs", "sync_direction"},
+		{"pbs_jobs", "transfer_last"},
+		{"pbs_jobs", "unmount_on_done"},
+		{"pbs_jobs", "verified_only"},
+		{"pbs_jobs", "worker_threads"},
+		{"pbs_jobs", "ignore_verified"},
+		{"pbs_jobs", "outdated_after"},
+		{"pbs_jobs", "read_threads"},
+		{"pbs_jobs", "verify_threads"},
+		{"pbs_nodes", "release"},
+		{"pbs_nodes", "repoid"},
+		{"pbs_nodes", "version"},
+		{"pbs_nodes", "arch"},
+		{"pbs_nodes", "description"},
+		{"pbs_nodes", "extra_info"},
+		{"pbs_nodes", "old_version"},
+		{"pbs_nodes", "origin"},
+		{"pbs_nodes", "package"},
+		{"pbs_nodes", "priority"},
+		{"pbs_nodes", "section"},
+		{"pbs_nodes", "title"},
+		{"pbs_nodes", "filename"},
+		{"pbs_nodes", "fingerprint"},
+		{"pbs_nodes", "issuer"},
+		{"pbs_nodes", "notafter"},
+		{"pbs_nodes", "notbefore"},
+		{"pbs_nodes", "pem"},
+		{"pbs_nodes", "public_key_bits"},
+		{"pbs_nodes", "public_key_type"},
+		{"pbs_nodes", "subject"},
+		{"pbs_nodes", "device"},
+		{"pbs_nodes", "filesystem"},
+		{"pbs_nodes", "name"},
+		{"pbs_nodes", "options"},
+		{"pbs_nodes", "path"},
+		{"pbs_nodes", "removable"},
+		{"pbs_nodes", "unitfile"},
+		{"pbs_nodes", "devpath"},
+		{"pbs_nodes", "disk_type"},
+		{"pbs_nodes", "gpt"},
+		{"pbs_nodes", "model"},
+		{"pbs_nodes", "rpm"},
+		{"pbs_nodes", "serial"},
+		{"pbs_nodes", "size"},
+		{"pbs_nodes", "status"},
+		{"pbs_nodes", "used"},
+		{"pbs_nodes", "vendor"},
+		{"pbs_nodes", "wearout"},
+		{"pbs_nodes", "wwn"},
+		{"pbs_nodes", "alloc"},
+		{"pbs_nodes", "dedup"},
+		{"pbs_nodes", "frag"},
+		{"pbs_nodes", "free"},
+		{"pbs_nodes", "health"},
+		{"pbs_nodes", "digest"},
+		{"pbs_nodes", "dns1"},
+		{"pbs_nodes", "dns2"},
+		{"pbs_nodes", "dns3"},
+		{"pbs_nodes", "search"},
+		{"pbs_nodes", "pbs_instance_id"},
+		{"pbs_nodes", "active"},
+		{"pbs_nodes", "autostart"},
+		{"pbs_nodes", "bond_primary"},
+		{"pbs_nodes", "bond_mode"},
+		{"pbs_nodes", "bond_xmit_hash_policy"},
+		{"pbs_nodes", "bridge_vlan_aware"},
+		{"pbs_nodes", "cidr"},
+		{"pbs_nodes", "cidr6"},
+		{"pbs_nodes", "comments"},
+		{"pbs_nodes", "comments6"},
+		{"pbs_nodes", "gateway"},
+		{"pbs_nodes", "gateway6"},
+		{"pbs_nodes", "method"},
+		{"pbs_nodes", "method6"},
+		{"pbs_nodes", "mtu"},
+		{"pbs_nodes", "type"},
+		{"pbs_nodes", "vlan_id"},
+		{"pbs_nodes", "vlan_raw_device"},
+		{"pbs_nodes", "pong"},
+		{"pbs_nodes", "desc"},
+		{"pbs_nodes", "service"},
+		{"pbs_nodes", "state"},
+		{"pbs_nodes", "unit_state"},
+		{"pbs_nodes", "cpu"},
+		{"pbs_nodes", "kversion"},
+		{"pbs_nodes", "uptime"},
+		{"pbs_nodes", "wait"},
+		{"pbs_nodes", "n"},
+		{"pbs_nodes", "t"},
+		{"pbs_nodes", "endtime"},
+		{"pbs_nodes", "node"},
+		{"pbs_nodes", "pid"},
+		{"pbs_nodes", "pstart"},
+		{"pbs_nodes", "starttime"},
+		{"pbs_nodes", "upid"},
+		{"pbs_nodes", "user"},
+		{"pbs_nodes", "worker_id"},
+		{"pbs_nodes", "worker_type"},
+		{"pbs_nodes", "exitstatus"},
+		{"pbs_nodes", "tokenid"},
+		{"pbs_nodes", "localtime"},
+		{"pbs_nodes", "time"},
+		{"pbs_nodes", "timezone"},
+		{"pbs_notifications", "comment"},
+		{"pbs_notifications", "disable"},
+		{"pbs_notifications", "filter"},
+		{"pbs_notifications", "name"},
+		{"pbs_notifications", "origin"},
+		{"pbs_notifications", "server"},
+		{"pbs_notifications", "author"},
+		{"pbs_notifications", "from_address"},
+		{"pbs_notifications", "mode"},
+		{"pbs_notifications", "port"},
+		{"pbs_notifications", "username"},
+		{"pbs_notifications", "field"},
+		{"pbs_notifications", "value"},
+		{"pbs_notifications", "invert_match"},
+		{"pbs_notifications", "type"},
+		{"pbs_tape", "comment"},
+		{"pbs_tape", "drive"},
+		{"pbs_tape", "eject_media"},
+		{"pbs_tape", "export_media_set"},
+		{"pbs_tape", "last_run_endtime"},
+		{"pbs_tape", "last_run_state"},
+		{"pbs_tape", "last_run_upid"},
+		{"pbs_tape", "latest_only"},
+		{"pbs_tape", "max_depth"},
+		{"pbs_tape", "next_media_label"},
+		{"pbs_tape", "next_run"},
+		{"pbs_tape", "notification_mode"},
+		{"pbs_tape", "notify_user"},
+		{"pbs_tape", "ns"},
+		{"pbs_tape", "pool"},
+		{"pbs_tape", "schedule"},
+		{"pbs_tape", "store"},
+		{"pbs_tape", "worker_threads"},
+		{"pbs_tape", "eject_before_unload"},
+		{"pbs_tape", "export_slots"},
+		{"pbs_tape", "model"},
+		{"pbs_tape", "name"},
+		{"pbs_tape", "path"},
+		{"pbs_tape", "serial"},
+		{"pbs_tape", "vendor"},
+		{"pbs_tape", "activity"},
+		{"pbs_tape", "changer"},
+		{"pbs_tape", "changer_drivenum"},
+		{"pbs_tape", "state"},
+		{"pbs_tape", "value"},
+		{"pbs_tape", "alert_flags"},
+		{"pbs_tape", "block_number"},
+		{"pbs_tape", "blocksize"},
+		{"pbs_tape", "buffer_mode"},
+		{"pbs_tape", "bytes_read"},
+		{"pbs_tape", "bytes_written"},
+		{"pbs_tape", "compression"},
+		{"pbs_tape", "density"},
+		{"pbs_tape", "drive_activity"},
+		{"pbs_tape", "file_number"},
+		{"pbs_tape", "manufactured"},
+		{"pbs_tape", "medium_passes"},
+		{"pbs_tape", "medium_wearout"},
+		{"pbs_tape", "product"},
+		{"pbs_tape", "revision"},
+		{"pbs_tape", "volume_mounts"},
+		{"pbs_tape", "write_protect"},
+		{"pbs_tape", "beginning_of_medium_passes"},
+		{"pbs_tape", "last_load_read_compression_ratio"},
+		{"pbs_tape", "last_load_write_compression_ratio"},
+		{"pbs_tape", "last_mount_bytes_read"},
+		{"pbs_tape", "last_mount_bytes_written"},
+		{"pbs_tape", "last_mount_unrecovered_read_errors"},
+		{"pbs_tape", "last_mount_unrecovered_write_errors"},
+		{"pbs_tape", "lifetime_bytes_read"},
+		{"pbs_tape", "lifetime_bytes_written"},
+		{"pbs_tape", "medium_mount_time"},
+		{"pbs_tape", "medium_ready_time"},
+		{"pbs_tape", "middle_of_tape_passes"},
+		{"pbs_tape", "total_native_capacity"},
+		{"pbs_tape", "total_used_native_capacity"},
+		{"pbs_tape", "volume_datasets_read"},
+		{"pbs_tape", "volume_datasets_written"},
+		{"pbs_tape", "volume_recovered_read_errors"},
+		{"pbs_tape", "volume_recovered_write_data_errors"},
+		{"pbs_tape", "volume_unrecovered_read_errors"},
+		{"pbs_tape", "volume_unrecovered_write_data_errors"},
+		{"pbs_tape", "volume_unrecovered_write_servo_errors"},
+		{"pbs_tape", "volume_write_servo_errors"},
+		{"pbs_tape", "worm"},
+		{"pbs_tape", "created"},
+		{"pbs_tape", "fingerprint"},
+		{"pbs_tape", "hint"},
+		{"pbs_tape", "kdf"},
+		{"pbs_tape", "modified"},
+		{"pbs_tape", "backup_time"},
+		{"pbs_tape", "label_text"},
+		{"pbs_tape", "media_set_ctime"},
+		{"pbs_tape", "media_set_name"},
+		{"pbs_tape", "media_set_uuid"},
+		{"pbs_tape", "seq_nr"},
+		{"pbs_tape", "snapshot"},
+		{"pbs_tape", "uuid"},
+		{"pbs_tape", "allocation"},
+		{"pbs_tape", "encrypt"},
+		{"pbs_tape", "retention"},
+		{"pbs_tape", "template"},
+		{"pbs_tape", "kind"},
+		{"pbs_tape", "major"},
+		{"pbs_tape", "minor"},
+		{"pools", "comment"},
+		{"pools", "poolid"},
+		{"replication", "comment"},
+		{"replication", "digest"},
+		{"replication", "disable"},
+		{"replication", "guest"},
+		{"replication", "jobnum"},
+		{"replication", "rate"},
+		{"replication", "remove_job"},
+		{"replication", "schedule"},
+		{"replication", "source"},
+		{"replication", "target"},
+		{"replication", "type"},
+		{"replication", "n"},
+		{"replication", "t"},
+		{"sdn", "asn"},
+		{"sdn", "bgp_mode"},
+		{"sdn", "bgp_multipath_as_relax"},
+		{"sdn", "controller"},
+		{"sdn", "digest"},
+		{"sdn", "ebgp"},
+		{"sdn", "ebgp_multihop"},
+		{"sdn", "isis_domain"},
+		{"sdn", "isis_ifaces"},
+		{"sdn", "isis_net"},
+		{"sdn", "loopback"},
+		{"sdn", "node"},
+		{"sdn", "nodes"},
+		{"sdn", "peer_group_name"},
+		{"sdn", "peers"},
+		{"sdn", "state"},
+		{"sdn", "type"},
+		{"sdn", "area"},
+		{"sdn", "csnp_interval"},
+		{"sdn", "hello_interval"},
+		{"sdn", "ip6_prefix"},
+		{"sdn", "ip_prefix"},
+		{"sdn", "lock_token"},
+		{"sdn", "persistent_keepalive"},
+		{"sdn", "protocol"},
+		{"sdn", "route_filter"},
+		{"sdn", "endpoint"},
+		{"sdn", "fabric_id"},
+		{"sdn", "ip"},
+		{"sdn", "ip6"},
+		{"sdn", "node_id"},
+		{"sdn", "public_key"},
+		{"sdn", "role"},
+		{"sdn", "name"},
+		{"sdn", "neighbor"},
+		{"sdn", "status"},
+		{"sdn", "uptime"},
+		{"sdn", "route"},
+		{"sdn", "mac"},
+		{"sdn", "nexthop"},
+		{"sdn", "zone"},
+		{"sdn", "vlan_filtering"},
+		{"sdn", "statusmsg"},
+		{"sdn", "vnet"},
+		{"sdn", "metric"},
+		{"sdn", "action"},
+		{"sdn", "call"},
+		{"sdn", "exit_action"},
+		{"sdn", "order"},
+		{"sdn", "route_map_id"},
+		{"sdn", "alias"},
+		{"sdn", "isolate_ports"},
+		{"sdn", "tag"},
+		{"sdn", "vlanaware"},
+		{"sdn", "enable"},
+		{"sdn", "log_level_forward"},
+		{"sdn", "policy_forward"},
+		{"sdn", "comment"},
+		{"sdn", "dest"},
+		{"sdn", "dport"},
+		{"sdn", "icmp_type"},
+		{"sdn", "iface"},
+		{"sdn", "ipversion"},
+		{"sdn", "log"},
+		{"sdn", "macro"},
+		{"sdn", "pos"},
+		{"sdn", "proto"},
+		{"sdn", "source"},
+		{"sdn", "sport"},
+		{"sdn", "advertise_subnets"},
+		{"sdn", "bridge"},
+		{"sdn", "bridge_disable_mac_learning"},
+		{"sdn", "dhcp"},
+		{"sdn", "disable_arp_nd_suppression"},
+		{"sdn", "dns"},
+		{"sdn", "dnszone"},
+		{"sdn", "exitnodes"},
+		{"sdn", "exitnodes_local_routing"},
+		{"sdn", "exitnodes_primary"},
+		{"sdn", "ipam"},
+		{"sdn", "mtu"},
+		{"sdn", "reversedns"},
+		{"sdn", "rt_import"},
+		{"sdn", "vlan_protocol"},
+		{"sdn", "vrf_vxlan"},
+		{"sdn", "vxlan_port"},
+		{"storage", "storage"},
+		{"storage", "active"},
+		{"storage", "avail"},
+		{"storage", "content"},
+		{"storage", "enabled"},
+		{"storage", "select_existing"},
+		{"storage", "shared"},
+		{"storage", "total"},
+		{"storage", "type"},
+		{"storage", "used"},
+		{"storage", "used_fraction"},
+		{"storage", "approximate_size"},
+		{"storage", "ctime"},
+		{"storage", "encrypted"},
+		{"storage", "format"},
+		{"storage", "notes"},
+		{"storage", "parent"},
+		{"storage", "protected"},
+		{"storage", "size"},
+		{"storage", "vmid"},
+		{"storage", "volid"},
+		{"storage", "path"},
+		{"storage", "source"},
+		{"storage", "mark"},
+		{"storage", "filename"},
+		{"tasks", "upid"},
+		{"tasks", "endtime"},
+		{"tasks", "node"},
+		{"tasks", "pid"},
+		{"tasks", "pstart"},
+		{"tasks", "starttime"},
+		{"tasks", "status"},
+		{"tasks", "type"},
+		{"tasks", "user"},
+		{"tasks", "n"},
+		{"tasks", "t"},
+		{"tasks", "exitstatus"},
+		{"vm", "delete"},
+		{"vm", "key"},
+		{"vm", "pending"},
+		{"vm", "value"},
+		{"vm", "acpi"},
+		{"vm", "affinity"},
+		{"vm", "agent"},
+		{"vm", "allow_ksm"},
+		{"vm", "amd_sev"},
+		{"vm", "arch"},
+		{"vm", "args"},
+		{"vm", "audio0"},
+		{"vm", "autostart"},
+		{"vm", "balloon"},
+		{"vm", "bios"},
+		{"vm", "boot"},
+		{"vm", "bootdisk"},
+		{"vm", "cdrom"},
+		{"vm", "cicustom"},
+		{"vm", "cipassword"},
+		{"vm", "citype"},
+		{"vm", "ciupgrade"},
+		{"vm", "ciuser"},
+		{"vm", "cores"},
+		{"vm", "cpu"},
+		{"vm", "cpulimit"},
+		{"vm", "cpuunits"},
+		{"vm", "description"},
+		{"vm", "digest"},
+		{"vm", "efidisk0"},
+		{"vm", "freeze"},
+		{"vm", "hookscript"},
+		{"vm", "hostpci[n]"},
+		{"vm", "hotplug"},
+		{"vm", "hugepages"},
+		{"vm", "ide[n]"},
+		{"vm", "intel_tdx"},
+		{"vm", "ipconfig[n]"},
+		{"vm", "ivshmem"},
+		{"vm", "keephugepages"},
+		{"vm", "keyboard"},
+		{"vm", "kvm"},
+		{"vm", "localtime"},
+		{"vm", "lock"},
+		{"vm", "machine"},
+		{"vm", "memory"},
+		{"vm", "meta"},
+		{"vm", "migrate_downtime"},
+		{"vm", "migrate_speed"},
+		{"vm", "name"},
+		{"vm", "nameserver"},
+		{"vm", "net[n]"},
+		{"vm", "numa"},
+		{"vm", "numa[n]"},
+		{"vm", "onboot"},
+		{"vm", "ostype"},
+		{"vm", "parallel[n]"},
+		{"vm", "parent"},
+		{"vm", "protection"},
+		{"vm", "reboot"},
+		{"vm", "rng0"},
+		{"vm", "running_nets_host_mtu"},
+		{"vm", "runningcpu"},
+		{"vm", "runningmachine"},
+		{"vm", "sata[n]"},
+		{"vm", "scsi[n]"},
+		{"vm", "scsihw"},
+		{"vm", "searchdomain"},
+		{"vm", "serial[n]"},
+		{"vm", "shares"},
+		{"vm", "smbios1"},
+		{"vm", "smp"},
+		{"vm", "snaptime"},
+		{"vm", "sockets"},
+		{"vm", "spice_enhancements"},
+		{"vm", "sshkeys"},
+		{"vm", "startdate"},
+		{"vm", "startup"},
+		{"vm", "tablet"},
+		{"vm", "tags"},
+		{"vm", "tdf"},
+		{"vm", "template"},
+		{"vm", "tpmstate0"},
+		{"vm", "unused[n]"},
+		{"vm", "usb[n]"},
+		{"vm", "vcpus"},
+		{"vm", "vga"},
+		{"vm", "virtio[n]"},
+		{"vm", "virtiofs[n]"},
+		{"vm", "vmgenid"},
+		{"vm", "vmstate"},
+		{"vm", "vmstatestorage"},
+		{"vm", "watchdog"},
+		{"vm", "has_feature"},
+		{"vm", "cidr"},
+		{"vm", "comment"},
+		{"vm", "nomatch"},
+		{"vm", "n"},
+		{"vm", "t"},
+		{"vm", "dhcp"},
+		{"vm", "enable"},
+		{"vm", "ipfilter"},
+		{"vm", "log_level_in"},
+		{"vm", "log_level_out"},
+		{"vm", "macfilter"},
+		{"vm", "ndp"},
+		{"vm", "policy_in"},
+		{"vm", "policy_out"},
+		{"vm", "radv"},
+		{"vm", "ref"},
+		{"vm", "scope"},
+		{"vm", "type"},
+		{"vm", "action"},
+		{"vm", "dest"},
+		{"vm", "dport"},
+		{"vm", "icmp_type"},
+		{"vm", "iface"},
+		{"vm", "ipversion"},
+		{"vm", "log"},
+		{"vm", "macro"},
+		{"vm", "pos"},
+		{"vm", "proto"},
+		{"vm", "source"},
+		{"vm", "sport"},
+		{"vm", "cpus"},
+		{"vm", "diskread"},
+		{"vm", "diskwrite"},
+		{"vm", "maxdisk"},
+		{"vm", "maxmem"},
+		{"vm", "mem"},
+		{"vm", "memhost"},
+		{"vm", "netin"},
+		{"vm", "netout"},
+		{"vm", "pid"},
+		{"vm", "pressurecpufull"},
+		{"vm", "pressurecpusome"},
+		{"vm", "pressureiofull"},
+		{"vm", "pressureiosome"},
+		{"vm", "pressurememoryfull"},
+		{"vm", "pressurememorysome"},
+		{"vm", "qmpstatus"},
+		{"vm", "running_machine"},
+		{"vm", "running_qemu"},
+		{"vm", "serial"},
+		{"vm", "status"},
+		{"vm", "uptime"},
+		{"vm", "vmid"},
+		{"vm", "has_dbus_vmstate"},
+		{"vm", "running"},
+		{"vm", "filename"},
+		{"vm", "clipboard"},
+		{"vm", "spice"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "access" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old access: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "acme" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old acme: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "backup" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old backup: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ceph" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ceph: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cluster" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cluster: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ct" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ct: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "disks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old disks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ha" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ha: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "mapping" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old mapping: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "nodes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old nodes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "notifications" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old notifications: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_access" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_access: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_config" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_config: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_datastore" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_datastore: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_jobs" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_jobs: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_nodes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_nodes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_notifications" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_notifications: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pbs_tape" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pbs_tape: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pools" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pools: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "replication" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old replication: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "sdn" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sdn: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "storage" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old storage: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tasks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tasks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vm" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vm: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

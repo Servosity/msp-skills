@@ -137,6 +137,8 @@ Run sync first to populate the local search index.`,
 				results, err = db.SearchCluster(query, limit)
 			case "ct":
 				results, err = db.SearchCt(query, limit)
+			case "disks":
+				results, err = db.SearchDisks(query, limit)
 			case "firewall":
 				results, err = db.SearchFirewall(query, limit)
 			case "nodes":
@@ -226,6 +228,19 @@ Run sync first to populate the local search index.`,
 					partial, searchErr := db.SearchCt(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search ct failed: %w", searchErr)
+					}
+					for _, r := range partial {
+						key := string(r)
+						if !seen[key] {
+							seen[key] = true
+							results = append(results, r)
+						}
+					}
+				}
+				{
+					partial, searchErr := db.SearchDisks(query, limit)
+					if searchErr != nil {
+						return fmt.Errorf("search disks failed: %w", searchErr)
 					}
 					for _, r := range partial {
 						key := string(r)
