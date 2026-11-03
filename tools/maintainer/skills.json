@@ -1005,7 +1005,7 @@
       "category": "Security",
       "display_name": "Fortinet",
       "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
-      "cli_hash": "sha256:8265c9c39a259c46e2ed8de925a978e19b5f21df7167b6f627ec3c9792371764",
+      "cli_hash": "sha256:9a42331cdcd450c09a90ffd8f5c26847344c622b236b1a143c7f6eb65e6ad52a",
       "template_version": 3,
       "version": "0.1.4",
       "cli_hash_at_release": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652",
