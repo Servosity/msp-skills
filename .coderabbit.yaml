@@ -7702,7 +7702,6 @@ reviews:
     - "!skills/sophos-central/cli/internal/cli/endpoint_groups_list-tenant.go"
     - "!skills/sophos-central/cli/internal/cli/endpoint_groups_patch*.go"
     - "!skills/sophos-central/cli/internal/cli/endpoint_groups_remove*.go"
-    - "!skills/sophos-central/cli/internal/cli/endpoints_bulk-isolate*.go"
     - "!skills/sophos-central/cli/internal/cli/endpoints_collect*.go"
     - "!skills/sophos-central/cli/internal/cli/endpoints_get*.go"
     - "!skills/sophos-central/cli/internal/cli/endpoints_set*.go"
