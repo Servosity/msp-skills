@@ -120,24 +120,6 @@
           "description": "Comma or space separated OAuth scopes requested by auth login, replacing the default set. Leave blank for the default scopes.",
           "isRequired": false,
           "isSecret": false
-        },
-        {
-          "name": "SPACEFAST_TOKEN",
-          "description": "Only for the CLI's --deliver spacefast option, which publishes a command's output as a Spacefast page in your account. MCP tools cannot use --deliver. Leave blank otherwise.",
-          "isRequired": false,
-          "isSecret": true
-        },
-        {
-          "name": "SPACEFAST_TEAM",
-          "description": "Picks the Spacefast team for --deliver spacefast when the token belongs to several. Leave blank otherwise.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "SPACEFAST_API_URL",
-          "description": "Overrides the Spacefast API address used by --deliver spacefast. Leave blank for the default.",
-          "isRequired": false,
-          "isSecret": false
         }
       ]
     }

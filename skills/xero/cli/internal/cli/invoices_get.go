@@ -33,7 +33,7 @@ func newInvoicesGetCmd(flags *rootFlags) *cobra.Command {
 		Use:         "get",
 		Aliases:     []string{"list"},
 		Short:       "Retrieves sales invoices or purchase bills",
-		Example:     "  xero-cli invoices list --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status",
+		Example:     "  xero-cli invoices get --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "invoices.get", "pp:method": "GET", "pp:path": "/Invoices", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

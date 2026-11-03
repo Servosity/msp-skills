@@ -29,10 +29,7 @@
         "XERO_NO_LOCAL_DATA": "${user_config.xero_no_local_data}",
         "XERO_MCP_HTTP_TOKEN": "${user_config.xero_mcp_http_token}",
         "XERO_USER_AGENT": "${user_config.xero_user_agent}",
-        "XERO_SCOPES": "${user_config.xero_scopes}",
-        "SPACEFAST_TOKEN": "${user_config.spacefast_token}",
-        "SPACEFAST_TEAM": "${user_config.spacefast_team}",
-        "SPACEFAST_API_URL": "${user_config.spacefast_api_url}"
+        "XERO_SCOPES": "${user_config.xero_scopes}"
       }
     }
   },
@@ -137,27 +134,6 @@
       "type": "string",
       "title": "OAuth scopes (optional)",
       "description": "Comma or space separated OAuth scopes requested by auth login, replacing the default set. Leave blank for the default scopes.",
-      "required": false,
-      "sensitive": false
-    },
-    "spacefast_token": {
-      "type": "string",
-      "title": "Spacefast token (optional)",
-      "description": "Only for the CLI's --deliver spacefast option, which publishes a command's output as a Spacefast page in your account. MCP tools cannot use --deliver. Leave blank otherwise.",
-      "required": false,
-      "sensitive": true
-    },
-    "spacefast_team": {
-      "type": "string",
-      "title": "Spacefast team (optional)",
-      "description": "Picks the Spacefast team for --deliver spacefast when the token belongs to several. Leave blank otherwise.",
-      "required": false,
-      "sensitive": false
-    },
-    "spacefast_api_url": {
-      "type": "string",
-      "title": "Spacefast API URL (optional)",
-      "description": "Overrides the Spacefast API address used by --deliver spacefast. Leave blank for the default.",
       "required": false,
       "sensitive": false
     }

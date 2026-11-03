@@ -211,7 +211,7 @@ Buckets every outstanding invoice by days overdue so you can build a chase list 
 ### Narrow a verbose invoice list for an agent
 
 ```bash
-xero-cli invoices list --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status
+xero-cli invoices get --agent --select Invoices.InvoiceNumber,Invoices.Contact.Name,Invoices.AmountDue,Invoices.Status
 ```
 
 Xero invoice payloads are large and deeply nested; dotted-path --select returns only the fields an agent needs, keeping context small.

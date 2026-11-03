@@ -52,10 +52,7 @@ Add (or merge with your existing `mcpServers` block):
         "XERO_NO_LOCAL_DATA": "<your-xero_no_local_data>",
         "XERO_MCP_HTTP_TOKEN": "<your-xero_mcp_http_token>",
         "XERO_USER_AGENT": "<your-xero_user_agent>",
-        "XERO_SCOPES": "<your-xero_scopes>",
-        "SPACEFAST_TOKEN": "<your-spacefast_token>",
-        "SPACEFAST_TEAM": "<your-spacefast_team>",
-        "SPACEFAST_API_URL": "<your-spacefast_api_url>"
+        "XERO_SCOPES": "<your-xero_scopes>"
       }
     }
   }
@@ -108,10 +105,7 @@ Configuration**) and add:
         "XERO_NO_LOCAL_DATA": "<your-xero_no_local_data>",
         "XERO_MCP_HTTP_TOKEN": "<your-xero_mcp_http_token>",
         "XERO_USER_AGENT": "<your-xero_user_agent>",
-        "XERO_SCOPES": "<your-xero_scopes>",
-        "SPACEFAST_TOKEN": "<your-spacefast_token>",
-        "SPACEFAST_TEAM": "<your-spacefast_team>",
-        "SPACEFAST_API_URL": "<your-spacefast_api_url>"
+        "XERO_SCOPES": "<your-xero_scopes>"
       }
     }
   }
@@ -146,10 +140,7 @@ Claude Desktop:
         "XERO_NO_LOCAL_DATA": "<your-xero_no_local_data>",
         "XERO_MCP_HTTP_TOKEN": "<your-xero_mcp_http_token>",
         "XERO_USER_AGENT": "<your-xero_user_agent>",
-        "XERO_SCOPES": "<your-xero_scopes>",
-        "SPACEFAST_TOKEN": "<your-spacefast_token>",
-        "SPACEFAST_TEAM": "<your-spacefast_team>",
-        "SPACEFAST_API_URL": "<your-spacefast_api_url>"
+        "XERO_SCOPES": "<your-xero_scopes>"
       }
     }
   }
@@ -181,7 +172,7 @@ to start until `XERO_MCP_HTTP_TOKEN` is set; every request must send
 
 ```bash
 export XERO_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-XERO_ACCESS_TOKEN=<value> XERO_OAUTH2=<value> XERO_AUTHORIZATION_URL=<value> XERO_BASE_URL=<value> XERO_CLIENT_ID=<value> XERO_CLIENT_SECRET=<value> XERO_TENANT_ID=<value> XERO_TOKEN_URL=<value> XERO_NO_CONFIG_WRITE=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> XERO_MCP_READ_ONLY=<value> XERO_NO_LOCAL_DATA=<value> XERO_USER_AGENT=<value> XERO_SCOPES=<value> SPACEFAST_TOKEN=<value> SPACEFAST_TEAM=<value> SPACEFAST_API_URL=<value> xero-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+XERO_ACCESS_TOKEN=<value> XERO_OAUTH2=<value> XERO_AUTHORIZATION_URL=<value> XERO_BASE_URL=<value> XERO_CLIENT_ID=<value> XERO_CLIENT_SECRET=<value> XERO_TENANT_ID=<value> XERO_TOKEN_URL=<value> XERO_NO_CONFIG_WRITE=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> XERO_MCP_READ_ONLY=<value> XERO_NO_LOCAL_DATA=<value> XERO_USER_AGENT=<value> XERO_SCOPES=<value> xero-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
