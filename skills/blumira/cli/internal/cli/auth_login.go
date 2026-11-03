@@ -12,10 +12,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"blumira-pp-cli/internal/client"
 	"blumira-pp-cli/internal/cliutil"
 	"blumira-pp-cli/internal/config"
 
@@ -62,16 +62,23 @@ from the BLUMIRA_CLIENT_ID / BLUMIRA_CLIENT_SECRET environment variables.
 `, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Unset flags fall back to the loaded config, which carries
+			// BLUMIRA_CLIENT_ID / BLUMIRA_CLIENT_SECRET (marked as environment
+			// overrides) or the pair a previous login stored.
+			cfg, err := config.Load(flags.configPath)
+			if err != nil {
+				return configErr(err)
+			}
 			clientID := flagClientID
 			if clientID == "" {
-				clientID = os.Getenv("BLUMIRA_CLIENT_ID")
+				clientID = cfg.ClientID
 			}
 			// issue #266: only a credential the caller typed may be written to
 			// disk; one inherited from the environment must not be.
 			explicitClientID := flagClientID != ""
 			clientSecret := flagClientSecret
 			if clientSecret == "" {
-				clientSecret = os.Getenv("BLUMIRA_CLIENT_SECRET")
+				clientSecret = cfg.ClientSecret
 			}
 			explicitClientSecret := flagClientSecret != ""
 			authURL := flagAuthURL
@@ -115,10 +122,6 @@ from the BLUMIRA_CLIENT_ID / BLUMIRA_CLIENT_SECRET environment variables.
 				return authErr(err)
 			}
 
-			cfg, err := config.Load(flags.configPath)
-			if err != nil {
-				return configErr(err)
-			}
 			expiry := time.Time{}
 			if tok.ExpiresIn > 0 {
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
@@ -172,20 +175,40 @@ func mintBlumiraToken(ctx context.Context, authURL, clientID, clientSecret, audi
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
+	encoded := form.Encode()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, authURL, strings.NewReader(encoded))
 	if err != nil {
 		return nil, fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	// The secret goes only to the token endpoint the operator configured: every
+	// redirect is refused (a 307/308 would replay the POST body, secret
+	// included, to the Location host).
+	// Hand-fix (handfixes.json credkit-wiring): the mint sends through the
+	// credential kit's outbound guard, which refuses the client id and secret
+	// to any origin but blumiraTokenOrigin (internal/credwire) and holds the
+	// answer's access_token before this code reads it.
+	noRedirect := &http.Client{Transport: cliutil.OutboundGuard(nil), CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	// The press's token-request guard refuses a plaintext (non-loopback http)
+	// endpoint for a body that carries the client secret.
+	req, err = client.GuardTokenRequest(noRedirect, req, []byte(encoded))
+	if err != nil {
+		return nil, fmt.Errorf("token request to %s refused: %w", authURL, err)
+	}
+	resp, err := noRedirect.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token request to %s failed: %w", authURL, err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return nil, fmt.Errorf("token endpoint %s answered HTTP %d (redirect); refusing to follow it with the client secret", authURL, resp.StatusCode)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, summarizeAuthError(body))
 	}

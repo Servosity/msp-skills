@@ -19,7 +19,9 @@ func newNovelDcRosterCmd(flags *rootFlags) *cobra.Command {
 		Long: "Use this command for the plain inventory roster of all domain controllers and\n" +
 			"their agent check-in state (protected, stale, or never-checked-in). Do NOT use\n" +
 			"this command for the prioritized list of stale/unprotected DCs needing action;\n" +
-			"use 'exposure' instead. Reads the local store.",
+			"use 'exposure' instead. Covers the direct org and every MSP sub-account; a\n" +
+			"sub-account whose device list sync could not read is listed with state\n" +
+			"devices-not-synced. Reads the local store.",
 		Example: "  blumira-cli dc-roster\n" +
 			"  blumira-cli dc-roster --stale-after 12h --json",
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -46,11 +48,18 @@ func newNovelDcRosterCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return apiErr(err)
 			}
-			if len(devices) == 0 {
+			cov, err := loadDeviceCoverage(s)
+			if err != nil {
+				return apiErr(err)
+			}
+			if !flags.quiet {
+				warnDeviceCoverageGaps(cmd.ErrOrStderr(), cov.Gaps)
+			}
+			if len(devices) == 0 && len(cov.Gaps) == 0 {
 				return emitAnalyticsRows(cmd, flags, []dcRosterRow{}, 0,
 					"no agent devices in the local store — run 'sync --resources org-agents-devices' first")
 			}
-			rows := computeDCRoster(devices, time.Now().UTC(), staleAfter)
+			rows := append(dcRosterGapRows(cov.Gaps), computeDCRoster(devices, time.Now().UTC(), staleAfter)...)
 			return emitAnalyticsRows(cmd, flags, rows, len(rows),
 				"no domain controllers found among the synced agent devices")
 		},
