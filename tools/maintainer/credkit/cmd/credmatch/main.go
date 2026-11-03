@@ -56,17 +56,22 @@ type request struct {
 // acquire asks for the kit's held set of one run (credkit.Acquire). Every
 // value is base64.
 type acquire struct {
-	Decl      decl     `json:"decl"`
-	Env       []string `json:"env"`
-	Args      []string `json:"args"`
-	Exchanges []struct {
-		Response bool        `json:"response"`
-		Method   string      `json:"method"`
-		URL      string      `json:"url"`
-		Header   [][2]string `json:"header"`
-		Trailer  [][2]string `json:"trailer"`
-		Body     string      `json:"body"`
-	} `json:"exchanges"`
+	Decl      decl       `json:"decl"`
+	Env       []string   `json:"env"`
+	Args      []string   `json:"args"`
+	MCPIn     string     `json:"mcp_in"` // what the MCP server read on stdin
+	Exchanges []exchange `json:"exchanges"`
+}
+
+// exchange is one request sent or one response delivered, as sent.
+type exchange struct {
+	Response bool        `json:"response"`
+	Method   string      `json:"method"`
+	Status   int         `json:"status"`
+	URL      string      `json:"url"`
+	Header   [][2]string `json:"header"`
+	Trailer  [][2]string `json:"trailer"`
+	Body     string      `json:"body"`
 }
 
 // decl is the part of credkit.Declarations the list reads and sends (its
@@ -139,9 +144,14 @@ func acquired(a *acquire) (answer, error) {
 		if err != nil {
 			return answer{}, err
 		}
-		ex = append(ex, credkit.Exchange{Response: x.Response, Method: x.Method, URL: x.URL, Header: h, Trailer: t, Body: b})
+		ex = append(ex, credkit.Exchange{Response: x.Response, Method: x.Method, Status: x.Status, URL: x.URL,
+			Header: h, Trailer: t, Body: b})
 	}
-	held, rec, unknown, err := credkit.Acquire(a.Decl.kit(), env, args, ex)
+	mcpIn, err := base64.StdEncoding.DecodeString(a.MCPIn)
+	if err != nil {
+		return answer{}, err
+	}
+	held, rec, unknown, err := credkit.Acquire(a.Decl.kit(), env, args, mcpIn, ex)
 	if err != nil {
 		return answer{}, err
 	}

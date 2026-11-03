@@ -112,14 +112,7 @@ func TestAcquire(t *testing.T) {
 		for i, p := range hdr {
 			h[i] = [2]string{b64(p[0]), b64(p[1])}
 		}
-		q.Exchanges = append(q.Exchanges, struct {
-			Response bool        `json:"response"`
-			Method   string      `json:"method"`
-			URL      string      `json:"url"`
-			Header   [][2]string `json:"header"`
-			Trailer  [][2]string `json:"trailer"`
-			Body     string      `json:"body"`
-		}{Response: resp, Method: "GET", URL: url, Header: h, Body: b64(body)})
+		q.Exchanges = append(q.Exchanges, exchange{Response: resp, Method: "GET", URL: url, Header: h, Body: b64(body)})
 	}
 	add(false, "http://127.0.0.1:1/v1/items", [][2]string{{"Authorization", "Bearer runtime-issued-secret-123456"}}, "")
 	add(true, "http://127.0.0.1:1/v1/items", [][2]string{{"X-Request-Id", "req-clsKheaderValue98765"},

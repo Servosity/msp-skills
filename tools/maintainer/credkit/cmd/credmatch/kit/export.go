@@ -87,6 +87,7 @@ func StreamWithheld(held []string, units [][]byte) int {
 type Exchange struct {
 	Response        bool
 	Method, URL     string
+	Status          int // a response's status; 0 reads as 200
 	Header, Trailer [][2]string
 	Body            []byte
 }
@@ -97,8 +98,10 @@ type Exchange struct {
 // request sent and each response received, in order. unknown: a declared
 // credential source could not be read, so the kit withholds every unit.
 // Stdin flags are not read (stdin here is this command's request pipe), nor
-// Files (the caller names the config file with --config).
-func Acquire(d Declarations, env, args []string, ex []Exchange) (held []string, recorded int, unknown bool, err error) {
+// Files (the caller names the config file with --config). mcpIn is what an
+// MCP server read on stdin: its declared arguments are held frame by frame,
+// as MCPIn holds them.
+func Acquire(d Declarations, env, args []string, mcpIn []byte, ex []Exchange) (held []string, recorded int, unknown bool, err error) {
 	d.StdinFlags, d.Files = nil, nil
 	if err := d.validate(); err != nil {
 		return nil, 0, false, err
@@ -120,6 +123,12 @@ func Acquire(d Declarations, env, args []string, ex []Exchange) (held []string, 
 	reg.Lock()
 	reg.startup = false
 	reg.Unlock()
+	// The MCP server's input, frame by frame, as MCPIn holds it.
+	for _, line := range bytes.SplitAfter(mcpIn, []byte("\n")) {
+		if len(line) > 0 {
+			holdMCP(line, false)
+		}
+	}
 	hdr := func(kv [][2]string) http.Header {
 		h := http.Header{}
 		for _, p := range kv {
@@ -136,8 +145,12 @@ func Acquire(d Declarations, env, args []string, ex []Exchange) (held []string, 
 			holdRequest(&http.Request{Method: x.Method, URL: u, Header: hdr(x.Header), Trailer: hdr(x.Trailer)}, x.Body)
 			continue
 		}
-		resp := &http.Response{StatusCode: 200, Header: hdr(x.Header), Trailer: hdr(x.Trailer),
-			Body: io.NopCloser(bytes.NewReader(x.Body))}
+		st := x.Status
+		if st == 0 {
+			st = 200
+		}
+		resp := &http.Response{StatusCode: st, Header: hdr(x.Header), Trailer: hdr(x.Trailer),
+			Body: io.NopCloser(bytes.NewReader(x.Body)), Request: &http.Request{Method: x.Method, URL: u}}
 		o, _ := originOf(u)
 		holdResponse(resp, o)
 		_, _ = io.Copy(io.Discard, resp.Body)
