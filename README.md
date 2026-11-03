@@ -338,9 +338,9 @@ Your data stays on **your machine**. MSP Skills runs locally: the CLI and the MC
 <details>
 <summary><strong>More questions</strong> - Codex/Cursor/Copilot support, coding skill needed, rate limits, vendor AI overlap, Windows, cost, trying one client first, non-MCP agents</summary>
 
-### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
+### Does this work with Codex, Cursor, Windsurf, Cline, GitHub Copilot, or Gemini CLI?
 
-Yes - all of them. Each speaks MCP (some natively, some via an extension or marketplace). The cross-tool table at the top of this README links each one's install path. The pattern is the same: install the MSP Skills binary, point your AI tool at it, authenticate. Tool-specific gotchas (Copilot uses `servers` in `mcp.json` not `mcpServers`, Cline needs an `npx` workaround on Windows, etc.) are documented in [docs/which-agent.md](./docs/which-agent.md).
+Yes - all of them. Each speaks MCP (some natively, some via an extension or marketplace). The cross-tool table at the top of this README links each one's install path. The pattern is the same: install the MSP Skills binary, point your AI tool at it, authenticate. Tool-specific gotchas (Copilot uses `servers` in `mcp.json` not `mcpServers`, Cline needs an `npx` workaround on Windows, etc.) are documented in [docs/which-agent.md](./docs/which-agent.md). Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) need a remote server, which MSP Skills does not support yet.
 
 ### Do I need to know how to code?
 
