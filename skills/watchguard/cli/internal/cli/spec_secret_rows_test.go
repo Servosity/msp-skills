@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Generated from the WatchGuard spec by a one-off scan: one spec-shaped list item
 // (no invented id) per GET path whose item schema has a secret-named field.
 // Strings are "v-<field>"; secret-named fields are "SENTINEL-<field>".

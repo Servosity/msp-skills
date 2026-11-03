@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored (handfixes.json: error-body-redacts-secrets,
 // transport-error-withholds-echoed-secret, dry-run-redacts-secret-body),
 // ported from skills/connectsecure/cli/internal/client/connectsecure_redact.go.
