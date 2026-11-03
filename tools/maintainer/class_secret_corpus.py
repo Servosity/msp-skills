@@ -3946,6 +3946,23 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
     return cases
 
 
+# Two verdicts depend on the run, not the connector: a random value's bytes
+# exhausting the budget (contract 6.7) and a write split at a pause (6.9). On
+# the list's first full run about one row in six failed on one of them, so a
+# change running every row would never be green. A leak fails every attempt.
+CHANCE = ("ran out of budget", "(Streams: write")
+
+
+def settle(r: dict, again) -> dict:
+    """A FAIL whose every reason is one of CHANCE gets two more attempts; the
+    first attempt that fails for another reason, or does not fail, stands."""
+    for _ in range(2):
+        if r["verdict"] != "FAIL" or not r["where"] or not all(any(c in w for c in CHANCE) for w in r["where"]):
+            break
+        r = again()
+    return r
+
+
 def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: str | None = None,
               server: dict | None = None, fields: list[str] | None = None,
               secret_env: list[str] | None = None, identifiers: list | None = None,
@@ -3972,7 +3989,7 @@ def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: 
             return {"id": c["id"], "case": c["id"], "advisory": c.get("advisory", ""), "verdict": "N/A",
                     "note": "the connector declares no secret environment variable", "where": [],
                     "form": "raw", "shape": "row", "source": c["source"], "drive": "reads", "t": 0}
-        return eng.run_case(c, v)
+        return settle(eng.run_case(c, v), lambda: eng.run_case(c, v))
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         results = list(pool.map(one, jobs))
@@ -6753,7 +6770,35 @@ def _c11_round1() -> bool:
     ])
 
 
-C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go, "round 1": _c11_round1}
+def _settle_probe() -> bool:
+    """A reason that depends on the run gets two more attempts; nothing else does."""
+    budget, stream = "x: the kit's matcher ran out of budget", "y: a held credential (Streams: write 2 of 2 withheld)"
+    leak, ok = "z: a held credential", True
+
+    def fails(*why):
+        return {"verdict": "FAIL", "where": list(why)}
+    for why, seq, want_v, want_n in (
+            ("budget, then clean", [fails(budget), {"verdict": "PASS", "where": []}], "PASS", 2),
+            ("split, then advisory", [fails(stream), {"verdict": "ADVISORY", "where": []}], "ADVISORY", 2),
+            ("the same reason every attempt", [fails(budget)] * 3, "FAIL", 3),
+            ("a leak: no second attempt", [fails(leak), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("a leak beside a chance reason: no second attempt", [fails(budget, leak), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("a leak on the second attempt stands", [fails(budget), fails(leak), {"verdict": "PASS", "where": []}], "FAIL", 2),
+            ("a FAIL with no reason: no second attempt", [fails(), {"verdict": "PASS", "where": []}], "FAIL", 1)):
+        it = iter(seq[1:])
+        n = [1]
+
+        def again():
+            n[0] += 1
+            return next(it)
+        got = settle(seq[0], again)
+        if got["verdict"] != want_v or n[0] != want_n:
+            print(f"    corpus self-test: settle: {why}: want {want_v} in {want_n}, got {got['verdict']} in {n[0]}")
+            ok = False
+    return ok
+
+
+C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go, "round 1": _c11_round1, "settle": _settle_probe}
 
 
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,

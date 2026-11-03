@@ -289,6 +289,11 @@ is one line, usually in minutes:
 From then on every connector runs the new line in CI, so the finding never has to be found by a
 review again.
 
+**Two verdicts depend on the run.** A random value's bytes exhausting the matcher's budget (contract
+6.7) and a write split at a pause (6.9) can fail a case on one run and not the next: on the first full
+run about one row in six failed on one. A case whose every reason is one of those two gets two more
+attempts. Any other reason, on any attempt, stands at once; a real leak fails every attempt.
+
 **The baseline only shrinks.** `corpus_baseline.json` lists, per connector, the gated cases it
 fails on main today. In the CI row a listed failure is reported as a known failure; any other gated
 failure fails the row and names the case, its form, shape, source and drive, and every place the
@@ -535,10 +540,10 @@ process capped at 20 s). Measured serially on a warm module cache, all three cla
 per connector (connectwise-automate 6, ninjaone 9, halopsa 11, threatdown 14, td-synnex 19,
 saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses the cross-host
 redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers.
-The credential leak test list runs its cases 16 at a time and takes 2-28 s per connector after the
-build on an M-series Mac (halopsa 14, zammad 15, saas-alerts 28); a connector that backs off on its
-own after an error takes longer (cisco-duo 87, bitdefender 93, backup-radar 140). The whole fleet,
-84 connectors at `--jobs 4`, took 443 s (582 s with a cold Go build cache). The classes run per changed connector in the `build` matrix row; a change
+The credential leak test list runs its cases 16 at a time and, on the kit's matcher under the kernel
+record, takes minutes per connector: hubspot 81 to 96 s on a shared 18-CPU machine, and across the fleet
+at 5 connectors at a time under a load of 40 to 80, median 250 s, worst 3092 s (halopsa, autotask 2340,
+auvik 1945). The whole fleet took about 2 hours 10 minutes that way. The class step has no step timeout. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## The shared credential kit: `credkit`
