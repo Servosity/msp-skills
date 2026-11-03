@@ -1,6 +1,6 @@
 ---
 name: fortinet
-description: "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `fortiguard licence expiry across clients`, `back up every fortigate config`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`."
+description: "Use when the user asks to audit, inventory or back up client FortiGate firewalls, or read FortiManager or FortiGate Cloud: grades every FortiGate in a devices file for firmware, SSL-VPN exposure, admin accounts and license expiry in one read-only pass, plus HA, tunnel and certificate health, policy hygiene and config changes. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `which fortigates need a firmware update`, `fortiguard license expiry across clients`, `back up every fortigate config`, `what changed on the firewall`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Fortinet"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/fortinet/install.ps1
 ---
 
-# Fortinet  -  Printing Press CLI
+# Fortinet - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -298,6 +298,16 @@ Do not use this CLI for:
 - `fortinet-cli policies hygiene`  -  Lists unused, any-any accept, logging-disabled and disabled firewall policies per VDOM.
 
 
+**Inventory, backups and many-client views**
+
+- `fortinet-cli fleet devices`  -  Lists the devices the fleet commands will query (devices file, or the single `FORTINET_BASE_URL` device) and whether each is ready. Run it first when a fleet command reports UNKNOWN.
+- `fortinet-cli fleet backup`  -  Downloads each FortiGate's full configuration into dated 0600 files under `<data dir>/backups` (or `--out-dir`; pass the same directory to `fleet changes --dir`). Backups contain encrypted secrets. Exits 5 if any backup fails.
+- `fortinet-cli fmg status` / `fmg adoms` / `fmg devices [--adom a,b]`  -  Read-only FortiManager view. Needs `FORTINET_FMG_URL` and `FORTINET_FMG_API_KEY`; check with `fmg status`.
+- `fortinet-cli cloud devices` / `cloud device <serial>`  -  Read-only FortiGate Cloud inventory (serial, model, firmware, contract end, management tunnel). Needs `FORTINET_CLOUD_API_USER` and `FORTINET_CLOUD_API_PASSWORD` (+ `FORTINET_CLOUD_REGION`, `FORTINET_CLOUD_ACCOUNT_ID` when applicable).
+
+Prerequisites: without a devices file (`<config dir>/devices.toml` or `$FORTINET_DEVICES`), `fleet *`, `audit *` and `policies hygiene` check only the `FORTINET_BASE_URL` device. `doctor` checks only that device too.
+
+
 
 
 ### Finding the right command
@@ -308,7 +318,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 fortinet-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index (the headline commands above; for `fleet devices`, `fleet backup`, `fmg *` and `cloud *` use the Command Reference). Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
@@ -354,7 +364,7 @@ Writes dated 0600 config files under <data dir>/backups (they contain encrypted 
 
 ## Auth Setup
 
-Each FortiGate uses its own REST API administrator token (System > Administrators > Create New > REST API Admin, or `execute api-user generate-key <name>`), sent as `Authorization: Bearer`; your source IP must be one of that API user's trusted hosts. Single device: set FORTINET_BASE_URL=https://<fortigate>/api/v2 and FORTINET_API_TOKEN. Fleet: list devices in <config dir>/devices.toml (or the file named by FORTINET_DEVICES or --devices), each with token_env (an env var name) or token_file (a file the CLI refuses unless chmod 600); token values never go in the file. Without a devices file, fleet and audit commands check only the single FORTINET_BASE_URL device. Self-signed certificates: install the device CA, or opt in with --insecure, FORTINET_SKIP_TLS_VERIFY=true, or insecure = true for one device in devices.toml. FortiManager: FORTINET_FMG_URL plus an API key in FORTINET_FMG_API_KEY (FortiManager 7.2.2 or later; FORTINET_FMG_INSECURE=true for a self-signed certificate). FortiGate Cloud: a FortiCloud IAM API user in FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD, FORTINET_CLOUD_REGION (global, us, eu or jp) and, with FortiCloud Organizations, FORTINET_CLOUD_ACCOUNT_ID; repeated failed logins lock the FortiCloud account for 15-30 minutes, so the CLI caches the token and logs in at most once per run.
+Each FortiGate uses its own REST API administrator token (System > Administrators > Create New > REST API Admin, or `execute api-user generate-key <name>`), sent as `Authorization: Bearer`; your source IP must be one of that API user's trusted hosts. Single device: set FORTINET_BASE_URL=https://<fortigate>/api/v2 and FORTINET_API_TOKEN. Fleet: list devices in <config dir>/devices.toml (or the file named by FORTINET_DEVICES or --devices), each with token_file naming a file that holds that device's token (on macOS and Linux the CLI refuses it unless chmod 600; on Windows protect it with NTFS permissions); token values never go in the devices file. Without a devices file, fleet and audit commands check only the single FORTINET_BASE_URL device. Self-signed certificates: install the device CA, or opt in with --insecure, FORTINET_SKIP_TLS_VERIFY=true, or insecure = true for one device in devices.toml. FortiManager: FORTINET_FMG_URL plus an API key in FORTINET_FMG_API_KEY (FortiManager 7.2.2 or later; FORTINET_FMG_INSECURE=true for a self-signed certificate). FortiGate Cloud: a FortiCloud IAM API user in FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD, FORTINET_CLOUD_REGION (global, us, eu or jp) and, with FortiCloud Organizations, FORTINET_CLOUD_ACCOUNT_ID; repeated failed logins lock the FortiCloud account for 15-30 minutes, so the CLI caches the token and logs in at most once per run.
 
 Run `fortinet-cli doctor` to verify setup.
 
@@ -375,10 +385,10 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   fortinet-cli address-groups list --agent --select category,color,comment
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
+- **Previewable**  -  `--dry-run` shows the request without sending (fleet, audit, policies hygiene, fmg and cloud commands report the action they would run). A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests
+- **Read-only**  -  never creates, updates or deletes anything on FortiGate, FortiManager or FortiGate Cloud; do not use it for configuration changes or firmware upgrades
 
 ### Response envelope
 
@@ -672,10 +682,12 @@ Explicit flags always win over profile values; profile values win over defaults.
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
+| 1 | Other error |
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
 | 4 | Authentication required |
-| 5 | API error (upstream issue) |
+| 5 | API error (upstream issue; also a failed `fleet backup`) |
+| 6 | Findings at or above `--fail-on` (only `fleet audit` and `audit *`, only when `--fail-on` is passed; UNKNOWN counts) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
@@ -692,7 +704,7 @@ Parse `$ARGUMENTS`:
 1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
 2. Register with Claude Code:
    ```bash
-   claude mcp add fortinet-mcp -- fortinet-mcp
+   claude mcp add fortinet-mcp --env FORTINET_BASE_URL=https://<fortigate>/api/v2 --env FORTINET_API_TOKEN=<token> -- fortinet-mcp
    ```
 3. Verify: `claude mcp list`
 

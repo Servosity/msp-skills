@@ -284,9 +284,9 @@
     {
       "name": "fortinet",
       "type": "skill-md",
-      "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `fortiguard licence expiry across clients`, `back up every fortigate config`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`.",
+      "description": "Use when the user asks to audit, inventory or back up client FortiGate firewalls, or read FortiManager or FortiGate Cloud: grades every FortiGate in a devices file for firmware, SSL-VPN exposure, admin accounts and license expiry in one read-only pass, plus HA, tunnel and certificate health, policy hygiene and config changes. Trigger phrases: `audit our fortigates`, `which client firewalls are exposing ssl-vpn`, `which fortigates need a firmware update`, `fortiguard license expiry across clients`, `back up every fortigate config`, `what changed on the firewall`, `list fortimanager managed devices`, `use fortinet`, `run fortinet-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/SKILL.md",
-      "digest": "sha256:d740755bd20489db9956b64c915dd277b9d0471bc60338f961f40d336cc1189f"
+      "digest": "sha256:dd07c42ef1c0aa83a168f4f38d6084a30000a0941d82eeb89cd2536bb3d06a39"
     },
     {
       "name": "google-workspace",

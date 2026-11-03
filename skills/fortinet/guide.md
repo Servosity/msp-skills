@@ -62,9 +62,9 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=fortinet).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `FORTINET_API_TOKEN` when Claude Desktop prompts you.
+3. Fill in your FortiGate API URL (`FORTINET_BASE_URL`, e.g. `https://203.0.113.10:8443/api/v2`) and `FORTINET_API_TOKEN` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS (Apple Silicon and Intel), Linux (`amd64`) and Windows (`amd64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/fortinet/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -87,6 +87,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
     "fortinet": {
       "command": "fortinet-mcp",
       "env": {
+        "FORTINET_BASE_URL": "https://<fortigate>/api/v2",
         "FORTINET_API_TOKEN": "<your-key>"
       }
     }
@@ -109,7 +110,7 @@ Set `FORTINET_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are 
 
 ## Authentication
 
-Each FortiGate uses its own REST API administrator token (System > Administrators > Create New > REST API Admin, or `execute api-user generate-key <name>`), sent as `Authorization: Bearer`; your source IP must be one of that API user's trusted hosts. Single device: set FORTINET_BASE_URL=https://<fortigate>/api/v2 and FORTINET_API_TOKEN. Fleet: list devices in <config dir>/devices.toml (or the file named by FORTINET_DEVICES or --devices), each with token_env (an env var name) or token_file (a file the CLI refuses unless chmod 600); token values never go in the file. Without a devices file, fleet and audit commands check only the single FORTINET_BASE_URL device. Self-signed certificates: install the device CA, or opt in with --insecure, FORTINET_SKIP_TLS_VERIFY=true, or insecure = true for one device in devices.toml. FortiManager: FORTINET_FMG_URL plus an API key in FORTINET_FMG_API_KEY (FortiManager 7.2.2 or later; FORTINET_FMG_INSECURE=true for a self-signed certificate). FortiGate Cloud: a FortiCloud IAM API user in FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD, FORTINET_CLOUD_REGION (global, us, eu or jp) and, with FortiCloud Organizations, FORTINET_CLOUD_ACCOUNT_ID; repeated failed logins lock the FortiCloud account for 15-30 minutes, so the CLI caches the token and logs in at most once per run.
+Each FortiGate uses its own REST API administrator token (System > Administrators > Create New > REST API Admin, or `execute api-user generate-key <name>`), sent as `Authorization: Bearer`; your source IP must be one of that API user's trusted hosts. Single device: set FORTINET_BASE_URL=https://<fortigate>/api/v2 and FORTINET_API_TOKEN. Fleet: list devices in <config dir>/devices.toml (or the file named by FORTINET_DEVICES or --devices), each with token_file naming a file that holds that device's token (on macOS and Linux the CLI refuses it unless chmod 600; on Windows protect it with NTFS permissions); token values never go in the devices file. Without a devices file, fleet and audit commands check only the single FORTINET_BASE_URL device. Self-signed certificates: install the device CA, or opt in with --insecure, FORTINET_SKIP_TLS_VERIFY=true, or insecure = true for one device in devices.toml. FortiManager: FORTINET_FMG_URL plus an API key in FORTINET_FMG_API_KEY (FortiManager 7.2.2 or later; FORTINET_FMG_INSECURE=true for a self-signed certificate). FortiGate Cloud: a FortiCloud IAM API user in FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD, FORTINET_CLOUD_REGION (global, us, eu or jp) and, with FortiCloud Organizations, FORTINET_CLOUD_ACCOUNT_ID; repeated failed logins lock the FortiCloud account for 15-30 minutes, so the CLI caches the token and logs in at most once per run.
 
 ## Quick Start
 
@@ -245,9 +246,9 @@ This CLI separates local files into four path kinds:
 
 | Kind | Contents |
 |------|----------|
-| `config` | User-editable settings such as `config.toml` and saved profiles |
-| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
-| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `config` | User-editable settings such as `config.toml`, `devices.toml` (fleet inventory) and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, `backups/` (from `fleet backup`), `fleet_audit.sqlite` (audit history for `fleet audit --new`) |
+| `state` | Runtime state such as persisted queries, `teach.log` and `fortigate-cloud-token.json` (cached FortiGate Cloud token, 0600) |
 | `cache` | Regenerable HTTP/cache files |
 
 Each kind resolves independently. The ladder is:
@@ -273,15 +274,6 @@ fortinet-cli doctor
 ```
 
 Under `FORTINET_HOME=/srv/fortinet`, the four dirs resolve to `/srv/fortinet/config`, `/srv/fortinet/data`, `/srv/fortinet/state`, and `/srv/fortinet/cache`.
-
-On Windows, set the same variable in PowerShell:
-
-```powershell
-$env:FORTINET_HOME = "C:\srv\fortinet"
-fortinet-cli doctor
-```
-
-Under `$env:FORTINET_HOME = "C:\srv\fortinet"`, the four dirs resolve to `C:\srv\fortinet\config`, `C:\srv\fortinet\data`, `C:\srv\fortinet\state`, and `C:\srv\fortinet\cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
@@ -543,6 +535,15 @@ Manage vips
 
 
 
+### Inventory, backups and many-client views
+
+- **`fortinet-cli fleet devices`** - List the devices the fleet commands will query (devices file, or the single `FORTINET_BASE_URL` device) and whether each is ready; token values are never printed.
+- **`fortinet-cli fleet backup`** - Download each FortiGate's full configuration into dated 0600 files under `<data dir>/backups` (or `--out-dir`); backups contain encrypted secrets. Exits 5 if any backup fails.
+- **`fortinet-cli fmg status`** / **`fmg adoms`** / **`fmg devices`** - Read-only FortiManager view (needs `FORTINET_FMG_URL` and `FORTINET_FMG_API_KEY`): version, client ADOMs, and managed FortiGates with firmware, connection and config-sync status.
+- **`fortinet-cli cloud devices`** / **`cloud device <serial>`** - Read-only FortiGate Cloud inventory (needs `FORTINET_CLOUD_API_USER` and `FORTINET_CLOUD_API_PASSWORD`, plus `FORTINET_CLOUD_REGION` / `FORTINET_CLOUD_ACCOUNT_ID` when applicable).
+
+Without a devices file, `fleet *`, `audit *` and `policies hygiene` check only the `FORTINET_BASE_URL` device.
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -587,12 +588,12 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
-- **Read-only by default** - this CLI does not create, update, delete, publish, send, or mutate remote resources
+- **Previewable** - `--dry-run` shows the request without sending (fleet, audit, policies hygiene, fmg and cloud commands report the action they would run)
+- **Read-only** - never creates, updates or deletes anything on FortiGate, FortiManager or FortiGate Cloud; local writes only (backups, audit history, the sync store, profiles)
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `1` other error, `2` usage error, `3` not found, `4` auth error, `5` API error (including a failed `fleet backup`), `6` findings at or above `--fail-on` (only `fleet audit` and `audit *`, only when `--fail-on` is passed; UNKNOWN counts), `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -600,11 +601,11 @@ Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API
 fortinet-cli doctor
 ```
 
-Verifies configuration, credentials, and connectivity to the API.
+Verifies configuration, credentials, and connectivity for the single `FORTINET_BASE_URL` FortiGate. For other setups use `fortinet-cli fleet devices` (devices file), `fmg status` (FortiManager) and `cloud devices` (FortiGate Cloud).
 
 ## Configuration
 
-Run `fortinet-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/fortinet-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\fortinet-cli\config.toml` on Windows; `--home`, `FORTINET_HOME`, and per-kind env vars can relocate it.
+Run `fortinet-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/fortinet-cli/config.toml` (`%USERPROFILE%\.config\fortinet-cli\config.toml` on Windows); `--home`, `FORTINET_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -614,16 +615,27 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `FORTINET_API_TOKEN` | per_call | Yes | Set to your API credential. |
+| `FORTINET_BASE_URL` | config | Single device | FortiGate REST API root, e.g. `https://203.0.113.10:8443/api/v2` (the built-in default is a placeholder). |
+| `FORTINET_API_TOKEN` | per_call | Single device | REST API administrator token for that FortiGate. |
+| `FORTINET_DEVICES` | config | Fleet | Path to the devices file (default `<config dir>/devices.toml`); each device names its own `token_file` (chmod 600). |
+| `FORTINET_SKIP_TLS_VERIFY` | config | No | `true` accepts self-signed certificates (same as `--insecure`). |
+| `FORTINET_FMG_URL` | config | FortiManager | `https://<fortimanager>`. |
+| `FORTINET_FMG_API_KEY` | per_call | FortiManager | REST API admin key (FortiManager 7.2.2 or later). |
+| `FORTINET_FMG_INSECURE` | config | No | `true` accepts a self-signed FortiManager certificate. |
+| `FORTINET_CLOUD_API_USER` | per_call | FortiGate Cloud | FortiCloud IAM API user ID. |
+| `FORTINET_CLOUD_API_PASSWORD` | per_call | FortiGate Cloud | FortiCloud IAM API user password. |
+| `FORTINET_CLOUD_REGION` | config | No | `global` (default), `us`, `eu` or `jp`: where the devices were provisioned. |
+| `FORTINET_CLOUD_ACCOUNT_ID` | config | With FortiCloud Organizations | Account to read. |
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `fortinet-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `fortinet-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
-**Authentication errors (exit code 4)**
-- Run `fortinet-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $FORTINET_API_TOKEN`
+**Authentication errors**
+- Single device (exit code 4): run `fortinet-cli auth status` and `fortinet-cli doctor`; check the token is set without printing it: `[ -n "$FORTINET_API_TOKEN" ] && echo set`
+- Fleet and audit commands: a rejected token is an UNKNOWN finding with code `unauthorized` (exit 0 unless `--fail-on` is passed)
+- `fmg` / `cloud`: rejected credentials exit 4; missing settings exit 10
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items
@@ -631,7 +643,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **401 Unauthorized from a FortiGate**  -  The token is wrong or your IP is not a trusted host: add your source IP under System > Administrators > (your REST API admin) > Trusted Hosts. Fleet commands report this as an UNKNOWN finding with code unauthorized.
 - **x509: certificate signed by unknown authority**  -  FortiGates ship a self-signed certificate: install the device CA, or pass --insecure (or FORTINET_SKIP_TLS_VERIFY=true); in devices.toml set insecure = true for that device only.
-- **403 Forbidden on a table, or UNKNOWN / not-checked items in fleet health**  -  The REST API admin profile lacks read access to that area; grant read permission to System and monitor data in its admin profile.
+- **403 Forbidden on a table, or UNKNOWN / not-checked items in fleet health**  -  The REST API admin profile lacks read access to that area; grant read permission to System and monitor data in its admin profile (and Firewall, so `audit sslvpn` can resolve named SSL-VPN source addresses).
 - **fleet audit shows UNKNOWN for a device**  -  The device could not be read (timeout, 401, TLS); run fortinet-cli fleet devices, then retry that device alone with --device <name>.
 - **fmg command fails with status -11**  -  FortiManager answers -11 for both a bad API key and missing permission: check FORTINET_FMG_API_KEY, the API admin's profile and ADOM scope, and its trusted hosts.
 - **FortiGate Cloud login returns invalid_grant**  -  Check FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD; repeated failures lock the FortiCloud account for 15-30 minutes, so wait before retrying.

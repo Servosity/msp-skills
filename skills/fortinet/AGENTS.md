@@ -2,6 +2,10 @@
 
 This directory is a generated `fortinet-cli` printed CLI. It was produced by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press), so treat systemic fixes as upstream Printing Press fixes first. Keep local edits narrow and document why a generated-tree patch belongs here.
 
+## This CLI
+
+Read-only against FortiGate, FortiManager and FortiGate Cloud: it never creates, updates or deletes anything there. Local writes only: `fleet backup` files, `fleet audit` history, the sync store, profiles and the learning store. `fleet *`, `audit *` and `policies hygiene` need a devices file for more than one FortiGate (`fleet devices` shows what they will query); `fmg *` needs `FORTINET_FMG_URL` + `FORTINET_FMG_API_KEY`; `cloud *` needs `FORTINET_CLOUD_API_USER` + `FORTINET_CLOUD_API_PASSWORD`.
+
 ## Local Operating Contract
 
 Start by asking the generated CLI for current runtime truth:
@@ -14,21 +18,21 @@ fortinet-cli agent-context --pretty
 Use runtime discovery instead of relying on a copied command list:
 
 ```bash
-fortinet-cli which "<capability>" --json
-fortinet-cli <command> --help
+fortinet-cli which "ssl-vpn exposure across clients" --json
+fortinet-cli audit sslvpn --help
 ```
 
 Add `--agent` to command invocations for JSON, compact output, non-interactive defaults, and no color:
 
 ```bash
-fortinet-cli <command> --agent
+fortinet-cli fleet audit --agent
 ```
 
-Before running an unfamiliar command that may mutate remote state, inspect its help and prefer a dry run:
+Before running an unfamiliar command, inspect its help and prefer a dry run:
 
 ```bash
-fortinet-cli <command> --help
-fortinet-cli <command> --dry-run --agent
+fortinet-cli fleet backup --help
+fortinet-cli fleet backup --dry-run --agent
 ```
 
 A completed `--dry-run` reports `"success": true` and `"dry_run": true` and omits HTTP `status`. Hand-written commands should call `writeDryRun` for that shape. A dry run that fails validation exits non-zero with `"success": false`.
@@ -43,7 +47,7 @@ Every hand-written novel command must declare its strategy in a Go line comment:
 // pp:data-source auto
 ```
 
-Use exactly one of `auto`, `local`, `live`, or `computed`. Keep `auto` when the command reads a synced collection and can fall back locally to the same question: top-level resources, and parent-scoped sub-collections whose rows were stored with `parent_id`. Pass `resourceType` as the stored name or the path segment; camelCase, snake_case, and kebab-case names for the same resource resolve to the stored table, and a path like `/parents/{id}/children` returns only that parent's rows. Use `live` when the read is not a synced collection. A local read that cannot apply a row-selecting parameter (`filter`, `orderBy`/`sort`/`order`, search, cursor, a page without a usable limit, or an equality key that is not a stored field) fails with a clear error naming those parameters and suggesting `--data-source live`; it does not return a different row set, and `auto` does the same when live is unreachable. Projection parameters such as `fields` stay warnings. Use `local` for local-only reads and `computed` for pure computation from embedded rules. Change a generated scaffold's `auto` default deliberately when its implementation has a narrower source, and keep `cmd.Annotations["pp:data-source"]` on the same command in sync; `--agent` envelopes read that annotation for `meta.source`. Root rejects an incompatible `--data-source` for a `live` or `local` annotation before any network or store access; `auto`, `computed`, and unannotated commands are unchanged. A command that is live or local only in some modes stays unannotated and validates in its own RunE. TODO stubs still fail dogfood even when annotated.
+Use exactly one of `auto`, `local`, `live`, or `computed`. Keep `auto` when the command reads a synced collection and can fall back locally to the same question: top-level resources, and parent-scoped sub-collections whose rows were stored with `parent_id`. Pass `resourceType` as the stored name or the path segment; camelCase, snake_case, and kebab-case names for the same resource resolve to the stored table, and a path like `/parents/{id}/children` returns only that parent's rows. Use `live` when the read is not a synced collection. A local read that cannot apply a row-selecting parameter (`filter`, `orderBy`/`sort`/`order`, search, cursor, a page without a usable limit, or an equality key that is not a stored field) fails with a clear error naming those parameters and suggesting `--data-source live`; it does not return a different row set, and `auto` does the same when live is unreachable. Projection parameters such as `fields` stay warnings. Use `local` for local-only reads and `computed` for pure computation from embedded rules. Change a generated scaffold's `auto` default deliberately when its implementation has a narrower source, and keep `cmd.Annotations["pp:data-source"]` on the same command in sync; `--agent` envelopes read that annotation for `meta.source`. Root rejects an incompatible `--data-source` for a `live` or `local` annotation before any network or store access; `auto`, `computed`, and unannotated commands are unchanged. A command that is live or local only in some modes stays unannotated and validates in its own RunE. TODO stubs still fail dogfood even when annotated. <!-- no-todos:ignore -->
 
 ## Self-Learning Loop
 
