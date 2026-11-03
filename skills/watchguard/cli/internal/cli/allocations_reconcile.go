@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source live
 
 package cli
@@ -48,6 +48,7 @@ type productUsage struct {
 	SubscriptionTotal string `json:"subscription_total,omitempty"`
 	Usage             *int   `json:"usage,omitempty"`
 	ExpiryDate        string `json:"expiry_date,omitempty"`
+	ExpiryField       string `json:"expiry_field,omitempty"`
 }
 
 func optInt(m map[string]any, k string) *int {
@@ -57,10 +58,19 @@ func optInt(m map[string]any, k string) *int {
 	return nil
 }
 
-func productFromRow(resourceType string, m map[string]any) productUsage {
-	return productUsage{ResourceType: resourceType, Product: strField(m, "productName"), AllocationType: strField(m, "allocationType"),
+func productFromRow(resourceType string, m map[string]any, now time.Time) productUsage {
+	p := productUsage{ResourceType: resourceType, Product: strField(m, "productName"), AllocationType: strField(m, "allocationType"),
 		Total: optInt(m, "quantityTotal"), Allocated: optInt(m, "quantityAllocated"), Available: optInt(m, "quantityAvailable"),
 		SubscriptionTotal: strField(m, "subscriptionTotal"), Usage: optInt(m, "usage"), ExpiryDate: strField(m, "allocationExpiryDate")}
+	// Hand-fix (handfixes.json: expiry-reads-the-earliest-evidence): show the
+	// earliest documented expiry and the field it came from.
+	if at, date, field, state := expiryOf(m, now); state == expiryDated {
+		if date == "" {
+			date = at.UTC().Format(time.RFC3339)
+		}
+		p.ExpiryDate, p.ExpiryField = date, field
+	}
+	return p
 }
 
 func showInt(p *int) string {
@@ -71,11 +81,15 @@ func showInt(p *int) string {
 }
 
 type reconcileView struct {
-	Hardware      hardwareReconcile `json:"hardware"`
-	Products      []productUsage    `json:"products"`
-	Expiring      []expiringItem    `json:"expiring"`
-	Truncated     []string          `json:"truncated_lookups,omitempty"`
-	FetchFailures []fetchFailure    `json:"fetch_failures,omitempty"`
+	Hardware hardwareReconcile `json:"hardware"`
+	Products []productUsage    `json:"products"`
+	Expiring []expiringItem    `json:"expiring"`
+	// ExpiryUnknown lists rows whose expiry the response does not tell (hand-fix,
+	// handfixes.json expiry-unknown-never-read-as-not-expiring), so they are
+	// never silently missing from expiring.
+	ExpiryUnknown []expiryUnknownItem `json:"expiry_unknown"`
+	Truncated     []string            `json:"truncated_lookups,omitempty"`
+	FetchFailures []fetchFailure      `json:"fetch_failures,omitempty"`
 }
 
 func emptyHardware() hardwareReconcile {
@@ -153,7 +167,8 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			"Needs a WatchGuard Service Provider account (allocation APIs). Hardware: allocated serials with no reporting Firebox, allocated Fireboxes offline " +
 			"longer than --offline-for, reporting Fireboxes still unallocated, and reporting Fireboxes with no allocation record; skipped with a reason if a " +
 			"lookup fails. Products: total, allocated and available quantity per software product in the Service Provider's inventory. " +
-			"Expiring: Firebox allocations and products that run out within --expiring-within (already-expired ones flagged expired).\n\n" +
+			"Expiring: Firebox allocations and products that run out within --expiring-within (already-expired ones flagged expired); " +
+			"rows that carry no expiry date and no 'never' expiry type are listed in expiry_unknown instead of being left out.\n\n" +
 			"Exit codes: 0 every lookup succeeded, 6 some lookup failed (listed in fetch_failures; --allow-partial-failure exits 0), 5 the allocation lookup itself failed.",
 		Example: strings.Trim(`
   watchguard-cli allocations reconcile --agent
@@ -183,7 +198,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			now := time.Now()
-			view := reconcileView{Hardware: emptyHardware(), Products: make([]productUsage, 0), Expiring: make([]expiringItem, 0), FetchFailures: make([]fetchFailure, 0)}
+			view := reconcileView{Hardware: emptyHardware(), Products: make([]productUsage, 0), Expiring: make([]expiringItem, 0), ExpiryUnknown: make([]expiryUnknownItem, 0), FetchFailures: make([]fetchFailure, 0)}
 			lookups := 0
 			fail := func(source string, err error) {
 				view.FetchFailures = append(view.FetchFailures, fetchFailure{Source: source, Error: err.Error()})
@@ -221,7 +236,12 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			default:
 				view.Hardware = reconcileHardware(allocated, unallocated, devRows, offlineAfter, now)
 			}
-			view.Expiring = append(view.Expiring, expiringWithin("firebox", allocated, window, now)...)
+			addExpiry := func(rt string, rows []map[string]any) {
+				exp, unk := expiringWithin(rt, rows, window, now)
+				view.Expiring = append(view.Expiring, exp...)
+				view.ExpiryUnknown = append(view.ExpiryUnknown, unk...)
+			}
+			addExpiry("firebox", allocated)
 
 			for _, rt := range strings.Split(types, ",") {
 				if rt = strings.TrimSpace(rt); rt == "" {
@@ -235,13 +255,16 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 				}
 				trunc(rt+" summary", t)
 				for _, m := range rows {
-					view.Products = append(view.Products, productFromRow(rt, m))
+					view.Products = append(view.Products, productFromRow(rt, m, now))
 				}
-				view.Expiring = append(view.Expiring, expiringWithin(rt, rows, window, now)...)
+				addExpiry(rt, rows)
 			}
 			sort.SliceStable(view.Expiring, func(i, j int) bool { return view.Expiring[i].DaysLeft < view.Expiring[j].DaysLeft })
 			if len(view.FetchFailures) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d lookups failed; see fetch_failures\n", len(view.FetchFailures))
+			}
+			if len(view.ExpiryUnknown) > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d allocation row(s) carry no expiry date; see expiry_unknown\n", len(view.ExpiryUnknown))
 			}
 			if len(view.Truncated) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: --max-pages cut %s short\n", strings.Join(view.Truncated, ", "))
@@ -272,6 +295,9 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			}
 			for _, e := range view.Expiring {
 				fmt.Fprintf(cmd.OutOrStdout(), "expires in %d day(s): %s %s %s %s\n", e.DaysLeft, e.ResourceType, e.Product, e.Serial, e.AccountName)
+			}
+			for _, u := range view.ExpiryUnknown {
+				fmt.Fprintf(cmd.OutOrStdout(), "expiry unknown (no date in the response): %s %s %s\n", u.ResourceType, u.Product, u.AccountName)
 			}
 			return verdict
 		},

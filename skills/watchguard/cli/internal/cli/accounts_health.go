@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source live
 
 package cli
@@ -29,9 +29,13 @@ type healthRow struct {
 	EndpointsAtRisk  *int           `json:"endpoints_at_risk"`
 	IncidentsOpen    map[string]int `json:"incidents_open"`
 	LicensesExpiring *int           `json:"licenses_expiring"`
-	Complete         bool           `json:"complete"`
-	Truncated        bool           `json:"truncated"`
-	Errors           []string       `json:"errors,omitempty"`
+	// LicensesExpiryUnknown counts allocation rows whose expiry the response
+	// does not tell (hand-fix, handfixes.json expiry-unknown-never-read-as-not-expiring);
+	// any makes the row incomplete, so licenses_expiring is then a lower bound.
+	LicensesExpiryUnknown *int     `json:"licenses_expiry_unknown"`
+	Complete              bool     `json:"complete"`
+	Truncated             bool     `json:"truncated"`
+	Errors                []string `json:"errors,omitempty"`
 }
 
 func intPtr(n int) *int { return &n }
@@ -152,7 +156,9 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use it for license line items or serial matching; use 'allocations reconcile' instead.\n\n" +
 			"Built for a WatchGuard Service Provider account. Fireboxes (Access Points excluded) and endpoints are read per account with audience-scoped tokens; " +
 			"a product the account does not have shows in that row's errors. Incidents come from one ThreatSync call across tenants and license expiry from the " +
-			"Service Provider's allocation lists; failures of those two show at the top level (incidents_error, licenses_error). " +
+			"Service Provider's allocation lists (Fireboxes and access points per device from the allocated-inventory summary, because their per-account allocation list carries no dates); " +
+			"failures of those two show at the top level (incidents_error, licenses_error). An allocation row with no expiry date and no 'never' expiry type is counted in licenses_expiry_unknown " +
+			"and makes the row incomplete (licenses_expiring is then a lower bound). " +
 			"Rows are sorted by attention score: offline Fireboxes + at-risk endpoints + expiring licenses + open incidents weighted by severity; " +
 			"a row with a failed read (complete:false, the missing counts null) is listed first, never as healthier than a fully read row.\n\n" +
 			"WatchGuard documents no separate answer for a product an account does not have (403 means no permission), so a missing product counts as a failed read.\n\n" +
@@ -195,24 +201,32 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 				incidents, view.IncidentsTruncate = openIncidentsByAccount(items), trunc
 				okReads++
 			}
-			expiringBy := map[string]int{}
+			expiringBy, unknownBy := map[string]int{}, map[string]int{}
 			now := time.Now()
 			var licErrs []string
 			for _, rt := range strings.Split(licenseTypes, ",") {
 				if rt = strings.TrimSpace(rt); rt == "" {
 					continue
 				}
-				rows, trunc, err := pageLimitOffset(ctx, c, "/rest/platform/allocation/v2/"+url.PathEscape(own)+"/assets/allocations/"+url.PathEscape(rt),
-					map[string]string{"accountType": "2"}, nil, "data", 100, tf.pages())
+				rows, trunc, err := licenseExpiryRows(ctx, c, own, rt, tf.pages())
 				if err != nil {
 					licErrs = append(licErrs, rt+": "+err.Error())
 					failedReads++
 					continue
 				}
+				expiring, unknown := expiringWithin(rt, rows, window, now)
+				if n := unattributedRows(expiring, unknown); n > 0 {
+					licErrs = append(licErrs, fmt.Sprintf("%s: %d allocation row(s) name no account", rt, n))
+					failedReads++
+					continue
+				}
 				okReads++
 				view.LicensesTruncated = view.LicensesTruncated || trunc
-				for _, e := range expiringWithin(rt, rows, window, now) {
+				for _, e := range expiring {
 					expiringBy[e.AccountID]++
+				}
+				for _, u := range unknown {
+					unknownBy[u.AccountID]++
 				}
 			}
 			view.LicensesError = strings.Join(licErrs, "; ")
@@ -223,7 +237,7 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 				}, cliutil.WithConcurrency(tf.workers()))
 			view.FetchFailures = fanoutFailures(errs)
 			failedReads += len(errs)
-			accountReadsOK := 0
+			accountReadsOK, expiryUnknownRows := 0, 0
 			for _, r := range results {
 				row := r.Value
 				if inc := incidents[row.AccountID]; inc != nil {
@@ -234,6 +248,12 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 				}
 				if view.LicensesError == "" {
 					row.LicensesExpiring = intPtr(expiringBy[row.AccountID])
+					row.LicensesExpiryUnknown = intPtr(unknownBy[row.AccountID])
+					if unknownBy[row.AccountID] > 0 {
+						// Fail closed: the count is only a lower bound, which is a partial read.
+						failedReads++
+						expiryUnknownRows++
+					}
 				}
 				for _, p := range []*int{row.FireboxesTotal, row.EndpointsTotal} {
 					if p != nil {
@@ -241,11 +261,14 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				failedReads += len(row.Errors)
-				row.Complete = len(row.Errors) == 0 && row.IncidentsOpen != nil && row.LicensesExpiring != nil
+				row.Complete = len(row.Errors) == 0 && row.IncidentsOpen != nil && row.LicensesExpiring != nil && derefInt(row.LicensesExpiryUnknown) == 0
 				view.Accounts = append(view.Accounts, row)
 			}
 			sort.SliceStable(view.Accounts, func(i, j int) bool { return healthRowsLess(view.Accounts[i], view.Accounts[j]) })
 			view.Note = accountsTruncatedNote(cmd.ErrOrStderr(), accTrunc)
+			if expiryUnknownRows > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d account(s) have allocations with no expiry date; licenses_expiring is a lower bound there (see licenses_expiry_unknown)\n", expiryUnknownRows)
+			}
 			if err := renderHealth(cmd, flags, view); err != nil {
 				return err
 			}
@@ -260,6 +283,39 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&expiring, "expiring-within", "30d", "Count allocations that expire within this window (already-expired ones included)")
 	cmd.Flags().StringVar(&licenseTypes, "license-types", "firebox,endPoint,authPoint,threatSync,ndr,fireCloud,accessPoint", "Allocation resource types checked for expiry")
 	return cmd
+}
+
+// hardwareAllocationTypes are allocated per device. Their per-account
+// allocation list is a quantity with no dates (spec example
+// AllocfireboxAssetsAllocation1), so expiry is read from the allocated-inventory
+// summary, which lists each device with its accountId and expiry fields
+// (AllocfireboxSampleDataAllocated).
+var hardwareAllocationTypes = map[string]bool{"firebox": true, "accessPoint": true}
+
+// licenseExpiryRows returns the allocation rows accounts health reads expiry from.
+func licenseExpiryRows(ctx context.Context, c *client.Client, own, resourceType string, maxPages int) ([]map[string]any, bool, error) {
+	if hardwareAllocationTypes[resourceType] {
+		return allocationSummary(ctx, c, own, resourceType, "allocated", maxPages)
+	}
+	return pageLimitOffset(ctx, c, "/rest/platform/allocation/v2/"+url.PathEscape(own)+"/assets/allocations/"+url.PathEscape(resourceType),
+		map[string]string{"accountType": "2"}, nil, "data", 100, maxPages)
+}
+
+// unattributedRows counts expiring or expiry-unknown rows that name no account:
+// they cannot be charged to any row, so the license read is not usable.
+func unattributedRows(expiring []expiringItem, unknown []expiryUnknownItem) int {
+	n := 0
+	for _, e := range expiring {
+		if strings.TrimSpace(e.AccountID) == "" {
+			n++
+		}
+	}
+	for _, u := range unknown {
+		if strings.TrimSpace(u.AccountID) == "" {
+			n++
+		}
+	}
+	return n
 }
 
 func renderHealth(cmd *cobra.Command, flags *rootFlags, view healthView) error {
@@ -292,8 +348,12 @@ func renderHealth(cmd *cobra.Command, flags *rootFlags, view healthView) error {
 		if i := r.IncidentsOpen; i != nil {
 			incidents = fmt.Sprintf("%d/%d/%d/%d", i["critical"], i["high"], i["medium"], i["low"])
 		}
+		expiring := showCount(r.LicensesExpiring)
+		if n := derefInt(r.LicensesExpiryUnknown); n > 0 {
+			expiring += fmt.Sprintf(" (+%d no date)", n)
+		}
 		fmt.Fprintf(tw, "%s\t%s/%s\t%s/%s\t%s\t%s\t%d\n", subscriber{ID: r.AccountID, Name: r.AccountName}.label(), showCount(r.FireboxesOffline), showCount(r.FireboxesTotal),
-			showCount(r.EndpointsAtRisk), showCount(r.EndpointsTotal), incidents, showCount(r.LicensesExpiring), len(r.Errors))
+			showCount(r.EndpointsAtRisk), showCount(r.EndpointsTotal), incidents, expiring, len(r.Errors))
 	}
 	return tw.Flush()
 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -116,13 +116,15 @@ func (wgOperatorsGetter) RateLimit() float64 { return 0 }
 
 // A dependent walk narrowed by --global-param or --resource-param covers a
 // subset of each parent's children, so it never stamps the dependent complete.
+const operatorsDependent = "rest_platform_operator_mgmt_v1_operators_by_account_id"
+
 func TestFilteredDependentSyncNotStampedComplete(t *testing.T) {
 	prev := humanFriendly
 	humanFriendly = false
 	defer func() { humanFriendly = prev }()
 	var dep dependentResourceDef
 	for _, d := range dependentResourceDefs() {
-		if d.Name == "operators" {
+		if d.Name == operatorsDependent {
 			dep = d
 		}
 	}
@@ -135,7 +137,7 @@ func TestFilteredDependentSyncNotStampedComplete(t *testing.T) {
 		wantComplete bool
 	}{
 		{"global-param", &syncUserParams{trueGlobal: map[string]string{"role": "admin"}}, false},
-		{"resource-param", &syncUserParams{perResource: map[string]map[string]string{"operators": {"role": "admin"}}}, false},
+		{"resource-param", &syncUserParams{perResource: map[string]map[string]string{operatorsDependent: {"role": "admin"}}}, false},
 		{"param (flat only)", &syncUserParams{flatGlobal: map[string]string{"role": "admin"}}, true},
 		{"unfiltered", nil, true},
 	} {
@@ -150,7 +152,7 @@ func TestFilteredDependentSyncNotStampedComplete(t *testing.T) {
 		if res := syncDependentResource(context.Background(), wgOperatorsGetter{}, db, dep, "", false, 0, false, false, tc.params, &events, 1); res.Err != nil {
 			t.Fatalf("%s: %v", tc.name, res.Err)
 		}
-		_, last, _, _ := db.GetSyncState("operators")
+		_, last, _, _ := db.GetSyncState(operatorsDependent)
 		if complete := !last.IsZero(); complete != tc.wantComplete {
 			t.Errorf("%s: operators stamped complete=%v, want %v (events %s)", tc.name, complete, tc.wantComplete, events.String())
 		}

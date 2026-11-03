@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "WatchGuard Cloud MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers."
+description: "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server."
 permalink: /skills/watchguard/
 skill_name: "WatchGuard Cloud MCP"
 image: /assets/social/watchguard/wide-1200x630.png
@@ -44,7 +44,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by WatchGuard Technologies, Inc..
+> Not affiliated with, endorsed by, or sponsored by WatchGuard Technologies, Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
