@@ -1,6 +1,6 @@
 ---
 name: proxmox
-description: "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox. Trigger phrases: `are my proxmox backups good`, `which VMs are not backed up`, `check PBS verify failures`, `proxmox backup posture for all clients`, `when will the backup datastore fill up`, `use proxmox`, `run proxmox-cli`."
+description: "Use when the user asks whether Proxmox VE or Proxmox Backup Server (PBS) backups are good across client clusters: which VMs are unprotected, stale or failed verification, what failed overnight, when a datastore fills, or which restore points exist. Read-only (GET-only) CLI and MCP server with per-guest backup verdicts. Trigger phrases: `are my proxmox backups good`, `which VMs are not backed up`, `check PBS verify failures`, `proxmox backup posture for all clients`, `when will the backup datastore fill up`, `use proxmox`, `run proxmox-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Proxmox"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proxmox/install.ps1
 ---
 
-# Proxmox VE + Backup Server  -  Printing Press CLI
+# Proxmox VE + Backup Server - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -42,11 +42,11 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so an agent can be handed an auditor token safely. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
+Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so nothing an agent runs can change a cluster or a backup. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
 
 ## When to Use This CLI
 
-Use this CLI to inspect Proxmox VE clusters and Proxmox Backup Server from scripts or agents without changing them (GET requests only; no configuration, guest or backup is modified): backup posture across many client clusters, verify failures, failed backup tasks, datastore capacity, restore-point lookups and RPO evidence, plus every read-only API endpoint (VMs, containers, nodes, storage, tasks, Ceph, SDN, HA, firewall, access). It is built for MSPs running many small clusters and anyone who wants an agent to watch backups with an auditor token.
+Use this CLI to inspect Proxmox VE clusters and Proxmox Backup Server from scripts or agents without changing them (GET requests only; no configuration, guest or backup is modified): backup posture across many client clusters, verify failures, failed backup tasks, datastore capacity, restore-point lookups and RPO evidence, plus every read-only API endpoint (VMs, containers, nodes, storage, tasks, Ceph, SDN, HA, firewall, access). It is built for MSPs running many small clusters and anyone who wants an agent to watch backups without being able to change them.
 
 ## Anti-triggers
 
@@ -75,7 +75,7 @@ Do not use this CLI for:
   ```
 - **`failures`**  -  Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line.
 
-  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
+  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. A PBS task names no PVE cluster, so on a PBS that another configured cluster also writes to its row has attribution `shared: <clusters>` and an empty tenant; do not credit it to one client (an entry with only a PBS host owns what one cluster of its own client writes). A task two profiles read through the same PBS host spelling is listed once. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
 
   ```bash
   proxmox-cli failures --since 24h --agent
@@ -84,7 +84,7 @@ Do not use this CLI for:
 ### PBS health
 - **`verify-health`**  -  Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API.
 
-  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); empty groups with a non-empty skipped_clusters means nothing was checked, not that nothing failed._
+  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); skipped_clusters lists clusters with no PBS host, which were not checked, and exit 5 means no cluster was checked at all; healthy groups are listed only with --all._
 
   ```bash
   proxmox-cli verify-health --agent
@@ -98,9 +98,9 @@ Do not use this CLI for:
   ```
 
 ### Restore readiness
-- **`restore-points`**  -  Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption.
+- **`restore-points`**  -  Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
-  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read)._
+  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read). predating_guest counts backups under the VMID from before this VM was created (an earlier guest's), which are not listed; a backup that may be either guest's is listed with may_be_earlier_guest._
 
   ```bash
   proxmox-cli restore-points 104 --agent
@@ -335,7 +335,7 @@ Do not use this CLI for:
 - `proxmox-cli pbs-access permissions`  -  List permissions of given or currently authenticated user / API token. Optionally limited to specific path.
 - `proxmox-cli pbs-access roles`  -  Role list. Required privilege: any authenticated user
 - `proxmox-cli pbs-access tfa`  -  List user TFA configuration. Required privilege: Returns all or just the logged-in user, depending on privileges.
-- `proxmox-cli pbs-access tfa-get`  -  Add a TOTP secret to the user. Required privilege: Permissions.Modify on /access/users or the user named by {userid}
+- `proxmox-cli pbs-access tfa-get`  -  List a user's TFA entries (types and descriptions; no secrets). Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - `proxmox-cli pbs-access tfa-id-get`  -  Get a single TFA entry. Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - `proxmox-cli pbs-access users`  -  List users. Required privilege: Returns all or just the logged-in user (/API token owner), depending on privileges.
 - `proxmox-cli pbs-access users-get`  -  Read user configuration data. Required privilege: Sys.Audit on /access/users or the user named by {userid}
@@ -346,7 +346,7 @@ Do not use this CLI for:
 
 - `proxmox-cli pbs-config acme-account`  -  List ACME accounts. Required privilege: Sys.Modify on /system/certificates
 - `proxmox-cli pbs-config acme-account-get`  -  Return existing ACME account information. Required privilege: Sys.Modify on /system/certificates
-- `proxmox-cli pbs-config acme-challenge-schema`  -  Get named known ACME directory endpoints. Required privilege: any authenticated user
+- `proxmox-cli pbs-config acme-challenge-schema`  -  Get the ACME challenge plugin schema. Required privilege: any authenticated user
 - `proxmox-cli pbs-config acme-directories`  -  Get named known ACME directory endpoints. Required privilege: any authenticated user
 - `proxmox-cli pbs-config admin-metrics`  -  List configured metric servers. Required privilege: Sys.Audit on /
 - `proxmox-cli pbs-config admin-traffic-control`  -  Show current traffic for all traffic control rules. Required privilege: Sys.Audit on /
@@ -413,7 +413,7 @@ Do not use this CLI for:
 - `proxmox-cli pbs-nodes identity`  -  Returns a unique server identity. The ID is derived from `/etc/machine-id`. Required privilege: any authenticated user
 - `proxmox-cli pbs-nodes journal`  -  Read syslog entries. Required privilege: Sys.Audit on /system/log
 - `proxmox-cli pbs-nodes list`  -  List Nodes (only for compatibility)
-- `proxmox-cli pbs-nodes network`  -  List all datastores. Required privilege: Sys.Audit on /system/network/interfaces
+- `proxmox-cli pbs-nodes network`  -  List network interfaces. Required privilege: Sys.Audit on /system/network/interfaces
 - `proxmox-cli pbs-nodes network-get`  -  Read a network interface configuration. Required privilege: Sys.Audit on /system/network/interfaces/{iface}
 - `proxmox-cli pbs-nodes ping`  -  Dummy method which replies with `{ 'pong': True }`.
 - `proxmox-cli pbs-nodes rrd`  -  Read node stats. Required privilege: Sys.Audit on /system/status
@@ -584,7 +584,7 @@ Do not use this CLI for:
 **capacity**
 
 
-- `proxmox-cli capacity`  -  Every PBS datastore and PVE backup storage ranked by days until full, with garbage-collection and prune state and a GC-deadlock warning.
+- `proxmox-cli capacity`  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning.
 
 
 **failures**
@@ -602,7 +602,7 @@ Do not use this CLI for:
 **restore-points**
 
 
-- `proxmox-cli restore-points`  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and whether the next prune removes it.
+- `proxmox-cli restore-points`  -  Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
 
 **rpo**
@@ -661,7 +661,7 @@ Failed and never-verified snapshot counts per backup group on one datastore.
 proxmox-cli restore-points 104 --cluster acme
 ```
 
-Every restore point of guest 104 with verify state and prune marks.
+Every restore point of guest 104 with verify state and protection.
 
 ### Datastores filling within a month or carrying a risk flag
 
@@ -669,13 +669,13 @@ Every restore point of guest 104 with verify state and prune marks.
 proxmox-cli capacity --within 30d
 ```
 
-Ranked by days to full; also lists storage flagged gc-deadlock-risk or unpruned regardless of free space.
+Ranked by days to full; also lists storage carrying any flag (full, nearly-full, gc-deadlock-risk, no-forecast) whatever its runway.
 
 ## Auth Setup
 
-Create a privilege-separated API token with an audit role (PVE: PVEAuditor on /; PBS: Audit or DatastoreAudit on /datastore). Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
+Create a privilege-separated API token. PVE: PVEAuditor on /. Proxmox VE lists backup volumes only to a token that also holds Datastore.AllocateSpace and VM.Backup (an audit-only token sees an empty list, which this CLI reports as an unread storage and an unproven guest, never as "no backups"), so when backups live on dir, NFS or CIFS storage, or PBS is not configured here, add a custom role with those two privileges on /; the CLI never sends a request that uses them. PBS: the Audit role on / (read-only; its Sys.Audit on /system/tasks is what lets failures see verify, GC, sync and prune tasks). When PROXMOX_PBS_HOST is set (spelled as in the PVE storage's server field: the same IP or hostname), PBS-backed archives are read straight from the PBS API and the PVE token can stay audit-only. Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates; a malformed pin is an error, never ignored); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
 
-Run `proxmox-cli doctor` to verify setup.
+Run `proxmox-cli doctor` to verify the PROXMOX_* setup, and `proxmox-cli clusters check` to probe each configured cluster's PVE and PBS (host, certificate pin, token).
 
 ## Agent Mode
 
@@ -692,16 +692,16 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  proxmox-cli ct list mock-value --agent --select cpu,cpus,disk
+  proxmox-cli ct list pve1 --agent --select cpu,cpus,disk
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
+- **Previewable**  -  `--dry-run` on endpoint commands shows the request without sending; fleet commands (posture, failures, ...) only confirm what would run
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Read-only**  -  do not use this CLI for create, update, delete, publish, comment, upvote, invite, order, send, or other mutating requests
+- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 
 ### Response envelope
 
-Commands that read from the local store or the API wrap output in a provenance envelope:
+Under `--agent`, commands that read from the local store or the API wrap output in a provenance envelope (`--json` alone emits the bare payload; the fleet commands' own `rows`/`fetch_failures` object sits inside `.results`):
 
 ```json
 {
@@ -719,7 +719,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `PROXMOX_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `PROXMOX_CONFIG_DIR`, `PROXMOX_DATA_DIR`, `PROXMOX_STATE_DIR`, `PROXMOX_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `PROXMOX_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` is reserved for regenerable files; this CLI keeps no HTTP response cache.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `proxmox-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -739,7 +739,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `PROXMOX_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `PROXMOX_HOME`, or `doctor` will not find credentials left under the former root.
 
-Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `PROXMOX_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `PROXMOX_DATA_SOURCE` sets the `--data-source` default.
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; this CLI keeps no HTTP response cache. `local-data purge` previews what it would erase (store files and learn journal) and deletes only with `--yes`; it is not exposed over MCP. `PROXMOX_NO_LOCAL_DATA=1` turns off store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `PROXMOX_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -978,7 +978,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 proxmox-cli profile save briefing --json
-proxmox-cli --profile briefing ct list mock-value
+proxmox-cli --profile briefing ct list pve1
 proxmox-cli profile list --json
 proxmox-cli profile show briefing
 proxmox-cli profile delete briefing --yes
@@ -986,17 +986,24 @@ proxmox-cli profile delete briefing --yes
 
 Explicit flags always win over profile values; profile values win over defaults. `agent-context` lists all available profiles under `available_profiles` so introspecting agents discover them at runtime.
 
+## Per-cluster local store and CSV
+
+Each `--cluster` (or `PROXMOX_CLUSTER`) keeps its own local store, so synced rows of one client never answer for another. The MCP `sql` and `search` tools take no cluster argument: they read the store of the `PROXMOX_CLUSTER` set in the MCP server's environment (the default store when unset), so set it there to query one client's mirror. `--csv` is a flat projection of rows: read `evidence`, `not_read` and `fetch_failures` from the JSON output when completeness matters.
+
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
+| 1 | Gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`) |
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
+
+The fleet commands (posture, backup coverage, verify-health, failures, capacity, restore-points, rpo) report a rejected token as that cluster's fetch failure: they exit 5 when no cluster answered, never 4.
 
 ## Argument Parsing
 
@@ -1015,7 +1022,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `proxmox-mcp --transport http` requires `PROXMOX_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `PROXMOX_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `PROXMOX_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `proxmox-mcp --transport http` requires `PROXMOX_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `PROXMOX_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). Every MCP tool that reads Proxmox is read-only; the server registers no tool that sends a write to Proxmox.
 
 ## Direct Use
 

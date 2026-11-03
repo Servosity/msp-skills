@@ -2,7 +2,7 @@
 
 **Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.**
 
-Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so an agent can be handed an auditor token safely. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
+Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so nothing an agent runs can change a cluster or a backup. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
 
 Learn more at [Proxmox VE + Backup Server](https://www.proxmox.com).
 
@@ -60,11 +60,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=proxmox).
+1. Download `proxmox-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=proxmox). One bundle carries the binaries for every supported platform.
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `PROXMOX_API_TOKEN` when Claude Desktop prompts you.
+3. Fill in the prompts: `PROXMOX_API_TOKEN` and `PROXMOX_HOST`, plus `PROXMOX_TLS_FINGERPRINT` for a self-signed certificate. The PBS host, token and fingerprint are optional.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proxmox/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -87,9 +87,12 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
     "proxmox": {
       "command": "proxmox-mcp",
       "env": {
-        "PROXMOX_PBS_HOST": "<pbs_host>",
-        "PROXMOX_HOST": "<host>",
-        "PROXMOX_API_TOKEN": "<your-key>"
+        "PROXMOX_HOST": "<pve-host>",
+        "PROXMOX_API_TOKEN": "<USER@REALM!TOKENID=SECRET>",
+        "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
+        "PROXMOX_PBS_HOST": "<optional: pbs-host>",
+        "PROXMOX_PBS_API_TOKEN": "<optional: USER@REALM!TOKENID:SECRET>",
+        "PROXMOX_PBS_TLS_FINGERPRINT": "<optional: PBS certificate SHA-256>"
       }
     }
   }
@@ -98,26 +101,18 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 </details>
 
-### Remote MCP over HTTP
-
-`proxmox-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `PROXMOX_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `PROXMOX_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
-
-```bash
-export PROXMOX_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-proxmox-mcp --transport http
-```
-
-Set `PROXMOX_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
-
 ## Authentication
 
-Create a privilege-separated API token with an audit role (PVE: PVEAuditor on /; PBS: Audit or DatastoreAudit on /datastore). Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
+Create a privilege-separated API token. PVE: PVEAuditor on /. Proxmox VE lists backup volumes only to a token that also holds Datastore.AllocateSpace and VM.Backup (an audit-only token sees an empty list, which this CLI reports as an unread storage and an unproven guest, never as "no backups"), so when backups live on dir, NFS or CIFS storage, or PBS is not configured here, add a custom role with those two privileges on /; the CLI never sends a request that uses them. PBS: the Audit role on / (read-only; its Sys.Audit on /system/tasks is what lets failures see verify, GC, sync and prune tasks). When PROXMOX_PBS_HOST is set (spelled as in the PVE storage's server field: the same IP or hostname), PBS-backed archives are read straight from the PBS API and the PVE token can stay audit-only. Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
 
 ## Quick Start
 
 ```bash
-# Health report: config, credentials, certificate pins and reachability for PVE and PBS
+# Health report for the PROXMOX_* environment: config, credentials and PVE reachability
 proxmox-cli doctor
+
+# Every configured cluster: PVE and PBS reachable, certificate pin and token accepted
+proxmox-cli clusters check
 
 # Register one client cluster; fingerprints are the SHA-256 values shown under each node's Certificates (stock Proxmox is self-signed); the file stores env var names, never tokens
 proxmox-cli clusters add --client "Acme Dental" --pve-host pve1.acme.lan --pve-token-env ACME_PVE_TOKEN --pve-fingerprint "$ACME_PVE_FP" --pbs-host pbs.acme.lan --pbs-token-env ACME_PBS_TOKEN --pbs-fingerprint "$ACME_PBS_FP" acme
@@ -161,7 +156,7 @@ proxmox-cli backup coverage --cluster acme
 ### PBS health
 - **`verify-health`**  -  Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API.
 
-  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); empty groups with a non-empty skipped_clusters means nothing was checked, not that nothing failed._
+  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); skipped_clusters lists clusters with no PBS host, which were not checked, and exit 5 means no cluster was checked at all; healthy groups are listed only with --all._
 
   ```bash
   proxmox-cli verify-health --agent
@@ -175,9 +170,9 @@ proxmox-cli backup coverage --cluster acme
   ```
 
 ### Restore readiness
-- **`restore-points`**  -  Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption.
+- **`restore-points`**  -  Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
-  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read)._
+  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read). predating_guest counts backups under the VMID from before this VM was created (an earlier guest's), which are not listed; a backup that may be either guest's is listed with may_be_earlier_guest._
 
   ```bash
   proxmox-cli restore-points 104 --agent
@@ -222,7 +217,7 @@ Failed and never-verified snapshot counts per backup group on one datastore.
 proxmox-cli restore-points 104 --cluster acme
 ```
 
-Every restore point of guest 104 with verify state and prune marks.
+Every restore point of guest 104 with verify state and protection.
 
 ### Datastores filling within a month or carrying a risk flag
 
@@ -230,7 +225,7 @@ Every restore point of guest 104 with verify state and prune marks.
 proxmox-cli capacity --within 30d
 ```
 
-Ranked by days to full; also lists storage flagged gc-deadlock-risk or unpruned regardless of free space.
+Ranked by days to full; also lists storage carrying any flag (full, nearly-full, gc-deadlock-risk, no-forecast) whatever its runway.
 
 ## Usage
 
@@ -243,9 +238,9 @@ This CLI separates local files into four path kinds:
 | Kind | Contents |
 |------|----------|
 | `config` | User-editable settings such as `config.toml` and saved profiles |
-| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `data` | Durable local data: `credentials.toml`, `data.db`, and other auth sidecars |
 | `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
-| `cache` | Regenerable HTTP/cache files |
+| `cache` | Reserved for regenerable files (this CLI keeps no HTTP response cache) |
 
 Each kind resolves independently. The ladder is:
 
@@ -262,23 +257,7 @@ export PROXMOX_HOME=/srv/proxmox
 proxmox-cli doctor
 ```
 
-On Windows (PowerShell):
-
-```powershell
-$env:PROXMOX_HOME = "C:\ProgramData\proxmox"
-proxmox-cli doctor
-```
-
 Under `PROXMOX_HOME=/srv/proxmox`, the four dirs resolve to `/srv/proxmox/config`, `/srv/proxmox/data`, `/srv/proxmox/state`, and `/srv/proxmox/cache`.
-
-On Windows, set the same variable in PowerShell:
-
-```powershell
-$env:PROXMOX_HOME = "C:\srv\proxmox"
-proxmox-cli doctor
-```
-
-Under `$env:PROXMOX_HOME = "C:\srv\proxmox"`, the four dirs resolve to `C:\srv\proxmox\config`, `C:\srv\proxmox\data`, `C:\srv\proxmox\state`, and `C:\srv\proxmox\cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
@@ -300,16 +279,6 @@ Precedence matters in fleets: an ambient per-kind variable such as `PROXMOX_DATA
 Relocation is one-way. Unsetting `PROXMOX_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `proxmox-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
-
-### Local data
-
-Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `proxmox-cli doctor` prints the resolved paths, every store file, and the response-cache size.
-
-None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
-
-- **Erase it:** `proxmox-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
-- **Run without a local copy:** set `PROXMOX_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
-- **Choose the read source without flags:** `PROXMOX_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -875,7 +844,7 @@ Required privilege: any authenticated user
 - **`proxmox-cli pbs-access tfa`** - List user TFA configuration.
 
 Required privilege: Returns all or just the logged-in user, depending on privileges.
-- **`proxmox-cli pbs-access tfa-get`** - Add a TOTP secret to the user.
+- **`proxmox-cli pbs-access tfa-get`** - List a user's TFA entries (types and descriptions; no secrets).
 
 Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - **`proxmox-cli pbs-access tfa-id-get`** - Get a single TFA entry.
@@ -904,7 +873,7 @@ Required privilege: Sys.Modify on /system/certificates
 - **`proxmox-cli pbs-config acme-account-get`** - Return existing ACME account information.
 
 Required privilege: Sys.Modify on /system/certificates
-- **`proxmox-cli pbs-config acme-challenge-schema`** - Get named known ACME directory endpoints.
+- **`proxmox-cli pbs-config acme-challenge-schema`** - Get the ACME challenge plugin schema.
 
 Required privilege: any authenticated user
 - **`proxmox-cli pbs-config acme-directories`** - Get named known ACME directory endpoints.
@@ -1083,7 +1052,7 @@ Required privilege: any authenticated user
 
 Required privilege: Sys.Audit on /system/log
 - **`proxmox-cli pbs-nodes list`** - List Nodes (only for compatibility)
-- **`proxmox-cli pbs-nodes network`** - List all datastores.
+- **`proxmox-cli pbs-nodes network`** - List network interfaces.
 
 Required privilege: Sys.Audit on /system/network/interfaces
 - **`proxmox-cli pbs-nodes network-get`** - Read a network interface configuration.
@@ -1482,7 +1451,7 @@ Required privilege: VM.Audit on /vms/{vmid}
 ### capacity
 
 
-- **`proxmox-cli capacity`** - Every PBS datastore and PVE backup storage ranked by days until full, with garbage-collection and prune state and a GC-deadlock warning.
+- **`proxmox-cli capacity`** - PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning.
 
 
 ### failures
@@ -1500,7 +1469,7 @@ Required privilege: VM.Audit on /vms/{vmid}
 ### restore-points
 
 
-- **`proxmox-cli restore-points`** - Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and whether the next prune removes it.
+- **`proxmox-cli restore-points`** - Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
 
 ### rpo
@@ -1538,21 +1507,19 @@ The local store's schema version stamp is one-way: once this version of `proxmox
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-proxmox-cli ct list mock-value
+proxmox-cli ct list pve1
 
 # JSON for scripting and agents
-proxmox-cli ct list mock-value --json
+proxmox-cli ct list pve1 --json
 # Filter to specific fields
-proxmox-cli ct list mock-value --json --select cpu,cpus,disk
+proxmox-cli ct list pve1 --json --select cpu,cpus,disk
 
 # Dry run  -  show the request without sending
-proxmox-cli ct list mock-value --dry-run
+proxmox-cli ct list pve1 --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-proxmox-cli ct list mock-value --agent
+proxmox-cli ct list pve1 --agent
 ```
-
-`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -1561,12 +1528,12 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
-- **Read-only by default** - this CLI does not create, update, delete, publish, send, or mutate remote resources
+- **Previewable** - `--dry-run` on endpoint commands shows the request without sending; fleet commands (posture, failures, ...) only confirm what would run
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `1` gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`), `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error. The fleet commands (posture, backup coverage, verify-health, failures, capacity, restore-points, rpo) report a rejected token as that cluster's fetch failure and exit 5 when no cluster answered, never 4.
 
 ## Runtime Endpoint
 
@@ -1588,31 +1555,35 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `proxmox-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/proxmox-ve-backup-pp-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\proxmox-cli\config.toml` on Windows; `--home`, `PROXMOX_HOME`, and per-kind env vars can relocate it.
+Run `proxmox-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/proxmox-cli/config.toml`; `--home`, `PROXMOX_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
-
-`--ca-cert`, `PROXMOX_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `PROXMOX_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `PROXMOX_PBS_HOST` | endpoint | Yes |  |
-| `PROXMOX_HOST` | endpoint | Yes |  |
-| `PROXMOX_API_TOKEN` | per_call | Yes | Set to your API credential. |
+| `PROXMOX_API_TOKEN` | per_call | Yes | Proxmox VE API token `USER@REALM!TOKENID=SECRET` (sent as `PVEAPIToken=...`). |
+| `PROXMOX_HOST` | endpoint | Yes (or `PROXMOX_BASE_URL`) | Proxmox VE host name or IP; port 8006. |
+| `PROXMOX_BASE_URL` | endpoint | No | Full PVE API base, e.g. `https://pve1:8006/api2/json` (overrides `PROXMOX_HOST`). |
+| `PROXMOX_TLS_FINGERPRINT` | tls | No | SHA-256 fingerprint of the PVE certificate to pin (stock Proxmox is self-signed). |
+| `PROXMOX_PBS_HOST` | endpoint | No | Proxmox Backup Server host, `host:port`, or `https://host:port` (default port 8007); needed only for `pbs-*` commands and PBS data. |
+| `PROXMOX_PBS_API_TOKEN` | per_call | No | PBS API token `USER@REALM!TOKENID:SECRET` (colon before the secret). |
+| `PROXMOX_PBS_TLS_FINGERPRINT` | tls | No | SHA-256 fingerprint of the PBS certificate to pin. |
+| `PROXMOX_CLUSTER` | selection | No | Default cluster from clusters.toml (same as `--cluster`). |
+| `PROXMOX_CLUSTERS_FILE` | config | No | Path to clusters.toml (default: the config directory). |
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `proxmox-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `proxmox-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `proxmox-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $PROXMOX_API_TOKEN`
+- Verify the token is set without printing it: `test -n "$PROXMOX_API_TOKEN" && echo set`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
-- Run the `list` command to see available items
+- Run `proxmox-cli cluster resources` to see guests, nodes, and storage
 
 ### API-specific
 - **x509: certificate signed by unknown authority**  -  Pin the self-signed certificate: export PROXMOX_TLS_FINGERPRINT=<SHA-256 from Node > System > Certificates> (PBS: PROXMOX_PBS_TLS_FINGERPRINT)
@@ -1620,7 +1591,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **Proxmox Backup Server host not set**  -  export PROXMOX_PBS_HOST=pbs.example.lan (or set pbs_host for the cluster in clusters.toml)
 - **401 on PBS commands only**  -  PBS tokens use a colon: PROXMOX_PBS_API_TOKEN=user@pbs!tokenid:SECRET (PVE uses '=')
 - **posture shows a guest as uncovered though a job lists it**  -  The job is disabled; 'proxmox-cli backup coverage' prints reason disabled-job-only
-- **posture or failures exits 5 with 'No data: N of N cluster(s) unreachable'**  -  No cluster answered: check host, token and fingerprint with 'proxmox-cli doctor' (or --cluster <name> doctor)
+- **posture or failures exits 5 with 'No data: N of N cluster(s) unreachable'**  -  No cluster answered: check host, token and fingerprint for every cluster with 'proxmox-cli clusters check'
 
 ## Sources & Inspiration
 

@@ -24,14 +24,12 @@ Add `--agent` to command invocations for JSON, compact output, non-interactive d
 proxmox-cli <command> --agent
 ```
 
-Before running an unfamiliar command that may mutate remote state, inspect its help and prefer a dry run:
+Every command is read-only against Proxmox: it sends only GET requests. Its local writes are `clusters add`, `auth set-token`/`auth logout`, `sync`, `workflow archive`, `export`, `profile save`/`delete`, `feedback`, the learning loop, and the per-endpoint read commands, which save what they return (comments included) to the local mirror (`clusters add` and `auth` are not MCP tools); there is no HTTP response cache. Storage status and content reads let Proxmox activate (mount) an enabled storage, the same activation its pvestatd daemon performs every 10 seconds. Before running an unfamiliar command, inspect its help:
 
 ```bash
 proxmox-cli <command> --help
 proxmox-cli <command> --dry-run --agent
 ```
-
-A completed `--dry-run` reports `"success": true` and `"dry_run": true` and omits HTTP `status`. Hand-written commands should call `writeDryRun` for that shape. A dry run that fails validation exits non-zero with `"success": false`.
 
 When a command requires confirmation, pass `--yes` explicitly only after the target, arguments, and side effects are clear. `--agent` does not imply `--yes`.
 
@@ -43,7 +41,7 @@ Every hand-written novel command must declare its strategy in a Go line comment:
 // pp:data-source auto
 ```
 
-Use exactly one of `auto`, `local`, `live`, or `computed`. Keep `auto` when the command reads a synced collection and can fall back locally to the same question: top-level resources, and parent-scoped sub-collections whose rows were stored with `parent_id`. Pass `resourceType` as the stored name or the path segment; camelCase, snake_case, and kebab-case names for the same resource resolve to the stored table, and a path like `/parents/{id}/children` returns only that parent's rows. Use `live` when the read is not a synced collection. A local read that cannot apply a row-selecting parameter (`filter`, `orderBy`/`sort`/`order`, search, cursor, a page without a usable limit, or an equality key that is not a stored field) fails with a clear error naming those parameters and suggesting `--data-source live`; it does not return a different row set, and `auto` does the same when live is unreachable. Projection parameters such as `fields` stay warnings. Use `local` for local-only reads and `computed` for pure computation from embedded rules. Change a generated scaffold's `auto` default deliberately when its implementation has a narrower source, and keep `cmd.Annotations["pp:data-source"]` on the same command in sync; `--agent` envelopes read that annotation for `meta.source`. Root rejects an incompatible `--data-source` for a `live` or `local` annotation before any network or store access; `auto`, `computed`, and unannotated commands are unchanged. A command that is live or local only in some modes stays unannotated and validates in its own RunE. TODO stubs still fail dogfood even when annotated.
+Use exactly one of `auto`, `local`, `live`, or `computed`. Keep `auto` when the command reads a synced collection and can fall back locally to the same question: top-level resources, and parent-scoped sub-collections whose rows were stored with `parent_id`. Pass `resourceType` as the stored name or the path segment; camelCase, snake_case, and kebab-case names for the same resource resolve to the stored table, and a path like `/parents/{id}/children` returns only that parent's rows. Use `live` when the read is not a synced collection. A local read that cannot apply a row-selecting parameter (`filter`, `orderBy`/`sort`/`order`, search, cursor, a page without a usable limit, or an equality key that is not a stored field) fails with a clear error naming those parameters and suggesting `--data-source live`; it does not return a different row set, and `auto` does the same when live is unreachable. Projection parameters such as `fields` stay warnings. Use `local` for local-only reads and `computed` for pure computation from embedded rules. Change a generated scaffold's `auto` default deliberately when its implementation has a narrower source, and keep `cmd.Annotations["pp:data-source"]` on the same command in sync; `--agent` envelopes read that annotation for `meta.source`. Root rejects an incompatible `--data-source` for a `live` or `local` annotation before any network or store access; `auto`, `computed`, and unannotated commands are unchanged. A command that is live or local only in some modes stays unannotated and validates in its own RunE. Unimplemented stubs still fail dogfood even when annotated.
 
 ## Self-Learning Loop
 
@@ -61,7 +59,7 @@ Annotations: `recall`, `learnings list`, `learnings candidates`, and `learnings 
 
 Measurement is local-only: the `learn_events` table and `learnings stats`; nothing leaves this machine. Judge the loop on recall hit rate and teach-to-reuse at a minimum denominator of 50+ recall events. Near-zero rates at that denominator mean the loop is not earning its keep for this CLI - surface that in retros. An empty or thin events table means insufficient adoption, not failure.
 
-The store's schema stamp is one-way: once this binary opens the database, an older binary refuses it (README.md carries the upgrade note).
+The store's schema stamp is one-way: once this binary opens the database, an older binary refuses it (guide.md carries the upgrade note).
 
 Disable the loop with `--no-learn` per-invocation or `PROXMOX_NO_LEARN=true` for the whole session - useful for deterministic agent flows that don't want a learning row to silently change subsequent query results.
 

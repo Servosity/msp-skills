@@ -1,5 +1,6 @@
 # Proxmox MCP - install for every agent that speaks MCP
 
+
 This page wires the Proxmox MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -38,24 +39,36 @@ Add (or merge with your existing `mcpServers` block):
     "proxmox": {
       "command": "proxmox-mcp",
       "env": {
-        "PROXMOX_API_TOKEN": "<your-proxmox_api_token>",
-        "PROXMOX_HOST": "<your-proxmox_host>",
-        "PROXMOX_PBS_API_TOKEN": "<your-proxmox_pbs_api_token>",
-        "PROXMOX_PBS_HOST": "<your-proxmox_pbs_host>",
-        "PROXMOX_TLS_FINGERPRINT": "<your-proxmox_tls_fingerprint>",
-        "PROXMOX_PBS_TLS_FINGERPRINT": "<your-proxmox_pbs_tls_fingerprint>",
-        "PROXMOX_BASE_URL": "<your-proxmox_base_url>",
-        "PROXMOX_CLUSTER": "<your-proxmox_cluster>",
-        "PROXMOX_CLUSTERS_FILE": "<your-proxmox_clusters_file>",
-        "PROXMOX_USER_AGENT": "<your-proxmox_user_agent>",
-        "PROXMOX_MCP_READ_ONLY": "<your-proxmox_mcp_read_only>",
-        "PROXMOX_MCP_HTTP_TOKEN": "<your-proxmox_mcp_http_token>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PROXMOX_HOST": "<pve-host>",
+        "PROXMOX_API_TOKEN": "<USER@REALM!TOKENID=SECRET>",
+        "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
+        "PROXMOX_PBS_HOST": "",
+        "PROXMOX_PBS_API_TOKEN": "",
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "1",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
 }
 ```
+
+`PROXMOX_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to run the tools this switch hides.
+
+Replace the three `<...>` values; every other value is optional and may stay empty.
+Fill the three `PROXMOX_PBS_*` values (`USER@REALM!TOKENID:SECRET`, colon before
+the secret) to add Proxmox Backup Server verify, datastore and sync data. For many
+clients, point `PROXMOX_CLUSTERS_FILE` at your clusters.toml and add each
+cluster's token variables (the names you gave `clusters add`) to this same `env`
+block, because the MCP server only sees the variables listed here. Which token
+roles to grant is in [governance.md](./governance.md).
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -71,7 +84,7 @@ add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.proxmox]`
 table with `command = "proxmox-mcp"` and an `env` table); the desktop app reads
 that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -89,19 +102,20 @@ Configuration**) and add:
       "type": "stdio",
       "command": "proxmox-mcp",
       "env": {
-        "PROXMOX_API_TOKEN": "<your-proxmox_api_token>",
-        "PROXMOX_HOST": "<your-proxmox_host>",
-        "PROXMOX_PBS_API_TOKEN": "<your-proxmox_pbs_api_token>",
-        "PROXMOX_PBS_HOST": "<your-proxmox_pbs_host>",
-        "PROXMOX_TLS_FINGERPRINT": "<your-proxmox_tls_fingerprint>",
-        "PROXMOX_PBS_TLS_FINGERPRINT": "<your-proxmox_pbs_tls_fingerprint>",
-        "PROXMOX_BASE_URL": "<your-proxmox_base_url>",
-        "PROXMOX_CLUSTER": "<your-proxmox_cluster>",
-        "PROXMOX_CLUSTERS_FILE": "<your-proxmox_clusters_file>",
-        "PROXMOX_USER_AGENT": "<your-proxmox_user_agent>",
-        "PROXMOX_MCP_READ_ONLY": "<your-proxmox_mcp_read_only>",
-        "PROXMOX_MCP_HTTP_TOKEN": "<your-proxmox_mcp_http_token>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PROXMOX_HOST": "<pve-host>",
+        "PROXMOX_API_TOKEN": "<USER@REALM!TOKENID=SECRET>",
+        "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
+        "PROXMOX_PBS_HOST": "",
+        "PROXMOX_PBS_API_TOKEN": "",
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "1",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -122,19 +136,20 @@ Claude Desktop:
     "proxmox": {
       "command": "proxmox-mcp",
       "env": {
-        "PROXMOX_API_TOKEN": "<your-proxmox_api_token>",
-        "PROXMOX_HOST": "<your-proxmox_host>",
-        "PROXMOX_PBS_API_TOKEN": "<your-proxmox_pbs_api_token>",
-        "PROXMOX_PBS_HOST": "<your-proxmox_pbs_host>",
-        "PROXMOX_TLS_FINGERPRINT": "<your-proxmox_tls_fingerprint>",
-        "PROXMOX_PBS_TLS_FINGERPRINT": "<your-proxmox_pbs_tls_fingerprint>",
-        "PROXMOX_BASE_URL": "<your-proxmox_base_url>",
-        "PROXMOX_CLUSTER": "<your-proxmox_cluster>",
-        "PROXMOX_CLUSTERS_FILE": "<your-proxmox_clusters_file>",
-        "PROXMOX_USER_AGENT": "<your-proxmox_user_agent>",
-        "PROXMOX_MCP_READ_ONLY": "<your-proxmox_mcp_read_only>",
-        "PROXMOX_MCP_HTTP_TOKEN": "<your-proxmox_mcp_http_token>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PROXMOX_HOST": "<pve-host>",
+        "PROXMOX_API_TOKEN": "<USER@REALM!TOKENID=SECRET>",
+        "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
+        "PROXMOX_PBS_HOST": "",
+        "PROXMOX_PBS_API_TOKEN": "",
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "1",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -190,7 +205,7 @@ hermes mcp add proxmox -- proxmox-mcp
 openclaw mcp set proxmox '{"command":"proxmox-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `PROXMOX_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.
