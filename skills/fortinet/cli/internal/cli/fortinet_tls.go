@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Opt-in TLS verification skip for FortiGates that still use their factory
 // self-signed certificate. The standard transport has no such switch, so it
 // is added here through the client-hook seam: --insecure (any command) or

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Keeps FortiOS secrets out of everything this CLI returns, stores or hands to
 // an agent. FortiOS answers cmdb reads with its stored secrets in "ENC <...>"
 // form (RADIUS secrets, LDAP bind passwords, IPsec PSKs, the HA password,

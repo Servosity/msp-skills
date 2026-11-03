@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Fleet plumbing shared by the fleet, audit and policies hygiene commands:
 // the devices file, per-device clients and the fan-out. Plus `fleet devices`
 // and `fleet backup`.
