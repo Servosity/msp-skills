@@ -38,7 +38,7 @@ func newMobiledevicesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validOrderBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrderBy, "order-by", allowedOrderBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrderBy, "order-by", allowedOrderBy))
 				}
 			}
 			if cmd.Flags().Changed("projection") {
@@ -51,7 +51,7 @@ func newMobiledevicesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProjection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -64,7 +64,7 @@ func newMobiledevicesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/admin/directory/v1/customer/{customerId}/devices/mobile"

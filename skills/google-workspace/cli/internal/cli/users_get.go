@@ -51,7 +51,7 @@ func newUsersGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProjection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection))
 				}
 			}
 			if cmd.Flags().Changed("view-type") {
@@ -64,7 +64,7 @@ func newUsersGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validViewType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagViewType, "view-type", allowedViewType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagViewType, "view-type", allowedViewType))
 				}
 			}
 			path := "/admin/directory/v1/users/{userKey}"
