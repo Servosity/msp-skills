@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"sophos-central-pp-cli/internal/client"
+	"sophos-central-pp-cli/internal/cliutil"
+	"sophos-central-pp-cli/internal/cliutil/testenv"
 	"sophos-central-pp-cli/internal/config"
 )
 
@@ -74,8 +76,7 @@ func (f *fakeSophos) last(t *testing.T, path string) *http.Request {
 
 func newRoutedClient(t *testing.T, idType, tenant string) (*client.Client, *fakeSophos) {
 	t.Helper()
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	t.Setenv(sophosTenantEnv, "")
 	sophosTenantFlag = tenant
 	t.Cleanup(func() { sophosTenantFlag = "" })
