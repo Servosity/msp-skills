@@ -98,6 +98,7 @@ import queue
 import re
 import secrets as _secrets
 import shlex
+import signal
 import shutil
 import stat
 import struct
@@ -1014,6 +1015,107 @@ def read_trace(path: str) -> list[tuple[int, int, bytes]] | None:
     return out
 
 
+# The kernel record (ruling 14): every corpus unit's processes run under
+# corpus_ktrace, a ptrace tracer that follows every fork and records each
+# system call that can put bytes or a name in a file, with a failing default
+# (corpus_ktrace.go). Linux only: elsewhere the class runs in a container.
+KTRACE_GO = HERE / "corpus_ktrace.go"
+K_START, K_WRITE, K_FAIL, K_NAME, K_END, K_IMAGE, K_EXEC = 0, 2, 3, 4, 5, 6, 7
+_KT = {"path": None}
+_KT_LOCK = threading.Lock()
+
+
+def ktrace_bin() -> str:
+    """corpus_ktrace, built once per run into a temporary directory."""
+    with _KT_LOCK:
+        if _KT["path"] is None:
+            if sys.platform != "linux":
+                raise RuntimeError("the kernel record runs on Linux only (in_linux runs the class in a container)")
+            tmp = tempfile.mkdtemp(prefix="corpus-ktrace-")
+            atexit.register(shutil.rmtree, tmp, True)
+            shutil.copyfile(KTRACE_GO, os.path.join(tmp, "main.go"))
+            b = subprocess.run(["go", "build", "-o", os.path.join(tmp, "ktrace"), "main.go"], cwd=tmp,
+                               env={**go_env(), "GOTOOLCHAIN": "local", "GOENV": "off", "GO111MODULE": "off"},
+                               capture_output=True, text=True, timeout=300)
+            if b.returncode != 0:
+                raise RuntimeError(f"the kernel record did not build: {b.stderr.strip()[:300]}")
+            _KT["path"] = os.path.join(tmp, "ktrace")
+        return _KT["path"]
+
+
+def in_linux(argv: list[str], out: str | None = None) -> int:
+    """Run this file with `argv` in a Linux container (the kernel record
+    needs Linux), on a copy of the working tree streamed in (tracked and
+    untracked files, docs/assets left out), as an unprivileged user, with a
+    module cache and a build cache volume per architecture. `out`: a host
+    directory mounted at the same path, for --json-out. The image is the
+    host's Go release on bookworm, native to the host's CPU so ptrace sees
+    the native ABI (CORPUS_LINUX_IMAGE overrides)."""
+    root = str(ch.ROOT)
+    arch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
+    ver = subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True).stdout.strip()[2:]
+    image = os.environ.get("CORPUS_LINUX_IMAGE") or f"{'arm64v8/' if arch == 'arm64' else ''}golang:{ver}-bookworm"
+    vols = {f"corpus-gomod-{arch}": "/gomod", f"corpus-gocache-{arch}": "/gocache"}
+    for v in vols:
+        subprocess.run(["docker", "run", "--rm", "-v", f"{v}:/v", image, "chown", "1000:1000", "/v"],
+                       capture_output=True)
+    files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "-z", "--", ".", ":!docs/assets"],
+                           cwd=root, capture_output=True, check=True).stdout
+    here = os.path.relpath(os.getcwd(), root) if os.getcwd().startswith(root) else "."
+    mods = re.findall(r"^\s*(?:require\s+)?(\S+\.\S+/\S+)\s+(v\S+)", _GO_MOD, re.M)   # the self-test's Go probes
+    script = ("set -e; mkdir -p /tmp/src /tmp/home; tar -x -C /tmp/src; cd /tmp/home; go mod download "
+              + " ".join(f"{m}@{v}" for m, v in mods) + " >/dev/null 2>&1 || true; cd /tmp/src/"
+              + shlex.quote(here) + "; exec python3 "
+              "/tmp/src/tools/maintainer/class_secret_corpus.py " + " ".join(shlex.quote(a) for a in argv))
+    cmd = ["docker", "run", "--rm", "-i", "--platform", f"linux/{arch}", "--user", "1000:1000",
+           "-e", "CORPUS_IN_LINUX=1", "-e", "HOME=/tmp/home", "-e", "GOMODCACHE=/gomod", "-e", "GOCACHE=/gocache",
+           "-e", "GOPATH=/tmp/gopath", "-e", "PYTHONUNBUFFERED=1"]
+    for v, m in vols.items():
+        cmd += ["-v", f"{v}:{m}"]
+    if out:
+        cmd += ["-v", f"{out}:{out}"]
+    if "CORPUS_MATCH_PROCS" in os.environ:
+        cmd += ["-e", f"CORPUS_MATCH_PROCS={os.environ['CORPUS_MATCH_PROCS']}"]
+    nox = ["--no-xattrs", "--no-mac-metadata"] if sys.platform == "darwin" else []
+    tar = subprocess.Popen(["tar", *nox, "--null", "-T", "-", "-cf", "-"], cwd=root, stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, env={**os.environ, "COPYFILE_DISABLE": "1"})
+    feed = threading.Thread(target=lambda: (tar.stdin.write(files), tar.stdin.close()), daemon=True)
+    feed.start()
+    rc = subprocess.run(cmd + [image, "sh", "-c", script], stdin=tar.stdout).returncode
+    tar.wait()
+    return rc
+
+
+def read_krec(data: bytes) -> list[tuple[int, int, bytes]] | None:
+    """A kernel record: (pid, kind, unit) per record. None when it is cut
+    short, malformed, or has no end record (the run fails closed)."""
+    out, i = [], 0
+    while i < len(data):
+        if i + 17 > len(data):
+            return None
+        n, pid, kind = struct.unpack(">QQB", data[i:i + 17])
+        if i + 17 + n > len(data) or kind not in (K_START, K_WRITE, K_FAIL, K_NAME, K_END, K_IMAGE, K_EXEC):
+            return None
+        out.append((pid, kind, data[i + 17:i + 17 + n]))
+        i += 17 + n
+    return out if out and out[-1][1] == K_END else None
+
+
+def kernel_streams(recs: list[tuple[int, int, bytes]]) -> dict[tuple[int, bytes], tuple[bytes, list[bytes]]]:
+    """A kernel record's file writes, one stream per process and file
+    (device:inode), in order: file_streams' grouping."""
+    return file_streams([(pid, 2, u) for pid, k, u in recs if k == K_WRITE])
+
+
+def is_sqlite_file(name: bytes, ws: list[bytes], dbs: set[bytes]) -> bool:
+    """A SQLite database (its first bytes are the magic) or one of its side
+    files (-wal, -journal, -shm beside such a database)."""
+    if any(w.startswith(SQLITE_MAGIC) for w in ws):
+        return True
+    side = next((name[:-len(x)] for x in SQLITE_SIDE if name.endswith(x.encode())), None)
+    return side is not None and (side in dbs or _magic(_s(side)) == SQLITE_MAGIC)
+
+
 TRUSTED_MODULES = ("modernc.org/sqlite", "modernc.org/libc", "modernc.org/mathutil", "modernc.org/memory")
 
 
@@ -1738,10 +1840,6 @@ var (
 	linkDeny = regexp.MustCompile(`sqlite|syscall|write|mmap|internal/poll|x/sys`)
 )
 
-var (
-	rawCall   = regexp.MustCompile(`^(Raw)?Syscall(\\d+|N)?$`)
-	readTraps = map[string]bool{"SYS_PROC_INFO": true, "SYS_FGETATTRLIST": true, "SYS_GETATTRLIST": true}
-)
 
 // sel is the identifier an expression names (x or pkg.x), or nil.
 func sel(e ast.Expr) *ast.Ident {
@@ -1837,31 +1935,7 @@ func clayer(root string, targets []string) (errs []string) {
 		if _, err := conf.Check(p.ImportPath, fset, files, info); err != nil {
 			continue // reported through conf.Error
 		}
-		// A raw system call is allowed only called directly with a trap
-		// number named by a read-only constant (the fleet's darwin ACL and
-		// process-info reads); anything else fails below.
-		okCall := map[*ast.Ident]bool{}
-		for _, af := range files {
-			ast.Inspect(af, func(n ast.Node) bool {
-				call, ok := n.(*ast.CallExpr)
-				if !ok || len(call.Args) == 0 {
-					return true
-				}
-				fn := sel(call.Fun)
-				obj := info.Uses[fn]
-				if fn == nil || obj == nil || obj.Pkg() == nil || !sysPkg(obj.Pkg().Path()) || !rawCall.MatchString(obj.Name()) {
-					return true
-				}
-				if k, ok := info.Uses[sel(call.Args[0])].(*types.Const); ok && sysPkg(k.Pkg().Path()) && readTraps[k.Name()] {
-					okCall[fn] = true
-				}
-				return true
-			})
-		}
 		for id, obj := range info.Uses {
-			if okCall[id] {
-				continue
-			}
 			if obj.Pkg() != nil && sysPkg(obj.Pkg().Path()) {
 				// Every file write is a unit (contract 2): one made below
 				// os.File escapes the trace, so a write-capable call fails
@@ -2992,6 +3066,7 @@ class Engine:
         procs = getattr(_PROCS, "procs", None)
         if procs is not None:
             procs.append({"which": which, "args": list(args), "env": dict(env), "stdin": stdin, "pid": so.pid,
+                          "krec": getattr(so, "krec", None),
                           "before": before, "after": counts() if counts else None,
                           **dict(zip(("files", "state"), _PROCS.changed() if getattr(_PROCS, "changed", None)
                                                                     else ({}, {})))})
@@ -3178,6 +3253,7 @@ class Engine:
             ends = tuple(n for f in fakes for n in (len(f.requests), len(f.served))) + (len(issued),)
             zero = tuple(0 for _ in ends)
             top = len(procs)
+            own: dict[bytes, int] = {}   # each wrapper's own record files: the wrapper's pid
             for f in sorted(os.listdir(child_acq)):   # the CLI children the MCP server started
                 if f.endswith((".env", ".pid", ".stdin")):
                     continue
@@ -3197,6 +3273,7 @@ class Engine:
                     res["where"].append("a CLI child's record could not be read, so its held set is unknown")
                     continue
                 cenv = dict(_s(kv).partition("=")[::2] for kv in envb)
+                own |= {os.fsencode(os.path.realpath(q + x)): pid for x in ("", ".env", ".pid", ".stdin")}
                 parent = next((i for i in range(top) if procs[i]["pid"] == ppid), None)
                 procs.append({"which": "child", "args": [_s(a) for a in argv[1:]], "env": cenv, "stdin": cin,
                               "pid": pid, "parent": parent, "files": {}, "state": {},
@@ -3358,15 +3435,102 @@ class Engine:
             # order, judged like stdout (whole and write by write) on that
             # process's ledger (contract 2: a file written as a stream of
             # writes; a write later deleted or overwritten is still judged).
-            for (pid, _key), (name, ws) in file_streams(recs).items():
+            inproc = {}
+            for (pid, key), (name, ws) in file_streams(recs).items():
                 st_ = _stream(ws)
                 texts.append(str(st_))
+                inproc[(pid, key)] = b"".join(ws)
                 h_ = held_for([by_pid[pid]]) if pid in by_pid else held
                 # An exhausted write fails (contract 3: the budget has no
                 # clean exit); no smaller reading replaces it (r5-1).
                 how = judge(st_, h_)
                 if how:
                     res["where"].append(f"file write {_s(name)}: {how}")
+            # The kernel record (ruling 14), the guarantee: every process of
+            # the run and every process it started, every call that put
+            # bytes or a name in a file. A record cut short, missing, or
+            # naming a call it could not read fails the case (closed).
+            krecs: list[tuple[int, int, bytes]] = []
+            for i, pr in enumerate(procs[:top]):
+                if pr.get("krec") is None:
+                    res["where"].append(f"kernel record of process {i + 1} ({pr['which']}): cut short or missing")
+                else:
+                    krecs += pr["krec"]
+            # The harness's own instrumentation: a CLI child's wrapper (a
+            # shell script, until it execs the real CLI under the same pid)
+            # writes the child's argv, environment, pid and stdin to its
+            # record files (through commands it starts, such as env), judged
+            # above as the child's envelope and held set. Writes to those
+            # files before the wrapper's second exec (the shell is its first,
+            # the CLI its second) are not the connector's; every write after
+            # it is, whoever makes it.
+            execs: dict[int, int] = {}
+            kept = []
+            for pid, kind, u in krecs:
+                if kind == K_EXEC:
+                    execs[pid] = execs.get(pid, 0) + 1
+                if kind in (K_WRITE, K_IMAGE):
+                    w = own.get(u.partition(b"\0")[2].partition(b"\0")[0])
+                    if w is not None and execs.get(w, 0) < 2:
+                        continue
+                kept.append((pid, kind, u))
+            krecs = kept
+            made = sorted({p for d in (home, mcp_home, self.tmp) for p in (d, os.path.realpath(d))}, key=len,
+                          reverse=True)
+            for pid, kind, u in krecs:
+                h_ = held_for([by_pid[pid]]) if pid in by_pid else held
+                if kind == K_FAIL:
+                    res["where"].append(f"kernel record: {_s(u)}")
+                elif kind == K_NAME:
+                    # The name below the case's own directories (its HOMEs,
+                    # its temporary tree), which the harness made: every
+                    # component the process chose stays in one unit.
+                    nm = _s(u)
+                    if nm in (trace, os.path.realpath(trace)):
+                        continue   # the statement trace's own name, fixed by the harness (read above)
+                    nm = next((nm[len(r) + 1:] for r in made if nm.startswith(r + "/")), nm)
+                    texts.append(nm)
+                    how = judge(nm, h_)
+                    if how:
+                        res["where"].append(f"a name put in the file system: {how}")
+                elif kind == K_IMAGE:
+                    _ident, _n1, rest = u.partition(b"\0")
+                    name, _n2, data = rest.partition(b"\0")
+                    how = judge_dead(_s(data), h_)
+                    if how:
+                        res["where"].append(f"shared mapping of {_s(name)}: {how}")
+            kst = kernel_streams(krecs)
+            dbs = {n for n, ws in kst.values() if any(w.startswith(SQLITE_MAGIC) for w in ws)}
+            # The statement trace (the first layer's own record, beside the
+            # case's executable): every byte in it is read above, as
+            # statements and file writes. Its kernel writes are skipped only
+            # when the file at rest holds every one of them and nothing more,
+            # so none was erased or overwritten; otherwise the case fails.
+            try:
+                tst = os.stat(trace)
+                tkey = f"{tst.st_dev}:{tst.st_ino}".encode()
+                with open(trace, "rb") as fh:
+                    tbytes = fh.read()
+            except OSError:
+                tkey, tbytes = None, b""
+            tws = [w for (_p, key), (_n, ws) in kst.items() if key == tkey for w in ws]
+            if tws and (sum(map(len, tws)) != len(tbytes) or any(w not in tbytes for w in tws)):
+                res["where"].append("SQLite statements: the trace was changed after it was written (kernel record)")
+            for (pid, key), (name, ws) in kst.items():
+                if key == tkey or inproc.get((pid, key)) == b"".join(ws):
+                    continue   # read above: the trace, or the writes the os.File record judged
+                h_ = held_for([by_pid[pid]]) if pid in by_pid else held
+                if is_sqlite_file(name, ws, dbs):
+                    # SQLite's own pages, written below os.File by the
+                    # trusted C layer from statements judged above: each
+                    # write read as the list reads those files at rest.
+                    how = next((h for w in ws if (h := judge_dead(_s(w), h_))), None)
+                else:
+                    st_ = _stream(ws)
+                    texts.append(str(st_))
+                    how = judge(st_, h_)
+                if how:
+                    res["where"].append(f"file write {_s(name)} (kernel record): {how}")
             k = 0
             for pid, kind, u in recs:
                 if kind != 1:
@@ -3514,6 +3678,7 @@ class Stream(str):
     stream's context (contract 3, Streams)."""
     writes: list[bytes] = []
     pid: int | None = None    # the process that wrote it
+    krec: list | None = None  # stdout's: the kernel record of the process and its descendants
     proc: int | None = None   # its index in the case's processes (Engine._run)
 
 
@@ -3544,14 +3709,35 @@ def _stream(chunks: list[bytes], extra: str = "") -> Stream:
 
 
 def capture(argv: list[str], stdin: bytes, env: dict) -> tuple[Stream, Stream]:
-    """Run one process: stdin written, stdout and stderr read as bytes (no
-    newline translation) in the writes the kit's pump would check."""
+    """Run one process under the kernel record (corpus_ktrace): stdin
+    written, stdout and stderr read as bytes (no newline translation) in the
+    writes the kit's pump would check. `krec` on stdout: the kernel record
+    (None when it is cut short or missing: the run fails closed)."""
+    r, w = os.pipe()
     try:
-        p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        p = subprocess.Popen([ktrace_bin(), str(w)] + argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, env=env, pass_fds=(w,))
     except OSError as e:
+        os.close(r)
+        os.close(w)
         return _stream([]), _stream([], f"<oserror {e}>")
+    os.close(w)
+    rec = bytearray()
+
+    def drain() -> None:
+        while b := os.read(r, 1 << 20):
+            rec.extend(b)
+
+    t = threading.Thread(target=drain, daemon=True)
+    t.start()
     outs_ = _capture(p, stdin)
-    outs_[0].pid = outs_[1].pid = p.pid
+    t.join(timeout=30)
+    krec = None if t.is_alive() else read_krec(bytes(rec))
+    if krec is not None:
+        os.close(r)
+    root = next((int(u) for pid, k, u in krec if k == 0), None) if krec else None
+    outs_[0].pid = outs_[1].pid = root if root is not None else p.pid
+    outs_[0].krec = krec
     return outs_
 
 
@@ -3601,8 +3787,12 @@ def _capture(p: subprocess.Popen, stdin: bytes) -> tuple[Stream, Stream]:
         p.wait(timeout=RUN_TIMEOUT)
     except subprocess.TimeoutExpired:
         timed_out = True
-        p.kill()
-        p.wait()
+        p.terminate()   # the kernel record kills every traced process and still ends its record
+        try:
+            p.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
     for t in threads[:2]:
         t.join(timeout=max(1.0, end - time.monotonic()))
     if any(t.is_alive() for t in threads[:2]):
@@ -3937,6 +4127,21 @@ def findings(slug: str, results: list[dict], listed: set[str], kit: bool) -> lis
 
 
 def run(ctx: ch.Ctx) -> list[str]:
+    if sys.platform != "linux":
+        # The kernel record runs on Linux: this connector's list runs in a
+        # container (built there), its results read back here.
+        with tempfile.TemporaryDirectory(prefix="corpus-linux-") as d:
+            d = os.path.realpath(d)
+            out = os.path.join(d, "r.json")
+            in_linux(["--slug", ctx.slug, "--json-out", out], d)
+            try:
+                with open(out, encoding="utf-8") as fh:
+                    got = json.load(fh)
+            except (OSError, ValueError) as e:
+                return [f"[{ctx.slug}] the list's Linux run gave no results: {e}"]
+            if got.get("error"):
+                return [f"[{ctx.slug}] {got['error']}"]
+            return findings(ctx.slug, got["results"], load_baseline().get(ctx.slug, set()), has_kit(ctx.slug))
     tmp = tempfile.mkdtemp(prefix="corpus-", dir=ctx.home)
     try:
         # The harness's build has no SQLite statement trace: build again with it.
@@ -5509,6 +5714,12 @@ def _c5_sink_capture() -> bool:
         # run that writes no database passes.
         ("4: the same held value and no database written", "succ-raw", "PASS",
          dict(cli=nul.split("p = os.path.join")[0] + 'print("ok")\n'), nul_kw),
+        # corpus7rv: the statement trace's kernel writes are read through the
+        # trace at rest, so a write erased from it fails the case.
+        ("7rv: the credential written into the statement trace, then truncated away", "succ-raw", "FAIL",
+         dict(cli='t = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "corpus-sql.trace")\n'
+                  'n = os.path.getsize(t) if os.path.exists(t) else 0\nf = open(t, "ab")\nf.write(' + _KEY +
+                  '.encode())\nf.close()\nos.truncate(t, n)\nprint("ok")\n')),
     ])
     # 5: the credential written, then a child keeps stdout open past the
     # process's exit: what was written is still judged.
@@ -5551,6 +5762,13 @@ def _c5_held_set() -> bool:
          {"fields": [], "secret_env": ["ACME_API_KEY", "HOME"]}),
         ("7: the MCP server printing nothing it was given", "succ-header-echo", "PASS",
          dict(cli='print("ok")\n', mcp=home_mcp.replace("__OUT__", '"ok"')),
+         {"fields": [], "secret_env": ["ACME_API_KEY", "HOME"]}),
+        # corpus7rv: a name is judged below the case's own directories, so a
+        # held HOME is not a name the process put there; the key it names is.
+        ("7rv: the same MCP server creating a file named with its key under HOME", "succ-header-echo", "FAIL",
+         dict(cli='print("ok")\n', mcp=home_mcp.replace(
+             "__OUT__", '(open(os.path.join(os.environ["HOME"], os.environ["ACME_API_KEY"]), "w").close(), '
+                        'os.remove(os.path.join(os.environ["HOME"], os.environ["ACME_API_KEY"])), "ok")[2]')),
          {"fields": [], "secret_env": ["ACME_API_KEY", "HOME"]}),
         ("8: the declared Server response header printed", "succ-header-echo", "FAIL",
          dict(cli='st, hd, body = call("GET", "/v1/items")\nprint(hd.get("Server", ""))\n'),
@@ -6011,13 +6229,11 @@ def _c8_sink_capture() -> bool:
         if not err or "build:" in err:
             print(f"    corpus self-test: sink capture (corpus4rv r5): {why}: want the trace build refused, got {err}")
             ok = False
-    # The twin: a raw call with a read-only trap (the fleet's darwin ACL read) builds.
-    err, _r, _o = _c8_go('f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tvar a unix.Attrlist\n\tvar buf [64]byte\n'
-                         '\tunix.Syscall6(unix.SYS_FGETATTRLIST, f.Fd(), uintptr(unsafe.Pointer(&a)), '
-                         'uintptr(unsafe.Pointer(&buf[0])), 64, 0, 0)\n\tf.Close()',
-                         '\t"unsafe"\n\n\t"golang.org/x/sys/unix"\n')
+    # The twin: a program with no write below os.File builds.
+    err, _r, _o = _c8_go('f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tunix.Fsync(int(f.Fd()))\n\tf.Close()',
+                         '\t"golang.org/x/sys/unix"\n')
     if err:
-        print(f"    corpus self-test: sink capture (corpus4rv r5): 3: a read-only raw call refused: {err}")
+        print(f"    corpus self-test: sink capture (corpus4rv r5): 3: a program with no write below os.File refused: {err}")
         ok = False
     ro = ('exe, _ := os.Executable()\n\tos.Chmod(filepath.Join(filepath.Dir(exe), "corpus-sql.trace"), 0o400)\n'
           '\tos.WriteFile(filepath.Join(os.Getenv("HOME"), "k.txt"), []byte("' + _GO_KEY + '"), 0o600)')
@@ -6104,10 +6320,13 @@ def _c9_sink_capture() -> bool:
               f"syscall.Write: want the trace build refused, got {err}")
         ok = False
     stub = _GO_MAIN.replace("__BODY__", "raw()").replace("func main()", "func raw()\n\nfunc main()")
-    for why, asm, want in (("3: a labelled SVC", "issue: SVC $0x80\n\tRET\n", True),
-                           ("3: an instruction hand-encoded with WORD", "WORD $0xd4001001\n\tRET\n", True),
-                           ("3: assembly that makes no system call", "MOVD $1, R0\n\tRET\n", False)):
-        err, _u = _go_trace_run({"main.go": stub, "raw_arm64.s": '#include "textflag.h"\n\n'
+    goarch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
+    asms = {"arm64": ("issue: SVC $0x80\n\tRET\n", "WORD $0xd4001001\n\tRET\n", "MOVD $1, R0\n\tRET\n"),
+            "amd64": ("issue: SYSCALL\n\tRET\n", "BYTE $0x0f; BYTE $0x05\n\tRET\n", "MOVQ $1, AX\n\tRET\n")}[goarch]
+    for why, asm, want in (("3: a labelled system-call instruction", asms[0], True),
+                           ("3: an instruction hand-encoded", asms[1], True),
+                           ("3: assembly that makes no system call", asms[2], False)):
+        err, _u = _go_trace_run({"main.go": stub, f"raw_{goarch}.s": '#include "textflag.h"\n\n'
                                  'TEXT ·raw(SB),NOSPLIT,$0\n\t' + asm})
         refused = bool(err) and "build:" not in err
         if refused != want:
@@ -6129,6 +6348,224 @@ def _c9_sink_capture() -> bool:
 
 
 C9_PROBES = {"sink-capture": _c9_sink_capture}
+
+
+# --------------------------------------------------------------------------- #
+# The kernel record (ruling 14), both directions: every route a probe takes to
+# put bytes or a name in a file is recorded, calls no record reads fail
+# closed, and the clean twins stay clean.
+# --------------------------------------------------------------------------- #
+
+_K_KEY = "synthetic-kernel-key-61803398"
+
+
+def k_run(argv: list[str], home: str, env: dict | None = None, kill: str | None = None,
+          timeout: float = 60) -> list[tuple[int, int, bytes]] | None:
+    """One command under the kernel record, as capture runs a unit."""
+    r, w = os.pipe()
+    p = subprocess.Popen([ktrace_bin(), str(w)] + argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, pass_fds=(w,),
+                         env={"PATH": os.environ.get("PATH", ""), "HOME": home, **(env or {})})
+    os.close(w)
+    if kill:
+        time.sleep(1.5)
+        p.send_signal(signal.SIGKILL if kill == "kill" else signal.SIGTERM)
+    rec = bytearray()
+    while b := os.read(r, 1 << 20):
+        rec.extend(b)
+    os.close(r)
+    p.wait(timeout=timeout)
+    return read_krec(bytes(rec))
+
+
+def _k_has(recs, kind: int, needle: bytes) -> bool:
+    if kind == K_WRITE:
+        return any(needle in b"".join(ws) for _n, ws in kernel_streams(recs).values())
+    return any(k == kind and needle in u for _p, k, u in recs)
+
+
+def _k_python() -> bool:
+    """Every route a Python stand-in has to a file, recorded; the calls no
+    record reads fail closed."""
+    ok = True
+    key = _K_KEY.encode()
+    pre = "import os, sys, ctypes, mmap, socket, fcntl\nH = os.environ['HOME']\nK = " + repr(_K_KEY) + "\n"
+    cases = [
+        # (why, code, kind, needle (None: the kind is absent), twin code)
+        ("a write later deleted", "f = open(H + '/t', 'w'); f.write(K); f.close(); os.remove(H + '/t')",
+         K_WRITE, key, "f = open(H + '/t', 'w'); f.write('ok'); f.close()"),
+        ("pwrite past the end records the gap's zeros",
+         "fd = os.open(H + '/t', os.O_CREAT | os.O_WRONLY); os.pwrite(fd, K.encode(), 100); os.close(fd)",
+         K_WRITE, b"\0" * 100 + key, None),
+        ("writev", "fd = os.open(H + '/t', os.O_CREAT | os.O_WRONLY); os.writev(fd, [K[:9].encode(), K[9:].encode()])",
+         K_WRITE, key, None),
+        ("sendfile from another file",
+         "open(H + '/s', 'w').write(K)\nsrc = os.open(H + '/s', os.O_RDONLY)\nos.unlink(H + '/s')\n"
+         "dst = os.open(H + '/d', os.O_CREAT | os.O_WRONLY)\nos.sendfile(dst, src, 0, len(K))\nos.unlink(H + '/d')",
+         K_WRITE, key, None),
+        ("copy_file_range from another file",
+         "open(H + '/s', 'w').write(K)\nsrc = os.open(H + '/s', os.O_RDONLY)\nos.unlink(H + '/s')\n"
+         "dst = os.open(H + '/d', os.O_CREAT | os.O_WRONLY)\nos.copy_file_range(src, dst, len(K))\nos.unlink(H + '/d')",
+         K_WRITE, key, None),
+        ("a truncate that extends records its zeros",
+         "open(H + '/t', 'w').close(); os.truncate(H + '/t', 70)", K_WRITE, b"\0" * 70, None),
+        ("a file named with the key", "open(H + '/' + K, 'w').close(); os.remove(H + '/' + K)", K_NAME, key,
+         "open(H + '/plain', 'w').close()"),
+        ("a directory named with the key", "os.mkdir(H + '/' + K); os.rmdir(H + '/' + K)", K_NAME, key, None),
+        ("a symbolic link's target", "os.symlink('/x/' + K, H + '/l'); os.remove(H + '/l')", K_NAME, key, None),
+        ("a rename's new name", "open(H + '/a', 'w').close(); os.rename(H + '/a', H + '/' + K)", K_NAME, key, None),
+        ("a UNIX socket's path", "socket.socket(socket.AF_UNIX).bind(H + '/' + K[:20])", K_NAME, key[:20], None),
+        ("an extended attribute's value",
+         "open(H + '/x', 'w').close()\ntry:\n    os.setxattr(H + '/x', 'user.k', K.encode())\nexcept OSError:\n    pass",
+         K_NAME, key, None),
+        ("a writable shared mapping of a file",
+         "f = open(H + '/m', 'w+b'); f.write(b'0' * 4096); f.flush()\nm = mmap.mmap(f.fileno(), 4096)\n"
+         "m[:len(K)] = K.encode(); m.close()", K_FAIL, b"mmap",
+         "f = open(H + '/m', 'w+b'); f.write(b'0' * 4096); f.flush()\n"
+         "m = mmap.mmap(f.fileno(), 4096, flags=mmap.MAP_PRIVATE); m[:2] = b'ok'; m.close()"),
+        ("SQLite's -shm index mapped shared: its bytes recorded at munmap",
+         "open(H + '/c.db', 'wb').write(b'SQLite format 3\\x00' + b'\\x00' * 84)\n"
+         "f = open(H + '/c.db-shm', 'w+b'); f.write(b'0' * 4096); f.flush()\nm = mmap.mmap(f.fileno(), 4096)\n"
+         "m[:len(K)] = K.encode(); m.close()", K_IMAGE, key, None),
+        ("a writable shared mapping named -shm with no SQLite database beside it",
+         "f = open(H + '/x-shm', 'w+b'); f.write(b'0' * 4096); f.flush()\nm = mmap.mmap(f.fileno(), 4096)\n"
+         "m[:len(K)] = K.encode(); m.close()", K_FAIL, b"mmap", None),
+        ("SQLite's -shm mapped past the file's end (SQLite maps 32 KB regions)",
+         "open(H + '/c.db', 'wb').write(b'SQLite format 3\\x00' + b'\\x00' * 84)\n"
+         "fd = os.open(H + '/c.db-shm', os.O_CREAT | os.O_RDWR); os.write(fd, b'0' * 4096)\n"
+         "c = ctypes.CDLL(None); c.mmap.restype = ctypes.c_void_p\n"
+         "a = c.mmap(None, 32768, 3, 1, fd, ctypes.c_long(0)); ctypes.memmove(a, K.encode(), len(K))\n"
+         "c.munmap(ctypes.c_void_p(a), 32768)", K_IMAGE, key, None),
+        ("write access added to a read-only shared mapping of a file",
+         "fd = os.open(H + '/r.db', os.O_CREAT | os.O_RDWR); os.write(fd, b'0' * 4096)\n"
+         "c = ctypes.CDLL(None); c.mmap.restype = ctypes.c_void_p\n"
+         "a = c.mmap(None, 4096, 1, 1, fd, ctypes.c_long(0))\n"
+         "if c.mprotect(ctypes.c_void_p(a), 4096, 3) == 0:\n    ctypes.memmove(a, K.encode(), len(K))",
+         K_FAIL, b"mprotect",
+         "fd = os.open(H + '/r.db', os.O_CREAT | os.O_RDWR); os.write(fd, b'0' * 4096)\n"
+         "c = ctypes.CDLL(None); c.mmap.restype = ctypes.c_void_p\n"
+         "a = c.mmap(None, 4096, 1, 1, fd, ctypes.c_long(0)); ctypes.string_at(a, 16)"),
+        ("io_uring", "ctypes.CDLL(None, use_errno=True).syscall(425, 8, ctypes.create_string_buffer(120))",
+         K_FAIL, b"io_uring_setup", None),
+        ("fallocate collapsing a range",
+         "fd = os.open(H + '/t', os.O_CREAT | os.O_RDWR); os.write(fd, b'0' * 16384)\n"
+         "ctypes.CDLL(None, use_errno=True).fallocate(fd, 8, ctypes.c_long(0), ctypes.c_long(4096))",
+         K_FAIL, b"fallocate", None),
+        ("FICLONE on a regular file",
+         "a = os.open(H + '/a', os.O_CREAT | os.O_RDWR); b = os.open(H + '/b', os.O_CREAT | os.O_RDWR)\n"
+         "try:\n    fcntl.ioctl(b, 0x40049409, a)\nexcept OSError:\n    pass", K_FAIL, b"ioctl",
+         "a = os.open(H + '/a', os.O_CREAT | os.O_RDWR); os.isatty(a)"),
+        ("a child process's write", "os.system('printf %s ' + K + ' > \"$HOME/c\"; rm \"$HOME/c\"')", K_WRITE, key, None),
+        ("a write that reaches the recorder (its descriptors, its memory)",
+         "for p in ['/proc/%d/fd/%d' % (os.getppid(), n) for n in range(64)] + ['/proc/%d/mem' % os.getppid()]:\n"
+         "    try:\n        fd = os.open(p, os.O_WRONLY)\n        os.write(fd, b'x' * 17)\n"
+         "        open(H + '/reached', 'w').write('recorder-reached ' + p)\n    except OSError:\n        pass",
+         K_WRITE, b"recorder-reached", None, False),
+        ("a process started untraced (CLONE_UNTRACED)",
+         "ctypes.CDLL(None, use_errno=True).syscall(56 if os.uname().machine == 'x86_64' else 220, 0x00800000 | 17, "
+         "0, 0, 0, 0)", K_FAIL, b"CLONE_UNTRACED", None),
+        ("Linux AIO", "ctypes.CDLL(None, use_errno=True).syscall(206 if os.uname().machine == 'x86_64' else 0, 8, "
+         "ctypes.byref(ctypes.c_ulong(0)))", K_FAIL, b"io_setup", None),
+    ]
+    # Contract section 6 item 11 (a platform residual, ruling 14b): kept as an
+    # input, not run. A store to SQLite's -shm mapping makes no system call,
+    # so bytes put there and overwritten between two record points (munmap,
+    # msync, exec, exit, the mapping itself) are never read.
+    residual = [
+        ("the key stored in SQLite's -shm mapping and overwritten before munmap",
+         "open(H + '/c.db', 'wb').write(b'SQLite format 3\\x00' + b'\\x00' * 84)\n"
+         "f = open(H + '/c.db-shm', 'w+b'); f.write(b'0' * 4096); f.flush()\nm = mmap.mmap(f.fileno(), 4096)\n"
+         "m[:len(K)] = K.encode(); m[:len(K)] = b'0' * len(K); m.close()", K_IMAGE, key, None),
+    ]
+    for why, *_input in residual:
+        print(f"    corpus self-test: kernel record: {why}: skipped (contract section 6 item 11)")
+    with tempfile.TemporaryDirectory(prefix="corpus-k-") as tmp:
+        for why, code, kind, needle, twin, *expect in cases:
+            for direction, body in (("", code), (" (clean twin)", twin)):
+                if body is None:
+                    continue
+                home = tempfile.mkdtemp(dir=tmp)
+                recs = k_run([sys.executable, "-I", "-c", pre + body], home)
+                if recs is None:
+                    print(f"    corpus self-test: kernel record: {why}{direction}: the record was cut short")
+                    ok = False
+                    continue
+                got = _k_has(recs, kind, needle)
+                fails = [u for _p, k, u in recs if k == K_FAIL]
+                want = (expect[0] if expect else True) and not direction
+                if got != want or (direction and fails):
+                    print(f"    corpus self-test: kernel record: {why}{direction}: want recorded={want}, got {got} "
+                          f"{fails[:2]}")
+                    ok = False
+        # The record ends at a timeout (SIGTERM) and is cut when the recorder is killed.
+        for how, want in (("term", True), ("kill", False)):
+            recs = k_run([sys.executable, "-I", "-c", "import time; time.sleep(30)"], tempfile.mkdtemp(dir=tmp),
+                         kill=how)
+            if (recs is not None) != want:
+                print(f"    corpus self-test: kernel record: the recorder stopped by SIG{how.upper()}: want an "
+                      f"ended record={want}, got {recs is not None}")
+                ok = False
+    return ok
+
+
+_K_ASM = {"arm64": ("TEXT ·raw(SB),NOSPLIT,$0-32\n\tMOVD fd+0(FP), R0\n\tMOVD p+8(FP), R1\n\tMOVD n+16(FP), R2\n"
+                    "\tMOVD $64, R8\n\tSVC\n\tMOVD R0, ret+24(FP)\n\tRET\n"),
+          "amd64": ("TEXT ·raw(SB),NOSPLIT,$0-32\n\tMOVQ fd+0(FP), DI\n\tMOVQ p+8(FP), SI\n\tMOVQ n+16(FP), DX\n"
+                    "\tMOVQ $1, AX\n\tSYSCALL\n\tMOVQ AX, ret+24(FP)\n\tRET\n")}
+
+
+def _k_go() -> bool:
+    """The routes below os.File the first layer refuses at build time
+    (corpus4rv r5-3, r6-1 to r6-4), built plainly here: the kernel record
+    sees each one's bytes."""
+    goarch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
+    k = _GO_KEY
+    t = 'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\t'
+    bodies = [
+        ("syscall.Write", t + 'syscall.Write(int(f.Fd()), []byte("' + k + '"))\n\tf.Close()\n\tos.Remove(os.Getenv("HOME") + "/t")',
+         '\t"syscall"\n', {}),
+        ("unix.Pwrite", t + 'unix.Pwrite(int(f.Fd()), []byte("' + k + '"), 0)\n\tf.Close()', '\t"golang.org/x/sys/unix"\n', {}),
+        ("a raw system call with the write trap", t + 'b := []byte("' + k + '")\n'
+         '\tunix.Syscall(unix.SYS_WRITE, f.Fd(), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)))\n\tf.Close()',
+         '\t"unsafe"\n\n\t"golang.org/x/sys/unix"\n', {}),
+        ("assembly that makes the write call", t + 'b := []byte("' + k + '")\n\traw(f.Fd(), &b[0], uintptr(len(b)))\n\tf.Close()',
+         "", {f"raw_{goarch}.s": '#include "textflag.h"\n\n' + _K_ASM[goarch]}),
+        ("two aliases of one descriptor", t + 'a := os.NewFile(f.Fd(), "first")\n\tb := os.NewFile(f.Fd(), "second")\n'
+         '\ta.Write([]byte("' + k[:12] + '"))\n\tb.Write([]byte("' + k[12:] + '"))\n\tos.Remove(os.Getenv("HOME") + "/t")', "", {}),
+    ]
+    ok = True
+    with tempfile.TemporaryDirectory(prefix="corpus-kgo-") as tmp:
+        tmp = os.path.realpath(tmp)
+        for why, body, imports, extra in bodies:
+            src = Path(tmp) / why.replace(" ", "-").replace(".", "")
+            main = (_GO_MAIN.replace("__BODY__", body).replace('"os"\n', '"os"\n' + imports)
+                    .replace("func main()", "func raw(fd uintptr, p *byte, n uintptr) uintptr\n\nfunc main()" if extra else "func main()"))
+            for rel, text in {"go.mod": _GO_MOD, "main.go": main, **extra}.items():
+                (src / rel).parent.mkdir(parents=True, exist_ok=True)
+                (src / rel).write_text(text, encoding="utf-8")
+            shutil.copyfile(ch.ROOT / "skills" / "auvik" / "cli" / "go.sum", src / "go.sum")
+            env = {**go_env(), "GOPROXY": "off", "GOTOOLCHAIN": "local"}
+            b = subprocess.run(["go", "build", "-mod=mod", "-o", str(src / "acme"), "."], cwd=src, capture_output=True,
+                               text=True, timeout=600, env=env)
+            if b.returncode != 0:
+                print(f"    corpus self-test: kernel record (Go): {why}: build: {b.stderr[-300:]}")
+                ok = False
+                continue
+            home = tempfile.mkdtemp(dir=tmp)
+            recs = k_run([str(src / "acme"), os.path.join(home, "c.db")], home)
+            streams = [b"".join(ws) for _n, ws in kernel_streams(recs or []).values()]
+            if recs is None or not any(k.encode() in x for x in streams):
+                print(f"    corpus self-test: kernel record (Go): {why}: the key's write was not recorded "
+                      f"({'cut' if recs is None else [x[:40] for x in streams]})")
+                ok = False
+            elif any(kd == K_FAIL for _p, kd, _u in recs):
+                print(f"    corpus self-test: kernel record (Go): {why}: an ordinary SQLite program failed the record: "
+                      f"{[u for _p, kd, u in recs if kd == K_FAIL][:2]}")
+                ok = False
+    return ok
+
+
+C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go}
 
 
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,
@@ -6303,6 +6740,8 @@ def _self_test_guard() -> bool:
 
 
 def self_test() -> bool:
+    if sys.platform != "linux":
+        return in_linux(["--self-test"]) == 0
     ok = True
     try:
         load_corpus()
@@ -6329,6 +6768,7 @@ def self_test() -> bool:
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
                      *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(),
+                     *C10_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
@@ -6434,6 +6874,10 @@ def main(argv: list[str]) -> int:
 
     if a.check_baseline:
         return check_baseline(a.base)
+    if sys.platform != "linux":
+        # The kernel record (ruling 14) runs on Linux: the whole run moves
+        # into a container, the results come back through the mounted tree.
+        return in_linux(argv, os.path.dirname(os.path.abspath(a.json_out)) if a.json_out else None)
     if a.self_test:
         ok = self_test()
         print("PASS: secret-corpus self-test" if ok else "FAIL: secret-corpus self-test")

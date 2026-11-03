@@ -212,10 +212,38 @@ judged; a stream the kit cannot read whole fails. A file can be written below `o
 through a system call, so the trace build refuses any use outside the standard library and the
 trusted modules (`golang.org/x/sys`, `x/net` and `x/crypto` added; never the connector's own
 module) of a `syscall`, `x/sys/unix`, `x/sys/windows` or `modernc.org/libc` function that writes,
-truncates, maps memory, splices or makes a raw system call (a raw call is allowed only with a named
-read-only trap: `SYS_PROC_INFO`, `SYS_FGETATTRLIST`, `SYS_GETATTRLIST`), assembly that contains a
+truncates, maps memory, splices or makes a raw system call, assembly that contains a
 system-call instruction or a raw encoding (`WORD`, `BYTE` and the like) anywhere, and a
 `go:linkname` naming a system call or a write.
+
+That build is the fast first layer. The guarantee is the kernel record (`corpus_ktrace.go`): every
+process a case runs, and every process it starts, runs under a ptrace recorder that stops each
+system call that can put bytes or a name in a file and records it before the process goes on. It
+reads the bytes of `write`, `pwrite64`, `writev`, `pwritev` and `pwritev2` from the process, reads
+back from the file what `sendfile`, `splice` and `copy_file_range` put there, records the zeros an
+extension (`ftruncate`, `truncate`, `fallocate`, a positioned write past the end) materializes, and
+records every name put in the file system (a created file, directory or node, a rename's or link's
+new name, a symbolic link's target, an extended attribute's name and value, a UNIX socket's path).
+The set is closed with a failing default: a call through another system-call ABI, a call newer than
+the recorder's table, and every call no record reads (io_uring, `process_vm_writev`, `ptrace`,
+seccomp, `bpf`, `userfaultfd`, `pidfd_getfd`, message queues, SysV memory, kernel keys, a shared
+mapping with write access of a regular file, or write access added to one later with `mprotect`, collapse and insert ranges, an `ioctl` on a regular file that is
+not a read) is recorded as a failure and the process is killed before the call runs. The one shared
+mapping with write access allowed is SQLite's `-shm` index (beside a file that starts with SQLite's
+magic): its bytes, read from the file itself, are recorded whenever they changed, at every
+`munmap`, `msync`, `exec` and exit and when it is made. A write into the record itself is refused
+the same way, no process writes a core file, and a record cut short (the recorder killed) fails the
+case; the harness's timeout stops the recorder with SIGTERM, which kills every traced process and
+still ends the record. Each process's kernel writes to each file are judged like the first layer's
+(whole and write by write; a stream identical to the one the first layer judged is not judged
+twice; the statement trace's own writes are read through the trace, and only when the trace at rest
+holds every one of them; a name is judged below the case's own directories, every component the
+process chose in one unit; a CLI child's wrapper's writes to its own record files are skipped until it
+execs the CLI). Writes to a SQLite database and its side files are SQLite's own pages, written below
+`os.File` from statements judged above, so each is read as those files are read at rest (the dead
+bytes rule below). The kernel record runs on Linux only, so on another OS the class runs in a
+container (`in_linux`: a copy of the working tree, an unprivileged user, the host CPU's native
+image, module and build cache volumes); CI's rows run it natively.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
 reports, under the settings the connector build uses (no inherited `GOFLAGS`, `GOOS` or `GOARCH`;
 `CGO_ENABLED=0`), once for each release target, so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
