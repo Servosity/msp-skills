@@ -62,7 +62,7 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=sophos-central).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `SOPHOS_CENTRAL_CLIENT_ID` and `SOPHOS_CENTRAL_CLIENT_SECRET` when Claude Desktop prompts you.
+3. Fill in `SOPHOS_CENTRAL_CLIENT_ID` when Claude Desktop prompts you.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sophos-central/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -97,9 +97,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`sophos-central-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SOPHOS_CENTRAL_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `SOPHOS_CENTRAL_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export SOPHOS_CENTRAL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+sophos-central-mcp --transport http
+```
+
+Set `SOPHOS_CENTRAL_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Create an API credential in Sophos Central (Partner Dashboard > Settings & Policies > API Credentials for an MSP, or Global Settings > API Credentials Management for an organization or single tenant) and export SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET. The CLI mints an OAuth token from id.sophos.com, calls whoami to learn whether the credential is a partner, organization or tenant, and adds the matching ID header and regional host to every request. Partner and organization credentials choose a customer for tenant-scoped commands with --tenant <tenant-id> (or SOPHOS_CENTRAL_TENANT_ID); the fleet commands walk every tenant unless --tenant or SOPHOS_CENTRAL_TENANT_ID is set, in which case they are limited to those IDs, so unset it before fleet runs. After the first token is minted the client ID and the token are cached in the CLI's credentials file (a secret taken from the environment is never written there). A client ID in the environment always wins over a different saved one: the saved token is not sent, and the new token is kept in memory. After rotating the secret of the same credential, run 'sophos-central-cli auth logout' so a fresh token is minted. For the MCP server set both variables in its environment, plus SOPHOS_CENTRAL_TENANT_ID when a partner or organization credential should reach one tenant's endpoints and alerts.
+Create an API credential in Sophos Central (Partner Dashboard > Settings & Policies > API Credentials for an MSP, or Global Settings > API Credentials Management for an organization or single tenant) and export SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET. The CLI mints an OAuth token from id.sophos.com, calls whoami to learn whether the credential is a partner, organization or tenant, and adds the matching ID header and regional host to every request. Partner and organization credentials choose a customer for tenant-scoped commands with --tenant <tenant-id> (or SOPHOS_CENTRAL_TENANT_ID); the fleet commands walk every tenant unless --tenant or SOPHOS_CENTRAL_TENANT_ID is set, in which case they are limited to those IDs, so unset it before fleet runs. After the first token is minted the client ID and secret are saved to the CLI's credentials file and take precedence over the environment: run 'sophos-central-cli auth logout' after rotating a credential. For the MCP server set both variables in its environment, plus SOPHOS_CENTRAL_TENANT_ID when a partner or organization credential should reach one tenant's endpoints and alerts.
 
 ## Quick Start
 
@@ -124,7 +135,7 @@ sophos-central-cli fleet triage --severity high,medium --stale 14d
 ## Unique Features
 
 ### Cross-tenant visibility
-- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes what earlier fleet refreshes stored for tenants outside its scope.
+- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
 
   _Run it first: fleet triage, fleet health, fleet gaps and contain's hostname lookup answer from the store it fills; the other fleet commands call the API on each run._
 
@@ -238,8 +249,8 @@ This CLI separates local files into four path kinds:
 | Kind | Contents |
 |------|----------|
 | `config` | User-editable settings such as `config.toml` and saved profiles |
-| `data` | Durable local data: `credentials.toml`, `data.db`, and other auth sidecars |
-| `state` | Runtime state such as `teach.log` |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
 | `cache` | Regenerable HTTP/cache files |
 
 Each kind resolves independently. The ladder is:
@@ -266,6 +277,15 @@ sophos-central-cli doctor
 
 Under `SOPHOS_CENTRAL_HOME=/srv/sophos-central`, the four dirs resolve to `/srv/sophos-central/config`, `/srv/sophos-central/data`, `/srv/sophos-central/state`, and `/srv/sophos-central/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SOPHOS_CENTRAL_HOME = "C:\srv\sophos-central"
+sophos-central-cli doctor
+```
+
+Under `$env:SOPHOS_CENTRAL_HOME = "C:\srv\sophos-central"`, the four dirs resolve to `C:\srv\sophos-central\config`, `C:\srv\sophos-central\data`, `C:\srv\sophos-central\state`, and `C:\srv\sophos-central\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -286,6 +306,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `SOPHOS_CENTR
 Relocation is one-way. Unsetting `SOPHOS_CENTRAL_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `sophos-central-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `sophos-central-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `sophos-central-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SOPHOS_CENTRAL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SOPHOS_CENTRAL_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -717,7 +747,7 @@ Manage xdr
 ### fleet
 
 
-- **`sophos-central-cli fleet refresh`** - Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes what earlier fleet refreshes stored for tenants outside its scope.
+- **`sophos-central-cli fleet refresh`** - Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
 
 - **`sophos-central-cli fleet triage`** - One ranked work queue across all customers: open high and medium alerts, bad or suspicious endpoints, tamper protection off, isolated or stale devices.
 
@@ -769,6 +799,8 @@ sophos-central-cli alerts list --dry-run
 sophos-central-cli alerts list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -795,9 +827,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `sophos-central-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sophos-central-cli/config.toml` (`%USERPROFILE%\.config\sophos-central-cli\config.toml` on Windows); `--home`, `SOPHOS_CENTRAL_HOME`, and per-kind env vars can relocate it.
+Run `sophos-central-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sophos-central-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\sophos-central-cli\config.toml` on Windows; `--home`, `SOPHOS_CENTRAL_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SOPHOS_CENTRAL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SOPHOS_CENTRAL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -809,7 +843,7 @@ Environment variables:
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `sophos-central-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `sophos-central-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -821,7 +855,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **HTTP 400 tenantRequired on endpoints, alerts or policies commands**  -  Partner and organization credentials must pick a customer: add --tenant <tenant-id> or export SOPHOS_CENTRAL_TENANT_ID (IDs from 'tenants list', or 'org-tenants list' for an organization credential).
-- **A customer is missing from fleet output or listed as forbidden**  -  Trial tenants are skipped unless --include-trial is passed (and a full refresh without it removes what earlier fleet refreshes stored for them); a 403 means the customer has not enabled Partner Assistance in its console. Both are recorded, never fatal.
+- **A customer is missing from fleet output or listed as forbidden**  -  Trial tenants are skipped unless --include-trial is passed; a 403 means the customer has not enabled Partner Assistance in its console. Both are recorded, never fatal.
 - **A fleet command printed results but exited non-zero**  -  Some tenant failed for a reason other than an expected 403 (server error, timeout, incomplete listing); check tenants_with_unexpected_errors and tenants[].resources, then rerun for that tenant with --tenant <tenant-id>.
 - **fleet triage, health or gaps return nothing**  -  They read the local store: run 'sophos-central-cli fleet refresh' first, and check SOPHOS_CENTRAL_TENANT_ID is unset so it does not narrow the fleet.
 - **HTTP 429 or slow fleet commands**  -  Sophos enforces 100 calls/minute per credential, account and IP; the CLI paces at 1.5 req/s by default. Lower it with --rate-limit 1 when other tools share the credential.

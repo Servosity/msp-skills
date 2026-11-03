@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-written: cross-tenant plumbing shared by the fleet commands.
 //
@@ -625,6 +625,9 @@ type healthCheck struct {
 	Snoozed      bool           `json:"snoozed"`
 	SnoozeExpiry string         `json:"snooze_expiry,omitempty"`
 	Detail       map[string]int `json:"detail,omitempty"`
+	// Failed marks a section the API returned as null, which the health-check
+	// spec defines as an unexpected error: no score, never a pass.
+	Failed bool `json:"failed,omitempty"`
 }
 
 // healthDetailKeys are the counters worth carrying next to a score.
@@ -672,6 +675,10 @@ func walkHealthChecks(prefix string, v any, out *[]healthCheck) {
 		if prefix != "" {
 			path = prefix + "." + k
 		}
+		if obj[k] == nil {
+			*out = append(*out, healthCheck{Check: path, Failed: true})
+			continue
+		}
 		walkHealthChecks(path, obj[k], out)
 	}
 }
@@ -681,7 +688,7 @@ func walkHealthChecks(prefix string, v any, out *[]healthCheck) {
 func overallHealth(checks []healthCheck) (int, bool) {
 	min, found := 0, false
 	for _, c := range checks {
-		if c.Snoozed {
+		if c.Snoozed || c.Failed {
 			continue
 		}
 		if !found || c.Score < min {

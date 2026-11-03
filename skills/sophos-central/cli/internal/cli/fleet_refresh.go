@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source live
 
 package cli
@@ -217,6 +217,11 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 	}
 	defer db.Close()
 
+	if n, err := retireUnattributedFleetRows(db); err != nil {
+		return fmt.Errorf("upgrading the fleet store: %w", err)
+	} else if n > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), `{"event":"fleet_rows_retired","rows":%d,"reason":"stored without a tenant by an older build; tenants read as not refreshed until refreshed again"}`+"\n", n)
+	}
 	prev := loadFleetMeta(db)
 	summary := fleetSyncSummary{DB: dbPath, TenantsTotal: len(tenants), Stored: map[string]int{}, Tenants: make([]fleetLedgerRow, 0, len(tenants))}
 	want := map[string]bool{}
@@ -511,6 +516,25 @@ func storeTenantRows(db *store.Store, resourceType, tenantID string, items []jso
 		if derr != nil || strings.TrimSpace(sophosID) == "" {
 			continue
 		}
+		// The endpoint and alert schemas make tenant optional; the fetch was
+		// made for tenantID, so an unattributed row is that tenant's. A row
+		// naming another tenant is refused, never stored under this one.
+		switch owner := rowTenantID(it); {
+		case owner == "":
+			tenant, _ := obj["tenant"].(map[string]any)
+			if tenant == nil {
+				tenant = map[string]any{}
+			}
+			tenant["id"] = tenantID
+			obj["tenant"] = tenant
+			stamped, merr := json.Marshal(obj)
+			if merr != nil {
+				return 0, fmt.Errorf("attributing %s %s to tenant %s: %w", resourceType, sophosID, tenantID, merr)
+			}
+			it = stamped
+		case owner != tenantID:
+			return 0, fmt.Errorf("storing %s for tenant %s: the API returned %s %s for tenant %s; refusing to store it", resourceType, tenantID, resourceType, sophosID, owner)
+		}
 		valid = append(valid, it)
 		seen = append(seen, store.ExtractResourceID(resourceType, obj))
 	}
@@ -701,4 +725,43 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time
 		}
 	}
 	return gone, nil
+}
+
+// retireUnattributedFleetRows drops fleet-copy rows that carry no tenant.id.
+// This build stamps every fleet row with the tenant it was fetched for, so an
+// unattributed row can only come from an older build, and no per-tenant
+// reconcile can ever remove it. Its owner is unknown, so no earlier refresh
+// can vouch for any tenant's fleet rows either: when any are dropped the
+// ledger goes too, and each tenant reads as not refreshed until this build
+// refreshes it. The plain-sync mirror is not touched.
+func retireUnattributedFleetRows(db *store.Store) (int, error) {
+	retired := 0
+	for _, rt := range []string{fleetEndpointsType, fleetAlertsType} {
+		keep, n := make([]string, 0), 0
+		if err := db.ListScan(rt, func(id string, raw json.RawMessage) bool {
+			if rowTenantID(raw) == "" {
+				n++
+			} else {
+				keep = append(keep, id)
+			}
+			return true
+		}); err != nil {
+			return retired, err
+		}
+		if n == 0 {
+			continue
+		}
+		typed, _ := store.TypedListTable(rt)
+		if _, err := db.ReconcileAll(rt, keep, typed, nil); err != nil {
+			return retired, fmt.Errorf("retiring unattributed %s rows: %w", rt, err)
+		}
+		retired += n
+	}
+	if retired > 0 {
+		typed, _ := store.TypedListTable(fleetLedgerType)
+		if _, err := db.ReconcileAll(fleetLedgerType, nil, typed, nil); err != nil {
+			return retired, fmt.Errorf("clearing the fleet ledger after retiring unattributed rows: %w", err)
+		}
+	}
+	return retired, nil
 }
