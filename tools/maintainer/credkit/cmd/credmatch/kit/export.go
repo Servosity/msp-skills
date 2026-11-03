@@ -57,8 +57,8 @@ func PublicAsWritten(v string) bool { return inPublicText(v) }
 
 // StreamWithheld is the kit's check of one stream (stdout, stderr), as its
 // pump makes it: each unit the pump reads between pauses, checked with the
-// stream's context (contract 3, Streams). It returns the index of the first
-// unit the kit withholds, or -1.
+// stream's context (contract 3, Streams). It returns the first unit withheld on
+// a match and true; else the first withheld at a limit and false; else -1.
 func StreamWithheld(held []string, units [][]byte) (int, bool) {
 	if len(held) == 0 {
 		return -1, false
@@ -70,17 +70,27 @@ func StreamWithheld(held []string, units [][]byte) (int, bool) {
 	reg.m, reg.mgen = newMatcher(held), reg.gen
 	reg.Unlock()
 	var st streamCtx
+	first := -1 // a limit does not end the check: a later match is still a leak
 	for i, u := range units {
-		if len(u) > maxUnit {
-			return i, false // the pump withholds a unit it cannot check
+		if len(u) > maxUnit { // the pump withholds a unit it cannot check
+			if first < 0 {
+				first = i
+			}
+			st.over(nil, false)
+			continue
 		}
 		out, withheld := st.decide(u, SinkStdout)
 		if withheld {
-			return i, st.matched(u)
+			if st.matched(u) {
+				return i, true
+			}
+			if first < 0 {
+				first = i
+			}
 		}
 		st.done(u, out, withheld)
 	}
-	return -1, false
+	return first, false
 }
 
 // matched: a held value found in the write withheld or in the stream's

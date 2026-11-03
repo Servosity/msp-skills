@@ -242,7 +242,7 @@ func serve(in io.Reader, out io.Writer) error {
 			return fmt.Errorf("line %d: unit: %v", n, err)
 		}
 		v, c := credkit.MatchUnit(held, unit, q.Request)
-		if v == "clean" && len(q.Units) > 1 {
+		if v != "leak" && len(q.Units) > 1 { // a limit on the whole does not end the check of its writes
 			units := make([][]byte, len(q.Units))
 			for i, u := range q.Units {
 				if units[i], err = base64.StdEncoding.DecodeString(u); err != nil {
@@ -250,9 +250,10 @@ func serve(in io.Reader, out io.Writer) error {
 				}
 			}
 			if i, matched := credkit.StreamWithheld(held, units); i >= 0 {
-				v, c = "exhausted", fmt.Sprintf("3 (Streams: write %d of %d withheld at a limit)", i+1, len(units))
 				if matched {
 					v, c = "leak", fmt.Sprintf("3 (Streams: write %d of %d withheld)", i+1, len(units))
+				} else if v == "clean" {
+					v, c = "exhausted", fmt.Sprintf("3 (Streams: write %d of %d withheld at a limit)", i+1, len(units))
 				}
 			}
 		}

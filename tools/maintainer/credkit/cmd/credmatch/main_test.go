@@ -128,6 +128,39 @@ func TestStreamLimitIsNotALeak(t *testing.T) {
 	if got[1].Verdict != "clean" {
 		t.Errorf("the same frame in one write: want clean, got %+v", got[1])
 	}
+	// corpus8rv round 6: a limit does not end the check. A whole short value in
+	// a later write is a leak, whichever write the limit came first in.
+	short := func(units ...string) string {
+		var q request
+		if err := json.Unmarshal([]byte(stream(units...)), &q); err != nil {
+			t.Fatal(err)
+		}
+		q.Held = []string{b64("482913")}
+		b, _ := json.Marshal(q)
+		return string(b)
+	}
+	got, err = ask(t, short(frame[:cut], frame[cut:], "482913", "7\n"), short(frame[:cut], frame[cut:], "ok\n"))
+	if err != nil || len(got) != 2 {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if got[0].Verdict != "leak" {
+		t.Errorf("a whole short value in a write after a limit: want leak, got %+v", got[0])
+	}
+	if got[1].Verdict != "exhausted" {
+		t.Errorf("a clean write after a limit: want exhausted, got %+v", got[1])
+	}
+	// The whole stream exhausting the budget does not end it either.
+	zeros := strings.Repeat("\x00", 1<<16)
+	got, err = ask(t, short(zeros), short(zeros, "482913", "7\n"))
+	if err != nil || len(got) != 2 {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if got[0].Verdict != "exhausted" {
+		t.Fatalf("the input no longer exhausts the whole unit, so this checks nothing: %+v", got[0])
+	}
+	if got[1].Verdict != "leak" {
+		t.Errorf("a whole short value in a write of a stream that exhausts the budget: want leak, got %+v", got[1])
+	}
 }
 
 func TestAcquireStdin(t *testing.T) {
