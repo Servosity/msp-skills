@@ -40,6 +40,36 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://uptime.betterstack.com/api/v2"
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BETTERSTACK_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BETTERSTACK_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API instead of the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BETTERSTACK_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Better Stack requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BETTERSTACK_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

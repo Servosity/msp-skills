@@ -1046,5 +1046,57 @@
         }
       ]
     }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health board",
+      "command": "fleet",
+      "description": "One-screen health of the whole Better Stack account: monitors up/down/paused, heartbeats, open incidents, and who's on call now."
+    },
+    {
+      "name": "Alerting coverage gaps",
+      "command": "coverage",
+      "description": "Find monitors with no escalation policy or no alert channel — the ones that will go down silently and page no one."
+    },
+    {
+      "name": "Incident MTTA / MTTR",
+      "command": "mttr",
+      "description": "Mean time to acknowledge and resolve, computed across incidents over a window and broken down by monitor."
+    },
+    {
+      "name": "Flapping / noisy monitors",
+      "command": "flapping",
+      "description": "Rank monitors by how many incidents they generated in a window to surface the noisy, flapping, or misconfigured ones."
+    },
+    {
+      "name": "On-call coverage gaps",
+      "command": "oncall-gaps",
+      "description": "Detect on-call calendars with nobody currently on call."
+    },
+    {
+      "name": "Heartbeat risk audit",
+      "command": "heartbeat-risk",
+      "description": "Rank heartbeats by risk: tight period+grace windows, paused-but-expected, and non-up status."
+    },
+    {
+      "name": "What's-down triage board",
+      "command": "down",
+      "description": "Focused triage list of monitors currently down or degraded, joined to their open incidents and whether anyone is actually paged for each."
+    },
+    {
+      "name": "Unacked-incident triage",
+      "command": "triage",
+      "description": "Open incidents ranked by age and acknowledgement state — never-acknowledged first — joined to the affected monitor."
+    },
+    {
+      "name": "Status-page drift audit",
+      "command": "statuspage-audit",
+      "description": "Flags status pages showing operational while a backing monitor has an open incident, and status-page resources pointing at missing or paused monitors."
+    },
+    {
+      "name": "Group rollup health",
+      "command": "group-health",
+      "description": "Per-group health rollup: monitor and heartbeat up/down counts plus open incidents for every monitor group and heartbeat group."
+    }
   ]
 }

@@ -35,7 +35,7 @@ func TestBuildDownReport(t *testing.T) {
 				{ID: "1", Name: "api", Status: "down"},
 			},
 			incidents: []incidentRow{
-				{ID: "i1", Source: "1", StartedAt: "2026-06-06T00:00:00Z"},
+				{ID: "i1", Source: "1", MonitorID: "1", StartedAt: "2026-06-06T00:00:00Z"},
 			},
 			wantItems:   1,
 			wantUnpaged: 1,
@@ -47,7 +47,7 @@ func TestBuildDownReport(t *testing.T) {
 				{ID: "1", Name: "api", Status: "up", PolicyID: "p1"},
 			},
 			incidents: []incidentRow{
-				{ID: "i1", Source: "1", StartedAt: "2026-06-06T00:00:00Z", AcknowledgedAt: "2026-06-06T00:05:00Z"},
+				{ID: "i1", Source: "1", MonitorID: "1", StartedAt: "2026-06-06T00:00:00Z", AcknowledgedAt: "2026-06-06T00:05:00Z"},
 			},
 			wantItems: 1,
 		},
@@ -64,7 +64,7 @@ func TestBuildDownReport(t *testing.T) {
 				{ID: "1", Name: "api", Status: "up", PolicyID: "p1"},
 			},
 			incidents: []incidentRow{
-				{ID: "i1", Source: "1", ResolvedAt: "2026-06-06T01:00:00Z"},
+				{ID: "i1", Source: "1", MonitorID: "1", ResolvedAt: "2026-06-06T01:00:00Z"},
 			},
 			wantItems: 0,
 		},
@@ -95,7 +95,7 @@ func TestBuildDownReportOrdering(t *testing.T) {
 		{ID: "3", Name: "mm-unacked", Status: "down", Email: true},
 	}
 	incidents := []incidentRow{
-		{ID: "i1", Source: "1", AcknowledgedAt: "2026-06-06T00:05:00Z"},
+		{ID: "i1", Source: "1", MonitorID: "1", AcknowledgedAt: "2026-06-06T00:05:00Z"},
 	}
 	rep := buildDownReport(monitors, incidents, nil)
 	if len(rep.Items) != 3 {
