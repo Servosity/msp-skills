@@ -1072,8 +1072,10 @@ func corpusFileWrite(f *File, b []byte) {
 	if f == nil || f.file == nil {
 		return
 	}
-	name := f.name
-	if name == "" || name[0] == '|' || len(name) >= 5 && name[:5] == "/dev/" {
+	// By destination, not by name (corpus4rv r5-2): a regular file is
+	// recorded whatever it is called; a pipe, socket or terminal is not a file.
+	var st syscall.Stat_t
+	if syscall.Fstat(f.pfd.Sysfd, &st) == nil && uint32(st.Mode)&syscall.S_IFMT != syscall.S_IFREG {
 		return
 	}
 	corpusOnce.Do(func() {
@@ -1086,23 +1088,29 @@ func corpusFileWrite(f *File, b []byte) {
 			}
 		}
 	})
-	if corpusTraceFile == "" || name == corpusTraceFile {
-		return
+	// A write the trace cannot record is not made, and neither is a write
+	// into the trace itself (corpus4rv r5-4): the process stops with 97.
+	if corpusTraceFile == "" {
+		syscall.Exit(97)
 	}
-	u := len(name) + 1 + len(b)
+	fd, err := syscall.Open(corpusTraceFile, syscall.O_WRONLY|syscall.O_APPEND|syscall.O_CREAT|syscall.O_CLOEXEC, 0o600)
+	if err != nil {
+		syscall.Exit(97)
+	}
+	var ts syscall.Stat_t
+	if syscall.Fstat(fd, &ts) != nil || ts.Dev == st.Dev && ts.Ino == st.Ino {
+		syscall.Exit(97)
+	}
+	u := len(f.name) + 1 + len(b)
 	rec := make([]byte, 17, 17+u)
 	corpusPut(rec, uint64(u))
 	corpusPut(rec[8:], uint64(syscall.Getpid()))
 	rec[16] = 2
-	rec = append(append(append(rec, name...), 0), b...)
-	fd, err := syscall.Open(corpusTraceFile, syscall.O_WRONLY|syscall.O_APPEND|syscall.O_CREAT|syscall.O_CLOEXEC, 0o600)
-	if err != nil {
-		return
-	}
+	rec = append(append(append(rec, f.name...), 0), b...)
 	for len(rec) > 0 {
 		n, err := syscall.Write(fd, rec)
 		if err != nil || n <= 0 {
-			break
+			syscall.Exit(97)
 		}
 		rec = rec[n:]
 	}
@@ -1199,16 +1207,18 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
         own = mod.get("Path") in TRUSTED_MODULES   # by module, never by a path's prefix (corpus4rv r3)
         if "sqlite" in ip.lower() and not own:
             return [], f"{ip}: a SQLite package the statement trace does not cover"
-    if drv is None:
-        return [], None
+    # Every build, driver or not: the C layer, and any write below os.File
+    # the file-write trace cannot see (corpus4rv r5-3), fail closed.
     try:
         p = subprocess.run([_fields_helper(), "-clayer", str(cli_dir), *targets], capture_output=True, text=True,
                            timeout=900, env=go_env())
         bad = json.loads(p.stdout).get("errors")
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, ValueError) as e:
-        return [], f"the SQLite C layer check failed: {e}"
+        return [], f"the trace's layer check failed: {e}"
     if p.returncode != 0 or bad:
-        return [], f"the SQLite driver's C layer around the statement trace: {'; '.join(bad or [p.stderr.strip()])[:400]}"
+        return [], f"a write or statement the trace cannot see: {'; '.join(bad or [p.stderr.strip()])[:400]}"
+    if drv is None:
+        return [], None
     src = os.path.join(drv["Dir"], "sqlite.go")
     with open(src, encoding="utf-8") as fh:
         body = fh.read()
@@ -1265,6 +1275,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -1292,12 +1303,21 @@ func corpusWrite(p string, kind byte, u []byte) {
 	binary.BigEndian.PutUint64(rec, uint64(len(u)))
 	binary.BigEndian.PutUint64(rec[8:], uint64(os.Getpid()))
 	rec[16] = kind
-	f, err := os.OpenFile(p, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
+	// Through the system calls, not os.File (whose patched Write refuses the
+	// trace's own file); a statement the trace cannot record is not run: the
+	// process stops with 97 (corpus4rv r5-4).
+	fd, err := syscall.Open(p, syscall.O_WRONLY|syscall.O_APPEND|syscall.O_CREAT|syscall.O_CLOEXEC, 0o600)
 	if err != nil {
-		return
+		os.Exit(97)
 	}
-	_, _ = f.Write(append(rec, u...))
-	_ = f.Close()
+	for rec = append(rec, u...); len(rec) > 0; {
+		n, err := syscall.Write(fd, rec)
+		if err != nil || n <= 0 {
+			os.Exit(97)
+		}
+		rec = rec[n:]
+	}
+	_ = syscall.Close(fd)
 }
 
 func corpusTrace(query string, args []driver.NamedValue) {
@@ -1541,6 +1561,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -1600,13 +1621,43 @@ func (f importerFunc) Import(p string) (*types.Package, error) { return f(p) }
 // The modules the SQLite statement trace trusts: the driver and the C
 // runtime it is built on, as published (not replaced).
 var trusted = map[string]bool{"modernc.org/sqlite": true, "modernc.org/libc": true, "modernc.org/mathutil": true,
-	"modernc.org/memory": true}
+	"modernc.org/memory": true, "golang.org/x/sys": true, "golang.org/x/net": true}
+// x/sys defines the system calls; x/net's internal/socket writes sockets
+// (sendmsg), never a file, and no connector can import an internal package.
 
 // clayer: every linked package outside the trusted modules that reaches the
 // driver's C layer (modernc.org/sqlite/<sub>) around the statement trace.
 // Blunt rule (corpus4rv r3): read by type, not by spelling. Such a package
 // may use the C layer's SQLITE_ constants and nothing else; assembly or a
 // go:linkname directive naming SQLite fails closed.
+// The system-call layers a file can be written through without os.File.
+func sysPkg(path string) bool {
+	return path == "syscall" || path == "golang.org/x/sys/unix" || path == "golang.org/x/sys/windows" ||
+		strings.HasPrefix(path, "modernc.org/libc")
+}
+
+var (
+	sysDeny  = regexp.MustCompile(`(?i)write|syscall|mmap|sendfile|copyfilerange|splice|^tee$`)
+	sysInsn  = regexp.MustCompile(`(?m)^\\s*(SYSCALL|SVC|INT\\s+\\$0x80)\\b`)
+	linkDeny = regexp.MustCompile(`sqlite|syscall|write|mmap|internal/poll|x/sys`)
+)
+
+var (
+	rawCall   = regexp.MustCompile(`^(Raw)?Syscall(\\d+|N)?$`)
+	readTraps = map[string]bool{"SYS_PROC_INFO": true, "SYS_FGETATTRLIST": true, "SYS_GETATTRLIST": true}
+)
+
+// sel is the identifier an expression names (x or pkg.x), or nil.
+func sel(e ast.Expr) *ast.Ident {
+	switch x := ast.Unparen(e).(type) {
+	case *ast.Ident:
+		return x
+	case *ast.SelectorExpr:
+		return x.Sel
+	}
+	return nil
+}
+
 func clayer(root string, targets []string) (errs []string) {
 	fail := func(f string, a ...any) { errs = append(errs, fmt.Sprintf(f, a...)) }
 	cmd := exec.Command("go", append([]string{"list", "-e", "-json", "-export", "-deps"}, targets...)...)
@@ -1648,6 +1699,8 @@ func clayer(root string, targets []string) (errs []string) {
 			b, err := os.ReadFile(filepath.Join(p.Dir, f))
 			if err != nil || bytes.Contains(bytes.ToLower(b), []byte("sqlite")) {
 				fail("%s: assembly that names SQLite (%s)", p.ImportPath, f)
+			} else if sysInsn.Match(b) {
+				fail("%s: assembly that makes a system call (%s), a file write the trace cannot see", p.ImportPath, f)
 			}
 		}
 		var files []*ast.File
@@ -1659,8 +1712,8 @@ func clayer(root string, targets []string) (errs []string) {
 			}
 			for _, cg := range af.Comments {
 				for _, cm := range cg.List {
-					if strings.HasPrefix(cm.Text, "//go:linkname") && strings.Contains(strings.ToLower(cm.Text), "sqlite") {
-						fail("%s: a go:linkname naming SQLite", fset.Position(cm.Pos()))
+					if strings.HasPrefix(cm.Text, "//go:linkname") && linkDeny.MatchString(strings.ToLower(cm.Text)) {
+						fail("%s: a go:linkname naming SQLite, a system call or a write", fset.Position(cm.Pos()))
 					}
 				}
 			}
@@ -1668,7 +1721,7 @@ func clayer(root string, targets []string) (errs []string) {
 		}
 		uses := false
 		for _, i := range p.Imports {
-			uses = uses || strings.HasPrefix(i, c)
+			uses = uses || strings.HasPrefix(i, c) || sysPkg(i)
 		}
 		if !uses {
 			continue
@@ -1688,7 +1741,42 @@ func clayer(root string, targets []string) (errs []string) {
 		if _, err := conf.Check(p.ImportPath, fset, files, info); err != nil {
 			continue // reported through conf.Error
 		}
+		// A raw system call is allowed only called directly with a trap
+		// number named by a read-only constant (the fleet's darwin ACL and
+		// process-info reads); anything else fails below.
+		okCall := map[*ast.Ident]bool{}
+		for _, af := range files {
+			ast.Inspect(af, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok || len(call.Args) == 0 {
+					return true
+				}
+				fn := sel(call.Fun)
+				obj := info.Uses[fn]
+				if fn == nil || obj == nil || obj.Pkg() == nil || !sysPkg(obj.Pkg().Path()) || !rawCall.MatchString(obj.Name()) {
+					return true
+				}
+				if k, ok := info.Uses[sel(call.Args[0])].(*types.Const); ok && sysPkg(k.Pkg().Path()) && readTraps[k.Name()] {
+					okCall[fn] = true
+				}
+				return true
+			})
+		}
 		for id, obj := range info.Uses {
+			if okCall[id] {
+				continue
+			}
+			if obj.Pkg() != nil && sysPkg(obj.Pkg().Path()) {
+				// Every file write is a unit (contract 2): one made below
+				// os.File escapes the trace, so a write-capable call fails
+				// the build closed (corpus4rv r5-3).
+				if _, fn := obj.(*types.Func); fn && sysDeny.MatchString(obj.Name()) ||
+					strings.HasPrefix(obj.Pkg().Path(), "modernc.org/libc") {
+					fail("%s: %s.%s, a write below os.File the file-write trace cannot see", fset.Position(id.Pos()),
+						obj.Pkg().Path(), obj.Name())
+				}
+				continue
+			}
 			if obj.Pkg() == nil || !strings.HasPrefix(obj.Pkg().Path(), c) {
 				continue
 			}
@@ -2096,6 +2184,14 @@ func main() {
 							l := res.Lists[name]
 							take(where, val, &l)
 							res.Lists[name] = l
+						case name == "Origins":
+							// Not read: an origin only allows a host, and the
+							// list holds every host but the fake's as foreign.
+						default:
+							// Files (a callback) or any field the list cannot
+							// read as data: contract 7, a declaration the
+							// reader cannot interpret is a failure (r5-6).
+							fail("%s: Declarations.%s cannot be read without running the program", where, name)
 						}
 					}
 				case *ast.CallExpr:
@@ -2528,7 +2624,9 @@ def _stdin_capture(flags: list[str]) -> str:
         q = shlex.quote(n)
         pats += [f"-{q}", f"--{q}", f"-{q}=*", f"--{q}=*"]
         if len(fl) == 2 and fl[0] == "-" and fl[1] != "-":
-            pats.append(f"-[!-]*{q}*")
+            # isCluster (len > 2, one dash) with the letter anywhere after
+            # the dash: first (r5-5) or later.
+            pats += [f"-{q}?*", f"-[!-]*{q}*"]
     if not pats:
         return ""
     return ('cap=\nfor a in "$@"; do case "$a" in ' + "|".join(pats) + ') cap=1;; esac; done\n'
@@ -3173,14 +3271,9 @@ class Engine:
                 st_ = _stream(ws)
                 texts.append(str(st_))
                 h_ = held_for([by_pid[pid]]) if pid in by_pid else held
+                # An exhausted write fails (contract 3: the budget has no
+                # clean exit); no smaller reading replaces it (r5-1).
                 how = judge(st_, h_)
-                if how and "ran out of budget" in how and not any("\x00" in h for h in h_):
-                    # Zero padding is not text (judge_dead's rule, finding
-                    # r2-4 kept): a stream the kit cannot read whole is read
-                    # again as the pieces between runs of 64 or more NUL
-                    # bytes, each piece keeping its write boundaries; a piece
-                    # that still exhausts fails.
-                    how = next(filter(None, (judge(x, h_) for x in _nul_pieces(ws))), None)
                 if how:
                     res["where"].append(f"file write {_s(name)}: {how}")
             k = 0
@@ -3337,23 +3430,6 @@ class Stream(str):
 # Half that here, so the list sees every boundary the kit would and more:
 # a boundary the kit would not see only adds a check.
 PAUSE = 0.005
-
-
-def _nul_pieces(ws: list[bytes]) -> list[Stream]:
-    """The writes `ws` cut at runs of 64 or more NUL bytes: one stream per
-    piece between runs, each with the parts of the writes that fall in it."""
-    joined, out, at = b"".join(ws), [], 0
-    spans = [(a, b) for a, b in zip([0] + [m.end() for m in re.finditer(rb"\x00{64,}", joined)],
-                                    [m.start() for m in re.finditer(rb"\x00{64,}", joined)] + [len(joined)])]
-    bounds = []
-    for w in ws:
-        bounds.append((at, at + len(w)))
-        at += len(w)
-    for a, b in spans:
-        parts = [joined[max(a, x):min(b, y)] for x, y in bounds if max(a, x) < min(b, y)]
-        if any(p.strip(b"\x00") for p in parts):
-            out.append(_stream(parts))
-    return out
 
 
 def _stream(chunks: list[bytes], extra: str = "") -> Stream:
@@ -5314,8 +5390,12 @@ def _c5_sink_capture() -> bool:
          dict(cli=swapped.replace("__ARGS__", '("clean", "value")'))),
         ("2: the credential written into a clean database's -shm", "succ-raw", "FAIL",
          dict(cli=after.replace("__WRITE__", 'open(p + "-shm", "wb").write(' + _KEY + '.encode())'))),
+        # Written at the descriptor, as SQLite's C layer writes its -shm (a
+        # write through the stand-ins' open is a traced file write, and 32 KB
+        # of zeros exhaust the kit's budget: corpus4rv r5-1).
         ("2: zeros written into a clean database's -shm", "succ-raw", "PASS",
-         dict(cli=after.replace("__WRITE__", 'open(p + "-shm", "wb").write(b"\\x00" * 32768)'))),
+         dict(cli=after.replace("__WRITE__", 'fd = os.open(p + "-shm", os.O_WRONLY | os.O_CREAT, 0o600)\n'
+                                'os.write(fd, b"\\x00" * 32768)\nos.close(fd)'))),
         ("3: 8 characters of the credential in the database header's reserved bytes", "succ-raw", "FAIL",
          dict(cli=after.replace("__WRITE__", 'f = open(p, "r+b")\nf.seek(72)\nf.write(' + _KEY + '[:8].encode())\nf.close()'))),
         ("4: a held value of 64 NUL characters appended to a database", "succ-raw", "FAIL",
@@ -5440,7 +5520,8 @@ _GO_MOD = ("module acme\n\ngo 1.24\n\nrequire modernc.org/sqlite v1.37.0\n\nrequ
            "\tmodernc.org/memory v1.9.1 // indirect\n)\n")
 
 
-def _go_trace_run(files: dict[str, str], gomod_extra: str = "", kind: int = 1) -> tuple[str | None, list[bytes]]:
+def _go_trace_run(files: dict[str, str], gomod_extra: str = "", kind: int = 1,
+                  out: dict | None = None) -> tuple[str | None, list[bytes]]:
     """A small Go program on modernc.org/sqlite v1.37.0, built with the
     statement trace and run once: (the trace's refusal, the statements it
     wrote). Its go.sum is a real connector's (every module is in the cache)."""
@@ -5473,8 +5554,12 @@ def _go_trace_run(files: dict[str, str], gomod_extra: str = "", kind: int = 1) -
             else:
                 os.environ["GOPROXY"] = saved
         trace = bindir / "corpus-sql.trace"
-        subprocess.run([str(bindir / "acme"), str(Path(tmp) / "c.db")], capture_output=True, timeout=60,
-                       env={"PATH": os.environ.get("PATH", ""), "HOME": tmp})
+        home = Path(tmp) / "home"
+        home.mkdir()
+        r = subprocess.run([str(bindir / "acme"), str(Path(tmp) / "c.db")], capture_output=True, timeout=60,
+                           env={"PATH": os.environ.get("PATH", ""), "HOME": str(home)})
+        if out is not None:
+            out.update(rc=r.returncode, home={f.name: f.read_bytes() for f in home.iterdir() if f.is_file()})
         recs = read_trace(str(trace)) or []
         return None, [r if isinstance(r, bytes) else r[2] for r in recs if isinstance(r, bytes) or r[1] == kind]
 
@@ -5771,6 +5856,113 @@ def _c7_go_file_writes() -> bool:
     return True
 
 
+_GO_KEY = "synthetic-go-key-48291375"
+
+
+def _c8_go(body: str, imports: str = "") -> tuple[str | None, list, dict]:
+    out: dict = {}
+    main = _GO_MAIN.replace("__BODY__", body).replace('"os"\n', '"os"\n' + imports)
+    err, units = _go_trace_run({"main.go": main}, kind=2, out=out)
+    return err, [u.partition(b"\0") for u in units], out
+
+
+def _c8_sink_capture() -> bool:
+    """Round 5 findings 1 to 4: an exhausted file write keeps its verdict;
+    a write is recorded by its destination, not its name; a file write the
+    trace cannot see refuses the build; a write the trace cannot record is
+    not made."""
+    ok = True
+    gz = ('import zlib\nc = zlib.compressobj(9, zlib.DEFLATED, 31, 9, zlib.Z_HUFFMAN_ONLY)\n'
+          'doc = c.compress((\'{"a":"\' + k[:4] + \'",\' + " " * 2048 + \'"b":"\' + k[4:] + \'"}\').encode()) + c.flush()\n')
+    big = ('call("GET", "/v1/items")\nk = ' + _KEY + '\n__GZ__f = open(os.path.join(HOME, "z.bin"), "wb")\n'
+           'f.write(b"\\x00" * (64 * 1024 * 1024 + 1) + __DOC__)\nf.close()\nos.remove(os.path.join(HOME, "z.bin"))\nprint("ok")\n')
+    ok &= _probes("sink capture (corpus4rv r5)", [
+        ("1: 64 MiB and one NUL then a compressed document, written and deleted (the unit exhausts the kit)", "succ-jsonnum", "FAIL",
+         dict(cli=big.replace("__GZ__", gz).replace("__DOC__", "doc"))),
+        ("1: a clean short file written and deleted", "succ-jsonnum", "PASS",
+         dict(cli=big.replace("__GZ__", "").replace('b"\\x00" * (64 * 1024 * 1024 + 1) + __DOC__', 'b"ok"'))),
+    ])
+    named = ('if err := os.Chdir(os.Getenv("HOME")); err != nil {\n\t\tpanic(err)\n\t}\n'
+             '\tf, _ := os.Create("|cache")\n\tf.Write([]byte("' + _GO_KEY + '-a"))\n\tf.Close()\n\tos.Remove("|cache")\n'
+             '\tg, _ := os.Create("plain")\n\th := os.NewFile(g.Fd(), "/dev/fd/3")\n\th.Write([]byte("' + _GO_KEY + '-b"))\n'
+             '\tos.Stdout.Write([]byte("to-stdout"))\n\tg.Close()\n\tos.Remove("plain")')
+    err, recs, _o = _c8_go(named)
+    got = sorted(r[2] for r in recs)
+    if err or got != [(_GO_KEY + "-a").encode(), (_GO_KEY + "-b").encode()]:
+        print(f"    corpus self-test: sink capture (corpus4rv r5): 2: writes to '|cache' and a file named /dev/fd/3 "
+              f"recorded, stdout not: got {err or got}")
+        ok = False
+    for why, body, imp in (
+            ("3: syscall.Write on a file's descriptor",
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tsyscall.Write(int(f.Fd()), []byte("' + _GO_KEY + '"))\n'
+             '\tf.Close()\n\tos.Remove(os.Getenv("HOME") + "/t")', '\t"syscall"\n'),
+            ("3: unix.Pwrite on a file's descriptor",
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tunix.Pwrite(int(f.Fd()), []byte("' + _GO_KEY + '"), 0)\n'
+             '\tf.Close()', '\t"golang.org/x/sys/unix"\n'),
+            ("3: a raw system call with the write trap",
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tb := []byte("' + _GO_KEY + '")\n'
+             '\tunix.Syscall(unix.SYS_WRITE, f.Fd(), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)))\n\tf.Close()',
+             '\t"unsafe"\n\n\t"golang.org/x/sys/unix"\n')):
+        err, _r, _o = _c8_go(body, imp)
+        if not err or "build:" in err:
+            print(f"    corpus self-test: sink capture (corpus4rv r5): {why}: want the trace build refused, got {err}")
+            ok = False
+    # The twin: a raw call with a read-only trap (the fleet's darwin ACL read) builds.
+    err, _r, _o = _c8_go('f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tvar a unix.Attrlist\n\tvar buf [64]byte\n'
+                         '\tunix.Syscall6(unix.SYS_FGETATTRLIST, f.Fd(), uintptr(unsafe.Pointer(&a)), '
+                         'uintptr(unsafe.Pointer(&buf[0])), 64, 0, 0)\n\tf.Close()',
+                         '\t"unsafe"\n\n\t"golang.org/x/sys/unix"\n')
+    if err:
+        print(f"    corpus self-test: sink capture (corpus4rv r5): 3: a read-only raw call refused: {err}")
+        ok = False
+    ro = ('exe, _ := os.Executable()\n\tos.Chmod(filepath.Join(filepath.Dir(exe), "corpus-sql.trace"), 0o400)\n'
+          '\tos.WriteFile(filepath.Join(os.Getenv("HOME"), "k.txt"), []byte("' + _GO_KEY + '"), 0o600)')
+    err, _r, o = _c8_go(ro, '\t"path/filepath"\n')
+    if err or _GO_KEY.encode() in b"".join(o.get("home", {}).values()):
+        print(f"    corpus self-test: sink capture (corpus4rv r5): 4: a write the trace cannot record was made: "
+              f"{err or o}")
+        ok = False
+    return ok
+
+
+def _c8_held_and_declarations() -> bool:
+    """Round 5 findings 5 and 6: a declared short stdin flag first in a
+    cluster captures stdin; a Files callback is a declaration the reader
+    cannot interpret, so it fails closed."""
+    ok = True
+    child = ('import subprocess\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
+             '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
+             '    e = {k: v for k, v in os.environ.items() if k != "ACME_API_KEY"}\n'
+             '    argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list", "-xy"]\n'
+             '    out = subprocess.run(argv, capture_output=True, text=True, env=e, input="synthetic-stdin-secret-271828").stdout\n'
+             '    return {"content": [{"type": "text", "text": out}]}\nserve(TOOLS, on_call)\n')
+    cli = 'call("GET", "/v1/items")\nprint(sys.stdin.read() if __ECHO__ else "ok")\n'
+    kw = {"fields": [], "secret_env": [], "lists": {"StdinFlags": ["-x"]}}
+    ok &= _probes("held set (corpus4rv r5)", [
+        ("5: a child started with -xy (declared -x) echoes its stdin", "succ-raw", "FAIL",
+         dict(cli=cli.replace("__ECHO__", "True"), mcp=child), kw),
+        ("5: the same child printing nothing it was given", "succ-raw", "PASS",
+         dict(cli=cli.replace("__ECHO__", "False"), mcp=child), kw),
+    ])
+    kit = dict(_DECL_KIT)
+    kit["internal/credkit/kit.go"] = kit["internal/credkit/kit.go"].replace(
+        "type Declarations struct {\n", "type Declarations struct {\n\tFiles func(args []string) []string\n")
+    files = {**kit, "main.go": _DECL_HDR + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, '
+             'Files: func(a []string) []string { return []string{"/etc/acme.toml"} }}\n\nfunc main() { credkit.Start(d) }\n'}
+    if _decl_read(files) != "error":
+        print(f"    corpus self-test: declarations (corpus4rv r5): 6: a Files callback read as nothing: {_decl_read(files)}")
+        ok = False
+    plain = {**kit, "main.go": _DECL_HDR + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}}\n\n'
+             'func main() { credkit.Start(d) }\n'}
+    if _decl_read(plain) == "error":
+        print("    corpus self-test: declarations (corpus4rv r5): 6: a literal without Files refused")
+        ok = False
+    return ok
+
+
+C8_PROBES = {"sink-capture": _c8_sink_capture, "held-set-runtime-tokens": _c8_held_and_declarations}
+
+
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,
              "go-file-writes": _c7_go_file_writes}
 
@@ -5968,7 +6160,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed

@@ -172,8 +172,9 @@ own type (the documented wiring: a literal in a wiring package, `credkit.Start(w
 `main`), and `Start` is only ever called directly; its address taken, a copy kept in a field, a
 field set or read elsewhere, an element of another literal, a call's result, a generic type
 argument, an unnamed struct of the same fields, `Start` as a function value (reflection), an
-identifier with no reason, a `BaseURL` that is not a literal or a literal that does not type-check
-fails the connector's run.
+identifier with no reason, a `BaseURL` that is not a literal, a `Files` callback (or any field the
+list cannot read as data; `Origins` is not read, since the list treats every host but the fake's as
+foreign) or a literal that does not type-check fails the connector's run.
 
 Stdout and stderr are captured byte for byte, and in the writes the kit's pump checks one by one:
 the bytes between two pauses of the pipe (5 ms here, 10 ms in the kit, so the list sees every
@@ -199,11 +200,16 @@ not fit cannot be judged and fails the run.
 Every file write a run makes is a unit too (contract section 2: a file written as a stream of
 writes). The same build patches the toolchain's `os.File` `Write`, `WriteAt` and `ReadFrom` (in a
 hard-linked mirror of the connector's toolchain, since `go build -overlay` refuses files under the
-module cache) to record each write with its file's name in the same trace. Each process's writes to
-each file are judged in order, whole and write by write, on that process's held set, so a write
-later deleted or overwritten is still judged. A stream the kit cannot read whole is read again as
-the pieces between runs of 64 or more NUL bytes (zero padding; read whole when a held value has a
-NUL byte), and a piece that still runs out of budget fails.
+module cache) to record each write to a regular file, whatever its name (by `fstat`, not by
+spelling), with its file's name in the same trace before the write is made. A write the trace
+cannot record, or a write into the trace's own file, is not made: the process stops with exit 97
+(the statement trace does the same). Each process's writes to each file are judged in order, whole
+and write by write, on that process's held set, so a write later deleted or overwritten is still
+judged; a stream the kit cannot read whole fails. A file can be written below `os.File` only
+through a system call, so the trace build refuses any use outside the standard library and the
+trusted modules (`golang.org/x/sys` added) of a `syscall`, `x/sys/unix`, `x/sys/windows` or
+`modernc.org/libc` function that writes, maps memory, splices or makes a raw system call, assembly
+that makes a system call, and a `go:linkname` naming a system call or a write.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
 reports, under the settings the connector build uses (no inherited `GOFLAGS`, `GOOS` or `GOARCH`;
 `CGO_ENABLED=0`), once for each release target, so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
