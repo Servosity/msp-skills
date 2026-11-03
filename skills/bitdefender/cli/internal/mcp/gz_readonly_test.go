@@ -60,14 +60,20 @@ func TestGravityZoneReadOnlyMethodsMatchRegistry(t *testing.T) {
 	}
 }
 
-// Under the switch, a listed read reaches the client (and fails on missing
-// config, not on the switch); a write and an excluded read are refused.
-func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {
+// Under the switch, a listed read reaches the client through bitdefender_read
+// (and fails on missing config, not on the switch); a write and an excluded
+// read are refused. TestReadOnlySwitchRunsListedReadsAndRefusesCredentialReads
+// drives the same split against a JSON-RPC test server.
+func TestCodeOrchReadOnlyRunsGravityZoneReads(t *testing.T) {
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
 	t.Setenv("BITDEFENDER_API_KEY", "")
 	call := func(id string) string {
-		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
-			Arguments: map[string]any{"endpoint_id": id},
+		handle := handleCodeOrchRead
+		if id == "isolation.isolate" || id == "endpoints.delete" {
+			handle = handleCodeOrchExecute
+		}
+		res, err := handle(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+			Arguments: map[string]any{"endpoint_id": id, "confirm": true},
 		}})
 		if err != nil {
 			t.Fatalf("%s: %v", id, err)

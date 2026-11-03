@@ -29,11 +29,6 @@
   "backup-radar": [
    "mcp-stdio"
   ],
-  "bitdefender": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "cisco-duo": [
    "write-gating",
    "read-only",

@@ -2,7 +2,7 @@
 
 **140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies.**
 
-140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP they are reached through bitdefender_search and bitdefender_execute. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
+140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP, `bitdefender_search` finds a method, `bitdefender_read` runs reads, and `bitdefender_execute` runs only data-changing methods: it returns a preview and sends nothing until `confirm` is boolean true. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
 
 Learn more at [Bitdefender GravityZone](https://www.bitdefender.com/business/).
 
@@ -96,6 +96,22 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`bitdefender-mcp --transport http` serves `http://127.0.0.1:7777/mcp` by default, refuses to start until `BITDEFENDER_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>` (`openssl rand -hex 32` prints 64 hex characters and meets that minimum). Any `--addr` other than loopback also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header and loopback origins are accepted; any other `Origin` is refused unless listed in `BITDEFENDER_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export BITDEFENDER_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+bitdefender-mcp --transport http
+```
+
+```powershell
+$env:BITDEFENDER_MCP_HTTP_TOKEN = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+bitdefender-mcp --transport http
+```
+
+Set `BITDEFENDER_MCP_READ_ONLY=1` (exactly `1`) for an agent that should only read: `bitdefender_execute`, `import` and the tools that write the local learn store are removed from the tool list, and `bitdefender_read` runs only an explicit list of GravityZone read methods, refusing the Credential and access reads (incident reads stay allowed; XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive).
 
 ## Authentication
 
@@ -290,6 +306,10 @@ Precedence matters in fleets: an ambient per-kind variable such as `BITDEFENDER_
 Relocation is one-way. Unsetting `BITDEFENDER_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `bitdefender-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `BITDEFENDER_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `BITDEFENDER_DATA_SOURCE` sets the `--data-source` default. `bitdefender-cli doctor` prints the resolved paths, every store file, and the response-cache size.
 
 ## Commands
 
@@ -665,6 +685,8 @@ bitdefender-cli accounts list --dry-run
 bitdefender-cli accounts list --agent
 ```
 
+`--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth equivalents too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -695,6 +717,8 @@ Run `bitdefender-cli doctor` to see the resolved config, data, state, and cache 
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
+`--ca-cert`, `BITDEFENDER_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots (for an on-premises Control Center with a private CA). `--tls-server-name`, `BITDEFENDER_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
+
 Environment variables:
 
 | Name | Kind | Required | Description |
@@ -704,7 +728,11 @@ Environment variables:
 | `BITDEFENDER_CONFIG` | path | No | Path to the config file, instead of `config.toml` in the config directory. |
 | `BITDEFENDER_NO_LEARN` | per_call | No | Set to `true` to turn off the self-learning loop for deterministic runs. |
 | `BITDEFENDER_MCP_HTTP_TOKEN` | mcp | Only with `--transport http` | Bearer token the MCP server requires on every HTTP request. |
-| `BITDEFENDER_MCP_READ_ONLY` | mcp | No | Set to exactly `1` so the MCP server's `bitdefender_execute` runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). |
+| `BITDEFENDER_MCP_READ_ONLY` | mcp | No | Set to exactly `1` for a read-only MCP server: `bitdefender_execute` and `import` are removed, and `bitdefender_read` runs only GravityZone read methods on an explicit list, refusing the Credential-tier reads (incident reads stay allowed). |
+| `BITDEFENDER_MCP_HTTP_ALLOWED_ORIGINS` | mcp | No | Comma-separated `scheme://host[:port]` browser origins HTTP mode accepts besides loopback. |
+| `BITDEFENDER_NO_LOCAL_DATA` | per_call | No | Set to `1` to keep no local copy: no response cache, no store writes, `auto` reads go live, `sync` refused. |
+| `BITDEFENDER_CA_CERT` | per_call | No | PEM CA bundle added to the system trust roots, for an on-premises Control Center with a private CA. |
+| `BITDEFENDER_TLS_SERVER_NAME` | per_call | No | Name checked against the server certificate when the dialed address does not match it. |
 
 ### agentcookie (optional)
 

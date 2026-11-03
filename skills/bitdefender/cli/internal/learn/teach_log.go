@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"bitdefender-pp-cli/internal/cliutil"
+	"bitdefender-pp-cli/internal/credkit"
 )
 
 // teachLogStateDirName is the per-user state directory name.
@@ -110,7 +111,7 @@ func appendTeachLogEntry(entry TeachLogEntry) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateTeachLogIfNeeded(p)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return fmt.Errorf("teach log: open %s: %w", p, err)
 		}

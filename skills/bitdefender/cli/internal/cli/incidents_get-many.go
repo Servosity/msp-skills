@@ -45,7 +45,7 @@ func newIncidentsGetManyCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("ids") && bodyIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ids"))
 				}
 			}
 			path := "/v1.2/jsonrpc/incidents#getIncidentsByIds"

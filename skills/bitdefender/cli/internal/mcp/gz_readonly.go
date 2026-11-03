@@ -2,7 +2,11 @@
 
 package mcp
 
-import "strings"
+import (
+	"strings"
+
+	"bitdefender-pp-cli/internal/cliutil"
+)
 
 // Hand-wired (handfixes.json: mcp-read-only-allows-gravityzone-reads).
 // Every GravityZone method is a JSON-RPC POST, so the generated read-only
@@ -80,4 +84,13 @@ func gravityZoneReadOnlyAllows(pathTemplate string) bool {
 		return false
 	}
 	return gravityZoneReadOnlyMethods[rest]
+}
+
+// gravityZoneReadOnlyRefusesRead reports a read the BITDEFENDER_MCP_READ_ONLY=1
+// switch must refuse. The generated switch already refuses every confirm-gated
+// call and every bitdefender_execute call, and lets bitdefender_read run any
+// read; a GravityZone read that returns or takes a credential must stay
+// refused, so under the switch a read runs only when it is listed above.
+func gravityZoneReadOnlyRefusesRead(ep *codeOrchEndpoint) bool {
+	return cliutil.IsMCPReadOnlyEnv() && (ep == nil || !gravityZoneReadOnlyAllows(ep.Path))
 }

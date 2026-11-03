@@ -44,7 +44,7 @@ func newPoliciesGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("policy-id") && bodyPolicyId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "policy-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policy-id"))
 				}
 			}
 			path := "/v1.1/jsonrpc/policies#getPolicyDetails"

@@ -1,0 +1,740 @@
+{
+ "sites": [
+  {
+   "file": "cmd/bitdefender-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is the next handler of requireBearerAuthWithLimits, which serves every response through credkit.MCPHTTP (handfixes.json credkit-wiring)"
+  },
+  {
+   "file": "internal/cache/cache.go",
+   "func": "Store.Get",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a cache entry, which credkit.WriteFile wrote"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the --deliver webhook request; it is sent only through cliutil.OutboundGuard(nil).RoundTrip. cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the webhook is sent by cliutil.OutboundGuard(nil).RoundTrip. cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the webhook transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the download's temp file exclusively and closes it; the body is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (the temp credkit.WriteFile wrote)"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "loadSpacefastDelivery",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the Spacefast delivery record (page id and key, written with cliutil.AtomicWriteCredentialFile); the key is held as minted:spacefast-page-key before an update sends it"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Spacefast client: its Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a Spacefast request, sent only by the client whose Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Spacefast client's transport. cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/doctor_verdict.go",
+   "func": "doctorProbe",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the doctor's getApiKeyDetails probe, sent only by c.HTTPClient, the API client whose transport is the JSON-RPC envelope over guardTransport (credkit.Transport)"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "newFeedbackListCmd",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the local feedback log, which credkit.OpenFile wrote, to print it through the output layer"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the feedback POST, sent only by a client whose Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/gz_open_unix.go",
+   "func": "openNoBlock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the operator-named --devices/--agreements export (a GravityZone report file), bounded and regular-file checked by readBoundedFile; not a credential source"
+  },
+  {
+   "file": "internal/cli/gz_open_windows.go",
+   "func": "openNoBlock",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the operator-named --devices/--agreements export (a GravityZone report file), bounded and regular-file checked by readBoundedFile; not a credential source"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the owner marker's temp file and closes it; the hash is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "publishes the owner marker with a hard link; a link moves no bytes"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads the store-owner marker (a scope hash), which the kit wrote"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "publishStoreFile",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "publishes the store file with a hard link; a link moves no bytes"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "readSecretFromStdin",
+   "what": "assert:writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asserts stdin to *os.File only to Stat it (a terminal is refused); nothing is written to it"
+  },
+  {
+   "file": "internal/cli/import.go",
+   "func": "newImportCmd",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the operator's import file (one JSON record per line), request bodies sent through the API client's credkit.Transport; not a credential source"
+  },
+  {
+   "file": "internal/cli/jsonrpc_transport.go",
+   "func": "installJSONRPCTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the JSON-RPC envelope's fallback base is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/cli/jsonrpc_transport.go",
+   "func": "installJSONRPCTransport",
+   "what": "convert:bitdefender-pp-cli/internal/cli.jsonrpcTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the JSON-RPC envelope layer sits above the API client's guarded transport and sends only through it (t.base)"
+  },
+  {
+   "file": "internal/cli/jsonrpc_transport.go",
+   "func": "installJSONRPCTransport",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the API client's transport, already guardTransport (credkit.Transport) after client.New, in the GravityZone JSON-RPC envelope; every request the envelope builds is sent by that guarded base, so the kit sees the final envelope and the raw response"
+  },
+  {
+   "file": "internal/cli/jsonrpc_transport.go",
+   "func": "installJSONRPCTransport",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard(nil): the kit's guard over the default transport. cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/cli/jsonrpc_transport.go",
+   "func": "jsonrpcTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "t.base is the API client's guardTransport (credkit.Transport) or cliutil.OutboundGuard(nil) (installJSONRPCTransport); the envelope sends nothing any other way"
+  },
+  {
+   "file": "internal/cli/profile.go",
+   "func": "saveProfileStore",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (the temp credkit.WriteFile wrote)"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "rotateLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (rotates the teach log)"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "scrubLogFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the teach log, which the kit wrote, to rewrite it with credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/teach_playbook.go",
+   "func": "resolvePlaybookInputs",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the operator's --notes-file for a playbook; reads a file that is not a credential source"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.doInternal",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an API request, sent only by c.HTTPClient, whose transport is guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.platformCacheMetadataMatches",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the cache's metadata sidecar, which credkit.WriteFile wrote"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.readCacheWithHeaders",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the response cache, which credkit.WriteFile wrote"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "replaces the API client's transport with guardTransport(tr). the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "replaces the plain client's transport with guardTransport(tr). the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a streaming clone of the API client: a guarded base keeps guardTransport on the clone; the bare *http.Transport branch only serves a client a test built"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a streaming client whose Transport is guardTransport(tr)"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "chromeAllowTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dial-guard layer inside the API transport, which guardTransport wraps"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "defaultDialPinned",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dial-guard dialer under the API transport; requests reach it only through guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "dialDirect",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dial-guard dialer under the API transport; requests reach it only through guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "installs the dial guard on the API transport; New and NewPlainHTTPClient then wrap it in guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it; the guarded transport is stored into the client it builds"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the API client's transport: guardTransport wraps it in cliutil.OutboundGuard, which is credkit.Transport, kept a variable only so in-process tests, which never run Start, can swap it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "loadCACertPool",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the PEM trust bundle ca_cert names; reads a file that is not a credential source"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "newHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client before New wraps its transport in guardTransport"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "credentialTomlKey",
+   "what": "reflect",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads a struct field's toml tag; it sets nothing"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "credentialsFileFrom",
+   "what": "reflect",
+   "count": 7,
+   "kind": "exempt",
+   "reason": "reads the Credentials struct's fields to marshal the credential store, a source written outside the kit; it sets nothing"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "openNoFollowRegular",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the credential store, which credentialFiles holds inside Start, refusing a link"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "renameInRoot",
+   "what": "os.Root.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (the credential store's temp file)"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "verifyPinnedDataDir",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens a directory to compare its identity; reads no file"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "writeExplicitCredentialFile",
+   "what": "os.Root.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes the 0600 credential store, a source the kit holds at Start, outside the kit by contract"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "darwinOwnerUUID",
+   "what": "golang.org/x/sys/unix.Fstat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a file's owner uid; no I/O of content"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "openDarwinNoFollow",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens a path read-only to check its ACL; reads no content"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "readDarwinFileSec",
+   "what": "golang.org/x/sys/unix.Syscall6",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the fgetattrlist call that reads a file's ACL; it writes no file and sends nothing"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "readDarwinFileSec",
+   "what": "unsafe",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads a file's ACL with fgetattrlist into a local buffer; it writes no file and sends nothing"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "var",
+   "what": "unsafe",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sizes of the attrlist structs; no I/O"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "ReadFileWithLegacyFallback",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads the run-profile store (credentialFiles holds it inside Start) or the teach log, which the kit wrote"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "atomicWritePrivate",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the temp file both private writers use: AtomicWritePrivateFile writes it with credkit.WriteFile; AtomicWriteCredentialFile writes only credential sources"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "renamePrivateFileWithRetry",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (the private writers' temp file)"
+  },
+  {
+   "file": "internal/cliutil/probe.go",
+   "func": "ProbeReachable",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the reachability probe, sent only by a client whose Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "Config.scrubLegacyCredentials",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the legacy config, which credentialFiles names, so the kit held it inside Start"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "readConfigFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads config.toml, which credentialFiles names, so the kit held it inside Start"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.Symlink",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "restores the credential store's own symlink after a failed save; a credential source, written outside the kit"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.WriteFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "restores the credential store (0600) after a failed save; a credential source, written outside the kit"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "snapshotCredentialsFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the credential store, which credentialFiles holds inside Start, to restore it if a save fails"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names, inside Start, and the bytes go only to credkit.HoldBody"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "LoadJournalOffset",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the journal offset, which AtomicWritePrivateFile wrote through credkit.WriteFile"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "ReadJournalFrom",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the journal, which credkit.AppendFile wrote"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "repairJournalSegmentTail",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the journal to end a torn last line with one newline byte; it writes nothing else"
+  },
+  {
+   "file": "internal/learn/teach_log.go",
+   "func": "rotateTeachLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (rotates the teach log)"
+  },
+  {
+   "file": "internal/platform/migration.go",
+   "func": "BackupLegacyArtifacts",
+   "what": "os.Rename",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (moves legacy files aside and back)"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "LoadProfile",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a platform client profile (credential references and public identity assertions only, written through the kit by writePrivateFile)"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "SelectProfile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the platform config.toml for default_client_profile, a profile name; writePrivateFile writes it through the kit"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "SetDefaultProfile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the platform config.toml for default_client_profile, a profile name; writePrivateFile writes it through the kit"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "loadOrCreateFingerprintKey",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates that local key exclusively and writes 32 random bytes to it; it carries no held value and is never sent"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "readFingerprintKey",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the local HMAC key that fingerprints resolved credentials; it is never sent and authenticates to nothing"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the temp file and closes it; the data is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a file this program already wrote; a rename moves no bytes to any output (the temp credkit.WriteFile wrote)"
+  },
+  {
+   "file": "internal/platform/ratelimit.go",
+   "func": "EndpointLimiter.Wait",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the rate-limit ledger, which the kit wrote"
+  },
+  {
+   "file": "internal/platform/ratelimit.go",
+   "func": "acquireLedgerLock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the lock file exclusively and closes it; its timestamp is written by credkit.WriteFile"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "ensureSQLiteJournalPrivate",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates SQLite's journal file empty at 0600 and closes it; it writes no bytes"
+  }
+ ]
+}

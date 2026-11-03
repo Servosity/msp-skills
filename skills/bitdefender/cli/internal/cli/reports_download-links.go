@@ -44,7 +44,7 @@ func newReportsDownloadLinksCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("report-id") && bodyReportId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "report-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "report-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/reports#getDownloadLinks"
