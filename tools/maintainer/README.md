@@ -133,17 +133,23 @@ URL or host variable gets an address of its own: the fake's port by the name `lo
 URL a path of its own), where every unheld variable spells it `127.0.0.1`, so no unheld value the
 harness gives the program shares an 8-character piece with a held one. The held set of a run is
 the kit's own (contract section 8; `credmatch`'s acquire request runs the kit's startup and
-transport code), once for each process as it ran (its own argv and environment, and an MCP
-server's input, read for declared MCP arguments) and once for each CLI child an MCP server
-started: what `Start` holds from the process's environment and the config file it was given
+transport code), once for each process as it ran (its own argv and environment exactly as given,
+and an MCP server's input, read for declared MCP arguments) and once for each CLI child an MCP
+server started (recorded by the wrapper at paths written into it, never in a variable the server
+could drop): what `Start` holds from the process's environment, argv and the config file it was
+given (read at its own path with the bytes the run was given, then restored)
 (`auth_header`, every `[headers]` value, the base URL's user and password, a file that does not
 read the one canonical way held whole), then what the kit's transport holds from every request the
 fakes received (auth headers whole and their parts, Basic auth's user and password, cookie values,
-declared headers and fields) and every response they sent, as sent (every header line, `Server`
+declared headers and fields) the process sent and every response it received, as sent (every header line, `Server`
 and `Date` included; no body for a HEAD, 204 or 304 response): `Set-Cookie` values, declared
 response fields in headers and bodies. Identifiers the connector declares, each with its reason,
 are exempt as in the kit, and a value the list holds on its own is exempt where the kit exempts
-its source. A
+its source, the source spelled exactly as the kit compares it. Each process is judged on its own
+held set (holdings last until the process exits): its stdout and stderr, the SQLite statements it
+ran (by pid), the requests it sent to the second host, and the files it changed (by a snapshot after
+each process); an MCP server's with the CLI children it started, and a file no process can be named
+for on every process's. A
 value that arrives in a response is held only when it was delivered; such values, and the user of
 a base URL the harness writes, carry no fixed prefix, so one never delivered cannot be guessed.
 Every token the fake vendor hands out is held for the rest of that run, and so is every object key
@@ -157,13 +163,15 @@ the first declared one the connector sends on the wire and already withholds whe
 URL variable included. A vendor response field is held only when the connector declares it: the
 `ResponseFields` (and `SecretEnv`, `Identifiers` with their reasons, and every other list) of the
 one literal of the shared kit's own `Declarations` type, read from every package the connector's
-two binaries link that imports the kit (a nested module's included), under the build's own tags
-and target. The type may be named only as that literal's type, and the value used only as
-`credkit.Start`'s argument, a literal or a variable (the documented wiring: a literal in a wiring
-package, `credkit.Start(wiring.D)` in each `main`); its address taken, a copy kept in a field, a
+two binaries link that reaches the kit, directly or through another package (a nested module's
+included), under the build's own tags and target. The type may be named only as that literal's
+type, and the value used only as `credkit.Start`'s argument, a literal or a variable of the kit's
+own type (the documented wiring: a literal in a wiring package, `credkit.Start(wiring.D)` in each
+`main`), and `Start` is only ever called directly; its address taken, a copy kept in a field, a
 field set or read elsewhere, an element of another literal, a call's result, a generic type
-argument, an identifier with no reason, a GOFLAGS overlay or a literal that does not type-check
-fails the connector's run.
+argument, an unnamed struct of the same fields, `Start` as a function value (reflection), an
+identifier with no reason, a GOFLAGS overlay or a literal that does not type-check fails the
+connector's run.
 
 Stdout and stderr are captured byte for byte, and in the writes the kit's pump checks one by one:
 the bytes between two pauses of the pipe (5 ms here, 10 ms in the kit, so the list sees every
@@ -175,9 +183,16 @@ pipe open are still judged.
 Every SQLite statement a run executes is judged as the kit's unit, its text and bound values in
 binding order, as it ran: the list builds each connector with `modernc.org/sqlite` replaced (`go
 build -modfile`) by a mirror whose statement layer writes each statement through the kit's own
-`sqlUnit` to a trace file outside HOME (the DSN the driver opens too). A build that links another
-SQLite package, imports the driver's C layer around it, replaces the driver, or whose driver the
-patch does not fit cannot be judged and fails the run.
+`sqlUnit` (a transaction's begin, commit and rollback, and the DSN the driver opens, too) to
+`corpus-sql.trace` beside the executable, outside HOME: the place is found once at start from the
+executable's own path, so no variable a process could clear decides it, and each process writes a
+start record with its pid, so a process of a binary that links the driver and wrote none fails the
+case. The build is the release build (`CGO_ENABLED=0`). A build that links another SQLite package,
+replaces any `modernc.org` module, reaches the driver's C layer (`modernc.org/sqlite/<sub>`) from
+outside the trusted modules (the driver, `modernc.org/libc`, `mathutil`, `memory`, by module, not by
+a path's prefix) other than for its `SQLITE_` constants (read by type, so no spelling of the import
+hides a use), carries assembly or a `go:linkname` that names SQLite, or whose driver the patch does
+not fit cannot be judged and fails the run.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
 reports, under the environment the connector build uses (`GOFLAGS` build tags, `GOOS`, `GOARCH`),
 so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
@@ -268,17 +283,18 @@ so a connector that refuses the hop is not held in its own retry backoff.
   run is not seen; the shared kit's file layer covers that sink in process.
 - A SQLite database's files (with its `-wal`, `-shm` or `-journal`) are judged besides the traced
   statements: its schema statements, its rows one unit each and each table's rows joined, and every
-  other byte. Each page image (database page or WAL frame) is judged whole except the text and
-  blob values of each whole record on it, blanked because they are read as values: by the rows for
-  a live table page, as record units otherwise (every index record, every record of a freed or
-  replaced image). An image is live only when reachable from a root with no WAL frame and no
-  journal. The headers, bytes past the database's size, the `-shm` and the journal are pieces too,
-  split at runs of 64 or more NUL bytes unless a held value has a NUL byte. Not raw files: the kit
-  runs out of budget on ordinary caches read raw (auvik's index pages). A piece the kit cannot read
-  whole is read again in 1 KB windows overlapping by half, so in such a piece a reading that needs
-  more than 512 bytes is not read whole. A database SQLite cannot open fails the case.
+  other byte. Each page image (database page or WAL frame) is judged whole, values included as the
+  file holds them (adjacent values spell one string there), and its records are read as units too:
+  by the rows for a live table page, as record units otherwise (every index record, every record of
+  a freed or replaced image). An image is live only when reachable from a root with no WAL frame and
+  no journal. The headers, bytes past the database's size, the `-shm` and the journal are pieces
+  too, split at runs of 64 or more NUL bytes unless a held value has a NUL byte. The kit runs out of
+  budget on some ordinary pages read whole (auvik's index pages), so a piece the kit cannot read
+  whole is read again in 1 KB windows overlapping by half: in such a piece a reading that needs more
+  than 512 bytes is not read whole. A database SQLite cannot open fails the case.
 - The child process sink is the argv the MCP server gives its own CLI (logged by a wrapper); other
-  children and their environments are not observed.
+  children are not observed. A child's exchanges with the fakes cannot be told from its MCP
+  server's, so each child is acquired over its server's exchanges.
 - A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
   retries, so its success-path cases mostly exercise its error path.
 

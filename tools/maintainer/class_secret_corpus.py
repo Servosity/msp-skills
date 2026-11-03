@@ -97,6 +97,7 @@ import os
 import queue
 import re
 import secrets as _secrets
+import shlex
 import shutil
 import stat
 import struct
@@ -818,12 +819,12 @@ def _local(kind: int, size: int, usable: int) -> int:
 
 
 def _image(page: bytes, at: int, usable: int, live: bool) -> tuple[bytes, list[bytes]]:
-    """One page image: (its residue, the records it holds that the rows do
-    not show). The residue is every byte of the image, except the text and
-    blob values of each whole record on it, which are blanked with NUL bytes:
-    those are read as values, by the rows when the page is a live table page
-    and as records here otherwise (every index record, and every record of a
-    freed or replaced image). A page that is not a b-tree page is all residue."""
+    """One page image: (the image whole, the records it holds that the rows
+    do not show: every index record, and every record of a freed or replaced
+    image). Blunt rule (corpus4rv r3): the image is read whole, values
+    included, as the file holds it: adjacent values spell one string there
+    (a record's text values sit side by side with nothing between them), so
+    no value is blanked. A page that is not a b-tree page is read whole too."""
     kind = page[at] if at < len(page) else 0
     if kind not in (2, 5, 10, 13):
         return page, []
@@ -831,7 +832,7 @@ def _image(page: bytes, at: int, usable: int, live: bool) -> tuple[bytes, list[b
     if hdr > len(page):
         return page, []
     ncells = struct.unpack(">H", page[at + 3:at + 5])[0]
-    buf, recs = bytearray(page), []
+    recs = []
     for k in range(ncells):
         if hdr + 2 * k + 2 > len(page):
             break
@@ -846,12 +847,9 @@ def _image(page: bytes, at: int, usable: int, live: bool) -> tuple[bytes, list[b
         got = _record(page[i:i + n])
         if got is None:
             continue
-        rec, spans = got
         if not (live and kind == 13):
-            recs.append(rec)
-        for x, y in spans:
-            buf[i + x:i + y] = bytes(y - x)
-    return bytes(buf), recs
+            recs.append(got[0])
+    return page, recs
 
 
 def _tree(images: dict[int, bytes], roots: list[int]) -> set[int]:
@@ -882,7 +880,7 @@ def _tree(images: dict[int, bytes], roots: list[int]) -> set[int]:
 def sqlite_dead(db: bytes, wal: bytes | None, shm: bytes | None, journal: bytes | None,
                 roots: list[int]) -> list[bytes]:
     """Every byte of a database's files the rows do not show (contract 5: the
-    files are a sink too), as pieces: each page image's residue and the
+    files are a sink too), as pieces: each page image whole and the
     records only it holds (_image), the bytes past the database's size, the
     WAL's header, frame headers and trailing bytes, the -shm and the rollback
     journal whole. Blunt rule (corpus4rv r2): a page image counts as live
@@ -990,9 +988,14 @@ def judge_dead(text: str, held: list[str]) -> str | None:
 SQLITE_DRIVER = "modernc.org/sqlite"
 
 
-def read_trace(path: str) -> list[bytes] | None:
-    """The SQLite statements a run wrote (sqlite_trace): each record an
-    8-byte big-endian length and the unit. None when the file is cut off."""
+TRACE_FILE = "corpus-sql.trace"   # beside the executable (sqlite_trace): no variable a process could drop
+
+
+def read_trace(path: str) -> list[tuple[int, int, bytes]] | None:
+    """The SQLite trace a run's processes wrote (sqlite_trace): each record
+    an 8-byte big-endian length, the writer's 8-byte pid, a kind (0: the
+    process started with the trace, 1: a statement) and the unit. None when
+    the file is cut off."""
     try:
         with open(path, "rb") as fh:
             data = fh.read()
@@ -1000,40 +1003,17 @@ def read_trace(path: str) -> list[bytes] | None:
         return []
     out, i = [], 0
     while i < len(data):
-        if i + 8 > len(data):
+        if i + 17 > len(data):
             return None
-        n = struct.unpack(">Q", data[i:i + 8])[0]
-        if i + 8 + n > len(data):
+        n, pid, kind = struct.unpack(">QQB", data[i:i + 17])
+        if i + 17 + n > len(data) or kind not in (0, 1):
             return None
-        out.append(data[i + 8:i + 8 + n])
-        i += 8 + n
+        out.append((pid, kind, data[i + 17:i + 17 + n]))
+        i += 17 + n
     return out
 
 
-def _c_layer_use(pkg: dict) -> str | None:
-    """A use of the driver's C layer (modernc.org/sqlite/<sub>) other than
-    one of its SQLITE_ constants, in a package's own files; None when none."""
-    for f in pkg.get("GoFiles") or []:
-        try:
-            with open(os.path.join(pkg["Dir"], f), encoding="utf-8") as fh:
-                src = fh.read()
-        except OSError as e:
-            return f"{f}: {e}"
-        for m in re.finditer(r'(?m)^\s*(?:import\s+)?([A-Za-z_][A-Za-z0-9_]*|\.)?\s*"' + re.escape(SQLITE_DRIVER) +
-                             r'/[^"]*"', src):
-            alias = m.group(1)
-            if alias in (None, "import"):
-                return f"{f}: an import of the C layer without a name of its own"
-            if alias == "_":
-                continue
-            if alias == ".":
-                return f"{f}: a dot import of the C layer"
-            for use in re.finditer(r"\b" + re.escape(alias) + r"\.([A-Za-z_][A-Za-z0-9_]*)", src):
-                if not re.fullmatch(r"SQLITE_[A-Z0-9_]+", use.group(1)):
-                    return f"{f}: {alias}.{use.group(1)}"
-            if not re.search(r"\b" + re.escape(alias) + r"\.", src):
-                return f"{f}: the C layer imported and not read as constants"
-    return None
+TRUSTED_MODULES = ("modernc.org/sqlite", "modernc.org/libc", "modernc.org/mathutil", "modernc.org/memory")
 
 
 _TRACE_PATCHES = (
@@ -1047,19 +1027,25 @@ _TRACE_PATCHES = (
      "\tcorpusTrace(s.corpusSQL, args)"),
     ("func (d *Driver) Open(name string) (conn driver.Conn, err error) {",
      "func (d *Driver) Open(name string) (conn driver.Conn, err error) {\n\tcorpusTrace(name, nil)"),
+    # A transaction's begin, commit and rollback run through the C layer
+    # directly, not a stmt (finding r3-2).
+    ("func (t *tx) exec(ctx context.Context, sql string) (err error) {",
+     "func (t *tx) exec(ctx context.Context, sql string) (err error) {\n\tcorpusTrace(sql, nil)"),
 )
 
 
 def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str], str | None]:
     """`go build` flags that make the connector write every SQLite statement
     it runs, as the kit's own unit (its `sqlUnit`, compiled into the driver),
-    to the file $CORPUS_SQL_TRACE names: an overlay of the driver's
-    statement layer. ([], None) when the build links no SQLite driver.
-    Blunt rule (corpus4rv r2): a build that links another SQLite driver, the
-    driver's C layer from outside it, or a driver this patch does not fit
-    fails closed (an error)."""
-    r = subprocess.run(["go", "list", "-deps", "-json=ImportPath,Dir,Imports,Module,GoFiles"] + targets, cwd=cli_dir,
-                       capture_output=True, text=True, timeout=600)
+    to corpus-sql.trace beside the executable (TRACE_FILE): a copy of the
+    driver's statement layer. ([], None) when the build links no SQLite
+    driver. Blunt rules (corpus4rv r2, r3): a build that links another SQLite
+    driver, reaches the driver's C layer from outside the trusted modules
+    (by type: the reader's -clayer), replaces any modernc.org module, or a
+    driver this patch does not fit fails closed (an error). The build is the
+    release build: CGO_ENABLED=0 (go_env)."""
+    r = subprocess.run(["go", "list", "-deps", "-json=ImportPath,Dir,Imports,Module"] + targets, cwd=cli_dir,
+                       capture_output=True, text=True, timeout=600, env=go_env())
     if r.returncode != 0:
         return [], f"go list for the SQLite trace: {r.stderr.strip()[:300]}"
     dec, pkgs, i = json.JSONDecoder(), [], 0
@@ -1072,18 +1058,22 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
         pkgs.append(obj)
     drv = next((x for x in pkgs if x["ImportPath"] == SQLITE_DRIVER), None)
     for x in pkgs:
-        ip = x["ImportPath"]
-        own = ip == SQLITE_DRIVER or ip.startswith(SQLITE_DRIVER + "/") or ip.startswith("modernc.org/libc")
+        ip, mod = x["ImportPath"], x.get("Module") or {}
+        if mod.get("Replace") and mod.get("Path", "").startswith("modernc.org/"):
+            return [], f"{mod['Path']} is replaced: the statement trace trusts only the published modernc.org modules"
+        own = mod.get("Path") in TRUSTED_MODULES   # by module, never by a path's prefix (corpus4rv r3)
         if "sqlite" in ip.lower() and not own:
             return [], f"{ip}: a SQLite package the statement trace does not cover"
-        if not own and any(m.startswith(SQLITE_DRIVER + "/") for m in x.get("Imports") or []):
-            # The C layer only for its constants (SQLITE_TOOBIG, a limit's
-            # number) runs no statement; any other use could, around the trace.
-            bad = _c_layer_use(x)
-            if bad:
-                return [], f"{ip}: uses the SQLite driver's C layer around the statement trace ({bad})"
     if drv is None:
         return [], None
+    try:
+        p = subprocess.run([_fields_helper(), "-clayer", str(cli_dir), *targets], capture_output=True, text=True,
+                           timeout=900, env=go_env())
+        bad = json.loads(p.stdout).get("errors")
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, ValueError) as e:
+        return [], f"the SQLite C layer check failed: {e}"
+    if p.returncode != 0 or bad:
+        return [], f"the SQLite driver's C layer around the statement trace: {'; '.join(bad or [p.stderr.strip()])[:400]}"
     src = os.path.join(drv["Dir"], "sqlite.go")
     with open(src, encoding="utf-8") as fh:
         body = fh.read()
@@ -1116,9 +1106,8 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
     gomod = os.path.join(cli_dir, "go.mod")
     with open(gomod, encoding="utf-8") as fh:
         mod = fh.read()
-    if re.search(r"^\s*replace\b[^\n]*" + re.escape(SQLITE_DRIVER) + r"\b|^\s*" + re.escape(SQLITE_DRIVER) + r"\s.*=>",
-                 mod, re.M):
-        return [], f"go.mod replaces {SQLITE_DRIVER}: the statement trace does not fit"
+    if re.search(r"^\s*replace\b[^\n]*modernc\.org/|^\s*modernc\.org/\S*(\s+\S+)?\s*=>", mod, re.M):
+        return [], "go.mod replaces a modernc.org module: the statement trace does not fit"
     d = tempfile.mkdtemp(prefix="sqltrace-", dir=tmp)
     with open(os.path.join(d, "go.mod"), "w", encoding="utf-8") as fh:
         fh.write(mod + f"\nreplace {SQLITE_DRIVER} => {mirror}\n")
@@ -1131,13 +1120,14 @@ _TRACE_GO = """package sqlite
 
 // Written by the leak test list (class_secret_corpus.py): every statement
 // the connector runs, as the credential kit's own unit (sqlUnit, copied
-// from the kit below), appended to the file $CORPUS_SQL_TRACE names.
+// from the kit below), appended to corpus-sql.trace beside the executable.
 
 import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -1147,20 +1137,38 @@ var _ = fmt.Sprint
 var _ = strconv.Itoa
 var _ = time.Now
 
-func corpusTrace(query string, args []driver.NamedValue) {
-	p := os.Getenv("CORPUS_SQL_TRACE")
-	if p == "" {
-		return
+// The trace is a file beside the executable, found once at start: no
+// variable the process could clear or a parent could leave out. Each process
+// writes a start record, so one that wrote none is seen.
+var corpusPath = corpusStart()
+
+func corpusStart() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
 	}
-	u := sqlUnit(query, args)
-	rec := make([]byte, 8, 8+len(u))
+	p := filepath.Join(filepath.Dir(exe), "corpus-sql.trace")
+	corpusWrite(p, 0, nil)
+	return p
+}
+
+func corpusWrite(p string, kind byte, u []byte) {
+	rec := make([]byte, 17, 17+len(u))
 	binary.BigEndian.PutUint64(rec, uint64(len(u)))
+	binary.BigEndian.PutUint64(rec[8:], uint64(os.Getpid()))
+	rec[16] = kind
 	f, err := os.OpenFile(p, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
 	if err != nil {
 		return
 	}
 	_, _ = f.Write(append(rec, u...))
 	_ = f.Close()
+}
+
+func corpusTrace(query string, args []driver.NamedValue) {
+	if corpusPath != "" {
+		corpusWrite(corpusPath, 1, sqlUnit(query, args))
+	}
 }
 
 var _ = strings.Builder{}
@@ -1170,7 +1178,7 @@ var _ = strings.Builder{}
 # The same trace for the self-test's Python stand-ins (sqlite3), the kit's
 # unit spelled the same way.
 _SQL_SHIM = r"""
-import sqlite3 as _sq, struct as _st, decimal as _dec
+import os, sys, sqlite3 as _sq, struct as _st, decimal as _dec
 def _sql_unit(sql, params):
     items = [(k + "=", v) for k, v in params.items()] if isinstance(params, dict) else [("", v) for v in (params or ())]
     out = [sql.encode("utf-8", "surrogateescape") if isinstance(sql, str) else bytes(sql)]
@@ -1189,12 +1197,13 @@ def _sql_unit(sql, params):
             b = str(v).encode("utf-8", "surrogateescape")
         out.append(name.encode() + b)
     return b"\n".join(out)
+def _sql_write(kind, u):
+    with open(_SQL_PATH, "ab") as f:
+        f.write(_st.pack(">QQB", len(u), os.getpid(), kind) + u)
+_SQL_PATH = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "corpus-sql.trace")
+_sql_write(0, b"")
 def _sql_trace(sql, params=()):
-    p = os.environ.get("CORPUS_SQL_TRACE")
-    if p:
-        u = _sql_unit(sql, params)
-        with open(p, "ab") as f:
-            f.write(_st.pack(">Q", len(u)) + u)
+    _sql_write(1, _sql_unit(sql, params))
 class _SqlCur(_sq.Cursor):
     def execute(self, sql, params=()):
         _sql_trace(sql, params)
@@ -1210,6 +1219,15 @@ class _SqlCur(_sq.Cursor):
 class _SqlCon(_sq.Connection):
     def cursor(self, factory=_SqlCur):
         return super().cursor(factory)
+    def commit(self):
+        _sql_trace("COMMIT")
+        return super().commit()
+    def rollback(self):
+        _sql_trace("ROLLBACK")
+        return super().rollback()
+    def __exit__(self, t, v, tb):
+        _sql_trace("ROLLBACK" if t else "COMMIT")
+        return super().__exit__(t, v, tb)
     def execute(self, sql, params=()):
         return self.cursor().execute(sql, params)
     def executemany(self, sql, seq):
@@ -1224,13 +1242,15 @@ _sq.connect = _sql_connect
 """
 
 
-_TRACED: set[str] = set()   # binaries that write the SQLite statement trace
+_TRACED: set[str] = set()   # binaries built with the SQLite statement trace
+_LINKS: set[str] = set()    # those of them that link the driver, so write a start record when run
 
 
 def _fixture(tmp: str, cli: str, mcp: str, surface: dict | None = None) -> ch.Ctx:
     """ch.fixture_ctx with the SQLite statement trace in both stand-ins."""
     ctx = ch.fixture_ctx(tmp, _SQL_SHIM + cli, _SQL_SHIM + mcp, surface)
     _TRACED.update({str(ctx.cli_bin), str(ctx.mcp_bin)})
+    _LINKS.update({str(ctx.cli_bin), str(ctx.mcp_bin)})
     return ctx
 
 
@@ -1363,10 +1383,12 @@ type pkg struct {
 	Dir        string
 	GoFiles    []string
 	CgoFiles   []string
+	SFiles     []string
 	Export     string
 	Module     *struct {
-		Path string
-		Main bool
+		Path    string
+		Main    bool
+		Replace *struct{ Path string }
 	}
 	ImportMap  map[string]string
 	Imports    []string
@@ -1405,7 +1427,116 @@ type importerFunc func(string) (*types.Package, error)
 
 func (f importerFunc) Import(p string) (*types.Package, error) { return f(p) }
 
+// The modules the SQLite statement trace trusts: the driver and the C
+// runtime it is built on, as published (not replaced).
+var trusted = map[string]bool{"modernc.org/sqlite": true, "modernc.org/libc": true, "modernc.org/mathutil": true,
+	"modernc.org/memory": true}
+
+// clayer: every linked package outside the trusted modules that reaches the
+// driver's C layer (modernc.org/sqlite/<sub>) around the statement trace.
+// Blunt rule (corpus4rv r3): read by type, not by spelling. Such a package
+// may use the C layer's SQLITE_ constants and nothing else; assembly or a
+// go:linkname directive naming SQLite fails closed.
+func clayer(root string, targets []string) (errs []string) {
+	fail := func(f string, a ...any) { errs = append(errs, fmt.Sprintf(f, a...)) }
+	cmd := exec.Command("go", append([]string{"list", "-e", "-json", "-export", "-deps"}, targets...)...)
+	cmd.Dir = root
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		fail("go list: %v: %s", err, errb.String())
+		return
+	}
+	var pkgs []pkg
+	exports := map[string]string{}
+	for dec := json.NewDecoder(&out); ; {
+		var p pkg
+		if err := dec.Decode(&p); err == io.EOF {
+			break
+		} else if err != nil {
+			fail("go list output: %v", err)
+			return
+		}
+		if p.Export != "" {
+			exports[p.ImportPath] = p.Export
+		}
+		pkgs = append(pkgs, p)
+	}
+	fset := token.NewFileSet()
+	gc := importer.ForCompiler(fset, "gc", func(path string) (io.ReadCloser, error) {
+		if f, ok := exports[path]; ok {
+			return os.Open(f)
+		}
+		return nil, fmt.Errorf("no export data for %s", path)
+	})
+	const c = "modernc.org/sqlite/"
+	for _, p := range pkgs {
+		if p.Module == nil || (trusted[p.Module.Path] && p.Module.Replace == nil) {
+			continue // the standard library, or the driver and its runtime
+		}
+		for _, f := range p.SFiles {
+			b, err := os.ReadFile(filepath.Join(p.Dir, f))
+			if err != nil || bytes.Contains(bytes.ToLower(b), []byte("sqlite")) {
+				fail("%s: assembly that names SQLite (%s)", p.ImportPath, f)
+			}
+		}
+		var files []*ast.File
+		for _, f := range p.GoFiles {
+			af, err := parser.ParseFile(fset, filepath.Join(p.Dir, f), nil, parser.ParseComments|parser.SkipObjectResolution)
+			if err != nil {
+				fail("%v", err)
+				continue
+			}
+			for _, cg := range af.Comments {
+				for _, cm := range cg.List {
+					if strings.HasPrefix(cm.Text, "//go:linkname") && strings.Contains(strings.ToLower(cm.Text), "sqlite") {
+						fail("%s: a go:linkname naming SQLite", fset.Position(cm.Pos()))
+					}
+				}
+			}
+			files = append(files, af)
+		}
+		uses := false
+		for _, i := range p.Imports {
+			uses = uses || strings.HasPrefix(i, c)
+		}
+		if !uses {
+			continue
+		}
+		if p.Error != nil {
+			fail("%s: %s", p.ImportPath, p.Error.Err)
+			continue
+		}
+		imap := p.ImportMap
+		conf := types.Config{Importer: importerFunc(func(path string) (*types.Package, error) {
+			if m, ok := imap[path]; ok {
+				path = m
+			}
+			return gc.Import(path)
+		}), Error: func(err error) { fail("%v", err) }}
+		info := &types.Info{Uses: map[*ast.Ident]types.Object{}}
+		if _, err := conf.Check(p.ImportPath, fset, files, info); err != nil {
+			continue // reported through conf.Error
+		}
+		for id, obj := range info.Uses {
+			if obj.Pkg() == nil || !strings.HasPrefix(obj.Pkg().Path(), c) {
+				continue
+			}
+			if k, ok := obj.(*types.Const); !ok || !strings.HasPrefix(k.Name(), "SQLITE_") {
+				fail("%s: %s.%s, the driver's C layer around the statement trace", fset.Position(id.Pos()),
+					obj.Pkg().Path(), obj.Name())
+			}
+		}
+	}
+	return
+}
+
 func main() {
+	if len(os.Args) > 2 && os.Args[1] == "-clayer" {
+		errs := clayer(os.Args[2], os.Args[3:])
+		_ = json.NewEncoder(os.Stdout).Encode(map[string][]string{"errors": append([]string{}, errs...)})
+		return
+	}
 	res := result{Fields: []string{}, SecretEnv: []string{}, Identifiers: []ident{}, Lists: map[string][]string{},
 		Errors: []string{}}
 	defer func() { _ = json.NewEncoder(os.Stdout).Encode(res) }()
@@ -1480,15 +1611,21 @@ func main() {
 	}
 	kitPath := mainPath + "/internal/credkit"
 	literals := 0
+	// Every package that reaches the kit, directly or through another
+	// package (corpus4rv r3: one that only imports a package exporting a
+	// Declarations value can copy it and set its fields). go list -deps
+	// lists a package after every package it imports.
+	reaches := map[string]bool{kitPath: true}
+	for _, p := range pkgs {
+		for _, i := range p.Imports {
+			reaches[p.ImportPath] = reaches[p.ImportPath] || reaches[i]
+		}
+	}
 	for _, p := range pkgs {
 		if p.Module == nil || p.ImportPath == kitPath {
 			continue
 		}
-		importsKit := false
-		for _, i := range p.Imports {
-			importsKit = importsKit || i == kitPath
-		}
-		if !p.Module.Main && !importsKit {
+		if !p.Module.Main && !reaches[p.ImportPath] {
 			continue
 		}
 		if p.Error != nil {
@@ -1709,6 +1846,18 @@ func main() {
 						fail("%s: the kit's Declarations type named other than as a literal's type", fset.Position(id.Pos()))
 					}
 				}
+				// Blunt rule (corpus4rv r3): the kit's Start is only ever called
+				// directly. A function value of it (reflection, a variable, a
+				// method value) builds its argument where no literal is read.
+				if id, ok := n.(*ast.Ident); ok && startFn != nil && info.Uses[id] == types.Object(startFn) {
+					named, up := ast.Node(id), parent
+					if sel, ok := parent.(*ast.SelectorExpr); ok && sel.Sel == id && len(stack) >= 3 {
+						named, up = sel, stack[len(stack)-3]
+					}
+					if call, ok := up.(*ast.CallExpr); !ok || ast.Unparen(call.Fun) != named {
+						fail("%s: the kit's Start used other than in a direct call", fset.Position(id.Pos()))
+					}
+				}
 				switch x := n.(type) {
 				case *ast.CompositeLit:
 					t := of(x)
@@ -1747,6 +1896,23 @@ func main() {
 						}
 					}
 				case *ast.CallExpr:
+					// Start's argument is a value of the kit's own type: an
+					// unnamed struct of the same fields is assignable to it
+					// and is no Declarations literal (corpus4rv r3).
+					var fn *ast.Ident
+					switch f := ast.Unparen(x.Fun).(type) {
+					case *ast.Ident:
+						fn = f
+					case *ast.SelectorExpr:
+						fn = f.Sel
+					}
+					if fn != nil && startFn != nil && info.Uses[fn] == types.Object(startFn) {
+						for _, a := range x.Args {
+							if !isDecl(a) || !types.Identical(types.Unalias(info.Types[a].Type), decl) {
+								fail("%s: the kit's Start given a value not of its Declarations type", fset.Position(a.Pos()))
+							}
+						}
+					}
 					// A conversion to the kit's type from another struct type
 					// carries fields set outside any literal.
 					if len(x.Args) == 1 && info.Types[x.Fun].IsType() && types.Identical(of(x), decl) &&
@@ -1859,7 +2025,7 @@ def received_keys(served: list, fields: list[str], exempt: list[str] | None = No
     def walk(x) -> None:
         for k, v in x if isinstance(x, _Pairs) else enumerate(x if isinstance(x, list) else []):
             if isinstance(k, str) and _declares(fields, k):
-                if not _declares(exempt or [], k):   # a declared identifier's source (contract 1)
+                if k not in (exempt or []):   # an identifier's source, spelled exactly as the kit compares it
                     keys(v)
             else:
                 walk(v)
@@ -1877,37 +2043,59 @@ def received_keys(served: list, fields: list[str], exempt: list[str] | None = No
     return [v for v in dict.fromkeys(out) if v]
 
 
-def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], fakes: list,
+def exchanges(fakes: list, before: tuple, after: tuple) -> list[dict]:
+    """The requests each fake received and the responses it sent between two
+    counts (Engine: one process's run), in credmatch's acquire form."""
+    ex = []
+    for k, fake in enumerate(fakes):
+        for (m, path, hdrs, body) in list(fake.requests)[before[2 * k]:after[2 * k]]:
+            if m == "?":
+                continue
+            url = path if "://" in path else ("https://" + path if m == "CONNECT" else fake.url + path)
+            ex.append({"response": False, "method": m, "url": url, "body": _b64(body),
+                       "header": [[_b64(h), _b64(v)] for h, v in hdrs]})
+        for m, st, pairs, bd in list(fake.served)[before[2 * k + 1]:after[2 * k + 1]]:
+            ex.append({"response": True, "method": m, "status": st, "url": fake.url, "body": _b64(bd),
+                       "header": [[_b64(h), _b64(v)] for h, v in pairs]})
+    return ex
+
+
+def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], ex: list[dict],
                 mcp_in: bytes = b"") -> dict:
-    """The kit's own held set for one run (contract 1, contract 8: one
-    implementation): what Start holds from the environment and the config
-    file the run was given, and what the kit's transport holds from every
-    request each fake received (auth headers, Basic parts, cookies, declared
-    headers and fields) and every response it sent (Set-Cookie values,
-    declared response fields in headers and bodies). Returns {held: [...],
-    recorded: n, unknown: bool}."""
-    with tempfile.TemporaryDirectory(prefix="corpus-acquire-") as tmp:
-        cfg_args, moved = [], {}
-        for path, body in written.items():   # the config as the run was given it, not as it left it
-            q = os.path.join(tmp, str(len(moved)), os.path.basename(path))
-            os.makedirs(os.path.dirname(q))
-            with open(q, "wb") as fh:
+    """The kit's own held set for one process (contract 1, contract 8: one
+    implementation): what Start holds from its environment and argv, exactly
+    as given, and the config file it names as the run was given it (written
+    back at its own path for the reading, then restored: finding r3-8), and
+    what the kit's transport holds from the exchanges (`exchanges`).
+    Returns {held: [...], recorded: n, unknown: bool}."""
+    saved: dict[str, bytes | None] = {}
+    for path in written:
+        if os.path.lexists(path) and not stat.S_ISREG(os.lstat(path).st_mode):
+            # The run turned its config into something else: it cannot be
+            # given back for the reading, so the held set is unknown.
+            return {"held": [], "recorded": 0, "unknown": True}
+    try:
+        for path, body in written.items():
+            try:
+                with open(path, "rb") as fh:
+                    saved[path] = fh.read()
+            except FileNotFoundError:
+                saved[path] = None
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as fh:
                 fh.write(body)
-            moved[path] = q
-        cfg_args = [moved.get(a, a) for a in args]
-        ex = []
-        for fake in fakes:
-            for (m, path, hdrs, body) in list(fake.requests):
-                if m == "?":
-                    continue
-                url = path if "://" in path else ("https://" + path if m == "CONNECT" else fake.url + path)
-                ex.append({"response": False, "method": m, "url": url, "body": _b64(body),
-                           "header": [[_b64(k), _b64(v)] for k, v in hdrs]})
-            for m, st, pairs, bd in list(fake.served):
-                ex.append({"response": True, "method": m, "status": st, "url": fake.url, "body": _b64(bd),
-                           "header": [[_b64(k), _b64(v)] for k, v in pairs]})
-        got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items() if k != SQL_TRACE],
-                                "args": [_b64(a) for a in cfg_args], "mcp_in": _b64(mcp_in), "exchanges": ex}})
+        got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items()],
+                                "args": [_b64(a) for a in args], "mcp_in": _b64(mcp_in), "exchanges": ex}})
+    finally:
+        for path, body in saved.items():
+            if body is None:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            else:
+                with open(path, "wb") as fh:
+                    fh.write(body)
     if got.get("verdict") != "held" or not isinstance(got.get("held", []), list):
         raise RuntimeError(f"the kit's matcher command gave no held set ({got!r})")
     return {"held": [base64.b64decode(h).decode("utf-8", "surrogateescape") for h in got.get("held") or []],
@@ -1959,11 +2147,14 @@ def strip_rpc_id(text: str, rid: str) -> str:
     """Contract 6.1, and nothing wider: the client's own request id where a
     response frame (one JSON line with `result` or `error` and no `method`)
     echoes it as its top-level `id`. A nested `id`, a server request, a line
-    that is not JSON, or a frame with a duplicate key keeps every byte."""
-    out = []
-    for line in text.split("\n"):
+    that is not JSON, or a frame with a duplicate key keeps every byte. A
+    Stream stays a Stream: its writes are cut where they were, a cut inside
+    a changed line moving to that line's end (finding r3-6)."""
+    raw = _raw(text)
+    lines, out = raw.split(b"\n"), []
+    for line in lines:
         try:
-            frame = json.loads(line, object_pairs_hook=_no_dup_keys)
+            frame = json.loads(line.decode("utf-8", "surrogateescape"), object_pairs_hook=_no_dup_keys)
         except ValueError:
             out.append(line)
             continue
@@ -1971,8 +2162,31 @@ def strip_rpc_id(text: str, rid: str) -> str:
         for f in frame if isinstance(frame, list) else [frame]:
             if isinstance(f, dict) and f.get("id") == rid and "method" not in f and ("result" in f or "error" in f):
                 f["id"], hit = None, True
-        out.append(json.dumps(frame, ensure_ascii=False) if hit else line)
-    return "\n".join(out)
+        out.append(json.dumps(frame, ensure_ascii=False).encode("utf-8", "surrogateescape") if hit else line)
+    new = b"\n".join(out)
+    if not isinstance(text, Stream):
+        return new.decode("utf-8", "surrogateescape")
+    cuts, at, shift, k = [], 0, 0, 0   # each write's end, mapped line by line
+    ends = []
+    for old, nw in zip(lines, out):
+        ends.append((at + len(old), shift, old == nw, at + shift + len(nw)))
+        at, shift = at + len(old) + 1, shift + len(nw) - len(old)
+    for w in text.writes:
+        k += len(w)
+        for end, sh, same, new_end in ends:
+            if k <= end:
+                cuts.append(k + sh if same else new_end)
+                break
+        else:
+            cuts.append(len(new))
+    res = Stream(new.decode("utf-8", "surrogateescape"))
+    res.writes, prev = [], 0
+    for c in sorted(set(min(c, len(new)) for c in cuts)) + [len(new)]:
+        if c > prev:
+            res.writes.append(new[prev:c])
+            prev = c
+    res.proc = getattr(text, "proc", None)
+    return res
 
 
 # Sources whose credential is the primary declared variable's value.
@@ -1993,7 +2207,6 @@ REACH_DRIVES = ("reads", "deliver-file", "deliver-webhook", "doctor", "dry-run")
 
 
 CHILD_LOG = ".cls-child-argv"
-SQL_TRACE = "CORPUS_SQL_TRACE"   # where a run's SQLite statements are written (sqlite_trace)
 _PROCS = threading.local()       # the processes one case ran: (argv after the binary, env, stdin)
 
 
@@ -2003,29 +2216,37 @@ def _note_proc(args: list[str], env: dict, stdin: bytes) -> None:
         procs.append((list(args), dict(env), stdin))
 _WRAPPER = """#!/bin/sh
 # The CLI the MCP server starts: log the argv it was given (a contract sink),
-# then run the real CLI.
-printf '%s\\n' "$*" >> "${CLS_CHILD_LOG:-$HOME/.cls-child-argv}" 2>/dev/null
-# Each child's argv and environment exactly, outside HOME, for the kit's acquisition.
-if [ -n "$CLS_CHILD_ACQ" ]; then
-  f=$(mktemp "$CLS_CHILD_ACQ/argv.XXXXXX") && printf '%s\\0' "$@" > "$f" && env -0 > "$f.env"
-fi
-exec "$0.real" "$@"
+# and its argv, environment and pid for the kit's acquisition, at paths fixed
+# here (no variable the server could leave out: finding r3-7), then run the
+# real CLI. A child whose record cannot be written does not run.
+printf '%s\\n' "$*" >> __LOG__ || exit 97
+f=$(mktemp __ACQ__/argv.XXXXXX) && printf '%s\\0' "$@" > "$f" && env -0 > "$f.env" \\
+  && printf '%s %s' "$$" "$PPID" > "$f.pid" || exit 97
+exec __REAL__ "$@"
 """
 
 
-def child_logging_bins(ctx: ch.Ctx, tmp: str) -> tuple[Path, Path, Path]:
+def child_logging_bins(ctx: ch.Ctx, tmp: str, log: str | None = None, acq: str | None = None
+                       ) -> tuple[Path, Path, Path]:
     """A private copy of the MCP server whose sibling CLI is a wrapper that
-    logs its argv under the case's HOME, so a credential the server passes its
-    child on the command line is scanned like any file. Returns (the real CLI
-    the harness runs, the wrapper, the MCP server)."""
+    logs its argv to `log` (a case's MCP HOME, so a credential the server
+    passes its child on the command line is scanned like any file) and
+    records each child for acquisition under `acq`. The SQLite trace of every
+    process run from here is TRACE_FILE in the same directory. Returns (the
+    real CLI the harness runs, the wrapper, the MCP server)."""
     d = Path(tempfile.mkdtemp(prefix="bin-", dir=tmp))
+    if acq is None:
+        acq = str(d / "acq")
+        os.makedirs(acq)
     real, wrapper, mcp = d / (ctx.cli_bin.name + ".real"), d / ctx.cli_bin.name, d / ctx.mcp_bin.name
     for src, dst in ((ctx.cli_bin, real), (ctx.mcp_bin, mcp)):
         try:
             os.link(src, dst)
         except OSError:
             shutil.copy2(src, dst)
-    wrapper.write_text(_WRAPPER, encoding="utf-8")
+    wrapper.write_text(_WRAPPER.replace("__LOG__", shlex.quote(log or str(d / CHILD_LOG)))
+                       .replace("__ACQ__", shlex.quote(acq)).replace("__REAL__", shlex.quote(str(real))),
+                       encoding="utf-8")
     wrapper.chmod(0o755)
     return real, wrapper, mcp
 
@@ -2042,6 +2263,7 @@ class Engine:
                  secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.traced = str(ctx.cli_bin) in _TRACED and str(ctx.mcp_bin) in _TRACED
+        self.links = {"cli": str(ctx.cli_bin) in _LINKS, "mcp": str(ctx.mcp_bin) in _LINKS}
         self.fields = list(fields or [])
         self.cli_bin, self.child_cli, self.mcp_bin = child_logging_bins(ctx, tmp)
         self.prefix = ctx.slug.upper().replace("-", "_")
@@ -2251,42 +2473,55 @@ class Engine:
         raise ValueError(f"unknown source {src!r}")
 
     # ---- process drivers --------------------------------------------------------
+    def _run(self, which: str, args: list[str], env: dict, stdin: bytes) -> tuple[str, str]:
+        """One process, from the case's own binaries when a case is running
+        (_PROCS.bins). Each process is recorded as it ran (argv, environment,
+        stdin, pid), with the fakes' counts before and after it and the files
+        it changed, so it is acquired and judged on its own ledger (contract
+        1: holdings last until the process exits; finding r3-9)."""
+        cli, _child, mcp = getattr(_PROCS, "bins", None) or (self.cli_bin, self.child_cli, self.mcp_bin)
+        counts = getattr(_PROCS, "counts", None)
+        before = counts() if counts else None
+        so, se = capture([str(cli if which == "cli" else mcp)] + args, stdin, env)
+        procs = getattr(_PROCS, "procs", None)
+        if procs is not None:
+            procs.append({"which": which, "args": list(args), "env": dict(env), "stdin": stdin, "pid": so.pid,
+                          "before": before, "after": counts() if counts else None,
+                          "files": _PROCS.changed() if getattr(_PROCS, "changed", None) else set()})
+            so.proc = se.proc = len(procs) - 1
+        return so, se
+
     def cli(self, args: list[str], env: dict) -> tuple[str, str]:
-        _note_proc(args, env, b"")
-        return capture([str(self.cli_bin)] + args, b"", env)
+        return self._run("cli", args, env, b"")
 
     def mcp(self, msgs: list[dict], env: dict, args: list[str] | None = None) -> tuple[str, str]:
-        payload = "".join(json.dumps(m) + "\n" for m in msgs).encode()
-        _note_proc(args or [], env, payload)
-        return capture([str(self.mcp_bin)] + (args or []), payload, env)
+        return self._run("mcp", args or [], env, "".join(json.dumps(m) + "\n" for m in msgs).encode())
 
-    def acquire(self, procs: list, written: dict[str, bytes], fakes: list) -> dict:
-        """The kit's held set over each process as it ran (contract 8): its own
-        argv, environment and MCP input, then every request and response.
-        `exempt`: values the kit holds only without the connector's
-        identifiers, so a value the list holds on its own stays exempt where
-        the kit exempts its source (contract 1)."""
+    def acquire(self, procs: list, written: dict[str, bytes], fakes: list) -> list[dict]:
+        """The kit's held set for each process as it ran (contract 8): its own
+        argv, environment and MCP input, then the requests it sent and the
+        responses it received. `exempt`: values the kit holds only without the
+        connector's identifiers, so a value the list holds on its own stays
+        exempt where the kit exempts its source (contract 1)."""
         decls = [(self.kit_decl, False)]
         if self.kit_decl.get("Identifiers"):
             decls.append(({**self.kit_decl, "Identifiers": []}, True))
-        held: list[str] = []
-        bare: list[str] = []
-        rec, unknown, seen = 0, False, set()
-        for args, env, stdin in procs or [([], {}, b"")]:
-            key = (tuple(args), tuple(sorted(env.items())), stdin)
-            if key in seen:
-                continue
-            seen.add(key)
-            for decl, no_ids in decls:
-                a = kit_acquire(decl, env, args, written, fakes, stdin)
-                if no_ids:
-                    bare += a["held"]
-                else:
-                    held += a["held"]
-                    rec, unknown = max(rec, a["recorded"]), unknown or a["unknown"]
-        held = list(dict.fromkeys(held))
-        return {"held": held, "recorded": rec, "unknown": unknown,
-                "exempt": [v for v in dict.fromkeys(bare) if v not in held]}
+        out, memo = [], {}
+        for pr in procs:
+            key = (tuple(pr["args"]), tuple(sorted(pr["env"].items())), pr["stdin"], pr["before"], pr["after"])
+            if key not in memo:
+                ex = exchanges(fakes, pr["before"], pr["after"])
+                got = {"held": [], "bare": [], "recorded": 0, "unknown": False}
+                for decl, no_ids in decls:
+                    a = kit_acquire(decl, pr["env"], pr["args"], written, ex, pr["stdin"])
+                    if no_ids:
+                        got["bare"] = a["held"]
+                    else:
+                        got.update(held=a["held"], recorded=a["recorded"], unknown=a["unknown"])
+                got["exempt"] = [v for v in dict.fromkeys(got["bare"]) if v not in got["held"]]
+                memo[key] = got
+            out.append(memo[key])
+        return out
 
     def leaves_for(self, case: dict) -> list:
         n = int(case.get("leaves", 1))
@@ -2377,8 +2612,6 @@ class Engine:
             primary = Fake(respond, token)
             primary.rearm = lambda: hops.update(n=REDIRECT_HOPS)
             env = self.base_env(primary.url, home)
-            trace = os.path.join(tempfile.mkdtemp(prefix="sql-", dir=self.tmp), "trace")
-            env[SQL_TRACE] = trace   # every SQLite statement the run executes (sqlite_trace)
             # Every host but loopback goes through the second fake, so a
             # request to any foreign host is recorded (and fails fast).
             env.update({k: second.url for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")})
@@ -2406,27 +2639,52 @@ class Engine:
                 if cred not in env.values():
                     raise NotApplicable("no declared secret the connector is given reaches its token request")
             os.makedirs(os.path.join(mcp_home, ".tmp"), exist_ok=True)
+            # The case's own binaries: the CLI child wrapper's log and
+            # acquisition records, and every process's SQLite trace, at paths
+            # fixed in the files themselves, not in any variable (r3-3, r3-7).
             child_acq = tempfile.mkdtemp(prefix="child-", dir=self.tmp)
-            mcp_env = {**env, "HOME": mcp_home, "TMPDIR": os.path.join(mcp_home, ".tmp"),
-                       "CLS_CHILD_LOG": os.path.join(mcp_home, CHILD_LOG), "CLS_CHILD_ACQ": child_acq}
+            bins = child_logging_bins(self.ctx, self.tmp, os.path.join(mcp_home, CHILD_LOG), child_acq)
+            trace = os.path.join(os.path.dirname(bins[0]), TRACE_FILE)
+            mcp_env = {**env, "HOME": mcp_home, "TMPDIR": os.path.join(mcp_home, ".tmp")}
             runs: dict[str, bytes] = {}   # a file's bytes after each earlier run (contract 6.5)
-            _PROCS.procs = []
+            fakes = [primary, second]
+            state = {"files": {**file_bytes(home), **file_bytes(mcp_home)}}
+
+            def changed() -> set[str]:
+                cur = {**file_bytes(home), **file_bytes(mcp_home)}
+                out = {q for q in set(cur) | set(state["files"]) if cur.get(q) != state["files"].get(q)}
+                state["files"] = cur
+                return out
+
+            _PROCS.procs, _PROCS.bins, _PROCS.changed = [], bins, changed
+            _PROCS.counts = lambda: tuple(n for f in fakes for n in (len(f.requests), len(f.served))) + (len(issued),)
             try:
                 outs = self.drive(case, cred, payload, env, mcp_env, extra, home, second, primary, runs)
             finally:
-                procs, _PROCS.procs = _PROCS.procs, None
+                procs = _PROCS.procs
+                _PROCS.procs = _PROCS.bins = _PROCS.changed = _PROCS.counts = None
+            ends = tuple(n for f in fakes for n in (len(f.requests), len(f.served))) + (len(issued),)
+            zero = tuple(0 for _ in ends)
+            top = len(procs)
             for f in sorted(os.listdir(child_acq)):   # the CLI children the MCP server started
-                if f.endswith(".env"):
+                if f.endswith((".env", ".pid")):
                     continue
-                with open(os.path.join(child_acq, f), "rb") as fh:
-                    argv = fh.read().split(b"\0")[:-1]
+                q = os.path.join(child_acq, f)
                 try:
-                    with open(os.path.join(child_acq, f + ".env"), "rb") as fh:
+                    with open(q, "rb") as fh:
+                        argv = fh.read().split(b"\0")[:-1]
+                    with open(q + ".env", "rb") as fh:
                         cenv = dict(_s(kv).partition("=")[::2] for kv in fh.read().split(b"\0") if kv)
-                except OSError:
-                    res["where"].append("a CLI child's environment could not be read, so its held set is unknown")
-                    cenv = mcp_env
-                procs.append(([_s(a) for a in argv], cenv, b""))
+                    with open(q + ".pid", "rb") as fh:
+                        pid, ppid = (int(x) for x in fh.read().split())
+                except (OSError, ValueError):
+                    res["where"].append("a CLI child's record could not be read, so its held set is unknown")
+                    continue
+                parent = next((i for i in range(top) if procs[i]["pid"] == ppid), None)
+                procs.append({"which": "child", "args": [_s(a) for a in argv], "env": cenv, "stdin": b"", "pid": pid,
+                              "parent": parent, "files": set(),
+                              "before": procs[parent]["before"] if parent is not None else zero,
+                              "after": procs[parent]["after"] if parent is not None else ends})
             shutil.rmtree(child_acq, ignore_errors=True)
             if case.get("drive") == "mcp-unknown-tool-split":   # sent in separate messages
                 needles = [[p] for p in contract_parts(payload, cred, halves=True)]
@@ -2435,39 +2693,50 @@ class Engine:
             reached = len(primary.data_requests()) + len(second.requests)
             if shape.startswith("token-error"):
                 reached += minted["n"]
-            # Held: every declared value this run carries (contract 1), and the
-            # injected one unless its source is not a credential (a numeric
-            # field the connector does not declare, 6.3; a declared
-            # identifier, 6.4).
             adv = res["advisory"]
             num_declared = src == "vendor-field-numeric" and any(_declares(self.fields, k) for k in NUMERIC_FIELDS)
-            # Acquired at run time (contract 1): every token the fake issued,
-            # every Set-Cookie value and every declared response field value
-            # it sent, whether or not a token was ever minted.
-            # The kit's own held set (contract 8): the environment and config
-            # the run was given, then every request sent and response
-            # received. A value that arrives in a response (a declared field,
-            # a Set-Cookie value) is held only through it: never when it was
-            # never delivered.
-            acq = self.acquire(procs, written, [primary, second])
-            if acq["unknown"]:
+            # The kit's own held set (contract 8), per process: the
+            # environment, argv and config it was given, then every request
+            # it sent and response it received. A value that arrives in a
+            # response (a declared field, a Set-Cookie value) is held only
+            # through it: never when it was never delivered.
+            acqs = self.acquire(procs, written, fakes)
+            if any(a["unknown"] for a in acqs):
                 res["where"].append("the kit could not read a declared credential source, so the held set "
                                     "is unknown (contract 1: every unit withheld)")
             arrives = src.startswith("vendor-field") or src == "set-cookie"
-            held = [] if (src == "each-ident" or arrives or (src == "minted" and cred not in issued)) else \
-                [c for c in creds if c not in acq["exempt"]]
-            held += [v for v in acq["held"] if v not in held]
-            # A minted token is held like any value acquired while running:
-            # recorded, not held, when it occurs as written in public text.
+            base = [] if (src == "each-ident" or arrives or (src == "minted" and cred not in issued)) else list(creds)
             id_fields = [i["Source"][len("response:"):] for i in self.kit_decl.get("Identifiers") or []
                          if i["Source"].startswith("response:")]
-            fresh = [t for t in dict.fromkeys(issued + received_keys(primary.served + second.served, self.fields,
-                                                                     id_fields))
-                     if t not in held and t not in acq["exempt"]]
-            public = kit_public(fresh)
-            held += [t for t, pub in zip(fresh, public) if not pub]
-            if any(public) or acq["recorded"]:
-                res["recorded"] = sum(public) + acq["recorded"]
+            # Acquired at run time (contract 1): every token the fake issued
+            # and keys beneath a declared field, each in the process that
+            # received it; held unless it occurs as written in public text.
+            fresh_of = []
+            for pr in procs:
+                b0, b1 = pr["before"], pr["after"]
+                served = list(primary.served)[b0[1]:b1[1]] + list(second.served)[b0[3]:b1[3]]
+                fresh_of.append(list(dict.fromkeys(issued[b0[4]:b1[4]] + received_keys(served, self.fields, id_fields))))
+            every = list(dict.fromkeys(t for fr in fresh_of for t in fr))
+            public = dict(zip(every, kit_public(every)))
+            held_of = []
+            for a, fr in zip(acqs, fresh_of):
+                h = [c for c in base if c not in a["exempt"]]
+                h += [v for v in a["held"] if v not in h]
+                h += [t for t in fr if t not in h and t not in a["exempt"] and not public[t]]
+                held_of.append(h)
+            if any(public.values()) or any(a["recorded"] for a in acqs):
+                res["recorded"] = sum(public.values()) + max(a["recorded"] for a in acqs)
+            fam = {i: [i] + [j for j in range(top, len(procs)) if procs[j].get("parent") == i] for i in range(top)}
+            fam.update({j: [j] for j in range(top, len(procs))})
+
+            def held_for(idx) -> list[str]:
+                """The held set of the processes `idx` names (each with the
+                CLI children it started); every process's when unknown."""
+                ix = sorted({k for i in idx for k in fam[i]}) if idx else range(len(procs))
+                return list(dict.fromkeys(v for k in ix for v in held_of[k])) or \
+                    list(dict.fromkeys(base if not procs else []))
+
+            held = held_for(None)
             # No piece is exempt (contract 2): a declared URL or host variable
             # gets an address of its own (base_env), so no unheld value the
             # harness gives the program shares a piece with a held one.
@@ -2481,31 +2750,54 @@ class Engine:
                 texts.append(text)
                 if adv == "6.1" and where.startswith("mcp") and where.endswith("stdout"):
                     text = strip_rpc_id(text, cred)
-                how = judge(text, held)
+                proc = getattr(text, "proc", None)
+                how = judge(text, held_for([proc]) if proc is not None else held)
                 if how:
                     res["where"].append(f"{where}: {how}")
+            files = state["files"]
             for label, h in (("", home), ("mcp ", mcp_home)):
                 for rel, text, why in scan_files(h, written, runs):
                     if not self.traced and rel.endswith(f"{DEAD}, piece 0"):
                         res["where"].append(f"{label}file {rel[:-len(DEAD) - 10]}: a SQLite database written by a build "
                                             "without the statement trace, so its statements cannot be read")
                     texts.append(text or "")
-                    how = why if text is None else (judge_dead(text, held) if DEAD in rel else judge(text, held))
+                    # The processes that changed the file (r3-9); every one
+                    # when none did or it cannot be told.
+                    q = next((x for x in files if rel == os.path.relpath(x, h) or rel.startswith(os.path.relpath(x, h) + " ")),
+                             None)
+                    by = [i for i in range(top) if q is not None and q in procs[i]["files"]]
+                    hf = held_for(by) if by else held
+                    how = why if text is None else (judge_dead(text, hf) if DEAD in rel else judge(text, hf))
                     if how:
                         sink = "argv the MCP server gave its CLI child" if rel == CHILD_LOG else f"{label}file {rel}"
                         res["where"].append(f"{sink}: {how}")
-            stmts = read_trace(trace)
-            if stmts is None:
+            recs = read_trace(trace)
+            if recs is None:
                 res["where"].append("SQLite statements: the trace is cut off, so they could not be read")
-            for k, u in enumerate(stmts or []):
+            recs = recs or []
+            started = {pid for pid, kind, _u in recs if kind == 0}
+            for i, pr in enumerate(procs):
+                # Every process of a binary that links the driver writes a
+                # start record: one that did not ran untraced (fail closed).
+                links = self.links["mcp" if pr["which"] == "mcp" else "cli"]
+                if links and pr["pid"] not in started:
+                    res["where"].append(f"SQLite statements: process {i + 1} ({pr['which']}) wrote no trace, so "
+                                        "its statements cannot be read")
+            by_pid = {pr["pid"]: i for i, pr in enumerate(procs)}
+            k = 0
+            for pid, kind, u in recs:
+                if kind != 1:
+                    continue
+                k += 1
                 text = u.decode("utf-8", "surrogateescape")
                 texts.append(text)
-                how = judge(text, held)
+                how = judge(text, held_for([by_pid[pid]]) if pid in by_pid else held)
                 if how:
-                    res["where"].append(f"SQLite statement {k + 1}: {how}")
-            for (m, path, hdrs, body) in second.requests:
+                    res["where"].append(f"SQLite statement {k}: {how}")
+            for n, (m, path, hdrs, body) in enumerate(second.requests):
                 # Contract 2(c): the second host is no held value's origin.
-                how = judge(request_unit(m, path, hdrs, body), held, outbound=True)
+                by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][2] <= n < procs[i]["after"][2]]
+                how = judge(request_unit(m, path, hdrs, body), held_for(by) if by else held, outbound=True)
                 if how:
                     res["where"].append(f"request to a second host {path[:40]}: {how}")
             if second.unreadable:
@@ -2638,6 +2930,8 @@ class Stream(str):
     empty for PAUSE, the units the kit's pump checks one by one with the
     stream's context (contract 3, Streams)."""
     writes: list[bytes] = []
+    pid: int | None = None    # the process that wrote it
+    proc: int | None = None   # its index in the case's processes (Engine._run)
 
 
 # The kit's pump ends a unit when the pipe stays empty for 10 ms (unitIdle).
@@ -2659,6 +2953,12 @@ def capture(argv: list[str], stdin: bytes, env: dict) -> tuple[Stream, Stream]:
         p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     except OSError as e:
         return _stream([]), _stream([], f"<oserror {e}>")
+    outs_ = _capture(p, stdin)
+    outs_[0].pid = outs_[1].pid = p.pid
+    return outs_
+
+
+def _capture(p: subprocess.Popen, stdin: bytes) -> tuple[Stream, Stream]:
     outs: dict[int, list[bytes]] = {1: [], 2: []}
     # The write a reader holds until the next pause: published at the end
     # even when a child still holds the pipe, so it is judged (finding r2-5).
@@ -4705,6 +5005,226 @@ def _c5_declarations() -> bool:
     return ok
 
 
+# --------------------------------------------------------------------------- #
+# corpus4rv round 3: the reviewer's inputs, one probe each, both directions.
+# --------------------------------------------------------------------------- #
+
+_GO_MOD = ("module acme\n\ngo 1.24\n\nrequire modernc.org/sqlite v1.37.0\n\nrequire (\n"
+           "\tgithub.com/dustin/go-humanize v1.0.1 // indirect\n\tgithub.com/google/uuid v1.6.0 // indirect\n"
+           "\tgithub.com/mattn/go-isatty v0.0.20 // indirect\n\tgithub.com/ncruces/go-strftime v0.1.9 // indirect\n"
+           "\tgithub.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect\n"
+           "\tgolang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect\n\tgolang.org/x/sys v0.31.0 // indirect\n"
+           "\tmodernc.org/libc v1.62.1 // indirect\n\tmodernc.org/mathutil v1.7.1 // indirect\n"
+           "\tmodernc.org/memory v1.9.1 // indirect\n)\n")
+
+
+def _go_trace_run(files: dict[str, str], gomod_extra: str = "") -> tuple[str | None, list[bytes]]:
+    """A small Go program on modernc.org/sqlite v1.37.0, built with the
+    statement trace and run once: (the trace's refusal, the statements it
+    wrote). Its go.sum is a real connector's (every module is in the cache)."""
+    with tempfile.TemporaryDirectory(prefix="corpus-c6-go-") as tmp:
+        tmp = os.path.realpath(tmp)
+        src = Path(tmp) / "src"
+        for rel, body in {"go.mod": _GO_MOD + gomod_extra, **files}.items():
+            (src / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / rel).write_text(body, encoding="utf-8")
+        shutil.copyfile(ch.ROOT / "skills" / "auvik" / "cli" / "go.sum", src / "go.sum")
+        saved = os.environ.get("GOPROXY")
+        os.environ["GOPROXY"] = "off"   # every module is in the cache
+        try:
+            r = subprocess.run(["go", "list", "-mod=mod", "-deps", "."], cwd=src, capture_output=True, text=True,
+                               timeout=600, env=go_env())   # fills go.sum
+            if r.returncode != 0:
+                return f"build: {r.stderr[-400:]}", []
+            flags, err = sqlite_trace(src, ["."], tmp)
+            if err:
+                return err, []
+            bindir = Path(tmp) / "bin"
+            bindir.mkdir()
+            r = subprocess.run(["go", "build"] + flags + ["-o", str(bindir / "acme"), "."], cwd=src,
+                               capture_output=True, text=True, timeout=600, env=go_env())
+            if r.returncode != 0:
+                return f"build: {r.stderr[-400:]}", []
+        finally:
+            if saved is None:
+                os.environ.pop("GOPROXY", None)
+            else:
+                os.environ["GOPROXY"] = saved
+        trace = bindir / "corpus-sql.trace"
+        subprocess.run([str(bindir / "acme"), str(Path(tmp) / "c.db")], capture_output=True, timeout=60,
+                       env={"PATH": os.environ.get("PATH", ""), "HOME": tmp})
+        recs = read_trace(str(trace)) or []
+        return None, [r if isinstance(r, bytes) else r[2] for r in recs if isinstance(r, bytes) or r[1] == 1]
+
+
+_GO_MAIN = ('package main\n\nimport (\n\t"database/sql"\n\t"os"\n\n\t_ "modernc.org/sqlite"\n)\n\n'
+            'func main() {\n\tdb, err := sql.Open("sqlite", os.Args[1])\n\tif err != nil {\n\t\tpanic(err)\n\t}\n'
+            '\t__BODY__\n\t_ = db.Close()\n}\n')
+
+
+def _c6_sink_capture() -> bool:
+    """Findings 1 to 6: a database's page images are read whole, values
+    included (adjacent values spell one string); a transaction's statements
+    are traced; the trace's place does not depend on the environment; the C
+    layer is judged by type, not by spelling; ownership is by module; an MCP
+    stream keeps its writes through the 6.1 id strip."""
+    ok = True
+    ser = ('import sqlite3\ncall("GET", "/v1/items")\nk = ' + _KEY + '\nm = sqlite3.connect(":memory:")\n'
+           'm.execute("CREATE TABLE t (a TEXT, b TEXT)")\nm.execute("INSERT INTO t VALUES (?, ?)", __ARGS__)\n'
+           'm.commit()\nopen(os.path.join(HOME, "c.db"), "wb").write(m.serialize())\nprint("ok")\n')
+    swapped = ('import sqlite3, base64\ncall("GET", "/v1/items")\nb = base64.b64encode(' + _KEY + '.encode()).decode()\n'
+               '__CLEAR__db = sqlite3.connect(os.path.join(HOME, "c.db"))\ndb.execute("CREATE TABLE t (a TEXT, b TEXT)")\n'
+               'db.execute("INSERT INTO t(b, a) VALUES (?, ?)", __ARGS__)\ndb.commit()\nprint("ok")\n')
+    rpc = ('import time\nOPENER.open(urllib.request.Request(BASE + "/v1/items", method="POST", headers={"Content-Type": '
+           '"application/json"}, data=json.dumps({"password": "482913"}).encode()), timeout=10).read()\n'
+           'sys.stdout.write(__FIRST__)\nsys.stdout.flush()\ntime.sleep(0.05)\nsys.stdout.write("7\\n")\n'
+           'sys.stdout.flush()\nserve([], lambda p: None)\n')
+    rpc_kw = {"fields": [], "secret_env": [], "lists": {"CredentialFields": ["password"]}}
+    ok &= _probes("sink capture (corpus4rv r3)", [
+        ("1: two halves of the credential in adjacent columns of a database written in one write", "succ-jsonnum",
+         "FAIL", dict(cli=ser.replace("__ARGS__", "(k[:len(k) // 2], k[len(k) // 2:])"))),
+        ("1: the same database holding clean values", "succ-jsonnum", "PASS",
+         dict(cli=ser.replace("__ARGS__", '("clean", "value")'))),
+        ("3: the environment cleared, then an INSERT binding the credential's halves out of column order",
+         "succ-jsonnum", "FAIL", dict(cli=swapped.replace("__CLEAR__", "os.environ.clear()\n")
+                                      .replace("__ARGS__", "(b[:len(b) // 2], b[len(b) // 2:])"))),
+        ("3: the environment cleared, then the same INSERT binding clean values", "succ-jsonnum", "PASS",
+         dict(cli=swapped.replace("__CLEAR__", "os.environ.clear()\n").replace("__ARGS__", '("clean", "value")'))),
+        ("6: an MCP server writing a held value whole, a pause, then one more digit", "mcp-rpc-id", "FAIL",
+         dict(cli='print("ok")\n', mcp=rpc.replace("__FIRST__", '"482913"')), rpc_kw),
+        ("6: the same server writing a clean value first", "mcp-rpc-id", "ADVISORY",
+         dict(cli='print("ok")\n', mcp=rpc.replace("__FIRST__", '"ok"')), rpc_kw),
+    ])
+    # 2, 3: a Go connector on modernc.org/sqlite.
+    for body, unit, why in (
+            ('tx, err := db.Begin()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\t_ = tx.Rollback()', b"rollback",
+             "2: a transaction rolled back"),
+            ('tx, err := db.Begin()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\t_ = tx.Commit()', b"commit",
+             "2: a transaction committed"),
+            ('os.Clearenv()\n\tif _, err := db.Exec("CREATE TABLE t (a TEXT)"); err != nil {\n\t\tpanic(err)\n\t}',
+             b"CREATE TABLE t (a TEXT)", "3: a statement run after the environment is cleared")):
+        err, units = _go_trace_run({"main.go": _GO_MAIN.replace("__BODY__", body)})
+        if err or unit not in units:
+            print(f"    corpus self-test: sink capture (corpus4rv r3): {why}: the trace lacks {unit!r} ({err}; {units[:6]})")
+            ok = False
+    # 4, 5: the C layer used around the trace, under a name of its own or
+    # from a module named like the driver's own.
+    clayer = ('package main\n\nimport (\n\t"database/sql"\n\n\t__IMPORT__\n)\n\nvar _ = __USE__\n\n'
+              'func main() { db, _ := sql.Open("sqlite", "x"); _ = db.Close() }\n')
+    extra = ('package extra\n\nimport lib "modernc.org/sqlite/lib"\n\nvar Exec = __USE__\n')
+    for files, gomod, want, why in (
+            ({"main.go": clayer.replace("__IMPORT__", '_ "modernc.org/sqlite"\n\tσ "modernc.org/sqlite/lib"')
+              .replace("__USE__", "σ.Xsqlite3_exec")}, "", True, "4: the C layer's exec under a non-ASCII name"),
+            ({"main.go": clayer.replace("__IMPORT__", '_ "modernc.org/sqlite"\n\tσ "modernc.org/sqlite/lib"')
+              .replace("__USE__", "σ.SQLITE_TOOBIG")}, "", False, "4: only a constant of the C layer, under that name"),
+            ({"main.go": clayer.replace("__IMPORT__", '_ "modernc.org/sqlite"\n\textra "modernc.org/libc_extra"')
+              .replace("__USE__", "extra.Exec"),
+              "extra/go.mod": "module modernc.org/libc_extra\n\ngo 1.24\n\nrequire modernc.org/sqlite v1.37.0\n",
+              "extra/extra.go": extra.replace("__USE__", "lib.Xsqlite3_exec")},
+             "\nrequire modernc.org/libc_extra v0.0.0\n\nreplace modernc.org/libc_extra => ./extra\n", True,
+             "5: a replaced module named like the C runtime's that calls the C layer"),
+            ({"main.go": clayer.replace("__IMPORT__", '_ "modernc.org/sqlite"\n\textra "modernc.org/libc_extra"')
+              .replace("__USE__", "extra.Exec"),
+              "extra/go.mod": "module modernc.org/libc_extra\n\ngo 1.24\n\nrequire modernc.org/sqlite v1.37.0\n",
+              "extra/extra.go": extra.replace("__USE__", "lib.SQLITE_TOOBIG")},
+             "\nrequire modernc.org/libc_extra v0.0.0\n\nreplace modernc.org/libc_extra => ./extra\n", True,
+             "5: the same module replaced into the build at all (any replaced modernc.org module)")):
+        err, _units = _go_trace_run(files, gomod)
+        if bool(err) != want or (err and err.startswith("build:")):
+            print(f"    corpus self-test: sink capture (corpus4rv r3): {why}: want refused={want}, got {err!r}")
+            ok = False
+    return ok
+
+
+def _c6_held_set() -> bool:
+    """Findings 7 to 11: a CLI child's acquisition does not depend on the
+    environment it is given; argv is acquired as given (the config file read
+    as the run was given it); each process is judged on its own held set;
+    every variable a process is given is acquired; an identifier exempts
+    only its own source, spelled exactly."""
+    ok = True
+    child_mcp = ('import subprocess, random, string\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
+                 '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
+                 '    e = {k: v for k, v in os.environ.items() if not k.startswith("CLS_")}\n'
+                 '    e.update(FROM_MCP="1", ACME_OTHER_KEY="zq" + "".join(random.choice(string.ascii_letters) for _ in range(20)))\n'
+                 '    argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list"]\n'
+                 '    out = subprocess.run(argv, capture_output=True, text=True, env=e).stdout\n'
+                 '    return {"content": [{"type": "text", "text": out}]}\nserve(TOOLS, on_call)\n')
+    child_cli = ('call("GET", "/v1/items")\nprint(__OUT__ if os.environ.get("FROM_MCP") else "ok")\n')
+    two = {"fields": [], "secret_env": ["ACME_API_KEY", "ACME_OTHER_KEY"]}
+    cfg = ('call("GET", "/v1/items")\na = sys.argv\np = a[a.index("--config") + 1] if "--config" in a else ""\n'
+           'print(__OUT__)\n')
+    cfg_kw = {"fields": [], "secret_env": [], "lists": {"CredentialFlags": ["--config"]}}
+    agent = ('import platform\nif "--agent" in sys.argv:\n__AGENT__else:\n    call("GET", "/v1/items")\n    print("ok")\n')
+    local = '    print("BaseHTTP/0.6 Python/" + platform.python_version())\n'
+    fetched = '    st, hd, body = call("GET", "/v1/items")\n    print(hd.get("Server", ""))\n'
+    ok &= _probes("held set (corpus4rv r3)", [
+        ("7: a CLI child given a new declared secret by an MCP server that drops the list's variables prints it",
+         "succ-raw", "FAIL", dict(cli=child_cli.replace("__OUT__", 'os.environ.get("ACME_OTHER_KEY", "")'),
+                                  mcp=child_mcp), two),
+        ("7: the same child printing nothing it was given", "succ-raw", "PASS",
+         dict(cli=child_cli.replace("__OUT__", '"ok"'), mcp=child_mcp), two),
+        ("8: a piece of the --config path, a declared credential flag, printed", "cfg-auth-header", "FAIL",
+         dict(cli=cfg.replace("__OUT__", 'p[p.find("cls-cfg"):][:8] if p else "ok"')), cfg_kw),
+        ("8: the same run printing nothing it was given", "cfg-auth-header", "PASS",
+         dict(cli=cfg.replace("__OUT__", '"ok"')), cfg_kw),
+        ("9: a process that never received the declared Server header prints the same text", "succ-header-echo",
+         "PASS", dict(cli=agent.replace("__AGENT__", local)), {"fields": ["Server"], "secret_env": []}),
+        ("9: a process that received it prints it", "succ-header-echo", "FAIL",
+         dict(cli=agent.replace("__AGENT__", fetched)), {"fields": ["Server"], "secret_env": []}),
+        ("10: a declared secret variable the list sets, printed", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("CORPUS_SQL_TRACE") or ' + _KEY + ')\n'),
+         {"fields": [], "secret_env": ["ACME_API_KEY", "CORPUS_SQL_TRACE"]}),
+        ("11: a key beneath declared field password, an identifier declared for response:Password", "vendor-key-as-name",
+         "FAIL", dict(cli=_BODY), {"fields": ["password"], "secret_env": [],
+                                   "identifiers": [{"source": "response:Password", "reason": "public label"}]}),
+        ("11: the identifier spelled as the field is", "vendor-key-as-name", "PASS", dict(cli=_BODY),
+         {"fields": ["password"], "secret_env": [], "identifiers": [{"source": "response:password",
+                                                                     "reason": "public label"}]}),
+    ])
+    return ok
+
+
+def _c6_declarations() -> bool:
+    """Findings 12 to 14: every linked package that reaches the kit's type
+    is read; Start takes only a value of the kit's own type; Start is only
+    ever called directly."""
+    ok = True
+    hdr = _DECL_HDR
+    b = 'package b\n\nimport "acme/internal/credkit"\n\nvar D = credkit.Declarations{}\n'
+    c = 'package c\n\nimport "acme/b"\n\nvar D = b.D\n\nfunc init() { D.ResponseFields = []string{"password"} }\n'
+    mods = ("module acme\n\ngo 1.22\n\nrequire (\n\tacme/b v0.0.0\n\tacme/c v0.0.0\n)\n\n"
+            "replace acme/b => ./b\n\nreplace acme/c => ./c\n")
+    main_c = hdr.replace('import "acme/internal/credkit"', 'import (\n\t"acme/c"\n\t"acme/internal/credkit"\n)') + \
+        'func main() { credkit.Start(c.D) }\n'
+    unnamed = (hdr + 'var x = struct {\n\tSecretEnv, ResponseFields []string\n\tIdentifiers []credkit.Identifier\n'
+               '}{ResponseFields: []string{"password"}}\n\nfunc main() { credkit.Start(x) }\n')
+    refl = ('package main\n\nimport (\n\t"reflect"\n\n\t"acme/internal/credkit"\n)\n\nfunc main() {\n'
+            '\tf := reflect.ValueOf(credkit.Start)\n\ta := reflect.New(f.Type().In(0)).Elem()\n'
+            '\ta.FieldByName("ResponseFields").Set(reflect.ValueOf([]string{"password"}))\n'
+            '\tf.Call([]reflect.Value{a})\n}\n')
+    for files, want, why in (
+            ({"go.mod": mods, "b/go.mod": "module acme/b\n\ngo 1.22\n", "b/b.go": b,
+              "c/go.mod": "module acme/c\n\ngo 1.22\n", "c/c.go": c, "main.go": main_c},
+             "error", "12: a linked package that copies another's declaration and sets a field"),
+            ({"go.mod": mods, "b/go.mod": "module acme/b\n\ngo 1.22\n",
+              "b/b.go": b.replace("{}", '{ResponseFields: []string{"password"}}'),
+              "c/go.mod": "module acme/c\n\ngo 1.22\n", "c/c.go": 'package c\n\nimport _ "acme/b"\n',
+              "main.go": main_c.replace("acme/c", "acme/b").replace("c.D", "b.D")},
+             (["password"], [], []), "12: the declaration in a linked module, passed to Start"),
+            ({"main.go": unnamed}, "error", "13: an unnamed struct of the same fields given to Start"),
+            ({"main.go": refl}, "error", "14: Start called through reflection")):
+        got = _decl_read(files)
+        if got != want:
+            print(f"    corpus self-test: declarations (corpus4rv r3): {why}: want {want}, got {got}")
+            ok = False
+    return ok
+
+
+C6_PROBES = {"sink-capture": _c6_sink_capture, "held-set-runtime-tokens": _c6_held_set,
+             "response-field-declarations": _c6_declarations}
+
+
 C5_PROBES = {"sink-capture": _c5_sink_capture, "held-set-runtime-tokens": _c5_held_set,
              "response-field-declarations": _c5_declarations}
 
@@ -4894,7 +5414,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
@@ -4924,10 +5444,15 @@ def _build(slug: str, tmp: str) -> tuple[str | None, str | None]:
     bindir.mkdir(parents=True, exist_ok=True)
     for name, cmd in ((meta.get("cli_binary") or "cli", cmds[0]), (meta.get("mcp_binary") or "mcp", cmds[1])):
         r = subprocess.run(["go", "build", *flags, "-o", str(bindir / name), cmd], cwd=cli_dir,
-                           capture_output=True, text=True, timeout=ch.BUILD_TIMEOUT)
+                           capture_output=True, text=True, timeout=ch.BUILD_TIMEOUT, env=go_env())
         if r.returncode != 0:
             return None, f"go build {cmd}: {r.stderr.strip()[:300]}"
         _TRACED.add(str(bindir / name))
+        v = subprocess.run(["go", "version", "-m", str(bindir / name)], capture_output=True, text=True, timeout=60)
+        if v.returncode != 0:
+            return None, f"go version -m {name}: {v.stderr.strip()[:200]}"
+        if re.search(r"^\s*(dep|=>)\s+" + re.escape(SQLITE_DRIVER) + r"\s", v.stdout, re.M):
+            _LINKS.add(str(bindir / name))
     return str(bindir), None
 
 

@@ -632,7 +632,7 @@ def mcp_drive(mcp_bin: Path, messages: list[dict], env: dict[str, str],
 def mcp_list_tools(mcp_bin: Path, env: dict[str, str]) -> list[dict]:
     msgs = _HANDSHAKE + [{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}]
     for m in mcp_drive(mcp_bin, msgs, env):
-        if m.get("id") == 2:
+        if isinstance(m, dict) and m.get("id") == 2:   # a line that is JSON but no object is not the reply
             return (m.get("result") or {}).get("tools") or []
     return []
 
