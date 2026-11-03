@@ -11,17 +11,9 @@ metadata:
     requires:
       bins:
         - auvik-cli
-    install:
-      - kind: script
-        bins: [auvik-cli]
-        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh
-        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1
 ---
 
-# Auvik - Claude Code Skill
-
-> Unofficial. Community-built Claude Code Skill and MCP server for the Auvik
-> API. Not affiliated with, endorsed by, or sponsored by Auvik Networks Inc.
+# Auvik  -  Printing Press CLI
 
 ## Prerequisites: Install the CLI
 
@@ -49,7 +41,7 @@ Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSO
 
 ## When to Use This CLI
 
-Use this CLI for read-only questions about network inventory, device health, config history, alerts, billing usage, and SaaS app inventory held in Auvik - especially questions that span more than one client tenant. It is strongest where Auvik itself is weakest: cross-tenant rollups, absence queries over device configs, and detecting devices that disappeared. The only write this API supports anywhere is dismissing an alert. Run `sync` before the local-store commands (eol, changes, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow). **A bare `sync` does not cover all eight**: it omits `billing` and the ASM application/user/licence tables, so `usage reconcile` and `asm shadow` come back empty. Each command prints the exact `sync --resources ...` line it needs in its own `--help` - run that one. Use the typed endpoint commands or the `api` escape hatch for live single-tenant lookups.
+Use this CLI for read-only questions about network inventory, device health, config history, alerts, billing usage, and SaaS app inventory held in Auvik - especially questions that span more than one client tenant. It is strongest where Auvik itself is weakest: cross-tenant rollups, absence queries over device configs, and detecting devices that disappeared. The only write this API supports anywhere is dismissing an alert. Run 'sync' before the local-store commands (eol, changes, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow); use the typed endpoint commands or the 'api' escape hatch for live single-tenant lookups.
 
 ## Anti-triggers
 
@@ -61,8 +53,6 @@ Do not use this CLI for:
 - Do not use this CLI to remote-control or tunnel into a device; that is the Auvik UI's remote-access feature, not the API.
 
 ## Unique Capabilities
-
-These capabilities aren't available in any other tool for this API.
 
 ### Cross-client answers Auvik cannot give
 - **`eol`**  -  See every device approaching or past end-of-support across all your clients at once, bucketed by urgency.
@@ -85,6 +75,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   auvik-cli inventory diff --since 7d --agent
+  ```
+- **`tenants scorecard`**  -  Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts.
+
+  _Use this to prepare a client review or to pick which client needs attention first. Every number is computed from the local mirror, so sync first._
+
+  ```bash
+  auvik-cli tenants scorecard --since 30d --agent
   ```
 
 ### Config integrity at fleet scale
@@ -236,6 +233,62 @@ There is a single endpoint availble within the Alert API.
 - `auvik-cli tenants read-single-detail`  -  Use the Read a Single Tenant API to pull detail about a specific multi-client and client associated with your main
 
 
+**alert**
+
+
+- `auvik-cli alert noise`  -  Rank devices and clients by alert volume over a window, with device names, types, clients and severity mix resolved.
+
+
+**asm**
+
+
+- `auvik-cli asm shadow`  -  Surface SaaS apps with active users but no license record, and licenses nobody is using, per client.
+
+
+**changes**
+
+
+- `auvik-cli changes`  -  Merge config revisions, audit entries, notes, and alerts for one device into a single chronological story.
+
+
+**configuration**
+
+
+- `auvik-cli configuration audit`  -  Find devices with no configuration backup, a stale backup, or no running-config backup, across every client.
+
+
+**device**
+
+
+- `auvik-cli device discovery-gaps`  -  List every device Auvik cannot fully poll, per client, with the credential state behind each gap.
+
+
+**eol**
+
+
+- `auvik-cli eol`  -  See every device approaching or past end-of-support across all your clients at once, bucketed by urgency.
+
+
+**inventory**
+
+
+- `auvik-cli inventory diff`  -  List devices added, removed, or changed fleet-wide since the last sync, attributed to each client.
+
+
+**tenants**
+
+
+- `auvik-cli tenants scorecard`  -  Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts.
+
+
+**usage**
+
+
+- `auvik-cli usage reconcile`  -  Put each client's billable usage count next to the actual synced inventory and show the device rows behind the difference.
+
+
+
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -244,17 +297,17 @@ When you know what you want to do but not which command does it, ask the CLI dir
 auvik-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. In human mode, exit code `0` means at least one match and exit code `2` means no confident match. **Under `--agent` (or `--json`) it always exits `0`** and returns an empty `results.matches` array instead, deliberately, so an agent branches on `matches.length == 0` rather than parsing a usage error. Every recipe in this file uses `--agent`, so check the array, not the exit code.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
 ### End-of-support exposure across the whole book
 
 ```bash
-auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.last_support_date
+auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.end_of_support
 ```
 
-The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide (Auvik exposes no single end-of-life date; `last_support_date` is the support-lifecycle one).
+The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide.
 
 ### Prove which devices are not backed up
 
@@ -300,17 +353,25 @@ Run `auvik-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json`  -  one JSON document on stdout (sync progress events go to stderr)
+- `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  auvik-cli alert read-multiple-info --agent --select attributes.alertDefinitionId,attributes.description,attributes.detectedOn
+  auvik-cli alert read-multiple-info --agent --select alertDefinitionId,description,detectedOn
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending. Note this guards the Auvik API write only: `auth set-credentials`, `auth logout` and `profile save` write to your own machine and run regardless of the flag.
+- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
+- **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success
 
 ### Response envelope
@@ -353,17 +414,27 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `AUVIK_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `AUVIK_HOME`, or `doctor` will not find credentials left under the former root.
 
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `AUVIK_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `AUVIK_DATA_SOURCE` sets the `--data-source` default.
+
 ## Automatic learning
 
 This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, run:
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
 ```bash
-auvik-cli recall "<user's question>" --agent
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data  -  the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+auvik-cli recall "$QUERY" --agent
 ```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
 
 The response envelope:
 
@@ -467,10 +538,11 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 
 ### Step 4: `teach &` after finalizing your response - always
 
-Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall  -  argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
 
 ```bash
-auvik-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+QUERY=$(cat /path/to/question.txt)
+auvik-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -484,16 +556,18 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
 auvik-cli teach \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
 auvik-cli teach-playbook \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
@@ -504,12 +578,14 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 
 ### Step 6: `playbook amend &` when your debug response identifies a correction
 
-If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
+If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
 
 ```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
 auvik-cli playbook amend \
-  --query "<exact recall query string>" \
-  --add-note "<your concrete correction>"
+  --query "$QUERY" \
+  --add-note "$NOTE"
 # (append shell `&` to background it)
 ```
 
@@ -566,10 +642,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -594,6 +670,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
@@ -607,15 +684,15 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh)
-   ```
-2. Register with Claude Code:
-   ```bash
-   claude mcp add auvik-mcp -- auvik-mcp
-   ```
-3. Verify: `claude mcp list`
+Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
+
+```bash
+claude mcp add auvik-mcp -- auvik-mcp
+```
+
+Verify: `claude mcp list`
+
+For a remote host, `auvik-mcp --transport http` requires `AUVIK_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `AUVIK_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `AUVIK_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

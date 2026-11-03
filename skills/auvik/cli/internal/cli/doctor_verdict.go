@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored: makes `doctor` report a verdict that tracks reality.
 //
 // Before this file existed, doctor answered "OK API: reachable" whenever the
@@ -11,9 +11,10 @@
 // "FAIL API: unreachable", which reads as "your install is broken" when the real
 // answer is "one environment variable is unset".
 //
-// The three helpers here give doctor a verdict it can defend: refuse to dial a
-// placeholder, probe a real read endpoint with the real credential, and classify
-// the answer by status code instead of by substring.
+// The helpers here give doctor a verdict it can defend: probe a real read
+// endpoint with the real credential, and classify the answer by status code
+// instead of by substring. Refusing to dial a placeholder base_url is native
+// to press 4.35.1 (doctorBaseURLIsPlaceholder in doctor.go).
 //
 // See issue #282 and skills/auvik/handfixes.json.
 //
@@ -37,83 +38,12 @@ import (
 // fix, not just the symptom.
 const doctorBaseURLEnv = "AUVIK_BASE_URL"
 
-// doctorShippedBaseURL is the literal base_url this connector ships with. An
-// operator who never set doctorBaseURLEnv is still on this exact value.
-//
-// Matching it EXACTLY matters. An earlier version of this check matched any
-// host containing "your-", which refuses a real operator domain: an MSP at
-// cipp.your-itdepartment.co.uk would be told their working install is a
-// placeholder and doctor would never dial it. Refusing to check a healthy
-// install is the same class of defect as blessing a broken one, pointed the
-// other way.
-const doctorShippedBaseURL = "https://auvikapi.us1.my.auvik.com"
-
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
-// connector shipped with rather than the operator's own instance.
-//
-// Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
-// and a literal stand-in ("https://your-instance.zammad.com/api/v1"). Both must
-// be refused BEFORE dialling. Refusing matters most for the literal shape -
-// several placeholder hosts resolve through live wildcard DNS and answer real
-// HTTP, so dialling one produces a confident green verdict against a host the
-// operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
-	if base == "" {
-		return false // "not configured" is a separate, already-handled state
-	}
-	// An unresolved path/host template.
-	if strings.ContainsAny(base, "{}") {
-		return true
-	}
-	// Still exactly what shipped: the operator has set nothing.
-	if doctorShippedBaseURL != "" && strings.EqualFold(strings.TrimRight(base, "/"), strings.TrimRight(doctorShippedBaseURL, "/")) {
-		return true
-	}
-	// A literal upper-case stand-in left in the path, e.g. /company/YOUR_REALM_ID.
-	if strings.Contains(base, "YOUR_") {
-		return true
-	}
-	// Reserved example domains can never be a real instance (RFC 2606), so
-	// matching the host suffix here cannot hit an operator's own domain the way
-	// a bare "your-" substring could.
-	host := strings.ToLower(base)
-	if i := strings.Index(host, "://"); i >= 0 {
-		host = host[i+3:]
-	}
-	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
-		host = host[:i]
-	}
-	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
-		if host == reserved || strings.HasSuffix(host, "."+reserved) {
-			return true
-		}
-	}
-	return false
-}
+// doctorInfoKeys, doctorIsInfoKey and doctorBaseURLIsPlaceholder are native to
+// the press 4.35.1 doctor.go. The native placeholder check matches only
+// unresolved templates and RFC 2606 example hosts: Auvik's shipped default
+// (https://auvikapi.us1.my.auvik.com) is a real regional API root, so a US1
+// operator who never set AUVIK_BASE_URL is NOT on a placeholder and must get
+// a real credential probe (press-traps section 5).
 
 // doctorReadProbe walks the Cobra tree for an endpoint-mirror command that is
 // safe and complete to call with no arguments, and returns the API path to

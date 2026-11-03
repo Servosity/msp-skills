@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Single source of truth for every Auvik attribute the hand-written commands read.
 //
@@ -16,6 +16,8 @@
 // registry, which makes the circular-validation failure structurally impossible.
 
 package cli
+
+import "strings"
 
 // specField binds one attribute name to the spec type that declares it.
 type specField struct {
@@ -180,6 +182,22 @@ func statusMeansExpired(s string) bool {
 
 // statusMeansSecurityOnly marks the in-between state worth surfacing separately.
 func statusMeansSecurityOnly(s string) bool { return s == "securityOnly" }
+
+// statusMeansSupported is the allowlist of status VALUES that affirmatively say
+// a device is still supported: the support lifecycle enums "covered" and
+// "available" (callers pass only support fields, never salesAvailability,
+// which is point-of-sale availability), and a warranty or service coverage
+// status of "Covered" (free text in
+// deviceWarrantyAttributes, so matched case-insensitively and exactly --
+// "Not Covered" is not covered). "unpublished", "empty" and anything else are
+// not a support verdict.
+func statusMeansSupported(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "covered", "available":
+		return true
+	}
+	return false
+}
 
 // Discovery probe enum values. Source: deviceDiscoveryStatusAttributes enum
 // [disabled determining notSupported notAuthorized authorizing authorized privileged].

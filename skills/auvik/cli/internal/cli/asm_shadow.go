@@ -1,14 +1,20 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source local
 
 package cli
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"auvik-pp-cli/internal/client"
 )
 
 type shadowFinding struct {
@@ -22,12 +28,18 @@ type shadowFinding struct {
 }
 
 type shadowReport struct {
-	Apps     int             `json:"applications"`
-	Users    int             `json:"users"`
-	Licenses int             `json:"licenses"`
-	Counts   map[string]int  `json:"counts"`
-	Findings []shadowFinding `json:"findings"`
-	Note     string          `json:"note,omitempty"`
+	Apps     int `json:"applications"`
+	Users    int `json:"users"`
+	Licenses int `json:"licenses"`
+	// UnattributedLicenses counts license rows that name no application and
+	// were therefore not counted for any (see buildShadowReport).
+	UnattributedLicenses int `json:"unattributed_licenses,omitempty"`
+	// LicenseLookupFailed lists "<app>: <reason>" for applications whose
+	// license read failed; they carry no finding either way.
+	LicenseLookupFailed []string        `json:"license_lookup_failed,omitempty"`
+	Counts              map[string]int  `json:"counts"`
+	Findings            []shadowFinding `json:"findings"`
+	Note                string          `json:"note,omitempty"`
 }
 
 const (
@@ -47,21 +59,28 @@ func newNovelAsmShadowCmd(flags *rootFlags) *cobra.Command {
 		Use:   "shadow",
 		Short: "Surface SaaS apps with active users but no license record, and licenses nobody is using, per client.",
 		Long: strings.Trim(`
-Set-joins the locally synced Auvik SaaS Management applications, users, and
-licenses per ASM client, then reports two findings:
+Joins the locally synced Auvik SaaS Management applications and users per ASM
+client with each application's own license records, then reports two findings:
 
-  unlicensed_usage  an application has active users but no license records
-  unused_licenses   licenses exist that no active user is consuming
+  unlicensed_usage  an application has active users with no license record for it
+  unused_licenses   an application has licenses no active user of it holds
 
-The ASM application, user, and license records are three separate endpoints;
-the set-join across them is what turns them into an entitlement finding.
+Auvik's license record does not name its application; the license endpoint
+returns one application's licenses at a time. So licenses are read from the API
+per application (one read per synced application, scoped by its ASM client),
+never from the mirror, and a license is only ever counted for the application
+it was returned for. An application whose license read fails is listed under
+license_lookup_failed and gets no finding.
 
 Use this command for SaaS application, user, and license inventory from Auvik
 SaaS Management. Do NOT use this command for Auvik's own billable network-device
 counts; use 'usage reconcile' instead.
 
-Reads the local mirror. Run this first:
-  auvik-cli sync --resources asm,asm-user-info,asm-license-info,asm-client-info --full
+Reads applications and users from the local mirror. The ASM application and
+user endpoints require an ASM client id, so sync the clients first, then each
+client's applications and users:
+  auvik-cli sync --resources asm --full
+  auvik-cli sync --resources asm-app-info,asm-user-info --param filter[clientId]=<asm-client-id> --full
 `, "\n"),
 		Example: strings.Trim(`
   # Everything worth a spend conversation
@@ -93,8 +112,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "asm") {
-				hintIfStale(cmd, db, "asm", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtASMApps.current()) {
+				hintIfStale(cmd, db, rtASMApps.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()
@@ -106,16 +125,24 @@ Reads the local mirror. Run this first:
 			if err != nil {
 				return err
 			}
-			licenses, err := loadResources(ctx, db, rtASMLicenses)
-			if err != nil {
-				return err
-			}
 			clients, err := loadResources(ctx, db, rtASMClients)
 			if err != nil {
 				return err
 			}
+			// Licenses are read per application from the API, never from the
+			// mirror: the license record does not name its application, so
+			// only the request scope binds a license to the app it is for.
+			var licenses []auvikRow
+			lookupFailed := map[string]string{}
+			if len(apps) > 0 {
+				c, err := flags.newClient()
+				if err != nil {
+					return err
+				}
+				licenses, lookupFailed = fetchASMLicenses(ctx, c, apps)
+			}
 
-			report := buildShadowReport(apps, users, licenses, clients)
+			report := buildShadowReport(apps, users, licenses, clients, lookupFailed)
 
 			out := report.Findings
 			if finding != "" {
@@ -143,7 +170,9 @@ Reads the local mirror. Run this first:
 			report.Findings = out
 
 			if report.Apps == 0 {
-				report.Note = "no ASM applications in the local mirror; run 'auvik-cli sync --resources asm,asm-user-info,asm-license-info --full'. Auvik SaaS Management is a separate product tier -- if your tenant does not license it, these endpoints return nothing."
+				report.Note = "no ASM applications in the local mirror; sync ASM clients, then each client's applications and users (see 'auvik-cli asm shadow --help'). Auvik SaaS Management is a separate product tier -- if your tenant does not license it, these endpoints return nothing."
+			} else if len(report.LicenseLookupFailed) > 0 {
+				report.Note = fmt.Sprintf("%d application(s) carry no finding because their license read failed; see license_lookup_failed", len(report.LicenseLookupFailed))
 			}
 
 			done, err := emitLocalReport(cmd, flags, report, report.Findings)
@@ -154,8 +183,13 @@ Reads the local mirror. Run this first:
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "SaaS license findings across %d application(s), %d user(s), %d license record(s)\n",
 				report.Apps, report.Users, report.Licenses)
-			fmt.Fprintf(w, "  unlicensed usage: %d   unused licenses: %d\n\n",
+			fmt.Fprintf(w, "  unlicensed usage: %d   unused licenses: %d\n",
 				report.Counts[findingUnlicensed], report.Counts[findingUnusedSeat])
+			if len(report.LicenseLookupFailed) > 0 {
+				fmt.Fprintf(w, "  license read failed for %d application(s); they carry no finding: %s\n",
+					len(report.LicenseLookupFailed), strings.Join(report.LicenseLookupFailed, "; "))
+			}
+			fmt.Fprintln(w)
 			if len(report.Findings) == 0 {
 				if report.Note != "" {
 					fmt.Fprintln(w, report.Note)
@@ -187,16 +221,24 @@ Reads the local mirror. Run this first:
 // FIELD SOURCING: the relationship shape is not symmetric.
 //   - asmAppRelationships:  breaches, client, contracts, users  (users is a LIST)
 //   - asmUserRelationships: applications                        (a LIST)
-//   - asmLicense*:          NO relationships at all -- licenses carry an `email`
-//     and join to users by that address, not to apps.
+//   - asmLicense*:          NO relationships and no application attribute --
+//     a license carries an `email`, and the application it belongs to is known
+//     only from the request that returned it (/v1/asm/license/info REQUIRES
+//     filter[applicationId]).
 //
 // So the app is the anchor: each app names its users, each user has an email,
-// and licenses are matched into an app through the emails of that app's users.
-func buildShadowReport(apps, users, licenses, clients []auvikRow) shadowReport {
+// and an app's OWN licenses (rows tagged with asmLicenseAppKey by
+// fetchASMLicenses) are matched against the emails of that app's active users.
+// A license row with no application tag -- every row in the local mirror -- is
+// never counted for any application: counting it against every app its holder
+// uses would mark an app licensed by another app's seat.
+//
+// lookupFailed names the apps whose license read failed; they get no finding
+// either way, because "no license record" was never observed for them.
+func buildShadowReport(apps, users, licenses, clients []auvikRow, lookupFailed map[string]string) shadowReport {
 	report := shadowReport{
 		Apps:     len(apps),
 		Users:    len(users),
-		Licenses: len(licenses),
 		Counts:   map[string]int{findingUnlicensed: 0, findingUnusedSeat: 0},
 		Findings: make([]shadowFinding, 0),
 	}
@@ -215,29 +257,27 @@ func buildShadowReport(apps, users, licenses, clients []auvikRow) shadowReport {
 		return id
 	}
 
-	// user id -> email, plus whether the user is actually consuming the app.
 	type userFacts struct {
 		email  string
 		active bool
 	}
 	userByID := map[string]userFacts{}
-	emailToUser := map[string]string{}
 	for _, u := range users {
 		email := strings.ToLower(strings.TrimSpace(u.attrString(fASMUserEmail.Field)))
 		userByID[u.ID] = userFacts{email: email, active: asmUserActive(u)}
-		if email != "" {
-			emailToUser[email] = u.ID
-		}
 	}
 
-	// license email -> license rows (a user may hold several license types).
-	licensesByEmail := map[string][]auvikRow{}
+	// Each application's own license emails, from tagged rows only.
+	licenseEmailsByApp := map[string][]string{}
 	for _, l := range licenses {
-		email := strings.ToLower(strings.TrimSpace(l.attrString(fASMLicenseEmail.Field)))
-		if email == "" {
+		appID, _ := l.Data[asmLicenseAppKey].(string)
+		if appID == "" {
+			report.UnattributedLicenses++
 			continue
 		}
-		licensesByEmail[email] = append(licensesByEmail[email], l)
+		report.Licenses++
+		licenseEmailsByApp[appID] = append(licenseEmailsByApp[appID],
+			strings.ToLower(strings.TrimSpace(l.attrString(fASMLicenseEmail.Field))))
 	}
 
 	// Apps that never appear on any user's `applications` list still matter, so
@@ -263,75 +303,64 @@ func buildShadowReport(apps, users, licenses, clients []auvikRow) shadowReport {
 	copy(ordered, apps)
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
 
-	licensedEmailsSeen := map[string]bool{}
-
 	for _, app := range ordered {
 		appName := firstNonEmpty(app.attrString(fASMAppName.Field), app.ID)
 		clientID := app.rel(rASMAppClient.Name)
+		if reason, failed := lookupFailed[app.ID]; failed {
+			report.LicenseLookupFailed = append(report.LicenseLookupFailed, appName+": "+reason)
+			continue
+		}
 
-		activeUsers := 0
-		licensedHere := 0
+		licensed := map[string]bool{}
+		for _, email := range licenseEmailsByApp[app.ID] {
+			if email != "" {
+				licensed[email] = true
+			}
+		}
+		activeEmails := map[string]bool{}
+		activeUsers, unlicensedActive := 0, 0
 		for uid := range appUsers[app.ID] {
 			uf, ok := userByID[uid]
-			if !ok {
+			if !ok || !uf.active {
 				continue
 			}
-			if uf.active {
-				activeUsers++
+			activeUsers++
+			if uf.email == "" {
+				// No address to match a license on: neither licensed nor
+				// provably unlicensed.
+				continue
 			}
-			if uf.email != "" {
-				if rows, has := licensesByEmail[uf.email]; has {
-					licensedHere += len(rows)
-					licensedEmailsSeen[uf.email] = true
-				}
+			activeEmails[uf.email] = true
+			if !licensed[uf.email] {
+				unlicensedActive++
+			}
+		}
+		appLicenses := len(licenseEmailsByApp[app.ID])
+		unused := 0
+		for _, email := range licenseEmailsByApp[app.ID] {
+			if email == "" || !activeEmails[email] {
+				unused++
 			}
 		}
 
-		switch {
-		case activeUsers > 0 && licensedHere == 0:
+		if unlicensedActive > 0 {
 			report.Findings = append(report.Findings, shadowFinding{
 				Finding: findingUnlicensed, Client: label(clientID), Application: appName, AppID: app.ID,
-				ActiveUsers: activeUsers, Licenses: 0,
-				Detail: fmt.Sprintf("%d active user(s), no license record", activeUsers),
+				ActiveUsers: activeUsers, Licenses: appLicenses,
+				Detail: fmt.Sprintf("%d active user(s) with no license record for this application", unlicensedActive),
 			})
 			report.Counts[findingUnlicensed]++
-		case licensedHere > activeUsers:
+		}
+		if unused > 0 {
 			report.Findings = append(report.Findings, shadowFinding{
 				Finding: findingUnusedSeat, Client: label(clientID), Application: appName, AppID: app.ID,
-				ActiveUsers: activeUsers, Licenses: licensedHere,
-				Detail: fmt.Sprintf("%d license(s) beyond active usage", licensedHere-activeUsers),
+				ActiveUsers: activeUsers, Licenses: appLicenses,
+				Detail: fmt.Sprintf("%d license(s) not held by an active user of this application", unused),
 			})
 			report.Counts[findingUnusedSeat]++
-		case activeUsers > licensedHere && licensedHere > 0:
-			report.Findings = append(report.Findings, shadowFinding{
-				Finding: findingUnlicensed, Client: label(clientID), Application: appName, AppID: app.ID,
-				ActiveUsers: activeUsers, Licenses: licensedHere,
-				Detail: fmt.Sprintf("%d active user(s) beyond licensed seats", activeUsers-licensedHere),
-			})
-			report.Counts[findingUnlicensed]++
 		}
 	}
-
-	// Licenses whose email matches no active user of any app: pure waste.
-	orphanByClient := map[string]int{}
-	for email, rows := range licensesByEmail {
-		if licensedEmailsSeen[email] {
-			continue
-		}
-		uid, known := emailToUser[email]
-		if known && userByID[uid].active {
-			continue
-		}
-		orphanByClient["(unattributed)"] += len(rows)
-	}
-	for client, n := range orphanByClient {
-		report.Findings = append(report.Findings, shadowFinding{
-			Finding: findingUnusedSeat, Client: client, Application: "(no matching active user)",
-			ActiveUsers: 0, Licenses: n,
-			Detail: fmt.Sprintf("%d license(s) assigned to an address with no active ASM user", n),
-		})
-		report.Counts[findingUnusedSeat]++
-	}
+	sort.Strings(report.LicenseLookupFailed)
 
 	sort.SliceStable(report.Findings, func(i, j int) bool {
 		a, b := report.Findings[i], report.Findings[j]
@@ -344,6 +373,104 @@ func buildShadowReport(apps, users, licenses, clients []auvikRow) shadowReport {
 		return a.Application < b.Application
 	})
 	return report
+}
+
+// asmLicenseAppKey tags a license row with the application its request was
+// scoped to. It sits beside the JSON:API members, never inside attributes, so
+// it cannot be mistaken for a vendor field.
+const asmLicenseAppKey = "x-auvik-pp-application-id"
+
+// asmLicenseMaxPages bounds one application's license walk.
+const asmLicenseMaxPages = 100
+
+// fetchASMLicenses reads each application's own license records from
+// /v1/asm/license/info, scoped by filter[clientId] and filter[applicationId]
+// (both REQUIRED by the endpoint), and tags every row with that application.
+// An application whose read fails is returned in failed with a reason that
+// names the HTTP status only -- a response body is never echoed. Once the API
+// rejects the credential (401/403) the remaining reads are not attempted.
+func fetchASMLicenses(ctx context.Context, c *client.Client, apps []auvikRow) (licenses []auvikRow, failed map[string]string) {
+	failed = map[string]string{}
+	authFailure := ""
+	for _, app := range apps {
+		if authFailure != "" {
+			failed[app.ID] = authFailure
+			continue
+		}
+		clientID := app.rel(rASMAppClient.Name)
+		if clientID == "" {
+			failed[app.ID] = "application names no ASM client to scope the license read"
+			continue
+		}
+		rows, err := fetchAppLicenses(ctx, c, clientID, app.ID)
+		if err != nil {
+			reason := "license read failed"
+			var apiErr *client.APIError
+			switch {
+			case errors.As(err, &apiErr):
+				reason = fmt.Sprintf("license read returned HTTP %d", apiErr.StatusCode)
+				if apiErr.StatusCode == 401 || apiErr.StatusCode == 403 {
+					authFailure = reason
+				}
+			case errors.Is(err, errASMLicensePaging):
+				reason = err.Error()
+			}
+			failed[app.ID] = reason
+			continue
+		}
+		licenses = append(licenses, rows...)
+	}
+	return licenses, failed
+}
+
+var errASMLicensePaging = errors.New("license read stopped: pagination did not complete")
+
+// fetchAppLicenses walks one (client, application) license list. Pagination
+// re-issues the request against the configured API host with the page[after]
+// cursor taken from links.next; the link's own scheme and host are never
+// dialed, so the credential cannot follow a link elsewhere.
+func fetchAppLicenses(ctx context.Context, c *client.Client, clientID, appID string) ([]auvikRow, error) {
+	params := map[string]string{"filter[clientId]": clientID, "filter[applicationId]": appID}
+	seen := map[string]bool{}
+	var out []auvikRow
+	for page := 0; page < asmLicenseMaxPages; page++ {
+		raw, err := c.Get(ctx, "/v1/asm/license/info", params)
+		if err != nil {
+			return nil, err
+		}
+		var env struct {
+			Data  []json.RawMessage `json:"data"`
+			Links struct {
+				Next string `json:"next"`
+			} `json:"links"`
+		}
+		if err := json.Unmarshal(raw, &env); err != nil || env.Data == nil {
+			return nil, fmt.Errorf("%w (page carries no data member)", errASMLicensePaging)
+		}
+		for _, item := range env.Data {
+			var obj map[string]any
+			if json.Unmarshal(item, &obj) != nil || anyString(obj["type"]) != "asmLicense" {
+				continue
+			}
+			obj[asmLicenseAppKey] = appID
+			out = append(out, auvikRow{ID: anyString(obj["id"]), Data: obj})
+		}
+		next := strings.TrimSpace(env.Links.Next)
+		if next == "" {
+			return out, nil
+		}
+		u, err := url.Parse(next)
+		cursor := ""
+		if err == nil {
+			cursor = u.Query().Get("page[after]")
+		}
+		if cursor == "" || seen[cursor] {
+			return nil, fmt.Errorf("%w (next link carries no new page[after] cursor)", errASMLicensePaging)
+		}
+		seen[cursor] = true
+		params["page[after]"] = cursor
+	}
+	return nil, fmt.Errorf("%w (more than %d pages)", errASMLicensePaging, asmLicenseMaxPages)
 }
 
 // asmUserActive treats a user as consuming the app unless the record explicitly

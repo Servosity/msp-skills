@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source local
 
 package cli
@@ -34,8 +34,9 @@ type discoveryGapsReport struct {
 	Note            string         `json:"note,omitempty"`
 }
 
-// Discovery probe attributes, in the order they appear in Auvik's device
-// detail payload. Each is a boolean-ish "did this method succeed" signal.
+// Discovery probes. Each is an enum (disabled, determining, notSupported,
+// notAuthorized, authorizing, authorized, privileged) carried both by v2
+// deviceDiscoveryStatusAttributes and by v1 deviceDetailsAttributes.discoveryStatus.
 var discoveryProbes = []struct {
 	field specField
 	label string
@@ -58,19 +59,17 @@ func newNovelDeviceDiscoveryGapsCmd(flags *rootFlags) *cobra.Command {
 		Use:   "discovery-gaps",
 		Short: "List every device Auvik cannot fully poll, per client, with the credential state behind each gap.",
 		Long: strings.Trim(`
-Joins the v2 device discoveryStatus records against device inventory and the
-per-device credential probe results, then lists every device Auvik cannot fully
-poll, grouped by client.
-
-The v2 discoveryStatus endpoint has no v1 equivalent and is implemented by no
-other Auvik tool. Today "why can't we see this box" takes three screens.
+Joins the v2 device discoveryStatus records and the v1 device detail
+discoveryStatus probes against device inventory, then lists every device Auvik
+cannot fully poll, grouped by client. A probe rejected in either source is a gap.
+Today "why can't we see this box" takes three screens.
 
 Use this command for devices Auvik cannot fully poll -- missing or failing
 credentials and incomplete discovery. Do NOT use this command for devices that
 are polled fine but out of hardware support; use 'eol' instead.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,inventory-device-detail,auvik-inventory-discovery-status --full
+  auvik-cli sync --resources tenants,inventory-device-info,inventory-device-detail,auvik-inventory --full
 `, "\n"),
 		Example: strings.Trim(`
   # Everything Auvik cannot fully see
@@ -111,8 +110,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "auvik-inventory-discovery-status") {
-				hintIfStale(cmd, db, "auvik-inventory-discovery-status", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtDiscoveryStatus.current()) {
+				hintIfStale(cmd, db, rtDiscoveryStatus.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()
@@ -161,9 +160,9 @@ Reads the local mirror. Run this first:
 			report.Gaps = gaps
 
 			if report.DevicesTotal == 0 {
-				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory --full'"
+				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory-device-info --full'"
 			} else if report.StatusRecords == 0 && len(details) == 0 {
-				report.Note = "devices are synced but no discovery-status or device-detail records were found; run 'auvik-cli sync --resources auvik-inventory-discovery-status,inventory-device-detail --full'"
+				report.Note = "devices are synced but no discovery-status or device-detail records were found; run 'auvik-cli sync --resources auvik-inventory,inventory-device-detail --full'"
 			}
 
 			done, err := emitLocalReport(cmd, flags, report, report.Gaps)
@@ -238,19 +237,22 @@ func buildDiscoveryGapsReport(devices, details, statuses []auvikRow, tenants map
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
 
 	for _, dev := range ordered {
+		// Two documented sources carry the same four probe enums: v2
+		// deviceDiscoveryStatusAttributes (top-level login/snmp/wmi/vmware)
+		// and v1 deviceDetailsAttributes.discoveryStatus (the same four,
+		// nested one level down). Both go through one reader, and the worst
+		// value per probe wins, so a rejected credential in either source is
+		// a gap whatever the other says.
 		status := ""
-		probeVals := map[string]string{}
+		var sources []map[string]string
 		if st, ok := statusByDevice[dev.ID]; ok {
-			// v2 deviceDiscoveryStatusAttributes: login/snmp/vmware/wmi, each an
-			// enum of disabled|determining|notSupported|notAuthorized|
-			// authorizing|authorized|privileged.
-			for _, probe := range discoveryProbes {
-				probeVals[probe.label] = st.attrString(probe.field.Field)
-			}
+			sources = append(sources, discoveryProbeStates(st))
 		}
 		if d, ok := detailByDevice[dev.ID]; ok {
-			status = d.attrString(fDetailDiscoveryStatus.Field)
+			sources = append(sources, discoveryProbeStates(d, fDetailDiscoveryStatus.Field))
+			status = detailDiscoveryStatusText(d)
 		}
+		probeVals := mergeDiscoveryProbes(sources...)
 
 		failing := make([]string, 0, len(discoveryProbes))
 		pending := make([]string, 0, len(discoveryProbes))
@@ -326,6 +328,72 @@ func buildDiscoveryGapsReport(devices, details, statuses []auvikRow, tenants map
 		return a.DeviceName < b.DeviceName
 	})
 	return report
+}
+
+// discoveryProbeStates reads the four discovery probe enums from one record,
+// at attributes.<base...>.<probe>. Values that are not strings are skipped:
+// they carry no documented probe state.
+func discoveryProbeStates(r auvikRow, base ...string) map[string]string {
+	out := map[string]string{}
+	for _, p := range discoveryProbes {
+		path := append(append([]string{}, base...), p.field.Field)
+		if v, ok := r.attr(path...).(string); ok {
+			if v = strings.TrimSpace(v); v != "" {
+				out[p.label] = v
+			}
+		}
+	}
+	return out
+}
+
+// discoveryProbeSeverity ranks a probe value so the worst one wins a merge:
+// a rejected credential, then discovery still in progress, then anything else.
+func discoveryProbeSeverity(v string) int {
+	switch {
+	case v == "":
+		return 0
+	case v == "notAuthorized":
+		return 3
+	case discoveryProbeTransitional(v):
+		return 2
+	default:
+		return 1
+	}
+}
+
+// mergeDiscoveryProbes folds several sources into one value per probe,
+// keeping the most severe. Every signal any source had is kept.
+func mergeDiscoveryProbes(sources ...map[string]string) map[string]string {
+	out := map[string]string{}
+	for _, src := range sources {
+		for label, v := range src {
+			if discoveryProbeSeverity(v) > discoveryProbeSeverity(out[label]) {
+				out[label] = v
+			}
+		}
+	}
+	return out
+}
+
+// detailDiscoveryStatusText renders deviceDetailsAttributes.discoveryStatus
+// for the report. The documented shape is an object of probe enums; a bare
+// string is passed through, and any other shape renders as nothing rather
+// than as a Go value dump.
+func detailDiscoveryStatusText(d auvikRow) string {
+	switch v := d.attr(fDetailDiscoveryStatus.Field).(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case map[string]any:
+		states := discoveryProbeStates(d, fDetailDiscoveryStatus.Field)
+		parts := make([]string, 0, len(states))
+		for _, p := range discoveryProbes {
+			if s, ok := states[p.label]; ok {
+				parts = append(parts, p.label+"="+s)
+			}
+		}
+		return strings.Join(parts, " ")
+	}
+	return ""
 }
 
 func truthy(v any) bool {

@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package store
 
@@ -39,6 +39,14 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 			PRIMARY KEY (snapshot_at, device_id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_auvik_snapshots_device ON auvik_device_snapshots(device_id)`,
+		// auvik_snapshot_runs records that a snapshot was taken, independently
+		// of its device rows. An empty fleet (Auvik's documented data: [])
+		// writes no device rows, so without this table the empty snapshot
+		// would never become the newest baseline.
+		`CREATE TABLE IF NOT EXISTS auvik_snapshot_runs (
+			snapshot_at DATETIME NOT NULL PRIMARY KEY,
+			devices     INTEGER NOT NULL
+		)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {

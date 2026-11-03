@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source local
 
 package cli
@@ -56,7 +56,7 @@ Configuration API exposes backup metadata only, so config text cannot be
 searched.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,inventory-configuration,inventory-entity-audit,inventory-entity-note,alert --full
+  auvik-cli sync --resources tenants,inventory-device-info,inventory-configuration,inventory-entity-audit,inventory-entity-note,alert --full
 `, "\n"),
 		Example: strings.Trim(`
   # Everything that ever happened to this device
@@ -99,8 +99,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "inventory-configuration") {
-				hintIfStale(cmd, db, "inventory-configuration", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtConfigurations.current()) {
+				hintIfStale(cmd, db, rtConfigurations.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()

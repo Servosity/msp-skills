@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source local
 
 package cli
@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -21,12 +22,15 @@ type reconcileClient struct {
 	BilledNotSeen  []string `json:"billed_not_seen,omitempty"`
 	SeenNotBilled  []string `json:"seen_not_billed,omitempty"`
 
-	// Counts Auvik publishes alongside the billed device list.
-	MonitoredServers         int `json:"monitored_servers"`
-	MonitoredWorkstations    int `json:"monitored_workstations"`
-	MaxMonitoredServers      int `json:"max_monitored_servers"`
-	MaxMonitoredWorkstations int `json:"max_monitored_workstations"`
-	BillableDays             int `json:"billable_days"`
+	// Counts Auvik publishes alongside the billed device list. null means the
+	// usage record did not carry the count in a documented shape -- never
+	// "zero servers". monitored_* is the latest day of the documented daily
+	// series (clientUsageAttributes.monitoredServers/monitoredWorkstations).
+	MonitoredServers         *int `json:"monitored_servers"`
+	MonitoredWorkstations    *int `json:"monitored_workstations"`
+	MaxMonitoredServers      *int `json:"max_monitored_servers"`
+	MaxMonitoredWorkstations *int `json:"max_monitored_workstations"`
+	BillableDays             *int `json:"billable_days"`
 
 	Note string `json:"note,omitempty"`
 }
@@ -63,7 +67,7 @@ client. Do NOT use this command for what changed in the fleet since the last
 sync; use 'inventory diff' instead.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,billing --full
+  auvik-cli sync --resources tenants,inventory-device-info,billing --full
 `, "\n"),
 		Example: strings.Trim(`
   # Every client, billed vs seen
@@ -91,8 +95,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "billing") {
-				hintIfStale(cmd, db, "billing", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtBilling.current()) {
+				hintIfStale(cmd, db, rtBilling.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()
@@ -204,25 +208,22 @@ func buildReconcileReport(devices, billing []auvikRow, tenants map[string]string
 		tenantID        string
 		label           string
 		billedDevices   map[string]string // id -> name
-		monServers      int
-		monWorkstations int
-		maxServers      int
-		maxWorkstations int
-		billableDays    int
+		monServers      *int
+		monWorkstations *int
+		maxServers      *int
+		maxWorkstations *int
+		billableDays    *int
 		haveUsage       bool
 	}
 	usage := map[string]*usageFacts{}
 
 	for _, b := range billing {
 		prefix := b.attrString(fUsageDomainPrefix.Field)
-		tenantID := tenantByLabel[strings.ToLower(prefix)]
-		if tenantID == "" {
-			// Fall back to the clients relationship when domainPrefix does not
-			// match a synced tenant.
-			if ids := b.relMany(rUsageClients.Name); len(ids) > 0 {
-				tenantID = ids[0]
-			}
-		}
+		// clientUsageResourceObject.id IS the client tenant's id, so it is the
+		// fallback when domainPrefix matches no synced tenant. The
+		// relationships.clients list holds this client's CHILD clients; its
+		// first member was never this record's tenant.
+		tenantID := firstNonEmpty(tenantByLabel[strings.ToLower(prefix)], b.ID)
 		key := tenantID
 		if key == "" {
 			key = "prefix:" + prefix
@@ -234,24 +235,17 @@ func buildReconcileReport(devices, billing []auvikRow, tenants map[string]string
 			usage[key] = f
 		}
 		f.haveUsage = true
+		// clientUsageRelationships.devices[].attributes.name is the documented
+		// device name; deviceName stays as a second source.
+		documented := b.relManyAttr(rUsageDevices.Name, "name")
 		for id, name := range b.relManyAttr(rUsageDevices.Name, fDeviceName.Field) {
-			f.billedDevices[id] = name
+			f.billedDevices[id] = firstNonEmpty(documented[id], name)
 		}
-		if n, ok := numberAttr(b, fUsageMonServers.Field); ok {
-			f.monServers = n
-		}
-		if n, ok := numberAttr(b, fUsageMonWorkstations.Field); ok {
-			f.monWorkstations = n
-		}
-		if n, ok := numberAttr(b, fUsageMaxServers.Field); ok {
-			f.maxServers = n
-		}
-		if n, ok := numberAttr(b, fUsageMaxWorkstations.Field); ok {
-			f.maxWorkstations = n
-		}
-		if n, ok := numberAttr(b, fUsageBillableDays.Field); ok {
-			f.billableDays = n
-		}
+		f.monServers = usageCount(b, fUsageMonServers.Field, "totalServers")
+		f.monWorkstations = usageCount(b, fUsageMonWorkstations.Field, "totalEndpoints")
+		f.maxServers = usageCount(b, fUsageMaxServers.Field, "")
+		f.maxWorkstations = usageCount(b, fUsageMaxWorkstations.Field, "")
+		f.billableDays = usageCount(b, fUsageBillableDays.Field, "")
 	}
 
 	keys := map[string]bool{}
@@ -343,18 +337,57 @@ func buildReconcileReport(devices, billing []auvikRow, tenants map[string]string
 	return report
 }
 
-// numberAttr reads a numeric attribute, accepting JSON numbers and the
-// JSON-encoded-string form some feeds use.
-func numberAttr(r auvikRow, name string) (int, bool) {
-	switch v := r.attr(name).(type) {
+// scalarCount reads a count given as a JSON number or the JSON-encoded-string
+// form some feeds use.
+func scalarCount(v any) (int, bool) {
+	switch t := v.(type) {
 	case float64:
-		return int(v), true
+		return int(t), true
 	case string:
-		n, err := strconv.Atoi(strings.TrimSpace(v))
+		n, err := strconv.Atoi(strings.TrimSpace(t))
 		if err != nil {
 			return 0, false
 		}
 		return n, true
 	}
 	return 0, false
+}
+
+// usageCount is the one reader for clientUsageAttributes counts. A number (or
+// numeric string) is read as is. The documented daily series
+// (monitoredServers / monitoredWorkstations: [{date, totalServers|totalEndpoints}])
+// yields the count on its latest date. Absent, or in no documented shape, it
+// returns nil: an unknown count must never read as zero.
+func usageCount(r auvikRow, name, dailyKey string) *int {
+	v := r.attr(name)
+	if n, ok := scalarCount(v); ok {
+		return &n
+	}
+	list, ok := v.([]any)
+	if !ok || dailyKey == "" {
+		return nil
+	}
+	var (
+		bestDate time.Time
+		best     *int
+	)
+	for _, item := range list {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		day, ok := parseAuvikTime(anyString(m["date"]))
+		if !ok {
+			continue
+		}
+		n, ok := scalarCount(m[dailyKey])
+		if !ok {
+			continue
+		}
+		if best == nil || day.After(bestDate) {
+			count := n
+			best, bestDate = &count, day
+		}
+	}
+	return best
 }

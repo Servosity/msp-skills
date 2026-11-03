@@ -213,7 +213,7 @@
       "first_party": false,
       "category": "RMM",
       "display_name": "Auvik",
-      "cli_hash": "sha256:873ae5eece432f1eed8a1b94f749087dd8cbba8bd139d49c6cd0e635e0e3433a",
+      "cli_hash": "sha256:6f46b4f1e281398bc6bce4dd34d24b541f7007aa6256aeb98848febfa1ade58f",
       "template_version": 3,
       "version": "0.2.8",
       "cli_hash_at_release": "sha256:4a4d97fd99b5f74d8daec9ed038a47deafefeede560d530af2354c7c966021bd",
