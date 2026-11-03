@@ -41,7 +41,7 @@ func newNovelSnapshotCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -52,6 +52,9 @@ func newNovelSnapshotCmd(flags *rootFlags) *cobra.Command {
 			}
 			lastSynced := map[string]string{}
 			for _, rt := range snapshotResourceTypes {
+				if db == nil {
+					break
+				}
 				if ls := db.GetLastSyncedAt(rt); ls != "" {
 					lastSynced[rt] = ls
 				}
@@ -70,7 +73,7 @@ func newNovelSnapshotCmd(flags *rootFlags) *cobra.Command {
 				return printJSONFiltered(cmd.OutOrStdout(), snap, flags)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Receivable outstanding: %s\nPayable outstanding:    %s\nOverdue receivables:    %d\nUnreconciled bank txns: %d\n",
-				money(snap.ReceivableOutstanding), money(snap.PayableOutstanding), snap.OverdueReceivable, snap.UnreconciledBankTxns)
+				snap.ReceivableOutstanding, snap.PayableOutstanding, snap.OverdueReceivable, snap.UnreconciledBankTxns)
 			out := [][]string{}
 			for _, rt := range snapshotResourceTypes {
 				out = append(out, []string{rt, strconv.Itoa(snap.Counts[rt]), snap.SyncStaleness[rt]})
@@ -85,6 +88,9 @@ func newNovelSnapshotCmd(flags *rootFlags) *cobra.Command {
 
 // resourceCounts returns the row count per resource_type in the store.
 func resourceCounts(db *store.Store) (map[string]int, error) {
+	if db == nil {
+		return map[string]int{}, nil
+	}
 	rows, err := db.Query(`SELECT resource_type, COUNT(*) FROM resources GROUP BY resource_type`)
 	if err != nil {
 		return nil, err

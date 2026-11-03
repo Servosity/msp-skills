@@ -35,7 +35,7 @@ func newNovelTieOutCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -58,11 +58,17 @@ func newNovelTieOutCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, l := range report.Lines {
-				ties := "TIES"
-				if !l.Ties {
+				ties, variance := "TIES", "n/a"
+				if l.Variance != nil {
+					variance = money(*l.Variance)
+				}
+				switch {
+				case l.Variance == nil:
+					ties = "NOT COMPARABLE: " + l.Note
+				case !l.Ties:
 					ties = "VARIANCE"
 				}
-				out = append(out, []string{l.Control, l.AccountCode, money(l.LedgerBalance), money(l.InvoiceTotal), money(l.Variance), ties})
+				out = append(out, []string{l.Control, l.AccountCode, money(l.LedgerBalance), l.InvoiceTotal.String(), variance, ties})
 			}
 			if len(report.Unmatched) > 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "No control account resolved for: %v (sync accounts + journals)\n", report.Unmatched)

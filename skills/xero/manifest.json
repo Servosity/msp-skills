@@ -23,7 +23,13 @@
         "XERO_OAUTH2": "${user_config.xero_oauth2}",
         "XERO_TENANT_ID": "${user_config.xero_tenant_id}",
         "XERO_TOKEN_URL": "${user_config.xero_token_url}",
-        "XERO_NO_CONFIG_WRITE": "${user_config.xero_no_config_write}"
+        "XERO_NO_CONFIG_WRITE": "${user_config.xero_no_config_write}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "XERO_MCP_READ_ONLY": "${user_config.xero_mcp_read_only}",
+        "XERO_NO_LOCAL_DATA": "${user_config.xero_no_local_data}",
+        "XERO_MCP_HTTP_TOKEN": "${user_config.xero_mcp_http_token}",
+        "XERO_USER_AGENT": "${user_config.xero_user_agent}",
+        "XERO_SCOPES": "${user_config.xero_scopes}"
       }
     }
   },
@@ -88,6 +94,48 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "xero_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available (writes still need confirm).",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local data.",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "xero_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Xero requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_scopes": {
+      "type": "string",
+      "title": "OAuth scopes (optional)",
+      "description": "Comma or space separated OAuth scopes requested by auth login, replacing the default set. Leave blank for the default scopes.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -98,11 +146,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:03:32.259357Z",
-    "spec_checksum": "sha256:e30fb22f7eae1717f708161ce3b9401968459bcb65004ac7654b9c073e6babb6",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T12:50:51.023767Z",
+    "spec_checksum": "sha256:94eaa63c6a087d3e3de76d8567b6c0644d900d39623ae6b854ec6e4cb10c08ae",
     "spec_format": "openapi3"
   }
 }

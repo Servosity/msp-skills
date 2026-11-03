@@ -3,17 +3,32 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
+	"os"
 
 	"xero-pp-cli/internal/store"
 )
 
-// openXeroStore opens the local SQLite store at dbPath, falling back to the
-// canonical default path. Callers must Close the returned store.
+// openXeroStore opens the local SQLite store at dbPath (default: the canonical
+// path) READ-ONLY. The analytics are MCP read-only tools, so a read must never
+// create the file, its directory or a schema: a missing store returns
+// (nil, nil), which the loaders below treat as nothing synced. Callers release
+// it with closeXeroStore.
 func openXeroStore(ctx context.Context, dbPath string) (*store.Store, error) {
 	if dbPath == "" {
 		dbPath = defaultDBPath("xero-cli")
 	}
-	return store.OpenWithContext(ctx, dbPath)
+	if _, err := os.Stat(dbPath); errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return store.OpenReadOnlyContext(ctx, dbPath)
+}
+
+func closeXeroStore(db *store.Store) {
+	if db != nil {
+		_ = db.Close()
+	}
 }
 
 // loadAllRows returns every synced row of resourceType. It deliberately uses a
@@ -22,6 +37,9 @@ func openXeroStore(ctx context.Context, dbPath string) (*store.Store, error) {
 // not a truncated page. Returns an empty slice (not an error) when nothing is
 // synced, so analytics on an empty store return empty results and exit 0.
 func loadAllRows(db *store.Store, resourceType string) ([]json.RawMessage, error) {
+	if db == nil {
+		return nil, nil
+	}
 	rows, err := db.Query(`SELECT data FROM resources WHERE resource_type = ?`, resourceType)
 	if err != nil {
 		return nil, err
@@ -47,6 +65,9 @@ type rowWithID struct {
 // loadRowsWithID returns every synced row of resourceType paired with its store
 // id. Used by `since`, which reports which records changed, not just how many.
 func loadRowsWithID(db *store.Store, resourceType string) ([]rowWithID, error) {
+	if db == nil {
+		return nil, nil
+	}
 	rows, err := db.Query(`SELECT id, data FROM resources WHERE resource_type = ?`, resourceType)
 	if err != nil {
 		return nil, err

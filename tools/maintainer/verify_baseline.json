@@ -189,11 +189,6 @@
   "wordpress": [
    "read-only",
    "local-data"
-  ],
-  "xero": [
-   "mcp-http",
-   "read-only",
-   "local-data"
   ]
  },
  "known_errors": {
