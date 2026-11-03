@@ -97,6 +97,8 @@ rather than the raw mirror.
 The full source of the CLI and MCP server is in this repository under
 [`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
 the Cork API, and you can read every line of how it does so. The MCP server speaks
-stdio only - it does not open a network listener - so the whole-fleet read key it
-holds is reachable only by the local agent process you started it from. The skill is
+stdio by default - it does not open a network listener - so the whole-fleet read key it
+holds is reachable only by the local agent process you started it from. Its HTTP mode,
+for remote agents, refuses to start until `CORK_MCP_HTTP_TOKEN` is set and rejects any
+request without that bearer token. The skill is
 read-first, plan-by-default, and scoped to your own account.
