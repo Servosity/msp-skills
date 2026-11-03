@@ -238,7 +238,7 @@ magic): the whole file, whoever mapped it and whatever range, is recorded whenev
 `munmap`, `msync`, `exec` and exit of any traced process, when it is made and when the record ends, and judged on every process's held set. A write into the record itself is refused
 the same way, no process writes a core file, and a record cut short (the recorder killed) fails the
 case; the harness's timeout stops the recorder with SIGTERM, which kills every traced process and
-still ends the record. Each process's kernel writes to each file are judged like the first layer's
+still ends the record. A thread killed at a stop (another thread's exit) fails nothing unless a write of its had run; a name its call may have made is still recorded. Each process's kernel writes to each file are judged like the first layer's
 (whole and write by write; a stream identical to the one the first layer judged is not judged
 twice; the statement trace's own writes are read through the trace, and only when the trace at rest
 holds every one of them; a name is judged below the case's own directories, every component the

@@ -6603,6 +6603,19 @@ def _k_python() -> bool:
                     print(f"    corpus self-test: kernel record: {why}{direction}: want recorded={want}, got {got} "
                           f"{fails[:2]}")
                     ok = False
+        # corpus8rv, from the fleet run: a process that exits while its other
+        # threads sit in system calls is ordinary (29 false failures in 84
+        # connectors). A thread killed at a stop is no failure of the record.
+        recs = k_run([sys.executable, "-I", "-c",
+                      "import os, threading\nfor _ in range(150):\n    if os.fork():\n        os.wait(); continue\n"
+                      "    def spin():\n        while True:\n            os.stat('/')\n"
+                      "    for _ in range(6):\n        threading.Thread(target=spin, daemon=True).start()\n"
+                      "    for _ in range(50):\n        os.stat('/')\n    os._exit(0)\n"],
+                     tempfile.mkdtemp(dir=tmp), timeout=300)
+        bad = None if recs is None else [u[:80] for _p, k, u in recs if k == K_FAIL]
+        if bad is None or bad:
+            print(f"    corpus self-test: kernel record: threads in system calls at their process's exit: {bad}")
+            ok = False
         # The record ends at a timeout (SIGTERM) and is cut when the recorder is killed.
         for how, want in (("term", True), ("kill", False)):
             recs = k_run([sys.executable, "-I", "-c", "import time; time.sleep(30)"], tempfile.mkdtemp(dir=tmp),

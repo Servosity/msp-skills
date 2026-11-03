@@ -288,6 +288,22 @@ func th(tid int) *thread {
 }
 
 func fail(t *thread, tid int, why string) {
+	if leftStop(tid) {
+		return
+	}
+	failNow(t, tid, why)
+}
+
+// leftStop: the thread is no longer at the system-call stop being handled.
+// Nobody resumed it, so only a kill took it out (another thread's exit_group,
+// ordinary). The kernel skips a call whose entry stop was killed, and the
+// thread's next report (an exit event, its end) is still to come.
+func leftStop(tid int) bool {
+	si, err := syscallInfo(tid)
+	return errors.Is(err, syscall.ESRCH) || (err == nil && si.Op == 0)
+}
+
+func failNow(t *thread, tid int, why string) {
 	emit(t.tgid, kFail, []byte(why))
 	_ = syscall.Kill(t.tgid, syscall.SIGKILL)
 	_ = syscall.Kill(tid, syscall.SIGKILL)
@@ -879,7 +895,7 @@ func exit(tid int, t *thread, rval int64) {
 		}
 	}
 	if err != nil {
-		fail(t, tid, names[t.nr]+": the bytes it wrote cannot be read: "+err.Error())
+		failNow(t, tid, names[t.nr]+": the bytes it wrote cannot be read: "+err.Error()) // the call ran
 		return
 	}
 	if p.off >= 0 {
@@ -1112,8 +1128,13 @@ func main() {
 			break // ECHILD: no traced process is left
 		}
 		if ws.Exited() || ws.Signaled() {
-			if t := threads[tid]; t != nil && t.inSys && t.pre.reg && !t.pre.skip {
-				emit(t.tgid, kFail, []byte(names[t.nr]+": the process ended inside the call, so its bytes are not read"))
+			if t := threads[tid]; t != nil && t.inSys {
+				for _, n := range t.pre.names { // the call may have made them
+					emit(t.tgid, kName, n)
+				}
+				if t.pre.reg && !t.pre.skip {
+					emit(t.tgid, kFail, []byte(names[t.nr]+": the process ended inside the call, so its bytes are not read"))
+				}
 			}
 			dropMem(tid)
 			delete(seen, tid)
@@ -1149,8 +1170,11 @@ func main() {
 			}
 		case s == syscall.SIGTRAP|0x80:
 			si, err := syscallInfo(tid)
+			if errors.Is(err, syscall.ESRCH) || (err == nil && si.Op == 0) {
+				continue // it left this stop (leftStop), not resumed: its next report is on its way
+			}
 			if err != nil {
-				fail(t, tid, "the system call cannot be read: "+err.Error())
+				failNow(t, tid, "the system call cannot be read: "+err.Error())
 				s = 0
 				break
 			}
