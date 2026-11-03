@@ -290,9 +290,10 @@ From then on every connector runs the new line in CI, so the finding never has t
 review again.
 
 **Two verdicts depend on the run.** A random value's bytes exhausting the matcher's budget (contract
-6.7) and a write split at a pause (6.9) can fail a case on one run and not the next: on the first full
-run about one row in six failed on one. A case whose every reason is one of those two gets two more
-attempts. Any other reason, on any attempt, stands at once; a real leak fails every attempt.
+6.7) and the request id row's frame split at a pause (6.9 of the id 6.1 excuses) can fail a case on one
+run and not the next: on the first full run about one row in six failed on one. A case whose every
+reason is one of those two gets two more attempts. Any other reason, on any attempt, stands at once,
+including any other stream failure: a whole short credential in one write, then a pause, is a leak.
 
 **The baseline only shrinks.** `corpus_baseline.json` lists, per connector, the gated cases it
 fails on main today. In the CI row a listed failure is reported as a known failure; any other gated

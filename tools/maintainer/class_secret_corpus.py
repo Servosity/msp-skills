@@ -88,6 +88,7 @@ import argparse
 import atexit
 import base64
 import codecs
+import collections
 import fnmatch
 import functools
 import gzip
@@ -3947,17 +3948,21 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 
 
 # Two verdicts depend on the run, not the connector: a random value's bytes
-# exhausting the budget (contract 6.7) and a write split at a pause (6.9). On
-# the list's first full run about one row in six failed on one of them, so a
-# change running every row would never be green. A leak fails every attempt.
-CHANCE = ("ran out of budget", "(Streams: write")
+# exhausting the budget (contract 6.7), and the request id row's frame split
+# at a pause (6.9 of the id 6.1 excuses, the only row that showed it). On the
+# list's first full run about one row in six failed on one of them, so a change
+# running every row would never be green. Any other stream failure stands: a
+# whole short credential in one write, then a pause, is a leak a retry would
+# hide by joining the writes.
+def _by_chance(r: dict, why: str) -> bool:
+    return "ran out of budget" in why or ("(Streams: write" in why and r.get("advisory") == "6.1")
 
 
 def settle(r: dict, again) -> dict:
-    """A FAIL whose every reason is one of CHANCE gets two more attempts; the
+    """A FAIL whose every reason is by chance gets two more attempts; the
     first attempt that fails for another reason, or does not fail, stands."""
     for _ in range(2):
-        if r["verdict"] != "FAIL" or not r["where"] or not all(any(c in w for c in CHANCE) for w in r["where"]):
+        if r["verdict"] != "FAIL" or not r["where"] or not all(_by_chance(r, w) for w in r["where"]):
             break
         r = again()
     return r
@@ -6633,6 +6638,25 @@ def _k_python() -> bool:
         if bad is None or bad:
             print(f"    corpus self-test: kernel record: threads in system calls at their process's exit: {bad}")
             ok = False
+        # corpus8rv round 4: a program killed as it starts received its argv and
+        # environment all the same: each exec that ran has its record, or a fail.
+        recs = k_run([sys.executable, "-I", "-c",
+                      "import os, signal, time\nfor i in range(400):\n    p = os.fork()\n    if p == 0:\n"
+                      "        os.execv('/bin/true', ['true'])\n    time.sleep((i % 40) * 0.00005)\n"
+                      "    os.kill(p, signal.SIGKILL)\n    os.wait()\n"],
+                     tempfile.mkdtemp(dir=tmp), timeout=300)
+        if recs is None:
+            print("    corpus self-test: kernel record: a program killed as it starts: the record was cut short")
+            ok = False
+        else:
+            ran = collections.Counter(p_ for p_, k, _u in recs if k == K_EXEC)
+            said = collections.Counter(p_ for p_, k, _u in recs if k == K_ARGS)
+            failed = {p_ for p_, k, _u in recs if k == K_FAIL}
+            lost = [p_ for p_, n in ran.items() if said[p_] < n and p_ not in failed]
+            if lost:
+                print(f"    corpus self-test: kernel record: a program killed as it starts: {len(lost)} of {len(ran)} execs "
+                      "have no record of what they received")
+                ok = False
         # The record ends at a timeout (SIGTERM) and is cut when the recorder is killed.
         for how, want in (("term", True), ("kill", False)):
             recs = k_run([sys.executable, "-I", "-c", "import time; time.sleep(30)"], tempfile.mkdtemp(dir=tmp),
@@ -6779,7 +6803,12 @@ def _settle_probe() -> bool:
         return {"verdict": "FAIL", "where": list(why)}
     for why, seq, want_v, want_n in (
             ("budget, then clean", [fails(budget), {"verdict": "PASS", "where": []}], "PASS", 2),
-            ("split, then advisory", [fails(stream), {"verdict": "ADVISORY", "where": []}], "ADVISORY", 2),
+            ("split on the id row, then advisory", [dict(fails(stream), advisory="6.1"), {"verdict": "ADVISORY", "where": []}], "ADVISORY", 2),
+            # corpus8rv round 4: a whole short credential in one write, then a
+            # pause, is a leak a retry would hide by joining the writes.
+            ("a stream failure on any other row: no second attempt", [fails(stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("a stream failure on another advisory row: no second attempt", [dict(fails(stream), advisory="6.5"), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("budget and a stream failure beside it: no second attempt", [fails(budget, stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
             ("the same reason every attempt", [fails(budget)] * 3, "FAIL", 3),
             ("a leak: no second attempt", [fails(leak), {"verdict": "PASS", "where": []}], "FAIL", 1),
             ("a leak beside a chance reason: no second attempt", [fails(budget, leak), {"verdict": "PASS", "where": []}], "FAIL", 1),

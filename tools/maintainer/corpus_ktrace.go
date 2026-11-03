@@ -223,18 +223,17 @@ type thread struct {
 
 // What a call's entry saw, for its exit.
 type pre struct {
-	skip   bool
-	fd     int
-	ident  string // "dev:ino" of the destination file
-	name   string
-	reg    bool
-	off    int64 // where the bytes go; -1 when appended
-	size   int64 // the file's size before the call
-	names  [][]byte
-	isShm  bool
-	creat  bool
-	isExec bool
-	shm    *os.File // the -shm file, opened through the process's descriptor
+	skip  bool
+	fd    int
+	ident string // "dev:ino" of the destination file
+	name  string
+	reg   bool
+	off   int64 // where the bytes go; -1 when appended
+	size  int64 // the file's size before the call
+	names [][]byte
+	isShm bool
+	creat bool
+	shm   *os.File // the -shm file, opened through the process's descriptor
 }
 
 type mapping struct {
@@ -754,7 +753,6 @@ func entry(tid int, t *thread) {
 		scanMaps(t.tgid)
 	case cExecve, cExecveat:
 		scanMaps(t.tgid)
-		t.pre.isExec = true
 	case cIoctl:
 		f, err := fdOf(tid, fdArg(a[0]))
 		if err != nil && !noFd(err) {
@@ -800,39 +798,40 @@ func entry(tid int, t *thread) {
 	}
 }
 
+// recordExec: what a program received, installed by the kernel and not yet
+// reachable by any code (every other thread is gone, the memory is new), read
+// at the exec event, so a program killed as it starts still has its record: the
+// unit of contract 2, never a buffer read at the call's entry. An exec that
+// passes on what it was given (env to python, a shell script's exec "$@") gives
+// nothing new but its argv[0]. The chain is who started this process, nearest
+// first, kept from each fork: a parent id changes when a parent exits.
+func recordExec(t *thread, tid int) {
+	cl, err1 := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", tid))
+	ev, err2 := os.ReadFile(fmt.Sprintf("/proc/%d/environ", tid))
+	if err1 != nil || err2 != nil {
+		failNow(t, tid, "exec: the argv or environment the program received cannot be read") // the exec ran
+		return
+	}
+	argv, env := nulSplit(cl), nulSplit(ev)
+	full := 1
+	if g := givens[t.tgid]; g != nil && passedOn(g, argv, env) {
+		full = 0
+	}
+	chain := strconv.Itoa(t.tgid)
+	for q, n := starter[t.tgid], 0; q != 0 && n < 64; q, n = starter[q], n+1 {
+		chain += " " + strconv.Itoa(q)
+	}
+	emit(t.tgid, kArgs, append([]byte(fmt.Sprintf("%s\n%d\n%d\n", chain, full, len(argv))),
+		bytes.Join(append(append([][]byte{}, argv...), env...), []byte{0})...))
+	givens[t.tgid] = &given{argv, env}
+}
+
 func exit(tid int, t *thread, rval int64) {
 	c := table[t.nr]
 	p := t.pre
 	a := t.args
 	for _, n := range p.names {
 		emit(t.tgid, kName, n)
-	}
-	if p.isExec && rval == 0 {
-		// What the program received, installed by the kernel and not yet
-		// reachable by any code (every other thread is gone, the memory is
-		// new): the unit of contract 2, never a buffer read at the call's
-		// entry. An exec that passes on what it was given (env to python, a
-		// shell script's exec "$@") gives nothing new but its argv[0]. The
-		// chain is who started this process, nearest first, kept from each
-		// fork: a parent id changes when a parent exits.
-		cl, err1 := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", tid))
-		ev, err2 := os.ReadFile(fmt.Sprintf("/proc/%d/environ", tid))
-		if err1 != nil || err2 != nil {
-			fail(t, tid, "exec: the argv or environment the program received cannot be read")
-			return
-		}
-		argv, env := nulSplit(cl), nulSplit(ev)
-		full := 1
-		if g := givens[t.tgid]; g != nil && passedOn(g, argv, env) {
-			full = 0
-		}
-		chain := strconv.Itoa(t.tgid)
-		for q, n := starter[t.tgid], 0; q != 0 && n < 64; q, n = starter[q], n+1 {
-			chain += " " + strconv.Itoa(q)
-		}
-		emit(t.tgid, kArgs, append([]byte(fmt.Sprintf("%s\n%d\n%d\n", chain, full, len(argv))),
-			bytes.Join(append(append([][]byte{}, argv...), env...), []byte{0})...))
-		givens[t.tgid] = &given{argv, env}
 	}
 	switch c {
 	case cOpen, cOpenat, cOpenat2, cCreat:
@@ -1211,6 +1210,7 @@ func main() {
 				dropMem(old)
 				exe, _ := os.Readlink(fmt.Sprintf("/proc/%d/exe", tid))
 				emit(t.tgid, kExec, []byte(exe))
+				recordExec(t, tid)
 				t.inSys = true // the execve exit stop follows
 			case syscall.PTRACE_EVENT_EXIT:
 				scanMaps(t.tgid)
