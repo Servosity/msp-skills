@@ -415,7 +415,7 @@
     },
     {
      "file": "SKILL.md",
-     "contains": "`state` contains `teach.log`",
+     "contains": "`state` contains persisted queries, jobs, and `teach.log`",
      "min_count": 1,
      "code_only": false
     },
