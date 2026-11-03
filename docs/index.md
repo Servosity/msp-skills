@@ -133,7 +133,7 @@ In the **ChatGPT desktop app**, yes. It runs MCP servers locally (STDIO), the wa
 
 ### Does this work with Claude?
 
-Yes - **Claude Code**, **Claude Desktop**, and the **Claude.ai** web (via Claude Desktop's MCP). Claude Code reads the Skill directly; Claude Desktop loads each connector as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
+Yes - **Claude Code** and **Claude Desktop**. **Claude.ai on the web** is not supported yet: it needs a remote (HTTP) server, which [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md) pauses. Claude Code reads the Skill directly; Claude Desktop loads each connector as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
 
 ### Do I need to know how to code?
 

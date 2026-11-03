@@ -1,6 +1,6 @@
 # Run your MSP tools by asking - MCP servers and Skills for the AI you already use
 
-**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that speaks MCP. Ask a plain-English question about your stack and get a real answer back.
+**MSP Skills** connects your PSA, RMM, backup, and more to the AI you already use - **Claude**, **ChatGPT**, **Codex**, **Cursor**, **Windsurf**, or any agent that runs local MCP servers. Ask a plain-English question about your stack and get a real answer back.
 <!-- hero-live:start -->
 84 connectors are live today - including Servosity, ConnectWise PSA, HubSpot, and HaloPSA - and more PSA, RMM, backup, and M365 connectors ship every week.
 <!-- hero-live:end -->
@@ -292,7 +292,7 @@ The five agents MSP owners actually use:
 | **Codex CLI** (OpenAI) | OpenAI's terminal agent for the same audience | Paste the install prompt above |
 | **Claude Cowork** (Anthropic, GA Mar 2026) | Desktop agent that runs shell on your behalf | Paste the install prompt above |
 
-> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI. MSP Skills speaks the open MCP standard, so any current or future MCP-capable agent can use it. Full per-tool deep-dive: **[docs/which-agent.md](./docs/which-agent.md)**.
+> **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI. MSP Skills speaks the open MCP standard, so any current or future agent that runs local (STDIO) MCP servers can use it. Full per-tool deep-dive: **[docs/which-agent.md](./docs/which-agent.md)**.
 
 > **Run more than one agent?** Install MSP Skills across all 51+ supported agents at once: `npx skills add Servosity/msp-skills@latest` (requires Node.js, then run the per-skill installer for the CLI/MCP binaries). Details in [docs/which-agent.md](./docs/which-agent.md#install-across-all-your-agents-at-once).
 
@@ -329,7 +329,7 @@ In the **ChatGPT desktop app**, yes. It runs MCP servers locally (STDIO), which 
 
 ### Does this work with Claude?
 
-Yes - **Claude Code**, **Claude Desktop**, and **Claude.ai** web (via Claude Desktop's MCP). Claude Code reads the Skill directly. For Claude Desktop, run the installer, then go to **Settings > Extensions** to register the MCP server - the panel walks you through it without editing JSON. (Power users can still hand-edit `claude_desktop_config.json` via Settings > Developer > Edit Config if you prefer.) Both paths are first-class.
+Yes - **Claude Code** and **Claude Desktop**. **Claude.ai on the web** is not supported yet: it needs a remote (HTTP) server, which [SECURITY.md](./SECURITY.md) pauses. Claude Code reads the Skill directly. For Claude Desktop, run the installer, then go to **Settings > Extensions** to register the MCP server - the panel walks you through it without editing JSON. (Power users can still hand-edit `claude_desktop_config.json` via Settings > Developer > Edit Config if you prefer.) Both paths are first-class.
 
 ### Is my PSA, CRM, or backup data safe? Does it leave my network?
 

@@ -112,7 +112,7 @@ claude mcp add servosity -- servosity-mcp
 claude mcp list   # confirm status
 ```
 
-For HTTP / remote: `claude mcp add --transport http <name> <url>`. Source: [code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp).
+MSP Skills connectors run as local (STDIO) servers; HTTP mode is paused (see [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md)). Source: [code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp).
 
 ---
 
