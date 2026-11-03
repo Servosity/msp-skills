@@ -274,11 +274,6 @@
    "read-only",
    "local-data"
   ],
-  "watchguard": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "wordpress": [
    "read-only",
    "local-data"
