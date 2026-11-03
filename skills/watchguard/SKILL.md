@@ -1,6 +1,6 @@
 ---
 name: watchguard
-description: "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server. Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`."
+description: "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "WatchGuard"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/watchguard/install.ps1
 ---
 
-# WatchGuard Cloud  -  Printing Press CLI
+# WatchGuard Cloud Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -51,7 +51,7 @@ Use this CLI when an MSP or admin needs to read or act on WatchGuard Cloud: Fire
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use it for locally-managed Fireboxes; the Firebox Management API only reaches cloud-managed devices
+- Do not use it to manage firewall policies on locally-managed Fireboxes; WatchGuard's Firebox Management API manages firewall policies only for cloud-managed Fireboxes (device status, firmware and offline checks cover every Firebox in WatchGuard Cloud that runs Fireware v12.5.3 or higher)
 - Do not use it for Panda-branded Aether products (Adaptive Defense 360, Endpoint Protection); those use the separate Aether Endpoint Security API
 - Do not use it to place distributor orders or create Tier-1 partner accounts; those Subscription Billing APIs are distributor-only
 - Do not use it for on-premises WatchGuard System Manager, Dimension or Fireware Web UI tasks
@@ -96,7 +96,7 @@ Do not use this CLI for:
   ```
 
 ### Change control
-- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
   _Use this right after a deploy so a script or agent gets a pass or fail instead of polling._
 
@@ -120,6 +120,17 @@ Do not use this CLI for:
   watchguard-cli firebox-devices firmware-lag --agent
   ```
 
+## Safety for agents
+
+- **Read freely:** `accounts health`, `endpoint-devices posture`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices changes` / `firmware-lag`, `firebox-transactions wait`, `sync`, `search`, and every `list` / `get` except the credential reads below.
+- **Ask a human first, every time:** `firebox-bovpn-tunnels list` / `get` (BOVPN pre-shared keys), `firebox-certificates list` / `get` (private keys and their passwords), `firebox-networks list` / `get` (PPPoE, Dynamic DNS and Wi-Fi credentials), `firebox-users list` / `get` and `firebox-content-filtering list` / `get` (passwords), `activations list-recent` / `status` (activation keys), `allocations list-owned` / `list-assigned` / `summary` (serial numbers and software license keys) and `endpoint-installers` (an enrollment download link) print secrets in plaintext; `export activations` prints or writes activation keys too; and `--deliver webhook:<url>` on any command posts its output off the machine. The response cache never stores those responses, and the local mirror never stores those fields: allocation rows keep Firebox and access point serial numbers, and a software license key only as a one-way fingerprint (see governance.md).
+- **Preview, then ask:** no CLI write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
+- **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every state-changing call; GET credential reads still pass and return their secrets to the agent, and the cross-customer report tools still send the audience lookup, so pair it with the read-only Access ID. Through MCP, `watchguard_execute` returns a preview of a write and sends it only when called again with `confirm` set to the JSON boolean `true`. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
+- **Credentials:** a cached token is reused only by a process with the same Access ID, scope and token URL; a process with a different Access ID and no password stops with exit 4 instead of borrowing it. Give a reporting agent the read-only Access ID.
+- **Service Provider fan-out:** `accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue` and `allocations reconcile` exit 6 when any read failed (listed in `fetch_failures`, each row's `errors`, or `incidents_error` / `licenses_error` / `account_names_error`) and 5 when nothing could be read; a 401 or 403 on the first shared lookup (the managed-account list, the incident read or the allocation lookup) exits 4 (an auth or permission error) instead. WatchGuard documents no separate answer for a product a customer does not have, so that also counts as a failed read. In `accounts health` a failed count is `null`, the row says `complete: false` and is listed first. Report the failures; never read a missing count as zero or healthy.
+- Refresh the mirror with `sync --full`, not a bare `sync`: no WatchGuard resource syncs incrementally, and only a full run prunes Fireboxes and rows that disappeared, so `firebox-devices changes` reports them as removed. The Firebox device sync includes every Subscriber account's devices by default (`include_hierarchy=true`).
+- Other GET responses are cached on disk for 5 minutes. After a change, re-run a report with `--no-cache` or you get the earlier answer.
+
 ## Command Reference
 
 **accounts**  -  Manage accounts
@@ -139,7 +150,7 @@ Do not use this CLI for:
 **allocations**  -  Manage allocations
 
 - `watchguard-cli allocations allocate`  -  Allocate an asset to a managed account.
-- `watchguard-cli allocations deallocate`  -  Remove an allocated asset from a managed account.
+- `watchguard-cli allocations deallocate`  -  Remove an allocated asset from a managed account: `--managed-account-id` names the customer, `--account-id` your Service Provider account.
 - `watchguard-cli allocations list-allocated`  -  Returns a list of allocated assets (devices and software licenses) for a Service Provider's managed accounts.
 - `watchguard-cli allocations list-assigned`  -  Returns a list of assets (devices and software licenses) allocated to a specific account.
 - `watchguard-cli allocations list-owned`  -  Returns a list of assets (devices and software licenses) owned by a specific account.
@@ -149,7 +160,7 @@ Do not use this CLI for:
 
 **audiences**  -  Manage audiences
 
-- `watchguard-cli audiences`  -  Sets and returns the audience parameter value for the specified managed account.
+- `watchguard-cli audiences`  -  Returns the audience parameter value for the specified managed account.
 
 **authpoint**  -  Manage authpoint
 
@@ -179,11 +190,11 @@ Do not use this CLI for:
 
 **endpoint-installers**  -  Manage endpoint installers
 
-- `watchguard-cli endpoint-installers`  -  Retrieves the URL to download an installation package that installs Panda software with the specified managed
+- `watchguard-cli endpoint-installers`  -  Retrieves the URL to download an installation package that installs WatchGuard Endpoint Security software with the specified managed configuration settings on a device.
 
 **endpoint-licenses**  -  Manage endpoint licenses
 
-- `watchguard-cli endpoint-licenses`  -  Retrieves license information for Panda products associated with your WatchGuard Cloud account.
+- `watchguard-cli endpoint-licenses`  -  Retrieves license information for WatchGuard Endpoint Security products associated with your WatchGuard Cloud account.
 
 **endpoint-patches**  -  Manage endpoint patches
 
@@ -537,7 +548,7 @@ Do not use this CLI for:
 
 **firebox-transactions**
 
-- `watchguard-cli firebox-transactions wait`  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- `watchguard-cli firebox-transactions wait`  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
 **threatsync-incidents**
 
@@ -558,7 +569,7 @@ watchguard-cli which "<capability in your own words>"
 ### Fleet status with only the fields you need
 
 ```bash
-watchguard-cli firebox-devices --include-hierarchy --agent --select data.id,data.name,data.state,data.version,data.offline_since
+watchguard-cli firebox-devices --include-hierarchy --agent --select id,name,state,version,offline_since
 ```
 
 Every Firebox, FireCluster and Access Point including subscriber devices, narrowed to state and firmware.
@@ -597,19 +608,20 @@ Blocks until the device's newest deployment completes (exit 0) or fails (exit 8)
 
 ## Auth Setup
 
-Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to the deu (EMEA) or jpn (APAC) hosts shown on the Managed Access page. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
+Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL to https://api.deu.cloud.watchguard.com (EMEA) or https://api.jpn.cloud.watchguard.com (APAC) - the host Managed Access shows, without its /rest/ suffix - and WATCHGUARD_TOKEN_URL to the same host plus /oauth/token. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
 
 Run `watchguard-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`. On the cross-customer reports (`accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue`, `allocations reconcile`) `--agent` also adds the `{meta, results}` envelope below, which those four flags alone do not.
 
 Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
 - `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -936,7 +948,7 @@ If `--wait` times out or polling fails after the job was accepted, the command e
 | 5 | API error (upstream issue) |
 | 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
-| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit). For `firebox-transactions wait`: the deployment FAILED. |
+| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit). For `firebox-transactions wait`: the deployment ENDED WITHOUT COMPLETING (failed, timed out or canceled; see `status`). |
 | 9 | `firebox-transactions wait` only: the transaction was still running when --max-wait elapsed |
 | 10 | Config error |
 
@@ -957,7 +969,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `watchguard-mcp --transport http` requires `WATCHGUARD_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `WATCHGUARD_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `WATCHGUARD_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `watchguard-mcp --transport http` requires `WATCHGUARD_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `WATCHGUARD_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `WATCHGUARD_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

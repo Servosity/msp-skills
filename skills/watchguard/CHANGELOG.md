@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `WATCHGUARD_MCP_HTTP_TOKEN` is set (32 characters or more), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` on any other address. `watchguard_execute` previews every state-changing call until `confirm` is the JSON boolean `true`. `WATCHGUARD_NO_LOCAL_DATA` is now declared on every install channel next to `WATCHGUARD_MCP_HTTP_TOKEN` and `WATCHGUARD_MCP_READ_ONLY`.
+- A managed account's scoped token is sent only to the origin it was minted for, and a scoped token request refuses a plaintext (non-loopback `http://`) token URL.
+
+### Added
+- `local-data purge` previews, then (with `--yes`) erases the local store, response cache and learn journal. `WATCHGUARD_NO_LOCAL_DATA=1` runs with no local copy: reads go to the API and `sync` is blocked.
+- `--ca-cert` / `WATCHGUARD_CA_CERT` adds a PEM CA bundle, and `--tls-server-name` / `WATCHGUARD_TLS_SERVER_NAME` sets the name checked against the server certificate.
+
+### Changed
+- Sync partitions follow the 4.35.1 names: the per-account operator list is `rest_platform_operator_mgmt_v1_operators_by_account_id`, and account and Firebox template rows are kept in the generic resources table. The seven Firebox exception lists are keyed on each exception's `id`, and an account's children on `accountId`.
+
+### Fixed
+- `accounts health` reads Firebox and access point expiry per device from the allocated-inventory summary. A license row that carries no expiry evidence is counted in `licenses_expiry_unknown`, marks the account incomplete and exits 6; `allocations reconcile` lists such rows in `expiry_unknown`.
+- `accounts health` and `allocations reconcile` take a row's expiry from the earliest of `allocationExpiryDate`, `licenseExpiryDate` and `daysUntilExpiry`, and report which field it came from in `expiry_field`. A present but unreadable expiry value makes the row expiry-unknown.
+
 ## [0.1.3] - 2026-10-23
 
 ### Security

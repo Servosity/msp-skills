@@ -1,7 +1,7 @@
 {
   "name": "watchguard",
   "version": "0.1.3",
-  "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
+  "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

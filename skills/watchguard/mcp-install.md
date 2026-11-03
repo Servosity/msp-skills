@@ -37,15 +37,27 @@ Add (or merge with your existing `mcpServers` block):
     "watchguard": {
       "command": "watchguard-mcp",
       "env": {
-        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
-        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
         "WATCHGUARD_CLIENT_ID": "<your-watchguard_client_id>",
-        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>"
+        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>",
+        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
+        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
+        "WATCHGUARD_BASE_URL": "",
+        "WATCHGUARD_TOKEN_URL": "",
+        "WATCHGUARD_AUDIENCE": "",
+        "WATCHGUARD_OAUTH_SCOPE": "",
+        "WATCHGUARD_USER_AGENT": "",
+        "WATCHGUARD_MCP_READ_ONLY": "1",
+        "WATCHGUARD_MCP_HTTP_TOKEN": "",
+        "WATCHGUARD_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
 }
 ```
+
+`WATCHGUARD_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to make changes.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -65,10 +77,19 @@ Configuration**) and add:
       "type": "stdio",
       "command": "watchguard-mcp",
       "env": {
-        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
-        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
         "WATCHGUARD_CLIENT_ID": "<your-watchguard_client_id>",
-        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>"
+        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>",
+        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
+        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
+        "WATCHGUARD_BASE_URL": "",
+        "WATCHGUARD_TOKEN_URL": "",
+        "WATCHGUARD_AUDIENCE": "",
+        "WATCHGUARD_OAUTH_SCOPE": "",
+        "WATCHGUARD_USER_AGENT": "",
+        "WATCHGUARD_MCP_READ_ONLY": "1",
+        "WATCHGUARD_MCP_HTTP_TOKEN": "",
+        "WATCHGUARD_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -89,10 +110,19 @@ Claude Desktop:
     "watchguard": {
       "command": "watchguard-mcp",
       "env": {
-        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
-        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
         "WATCHGUARD_CLIENT_ID": "<your-watchguard_client_id>",
-        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>"
+        "WATCHGUARD_CLIENT_SECRET": "<your-watchguard_client_secret>",
+        "WATCHGUARD_API_KEY": "<your-watchguard_api_key>",
+        "WATCHGUARD_ACCOUNT_ID": "<your-watchguard_account_id>",
+        "WATCHGUARD_BASE_URL": "",
+        "WATCHGUARD_TOKEN_URL": "",
+        "WATCHGUARD_AUDIENCE": "",
+        "WATCHGUARD_OAUTH_SCOPE": "",
+        "WATCHGUARD_USER_AGENT": "",
+        "WATCHGUARD_MCP_READ_ONLY": "1",
+        "WATCHGUARD_MCP_HTTP_TOKEN": "",
+        "WATCHGUARD_NO_LOCAL_DATA": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -177,7 +207,7 @@ hermes mcp add watchguard -- watchguard-mcp
 openclaw mcp set watchguard '{"command":"watchguard-mcp"}'
 ```
 
-Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above, including `WATCHGUARD_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

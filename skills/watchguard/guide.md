@@ -56,11 +56,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=watchguard).
+1. Download `watchguard-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=watchguard).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `WATCHGUARD_CLIENT_ID` (Access ID), `WATCHGUARD_CLIENT_SECRET` (API password), `WATCHGUARD_API_KEY` and `WATCHGUARD_ACCOUNT_ID` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The one bundle carries macOS (universal), Linux (`amd64`) and Windows (`amd64`) binaries; on Windows or Linux `arm64`, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -107,13 +107,13 @@ Set `WATCHGUARD_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that ar
 
 ## Authentication
 
-Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to the deu (EMEA) or jpn (APAC) hosts shown on the Managed Access page. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
+Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL to https://api.deu.cloud.watchguard.com (EMEA) or https://api.jpn.cloud.watchguard.com (APAC) - the host Managed Access shows, without its /rest/ suffix - and WATCHGUARD_TOKEN_URL to the same host plus /oauth/token. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
 
 ## Quick Start
 
 ```bash
-# Confirm the CLI is installed and configured enough to run (no API calls)
-watchguard-cli doctor --dry-run
+# Check config and, with credentials set, make one authenticated read of your account
+watchguard-cli doctor
 
 # Confirm the credentials reach your WatchGuard Cloud account
 watchguard-cli accounts get
@@ -169,7 +169,7 @@ watchguard-cli threatsync-incidents queue --agent
   ```
 
 ### Change control
-- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
   _Use this right after a deploy so a script or agent gets a pass or fail instead of polling._
 
@@ -198,7 +198,7 @@ watchguard-cli threatsync-incidents queue --agent
 ### Fleet status with only the fields you need
 
 ```bash
-watchguard-cli firebox-devices --include-hierarchy --agent --select data.id,data.name,data.state,data.version,data.offline_since
+watchguard-cli firebox-devices --include-hierarchy --agent --select id,name,state,version,offline_since
 ```
 
 Every Firebox, FireCluster and Access Point including subscriber devices, narrowed to state and firmware.
@@ -268,20 +268,11 @@ watchguard-cli doctor
 On Windows (PowerShell):
 
 ```powershell
-$env:WATCHGUARD_HOME = "C:\ProgramData\watchguard"
+$env:WATCHGUARD_HOME = "$env:LOCALAPPDATA\watchguard"
 watchguard-cli doctor
 ```
 
 Under `WATCHGUARD_HOME=/srv/watchguard`, the four dirs resolve to `/srv/watchguard/config`, `/srv/watchguard/data`, `/srv/watchguard/state`, and `/srv/watchguard/cache`.
-
-On Windows, set the same variable in PowerShell:
-
-```powershell
-$env:WATCHGUARD_HOME = "C:\srv\watchguard"
-watchguard-cli doctor
-```
-
-Under `$env:WATCHGUARD_HOME = "C:\srv\watchguard"`, the four dirs resolve to `C:\srv\watchguard\config`, `C:\srv\watchguard\data`, `C:\srv\watchguard\state`, and `C:\srv\watchguard\cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
@@ -341,7 +332,7 @@ Manage allocations
 - **`watchguard-cli allocations allocate`** - Allocate an asset to a managed account.
 
 **Note**: Due to export license and regulatory requirements, this endpoint will no longer accept requests after 15 October 2026 for accounts that do not have company name, industry, first name, last name, and full mailing address.
-- **`watchguard-cli allocations deallocate`** - Remove an allocated asset from a managed account.
+- **`watchguard-cli allocations deallocate`** - Remove an allocated asset from a managed account: `--managed-account-id` names the customer, `--account-id` your Service Provider account.
 - **`watchguard-cli allocations list-allocated`** - Returns a list of allocated assets (devices and software licenses) for a Service Provider's managed accounts.
 - **`watchguard-cli allocations list-assigned`** - Returns a list of assets (devices and software licenses) allocated to a specific account.
 - **`watchguard-cli allocations list-owned`** - Returns a list of assets (devices and software licenses) owned by a specific account.
@@ -368,7 +359,7 @@ For a managed Service Provider account, you can include a single productName or 
 
 Manage audiences
 
-- **`watchguard-cli audiences`** - Sets and returns the audience parameter value for the specified managed account.
+- **`watchguard-cli audiences`** - Returns the audience parameter value for the specified managed account.
 
 ### authpoint
 
@@ -406,13 +397,13 @@ Manage endpoint devices
 
 Manage endpoint installers
 
-- **`watchguard-cli endpoint-installers`** - Retrieves the URL to download an installation package that installs Panda software with the specified managed configuration settings on a device.
+- **`watchguard-cli endpoint-installers`** - Retrieves the URL to download an installation package that installs WatchGuard Endpoint Security software with the specified managed configuration settings on a device.
 
 ### endpoint-licenses
 
 Manage endpoint licenses
 
-- **`watchguard-cli endpoint-licenses`** - Retrieves license information for Panda products associated with your WatchGuard Cloud account.
+- **`watchguard-cli endpoint-licenses`** - Retrieves license information for WatchGuard Endpoint Security products associated with your WatchGuard Cloud account.
 
 ### endpoint-patches
 
@@ -870,7 +861,7 @@ Manage threatsync transactions
 
 ### firebox-transactions
 
-- **`watchguard-cli firebox-transactions wait`** - Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`watchguard-cli firebox-transactions wait`** - Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
 ### threatsync-incidents
 
@@ -927,7 +918,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit) - for `firebox-transactions wait`, the deployment ended without completing (failed, timed out or canceled), `9` `firebox-transactions wait` only: still running when `--max-wait` elapsed, `10` config error.
 
 ## Runtime Endpoint
 
@@ -948,7 +939,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `watchguard-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/watchguard-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\watchguard-cli\config.toml` on Windows; `--home`, `WATCHGUARD_HOME`, and per-kind env vars can relocate it.
+Run `watchguard-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/watchguard-cli/config.toml` (`%USERPROFILE%\.config\watchguard-cli\config.toml` on Windows); `--home`, `WATCHGUARD_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -964,7 +955,7 @@ Environment variables:
 | `WATCHGUARD_ACCOUNT_ID` | endpoint | Yes | Your account ID (ACC-... or WGC-...); `--account-id` overrides it. |
 | `WATCHGUARD_BASE_URL` | endpoint | No | Region API host; default https://api.usa.cloud.watchguard.com (EMEA: api.deu, APAC: api.jpn). |
 | `WATCHGUARD_TOKEN_URL` | endpoint | No | Region token URL; default https://api.usa.cloud.watchguard.com/oauth/token. |
-| `WATCHGUARD_AUDIENCE` | per_call | No | Scope every request to one managed account (value from `audiences --account-id`). |
+| `WATCHGUARD_AUDIENCE` | per_call | No | Send every request with one managed account's token (value from `audiences --account-id`). A convenience, not a security boundary: the audience token also works on your own account. |
 
 ### agentcookie (optional)
 
