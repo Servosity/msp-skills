@@ -48,12 +48,15 @@ type eolReport struct {
 	Note         string         `json:"note,omitempty"`
 }
 
-// Bucket names, ordered most-urgent first.
+// Bucket names, ordered most-urgent first. "unknown" holds devices with no
+// date and no affirmative status: Auvik either has no lifecycle data for them
+// or explicitly says it is unpublished, and neither is a support verdict.
 const (
 	bucketExpired   = "expired"
 	bucket90        = "expiring_90d"
 	bucket365       = "expiring_365d"
 	bucketSupported = "supported"
+	bucketUnknown   = "unknown"
 )
 
 var eolBucketOrder = map[string]int{
@@ -61,6 +64,7 @@ var eolBucketOrder = map[string]int{
 	bucket90:        1,
 	bucket365:       2,
 	bucketSupported: 3,
+	bucketUnknown:   4,
 }
 
 func newNovelEolCmd(flags *rootFlags) *cobra.Command {
@@ -78,8 +82,10 @@ func newNovelEolCmd(flags *rootFlags) *cobra.Command {
 		Short: "See every device approaching or past end-of-support across all your clients at once, bucketed by urgency.",
 		Long: strings.Trim(`
 Buckets every locally synced device into expired / expiring-90d / expiring-365d /
-supported using the earliest of its lifecycle dates (end-of-support, end-of-life,
-end-of-sale) and its warranty expiry, grouped by client.
+supported / unknown using the earliest of its lifecycle dates (end-of-support,
+end-of-life, end-of-sale) and its warranty expiry, grouped by client. A device
+with no date is "supported" only when Auvik affirmatively says it is covered or
+available; no data, "unpublished" and "empty" land in "unknown".
 
 Use this command for hardware support-lifecycle exposure -- end-of-life,
 end-of-sale, and warranty expiry across clients. Do NOT use this command for
@@ -87,7 +93,7 @@ counting billable devices or reconciling invoice counts; use 'usage reconcile'
 instead.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,auvik-inventory-lifecycle,inventory-device-lifecycle,inventory-device-warranty --full
+  auvik-cli sync --resources tenants,inventory-device-info,auvik-inventory-lifecycle,inventory-device-lifecycle,inventory-device-warranty --full
 `, "\n"),
 		Example: strings.Trim(`
   # Everything aging out, most urgent first
@@ -113,7 +119,7 @@ Reads the local mirror. Run this first:
 			if bucket != "" && eolBucketOrder[bucket] == 0 && bucket != bucketExpired {
 				if _, ok := eolBucketOrder[bucket]; !ok {
 					_ = cmd.Usage()
-					return usageErr(fmt.Errorf("--bucket must be one of expired, expiring_90d, expiring_365d, supported"))
+					return usageErr(fmt.Errorf("--bucket must be one of expired, expiring_90d, expiring_365d, supported, unknown"))
 				}
 			}
 
@@ -134,8 +140,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "auvik-inventory-lifecycle") {
-				hintIfStale(cmd, db, "auvik-inventory-lifecycle", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtDeviceLifecycleV2.current()) {
+				hintIfStale(cmd, db, rtDeviceLifecycleV2.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()
@@ -182,7 +188,7 @@ Reads the local mirror. Run this first:
 			report.Rows = rows
 
 			if report.DevicesTotal == 0 {
-				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory --full'"
+				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory-device-info --full'"
 			} else if report.DevicesDated == 0 {
 				report.Note = "devices are synced but no end-of-support dates were found. Auvik's v1 lifecycle resource carries STATUS values only; the dates live on the v2 resource. Run: auvik-cli sync --resources auvik-inventory-lifecycle,inventory-device-warranty --full"
 			}
@@ -194,10 +200,10 @@ Reads the local mirror. Run this first:
 
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "End-of-support exposure as of %s\n", asOf.Format("2006-01-02"))
-			fmt.Fprintf(out, "  expired: %d   expiring 90d: %d   expiring 365d: %d   supported: %d   (of %d devices, %d dated)\n\n",
+			fmt.Fprintf(out, "  expired: %d   expiring 90d: %d   expiring 365d: %d   supported: %d   unknown: %d   (of %d devices, %d dated)\n\n",
 				report.Buckets[bucketExpired], report.Buckets[bucket90],
 				report.Buckets[bucket365], report.Buckets[bucketSupported],
-				report.DevicesTotal, report.DevicesDated)
+				report.Buckets[bucketUnknown], report.DevicesTotal, report.DevicesDated)
 			if len(report.Rows) == 0 {
 				if report.Note != "" {
 					fmt.Fprintln(out, report.Note)
@@ -221,7 +227,7 @@ Reads the local mirror. Run this first:
 	}
 
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
-	cmd.Flags().StringVar(&bucket, "bucket", "", "Only show one bucket: expired, expiring_90d, expiring_365d, supported")
+	cmd.Flags().StringVar(&bucket, "bucket", "", "Only show one bucket: expired, expiring_90d, expiring_365d, supported, unknown")
 	cmd.Flags().StringVar(&client, "client", "", "Only show devices whose client name contains this substring")
 	cmd.Flags().IntVar(&within, "within", 0, "Only show devices whose support ends within this many days")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum rows to return (0 = all)")
@@ -298,7 +304,7 @@ func buildEolReport(devices, lifecyclesV1, lifecyclesV2, warranties []auvikRow, 
 	report := eolReport{
 		GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
 		AsOf:         asOf.Format("2006-01-02"),
-		Buckets:      map[string]int{bucketExpired: 0, bucket90: 0, bucket365: 0, bucketSupported: 0},
+		Buckets:      map[string]int{bucketExpired: 0, bucket90: 0, bucket365: 0, bucketSupported: 0, bucketUnknown: 0},
 		DevicesTotal: len(devices),
 		Rows:         make([]eolRow, 0, len(devices)),
 	}
@@ -333,12 +339,22 @@ func buildEolReport(devices, lifecyclesV1, lifecyclesV2, warranties []auvikRow, 
 		}
 
 		// Status enums are a second, independent signal. A device Auvik already
-		// calls "expired" is expired even when no date was synced.
+		// calls "expired" is expired even when no date was synced. Every status
+		// field is consulted; any expired signal wins.
 		statusExpired := statusMeansExpired(f.lastSupportStat) ||
 			statusMeansExpired(f.swMaintStat) ||
+			statusMeansExpired(f.secSwMaintStat) ||
 			statusMeansExpired(f.warrantyStat)
 		securityOnly := statusMeansSecurityOnly(f.lastSupportStat) ||
 			statusMeansSecurityOnly(f.swMaintStat)
+		// "supported" is an affirmative claim. Without a date it needs a status
+		// that says so; unpublished, empty or no data at all is not one.
+		// salesAvailability is deliberately absent: it describes point-of-sale
+		// availability, not support.
+		statusSupported := statusMeansSupported(f.lastSupportStat) ||
+			statusMeansSupported(f.swMaintStat) ||
+			statusMeansSupported(f.secSwMaintStat) ||
+			statusMeansSupported(f.warrantyStat)
 
 		switch {
 		case hasDate:
@@ -367,12 +383,16 @@ func buildEolReport(devices, lifecyclesV1, lifecyclesV2, warranties []auvikRow, 
 		case securityOnly:
 			row.Bucket = bucket90
 			row.Source = "status securityOnly (no date synced)"
-		default:
+		case statusSupported:
 			row.Bucket = bucketSupported
-			if f.lastSupportStat == "" && f.swMaintStat == "" && f.warrantyStat == "" {
+			row.Source = "status covered/available (no date synced)"
+		default:
+			row.Bucket = bucketUnknown
+			if f.lastSupportStat == "" && f.salesAvailStat == "" && f.swMaintStat == "" &&
+				f.secSwMaintStat == "" && f.warrantyStat == "" {
 				row.Source = "no lifecycle or warranty data"
 			} else {
-				row.Source = "status covered/available (no date synced)"
+				row.Source = "no support verdict: status unpublished or empty (no date synced)"
 			}
 		}
 		report.Buckets[row.Bucket]++

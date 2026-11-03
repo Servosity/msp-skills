@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T13:42:29.523575Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "auvik",
+  "display_name": "Auvik",
+  "cli_name": "auvik-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_url": "https://auvikapi.us1.my.auvik.com/spec",
+  "spec_path": "spec.json",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:5f167d4f42f80726c4fb5caea6bd46f92c177edc5680b54aa72cd0170a223d88",
+  "run_id": "20261102-080554-3401a5bc",
+  "category": "monitoring",
+  "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+  "mcp_binary": "auvik-pp-mcp",
+  "mcp_tool_count": 60,
+  "mcp_ready": "full",
+  "api_version": "v1",
+  "auth_type": "api_key",
+  "auth_preference": "ApiKey",
+  "auth_env_vars": [
+    "AUVIK_USERNAME",
+    "AUVIK_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet end-of-life \u0026 warranty rollup",
+      "command": "eol",
+      "description": "See every device approaching or past end-of-support across all your clients at once, bucketed by urgency."
+    },
+    {
+      "name": "Device change forensics timeline",
+      "command": "changes",
+      "description": "Merge config revisions, audit entries, notes, and alerts for one device into a single chronological story."
+    },
+    {
+      "name": "Configuration backup audit",
+      "command": "configuration audit",
+      "description": "Find devices with no configuration backup, a stale backup, or no running-config backup, across every client."
+    },
+    {
+      "name": "Fleet inventory diff between syncs",
+      "command": "inventory diff",
+      "description": "List devices added, removed, or changed fleet-wide since the last sync, attributed to each client."
+    },
+    {
+      "name": "Billable-count reconciliation",
+      "command": "usage reconcile",
+      "description": "Put each client's billable usage count next to the actual synced inventory and show the device rows behind the difference."
+    },
+    {
+      "name": "Discovery blind spots",
+      "command": "device discovery-gaps",
+      "description": "List every device Auvik cannot fully poll, per client, with the credential state behind each gap."
+    },
+    {
+      "name": "Alert noise ranking",
+      "command": "alert noise",
+      "description": "Rank devices and clients by alert volume over a window, with device names, types, clients and severity mix resolved."
+    },
+    {
+      "name": "SaaS license waste rollup",
+      "command": "asm shadow",
+      "description": "Surface SaaS apps with active users but no license record, and licenses nobody is using, per client."
+    },
+    {
+      "name": "Client network health scorecard",
+      "command": "tenants scorecard",
+      "description": "Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet end-of-life \u0026 warranty rollup",
+      "command": "eol",
+      "description": "See every device approaching or past end-of-support across all your clients at once, bucketed by urgency."
+    },
+    {
+      "name": "Device change forensics timeline",
+      "command": "changes",
+      "description": "Merge config revisions, audit entries, notes, and alerts for one device into a single chronological story."
+    },
+    {
+      "name": "Configuration backup audit",
+      "command": "configuration audit",
+      "description": "Find devices with no configuration backup, a stale backup, or no running-config backup, across every client."
+    },
+    {
+      "name": "Fleet inventory diff between syncs",
+      "command": "inventory diff",
+      "description": "List devices added, removed, or changed fleet-wide since the last sync, attributed to each client."
+    },
+    {
+      "name": "Billable-count reconciliation",
+      "command": "usage reconcile",
+      "description": "Put each client's billable usage count next to the actual synced inventory and show the device rows behind the difference."
+    },
+    {
+      "name": "Discovery blind spots",
+      "command": "device discovery-gaps",
+      "description": "List every device Auvik cannot fully poll, per client, with the credential state behind each gap."
+    },
+    {
+      "name": "Alert noise ranking",
+      "command": "alert noise",
+      "description": "Rank devices and clients by alert volume over a window, with device names, types, clients and severity mix resolved."
+    },
+    {
+      "name": "SaaS license waste rollup",
+      "command": "asm shadow",
+      "description": "Surface SaaS apps with active users but no license record, and licenses nobody is using, per client."
+    },
+    {
+      "name": "Client network health scorecard",
+      "command": "tenants scorecard",
+      "description": "Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 76,
+    "total": 76,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 90,
+      "grade": "A",
+      "total": 90
+    }
+  }
+}

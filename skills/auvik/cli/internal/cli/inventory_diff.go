@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -81,7 +82,7 @@ syncs. Do NOT use this command for the change history of one specific device;
 use 'changes' instead.
 
 Reads the local mirror. Typical loop:
-  auvik-cli sync --resources tenants,inventory --full
+  auvik-cli sync --resources tenants,inventory-device-info --full
   auvik-cli inventory diff --snapshot
 `, "\n"),
 		Example: strings.Trim(`
@@ -126,7 +127,7 @@ Reads the local mirror. Typical loop:
 			empty := inventoryDiffReport{Counts: map[string]int{}, Changes: []inventoryChange{}}
 			if _, statErr := os.Stat(resolved); os.IsNotExist(statErr) {
 				fmt.Fprintf(cmd.ErrOrStderr(),
-					"no local mirror at %s\nrun: auvik-cli sync --resources tenants,inventory --db %s\n",
+					"no local mirror at %s\nrun: auvik-cli sync --resources tenants,inventory-device-info --db %s\n",
 					resolved, resolved)
 				if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 					return printJSONFiltered(cmd.OutOrStdout(), empty, flags)
@@ -160,8 +161,8 @@ Reads the local mirror. Typical loop:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "inventory") {
-				hintIfStale(cmd, db, "inventory", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtDevices.current()) {
+				hintIfStale(cmd, db, rtDevices.current(), flags.maxAge)
 			}
 
 			devices, err := loadResources(ctx, db, rtDevices)
@@ -184,7 +185,7 @@ Reads the local mirror. Typical loop:
 				report.BaselineAt = baselineAt.Format(time.RFC3339)
 			}
 
-			if len(baseline) == 0 {
+			if baseline == nil {
 				report.Changes = []inventoryChange{}
 				report.Counts = map[string]int{"added": 0, "removed": 0, "changed": 0}
 				report.Note = "no prior snapshot to compare against; re-run with --snapshot to record the first baseline"
@@ -301,11 +302,25 @@ func deviceFingerprint(row deviceSnapshotRow) string {
 }
 
 // loadLatestSnapshot returns the newest snapshot at or before `before`
-// (or simply the newest when before is zero). Drain-first: the parent rows are
-// fully scanned and closed before any follow-up query runs.
+// (or simply the newest when before is zero). The map is nil when no snapshot
+// exists and non-nil -- possibly empty -- when one does: an empty fleet is a
+// real baseline, not "no baseline". Drain-first: the parent rows are fully
+// scanned and closed before any follow-up query runs.
 func loadLatestSnapshot(ctx context.Context, db *store.Store, before time.Time) (time.Time, map[string]deviceSnapshotRow, error) {
 	var at time.Time
-	q := `SELECT MAX(snapshot_at) FROM auvik_device_snapshots`
+	// The snapshot index is every instant a snapshot was taken: the runs table
+	// (which also records empty snapshots) plus the device rows themselves,
+	// for snapshots written before the runs table existed.
+	from := `SELECT snapshot_at FROM auvik_device_snapshots`
+	var hasRuns int
+	if err := db.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'auvik_snapshot_runs'`).Scan(&hasRuns); err != nil {
+		return at, nil, fmt.Errorf("reading snapshot index: %w", err)
+	}
+	if hasRuns > 0 {
+		from += ` UNION ALL SELECT snapshot_at FROM auvik_snapshot_runs`
+	}
+	q := `SELECT MAX(snapshot_at) FROM (` + from + `)`
 	args := []any{}
 	if !before.IsZero() {
 		q += ` WHERE snapshot_at <= ?`
@@ -314,13 +329,13 @@ func loadLatestSnapshot(ctx context.Context, db *store.Store, before time.Time) 
 	var raw sql.NullString
 	if err := db.DB().QueryRowContext(ctx, q, args...).Scan(&raw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return at, map[string]deviceSnapshotRow{}, nil
+			return at, nil, nil
 		}
 		// A locked or corrupt store must not masquerade as "no baseline yet".
 		return at, nil, fmt.Errorf("reading snapshot index: %w", err)
 	}
 	if !raw.Valid || raw.String == "" {
-		return at, map[string]deviceSnapshotRow{}, nil
+		return at, nil, nil
 	}
 	at, _ = parseAuvikTime(raw.String)
 
@@ -391,16 +406,30 @@ func saveDeviceSnapshot(ctx context.Context, db *store.Store, current map[string
 			return err
 		}
 	}
+	// Record the snapshot itself, so an empty fleet is still the newest
+	// baseline. A snapshot taken in the same second as an earlier one
+	// replaces it, exactly as its device rows do.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM auvik_device_snapshots WHERE snapshot_at = ? AND device_id NOT IN (SELECT value FROM json_each(?))`,
+		stamp, snapshotIDsJSON(ids)); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR REPLACE INTO auvik_snapshot_runs (snapshot_at, devices) VALUES (?, ?)`, stamp, len(ids)); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
 // buildInventoryDiff is the pure comparison core, split out for table tests.
+// A nil before means there is no baseline and nothing is reported; a non-nil
+// empty before is a real baseline of an empty fleet, so every current device
+// is an addition.
 func buildInventoryDiff(before, after map[string]deviceSnapshotRow, tenants map[string]string) inventoryDiffReport {
 	report := inventoryDiffReport{
 		Counts:  map[string]int{"added": 0, "removed": 0, "changed": 0},
 		Changes: make([]inventoryChange, 0),
 	}
-	if len(before) == 0 {
+	if before == nil {
 		return report
 	}
 
@@ -445,6 +474,15 @@ func buildInventoryDiff(before, after map[string]deviceSnapshotRow, tenants map[
 		}
 	}
 	return report
+}
+
+// snapshotIDsJSON encodes the device ids of one snapshot for json_each.
+func snapshotIDsJSON(ids []string) string {
+	if ids == nil {
+		ids = []string{}
+	}
+	b, _ := json.Marshal(ids)
+	return string(b)
 }
 
 func describeDeviceDelta(old, cur deviceSnapshotRow) string {

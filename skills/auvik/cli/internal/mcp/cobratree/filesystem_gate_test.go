@@ -67,9 +67,15 @@ func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(t *testing.T) {
 // rule is the general gate, but these names are load bearing enough that a
 // reworded usage string must not silently reopen them.
 func TestBlockedDestinationFlagsCoverTheNamedSinks(t *testing.T) {
-	for _, name := range []string{"audit-dir", "db", "home", "input", "o", "out", "output", "receipt-file"} {
-		if !blockedDestinationFlags[name] {
-			t.Fatalf("blockedDestinationFlags is missing %q; an MCP caller could direct a filesystem read or write", name)
+	// Press 4.35.1 split the floor: destinations stay in blockedDestinationFlags,
+	// read paths moved to blockedInputFlags. mcpPathFlagFloor is the union the
+	// forward-time gate consults, so the floor is asserted there.
+	for _, name := range []string{"audit-dir", "db", "from-csv", "home", "input", "notes-file", "o", "out", "output", "playbook-file", "playbook-notes-file", "receipt-file", "reconcile"} {
+		if !mcpPathFlagFloor(name) {
+			t.Fatalf("the forward-time path-flag floor is missing %q; an MCP caller could direct a filesystem read or write", name)
+		}
+		if got := forwardedCLIArgs(map[string]any{name: "/tmp/x"}); len(got) != 0 {
+			t.Fatalf("%q was forwarded with an empty per-command blocked set: %v", name, got)
 		}
 	}
 }

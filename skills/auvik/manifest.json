@@ -20,7 +20,10 @@
         "AUVIK_TENANT": "${user_config.auvik_tenant}",
         "AUVIK_USERNAME": "${user_config.auvik_username}",
         "AUVIK_USER_AGENT": "${user_config.auvik_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "AUVIK_MCP_READ_ONLY": "${user_config.auvik_mcp_read_only}",
+        "AUVIK_NO_LOCAL_DATA": "${user_config.auvik_no_local_data}",
+        "AUVIK_MCP_HTTP_TOKEN": "${user_config.auvik_mcp_http_token}"
       }
     }
   },
@@ -64,6 +67,27 @@
       "title": "Client profile",
       "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
       "required": false
+    },
+    "auvik_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "auvik_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "auvik_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -74,11 +98,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.30.2",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.30.2",
-    "generated_at": "2026-08-14T20:09:54.402026Z",
-    "spec_checksum": "sha256:aba3f4daaeeb65961ffe29b3c7c0e751ef3963573f1bdf72b92a26ad73177ea9",
-    "spec_format": "openapi3"
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T13:42:29.523575Z",
+    "spec_checksum": "sha256:5f167d4f42f80726c4fb5caea6bd46f92c177edc5680b54aa72cd0170a223d88",
+    "spec_format": "internal"
   }
 }
