@@ -289,7 +289,7 @@ func newDnsSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/dns"
@@ -1102,7 +1102,7 @@ func newDnsSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "group_id": true, "group_name": true, "id": true, "machine_id": true, "parent_account_id": true, "policy_id": true, "policy_name": true, "rule_id": true, "rule_name": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -1134,7 +1134,7 @@ func newDnsSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "group_id": true, "group_name": true, "id": true, "machine_id": true, "parent_account_id": true, "policy_id": true, "policy_name": true, "rule_id": true, "rule_name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountId, "account-id", "", "Filter the search by account_id. Search for an exact match")

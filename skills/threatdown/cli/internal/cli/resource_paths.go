@@ -37,11 +37,12 @@ var resourceDetailPaths = map[string]string{ // #nosec G101 -- endpoint paths, n
 	"content_filtering": "/v1/accounts/{account_id}/content-filtering/blockpage",
 	"cve":               "/v1/cve/{id}",
 	"email_protection":  "/v1/accounts/{account_id}/email-protection/account/911-mailbox",
+	"exclusions":        "/v1/exclusions/{id}",
 	"installers":        "/v1/accounts/{account_id}/installers",
 	"notifications":     "/v1/notifications/subscriptions/{id}",
 	"policies":          "/v1/policies/{id}",
 	"preferences":       "/v1/accounts/{account_id}/preferences/account_logo",
-	"sites":             "/v1/sites/{id}/mdr",
+	"sites":             "/v1/sites/{id}",
 	"subscriptions":     "/v1/sites/{id}/subscriptions",
 	"users":             "/v1/users/{id}",
 }
@@ -72,11 +73,11 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 
 var resourceReadConfigs = map[string]resourceReadConfig{
 	"exclusions":    {responsePath: "exclusions", pageSize: 100},
-	"notifications": {responsePath: "records", paginationType: "cursor", cursorParam: "cursor", limitParam: "page_size", nextCursorPath: "next_cursor", hasMoreField: "", pageSize: 100},
+	"notifications": {responsePath: "records", paginationType: "cursor", cursorParam: "next_cursor", limitParam: "page_size", nextCursorPath: "next_cursor", hasMoreField: "", pageSize: 100},
 	"policies":      {responsePath: "policies", pageSize: 100},
 	"sites":         {responsePath: "sites", pageSize: 100},
 	"subscriptions": {responsePath: "entitlements", pageSize: 100},
-	"users":         {responsePath: "users", paginationType: "cursor", cursorParam: "cursor", limitParam: "page_size", nextCursorPath: "next_cursor", hasMoreField: "", pageSize: 100},
+	"users":         {responsePath: "users", paginationType: "cursor", cursorParam: "next_cursor", limitParam: "page_size", nextCursorPath: "next_cursor", hasMoreField: "", pageSize: 100},
 }
 
 func resourceReadPath(resource string) (string, error) {

@@ -70,28 +70,28 @@ func newContentFilteringBlockpageUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("background-color") && bodyBackgroundColor == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "background-color")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "background-color"))
 				}
 				if !cmd.Flags().Changed("enabled") && bodyEnabled == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "enabled")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "enabled"))
 				}
 				if !cmd.Flags().Changed("footer-text") && bodyFooterText == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "footer-text")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "footer-text"))
 				}
 				if !cmd.Flags().Changed("header-text") && bodyHeaderText == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "header-text")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "header-text"))
 				}
 				if !cmd.Flags().Changed("logo-path") && bodyLogoPath == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "logo-path")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "logo-path"))
 				}
 				if !cmd.Flags().Changed("mailto-address") && bodyMailtoAddress == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "mailto-address")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "mailto-address"))
 				}
 				if !cmd.Flags().Changed("mailto-subject") && bodyMailtoSubject == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "mailto-subject")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "mailto-subject"))
 				}
 				if !cmd.Flags().Changed("name") && bodyName == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "name")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name"))
 				}
 			}
 			path := "/v1/accounts/{account_id}/content-filtering/blockpage"
@@ -227,16 +227,13 @@ func newContentFilteringBlockpageUpdateCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

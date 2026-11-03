@@ -50,7 +50,7 @@ func newSchedulesListCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "schedules", path, retainCLIQueryParams(cmd, map[string]string{
 				"next_cursor": formatCLIParamValue(flagCursor),
-			}, map[string][]string{"next_cursor": {"cursor"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "schedules", cmd.ErrOrStderr())
+			}, map[string][]string{"next_cursor": {"cursor"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "", 0, "next_cursor", "", "schedules", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

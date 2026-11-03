@@ -82,235 +82,35 @@ func newSearchCmd(flags *rootFlags) *cobra.Command {
 	var resourceType string
 	var limit int
 	var dbPath string
-	searchResponsePaths := []string{
-		"results",
-	}
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Full-text search across synced data or live API",
-		Long: `Search data using FTS5 full-text search on locally synced data,
-or hit the API's search endpoint when available.
+		Short: "Search locally synced data",
+		Long: `Search locally synced data using FTS5 full-text search.
 
-In auto mode (default): uses the API search endpoint if the API has one,
-otherwise searches local data. Falls back to local on network failure.
-In live mode: uses the API search endpoint only.
-In local mode: searches locally synced data only.`,
-		Example: `  # Search (uses API endpoint if available, local FTS otherwise)
-  threatdown-cli search "error timeout"
+This API has no dedicated search endpoint, so live mode is unavailable.
+Run sync first to populate the local search index.`,
+		Example: `  # Search locally synced data
+  threatdown-cli search "status"
 
-  # Force local search only
+  # Force local search explicitly
   threatdown-cli search "status" --data-source local
   # Search a specific resource type locally
   threatdown-cli search "status" --type account_info --data-source local
   # JSON output for piping
-  threatdown-cli search "critical" --json --limit 20`,
+  threatdown-cli search "status" --json --limit 20`,
 		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
 			query := args[0]
-			// This API has a search endpoint: POST /v1/cve
-			if flags.dataSource != "local" {
-				c, err := flags.newClient()
-				if err != nil {
-					return err
-				}
-				data, _, getErr := c.Post(cmd.Context(), "/v1/cve", map[string]any{
-					"q":                                     query,
-					"account_ids":                           nil,
-					"account_name":                          "",
-					"account_name.keyword":                  "",
-					"active_directory.machine.display_name": "",
-					"active_directory.machine.display_name.keyword":     "",
-					"active_directory.machine.ou":                       "",
-					"active_directory.machine.ou.keyword":               "",
-					"active_directory.machine.ou.path":                  "",
-					"active_directory.machine.ou.path.keyword":          "",
-					"active_directory.machine.sam_account_name":         "",
-					"active_directory.machine.sam_account_name.keyword": "",
-					"active_directory.user.display_name":                "",
-					"active_directory.user.display_name.keyword":        "",
-					"active_directory.user.ou":                          "",
-					"active_directory.user.ou.keyword":                  "",
-					"active_directory.user.ou.path":                     "",
-					"active_directory.user.ou.path.keyword":             "",
-					"active_directory.user.sam_account_name":            "",
-					"active_directory.user.sam_account_name.keyword":    "",
-					"aggregate_by_account":                              nil,
-					"aggregations":                                      nil,
-					"alias":                                             "",
-					"alias.keyword":                                     "",
-					"architecture":                                      "",
-					"cisa_exploitable":                                  nil,
-					"created_at_after":                                  "",
-					"created_at_before":                                 "",
-					"cve_id":                                            "",
-					"cve_id.keyword":                                    "",
-					"cvss20_score":                                      nil,
-					"cvss20_score_gt":                                   nil,
-					"cvss20_score_gte":                                  nil,
-					"cvss20_score_lt":                                   nil,
-					"cvss20_score_lte":                                  nil,
-					"cvss30_score":                                      nil,
-					"cvss30_score_gt":                                   nil,
-					"cvss30_score_gte":                                  nil,
-					"cvss30_score_lt":                                   nil,
-					"cvss30_score_lte":                                  nil,
-					"display_installed_version":                         "",
-					"display_installed_version.keyword":                 "",
-					"display_product":                                   "",
-					"display_product.keyword":                           "",
-					"display_vendor":                                    "",
-					"display_vendor.keyword":                            "",
-					"document_id":                                       "",
-					"document_id.keyword":                               "",
-					"domain_name":                                       "",
-					"domain_name.keyword":                               "",
-					"exists":                                            nil,
-					"fully_qualified_host_name":                         "",
-					"fully_qualified_host_name.keyword":                 "",
-					"group_id":                                          "",
-					"group_id.keyword":                                  "",
-					"group_name":                                        "",
-					"group_name.keyword":                                "",
-					"host_name":                                         "",
-					"host_name.keyword":                                 "",
-					"ignored_at_after":                                  "",
-					"ignored_at_before":                                 "",
-					"ignored_by":                                        "",
-					"ignored_by.keyword":                                "",
-					"ignored_until_after":                               "",
-					"ignored_until_before":                              "",
-					"installation_date_after":                           "",
-					"installation_date_before":                          "",
-					"installed_version":                                 "",
-					"installed_version.keyword":                         "",
-					"known_ransomware_campaign_use":                     nil,
-					"language":                                          "",
-					"latest_version_available":                          "",
-					"machine_id":                                        "",
-					"machine_id.keyword":                                "",
-					"name_multi_search":                                 "",
-					"next_cursor":                                       "",
-					"normalized_installed_version":                      "",
-					"normalized_installed_version.keyword":              "",
-					"normalized_product":                                "",
-					"normalized_product.keyword":                        "",
-					"normalized_vendor":                                 "",
-					"normalized_vendor.keyword":                         "",
-					"not.account_name":                                  "",
-					"not.account_name.keyword":                          "",
-					"not.alias":                                         "",
-					"not.alias.keyword":                                 "",
-					"not.cve_id":                                        "",
-					"not.cve_id.keyword":                                "",
-					"not.display_installed_version":                     "",
-					"not.display_installed_version.keyword":             "",
-					"not.display_product":                               "",
-					"not.display_product.keyword":                       "",
-					"not.display_vendor":                                "",
-					"not.display_vendor.keyword":                        "",
-					"not.document_id":                                   []any{},
-					"not.domain_name":                                   "",
-					"not.domain_name.keyword":                           "",
-					"not.exists":                                        nil,
-					"not.fully_qualified_host_name":                     "",
-					"not.fully_qualified_host_name.keyword":             "",
-					"not.group_id":                                      "",
-					"not.group_id.keyword":                              "",
-					"not.group_name":                                    "",
-					"not.group_name.keyword":                            "",
-					"not.host_name":                                     "",
-					"not.host_name.keyword":                             "",
-					"not.ignored_by":                                    "",
-					"not.ignored_by.keyword":                            "",
-					"not.installed_version":                             "",
-					"not.installed_version.keyword":                     "",
-					"not.machine_id":                                    "",
-					"not.machine_id.keyword":                            "",
-					"not.normalized_installed_version":                  "",
-					"not.normalized_installed_version.keyword":          "",
-					"not.normalized_product":                            "",
-					"not.normalized_product.keyword":                    "",
-					"not.normalized_vendor":                             "",
-					"not.normalized_vendor.keyword":                     "",
-					"not.object_guid":                                   "",
-					"not.object_guid.keyword":                           "",
-					"not.os_info.os_architecture":                       "",
-					"not.os_info.os_architecture.keyword":               "",
-					"not.os_info.os_platform":                           "",
-					"not.os_info.os_platform.keyword":                   "",
-					"not.os_info.os_release_name":                       "",
-					"not.os_info.os_release_name.keyword":               "",
-					"not.os_info.os_type":                               "",
-					"not.os_info.os_type.keyword":                       "",
-					"not.os_info.os_version":                            "",
-					"not.os_info.os_version.keyword":                    "",
-					"not.parent_account_id":                             "",
-					"not.parent_account_id.keyword":                     "",
-					"not.product":                                       "",
-					"not.product.keyword":                               "",
-					"not.root_group_id":                                 "",
-					"not.root_group_id.keyword":                         "",
-					"not.severity":                                      "",
-					"not.severity.keyword":                              "",
-					"not.sort_name":                                     "",
-					"not.sort_name.keyword":                             "",
-					"not.vendor":                                        "",
-					"not.vendor.keyword":                                "",
-					"object_guid":                                       "",
-					"object_guid.keyword":                               "",
-					"only_ignored_cves":                                 false,
-					"os_info.os_architecture":                           "",
-					"os_info.os_architecture.keyword":                   "",
-					"os_info.os_platform":                               "",
-					"os_info.os_platform.keyword":                       "",
-					"os_info.os_release_name":                           "",
-					"os_info.os_release_name.keyword":                   "",
-					"os_info.os_type":                                   "",
-					"os_info.os_type.keyword":                           "",
-					"os_info.os_version":                                "",
-					"os_info.os_version.keyword":                        "",
-					"page_size":                                         50,
-					"parent_account_id":                                 "",
-					"parent_account_id.keyword":                         "",
-					"product":                                           "",
-					"product.keyword":                                   "",
-					"product_signature":                                 nil,
-					"published_at_after":                                "",
-					"published_at_before":                               "",
-					"root_group_id":                                     "",
-					"root_group_id.keyword":                             "",
-					"severity":                                          "",
-					"severity.keyword":                                  "",
-					"severity_score":                                    nil,
-					"severity_score_gt":                                 nil,
-					"severity_score_gte":                                nil,
-					"severity_score_lt":                                 nil,
-					"severity_score_lte":                                nil,
-					"sort_field":                                        "account_id",
-					"sort_name":                                         "",
-					"sort_name.keyword":                                 "",
-					"sort_order":                                        "asc",
-					"supports_uninstall":                                nil,
-					"supports_update":                                   nil,
-					"vendor":                                            "",
-					"vendor.keyword":                                    "",
-				})
-				if getErr == nil {
-					// Live search succeeded
-					results := extractSearchResults(data, searchResponsePaths...)
-					prov := DataProvenance{Source: "live"}
-					return outputSearchResults(cmd, flags, results, limit, prov)
-				}
-				// Check if it's a network error for auto-mode fallback
-				if flags.dataSource == "live" || !isNetworkError(getErr) {
-					return classifyAPIError(cmd.OutOrStdout(), getErr, flags)
-				}
-				// auto mode + network error: fall through to local FTS
-				fmt.Fprintf(cmd.ErrOrStderr(), "API unreachable, falling back to local search.\n")
+			// This API has no search endpoint.
+			if flags.dataSource == "live" {
+				return fmt.Errorf("this API has no search endpoint. Use --data-source local or --data-source auto to search locally synced data")
+			}
+			if flags.dataSource == "auto" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "This API has no search endpoint. Searching local data.\n")
 			}
 
 			// Local FTS search
@@ -331,16 +131,14 @@ In local mode: searches locally synced data only.`,
 				results, err = db.SearchCases(query, limit)
 			case "content_filtering":
 				results, err = db.SearchContentFiltering(query, limit)
+			case "device_control":
+				results, err = db.SearchDeviceControl(query, limit)
 			case "endpoints":
 				results, err = db.SearchEndpoints(query, limit)
 			case "firewall":
 				results, err = db.SearchFirewall(query, limit)
-			case "grid":
-				results, err = db.SearchGrid(query, limit)
 			case "notifications":
 				results, err = db.SearchNotifications(query, limit)
-			case "os_patches":
-				results, err = db.SearchOsPatches(query, limit)
 			case "reports":
 				results, err = db.SearchReports(query, limit)
 			case "":
@@ -379,6 +177,19 @@ In local mode: searches locally synced data only.`,
 					}
 				}
 				{
+					partial, searchErr := db.SearchDeviceControl(query, limit)
+					if searchErr != nil {
+						return fmt.Errorf("search device_control failed: %w", searchErr)
+					}
+					for _, r := range partial {
+						key := string(r)
+						if !seen[key] {
+							seen[key] = true
+							results = append(results, r)
+						}
+					}
+				}
+				{
 					partial, searchErr := db.SearchEndpoints(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search endpoints failed: %w", searchErr)
@@ -405,35 +216,9 @@ In local mode: searches locally synced data only.`,
 					}
 				}
 				{
-					partial, searchErr := db.SearchGrid(query, limit)
-					if searchErr != nil {
-						return fmt.Errorf("search grid failed: %w", searchErr)
-					}
-					for _, r := range partial {
-						key := string(r)
-						if !seen[key] {
-							seen[key] = true
-							results = append(results, r)
-						}
-					}
-				}
-				{
 					partial, searchErr := db.SearchNotifications(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search notifications failed: %w", searchErr)
-					}
-					for _, r := range partial {
-						key := string(r)
-						if !seen[key] {
-							seen[key] = true
-							results = append(results, r)
-						}
-					}
-				}
-				{
-					partial, searchErr := db.SearchOsPatches(query, limit)
-					if searchErr != nil {
-						return fmt.Errorf("search os_patches failed: %w", searchErr)
 					}
 					for _, r := range partial {
 						key := string(r)
@@ -478,8 +263,8 @@ In local mode: searches locally synced data only.`,
 			}
 
 			reason := "user_requested"
-			if flags.dataSource == "auto" {
-				reason = "api_unreachable"
+			if flags.dataSource != "local" {
+				reason = "no_search_endpoint"
 			}
 			prov := localProvenance(db, "search", reason)
 

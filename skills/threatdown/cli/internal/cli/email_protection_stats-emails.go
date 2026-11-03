@@ -63,10 +63,10 @@ func newEmailProtectionStatsEmailsCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("end-time") && bodyEndTime == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "end-time")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "end-time"))
 				}
 				if !cmd.Flags().Changed("start-time") && bodyStartTime == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "start-time")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "start-time"))
 				}
 			}
 			path := "/v1/accounts/{account_id}/email-protection/stats/emails"
@@ -126,7 +126,7 @@ func newEmailProtectionStatsEmailsCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "email_protection", data, "emails_by_phishing_threat_type")
+				writeMutationResponseToStore(cmd.Context(), "email_protection", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -177,16 +177,13 @@ func newEmailProtectionStatsEmailsCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -213,7 +210,7 @@ func newEmailProtectionStatsEmailsCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"emails_count": true, "name": true})
+					filtered = compactFields(filtered, nil)
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -253,7 +250,7 @@ func newEmailProtectionStatsEmailsCmd(flags *rootFlags) *cobra.Command {
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"emails_count": true, "name": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, nil)
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "email_protection", partialFailure.Message))
 			}

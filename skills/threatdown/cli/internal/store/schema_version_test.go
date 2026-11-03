@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -2845,38 +2852,31 @@ func TestMigrate_AddsColumnsOnUpgrade_Detections(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"account",
-		"account_id",
 		"action_taken",
 		"affected_application",
-		"agent",
+		"auto_removal_at",
 		"category",
-		"child_trace_count",
-		"cleaned_at",
-		"destination_location",
 		"detection_id",
 		"group_id",
-		"is_root_detection",
-		"is_rtp_stream_event",
-		"last_user",
+		"group_name",
+		"ip_address",
 		"machine_id",
-		"machine_ip",
-		"machine_location",
 		"machine_name",
 		"md5",
 		"path",
+		"policy_id",
+		"policy_name",
+		"port",
 		"process_name",
 		"reported_at",
 		"resource_created_at",
 		"resource_modified_at",
 		"scan_id",
 		"scanned_at",
-		"scanned_at_offset_seconds",
-		"sha256",
-		"source_location",
+		"scanned_at_local",
 		"status",
 		"threat_name",
-		"trace_id",
+		"url",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from detections after migrate", want)
@@ -2884,12 +2884,11 @@ func TestMigrate_AddsColumnsOnUpgrade_Detections(t *testing.T) {
 	}
 
 	for _, wantIdx := range []string{
-		"idx_detections_account_id",
 		"idx_detections_detection_id",
 		"idx_detections_group_id",
 		"idx_detections_machine_id",
+		"idx_detections_policy_id",
 		"idx_detections_scan_id",
-		"idx_detections_trace_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -2965,6 +2964,36 @@ func TestMigrate_AddsColumnsOnUpgrade_DeviceControl(t *testing.T) {
 		"updated_by",
 		"value",
 		"vendor",
+		"account",
+		"account_id",
+		"action_taken",
+		"affected_application",
+		"agent",
+		"category",
+		"child_trace_count",
+		"cleaned_at",
+		"destination_location",
+		"detection_id",
+		"group_id",
+		"is_root_detection",
+		"is_rtp_stream_event",
+		"last_user",
+		"machine_id",
+		"machine_ip",
+		"machine_location",
+		"machine_name",
+		"md5",
+		"path",
+		"process_name",
+		"reported_at",
+		"scan_id",
+		"scanned_at",
+		"scanned_at_offset_seconds",
+		"sha256",
+		"source_location",
+		"status",
+		"threat_name",
+		"trace_id",
 		"parent_id",
 		"bare_id",
 	} {
@@ -2974,6 +3003,12 @@ func TestMigrate_AddsColumnsOnUpgrade_DeviceControl(t *testing.T) {
 	}
 
 	for _, wantIdx := range []string{
+		"idx_device_control_account_id",
+		"idx_device_control_detection_id",
+		"idx_device_control_group_id",
+		"idx_device_control_machine_id",
+		"idx_device_control_scan_id",
+		"idx_device_control_trace_id",
 		"idx_device_control_created_at",
 		"idx_device_control_updated_at",
 		"idx_device_control_parent_id",
@@ -3041,33 +3076,15 @@ func TestMigrate_AddsColumnsOnUpgrade_Dns(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"@timestamp",
-		"account_id",
-		"action",
-		"group_id",
-		"group_name",
-		"log",
-		"machine_id",
-		"parent_account_id",
-		"policy_id",
-		"policy_name",
-		"rule_id",
-		"rule_name",
 		"next_cursor",
+		"total_count",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from dns after migrate", want)
 		}
 	}
 
-	for _, wantIdx := range []string{
-		"idx_dns_account_id",
-		"idx_dns_group_id",
-		"idx_dns_machine_id",
-		"idx_dns_parent_account_id",
-		"idx_dns_policy_id",
-		"idx_dns_rule_id",
-	} {
+	for _, wantIdx := range []string{} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
@@ -3188,8 +3205,6 @@ func TestMigrate_AddsColumnsOnUpgrade_EmailProtection(t *testing.T) {
 		"silent_mode_msg",
 		"st_bundle",
 		"st_plus_bundle",
-		"active_mailboxes",
-		"total_mailboxes",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from email_protection after migrate", want)
@@ -3393,16 +3408,12 @@ func TestMigrate_AddsColumnsOnUpgrade_Endpoints(t *testing.T) {
 		"os_platform",
 		"os_release_name",
 		"policy_id",
-		"account_id",
-		"account_name",
-		"group_name",
-		"total",
-		"value",
 		"action_taken",
 		"affected_application",
 		"auto_removal_at",
 		"category",
 		"detection_id",
+		"group_name",
 		"ip_address",
 		"machine_id",
 		"machine_name",
@@ -3432,6 +3443,10 @@ func TestMigrate_AddsColumnsOnUpgrade_Endpoints(t *testing.T) {
 		"started_at",
 		"started_at_local",
 		"total_count",
+		"account_id",
+		"account_name",
+		"total",
+		"value",
 		"closed",
 		"detected_by_count",
 		"level",
@@ -3446,11 +3461,11 @@ func TestMigrate_AddsColumnsOnUpgrade_Endpoints(t *testing.T) {
 	for _, wantIdx := range []string{
 		"idx_endpoints_group_id",
 		"idx_endpoints_policy_id",
-		"idx_endpoints_account_id",
 		"idx_endpoints_detection_id",
 		"idx_endpoints_machine_id",
 		"idx_endpoints_scan_id",
 		"idx_endpoints_schedule_id",
+		"idx_endpoints_account_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -3921,158 +3936,47 @@ func TestMigrate_AddsColumnsOnUpgrade_Grid(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"next_cursor",
+		"total_count",
+		"aggregation_next_cursor",
+		"after",
 		"account_id",
 		"account_name",
-		"action_source",
-		"action_type",
-		"document_id",
-		"ip_address",
-		"logged_at",
-		"machine_id",
-		"parent_account_id",
-		"resource_type",
-		"user_email",
-		"user_id",
-		"user_mode",
-		"user_name",
-		"next_cursor",
-		"ai_category",
-		"ai_status",
-		"ai_tool",
-		"ai_tool_id",
-		"ai_tool_provider",
-		"alias",
-		"domain",
-		"first_seen",
+		"action",
+		"created_at",
+		"friendly_type",
 		"group_id",
 		"group_name",
-		"host_name",
-		"last_seen",
-		"last_user",
-		"os_platform",
-		"os_type",
+		"machine_id",
+		"machine_name",
+		"online",
+		"parent_account_id",
 		"policy_id",
 		"policy_name",
-		"process_name",
-		"query_count",
-		"ai_risk",
-		"ai_tier",
-		"architecture",
-		"created_at",
-		"cves_by_status",
-		"cves_count",
-		"cves_count_by_status",
-		"cves_score",
-		"display_installed_version",
-		"display_product",
-		"display_vendor",
-		"domain_name",
-		"fully_qualified_host_name",
-		"ignored_until",
-		"installation_date",
-		"installed_version",
-		"language",
-		"latest_version_available",
-		"normalized_installed_version",
-		"normalized_product",
-		"normalized_vendor",
-		"object_guid",
-		"os_info",
-		"product",
-		"product_signature",
 		"root_group_id",
-		"vendor",
-		"cisa_exploitable",
-		"cve_id",
-		"cvss20_score",
-		"cvss30_score",
-		"description",
-		"ignored_by",
-		"ignored_by_name",
-		"ignored_reason",
-		"known_ransomware_campaign_use",
-		"published_at",
 		"severity",
-		"severity_score",
-		"account",
-		"action_taken",
-		"affected_application",
-		"agent",
-		"category",
-		"child_trace_count",
-		"cleaned_at",
-		"destination_location",
-		"detection_id",
-		"is_root_detection",
-		"is_rtp_stream_event",
-		"machine_ip",
-		"machine_location",
-		"machine_name",
-		"md5",
-		"path",
-		"reported_at",
-		"resource_created_at",
-		"resource_modified_at",
-		"scan_id",
-		"scanned_at",
-		"scanned_at_offset_seconds",
-		"sha256",
-		"source_location",
-		"status",
-		"threat_name",
-		"trace_id",
-		"@timestamp",
-		"action",
-		"log",
-		"rule_id",
-		"rule_name",
-		"display_name",
-		"link",
-		"machine_version",
-		"protection_status",
-		"friendly_type",
-		"online",
 		"source",
-		"total_count",
-		"direction",
-		"end_time",
-		"hits",
-		"location",
-		"program",
-		"protocol",
-		"ruleset_id",
-		"ruleset_name",
-		"service",
-		"start_time",
+		"type",
 		"correlation_id",
-		"endpoint",
-		"patch_id",
-		"preview_patch",
-		"reboot_required",
-		"released_at",
-		"security_update_id",
-		"size",
-		"title",
-		"attack_user",
-		"attempts",
-		"create_time",
-		"duration",
-		"expire_time",
-		"ip",
-		"parent_id",
-		"port",
 		"action_outcome",
+		"action_taken",
 		"action_user_email",
 		"action_user_name",
 		"alert_name",
 		"attack_category",
 		"attack_detection_type",
+		"category",
 		"city",
 		"country",
+		"detection_id",
+		"display_name",
+		"domain",
 		"has_impacted_asset_hostname",
 		"identity_primary_identifier",
+		"ip",
 		"pid",
 		"process_path",
+		"status",
 		"technique",
 		"updated_at",
 	} {
@@ -4083,24 +3987,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Grid(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_grid_account_id",
-		"idx_grid_document_id",
+		"idx_grid_group_id",
 		"idx_grid_machine_id",
 		"idx_grid_parent_account_id",
-		"idx_grid_user_id",
-		"idx_grid_ai_tool_id",
-		"idx_grid_group_id",
 		"idx_grid_policy_id",
 		"idx_grid_root_group_id",
-		"idx_grid_cve_id",
-		"idx_grid_detection_id",
-		"idx_grid_scan_id",
-		"idx_grid_trace_id",
-		"idx_grid_rule_id",
-		"idx_grid_ruleset_id",
 		"idx_grid_correlation_id",
-		"idx_grid_patch_id",
-		"idx_grid_security_update_id",
-		"idx_grid_parent_id",
+		"idx_grid_detection_id",
 		"idx_grid_created_at",
 		"idx_grid_updated_at",
 	} {
@@ -4419,35 +4312,13 @@ func TestMigrate_AddsColumnsOnUpgrade_OsPatches(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"next_cursor",
+		"total_count",
 		"account_id",
-		"category",
-		"created_at",
-		"description",
-		"display_name",
-		"domain_name",
-		"endpoint",
+		"account_name",
 		"fully_qualified_host_name",
-		"group",
-		"group_id",
 		"group_name",
 		"host_name",
-		"ignored_until",
-		"machine_id",
-		"object_guid",
-		"os_info",
-		"parent_account_id",
-		"patch_id",
-		"preview_patch",
-		"product",
-		"reboot_required",
-		"released_at",
-		"root_group_id",
-		"security_update_id",
-		"severity",
-		"size",
-		"title",
-		"vendor",
-		"account_name",
 		"total",
 		"value",
 	} {
@@ -4458,13 +4329,6 @@ func TestMigrate_AddsColumnsOnUpgrade_OsPatches(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_os_patches_account_id",
-		"idx_os_patches_group_id",
-		"idx_os_patches_machine_id",
-		"idx_os_patches_parent_account_id",
-		"idx_os_patches_patch_id",
-		"idx_os_patches_root_group_id",
-		"idx_os_patches_security_update_id",
-		"idx_os_patches_created_at",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -4933,23 +4797,10 @@ func TestMigrate_AddsColumnsOnUpgrade_Rid(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"next_cursor",
+		"total_count",
 		"account_id",
 		"account_name",
-		"attack_user",
-		"attempts",
-		"create_time",
-		"deleted",
-		"duration",
-		"expire_time",
-		"group_id",
-		"ip",
-		"machine_id",
-		"machine_name",
-		"parent_id",
-		"port",
-		"protocol",
-		"root_group_id",
-		"rule_id",
 		"fully_qualified_host_name",
 		"group_name",
 		"host_name",
@@ -4963,11 +4814,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Rid(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_rid_account_id",
-		"idx_rid_group_id",
-		"idx_rid_machine_id",
-		"idx_rid_parent_id",
-		"idx_rid_root_group_id",
-		"idx_rid_rule_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -5111,14 +4957,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Sites(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"email",
-		"firstname",
-		"lastname",
-		"roles",
 		"account_id",
 		"account_status",
 		"cloud_evaluation",
 		"company_name",
+		"email",
+		"firstname",
+		"lastname",
 		"site_end_date",
 		"consent",
 		"endpoint_isolation",
@@ -5200,46 +5045,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Software(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"next_cursor",
+		"total_count",
 		"account_id",
 		"account_name",
-		"ai_category",
-		"ai_risk",
-		"ai_status",
-		"ai_tier",
-		"ai_tool",
-		"alias",
-		"architecture",
-		"created_at",
-		"cves_by_status",
-		"cves_count",
-		"cves_count_by_status",
-		"cves_score",
-		"display_installed_version",
-		"display_product",
-		"display_vendor",
-		"domain_name",
 		"fully_qualified_host_name",
-		"group_id",
 		"group_name",
 		"host_name",
-		"ignored_until",
-		"installation_date",
-		"installed_version",
-		"language",
-		"latest_version_available",
-		"machine_id",
-		"normalized_installed_version",
-		"normalized_product",
-		"normalized_vendor",
-		"object_guid",
-		"os_info",
-		"parent_account_id",
-		"policy_id",
-		"policy_name",
-		"product",
-		"product_signature",
-		"root_group_id",
-		"vendor",
 		"total",
 		"value",
 	} {
@@ -5250,12 +5062,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Software(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_software_account_id",
-		"idx_software_group_id",
-		"idx_software_machine_id",
-		"idx_software_parent_account_id",
-		"idx_software_policy_id",
-		"idx_software_root_group_id",
-		"idx_software_created_at",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -5332,17 +5138,13 @@ func TestMigrate_AddsColumnsOnUpgrade_Subscriptions(t *testing.T) {
 		"reset_count",
 		"status",
 		"term_ends_on",
+		"version",
 		"volume_purchased",
 		"volume_used",
 		"is_nfr_allowed",
-		"version",
 		"timestamp",
 		"auto_convert_trial_to_paid",
 		"machine_type",
-		"code",
-		"name",
-		"volume_allocated",
-		"volume_available",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from subscriptions after migrate", want)
@@ -5497,7 +5299,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Syslog(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"enabled",
 		"account_id",
 		"format",
 		"host",
@@ -5914,5 +5715,1310 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"account_info", "account_id"},
+		{"account_info", "nebula_parent_account_id"},
+		{"aidr", "account_id"},
+		{"aidr", "action"},
+		{"aidr", "category"},
+		{"aidr", "created_at"},
+		{"aidr", "created_by"},
+		{"aidr", "policy_id"},
+		{"aidr", "scope"},
+		{"aidr", "tool"},
+		{"aidr", "updated_at"},
+		{"aidr", "updated_by"},
+		{"aidr", "parent_id"},
+		{"aidr", "bare_id"},
+		{"app_block", "created_at"},
+		{"app_block", "created_by"},
+		{"app_block", "rule"},
+		{"app_block", "rule_set_id"},
+		{"app_block", "updated_at"},
+		{"app_block", "updated_by"},
+		{"app_block", "message_body"},
+		{"app_block", "message_title"},
+		{"app_block", "parent_id"},
+		{"app_block", "bare_id"},
+		{"asset_ignore_rules", "created_at"},
+		{"asset_ignore_rules", "created_by"},
+		{"asset_ignore_rules", "expires_at"},
+		{"asset_ignore_rules", "name"},
+		{"asset_ignore_rules", "os_platform"},
+		{"asset_ignore_rules", "reason"},
+		{"asset_ignore_rules", "type"},
+		{"asset_ignore_rules", "updated_at"},
+		{"asset_ignore_rules", "updated_by"},
+		{"asset_ignore_rules", "parent_id"},
+		{"asset_ignore_rules", "bare_id"},
+		{"cases", "account_id"},
+		{"cases", "region"},
+		{"cases", "assigned_user"},
+		{"cases", "can_open_incident"},
+		{"cases", "creation_time_unix_time_in_ms"},
+		{"cases", "description"},
+		{"cases", "end_time_unix_time_in_ms"},
+		{"cases", "environment"},
+		{"cases", "incident_id"},
+		{"cases", "is_important"},
+		{"cases", "is_incident"},
+		{"cases", "is_manual_case"},
+		{"cases", "is_overflow_case"},
+		{"cases", "is_test_case"},
+		{"cases", "modification_time_unix_time_in_ms"},
+		{"cases", "name"},
+		{"cases", "priority"},
+		{"cases", "related_alert_ticket_id"},
+		{"cases", "sla_critical_expiration_unix_time"},
+		{"cases", "sla_expiration_unix_time"},
+		{"cases", "stage"},
+		{"cases", "stage_sla_critical_expiration_unix_time_in_ms"},
+		{"cases", "stage_sla_expiration_unix_time_in_ms"},
+		{"cases", "start_time_unix_time_in_ms"},
+		{"cases", "status"},
+		{"cases", "type"},
+		{"content_filtering", "account_id"},
+		{"content_filtering", "background_color"},
+		{"content_filtering", "created_at"},
+		{"content_filtering", "created_by"},
+		{"content_filtering", "enabled"},
+		{"content_filtering", "footer_text"},
+		{"content_filtering", "header_text"},
+		{"content_filtering", "inherited"},
+		{"content_filtering", "logo_path"},
+		{"content_filtering", "mailto_address"},
+		{"content_filtering", "mailto_subject"},
+		{"content_filtering", "name"},
+		{"content_filtering", "updated_at"},
+		{"content_filtering", "updated_by"},
+		{"content_filtering", "description"},
+		{"content_filtering", "doh_url"},
+		{"content_filtering", "parent_account_id"},
+		{"content_filtering", "domain"},
+		{"content_filtering", "domain_type"},
+		{"content_filtering", "entity"},
+		{"cve", "cve"},
+		{"cve", "cwe"},
+		{"cve", "description"},
+		{"cve", "is_cisa_exploitable"},
+		{"cve", "known_ransomware_campaign_use"},
+		{"cve", "last_modified_epoch"},
+		{"cve", "published_epoch"},
+		{"cve", "severity"},
+		{"cve", "severity_index"},
+		{"detections", "action_taken"},
+		{"detections", "affected_application"},
+		{"detections", "auto_removal_at"},
+		{"detections", "category"},
+		{"detections", "detection_id"},
+		{"detections", "group_id"},
+		{"detections", "group_name"},
+		{"detections", "ip_address"},
+		{"detections", "machine_id"},
+		{"detections", "machine_name"},
+		{"detections", "md5"},
+		{"detections", "path"},
+		{"detections", "policy_id"},
+		{"detections", "policy_name"},
+		{"detections", "port"},
+		{"detections", "process_name"},
+		{"detections", "reported_at"},
+		{"detections", "resource_created_at"},
+		{"detections", "resource_modified_at"},
+		{"detections", "scan_id"},
+		{"detections", "scanned_at"},
+		{"detections", "scanned_at_local"},
+		{"detections", "status"},
+		{"detections", "threat_name"},
+		{"detections", "url"},
+		{"device_control", "account_level"},
+		{"device_control", "comment"},
+		{"device_control", "created_at"},
+		{"device_control", "created_by"},
+		{"device_control", "enabled"},
+		{"device_control", "product"},
+		{"device_control", "serial"},
+		{"device_control", "type"},
+		{"device_control", "updated_at"},
+		{"device_control", "updated_by"},
+		{"device_control", "value"},
+		{"device_control", "vendor"},
+		{"device_control", "account"},
+		{"device_control", "account_id"},
+		{"device_control", "action_taken"},
+		{"device_control", "affected_application"},
+		{"device_control", "agent"},
+		{"device_control", "category"},
+		{"device_control", "child_trace_count"},
+		{"device_control", "cleaned_at"},
+		{"device_control", "destination_location"},
+		{"device_control", "detection_id"},
+		{"device_control", "group_id"},
+		{"device_control", "is_root_detection"},
+		{"device_control", "is_rtp_stream_event"},
+		{"device_control", "last_user"},
+		{"device_control", "machine_id"},
+		{"device_control", "machine_ip"},
+		{"device_control", "machine_location"},
+		{"device_control", "machine_name"},
+		{"device_control", "md5"},
+		{"device_control", "path"},
+		{"device_control", "process_name"},
+		{"device_control", "reported_at"},
+		{"device_control", "scan_id"},
+		{"device_control", "scanned_at"},
+		{"device_control", "scanned_at_offset_seconds"},
+		{"device_control", "sha256"},
+		{"device_control", "source_location"},
+		{"device_control", "status"},
+		{"device_control", "threat_name"},
+		{"device_control", "trace_id"},
+		{"device_control", "parent_id"},
+		{"device_control", "bare_id"},
+		{"dns", "next_cursor"},
+		{"dns", "total_count"},
+		{"email_protection", "email"},
+		{"email_protection", "enabled_mailboxes_count"},
+		{"email_protection", "failed_mailboxes_count"},
+		{"email_protection", "in_progress"},
+		{"email_protection", "last_synced_at"},
+		{"email_protection", "mailboxes_total_count"},
+		{"email_protection", "protected_mailboxes_count"},
+		{"email_protection", "country"},
+		{"email_protection", "domain"},
+		{"email_protection", "is_msp"},
+		{"email_protection", "last_mailbox_sync_date"},
+		{"email_protection", "name"},
+		{"email_protection", "owner_email"},
+		{"email_protection", "owner_name"},
+		{"email_protection", "registration_date"},
+		{"email_protection", "test_mode"},
+		{"email_protection", "advisor_probability"},
+		{"email_protection", "advisor_verdict"},
+		{"email_protection", "affected_mailbox_count"},
+		{"email_protection", "banner_displayed"},
+		{"email_protection", "can_revert"},
+		{"email_protection", "challenge_reason"},
+		{"email_protection", "challenged_by"},
+		{"email_protection", "challenged_comment"},
+		{"email_protection", "challenged_date"},
+		{"email_protection", "challenged_type"},
+		{"email_protection", "classification"},
+		{"email_protection", "company_id"},
+		{"email_protection", "company_name"},
+		{"email_protection", "email_body_text"},
+		{"email_protection", "first_challenged_date"},
+		{"email_protection", "first_reported_by"},
+		{"email_protection", "first_reported_date"},
+		{"email_protection", "incident_id"},
+		{"email_protection", "is_reclassified"},
+		{"email_protection", "original_cluster_incident_id"},
+		{"email_protection", "original_email_body"},
+		{"email_protection", "reply_to"},
+		{"email_protection", "reported_by_end_user"},
+		{"email_protection", "reporter_name"},
+		{"email_protection", "revert_blocked_reason"},
+		{"email_protection", "sender_email"},
+		{"email_protection", "sender_is_internal"},
+		{"email_protection", "sender_reputation"},
+		{"email_protection", "spf_result"},
+		{"email_protection", "advisor"},
+		{"email_protection", "ai_empower_bundle"},
+		{"email_protection", "api"},
+		{"email_protection", "ato"},
+		{"email_protection", "attachments_scan"},
+		{"email_protection", "autopilot_enabled"},
+		{"email_protection", "awareness_training"},
+		{"email_protection", "links_scan"},
+		{"email_protection", "service_management"},
+		{"email_protection", "silent_mode"},
+		{"email_protection", "silent_mode_msg"},
+		{"email_protection", "st_bundle"},
+		{"email_protection", "st_plus_bundle"},
+		{"endpoint_jobs", "command"},
+		{"endpoint_jobs", "expires_at"},
+		{"endpoint_jobs", "issued_at"},
+		{"endpoint_jobs", "issued_by"},
+		{"endpoint_jobs", "issued_by_email"},
+		{"endpoint_jobs", "issued_by_name"},
+		{"endpoint_jobs", "machine_id"},
+		{"endpoint_jobs", "machine_name"},
+		{"endpoint_jobs", "relay_state"},
+		{"endpoint_jobs", "scan_id"},
+		{"endpoint_jobs", "state"},
+		{"endpoint_jobs", "updated_at"},
+		{"endpoint_jobs", "account_id"},
+		{"endpoint_jobs", "account_name"},
+		{"endpoint_jobs", "accounts"},
+		{"endpoint_jobs", "cancelled"},
+		{"endpoint_jobs", "correlation_id"},
+		{"endpoint_jobs", "created"},
+		{"endpoint_jobs", "created_at"},
+		{"endpoint_jobs", "endpoints"},
+		{"endpoint_jobs", "expired"},
+		{"endpoint_jobs", "failed"},
+		{"endpoint_jobs", "is_complete"},
+		{"endpoint_jobs", "processing"},
+		{"endpoint_jobs", "received"},
+		{"endpoint_jobs", "sent"},
+		{"endpoint_jobs", "source_id"},
+		{"endpoint_jobs", "success"},
+		{"endpoint_jobs", "timed_out"},
+		{"endpoints", "agent_info_last_updated_at"},
+		{"endpoints", "dhcp_scope_name"},
+		{"endpoints", "domain_name"},
+		{"endpoints", "engine_version"},
+		{"endpoints", "fully_qualified_host_name"},
+		{"endpoints", "has_alerts"},
+		{"endpoints", "host_name"},
+		{"endpoints", "last_seen_at"},
+		{"endpoints", "last_user"},
+		{"endpoints", "policy_etag"},
+		{"endpoints", "culture"},
+		{"endpoints", "object_guid"},
+		{"endpoints", "object_sid"},
+		{"endpoints", "plugin_version"},
+		{"endpoints", "time_zone"},
+		{"endpoints", "url"},
+		{"endpoints", "group_id"},
+		{"endpoints", "is_deleted"},
+		{"endpoints", "name"},
+		{"endpoints", "online"},
+		{"endpoints", "os_architecture"},
+		{"endpoints", "os_platform"},
+		{"endpoints", "os_release_name"},
+		{"endpoints", "policy_id"},
+		{"endpoints", "action_taken"},
+		{"endpoints", "affected_application"},
+		{"endpoints", "auto_removal_at"},
+		{"endpoints", "category"},
+		{"endpoints", "detection_id"},
+		{"endpoints", "group_name"},
+		{"endpoints", "ip_address"},
+		{"endpoints", "machine_id"},
+		{"endpoints", "machine_name"},
+		{"endpoints", "md5"},
+		{"endpoints", "path"},
+		{"endpoints", "policy_name"},
+		{"endpoints", "port"},
+		{"endpoints", "process_name"},
+		{"endpoints", "reported_at"},
+		{"endpoints", "resource_created_at"},
+		{"endpoints", "resource_modified_at"},
+		{"endpoints", "scan_id"},
+		{"endpoints", "scanned_at"},
+		{"endpoints", "scanned_at_local"},
+		{"endpoints", "status"},
+		{"endpoints", "threat_name"},
+		{"endpoints", "command_line"},
+		{"endpoints", "deleted_count"},
+		{"endpoints", "duration_seconds"},
+		{"endpoints", "found_count"},
+		{"endpoints", "from_cloud"},
+		{"endpoints", "ondemand"},
+		{"endpoints", "quarantined_count"},
+		{"endpoints", "scan_type"},
+		{"endpoints", "schedule_id"},
+		{"endpoints", "schedule_name"},
+		{"endpoints", "started_at"},
+		{"endpoints", "started_at_local"},
+		{"endpoints", "total_count"},
+		{"endpoints", "account_id"},
+		{"endpoints", "account_name"},
+		{"endpoints", "total"},
+		{"endpoints", "value"},
+		{"endpoints", "closed"},
+		{"endpoints", "detected_by_count"},
+		{"endpoints", "level"},
+		{"endpoints", "pc_hostname"},
+		{"endpoints", "timestamp"},
+		{"events", "friendly_type"},
+		{"events", "machine_id"},
+		{"events", "severity"},
+		{"events", "severity_name"},
+		{"events", "source"},
+		{"events", "source_name"},
+		{"events", "timestamp"},
+		{"events", "type"},
+		{"events", "type_name"},
+		{"events", "user_id"},
+		{"exclusions", "account_level"},
+		{"exclusions", "comment"},
+		{"exclusions", "created_at"},
+		{"exclusions", "created_by"},
+		{"exclusions", "created_by_fullname"},
+		{"exclusions", "enabled"},
+		{"exclusions", "etag"},
+		{"exclusions", "exclusion_id"},
+		{"exclusions", "exclusion_type"},
+		{"exclusions", "exclusion_value"},
+		{"exclusions", "exploit_protection"},
+		{"exclusions", "malware_protection"},
+		{"exclusions", "ransomware_protection"},
+		{"exclusions", "suspicious_activity"},
+		{"exclusions", "updated_at"},
+		{"exclusions", "updated_by"},
+		{"exclusions", "updated_by_fullname"},
+		{"exclusions", "website_protection"},
+		{"firewall", "account_id"},
+		{"firewall", "allow_store"},
+		{"firewall", "created_at"},
+		{"firewall", "created_by"},
+		{"firewall", "deleted_at"},
+		{"firewall", "deleted_by"},
+		{"firewall", "description"},
+		{"firewall", "enabled"},
+		{"firewall", "name"},
+		{"firewall", "parent_account_id"},
+		{"firewall", "report_frequency"},
+		{"firewall", "updated_at"},
+		{"firewall", "updated_by"},
+		{"firewall", "entity_id"},
+		{"firewall", "entity_type"},
+		{"firewall", "operation"},
+		{"firewall", "relation_entity_type"},
+		{"firewall", "relation_id"},
+		{"firewall", "timestamp"},
+		{"firewall", "user_id"},
+		{"firewall", "action"},
+		{"firewall", "direction"},
+		{"firewall", "edge_traversal"},
+		{"firewall", "etag"},
+		{"firewall", "icmp_types"},
+		{"firewall", "is_default"},
+		{"firewall", "location"},
+		{"firewall", "os_type"},
+		{"firewall", "program"},
+		{"firewall", "protocol"},
+		{"firewall", "service"},
+		{"firewall", "internal_name"},
+		{"flight_recorder", "bucket"},
+		{"flight_recorder", "date"},
+		{"flight_recorder", "filesystem"},
+		{"flight_recorder", "network"},
+		{"flight_recorder", "other"},
+		{"flight_recorder", "process"},
+		{"flight_recorder", "registry"},
+		{"flight_recorder", "script_activity"},
+		{"flight_recorder", "system_event"},
+		{"flight_recorder", "first_timestamp"},
+		{"flight_recorder", "last_timestamp"},
+		{"flight_recorder", "machine_id"},
+		{"flight_recorder", "os_type"},
+		{"flight_recorder", "pc_hostname"},
+		{"flight_recorder", "name"},
+		{"flight_recorder", "node_type"},
+		{"flight_recorder", "account_id"},
+		{"flight_recorder", "amsi_data"},
+		{"flight_recorder", "amsi_data_type"},
+		{"flight_recorder", "command_line"},
+		{"flight_recorder", "create_options"},
+		{"flight_recorder", "etw_data"},
+		{"flight_recorder", "event_category"},
+		{"flight_recorder", "event_type"},
+		{"flight_recorder", "evt_log_data"},
+		{"flight_recorder", "hostname"},
+		{"flight_recorder", "ipv4_local_ip"},
+		{"flight_recorder", "ipv4_remote_country_code"},
+		{"flight_recorder", "ipv4_remote_ip"},
+		{"flight_recorder", "ipv6_local_ip"},
+		{"flight_recorder", "ipv6_remote_country_code"},
+		{"flight_recorder", "ipv6_remote_ip"},
+		{"flight_recorder", "local_port"},
+		{"flight_recorder", "new_name"},
+		{"flight_recorder", "new_path"},
+		{"flight_recorder", "new_process_id"},
+		{"flight_recorder", "object_name"},
+		{"flight_recorder", "object_path"},
+		{"flight_recorder", "process_name"},
+		{"flight_recorder", "protocol"},
+		{"flight_recorder", "registry_data"},
+		{"flight_recorder", "registry_data_type"},
+		{"flight_recorder", "registry_key"},
+		{"flight_recorder", "registry_value"},
+		{"flight_recorder", "remote_port"},
+		{"flight_recorder", "sha256"},
+		{"flight_recorder", "stream_id"},
+		{"flight_recorder", "timestamp"},
+		{"flight_recorder", "winlog_event_id"},
+		{"flight_recorder", "endpoints"},
+		{"grid", "next_cursor"},
+		{"grid", "total_count"},
+		{"grid", "aggregation_next_cursor"},
+		{"grid", "after"},
+		{"grid", "account_id"},
+		{"grid", "account_name"},
+		{"grid", "action"},
+		{"grid", "created_at"},
+		{"grid", "friendly_type"},
+		{"grid", "group_id"},
+		{"grid", "group_name"},
+		{"grid", "machine_id"},
+		{"grid", "machine_name"},
+		{"grid", "online"},
+		{"grid", "parent_account_id"},
+		{"grid", "policy_id"},
+		{"grid", "policy_name"},
+		{"grid", "root_group_id"},
+		{"grid", "severity"},
+		{"grid", "source"},
+		{"grid", "type"},
+		{"grid", "correlation_id"},
+		{"grid", "action_outcome"},
+		{"grid", "action_taken"},
+		{"grid", "action_user_email"},
+		{"grid", "action_user_name"},
+		{"grid", "alert_name"},
+		{"grid", "attack_category"},
+		{"grid", "attack_detection_type"},
+		{"grid", "category"},
+		{"grid", "city"},
+		{"grid", "country"},
+		{"grid", "detection_id"},
+		{"grid", "display_name"},
+		{"grid", "domain"},
+		{"grid", "has_impacted_asset_hostname"},
+		{"grid", "identity_primary_identifier"},
+		{"grid", "ip"},
+		{"grid", "pid"},
+		{"grid", "process_path"},
+		{"grid", "status"},
+		{"grid", "technique"},
+		{"grid", "updated_at"},
+		{"groups", "account_id"},
+		{"groups", "child_group_count"},
+		{"groups", "is_default"},
+		{"groups", "machines_count"},
+		{"groups", "name"},
+		{"groups", "ou_object_id"},
+		{"groups", "parent_id"},
+		{"groups", "policy_id"},
+		{"groups", "policy_name"},
+		{"groups", "root_id"},
+		{"groups", "updated_at"},
+		{"groups", "bare_id"},
+		{"installation_tokens", "account_id"},
+		{"installation_tokens", "created_at"},
+		{"installation_tokens", "created_by"},
+		{"installation_tokens", "expires_at"},
+		{"installation_tokens", "sent_to"},
+		{"installation_tokens", "token"},
+		{"installation_tokens", "used_at"},
+		{"notifications", "account_id"},
+		{"notifications", "aggregation"},
+		{"notifications", "category"},
+		{"notifications", "created_at"},
+		{"notifications", "created_by"},
+		{"notifications", "delivery"},
+		{"notifications", "description"},
+		{"notifications", "enabled"},
+		{"notifications", "name"},
+		{"notifications", "owner"},
+		{"notifications", "updated_at"},
+		{"notifications", "updated_by"},
+		{"os_patches", "next_cursor"},
+		{"os_patches", "total_count"},
+		{"os_patches", "account_id"},
+		{"os_patches", "account_name"},
+		{"os_patches", "fully_qualified_host_name"},
+		{"os_patches", "group_name"},
+		{"os_patches", "host_name"},
+		{"os_patches", "total"},
+		{"os_patches", "value"},
+		{"policies", "host_type"},
+		{"policies", "platform"},
+		{"policies", "as_auto_service_updates"},
+		{"policies", "as_delay_protection_updates"},
+		{"policies", "as_enable_restart"},
+		{"policies", "as_pause_software_updates"},
+		{"policies", "as_pause_software_updates_until"},
+		{"policies", "as_postpone_reboot"},
+		{"policies", "as_reboot_message"},
+		{"policies", "as_scan_rootkits"},
+		{"policies", "as_service_process_protection"},
+		{"policies", "as_uninstall_password"},
+		{"policies", "created_at"},
+		{"policies", "deny_edit"},
+		{"policies", "eio_allow_run_threat_scan"},
+		{"policies", "eio_display_rtp_events"},
+		{"policies", "eio_limit_endpoint_agent_control"},
+		{"policies", "eio_show_threat_scan_shortcuts"},
+		{"policies", "eio_show_tray_icon"},
+		{"policies", "eio_show_windows_contextmenu"},
+		{"policies", "etag"},
+		{"policies", "expire_endpoints"},
+		{"policies", "is_default"},
+		{"policies", "policy_id"},
+		{"policies", "policy_name"},
+		{"policies", "rtp_behavior_protection"},
+		{"policies", "rtp_exploit_protection"},
+		{"policies", "rtp_malware_protection"},
+		{"policies", "rtp_web_protection"},
+		{"policies", "sam_allow_behavioral_monitoring"},
+		{"policies", "sam_allow_for_rollback_of_files"},
+		{"policies", "sam_icon_to_display_custom_message_screen"},
+		{"policies", "sam_isolation_message"},
+		{"policies", "sam_isolation_title"},
+		{"policies", "sam_lock_unlock_endpoint"},
+		{"policies", "sam_rollback_file_size"},
+		{"policies", "sam_rollback_file_size_server"},
+		{"policies", "sam_rollback_quota"},
+		{"policies", "sam_rollback_timeframe"},
+		{"policies", "secret_allow_site_override"},
+		{"policies", "so_detect_signature_less_anomalous_files"},
+		{"policies", "so_scan_contents_of_compressed_folders"},
+		{"policies", "so_scan_priority"},
+		{"policies", "so_treat_potentially_unwanted_modifications_as_malware"},
+		{"policies", "so_treat_potentially_unwanted_programs_as_malware"},
+		{"policies", "update_at"},
+		{"policies", "win_action_center"},
+		{"policies", "url"},
+		{"policies", "secret"},
+		{"policies", "level"},
+		{"policies", "policy_secret_set"},
+		{"policies", "site_secret_set"},
+		{"preferences", "emails"},
+		{"preferences", "reports"},
+		{"preferences", "email"},
+		{"preferences", "mobile"},
+		{"preferences", "slack"},
+		{"preferences", "teams"},
+		{"preferences", "webhook"},
+		{"quarantine", "action_taken"},
+		{"quarantine", "affected_application"},
+		{"quarantine", "auto_removal_at"},
+		{"quarantine", "category"},
+		{"quarantine", "detection_id"},
+		{"quarantine", "group_id"},
+		{"quarantine", "group_name"},
+		{"quarantine", "ip_address"},
+		{"quarantine", "machine_id"},
+		{"quarantine", "machine_name"},
+		{"quarantine", "md5"},
+		{"quarantine", "path"},
+		{"quarantine", "policy_id"},
+		{"quarantine", "policy_name"},
+		{"quarantine", "port"},
+		{"quarantine", "process_name"},
+		{"quarantine", "reported_at"},
+		{"quarantine", "resource_created_at"},
+		{"quarantine", "resource_modified_at"},
+		{"quarantine", "scan_id"},
+		{"quarantine", "scanned_at"},
+		{"quarantine", "scanned_at_local"},
+		{"quarantine", "status"},
+		{"quarantine", "threat_name"},
+		{"quarantine", "url"},
+		{"quarantine", "parent_id"},
+		{"quarantine", "bare_id"},
+		{"reports", "account_id"},
+		{"reports", "all_sites_enabled"},
+		{"reports", "created_at"},
+		{"reports", "created_by"},
+		{"reports", "created_by_email"},
+		{"reports", "created_by_username"},
+		{"reports", "email_subject"},
+		{"reports", "enabled"},
+		{"reports", "format"},
+		{"reports", "last_generation_at"},
+		{"reports", "name"},
+		{"reports", "next_generation_at"},
+		{"reports", "notes"},
+		{"reports", "owner"},
+		{"reports", "owner_email"},
+		{"reports", "owner_username"},
+		{"reports", "period"},
+		{"reports", "time_zone"},
+		{"reports", "type"},
+		{"reports", "units"},
+		{"reports", "updated_at"},
+		{"reports", "updated_by"},
+		{"reports", "updated_by_email"},
+		{"reports", "updated_by_username"},
+		{"reports", "parent_id"},
+		{"reports", "bare_id"},
+		{"rid", "next_cursor"},
+		{"rid", "total_count"},
+		{"rid", "account_id"},
+		{"rid", "account_name"},
+		{"rid", "fully_qualified_host_name"},
+		{"rid", "group_name"},
+		{"rid", "host_name"},
+		{"rid", "total"},
+		{"rid", "value"},
+		{"schedules", "command"},
+		{"schedules", "enabled"},
+		{"schedules", "etag"},
+		{"schedules", "name"},
+		{"schedules", "rrule"},
+		{"schedules", "splay"},
+		{"schedules", "parent_id"},
+		{"schedules", "bare_id"},
+		{"sites", "account_id"},
+		{"sites", "account_status"},
+		{"sites", "cloud_evaluation"},
+		{"sites", "company_name"},
+		{"sites", "email"},
+		{"sites", "firstname"},
+		{"sites", "lastname"},
+		{"sites", "site_end_date"},
+		{"sites", "consent"},
+		{"sites", "endpoint_isolation"},
+		{"sites", "is_trial"},
+		{"sites", "mdr_enabled"},
+		{"sites", "primary_contact_id"},
+		{"sites", "primary_contact_phone"},
+		{"sites", "product"},
+		{"sites", "remediation_type"},
+		{"sites", "secret"},
+		{"software", "next_cursor"},
+		{"software", "total_count"},
+		{"software", "account_id"},
+		{"software", "account_name"},
+		{"software", "fully_qualified_host_name"},
+		{"software", "group_name"},
+		{"software", "host_name"},
+		{"software", "total"},
+		{"software", "value"},
+		{"subscriptions", "add_on_allocation"},
+		{"subscriptions", "product"},
+		{"subscriptions", "term_length"},
+		{"subscriptions", "term_type"},
+		{"subscriptions", "trial_extension_available"},
+		{"subscriptions", "billing_date"},
+		{"subscriptions", "billing_duration"},
+		{"subscriptions", "catalog_code"},
+		{"subscriptions", "catalog_name"},
+		{"subscriptions", "original_start_date"},
+		{"subscriptions", "reset_count"},
+		{"subscriptions", "status"},
+		{"subscriptions", "term_ends_on"},
+		{"subscriptions", "version"},
+		{"subscriptions", "volume_purchased"},
+		{"subscriptions", "volume_used"},
+		{"subscriptions", "is_nfr_allowed"},
+		{"subscriptions", "timestamp"},
+		{"subscriptions", "auto_convert_trial_to_paid"},
+		{"subscriptions", "machine_type"},
+		{"suspicious_activity", "account_id"},
+		{"suspicious_activity", "closed"},
+		{"suspicious_activity", "detected_by_count"},
+		{"suspicious_activity", "level"},
+		{"suspicious_activity", "machine_id"},
+		{"suspicious_activity", "path"},
+		{"suspicious_activity", "pc_hostname"},
+		{"suspicious_activity", "status"},
+		{"suspicious_activity", "timestamp"},
+		{"suspicious_activity", "parent_id"},
+		{"suspicious_activity", "bare_id"},
+		{"syslog", "account_id"},
+		{"syslog", "format"},
+		{"syslog", "host"},
+		{"syslog", "interval"},
+		{"syslog", "name"},
+		{"syslog", "port"},
+		{"syslog", "protocol"},
+		{"syslog", "severity"},
+		{"syslog", "parent_id"},
+		{"syslog", "bare_id"},
+		{"usage", "created_at"},
+		{"usage", "group_id"},
+		{"usage", "group_name"},
+		{"usage", "license_term_type"},
+		{"usage", "machine_id"},
+		{"usage", "machine_name"},
+		{"usage", "policy_id"},
+		{"usage", "policy_name"},
+		{"usage", "protection"},
+		{"users", "email"},
+		{"users", "firstname"},
+		{"users", "lastname"},
+		{"users", "phone"},
+		{"vulnerability_assessment", "accounts"},
+		{"vulnerability_assessment", "endpoints"},
+		{"vulnerability_assessment", "total"},
+		{"vulnerability_assessment", "account_id"},
+		{"vulnerability_assessment", "accounts_total"},
+		{"vulnerability_assessment", "aggregated"},
+		{"vulnerability_assessment", "endpoints_total"},
+		{"vulnerability_assessment", "updatable_software_percentage"},
+		{"webhooks", "client_id"},
+		{"webhooks", "description"},
+		{"webhooks", "enabled"},
+		{"webhooks", "max_retries"},
+		{"webhooks", "secret_token"},
+		{"webhooks", "url"},
+		{"webhooks", "parent_id"},
+		{"webhooks", "bare_id"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "account_info" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old account_info: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "aidr" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old aidr: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "app_block" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old app_block: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_ignore_rules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_ignore_rules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cases" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cases: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "content_filtering" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old content_filtering: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cve" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cve: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "detections" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old detections: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "device_control" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old device_control: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "dns" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old dns: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_protection" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old email_protection: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "endpoint_jobs" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old endpoint_jobs: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "endpoints" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old endpoints: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "events" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old events: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "exclusions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old exclusions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "flight_recorder" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old flight_recorder: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "grid" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old grid: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "installation_tokens" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old installation_tokens: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "notifications" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old notifications: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "os_patches" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old os_patches: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "preferences" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old preferences: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "quarantine" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old quarantine: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "reports" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old reports: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "rid" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old rid: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "schedules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old schedules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "sites" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sites: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "software" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old software: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "subscriptions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old subscriptions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "suspicious_activity" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old suspicious_activity: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "syslog" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old syslog: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "usage" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old usage: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vulnerability_assessment" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vulnerability_assessment: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "webhooks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old webhooks: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

@@ -685,7 +685,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to find ThreatDown (Malwarebytes) OneView endpoints that stopped checking in across customer sites, rank sites by what needs attention, reconcile seats before billing, triage detections and threats spreading across customers, profile one customer site, isolate, scan, reboot, update or release endpoints with a preview first, or find response jobs that never ran. Trigger phrases: `which endpoints haven't checked in`, `isolate this machine in threatdown`, `threatdown fleet health`, `malwarebytes oneview detections`, `use threatdown`, `run threatdown`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/SKILL.md",
-      "digest": "sha256:f87a6bb7e24a6f8fd0cbf48a7f105e5efdfa5b140b3407c85eb01703948649cc"
+      "digest": "sha256:a103a0d968afeb7489ccab01a748473a94a495f46914be86da5189cb74341205"
     },
     {
       "name": "threatlocker",

@@ -56,7 +56,7 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 				"parent_id":           formatCLIParamValue(flagParentId),
 				"filter_by_parent_id": formatCLIParamValue(flagFilterByParentId),
 				"next_cursor":         formatCLIParamValue(flagCursor),
-			}, map[string][]string{"name": {"name"}, "parent_id": {"parent-id"}, "filter_by_parent_id": {"filter-by-parent-id"}, "next_cursor": {"cursor"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "groups", cmd.ErrOrStderr())
+			}, map[string][]string{"name": {"name"}, "parent_id": {"parent-id"}, "filter_by_parent_id": {"filter-by-parent-id"}, "next_cursor": {"cursor"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "", 0, "next_cursor", "", "groups", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

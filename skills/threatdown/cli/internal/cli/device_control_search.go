@@ -194,7 +194,7 @@ func newDeviceControlSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/devicecontrol"
@@ -714,7 +714,7 @@ func newDeviceControlSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "child_trace_count": true, "cleaned_at": true, "detection_id": true, "group_id": true, "id": true, "machine_id": true, "machine_name": true, "process_name": true, "reported_at": true, "resource_created_at": true, "resource_modified_at": true, "scan_id": true, "scanned_at": true, "status": true, "threat_name": true, "trace_id": true, "type": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -746,7 +746,7 @@ func newDeviceControlSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "child_trace_count": true, "cleaned_at": true, "detection_id": true, "group_id": true, "id": true, "machine_id": true, "machine_name": true, "process_name": true, "reported_at": true, "resource_created_at": true, "resource_modified_at": true, "scan_id": true, "scanned_at": true, "status": true, "threat_name": true, "trace_id": true, "type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountIds, "account-ids", "", "The account ids to filter your search")

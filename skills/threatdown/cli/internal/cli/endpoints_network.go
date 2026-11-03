@@ -51,7 +51,7 @@ func newEndpointsNetworkCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "endpoints", false, path, params, nil, "nics", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "endpoints", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -78,7 +78,7 @@ func newEndpointsNetworkCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "account_name": true, "fully_qualified_host_name": true, "group_name": true, "host_name": true})
+					filtered = compactFields(filtered, map[string]bool{"agent_info_last_updated_at": true, "fully_qualified_host_name": true, "host_name": true, "last_seen_at": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -110,7 +110,7 @@ func newEndpointsNetworkCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "account_name": true, "fully_qualified_host_name": true, "group_name": true, "host_name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"agent_info_last_updated_at": true, "fully_qualified_host_name": true, "host_name": true, "last_seen_at": true})
 		},
 	}
 

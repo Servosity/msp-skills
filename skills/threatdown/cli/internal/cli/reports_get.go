@@ -49,7 +49,7 @@ func newReportsGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPopulate {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPopulate, "populate", allowedPopulate)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPopulate, "populate", allowedPopulate))
 				}
 			}
 			path := "/v1/accounts/{account_id}/reports/{id}"

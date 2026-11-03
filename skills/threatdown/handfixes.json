@@ -200,7 +200,7 @@
   {
    "id": "install-env-declared-on-every-channel",
    "summary": "Every variable the binaries read is declared on all three install channels: manifest.json (.mcpb user_config + server.mcp_config.env), server.json (MCP Registry) and the three mcp-install.md env blocks. Beyond the client id and secret these are the optional THREATDOWN_OAUTH_SCOPE, THREATDOWN_BASE_URL, THREATDOWN_TOKEN_URL, THREATDOWN_USER_AGENT, THREATDOWN_MCP_READ_ONLY, THREATDOWN_MCP_HTTP_TOKEN and PRINTING_PRESS_CLIENT_PROFILE, blank (not placeholders) in mcp-install.md.",
-   "why": "check_env_schema failed the onboard with 7 read-but-undeclared variables, so a Claude Desktop install could never set read-only mode or a reduced scope. onboard.py --resume re-vendors manifest.json from the press source, which declares only the two credentials, so a re-onboard drops the other seven while the build stays green (check_env_schema would then catch it; this entry names the cause). Applied at msp-skills onboarding 2026-10-14. 2026-10-22: the read-only switch is preset to \"1\" in every mcp-install.md config block by the interim security note.",
+   "why": "check_env_schema failed the onboard with 7 read-but-undeclared variables, so a Claude Desktop install could never set read-only mode or a reduced scope. onboard.py --resume re-vendors manifest.json from the press source, which declares only the two credentials, so a re-onboard drops the other seven while the build stays green (check_env_schema would then catch it; this entry names the cause). Applied at msp-skills onboarding 2026-10-14. 2026-10-22: the read-only switch is preset to \"1\" in every mcp-install.md config block by the interim security note. 2026-11-02 (press 4.35.1 reprint): THREATDOWN_NO_LOCAL_DATA (new in 4.34) declared on all three channels.",
    "status": "active",
    "asserts": [
     {
@@ -219,22 +219,44 @@
      "file": "mcp-install.md",
      "contains": "\"THREATDOWN_MCP_READ_ONLY\": \"1\"",
      "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATDOWN_NO_LOCAL_DATA\": \"${user_config.threatdown_no_local_data}\""
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATDOWN_NO_LOCAL_DATA\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATDOWN_NO_LOCAL_DATA\": \"\"",
+     "min_count": 3
     }
    ]
   },
   {
    "id": "http-transport-needs-bearer-token",
    "summary": "Every documented `threatdown-mcp --transport http` launch (README ChatGPT line and FAQ, mcp-install.md remote section) sets THREATDOWN_MCP_HTTP_TOKEN and says callers send it as Authorization: Bearer.",
-   "why": "The scaffolded docs launched `threatdown-mcp --transport http` with only the OAuth credentials; the binary exits 1 with 'THREATDOWN_MCP_HTTP_TOKEN must be set to a non-empty bearer token before starting --transport http' (measured 2026-10-14), so the documented ChatGPT/remote path never started. check_install_docs does not check the token, so nothing gates this. 2026-10-22 (follow-up to #428): the README.md / page.json remote-agent (HTTP mode) prose this entry guarded was removed on purpose when the interim security note paused HTTP mode until the reprint; restore those markers with the post-reprint docs fix.",
+   "why": "The scaffolded docs launched `threatdown-mcp --transport http` with only the OAuth credentials; the binary exits 1 with 'THREATDOWN_MCP_HTTP_TOKEN must be set to a non-empty bearer token before starting --transport http' (measured 2026-10-14), so the documented ChatGPT/remote path never started. check_install_docs does not check the token, so nothing gates this. 2026-10-22 (follow-up to #428): the README.md / page.json remote-agent (HTTP mode) prose this entry guarded was removed on purpose when the interim security note paused HTTP mode until the reprint; restore those markers with the post-reprint docs fix. 2026-11-02 (press 4.35.1 reprint): the interim note is retired; the README ChatGPT line and FAQ are restored with the 4.35.1 HTTP mode (token of at least 32 characters, loopback unless TLS) and the mcp-install.md launch exports the token on its own line.",
    "status": "active",
    "asserts": [
     {
      "file": "mcp-install.md",
-     "contains": "THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> THREATDOWN_MCP_HTTP_TOKEN=<value> threatdown-mcp --transport http"
+     "contains": "export THREATDOWN_MCP_HTTP_TOKEN=\"$(openssl rand -hex 32)\"\nTHREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> threatdown-mcp --transport http"
+    },
+    {
+     "file": "README.md",
+     "contains": "refuses to start until `THREATDOWN_MCP_HTTP_TOKEN` is set to a token of at least 32 characters, every request must send that token as a bearer header",
+     "min_count": 1
     },
     {
      "file": "README.md",
      "not_contains": "start it with `threatdown-mcp --transport http`"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "until this connector is reprinted"
     }
    ]
   },
@@ -322,7 +344,7 @@
   {
    "id": "token-bound-to-client",
    "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it. Round 6 (2026-10-14): the refusal is the typed client.ErrTokenBoundElsewhere, which exits with the auth code 4 and which doctor reports as a credentials error (the API is not probed); an unbound token yields to a client ID or a secret (either one); and config.Load never pairs an environment client ID with the secret saved for a different client in credentials.toml. Round 7 (2026-10-14): auth login given either flag saves the exact client pair it minted with, and save() keeps the saved pair in its snapshot so a second mint in one process (tail --follow, a long sync) does not write it back empty. A hand-written auth_header counts as an unbound token (it yields to a configured client ID or secret), and a [headers] Authorization entry is never sent: auth comes only from the bound token path.",
-   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. Round 5 (adversarial + Codex, 2026-10-14) found the first version failed open: a process with a client ID but no secret, or only THREATDOWN_OAUTH_SCOPE set, still used the admin token; a GET cache hit (keyed on the cached token) served the other client's data before authHeader ran; and an unbound token outranked configured credentials. internal/client/token_binding_test.go (both tests) fails with any of these guards removed. Codex review round 6 (2026-10-14), two P1s: AuthHeader() sends auth_header ahead of any token, and the configured-header loop overwrote the bound Authorization, so a saved admin bearer in either place rode a reporting client or a narrower scope. TestHandWrittenAuthHeaderYieldsToClient and TestConfiguredHeadersNeverCarryAuthorization fail on revert.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. Round 5 (adversarial + Codex, 2026-10-14) found the first version failed open: a process with a client ID but no secret, or only THREATDOWN_OAUTH_SCOPE set, still used the admin token; a GET cache hit (keyed on the cached token) served the other client's data before authHeader ran; and an unbound token outranked configured credentials. internal/client/token_binding_test.go (both tests) fails with any of these guards removed. Codex review round 6 (2026-10-14), two P1s: AuthHeader() sends auth_header ahead of any token, and the configured-header loop overwrote the bound Authorization, so a saved admin bearer in either place rode a reporting client or a narrower scope. TestHandWrittenAuthHeaderYieldsToClient and TestConfiguredHeadersNeverCarryAuthorization fail on revert. 4.35.1 reprint (2026-11-02): the credentials literal gained BaseURL and RefreshLoginID (assert re-aligned), and the 4.35.1 logout path clears refreshLoginID/refreshLoginKeep, so the binding clear sits after them.",
    "status": "active",
    "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
    "asserts": [
@@ -338,7 +360,7 @@
     },
     {
      "file": "cli/internal/config/config.go",
-     "contains": "TokenBinding:  c.TokenBinding,",
+     "contains": "TokenBinding:   c.TokenBinding,",
      "code_only": true
     },
     {
@@ -460,26 +482,21 @@
      "file": "cli/internal/client/auth_header_binding_test.go",
      "contains": "func TestConfiguredHeadersNeverCarryAuthorization(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.refreshLoginKeep = false\n\tc.TokenBinding = \"\"",
+     "code_only": true
     }
    ]
   },
   {
    "id": "diag-log-is-endpoint-action",
-   "summary": "endpoints diag-log (a GET that makes the endpoint generate a diagnostic log) is marked Mutating in the MCP code-orchestration table, so THREATDOWN_MCP_READ_ONLY=1 refuses it through threatdown_execute; the CLI command no longer carries mcp:read-only; and its signed download URL is never written to the HTTP response cache (IsSecretBearingPath), so every call reaches the endpoint. The CLI command sends it through GetMutating too (never served from the response cache, never retried after an ambiguous failure). The CLI keeps the --data-source gate (local is refused before any request) and the live JSON-body guard around GetMutating.",
-   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). The generated read-only gate allowed every GET, so a 'reporting agent' MCP server could make client endpoints generate logs, which governance.md tiers as an Endpoint action. The response is a signed S3 URL that was cached at rest and served on a repeat call without asking the endpoint again. code_orch.go, endpoints_diag-log.go and secretfields' caller are regenerated on a reprint; TestCodeOrchExecuteReadOnlyRefusesNonGET in code_orch_writebody_test.go fails if diag-log stops being refused. Codex review round 5 (2026-10-14): the CLI still sent it through the read path, so a dropped response replayed the request (TestDiagLogIsNeverRetried: 4 API hits before, 1 after). Review round 10: the first GetMutating cut skipped validateDataSourceStrategy, so --data-source local fired the action live. TestDiagLogRefusesLocalDataSource.",
+   "summary": "endpoints diag-log (a GET that makes the endpoint generate a diagnostic log) is NeedsConfirm and Mutating in the MCP code-orchestration table, so threatdown_read refuses it, threatdown_execute previews it until confirm is boolean true, and THREATDOWN_MCP_READ_ONLY=1 refuses it; the CLI command no longer carries mcp:read-only; its signed download URL is never written to the HTTP response cache (IsSecretBearingPath); the CLI sends it through GetMutating (never cached, never retried) behind the --data-source gate.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). The generated read-only gate allowed every GET, so a 'reporting agent' MCP server could make client endpoints generate logs, which governance.md tiers as an Endpoint action. The response is a signed S3 URL that was cached at rest and served on a repeat call without asking the endpoint again. code_orch.go, endpoints_diag-log.go and secretfields' caller are regenerated on a reprint; TestCodeOrchExecuteReadOnlyRefusesNonGET in code_orch_writebody_test.go fails if diag-log stops being refused. Codex review round 5 (2026-10-14): the CLI still sent it through the read path, so a dropped response replayed the request (TestDiagLogIsNeverRetried: 4 API hits before, 1 after). Review round 10: the first GetMutating cut skipped validateDataSourceStrategy, so --data-source local fired the action live. TestDiagLogRefusesLocalDataSource. 4.35.1 reprint (2026-11-02): press 4.35.1 gates Mutating and NeedsConfirm endpoints natively (read/execute split, confirm preview, read-only refusal), so the hand-written codeOrchBlockedByMCPReadOnly(method, mutating) is retired and only the table entry is hand-set. The generated scan / scan-detections GETs come out gated natively.",
    "status": "active",
    "spec_encode_followup": "Needs a spec extension the press honors for side-effecting GETs (mark the operation mutating) so the gate, cache bypass and MCP hint follow by construction.",
    "asserts": [
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "Path:           \"/v1/accounts/{account_id}/endpoints/{id}/diag-log\",\n\t\tSummary:        \"Generate a diagnostic log for an endpoint using its ID.\",\n\t\tPositional:     []string{\"id\", \"account_id\"},\n\t\tTemplateParams: []codeOrchParamBinding{},\n\t\tQueryParams:    []codeOrchParamBinding{},\n\t\tHeaderParams:   []codeOrchParamBinding{},\n\t\tMutating:       true,",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/code_orch.go",
-     "contains": "return cliutil.IsMCPReadOnlyEnv() && (method != \"GET\" || mutating)",
-     "code_only": true
-    },
     {
      "file": "cli/internal/mcp/code_orch_writebody_test.go",
      "contains": "ep.ID == \"endpoints.diag-log\"",
@@ -515,6 +532,16 @@
      "file": "cli/internal/cli/diag_log_once_test.go",
      "contains": "func TestDiagLogRefusesLocalDataSource(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "HeaderParams:   []codeOrchParamBinding{},\n\t\tNeedsConfirm:   true,\n\t\tMutating:       true,\n\t\tkeywords:       codeOrchKeywords(\"endpoints\", \"diag-log\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_writebody_test.go",
+     "contains": "if ep.ID == \"endpoints.diag-log\" && !want {",
+     "code_only": true
     }
    ]
   },
@@ -736,26 +763,30 @@
   },
   {
    "id": "x-text-above-go-2026-6629",
-   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the fixes for GO-2026-5970 and GO-2026-6629",
-   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency. osv-scanner flags v0.39.0 for GO-2026-6629 (a panic parsing crafted input in x/text/secure/precis). The repo security gate tracks it, and a reprint from a press that still emits v0.39.0 would quietly bring it back. Bumped with `go get golang.org/x/text@v0.41.0` + `go mod tidy`; build and tests pass.",
+   "summary": "`golang.org/x/text` is pinned at v0.42.0, above the fixes for GO-2026-5970 and GO-2026-6629",
+   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency. osv-scanner flags v0.39.0 for GO-2026-6629 (a panic parsing crafted input in x/text/secure/precis). The repo security gate tracks it, and a reprint from a press that still emits v0.39.0 would quietly bring it back. Bumped with `go get golang.org/x/text@v0.41.0` + `go mod tidy`; build and tests pass. 4.35.1 reprint (2026-11-02): the 4.35.1 render pins no x/text, so `go mod tidy` resolved v0.14.0; replay_handfixes.py raised it to v0.42.0.",
    "status": "active",
    "spec_encode_followup": "Raise the golang.org/x/text floor in the press module template so generated go.mod files ship at v0.41.0 or later by construction.",
    "asserts": [
     {
      "file": "cli/go.mod",
-     "contains": "golang.org/x/text v0.41.0",
-     "min_count": 1
+     "contains": "golang.org/x/text v0.42.0",
+     "code_only": true
     },
     {
      "file": "cli/go.mod",
      "not_contains": "golang.org/x/text v0.39.0"
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.14.0"
     }
    ]
   },
   {
    "id": "auth-status-tracks-binding",
    "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives. Placeholder values and unresolved MCPB ${...} templates never count as a pair (resolveClientCredentials reads the env through cliutil.EnvOverride, like config.Load), and doctor uses the same AuthState, so the two never disagree. Any <...> value is a placeholder (the docs print <client-id>, <your-client-secret>, <value>), auth login reads the env through EnvOverride, and doctor reports a rejected token mint (client.ErrTokenMintRejected) as a credentials ERROR instead of 'API unreachable'. A placeholder that came from THREATDOWN_CLIENT_ID or THREATDOWN_CLIENT_SECRET is reported against that variable, not config.toml, and doctor shows it as a Credentials ERROR with the API not probed. auth login refuses a placeholder client ID or secret (flag or env) before any token request.",
-   "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check. Round 9 (2026-10-14) found the twin: doctor still said 'Auth: not configured' on a fresh home with a valid env pair, and AuthState called placeholder or ${...} values mintable. TestAuthStatusAndDoctorAgreeOnEnvPairs covers all three cases for both commands. Review round 10: the placeholder matcher missed the connector's own documented placeholders, and with a typo'd secret doctor blamed the network. TestDoctorReportsRejectedMintAsCredentials. Adversarial review round 11 (2026-10-14), P2: an env placeholder was reported as 'configured in config.toml' (a file holding no credential) and doctor called it 'API: unreachable'. TestPlaceholderErrorNamesTheEnvVar.",
+   "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check. Round 9 (2026-10-14) found the twin: doctor still said 'Auth: not configured' on a fresh home with a valid env pair, and AuthState called placeholder or ${...} values mintable. TestAuthStatusAndDoctorAgreeOnEnvPairs covers all three cases for both commands. Review round 10: the placeholder matcher missed the connector's own documented placeholders, and with a typo'd secret doctor blamed the network. TestDoctorReportsRejectedMintAsCredentials. Adversarial review round 11 (2026-10-14), P2: an env placeholder was reported as 'configured in config.toml' (a file holding no credential) and doctor called it 'API: unreachable'. TestPlaceholderErrorNamesTheEnvVar. 4.35.1 reprint (2026-11-02): 4.35.1 masks the token endpoint's error body through maskHeldError, whose maskedError drops the wrapped ErrTokenMintRejected whenever it masks a value, so doctor called a rejected secret 'unreachable' when the body echoed a token. The sentinel now wraps the masked error from outside. TestRejectedMintAndRefreshNeverDeadlock fails on that shape (want ErrTokenMintRejected) and hangs (5 s guard) if the token-state lock is ever taken twice on the rejected mint or refresh path; mint_lock_scan.py flags both paths statically because it cannot see maskHeldError's held=true.",
    "status": "active",
    "spec_encode_followup": "Have the press auth-status template consult the same token-binding and client-credentials resolution the client uses before minting.",
    "asserts": [
@@ -840,6 +871,16 @@
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "if client.LooksLikeCredentialPlaceholder(v.value) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return fmt.Errorf(\"%w: %s\", ErrTokenMintRejected, c.maskHeldError(fmt.Errorf(\"HTTP %d: %s\", resp.StatusCode, cliutil.SanitizeErrorBody(string(body))), tokenBodySecrets(body)...))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/rejected_mint_lock_test.go",
+     "contains": "func TestRejectedMintAndRefreshNeverDeadlock(",
      "code_only": true
     }
    ]
@@ -1011,92 +1052,6 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
    "summary": "The generator's hidden Cobra alias `create` is removed from the 3 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
@@ -1121,61 +1076,6 @@
      "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; THREATDOWN_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"THREATDOWN_MCP_READ_ONLY\": \"1\"",
-     "min_count": 3
-    },
-    {
-     "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to make changes.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
     }
    ]
   },
@@ -1294,186 +1194,117 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected; the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "mcp-bool-args-json-boolean-only",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "summary": "A mirrored MCP tool call that sets a boolean CLI flag (confirm, all-matches, any local or inherited Cobra bool) to anything but a JSON boolean is refused before the companion CLI runs.",
+   "why": "Codex review r1 of the 4.35.1 reprint (2026-11-02), P1 write without confirm: cliArgsFromMCP joins a string or number onto the flag (--confirm=true) and Cobra parses it as true, so {\"name\":\"respond_isolate\",\"arguments\":{\"host\":[\"HOST1\"],\"confirm\":\"true\"}} sent the isolation job although the gate previews until boolean true. internal/mcp/cobratree/shellout.go (guardMirroredMCPCall) is generated; a reprint drops the call. TestMirroredBoolFlagsTakeOnlyJSONBooleans fails without it.",
+   "spec_encode_followup": "Press-side: the cobratree shell-out should validate argument types against the tool's input schema (bool flags take JSON booleans only).",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if msg := mirroredBoolArgRefusal(cmd, req.GetArguments()); msg != \"\" {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/bool_args.go",
+     "contains": "func mirroredBoolArgRefusal(cmd *cobra.Command, args map[string]any) string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/bool_args_test.go",
+     "contains": "func TestMirroredBoolFlagsTakeOnlyJSONBooleans(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-sync-mirrors-the-console",
+   "status": "active",
+   "summary": "An unscoped fleet sync treats the console's site list, read with the response cache off, as authoritative: endpoint, detection and job rows of accounts no longer in it are deleted (also when the console has no sites), and fleet sync's own rows (UpsertBatchReplacing) replace the stored row instead of merging richer old fields; every other writer still merges.",
+   "why": "Codex review r1 of the 4.35.1 reprint (2026-11-02), two P1 classes: with GET /v1/sites -> {\"sites\":[]} every reconcile was skipped, so local fleet stale still listed a removed account's endpoints; and the store's richer-data merge kept a site's old account_id when the console sent \"\" (the schema default for a site with no subscription), so customer report used the old account. store.go is generated; a reprint drops the replace branch. TestFleetSyncMirrorsTheConsole fails without either fix. Codex review r2 (2026-11-02), two P1s against the first cut: replacing EVERY write to those resources let a partial PUT /v1/sites/{id} response (no account_id) erase the synced account mapping, and the purge read GET /v1/sites through the 5-minute response cache, so an empty list cached by `sites list` deleted a live account's rows. TestPartialSiteResponseKeepsTheAccount and TestFleetSyncNeverDeletesOnACachedSiteList fail on that cut.",
+   "spec_encode_followup": "Press-side: an x-pp extension marking a resource as whole-record (replace on upsert), and account-scoped orphan reconciliation for dependent resources.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if s.replacing(resourceType) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/store/extras.go",
+     "contains": "func (s *Store) UpsertBatchReplacing(resourceType string, items []json.RawMessage) (int, int, error) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "stored, failed, err := db.UpsertBatchReplacing(resource, items)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "c.NoCache = true\n\t\t\tsites, err := fetchSites(ctx, c)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "n, perr := purgeVanishedAccounts(db, accounts)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_reconcile_r1_test.go",
+     "contains": "func TestFleetSyncMirrorsTheConsole(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_reconcile_r2_test.go",
+     "contains": "func TestPartialSiteResponseKeepsTheAccount(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_reconcile_r2_test.go",
+     "contains": "func TestFleetSyncNeverDeletesOnACachedSiteList(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "timestamps-never-hide-a-row",
+   "status": "active",
+   "summary": "fleet.ParseTime accepts RFC 3339's lowercase t and z, and respond pending lists a waiting job whose issued_at cannot be read (age_hours -1) instead of dropping it. fleet.Spread (threats spread, customer report top threats) counts an undated detection as undated_detections instead of dropping it.",
+   "why": "Codex review r1 of the 4.35.1 reprint (2026-11-02), P1: issued_at \"2026-11-01t00:00:00z\" (valid RFC 3339 date-time per the jobs search schema) failed to parse and respond pending printed an all-clear over a day-old waiting job. Hand-written novel code; the asserts pin it against a refactor. TestUnreadableTimestampNeverHidesAJob. 2026-11-02 (onboard, same class): Codex r2 P2 input {\"reported_at\":\"yesterday-ish\"} was dropped by fleet.Spread; now counted. TestSpreadCountsUndatedDetections (seen failing first).",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/fleet.go",
+     "contains": "s = strings.ToUpper(strings.TrimSpace(s))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
+     "file": "cli/internal/cli/respond_pending.go",
+     "contains": "if !failed && !(waiting && (!ok || now.Sub(issued) >= minAge)) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/cli/fleet_reconcile_r1_test.go",
+     "contains": "func TestUnreadableTimestampNeverHidesAJob(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/fleet/fleet.go",
+     "contains": "\t\tif ok && t.Before(since) {\n\t\t\tcontinue\n\t\t}\n\t\tkey := strings.ToLower(d.SHA256)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/fleet/fleet.go",
+     "contains": "g.row.UndatedDetections++",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/fleet/fleet.go",
+     "not_contains": "\t\tif !ok || t.Before(since) {\n\t\t\tcontinue\n\t\t}\n\t\tkey := strings.ToLower(d.SHA256)"
+    },
+    {
+     "file": "cli/internal/fleet/spread_undated_test.go",
+     "contains": "func TestSpreadCountsUndatedDetections(",
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/threatdown-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/threatdown-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/threatdown-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
   },
@@ -1531,6 +1362,455 @@
    ]
   },
   {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, client-credentials mint and auth login, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand, terminal checks through credkit.Terminal, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config.toml (and its legacy copy and snapshot restore) and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile).",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer. Classes closed, each by a test in cli/internal/credwire/leak_test.go seen failing first on the pre-kit build: a token-endpoint error body that echoes the client secret, printed by auth login whole and by the automatic mint in part (TestTokenEndpointEchoOfClientSecretIsWithheld, CLI and MCP); an API error that echoes part of the minted bearer (TestAPIErrorEchoOfMintedTokenIsWithheld, CLI, --agent and MCP), and the same piece HTML-entity-encoded, JSON-escaped, double URL-encoded, base64 or hex, with the 0.1.3 promise for the whole token kept (TestEncodedEchoOfMintedTokenIsWithheld); every startup source held before the first byte of output, the client pair, THREATDOWN_MCP_HTTP_TOKEN, SPACEFAST_TOKEN, a base URL password, the credential store, config.toml, a malformed config and a profile value under a credential flag's name (TestStartupCredentialsHeldBeforeAnyOutput); a held credential refused to another origin and over plain http, the --deliver webhook, an off-origin token URL and a plain http API (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP); a --stdin request body held before a --dry-run preview (TestStdinBodyHeldBeforePreview); and the learn journal, written with credkit.AppendFile, never records a held credential (TestJournalNeverRecordsAHeldCredential). Two missing-data guards, each seen failing on a mutated build: `feedback --stdin` keeps its body (TestFeedbackStdinIsRecorded; --stdin is a StdinFlags name, so the kit held the feedback text whole and withheld the local record; compactStdinBody takes a feedback command line's body off stdin before the kit reads it and RestoreFeedbackStdin hands it back), and ordinary results still print and cache (TestOrdinaryOutputStillPrints, failing with an over-broad ResponseFields). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test seams swap. The vendor's own secret response fields (as_uninstall_password, secret_token, custom_headers) are not declared: their reads are Credential tier (secret-reads-credential-tier) and declaring them would withhold the reads that return them.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name.",
+   "asserts": [
+    {
+     "file": "cli/cmd/threatdown-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-cli/main.go",
+     "contains": "credwire.RestoreFeedbackStdin()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threatdown-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "feedbackStdin, data = data, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\"access_token\", \"refresh_token\", \"id_token\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:spacefast-page-key\", Allowed: []string{\"https://api.spacefast.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return &http.Client{Transport: guardTransport(tr)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:access-token\", tokenResp.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:access-token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "c.Transport = OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(snap.path, snap.data, mode, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.legacySourcePath, scrubbedData, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/cli/root_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTokenEndpointEchoOfClientSecretIsWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAPIErrorEchoOfMintedTokenIsWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEncodedEchoOfMintedTokenIsWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStartupCredentialsHeldBeforeAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestHeldCredentialRefusedOffOriginAndOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyHeldBeforePreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestJournalNeverRecordsAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFeedbackStdinIsRecorded(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestOrdinaryOutputStillPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"secret_token\", \"secret-token\", \"token\"},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFlags: []string{\"--client-id\", \"--client-secret\", \"--secret\", \"--as-uninstall-password\", \"--secret-token\"},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPRequestCredentialArgumentsAreHeld(t *testing.T) {",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "credential-file-private-before-write",
+   "class": "credential-file-permissions",
+   "summary": "AtomicWriteCredentialFile (credential store, config.toml, legacy config, Spacefast record) checks the new temp file with VerifyCredsPerms before any secret byte is written; a directory whose ACL passes read access on to new files (Windows inheritable ACE, macOS file_inherit) gets nothing, and the refusal is a CredentialsPermissionError with NotWritten set, so the --json envelope reports saved:false. TestSaveCredentialsVerifiesWrittenFile's Windows branch expects no file to carry the token.",
+   "why": "Codex r1 (2026-11-06) P1, reproduced on macOS with chmod +a 'everyone allow read,file_inherit' on THREATDOWN_DATA_DIR: auth set-token wrote and published credentials.toml with an inherited everyone-read entry, then failed the post-save check and left the readable file behind. The press 4.35.1 template writes, renames, then verifies; a reprint restores that order.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := VerifyCredsPerms(tmpPath); err != nil {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credential_write_acl_test.go",
+     "contains": "func TestCredentialWriteRefusesInheritedBroadAccess(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "contains": "carries the token after a refused save",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "not_contains": "read saved credentials after permission refusal"
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "return &CredentialsPermissionError{Path: path, Err: err, NotWritten: true}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "\tNotWritten bool\n",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\"saved\":                !permissionErr.NotWritten,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/credential_refusal_envelope_test.go",
+     "contains": "func TestRefusedCredentialWriteReportsNotSaved(t *testing.T) {",
+     "min_count": 1
+    }
+   ]
+  },
+  {
    "id": "sync-event-writer-serialized",
    "class": "concurrent-writer",
    "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
@@ -1557,6 +1837,23 @@
      "code_only": true
     }
    ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }
