@@ -38,7 +38,6 @@
       "atera",
       "autotask",
       "axcient",
-      "connectwise-automate",
       "connectwise-control",
       "connectwise-manage",
       "datto-rmm",
@@ -103,7 +102,6 @@
       "acronis",
       "axcient",
       "backup-radar",
-      "connectwise-automate",
       "connectwise-control",
       "itglue",
       "levelio",
@@ -125,7 +123,6 @@
     "mcp-share-command": [],
     "mcp-read-only-switch-skips-typed-tools": [
       "axcient",
-      "connectwise-automate",
       "connectwise-control",
       "itglue",
       "levelio",
