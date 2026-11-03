@@ -100,4 +100,4 @@ jobs:
 
       - name: Child hand-off, stalled stdout and ordinary corpus, repeated (windows/amd64, native)
         working-directory: tools/maintainer/credkit
-        run: go test -count=10 -timeout 30m -run '^(TestContract1ChildGetsTheHeldSet|TestKit3StdoutStalledReaderNeverSplitsAWrite|TestOrdinaryCorpusIsClean)$' .
+        run: go test -count=20 -timeout 40m -run '^(TestContract1ChildGetsTheHeldSet|TestKit3StdoutStalledReaderNeverSplitsAWrite|TestOrdinaryCorpusIsClean)$' .
