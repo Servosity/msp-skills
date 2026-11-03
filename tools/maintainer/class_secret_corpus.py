@@ -3947,22 +3947,18 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
     return cases
 
 
-# Two verdicts depend on the run, not the connector: a random value's bytes
-# exhausting the budget (contract 6.7), and the request id row's frame split
-# at a pause (6.9 of the id 6.1 excuses, the only row that showed it). On the
-# list's first full run about one row in six failed on one of them, so a change
-# running every row would never be green. Any other stream failure stands: a
-# whole short credential in one write, then a pause, is a leak a retry would
-# hide by joining the writes.
-def _by_chance(r: dict, why: str) -> bool:
-    return "ran out of budget" in why or ("(Streams: write" in why and r.get("advisory") == "6.1")
-
-
+# A verdict that depends on the run, not the connector: the matcher reaching a
+# limit (contract 6.7 and 3): a random value's bytes exhausting its budget, or
+# the kit's stream limits when the pipe split a clean large frame. On the list's
+# first full run about one row in six failed on one, so a change running every
+# row would never be green. A held credential found is never retried: a whole
+# short one in one write, then a pause, is a leak a retry would hide by joining
+# the writes.
 def settle(r: dict, again) -> dict:
-    """A FAIL whose every reason is by chance gets two more attempts; the
-    first attempt that fails for another reason, or does not fail, stands."""
+    """A FAIL whose every reason is a limit gets two more attempts; the first
+    attempt that fails for another reason, or does not fail, stands."""
     for _ in range(2):
-        if r["verdict"] != "FAIL" or not r["where"] or not all(_by_chance(r, w) for w in r["where"]):
+        if r["verdict"] != "FAIL" or not r["where"] or not all("ran out of budget" in w for w in r["where"]):
             break
         r = again()
     return r
@@ -6803,12 +6799,13 @@ def _settle_probe() -> bool:
         return {"verdict": "FAIL", "where": list(why)}
     for why, seq, want_v, want_n in (
             ("budget, then clean", [fails(budget), {"verdict": "PASS", "where": []}], "PASS", 2),
-            ("split on the id row, then advisory", [dict(fails(stream), advisory="6.1"), {"verdict": "ADVISORY", "where": []}], "ADVISORY", 2),
-            # corpus8rv round 4: a whole short credential in one write, then a
-            # pause, is a leak a retry would hide by joining the writes.
-            ("a stream failure on any other row: no second attempt", [fails(stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
-            ("a stream failure on another advisory row: no second attempt", [dict(fails(stream), advisory="6.5"), {"verdict": "PASS", "where": []}], "FAIL", 1),
-            ("budget and a stream failure beside it: no second attempt", [fails(budget, stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("the kit's stream limit, then clean", [fails("x: the kit's matcher ran out of budget (Streams: write 2 of 2 withheld at a limit)"), {"verdict": "PASS", "where": []}], "PASS", 2),
+            # corpus8rv rounds 4 and 5: a held credential found is never retried,
+            # on any row: a whole short one in one write, then a pause, is a leak
+            # a retry would hide by joining the writes.
+            ("a stream match: no second attempt", [fails(stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
+            ("a stream match on the request id row: no second attempt", [dict(fails(stream), advisory="6.1"), {"verdict": "ADVISORY", "where": []}], "FAIL", 1),
+            ("budget and a stream match beside it: no second attempt", [fails(budget, stream), {"verdict": "PASS", "where": []}], "FAIL", 1),
             ("the same reason every attempt", [fails(budget)] * 3, "FAIL", 3),
             ("a leak: no second attempt", [fails(leak), {"verdict": "PASS", "where": []}], "FAIL", 1),
             ("a leak beside a chance reason: no second attempt", [fails(budget, leak), {"verdict": "PASS", "where": []}], "FAIL", 1),

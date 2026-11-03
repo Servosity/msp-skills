@@ -104,6 +104,32 @@ func TestStreamWrites(t *testing.T) {
 	}
 }
 
+// A clean frame the pipe split at a pause goes past the stream's limits: the
+// kit withholds its second part, and that is not a credential found (corpus8rv,
+// a 69 KB MCP tools/list on the fleet run). A match after a split still is.
+func TestStreamLimitIsNotALeak(t *testing.T) {
+	stream := func(units ...string) string {
+		us := make([]string, len(units))
+		for i, u := range units {
+			us[i] = b64(u)
+		}
+		b, _ := json.Marshal(request{Held: []string{b64("clsKmJRm2g3d.pCR+42P/hNY=FJj")}, Unit: b64(strings.Join(units, "")), Units: us})
+		return string(b)
+	}
+	frame := `{"jsonrpc":"2.0","id":null,"result":{"tools":[` + strings.Repeat(`{"name":"a_tool","description":"Output as JSON (default: false)","type":"boolean"},`, 900) + `{}]}}` + "\n"
+	cut := len(frame) - 3700
+	got, err := ask(t, stream(frame[:cut], frame[cut:]), stream(frame))
+	if err != nil || len(got) != 2 {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if got[0].Verdict != "exhausted" || !strings.Contains(got[0].Clause, "Streams") {
+		t.Errorf("a clean frame split at a pause: want exhausted (a limit), got %+v", got[0])
+	}
+	if got[1].Verdict != "clean" {
+		t.Errorf("the same frame in one write: want clean, got %+v", got[1])
+	}
+}
+
 func TestAcquireStdin(t *testing.T) {
 	// A declared stdin flag in the arguments: the kit reads the process's
 	// stdin (finding r4-4); without the flag, stdin is not a credential.

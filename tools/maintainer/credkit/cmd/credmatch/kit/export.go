@@ -59,9 +59,9 @@ func PublicAsWritten(v string) bool { return inPublicText(v) }
 // pump makes it: each unit the pump reads between pauses, checked with the
 // stream's context (contract 3, Streams). It returns the index of the first
 // unit the kit withholds, or -1.
-func StreamWithheld(held []string, units [][]byte) int {
+func StreamWithheld(held []string, units [][]byte) (int, bool) {
 	if len(held) == 0 {
-		return -1
+		return -1, false
 	}
 	reg.Lock()
 	reg.vals = map[string]*heldEntry{}
@@ -72,15 +72,31 @@ func StreamWithheld(held []string, units [][]byte) int {
 	var st streamCtx
 	for i, u := range units {
 		if len(u) > maxUnit {
-			return i // the pump withholds a unit it cannot check
+			return i, false // the pump withholds a unit it cannot check
 		}
 		out, withheld := st.decide(u, SinkStdout)
 		if withheld {
-			return i
+			return i, st.matched(u)
 		}
 		st.done(u, out, withheld)
 	}
-	return -1
+	return -1, false
+}
+
+// matched: a held value found in the write withheld or in the stream's
+// context with it. Otherwise the kit withheld at one of its limits (a budget, a
+// context it no longer has): uncertain, which it rightly withholds, and no
+// credential found.
+func (st *streamCtx) matched(u []byte) bool {
+	m, _ := currentMatcher()
+	if m.check(u) == leak {
+		return true
+	}
+	if v, _ := m.checkOpen(append(slices.Clip(st.tail.b), u...)); v == leak {
+		return true
+	}
+	v, _ := m.checkOpen(append(slices.Clip(st.sink.b), u...))
+	return st.split && v == leak
 }
 
 // Exchange is one request a program sent or one response it received.

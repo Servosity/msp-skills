@@ -21,7 +21,8 @@
 //
 // A unit request may carry "units", the writes of one stream between pauses,
 // in order: when the whole unit is clean, the kit's stream check runs over
-// them (credkit.StreamWithheld) and a withheld write is a leak.
+// them (credkit.StreamWithheld): a write withheld on a match is a leak, one
+// withheld at a limit is exhausted.
 //
 // A request {"acquire": {"decl": {...}, "env": [...], "args": [...],
 // "mcp_in": ..., "stdin": ..., "exchanges": [...]}} asks for the kit's held set of one run
@@ -248,8 +249,11 @@ func serve(in io.Reader, out io.Writer) error {
 					return fmt.Errorf("line %d: units: %v", n, err)
 				}
 			}
-			if i := credkit.StreamWithheld(held, units); i >= 0 {
-				v, c = "leak", fmt.Sprintf("3 (Streams: write %d of %d withheld)", i+1, len(units))
+			if i, matched := credkit.StreamWithheld(held, units); i >= 0 {
+				v, c = "exhausted", fmt.Sprintf("3 (Streams: write %d of %d withheld at a limit)", i+1, len(units))
+				if matched {
+					v, c = "leak", fmt.Sprintf("3 (Streams: write %d of %d withheld)", i+1, len(units))
+				}
 			}
 		}
 		if err := enc.Encode(answer{Verdict: v, Clause: c}); err != nil {
