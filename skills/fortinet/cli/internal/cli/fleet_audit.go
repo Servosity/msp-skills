@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // fleet audit: the four posture checks across every device, with run history
 // in a local SQLite file so --new shows only findings the last run lacked.
 // pp:data-source live

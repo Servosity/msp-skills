@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Resolves the named source addresses of an SSL-VPN portal to the set of
 // addresses they admit, so "covers every address" is judged on the union of
 // the objects (two /1 halves are as open as 0.0.0.0/0) and on address-group

@@ -42,24 +42,45 @@ func TestFallbackRefusesPlainHTTPAndDeviceFilter(t *testing.T) {
 func TestDeviceClientDropsConfiguredCredentialHeaders(t *testing.T) {
 	testenv.Isolate(t)
 	cfgPath := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(cfgPath, []byte("[headers]\nAuthorization = \"Bearer configured\"\nX-Trace = \"keep\"\n"), 0o600); err != nil {
+	// Any header name can carry a credential (Codex 2026-11-02 r1: X-Api-Token), so a
+	// per-device client carries no config-file header and no other configured credential.
+	cfg := "refresh_token = \"refresh-a\"\nclient_id = \"id-a\"\nclient_secret = \"secret-a\"\n" +
+		"[headers]\nAuthorization = \"Bearer configured\"\nX-Api-Token = \"token-a\"\nX-Trace = \"trace-a\"\n"
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		fmt.Fprint(w, `{"status":"success","results":[]}`)
+	}))
+	defer srv.Close()
 	flags := &rootFlags{configPath: cfgPath}
-	c, err := fleetTarget{fleetDevice: fleetDevice{Name: "a"}, token: "device-token", apiURL: "https://fgt.example.net/api/v2"}.client(flags)
+	c, err := fleetTarget{fleetDevice: fleetDevice{Name: "b"}, token: "device-token", apiURL: srv.URL + "/api/v2"}.client(flags)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k := range c.Config.Headers {
-		if strings.EqualFold(k, "authorization") {
-			t.Fatalf("configured Authorization header survived: %v", c.Config.Headers)
-		}
+	if len(c.Config.Headers) != 0 {
+		t.Fatalf("configured headers followed the device client: %v", c.Config.Headers)
 	}
-	if c.Config.Headers["X-Trace"] != "keep" {
-		t.Errorf("non-credential header dropped: %v", c.Config.Headers)
+	if c.Config.RefreshToken != "" || c.Config.ClientID != "" || c.Config.ClientSecret != "" {
+		t.Fatalf("configured OAuth credentials followed the device client")
 	}
 	if got := c.Config.AuthHeader(); got != "Bearer device-token" {
 		t.Errorf("auth header = %q", got)
+	}
+	if _, err := c.Get(t.Context(), "/monitor/system/status", nil); err != nil {
+		t.Fatal(err)
+	}
+	for k, vs := range got {
+		for _, v := range vs {
+			if strings.Contains(v, "token-a") || strings.Contains(v, "configured") || strings.Contains(v, "trace-a") {
+				t.Errorf("device B received configured header %s: %s", k, v)
+			}
+		}
+	}
+	if got.Get("Authorization") != "Bearer device-token" {
+		t.Errorf("device B Authorization = %q", got.Get("Authorization"))
 	}
 }
 

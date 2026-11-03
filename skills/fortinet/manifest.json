@@ -1,22 +1,22 @@
 {
   "manifest_version": "0.3",
-  "name": "fortinet-mcp",
+  "name": "fortinet-pp-mcp",
   "display_name": "Fortinet",
   "version": "0.1.4",
-  "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+  "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
   "author": {
     "name": "Servosity Inc."
   },
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/fortinet-mcp",
+    "entry_point": "bin/fortinet-pp-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/fortinet-mcp",
+      "command": "${__dirname}/bin/fortinet-pp-mcp",
       "args": [],
       "env": {
-        "FORTINET_BASE_URL": "${user_config.fortinet_base_url}",
         "FORTINET_API_TOKEN": "${user_config.fortinet_api_token}",
+        "FORTINET_BASE_URL": "${user_config.fortinet_base_url}",
         "FORTINET_DEVICES": "${user_config.fortinet_devices}",
         "FORTINET_FMG_URL": "${user_config.fortinet_fmg_url}",
         "FORTINET_FMG_API_KEY": "${user_config.fortinet_fmg_api_key}",
@@ -32,18 +32,18 @@
     }
   },
   "user_config": {
+    "fortinet_api_token": {
+      "type": "string",
+      "title": "FortiGate REST API token",
+      "description": "Sets FORTINET_API_TOKEN for the Fortinet MCP server.",
+      "sensitive": true,
+      "required": true
+    },
     "fortinet_base_url": {
       "type": "string",
       "title": "FortiGate API URL",
       "description": "Sets FORTINET_BASE_URL, your FortiGate's REST API root, e.g. https://203.0.113.10:8443/api/v2.",
       "sensitive": false,
-      "required": true
-    },
-    "fortinet_api_token": {
-      "type": "string",
-      "title": "FortiGate REST API token",
-      "description": "Sets FORTINET_API_TOKEN: the FortiGate REST API admin token (System > Administrators > Create New > REST API Admin). Use a read-only admin profile.",
-      "sensitive": true,
       "required": true
     },
     "fortinet_devices": {
@@ -98,10 +98,9 @@
     "fortinet_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP mode",
-      "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call.",
       "required": false,
-      "sensitive": false,
-      "default": "1"
+      "sensitive": false
     },
     "fortinet_mcp_http_token": {
       "type": "string",
@@ -133,11 +132,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-13T22:49:07.112701Z",
-    "spec_checksum": "sha256:76b087a08473742ac26aa321bdf55956df7302b48ebf4188a2709003928f2c3f",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T20:57:10.76271Z",
+    "spec_checksum": "sha256:eac6f8c48e8cf08f5c780205413b8ab2e6f9ce60d56b3ae8bf32968936571fbb",
     "spec_format": "openapi3"
   }
 }

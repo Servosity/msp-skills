@@ -1,0 +1,1607 @@
+{
+  "api_name": "fortinet",
+  "base_url": "https://fortigate.example.com/api/v2",
+  "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "FORTINET_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "FORTINET_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "address_groups_get",
+      "description": "Get one address-groups entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/addrgrp/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_addrgrp` (mkey `name`) and plugins/modules/fortios_firewall_addrgrp.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall/addrgrp/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "address_groups_list",
+      "description": "Firewall address groups (firewall addrgrp). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/addrgrp returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_addrgrp` (mkey `name`) and plugins/modules/fortios_firewall_addrgrp.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall/addrgrp",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "addresses_get",
+      "description": "Get one addresses entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/address/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_address` (mkey `name`) and plugins/modules/fortios_firewall_address.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall/address/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "addresses_list",
+      "description": "Firewall address objects (firewall address). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/address returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_address` (mkey `name`) and plugins/modules/fortios_firewall_address.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall/address",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "admin_profiles_get",
+      "description": "Get one admin-profiles entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/accprofile/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_accprofile` (mkey `name`) and plugins/modules/fortios_system_accprofile.py DOCUMENTATION for fields. Required: name.",
+      "method": "GET",
+      "path": "/cmdb/system/accprofile/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "admin_profiles_list",
+      "description": "Administrator access profiles (system accprofile) with read/read-write permission groups. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/accprofile returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_accprofile` (mkey `name`) and plugins/modules/fortios_system_accprofile.py DOCUMENTATION for fields. Optional: filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system/accprofile",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "administrators_get",
+      "description": "Get one administrators entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/admin/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_admin` (mkey `name`) and plugins/modules/fortios_system_admin.py DOCUMENTATION for fields. Required: name.",
+      "method": "GET",
+      "path": "/cmdb/system/admin/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "administrators_list",
+      "description": "Administrator accounts (system admin). Read trusthost1-10 and two-factor to spot admins reachable from anywhere without MFA. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/admin returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_admin` (mkey `name`) and plugins/modules/fortios_system_admin.py DOCUMENTATION for fields. Optional: filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system/admin",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "api_users_get",
+      "description": "Get one api-users entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/api-user/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_api-user` (mkey `name`) and plugins/modules/fortios_system_api_user.py DOCUMENTATION for fields. Required: name.",
+      "method": "GET",
+      "path": "/cmdb/system/api-user/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "api_users_list",
+      "description": "REST API administrators (system api-user) and their trusted hosts. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/api-user returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_api-user` (mkey `name`) and plugins/modules/fortios_system_api_user.py DOCUMENTATION for fields. Optional: filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system/api-user",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "dhcp_servers_get",
+      "description": "Get one dhcp-servers entry by id. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system.dhcp/server/\u003cid\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system.dhcp_server` (mkey `id`) and plugins/modules/fortios_system_dhcp_server.py DOCUMENTATION for fields. Required: id. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/system.dhcp/server/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Primary key (id).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "dhcp_servers_list",
+      "description": "DHCP server scopes (system dhcp server). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system.dhcp/server returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system.dhcp_server` (mkey `id`) and plugins/modules/fortios_system_dhcp_server.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system.dhcp/server",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "interfaces_get",
+      "description": "Get one interfaces entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/interface/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_interface` (mkey `name`) and plugins/modules/fortios_system_interface.py DOCUMENTATION for fields. Required: name.",
+      "method": "GET",
+      "path": "/cmdb/system/interface/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "interfaces_list",
+      "description": "Interface configuration (system interface), including allowaccess (which management protocols listen on each interface). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/interface returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_interface` (mkey `name`) and plugins/modules/fortios_system_interface.py DOCUMENTATION for fields. Optional: filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system/interface",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "ipsec_phase1_get",
+      "description": "Get one ipsec-phase1 entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ipsec/phase1-interface/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ipsec_phase1-interface` (mkey `name`) and plugins/modules/fortios_vpn_ipsec_phase1_interface.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ipsec/phase1-interface/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "ipsec_phase1_list",
+      "description": "IPsec phase 1 (route-based) tunnel definitions (vpn ipsec phase1-interface). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ipsec/phase1-interface returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ipsec_phase1-interface` (mkey `name`) and plugins/modules/fortios_vpn_ipsec_phase1_interface.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ipsec/phase1-interface",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "ipsec_phase2_get",
+      "description": "Get one ipsec-phase2 entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ipsec/phase2-interface/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ipsec_phase2-interface` (mkey `name`) and plugins/modules/fortios_vpn_ipsec_phase2_interface.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ipsec/phase2-interface/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "ipsec_phase2_list",
+      "description": "IPsec phase 2 selectors (vpn ipsec phase2-interface). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ipsec/phase2-interface returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ipsec_phase2-interface` (mkey `name`) and plugins/modules/fortios_vpn_ipsec_phase2_interface.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ipsec/phase2-interface",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "ldap_servers_get",
+      "description": "Get one ldap-servers entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/ldap/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_ldap` (mkey `name`) and plugins/modules/fortios_user_ldap.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/user/ldap/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "ldap_servers_list",
+      "description": "LDAP authentication servers (user ldap). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/ldap returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_ldap` (mkey `name`) and plugins/modules/fortios_user_ldap.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/user/ldap",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "local_in_policies_get",
+      "description": "Get one local-in-policies entry by policyid. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/local-in-policy/\u003cpolicyid\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_local-in-policy` (mkey `policyid`) and plugins/modules/fortios_firewall_local_in_policy.py DOCUMENTATION for fields. Required: policyid. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall/local-in-policy/{policyid}",
+      "params": [
+        {
+          "name": "policyid",
+          "type": "int",
+          "location": "path",
+          "description": "Primary key (policyid).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "local_in_policies_list",
+      "description": "Local-in policies (firewall local-in-policy) that restrict traffic to the FortiGate itself. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/local-in-policy returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_local-in-policy` (mkey `policyid`) and plugins/modules/fortios_firewall_local_in_policy.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall/local-in-policy",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "local_users_get",
+      "description": "Get one local-users entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/local/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_local` (mkey `name`) and plugins/modules/fortios_user_local.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/user/local/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "local_users_list",
+      "description": "Local firewall users (user local), including two-factor state. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/local returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_local` (mkey `name`) and plugins/modules/fortios_user_local.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/user/local",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "monitor_admin-sessions",
+      "description": "Administrators currently logged in. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/current-admins. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_current-admins`. Response fields are not publicly documented; results are passed through untyped. Returns array of MonitorAdminSessionsItem.",
+      "method": "GET",
+      "path": "/monitor/system/current-admins",
+      "params": []
+    },
+    {
+      "name": "monitor_aps",
+      "description": "FortiAPs managed by this FortiGate. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/wifi/managed_ap. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `wifi_managed_ap`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom, wtp_id, incl_local (plus 1 more). Returns array of MonitorApsItem.",
+      "method": "GET",
+      "path": "/monitor/wifi/managed_ap",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "wtp_id",
+          "type": "string",
+          "location": "query",
+          "description": "wtp_id (from Ansible selector wifi_managed_ap)."
+        },
+        {
+          "name": "incl_local",
+          "type": "bool",
+          "location": "query",
+          "description": "incl_local (from Ansible selector wifi_managed_ap)."
+        },
+        {
+          "name": "skip_eos",
+          "type": "bool",
+          "location": "query",
+          "description": "skip_eos (from Ansible selector wifi_managed_ap)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_auth-users",
+      "description": "Users currently authenticated through firewall policies. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/user/firewall. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `user_firewall`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom, ipv4, ipv6 (plus 1 more). Returns array of MonitorAuthUsersItem.",
+      "method": "GET",
+      "path": "/monitor/user/firewall",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "ipv4",
+          "type": "bool",
+          "location": "query",
+          "description": "ipv4 (from Ansible selector user_firewall)."
+        },
+        {
+          "name": "ipv6",
+          "type": "bool",
+          "location": "query",
+          "description": "ipv6 (from Ansible selector user_firewall)."
+        },
+        {
+          "name": "include_fsso",
+          "type": "bool",
+          "location": "query",
+          "description": "include_fsso (from Ansible selector user_firewall)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_central-management",
+      "description": "Connection status to FortiManager / central management. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/central-management/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_central-management_status`. Response fields are not publicly documented; results are passed through untyped. Optional: skip_detect. Returns the MonitorCentralManagementResponse.",
+      "method": "GET",
+      "path": "/monitor/system/central-management/status",
+      "params": [
+        {
+          "name": "skip_detect",
+          "type": "bool",
+          "location": "query",
+          "description": "skip_detect (from Ansible selector system_central-management_status)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_certificates",
+      "description": "Local, CA and remote certificates with validity window. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/available-certificates. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_available-certificates`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_certificates.py (Certificate). Optional: scope, with_remote, with_ca (plus 3 more). Returns array of MonitorCertificatesItem.",
+      "method": "GET",
+      "path": "/monitor/system/available-certificates",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "scope (from Ansible selector system_available-certificates)."
+        },
+        {
+          "name": "with_remote",
+          "type": "bool",
+          "location": "query",
+          "description": "with_remote (from Ansible selector system_available-certificates)."
+        },
+        {
+          "name": "with_ca",
+          "type": "bool",
+          "location": "query",
+          "description": "with_ca (from Ansible selector system_available-certificates)."
+        },
+        {
+          "name": "with_crl",
+          "type": "bool",
+          "location": "query",
+          "description": "with_crl (from Ansible selector system_available-certificates)."
+        },
+        {
+          "name": "mkey",
+          "type": "string",
+          "location": "query",
+          "description": "mkey (from Ansible selector system_available-certificates)."
+        },
+        {
+          "name": "find_all_references",
+          "type": "bool",
+          "location": "query",
+          "description": "find_all_references (from Ansible selector system_available-certificates)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_config-revisions",
+      "description": "Saved configuration revisions. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/config-revision. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_config-revision`. Response fields are not publicly documented; results are passed through untyped. Returns the MonitorConfigRevisionsResponse.",
+      "method": "GET",
+      "path": "/monitor/system/config-revision",
+      "params": []
+    },
+    {
+      "name": "monitor_dhcp-leases",
+      "description": "Active DHCP leases. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/dhcp. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_dhcp`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_dhcp_lease.py (ip, mac, status, server_mkey). Optional: vdom, scope, ipv6 (plus 1 more). Returns array of MonitorDhcpLeasesItem.",
+      "method": "GET",
+      "path": "/monitor/system/dhcp",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "scope (from Ansible selector system_dhcp)."
+        },
+        {
+          "name": "ipv6",
+          "type": "bool",
+          "location": "query",
+          "description": "ipv6 (from Ansible selector system_dhcp)."
+        },
+        {
+          "name": "interface",
+          "type": "string",
+          "location": "query",
+          "description": "interface (from Ansible selector system_dhcp)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_firmware-images",
+      "description": "Running firmware image and the images FortiGuard offers for upgrade. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/firmware. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_firmware`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_firmware.py (FirmwareImage, FirmwareResults). Returns the MonitorFirmwareImagesResponse.",
+      "method": "GET",
+      "path": "/monitor/system/firmware",
+      "params": []
+    },
+    {
+      "name": "monitor_fortiguard",
+      "description": "FortiGuard server list and reachability. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/fortiguard/server-info. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_fortiguard_server-info`. Response fields are not publicly documented; results are passed through untyped. Returns the MonitorFortiguardResponse.",
+      "method": "GET",
+      "path": "/monitor/system/fortiguard/server-info",
+      "params": []
+    },
+    {
+      "name": "monitor_fortitokens",
+      "description": "FortiToken inventory and activation state. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/user/fortitoken. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `user_fortitoken`. Response fields are not publicly documented; results are passed through untyped. Returns array of MonitorFortitokensItem.",
+      "method": "GET",
+      "path": "/monitor/user/fortitoken",
+      "params": []
+    },
+    {
+      "name": "monitor_ha-checksums",
+      "description": "Per-member configuration checksums; mismatches mean HA is out of sync. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/ha-checksums. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_ha-checksums`. Response fields are not publicly documented; results are passed through untyped. Returns array of MonitorHaChecksumsItem.",
+      "method": "GET",
+      "path": "/monitor/system/ha-checksums",
+      "params": []
+    },
+    {
+      "name": "monitor_ha-peers",
+      "description": "HA cluster members and which unit is primary. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/ha-peer. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_ha-peer`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_ha_peer.py (HAPeer). Optional: serial_no, vcluster_id. Returns array of MonitorHaPeersItem.",
+      "method": "GET",
+      "path": "/monitor/system/ha-peer",
+      "params": [
+        {
+          "name": "serial_no",
+          "type": "string",
+          "location": "query",
+          "description": "serial_no (from Ansible selector system_ha-peer)."
+        },
+        {
+          "name": "vcluster_id",
+          "type": "int",
+          "location": "query",
+          "description": "vcluster_id (from Ansible selector system_ha-peer)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_interfaces",
+      "description": "Live interface link, speed, counters. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/interface. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_interface`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_interface.py (Interface). Optional: vdom, interface_name, include_vlan (plus 2 more). Returns the MonitorInterfacesResponse.",
+      "method": "GET",
+      "path": "/monitor/system/interface",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "interface_name",
+          "type": "string",
+          "location": "query",
+          "description": "interface_name (from Ansible selector system_interface)."
+        },
+        {
+          "name": "include_vlan",
+          "type": "bool",
+          "location": "query",
+          "description": "include_vlan (from Ansible selector system_interface)."
+        },
+        {
+          "name": "include_aggregate",
+          "type": "bool",
+          "location": "query",
+          "description": "include_aggregate (from Ansible selector system_interface)."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "scope (from Ansible selector system_interface)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_ipsec",
+      "description": "IPsec tunnels with phase-2 selector status. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/vpn/ipsec. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `vpn_ipsec`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_ipsec.py (ProxySource, tunnel fields). Optional: vdom, tunnel. Returns array of MonitorIpsecItem.",
+      "method": "GET",
+      "path": "/monitor/vpn/ipsec",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "tunnel",
+          "type": "string",
+          "location": "query",
+          "description": "tunnel (from Ansible selector vpn_ipsec)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_license-status",
+      "description": "Licence and FortiGuard/FortiCare entitlement status with expiry epochs. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/license/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `license_status`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_license.py (FortiGuardModule, FortiCareModule, AntivirusModule, ...). Returns the MonitorLicenseStatusResponse.",
+      "method": "GET",
+      "path": "/monitor/license/status",
+      "params": []
+    },
+    {
+      "name": "monitor_log-disk",
+      "description": "Local log disk usage. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/log/current-disk-usage. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `log_current-disk-usage`. Response fields are not publicly documented; results are passed through untyped. Returns the MonitorLogDiskResponse.",
+      "method": "GET",
+      "path": "/monitor/log/current-disk-usage",
+      "params": []
+    },
+    {
+      "name": "monitor_ntp",
+      "description": "NTP server reachability. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/ntp/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_ntp_status`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_ntp.py. Returns array of MonitorNtpItem.",
+      "method": "GET",
+      "path": "/monitor/system/ntp/status",
+      "params": []
+    },
+    {
+      "name": "monitor_performance",
+      "description": "Performance snapshot (CPU, memory, sessions, uptime). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/performance/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_performance_status`. Response fields are not publicly documented; results are passed through untyped. Returns the MonitorPerformanceResponse.",
+      "method": "GET",
+      "path": "/monitor/system/performance/status",
+      "params": []
+    },
+    {
+      "name": "monitor_policy-stats",
+      "description": "Per-policy hit counters, bytes and last-used timestamps (monitor firewall policy). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/firewall/policy. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `firewall_policy`. Response fields: Claudio-Vidhi/SentinelNet services/fortigate_service.py get_policies_with_stats (joins on policyid; hit_count, bytes, active_sessions, last_used; AGPL, behavior evidence only). Optional: vdom, policyid, ip_version. Returns array of MonitorPolicyStatsItem.",
+      "method": "GET",
+      "path": "/monitor/firewall/policy",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "policyid",
+          "type": "string",
+          "location": "query",
+          "description": "policyid (from Ansible selector firewall_policy). Comma-separated list."
+        },
+        {
+          "name": "ip_version",
+          "type": "string",
+          "location": "query",
+          "description": "ip_version (from Ansible selector firewall_policy)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_resources",
+      "description": "CPU, memory, session and disk usage. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/resource/usage. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_resource_usage`. Response fields are not publicly documented; results are passed through untyped. Optional: scope, resource, interval. Returns the MonitorResourcesResponse.",
+      "method": "GET",
+      "path": "/monitor/system/resource/usage",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "scope (from Ansible selector system_resource_usage)."
+        },
+        {
+          "name": "resource",
+          "type": "string",
+          "location": "query",
+          "description": "resource (from Ansible selector system_resource_usage)."
+        },
+        {
+          "name": "interval",
+          "type": "string",
+          "location": "query",
+          "description": "interval (from Ansible selector system_resource_usage)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_routes",
+      "description": "IPv4 routing table (all route types). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/router/ipv4. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `router_ipv4`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom, operator, ip_mask (plus 4 more). Returns array of MonitorRoutesItem.",
+      "method": "GET",
+      "path": "/monitor/router/ipv4",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "location": "query",
+          "description": "operator (from Ansible selector router_ipv4)."
+        },
+        {
+          "name": "ip_mask",
+          "type": "string",
+          "location": "query",
+          "description": "ip_mask (from Ansible selector router_ipv4)."
+        },
+        {
+          "name": "gateway",
+          "type": "string",
+          "location": "query",
+          "description": "gateway (from Ansible selector router_ipv4)."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "type (from Ansible selector router_ipv4)."
+        },
+        {
+          "name": "origin",
+          "type": "string",
+          "location": "query",
+          "description": "origin (from Ansible selector router_ipv4)."
+        },
+        {
+          "name": "interface",
+          "type": "string",
+          "location": "query",
+          "description": "interface (from Ansible selector router_ipv4)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_sdwan-health",
+      "description": "SD-WAN performance SLA health-check results per member. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/virtual-wan/health-check. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `virtual-wan_health-check`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom, health_check_name. Returns the MonitorSdwanHealthResponse.",
+      "method": "GET",
+      "path": "/monitor/virtual-wan/health-check",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "health_check_name",
+          "type": "string",
+          "location": "query",
+          "description": "health_check_name (from Ansible selector virtual-wan_health-check)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_sdwan-members",
+      "description": "SD-WAN member interface state. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/virtual-wan/members. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `virtual-wan_members`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom, interface, zone (plus 2 more). Returns the MonitorSdwanMembersResponse.",
+      "method": "GET",
+      "path": "/monitor/virtual-wan/members",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "interface",
+          "type": "string",
+          "location": "query",
+          "description": "interface (from Ansible selector virtual-wan_members). Comma-separated list."
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "location": "query",
+          "description": "zone (from Ansible selector virtual-wan_members)."
+        },
+        {
+          "name": "sla",
+          "type": "string",
+          "location": "query",
+          "description": "sla (from Ansible selector virtual-wan_members)."
+        },
+        {
+          "name": "skip_vpn_child",
+          "type": "bool",
+          "location": "query",
+          "description": "skip_vpn_child (from Ansible selector virtual-wan_members)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_sslvpn-sessions",
+      "description": "Connected SSL-VPN users and their tunnel/web sub-sessions. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/vpn/ssl. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `vpn_ssl`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_sslvpn.py (Session, Subsession). Optional: vdom. Returns array of MonitorSslvpnSessionsItem.",
+      "method": "GET",
+      "path": "/monitor/vpn/ssl",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_sslvpn-stats",
+      "description": "SSL-VPN usage statistics. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/vpn/ssl/stats. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `vpn_ssl_stats`. Response fields are not publicly documented; results are passed through untyped. Optional: vdom. Returns the MonitorSslvpnStatsResponse.",
+      "method": "GET",
+      "path": "/monitor/vpn/ssl/stats",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_status",
+      "description": "System status: model, hostname; serial, FortiOS version and build are in the envelope. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_status`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_identity.py, fortios_device_info_inventory.py. Returns the MonitorStatusResponse.",
+      "method": "GET",
+      "path": "/monitor/system/status",
+      "params": []
+    },
+    {
+      "name": "monitor_switches",
+      "description": "FortiSwitches managed by this FortiGate. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/switch-controller/managed-switch/status. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `switch-controller_managed-switch_status`. Response fields: WagnerAG/checkmk_fortigate cmk_addons/plugins/fortios/agent_based/fortios_managed_switch.py. Optional: vdom, mkey. Returns array of MonitorSwitchesItem.",
+      "method": "GET",
+      "path": "/monitor/switch-controller/managed-switch/status",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "mkey",
+          "type": "string",
+          "location": "query",
+          "description": "mkey (from Ansible selector switch-controller_managed-switch_status)."
+        }
+      ]
+    },
+    {
+      "name": "monitor_upgrade-paths",
+      "description": "Supported firmware upgrade paths for this model. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/monitor/system/firmware/upgrade-paths. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_monitor_fact.py selector `system_firmware_upgrade-paths`. Response fields are not publicly documented; results are passed through untyped. Returns array of MonitorUpgradePathsItem.",
+      "method": "GET",
+      "path": "/monitor/system/firmware/upgrade-paths",
+      "params": []
+    },
+    {
+      "name": "policies_get",
+      "description": "Get one policies entry by policyid. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/policy/\u003cpolicyid\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_policy` (mkey `policyid`) and plugins/modules/fortios_firewall_policy.py DOCUMENTATION for fields. Required: policyid. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall/policy/{policyid}",
+      "params": [
+        {
+          "name": "policyid",
+          "type": "int",
+          "location": "path",
+          "description": "Primary key (policyid).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "IPv4/IPv6 firewall policies (firewall policy) in sequence order. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/policy returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_policy` (mkey `policyid`) and plugins/modules/fortios_firewall_policy.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall/policy",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "radius_servers_get",
+      "description": "Get one radius-servers entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/radius/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_radius` (mkey `name`) and plugins/modules/fortios_user_radius.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/user/radius/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "radius_servers_list",
+      "description": "RADIUS authentication servers (user radius). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/radius returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_radius` (mkey `name`) and plugins/modules/fortios_user_radius.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/user/radius",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "service_groups_get",
+      "description": "Get one service-groups entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall.service/group/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall.service_group` (mkey `name`) and plugins/modules/fortios_firewall_service_group.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall.service/group/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "service_groups_list",
+      "description": "Firewall service groups (firewall service group). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall.service/group returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall.service_group` (mkey `name`) and plugins/modules/fortios_firewall_service_group.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall.service/group",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "services_get",
+      "description": "Get one services entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall.service/custom/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall.service_custom` (mkey `name`) and plugins/modules/fortios_firewall_service_custom.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall.service/custom/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "services_list",
+      "description": "Custom firewall services (firewall service custom). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall.service/custom returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall.service_custom` (mkey `name`) and plugins/modules/fortios_firewall_service_custom.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall.service/custom",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "settings_autoupdate",
+      "description": "FortiGuard definitions auto-update schedule (system autoupdate schedule). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system.autoupdate/schedule returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system.autoupdate_schedule` (no mkey) and plugins/modules/fortios_system_autoupdate_schedule.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system.autoupdate/schedule",
+      "params": []
+    },
+    {
+      "name": "settings_central-management",
+      "description": "Central management settings (system central-management): FortiManager / FortiGate Cloud link. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/central-management returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_central-management` (no mkey) and plugins/modules/fortios_system_central_management.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/central-management",
+      "params": []
+    },
+    {
+      "name": "settings_dns",
+      "description": "DNS resolver settings (system dns). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/dns returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_dns` (no mkey) and plugins/modules/fortios_system_dns.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/dns",
+      "params": []
+    },
+    {
+      "name": "settings_fortianalyzer",
+      "description": "FortiAnalyzer log forwarding (log fortianalyzer setting). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/log.fortianalyzer/setting returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `log.fortianalyzer_setting` (no mkey) and plugins/modules/fortios_log_fortianalyzer_setting.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/log.fortianalyzer/setting",
+      "params": []
+    },
+    {
+      "name": "settings_fortiguard",
+      "description": "FortiGuard update and rating settings (system fortiguard), including automatic firmware upgrade. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/fortiguard returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_fortiguard` (no mkey) and plugins/modules/fortios_system_fortiguard.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/fortiguard",
+      "params": []
+    },
+    {
+      "name": "settings_global",
+      "description": "Global system settings (system global): hostname, admin ports, admin lockout and timeout. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/global returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_global` (no mkey) and plugins/modules/fortios_system_global.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/global",
+      "params": []
+    },
+    {
+      "name": "settings_ha",
+      "description": "High-availability configuration (system ha). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/ha returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_ha` (no mkey) and plugins/modules/fortios_system_ha.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/ha",
+      "params": []
+    },
+    {
+      "name": "settings_ntp",
+      "description": "NTP settings (system ntp). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/ntp returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_ntp` (no mkey) and plugins/modules/fortios_system_ntp.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/ntp",
+      "params": []
+    },
+    {
+      "name": "settings_password-policy",
+      "description": "Administrator password policy (system password-policy). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/password-policy returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_password-policy` (no mkey) and plugins/modules/fortios_system_password_policy.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/system/password-policy",
+      "params": []
+    },
+    {
+      "name": "settings_syslog",
+      "description": "Syslog forwarding (log syslogd setting). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/log.syslogd/setting returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `log.syslogd_setting` (no mkey) and plugins/modules/fortios_log_syslogd_setting.py DOCUMENTATION for fields.",
+      "method": "GET",
+      "path": "/cmdb/log.syslogd/setting",
+      "params": []
+    },
+    {
+      "name": "settings_vpn-ssl",
+      "description": "SSL-VPN settings (vpn ssl settings): status, listening port, source interfaces and source addresses. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ssl/settings returns a single object in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ssl_settings` (no mkey) and plugins/modules/fortios_vpn_ssl_settings.py DOCUMENTATION for fields. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ssl/settings",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "sslvpn_portals_get",
+      "description": "Get one sslvpn-portals entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ssl.web/portal/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ssl.web_portal` (mkey `name`) and plugins/modules/fortios_vpn_ssl_web_portal.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ssl.web/portal/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "sslvpn_portals_list",
+      "description": "SSL-VPN web portals (vpn ssl web portal). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/vpn.ssl.web/portal returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `vpn.ssl.web_portal` (mkey `name`) and plugins/modules/fortios_vpn_ssl_web_portal.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/vpn.ssl.web/portal",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "static_routes_get",
+      "description": "Get one static-routes entry by seq-num. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/router/static/\u003cseq-num\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `router_static` (mkey `seq_num`) and plugins/modules/fortios_router_static.py DOCUMENTATION for fields. Required: seq_num. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/router/static/{seq_num}",
+      "params": [
+        {
+          "name": "seq_num",
+          "type": "int",
+          "location": "path",
+          "description": "Primary key (seq-num).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "static_routes_list",
+      "description": "Static routes (router static). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/router/static returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `router_static` (mkey `seq_num`) and plugins/modules/fortios_router_static.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/router/static",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_get",
+      "description": "Get one user-groups entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/group/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_group` (mkey `name`) and plugins/modules/fortios_user_group.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/user/group/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_list",
+      "description": "User groups (user group) used in policies and SSL-VPN authentication rules. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/user/group returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `user_group` (mkey `name`) and plugins/modules/fortios_user_group.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/user/group",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "vdoms_get",
+      "description": "Get one vdoms entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/vdom/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_vdom` (mkey `name`) and plugins/modules/fortios_system_vdom.py DOCUMENTATION for fields. Required: name.",
+      "method": "GET",
+      "path": "/cmdb/system/vdom/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vdoms_list",
+      "description": "Virtual domains configured on the FortiGate (system vdom). Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/system/vdom returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `system_vdom` (mkey `name`) and plugins/modules/fortios_system_vdom.py DOCUMENTATION for fields. Optional: filter, format.",
+      "method": "GET",
+      "path": "/cmdb/system/vdom",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    },
+    {
+      "name": "vips_get",
+      "description": "Get one vips entry by name. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/vip/\u003cname\u003e (URL-encoded) returns a one-element `results` array. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_vip` (mkey `name`) and plugins/modules/fortios_firewall_vip.py DOCUMENTATION for fields. Required: name. Optional: vdom.",
+      "method": "GET",
+      "path": "/cmdb/firewall/vip/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Primary key (name).",
+          "required": true
+        },
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        }
+      ]
+    },
+    {
+      "name": "vips_list",
+      "description": "Virtual IPs / port forwards (firewall vip): which internal hosts are published to the internet. Read-only call to the FortiOS REST API on one FortiGate; the response envelope carries the results together with the device serial number, FortiOS version and build. GET /api/v2/cmdb/firewall/vip returns every row in `results`. Source: fortinet-ansible-dev/ansible-galaxy-fortios-collection plugins/modules/fortios_configuration_fact.py selector `firewall_vip` (mkey `name`) and plugins/modules/fortios_firewall_vip.py DOCUMENTATION for fields. Optional: vdom, filter, format.",
+      "method": "GET",
+      "path": "/cmdb/firewall/vip",
+      "params": [
+        {
+          "name": "vdom",
+          "type": "string",
+          "location": "query",
+          "description": "Virtual domain to query (default root)."
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "FortiOS filter expression, e."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Pipe-separated list of fields to return, e.g. name|accprofile|trusthost1."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet posture audit",
+      "command": "fleet audit",
+      "description": "One PASS/WARN/FAIL/UNKNOWN matrix across every FortiGate in your devices file for firmware, SSL-VPN exposure, admin accounts and FortiGuard licence expiry."
+    },
+    {
+      "name": "Firmware audit",
+      "command": "audit firmware",
+      "description": "Flags FortiGates below your per-branch firmware floor and how many patches each is behind the newest image offered in its branch."
+    },
+    {
+      "name": "SSL-VPN exposure audit",
+      "command": "audit sslvpn",
+      "description": "Grades each FortiGate and VDOM on whether SSL-VPN is enabled, listening on a WAN interface, and open to any source address."
+    },
+    {
+      "name": "Admin account audit",
+      "command": "audit admins",
+      "description": "Flags admins with no trusted hosts (FAIL when HTTPS/SSH management is open on WAN), super_admin accounts without two-factor, WAN interfaces allowing HTTP or Telnet, and API users trusted from broad networks or using super_admin."
+    },
+    {
+      "name": "Licence expiry audit",
+      "command": "audit licenses",
+      "description": "One renewal queue of FortiGuard, FortiCare and service licences across the fleet, sorted by days left."
+    },
+    {
+      "name": "Fleet health sweep",
+      "command": "fleet health",
+      "description": "One PASS/WARN/FAIL/UNKNOWN row per FortiGate: HA config sync, IPsec tunnels down, SD-WAN members down, CPU and memory pressure, expiring certificates; anything it could not read makes the row UNKNOWN."
+    },
+    {
+      "name": "Policy hygiene",
+      "command": "policies hygiene",
+      "description": "Lists unused, any-any accept, logging-disabled and disabled firewall policies per VDOM."
+    },
+    {
+      "name": "Config change report",
+      "command": "fleet changes",
+      "description": "Shows which FortiOS objects were added, removed or modified between two saved 'fleet backup' files (needs at least two backups per device; secrets are redacted, so a secret-only change is not reported)."
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Fortinet MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command."
+description: "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command."
 permalink: /skills/fortinet/
 skill_name: "Fortinet MCP"
 image: /assets/social/fortinet/wide-1200x630.png

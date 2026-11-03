@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Per-device collectors for the four posture checks. Each returns findings
 // for one device; a read failure becomes an UNKNOWN finding, never a PASS.
 // pp:data-source live

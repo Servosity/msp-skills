@@ -1109,7 +1109,7 @@
     {
       "name": "fortinet",
       "source": "./skills/fortinet",
-      "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
       "version": "0.1.4",
       "category": "security",
       "tags": [

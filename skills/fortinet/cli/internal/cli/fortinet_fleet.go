@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Fleet plumbing shared by the fleet, audit and policies hygiene commands:
 // the devices file, per-device clients and the fan-out. Plus `fleet devices`
 // and `fleet backup`.
@@ -332,17 +332,19 @@ func (t fleetTarget) client(flags *rootFlags) (*client.Client, error) {
 		return nil, configErr(err)
 	}
 	cfg.BaseURL = t.apiURL
+	// The device's token_file token is the only credential this client may send.
+	// Every other configured credential belongs to the FORTINET_BASE_URL device:
+	// clear them all. Config-file headers apply to every request and any header
+	// name can carry a credential (X-Api-Token, a vendor proxy key), so none of
+	// them follows a per-device client to another device (fail closed for the class).
 	cfg.AuthHeaderVal = ""
 	cfg.AccessToken = ""
+	cfg.RefreshToken = ""
+	cfg.TokenExpiry = time.Time{}
+	cfg.ClientID = ""
+	cfg.ClientSecret = ""
+	cfg.Headers = nil
 	cfg.FortinetApiToken = t.token
-	// Config-file headers apply to every request; never let a configured
-	// credential header follow the per-device token to another device.
-	for k := range cfg.Headers {
-		switch strings.ToLower(k) {
-		case "authorization", "cookie", "x-api-key", "x-auth-token":
-			delete(cfg.Headers, k)
-		}
-	}
 	c := client.New(cfg, flags.timeout, flags.rateLimit)
 	if flags.timeoutExplicit {
 		c.SetTimeoutExplicit(true)
