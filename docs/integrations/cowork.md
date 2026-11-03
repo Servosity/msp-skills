@@ -9,7 +9,7 @@ faqs:
   - q: "What is Claude Cowork?"
     a: "Anthropic's desktop agent product, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell commands on your behalf when you ask it to and exposes a Settings > Connectors UI for MCP servers."
   - q: "Does Cowork support MCP?"
-    a: "Yes - both as a shell-executing agent (paste a prompt that runs the install script) and as an MCP host via Settings > Customize > Connectors. The Composio-style 'connect via URL' pattern is documented for remote/HTTPS MCP servers."
+    a: "Yes - both as a shell-executing agent (paste a prompt that runs the install script) and as an MCP host via Settings > Customize > Connectors. The Composio-style 'connect via URL' pattern is for remote/HTTPS MCP servers. MSP Skills connectors run locally, so use the paste-prompt path."
   - q: "Do I need to pay for Cowork?"
     a: "Cowork itself follows Anthropic's standard Claude pricing - you pay for Claude usage the same way you would for Claude Desktop or Claude Code. MSP Skills itself is free."
 ---

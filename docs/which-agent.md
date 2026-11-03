@@ -23,7 +23,7 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | [ChatGPT desktop app](#chatgpt-openai) | Yes¹ | Settings → MCP servers, or `~/.codex/config.toml` | 2026-11-02 (bundled engine tested; settings screen per OpenAI's docs) |
 | [Codex CLI](#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-29 |
 | [Claude Code](#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-29 |
-| [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt + Settings > Connectors | 2026-05-29 |
+| [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt (Skill path) | 2026-05-29 |
 | [GitHub Copilot](#github-copilot-in-vs-code) | Yes (Agent mode) | `mcp.json` (key: `servers`) | 2026-05-29 |
 
 **Microsoft & Google - named, honest paths** (big install base; Gemini CLI runs the local binary you installed, the web-only apps are not supported yet):
