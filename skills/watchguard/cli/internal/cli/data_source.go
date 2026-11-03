@@ -417,6 +417,9 @@ var writeThroughNestedEnvelopeKeys = []string{"data", "Data", "result", "Result"
 // FTS search covers everything the user has looked up — not just explicit syncs.
 // Best-effort: failures are silently ignored (the live result already succeeded).
 func writeThroughCache(ctx context.Context, resourceType string, data json.RawMessage) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("watchguard-cli"))
 	if err != nil {
 		return
@@ -651,6 +654,9 @@ func isRawJSONNull(raw json.RawMessage) bool {
 }
 
 func writeMutationResponseToStore(ctx context.Context, resourceType string, data json.RawMessage, responsePath string) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("watchguard-cli"))
 	if err != nil {
 		return
@@ -672,8 +678,6 @@ var syncOwnedPartitions = map[string]struct{}{
 	"accounts":          {},
 	"accounts_actions":  {},
 	"accounts_comments": {},
-	"accounts_results":  {},
-	"accounts_status":   {},
 	"activations":       {},
 	"endpoint_devices":  {},
 	"endpoint_devices-devicesprotectionstatus": {},
@@ -726,8 +730,9 @@ var syncOwnedPartitions = map[string]struct{}{
 	"firecloud_webblocker_exceptions":          {},
 	"ndr_assets":                               {},
 	"operators":                                {},
-	"threatsync_actions":                       {},
-	"threatsync_incidents":                     {},
+	"rest_platform_operator_mgmt_v1_operators_by_account_id": {},
+	"threatsync_actions":   {},
+	"threatsync_incidents": {},
 }
 
 // Sync upserts the profiler resource name, so a lowercase kebab-case key stays

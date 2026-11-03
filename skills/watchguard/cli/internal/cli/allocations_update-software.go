@@ -68,7 +68,7 @@ func newAllocationsUpdateSoftwareCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProductName {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductName, "product-name", allowedProductName)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductName, "product-name", allowedProductName))
 				}
 			}
 			if cmd.Flags().Changed("allocation-type") {
@@ -81,60 +81,60 @@ func newAllocationsUpdateSoftwareCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAllocationType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAllocationType, "allocation-type", allowedAllocationType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAllocationType, "allocation-type", allowedAllocationType))
 				}
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-id") && bodyAccountId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-id"))
 				}
 				if !cmd.Flags().Changed("allocation-type-2") && bodyAllocationType2 == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "allocation-type-2")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "allocation-type-2"))
 				}
 				if (cmd.Flags().Changed("modules-wes-module-advanced-reporting-tool-quantity") || bodyModulesWESModuleAdvancedReportingToolQuantity != "") || (cmd.Flags().Changed("modules-wes-module-data-control-quantity") || bodyModulesWESModuleDataControlQuantity != "") || (cmd.Flags().Changed("modules-wes-module-data-retention-quantity") || bodyModulesWESModuleDataRetentionQuantity != "") || (cmd.Flags().Changed("modules-wes-module-full-encryption-quantity") || bodyModulesWESModuleFullEncryptionQuantity != "") || (cmd.Flags().Changed("modules-wes-module-mdr-quantity") || bodyModulesWESModuleMDRQuantity != "") || (cmd.Flags().Changed("modules-wes-module-orion-quantity") || bodyModulesWESModuleOrionQuantity != "") || (cmd.Flags().Changed("modules-wes-module-patch-management-quantity") || bodyModulesWESModulePatchManagementQuantity != "") || (cmd.Flags().Changed("modules-wes-module-siem-feeder-quantity") || bodyModulesWESModuleSIEMFeederQuantity != "") {
 					if cmd.Flags().Changed("modules-wes-module-advanced-reporting-tool-quantity") || bodyModulesWESModuleAdvancedReportingToolQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-advanced-reporting-tool-quantity") && bodyModulesWESModuleAdvancedReportingToolQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-advanced-reporting-tool-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-advanced-reporting-tool-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-data-control-quantity") || bodyModulesWESModuleDataControlQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-data-control-quantity") && bodyModulesWESModuleDataControlQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-data-control-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-data-control-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-data-retention-quantity") || bodyModulesWESModuleDataRetentionQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-data-retention-quantity") && bodyModulesWESModuleDataRetentionQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-data-retention-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-data-retention-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-full-encryption-quantity") || bodyModulesWESModuleFullEncryptionQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-full-encryption-quantity") && bodyModulesWESModuleFullEncryptionQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-full-encryption-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-full-encryption-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-mdr-quantity") || bodyModulesWESModuleMDRQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-mdr-quantity") && bodyModulesWESModuleMDRQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-mdr-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-mdr-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-orion-quantity") || bodyModulesWESModuleOrionQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-orion-quantity") && bodyModulesWESModuleOrionQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-orion-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-orion-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-patch-management-quantity") || bodyModulesWESModulePatchManagementQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-patch-management-quantity") && bodyModulesWESModulePatchManagementQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-patch-management-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-patch-management-quantity"))
 						}
 					}
 					if cmd.Flags().Changed("modules-wes-module-siem-feeder-quantity") || bodyModulesWESModuleSIEMFeederQuantity != "" {
 						if !cmd.Flags().Changed("modules-wes-module-siem-feeder-quantity") && bodyModulesWESModuleSIEMFeederQuantity == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-siem-feeder-quantity")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "modules-wes-module-siem-feeder-quantity"))
 						}
 					}
 				}
 				if !cmd.Flags().Changed("product-name-2") && bodyProductName2 == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "product-name-2")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "product-name-2"))
 				}
 			}
 			path := "/rest/platform/allocation/v2/{accountId}/assets/productName/{productName}/allocationType/{allocationType}"
@@ -333,16 +333,13 @@ func newAllocationsUpdateSoftwareCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

@@ -48,7 +48,7 @@ func newNdrAssetsListCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("tenant-name") && flagTenantName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "tenant-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "tenant-name"))
 			}
 			if cmd.Flags().Changed("field") {
 				allowedField := []string{"name", "deviceType", "addresses", "roles", "assetInformationSources", "operatingSystem"}
@@ -60,7 +60,7 @@ func newNdrAssetsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validField {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagField, "field", allowedField)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagField, "field", allowedField))
 				}
 			}
 			if cmd.Flags().Changed("sort") {
@@ -73,7 +73,7 @@ func newNdrAssetsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSort {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSort, "sort", allowedSort)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSort, "sort", allowedSort))
 				}
 			}
 			path := "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets"

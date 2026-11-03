@@ -109,12 +109,18 @@ Credentials default to WATCHGUARD_CLIENT_ID (Client ID) and WATCHGUARD_CLIENT_SE
 			}
 			// hand-fix (handfixes.json dry-run-side-effect-free): a dry run
 			// sends no credentials and saves nothing.
+			// Hand-fix (handfixes.json auth-login-dry-run-no-access-id): the
+			// preview never names the Access ID, a declared credential.
 			if dryRunOK(flags) {
-				return writeDryRun(cmd.OutOrStdout(), flags, fmt.Sprintf("auth login: POST grant_type=client_credentials to %s as Access ID %s and save the token in %s", tokenURL, clientID, credentialSavePath(cfg)))
+				return writeDryRun(cmd.OutOrStdout(), flags, fmt.Sprintf("auth login: POST grant_type=client_credentials to %s with the configured Access ID and save the token in %s", tokenURL, credentialSavePath(cfg)))
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret, cfg.WatchguardApiKey)
+			tokenHTTP, err := flags.oauthHTTPClient(cfg)
 			if err != nil {
-				return authErr(err)
+				return err
+			}
+			tok, err := mintClientCredentialsToken(tokenHTTP, tokenURL, clientID, clientSecret, cfg.WatchguardApiKey)
+			if err != nil {
+				return authTransportErr(err)
 			}
 
 			cfg.AuthHeaderVal = ""
@@ -185,6 +191,10 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
 	req.SetBasicAuth(clientID, clientSecret)
+	req, err = client.GuardTokenRequest(httpClient, req, []byte(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
@@ -203,6 +213,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	cliutil.Hold("minted:token", tok.AccessToken) // Hand-fix (handfixes.json credkit-wiring): auth login's minted bearer
 	return &tok, nil
 }
 
@@ -275,8 +286,8 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Mint a token:")
-				fmt.Fprintln(w, "  export WATCHGUARD_CLIENT_ID=\"<client-id>\"")
-				fmt.Fprintln(w, "  export WATCHGUARD_CLIENT_SECRET=\"<client-secret>\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "WATCHGUARD_CLIENT_ID", "<client-id>"))
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "WATCHGUARD_CLIENT_SECRET", "<client-secret>"))
 				fmt.Fprintf(w, "  watchguard-cli auth login\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}

@@ -40,7 +40,7 @@ func newOperatorsTransactionStatusCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("transaction-id") && flagTransactionId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "transaction-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "transaction-id"))
 			}
 			path := "/rest/platform/operator-mgmt/v1/TransactionStatus"
 			c, err := flags.newClient()
@@ -51,7 +51,7 @@ func newOperatorsTransactionStatusCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("transaction-id") || flagTransactionId != "" {
 				params["transaction_id"] = formatCLIParamValue(flagTransactionId)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "operators", false, path, params, nil, "transaction_status", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "operators", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -78,7 +78,7 @@ func newOperatorsTransactionStatusCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"status": true})
+					filtered = compactFields(filtered, map[string]bool{"status": true, "transaction_status": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -110,7 +110,7 @@ func newOperatorsTransactionStatusCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true, "transaction_status": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagTransactionId, "transaction-id", "", "Transaction ID. Example: 4eb735c2-7640-4aw2-43a3-f429382b8bax")

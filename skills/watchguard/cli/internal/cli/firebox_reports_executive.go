@@ -47,13 +47,13 @@ func newFireboxReportsExecutiveCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("view") && flagView == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "view")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "view"))
 			}
 			if !cmd.Flags().Changed("start-date") && flagStartDate == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "start-date")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "start-date"))
 			}
 			if !cmd.Flags().Changed("end-date") && flagEndDate == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "end-date")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "end-date"))
 			}
 			if cmd.Flags().Changed("view") {
 				allowedView := []string{"top_countries", "top_zero_day_malware_apt", "top_clients", "top_mobile_devices", "top_domains", "top_url_categories", "top_destinations", "top_applications", "top_application_categories", "top_protocols"}
@@ -65,7 +65,7 @@ func newFireboxReportsExecutiveCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validView {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView))
 				}
 			}
 			if cmd.Flags().Changed("filter") {
@@ -78,7 +78,7 @@ func newFireboxReportsExecutiveCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validFilter {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilter, "filter", allowedFilter)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilter, "filter", allowedFilter))
 				}
 			}
 			path := "/rest/firebox/reports/v1/report/{accountId}/executive"

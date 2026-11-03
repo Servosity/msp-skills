@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"watchguard-pp-cli/internal/cliutil"
+	"watchguard-pp-cli/internal/credkit"
 )
 
 // FeedbackEntry is one line in the local feedback ledger. Every run of
@@ -64,7 +65,7 @@ func appendFeedback(entry FeedbackEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening feedback ledger: %w", err)
 	}
@@ -83,7 +84,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "watchguard-cli/feedback")
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting feedback: %w", err)
@@ -113,6 +114,10 @@ maintainer sees it.`,
   watchguard-cli feedback --stdin < notes.txt
   watchguard-cli feedback list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --dry-run must not append the local ledger or POST upstream.
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "feedback")
+			}
 			var text string
 			if useStdin {
 				data, err := io.ReadAll(cmd.InOrStdin())

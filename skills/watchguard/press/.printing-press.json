@@ -1,0 +1,152 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-03T01:44:37.803836Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "watchguard",
+  "display_name": "WatchGuard Cloud",
+  "cli_name": "watchguard-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:e14620327c0151084e19ce4ca16074f585e428dcc4b08a069ebc5ced751e41e2",
+  "run_id": "20261102-172535-2abb8f6e",
+  "category": "monitoring",
+  "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
+  "mcp_binary": "watchguard-pp-mcp",
+  "mcp_tool_count": 208,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "WatchGuardOAuth",
+  "auth_env_vars": [
+    "WATCHGUARD_CLIENT_ID",
+    "WATCHGUARD_CLIENT_SECRET"
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "WatchGuard-API-Key",
+      "in": "header",
+      "scheme": "ApiKeyAuth",
+      "env_var": {
+        "name": "WATCHGUARD_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "WatchGuard Cloud API key (WatchGuard-API-Key header)."
+      }
+    }
+  ],
+  "endpoint_template_vars": [
+    "accountId"
+  ],
+  "endpoint_template_env_overrides": {
+    "accountId": "WATCHGUARD_ACCOUNT_ID"
+  },
+  "novel_features": [
+    {
+      "name": "Cross-tenant endpoint posture",
+      "command": "endpoint-devices posture",
+      "description": "List every endpoint that is unprotected, out of date, isolated, unlicensed or waiting on a reboot, across the accounts a Service Provider manages."
+    },
+    {
+      "name": "Incident work queue",
+      "command": "threatsync-incidents queue",
+      "description": "See open ThreatSync incidents across your managed accounts, ranked by severity, threat score and age, with untouched incidents and recommended-but-not-taken actions called out."
+    },
+    {
+      "name": "Cross-product tenant health",
+      "command": "accounts health",
+      "description": "One row per managed account: Fireboxes offline, endpoints at risk, open incidents by severity and licenses expiring soon (Service Provider accounts)."
+    },
+    {
+      "name": "Deployment wait",
+      "command": "firebox-transactions wait",
+      "description": "Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait."
+    },
+    {
+      "name": "Fleet change diff",
+      "command": "firebox-devices changes",
+      "description": "After a sync, see which Fireboxes, FireClusters and Access Points went offline, came back, appeared, disappeared or changed firmware since the previous sync."
+    },
+    {
+      "name": "Allocation reconcile",
+      "command": "allocations reconcile",
+      "description": "Compare a Service Provider's Firebox allocations against the Fireboxes that actually report in, and summarize owned, allocated and available software licenses."
+    },
+    {
+      "name": "Firmware lag",
+      "command": "firebox-devices firmware-lag",
+      "description": "From synced devices, find Fireboxes and Access Points running older firmware than the newest version seen for the same model in your fleet."
+    },
+    {
+      "name": "CVE exposure pivot",
+      "command": "endpoint-patches exposure",
+      "description": "Group missing patches by CVE and criticality across managed accounts (needs WatchGuard Patch Management), showing which customers and devices are exposed."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-tenant endpoint posture",
+      "command": "endpoint-devices posture",
+      "description": "List every endpoint that is unprotected, out of date, isolated, unlicensed or waiting on a reboot, across the accounts a Service Provider manages."
+    },
+    {
+      "name": "Incident work queue",
+      "command": "threatsync-incidents queue",
+      "description": "See open ThreatSync incidents across your managed accounts, ranked by severity, threat score and age, with untouched incidents and recommended-but-not-taken actions called out."
+    },
+    {
+      "name": "Cross-product tenant health",
+      "command": "accounts health",
+      "description": "One row per managed account: Fireboxes offline, endpoints at risk, open incidents by severity and licenses expiring soon (Service Provider accounts)."
+    },
+    {
+      "name": "Deployment wait",
+      "command": "firebox-transactions wait",
+      "description": "Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait."
+    },
+    {
+      "name": "Fleet change diff",
+      "command": "firebox-devices changes",
+      "description": "After a sync, see which Fireboxes, FireClusters and Access Points went offline, came back, appeared, disappeared or changed firmware since the previous sync."
+    },
+    {
+      "name": "Allocation reconcile",
+      "command": "allocations reconcile",
+      "description": "Compare a Service Provider's Firebox allocations against the Fireboxes that actually report in, and summarize owned, allocated and available software licenses."
+    },
+    {
+      "name": "Firmware lag",
+      "command": "firebox-devices firmware-lag",
+      "description": "From synced devices, find Fireboxes and Access Points running older firmware than the newest version seen for the same model in your fleet."
+    },
+    {
+      "name": "CVE exposure pivot",
+      "command": "endpoint-patches exposure",
+      "description": "Group missing patches by CVE and criticality across managed accounts (needs WatchGuard Patch Management), showing which customers and devices are exposed."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 99.47916666666666,
+    "passed": 191,
+    "total": 192,
+    "failed": 1,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

@@ -38,7 +38,7 @@ func newEndpointRisksDevicesCmd(flags *rootFlags) *cobra.Command {
 				"$search": formatCLIParamValue(flagSearch),
 				"$count":  formatCLIParamValue(flagCount),
 				"$filter": formatCLIParamValue(flagFilter),
-			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$search": {"search"}, "$count": {"count"}, "$filter": {"filter"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$search": {"search"}, "$count": {"count"}, "$filter": {"filter"}}, "$skip", "offset"), nil, flagAll, "$skip", "offset", "$top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

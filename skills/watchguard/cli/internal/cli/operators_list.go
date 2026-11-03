@@ -40,7 +40,7 @@ func newOperatorsListCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("account-id") && flagAccountId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "account-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-id"))
 			}
 			path := "/rest/platform/operator-mgmt/v1/OperatorsByAccountId"
 			c, err := flags.newClient()
@@ -51,7 +51,7 @@ func newOperatorsListCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("account-id") || flagAccountId != "" {
 				params["account_id"] = formatCLIParamValue(flagAccountId)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "operators", true, path, params, nil, "result", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "operators", true, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -78,7 +78,7 @@ func newOperatorsListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"accountId": true, "email": true, "firstName": true, "lastName": true})
+					filtered = compactFields(filtered, map[string]bool{"status": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -110,7 +110,7 @@ func newOperatorsListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"accountId": true, "email": true, "firstName": true, "lastName": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagAccountId, "account-id", "", "Account ID to return operators for. Example: ACC-1234567 or WGC-1234-456")

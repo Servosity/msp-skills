@@ -112,14 +112,15 @@ require a human for anything below the first row.
 - **Give a reporting agent the read-only Access ID.** WatchGuard refuses writes made
   with its token, whatever the agent tries.
 - **Run the MCP server read-only.** `WATCHGUARD_MCP_READ_ONLY=1` drops the MCP server's
-  write tools and makes `watchguard_execute` refuse every non-GET call. GET calls still
+  write tools and makes `watchguard_execute` refuse every state-changing call. GET calls still
   run, including the credential reads above, so pair it with the read-only Access ID.
   The cross-customer report tools (`accounts health`, `endpoint-devices posture`,
   `endpoint-patches exposure`) still send the audience lookup (a POST that only returns
   a customer's audience value) and mint per-customer tokens in read-only mode.
-- **There is no preview through the MCP server.** `--dry-run` is a CLI flag;
-  `watchguard_execute` sends a write as soon as it is called, whatever its arguments say.
-  An agent that should only plan writes needs `WATCHGUARD_MCP_READ_ONLY=1`.
+- **The MCP server previews every write.** `--dry-run` is a CLI flag; through MCP,
+  `watchguard_execute` returns a preview and sends the write only when called again with
+  `confirm` set to the JSON boolean `true` (the string "true" stays a preview). An agent
+  that should only plan writes needs `WATCHGUARD_MCP_READ_ONLY=1`.
   `tail` and `import` are not MCP tools, and MCP tools never take a local file path
   for the CLI to read.
 - **Keep autonomous agents to Read plus previewed writes.** The gate lives in your

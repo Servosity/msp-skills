@@ -46,13 +46,13 @@ func newFireboxReportsSecurityCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("view") && flagView == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "view")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "view"))
 			}
 			if !cmd.Flags().Changed("start-date") && flagStartDate == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "start-date")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "start-date"))
 			}
 			if !cmd.Flags().Changed("end-date") && flagEndDate == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "end-date")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "end-date"))
 			}
 			if cmd.Flags().Changed("view") {
 				allowedView := []string{"top_blocked_countries", "top_blocked_advanced_malware_apt", "top_blocked_botnet_sites", "top_blocked_clients", "top_blocked_mobile_devices", "top_blocked_destinations", "top_blocked_url_categories", "top_blocked_applications", "top_blocked_application_categories", "top_blocked_protocols", "top_blocked_attacks", "top_blocked_malware"}
@@ -64,7 +64,7 @@ func newFireboxReportsSecurityCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validView {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView))
 				}
 			}
 			if cmd.Flags().Changed("filter") {
@@ -77,7 +77,7 @@ func newFireboxReportsSecurityCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validFilter {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilter, "filter", allowedFilter)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilter, "filter", allowedFilter))
 				}
 			}
 			path := "/rest/firebox/reports/v1/report/{accountId}/security"

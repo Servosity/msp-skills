@@ -40,7 +40,7 @@ func newEndpointDevicesListCmd(flags *rootFlags) *cobra.Command {
 				"$count":   formatCLIParamValue(flagCount),
 				"$orderby": formatCLIParamValue(flagOrderby),
 				"$config":  formatCLIParamValue(flagConfig),
-			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$search": {"search"}, "$count": {"count"}, "$orderby": {"orderby"}, "$config": {"config"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$search": {"search"}, "$count": {"count"}, "$orderby": {"orderby"}, "$config": {"config"}}, "$skip", "offset"), nil, flagAll, "$skip", "offset", "$top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
