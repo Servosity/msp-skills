@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"html"
 	"io"
+	"math"
 	mbits "math/bits"
 	"regexp"
 	"slices"
@@ -247,8 +248,8 @@ func (t *textRuns) get(d *decoding, p []byte) {
 	t.once.Do(func() {
 		if t.whole = readsAsText(p); !t.whole {
 			d.runs(p, func(r []byte) {
-				i := int32(cap(p) - cap(r)) // r's offset in p
-				t.runs = append(t.runs, i, i+int32(len(r)))
+				i := i32(cap(p) - cap(r)) // r's offset in p
+				t.runs = append(t.runs, i, i+i32(len(r)))
 			})
 		}
 	})
@@ -260,7 +261,7 @@ func (t *textRuns) get(d *decoding, p []byte) {
 // read there never stands for one where recursion is allowed (kit14rv,
 // decoder-context-dedupe); it is skipped when such a read came first.
 func (d *decoding) once(id uint64, b []byte) bool {
-	id ^= uint64(d.f) << 48
+	id ^= uint64(d.f&0xffff) << 48 // the same bits as uint64(d.f) << 48
 	if d.final {
 		return d.s.onceUnless(id^1<<47, id, b)
 	}
@@ -273,7 +274,7 @@ func readsAsText(b []byte) bool {
 	for i := 0; i < len(b); i++ {
 		c := b[i]
 		if c >= utf8.RuneSelf {
-			return utf8.Valid(b[i:]) && !bytes.ContainsFunc(b[i:], func(r rune) bool { return r < 0x20 && !isSpaceByte(byte(r)) && r != 0x1b || r == 0x7f })
+			return utf8.Valid(b[i:]) && !bytes.ContainsFunc(b[i:], func(r rune) bool { return r < 0x20 && !isSpaceByte(byte(r&0xff)) && r != 0x1b || r == 0x7f })
 		}
 		if c < 0x20 && !isSpaceByte(c) && c != 0x1b || c == 0x7f {
 			return false
@@ -426,7 +427,7 @@ func (c *closure) fresh(b []byte, text bool, f int) bool {
 }
 
 func (c *closure) freshKey(k [2]uint64, text bool, f int) bool {
-	k[0] ^= uint64(f+1) << 56
+	k[0] ^= uint64((f+1)&0xff) << 56 // the same bits as uint64(f+1) << 56
 	if !text {
 		return c.seen.add(k)
 	}
@@ -607,11 +608,11 @@ func (a *alphabet) decode(out, r []byte) []byte {
 		var acc uint32
 		bits := 0
 		for _, c := range r {
-			acc = acc<<a.bits | uint32(a.val[c])
+			acc = acc<<a.bits | uint32(int64(a.val[c])&math.MaxUint32) // uint32(a.val[c]), sign extension included
 			bits += a.bits
 			if bits >= 8 {
 				bits -= 8
-				out = append(out, byte(acc>>uint(bits)))
+				out = append(out, byte(acc>>uint(bits)&0xff))
 			}
 		}
 		return out
@@ -632,7 +633,7 @@ func (a *alphabet) decode(out, r []byte) []byte {
 		}
 		val = val*85 + uint64(a.val[c])
 		if n++; n == 5 {
-			out = append(out, byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+			out = append(out, byte(val>>24&0xff), byte(val>>16&0xff), byte(val>>8&0xff), byte(val&0xff))
 			val, n = 0, 0
 		}
 	}
@@ -641,7 +642,7 @@ func (a *alphabet) decode(out, r []byte) []byte {
 		for ; n < 5; n++ {
 			val = val*85 + 84
 		}
-		b := [4]byte{byte(val >> 24), byte(val >> 16), byte(val >> 8), byte(val)}
+		b := [4]byte{byte(val >> 24 & 0xff), byte(val >> 16 & 0xff), byte(val >> 8 & 0xff), byte(val & 0xff)}
 		out = append(out, b[:k]...)
 	}
 	return out
@@ -674,7 +675,7 @@ func upper(c byte) byte {
 	return c
 }
 
-func b64Value(c byte) byte { return byte(alphabets[0].val[c]) }
+func b64Value(c byte) byte { return byte(int(alphabets[0].val[c]) & 0xff) } // byte(val[c]), -1 included
 
 func lenientBase64(r []byte) []byte {
 	return alphabets[0].decode(nil, bytes.ReplaceAll(r, []byte{'='}, nil))
@@ -756,7 +757,7 @@ func (d *decoding) percent(t []byte, whole bool) {
 			c := t[i]
 			if c == '%' {
 				if i+5 < len(t) && (t[i+1] == 'u' || t[i+1] == 'U') && allHex(t[i+2:i+6]) {
-					out = utf8.AppendRune(out, rune(hex16(t[i+2:i+6])))
+					out = utf8.AppendRune(out, hexRune(t[i+2:i+6]))
 					i += 5
 					continue
 				}
@@ -792,6 +793,53 @@ func hex16(b []byte) uint32 {
 		v = v<<4 | uint32(hexVal(c))
 	}
 	return v
+}
+
+// hexRune is rune(hex16(b)) for every b a caller passes: at most 6 hex
+// digits fit in a rune, and 8 digits above U+7FFFFFFF read as -1, which no
+// caller accepts (utf8.ValidRune), exactly as the wrapped negative did.
+func hexRune(b []byte) rune {
+	v := hex16(b)
+	if v > math.MaxInt32 {
+		return -1
+	}
+	return rune(v)
+}
+
+// codeRune is v as a rune. Every v reaching it is a code point (codeValue
+// and codeEdge stop above unicode.MaxRune); anything larger reads as
+// utf8.RuneError rather than wrapping into an unrelated character.
+func codeRune(v uint64) rune {
+	if v > unicode.MaxRune {
+		return utf8.RuneError
+	}
+	return rune(v)
+}
+
+// i32 is n as the int32 the compact tables store. Every n is a count or an
+// offset inside one unit (maxUnit), far below 2^31; one that is not is a kit
+// bug, and the panic ends the program before it writes anything.
+func i32(n int) int32 {
+	if n < math.MinInt32 || n > math.MaxInt32 {
+		panic("credkit: int32 overflow")
+	}
+	return int32(n)
+}
+
+// u64 is n >= 0 as a uint64; a negative n is a kit bug (see i32).
+func u64(n int) uint64 {
+	if n < 0 {
+		panic("credkit: negative count")
+	}
+	return uint64(n)
+}
+
+// toInt is v as an int; v was stored from an int (see u64).
+func toInt(v uint64) int {
+	if v > math.MaxInt {
+		panic("credkit: int overflow")
+	}
+	return int(v)
 }
 
 // qpDecode: quoted-printable =XX and soft line breaks, and (RFC 2045) the
@@ -874,16 +922,16 @@ func unescapeN(b []byte, identity bool, octalMax int) []byte {
 		case c == 'u' && i+2 < len(b) && b[i+2] == '{':
 			end := bytes.IndexByte(b[i+3:], '}')
 			if end > 0 && end <= 6 && allHex(b[i+3:i+3+end]) {
-				if r := rune(hex16(b[i+3 : i+3+end])); utf8.ValidRune(r) {
+				if r := hexRune(b[i+3 : i+3+end]); utf8.ValidRune(r) {
 					out = utf8.AppendRune(out, r)
 					i += 3 + end
 					continue
 				}
 			}
 		case c == 'u' && i+5 < len(b) && allHex(b[i+2:i+6]):
-			r := rune(hex16(b[i+2 : i+6]))
+			r := hexRune(b[i+2 : i+6])
 			if utf16.IsSurrogate(r) && i+11 < len(b) && b[i+6] == '\\' && b[i+7] == 'u' && allHex(b[i+8:i+12]) {
-				if d := utf16.DecodeRune(r, rune(hex16(b[i+8:i+12]))); d != unicode.ReplacementChar {
+				if d := utf16.DecodeRune(r, hexRune(b[i+8:i+12])); d != unicode.ReplacementChar {
 					out = utf8.AppendRune(out, d)
 					i += 11
 					continue
@@ -893,7 +941,7 @@ func unescapeN(b []byte, identity bool, octalMax int) []byte {
 			i += 5
 			continue
 		case c == 'U' && i+9 < len(b) && allHex(b[i+2:i+10]):
-			if r := rune(hex16(b[i+2 : i+10])); utf8.ValidRune(r) {
+			if r := hexRune(b[i+2 : i+10]); utf8.ValidRune(r) {
 				out = utf8.AppendRune(out, r)
 				i += 9
 				continue
@@ -903,7 +951,7 @@ func unescapeN(b []byte, identity bool, octalMax int) []byte {
 			for j < len(b) && j < i+4 && isHexDigit(b[j]) {
 				j++
 			}
-			out = append(out, byte(hex16(b[i+2:j])))
+			out = append(out, byte(hex16(b[i+2:j])&0xff))
 			i = j - 1
 			continue
 		case c >= '0' && c <= '7':
@@ -1018,7 +1066,7 @@ func codeAppend(b []byte, v uint64, bytesMode bool) []byte {
 	if bytesMode && v <= 0xFF {
 		return append(b, byte(v))
 	}
-	return utf8.AppendRune(b, rune(v))
+	return utf8.AppendRune(b, codeRune(v))
 }
 
 // codeSpans compares the spans of a code list that start or end inside a
@@ -1031,7 +1079,7 @@ func codeAppend(b []byte, v uint64, bytesMode bool) []byte {
 // shorter than 8, fits in 8 characters (32 bytes in the byte reading).
 func (d *decoding) codeSpans(ents []codeEnt, base uint64, bytesMode bool) {
 	rel := &d.s.m.rel
-	keep := func(v uint64) bool { return bytesMode && v >= 0x80 && v <= 0xFF || rel.has(rune(v)) }
+	keep := func(v uint64) bool { return bytesMode && v >= 0x80 && v <= 0xFF || rel.has(codeRune(v)) }
 	// cuts is the values of digits' shorter suffixes (or prefixes).
 	cuts := func(e codeEnt, suffix bool, out []uint64) []uint64 {
 		for k := len(e.digits) - 1; k >= 1; k-- {
@@ -1182,7 +1230,7 @@ func codeRuns(b []byte, hexMode bool, toks []codeTok) []codeTok {
 // punctuation and whitespace there).
 func codeGap(gap []byte) bool {
 	return len(gap) > 0 && !bytes.ContainsFunc(gap, func(r rune) bool {
-		return r >= utf8.RuneSelf || r < 0x20 && !isSpaceByte(byte(r)) || unicode.IsLetter(r) || unicode.IsDigit(r)
+		return r >= utf8.RuneSelf || r < 0x20 && !isSpaceByte(byte(r&0xff)) || unicode.IsLetter(r) || unicode.IsDigit(r)
 	})
 }
 
@@ -1554,7 +1602,7 @@ func (d *decoding) wide(b []byte, unit int, big bool) {
 	quote, open, cut, trig, changes := false, false, false, false, false
 	flag := func(a rune) {
 		quote, open = quote || a == '"', open || a == '{' || a == '['
-		trig = trig || a < 0x80 && strings.IndexByte("\"%\\&=+", byte(a)) >= 0
+		trig = trig || a < 0x80 && strings.IndexByte("\"%\\&=+", byte(a&0xff)) >= 0
 	}
 	cm := compat()
 	for i := 0; i+unit <= len(b) && s.ok(); i += unit {

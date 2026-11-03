@@ -1448,50 +1448,65 @@
       "rule": "G115",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(len(buf)): buf starts at 4096 bytes and is only ever resized to need, which is rejected above maxAttrBuf (1 MiB), so the length fits uint32. int(need) widens a uint32 on 64-bit targets."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(len(buf)): buf starts at 4096 bytes and is only ever resized to need, which is rejected above maxAttrBuf (1 MiB), so the length fits uint32. int(need) widens a uint32 on 64-bit targets. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "G204",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. exec.Command runs the fixed absolute path /usr/bin/dsmemberutil with fixed arguments and a decimal uid from fstat (strconv.FormatUint). No shell, and no caller supplies the command or a flag."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. exec.Command runs the fixed absolute path /usr/bin/dsmemberutil with fixed arguments and a decimal uid from fstat (strconv.FormatUint). No shell, and no caller supplies the command or a flag. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "G304",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. openDarwinNoFollow opens a path read-only with O_NOFOLLOW to read its ACL. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. openDarwinNoFollow opens a path read-only with O_NOFOLLOW to read its ACL. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "msp-unsafe-import",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file: layout checks and two local pointers passed to the fgetattrlist syscall."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file: layout checks and two local pointers passed to the fgetattrlist syscall. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "unsafe-import",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe is used for compile-time layout checks on unix.Attrlist (Sizeof, Offsetof) and to hand fgetattrlist pointers to a local Attrlist and a local buffer with that buffer's own length. No pointer arithmetic, nothing escapes; x/sys has no wrapper for this syscall."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe is used for compile-time layout checks on unix.Attrlist (Sizeof, Offsetof) and to hand fgetattrlist pointers to a local Attrlist and a local buffer with that buffer's own length. No pointer arithmetic, nothing escapes; x/sys has no wrapper for this syscall. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/filelock_unix.go",

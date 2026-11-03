@@ -13,9 +13,11 @@ package credkit
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -1097,12 +1099,13 @@ func holdBaseURLLocked(raw string) {
 }
 
 // gatherFile holds a credential file's values. A file that does not exist
-// holds nothing; one that exists but cannot be read makes every value
-// unknown, so every unit is withheld (fail closed).
+// holds nothing; one that exists but cannot be read, or is not a regular
+// file (readRegular), makes every value unknown, so every unit is withheld
+// (fail closed).
 func gatherFile(path string) string {
-	b, err := os.ReadFile(path)
+	b, err := readRegular(path)
 	if err != nil {
-		if _, serr := os.Stat(path); os.IsNotExist(err) || os.IsNotExist(serr) {
+		if _, serr := statPath(path); os.IsNotExist(err) || os.IsNotExist(serr) {
 			return ""
 		}
 		markUnknown()
@@ -1289,4 +1292,121 @@ func plainScalar(v string) bool {
 	}
 	_, err := strconv.ParseFloat(strings.ReplaceAll(v, "_", ""), 64)
 	return err == nil
+}
+
+// errNoFileName: a path whose final element names no file ("", "." or
+// "..", or a trailing separator).
+var errNoFileName = errors.New("credkit: the path does not end in a file name")
+
+// errTooManyLinks: more symbolic links than the OS would follow (ELOOP).
+var errTooManyLinks = errors.New("credkit: too many levels of symbolic links")
+
+// maxLinks bounds the symbolic links one path follows, as the OS does.
+const maxLinks = 40
+
+// inDir runs op on name's final element through an os.Root opened on name's
+// own directory part, uncleaned, so the OS resolves it exactly as it does for
+// os.OpenFile(name): the same file, never a lexically cleaned one (with b a
+// symbolic link, "a/b/../c" is the link target's sibling, not a/c). A final
+// element that is a symbolic link is followed here, one Root per link, unless
+// nofollow; op then sees the file the path names, as the OS would open it.
+func inDir(name string, nofollow bool, op func(r *os.Root, base string) error) error {
+	if name == "" {
+		return &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist} // as os.Open("") says
+	}
+	for links := 0; ; links++ {
+		vol := filepath.VolumeName(name)
+		i := len(name) - 1
+		for i >= len(vol) && !os.IsPathSeparator(name[i]) {
+			i--
+		}
+		prefix, base := name[:i+1], name[i+1:]
+		dir := prefix
+		if i < len(vol) {
+			dir = vol + "."
+		}
+		r, err := os.OpenRoot(dir)
+		if err != nil {
+			return err // a missing directory part: not found, as os.Open says
+		}
+		if base == "" || base == "." || base == ".." {
+			_ = r.Close()
+			return &os.PathError{Op: "open", Path: name, Err: errNoFileName}
+		}
+		if fi, lerr := r.Lstat(base); lerr == nil && fi.Mode()&os.ModeSymlink != 0 && !nofollow {
+			t, err := r.Readlink(base)
+			_ = r.Close()
+			if err != nil {
+				return err
+			}
+			if links >= maxLinks {
+				return &os.PathError{Op: "open", Path: name, Err: errTooManyLinks}
+			}
+			if t == "" || filepath.IsAbs(t) || filepath.VolumeName(t) != "" || os.IsPathSeparator(t[0]) {
+				name = t
+			} else {
+				name = prefix + t
+			}
+			continue
+		}
+		err = op(r, base)
+		_ = r.Close()
+		return err
+	}
+}
+
+// openPath is os.OpenFile(name, flag, perm) through inDir. A final symbolic
+// link is not followed for O_NOFOLLOW, nor for O_CREATE|O_EXCL, which the OS
+// refuses on any existing name, a link included.
+func openPath(name string, flag int, perm os.FileMode) (*os.File, error) {
+	var f *os.File
+	excl := flag&(os.O_CREATE|os.O_EXCL) == os.O_CREATE|os.O_EXCL
+	err := inDir(name, excl || openNofollow != 0 && flag&openNofollow != 0, func(r *os.Root, base string) error {
+		var err error
+		f, err = r.OpenFile(base, flag, perm)
+		return err
+	})
+	return f, err
+}
+
+// statPath is os.Stat(name) through inDir.
+func statPath(name string) (os.FileInfo, error) {
+	var fi os.FileInfo
+	err := inDir(name, false, func(r *os.Root, base string) error {
+		var err error
+		fi, err = r.Stat(base)
+		return err
+	})
+	return fi, err
+}
+
+// errNotRegular: a credential file that is a pipe, a device or a directory.
+// The kit never reads one: the read could block before main runs, or take
+// input the program itself is waiting for.
+var errNotRegular = errors.New("credkit: not a regular file")
+
+// readRegular reads path when it is a regular file, and only then. The open
+// does not block (openNonblock), and the opened file must be the one Stat
+// saw, so a path swapped for a pipe after the Stat is refused too.
+func readRegular(path string) ([]byte, error) {
+	fi, err := statPath(path)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, &os.PathError{Op: "read", Path: path, Err: errNotRegular}
+	}
+	f, err := openPath(path, os.O_RDONLY|openNonblock, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	got, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !got.Mode().IsRegular() || !os.SameFile(fi, got) {
+		return nil, &os.PathError{Op: "read", Path: path, Err: errNotRegular}
+	}
+	return io.ReadAll(f)
 }

@@ -122,9 +122,26 @@ def build_analyzer(tmp: Path, timeout: int) -> Path:
     return exe
 
 
+def kit_reviewed(cli_dir: Path) -> bool:
+    """The connector's internal/credkit is byte-identical to the reviewed kit
+    (vendor_credkit.carrier_drift, the comparison ci_guards guard 11 runs).
+    Only then does the analyzer read the kit's FlagValues(args, "--name") as
+    a getter of flag name; any other copy is analysed as code, so the os.Args
+    it scans stays os.Args."""
+    sys.path.insert(0, str(HERE))
+    import vendor_credkit  # noqa: E402  (local tools/ module)
+    d = cli_dir / vendor_credkit.VENDOR_REL
+    try:
+        return d.is_dir() and not d.is_symlink() and not vendor_credkit.carrier_drift(REPO, d)
+    except ValueError:  # not under this repository: never the reviewed copy
+        return False
+
+
 def analyze(analyzer: Path, cli_dir: Path, timeout: int) -> dict:
-    run = subprocess.run([str(analyzer), "-dir", str(cli_dir)], capture_output=True,
-                         text=True, timeout=timeout, env=go_env())
+    cmd = [str(analyzer), "-dir", str(cli_dir)]
+    if kit_reviewed(cli_dir):
+        cmd.append("-kit-reviewed")
+    run = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=go_env())
     try:
         report = json.loads(run.stdout)
     except json.JSONDecodeError:
@@ -409,6 +426,9 @@ def check_slug(slug: str, analyzer: Path, timeout: int, verbose: bool) -> dict:
             rep["failures"].append(
                 f"{f['kind']} source at {f['pos']} reaches {sink['sink']} at {sink['pos']}; "
                 "it cannot be tied to one MCP tool argument, so review it and refuse it explicitly")
+        if analysis.get("kit_argv"):
+            rep["notes"].append("the credential kit's FlagValues is not tied to its flag, because module code "
+                                f"may write into argv: {analysis['kit_argv']}")
         # Positional arguments that can start a path (reported, not gated: the
         # gate's contract is flags; see the PR for the follow-up).
         rep["positional_paths"] = sorted({f.get("use") or f.get("func") or "?"

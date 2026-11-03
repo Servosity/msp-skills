@@ -4,6 +4,7 @@ package credkit
 
 import (
 	"encoding/binary"
+	"math"
 	mbits "math/bits"
 )
 
@@ -126,7 +127,7 @@ func (r *bitReader) bits(n int) (uint32, bool) {
 	}
 	v = v >> (r.pos & 7) & (1<<n - 1)
 	r.pos += n
-	return uint32(v), true
+	return uint32(v & math.MaxUint32), true
 }
 
 // huff reads n bits most significant first, as Huffman codes are packed.
@@ -250,7 +251,7 @@ func inflateFixedBits(br *bitReader, out []byte, limit, stop int) ([]byte, infla
 				if len(out)-start >= limit {
 					return out, inflateLimit
 				}
-				out = append(out, byte(sym))
+				out = append(out, byte(sym&0xff))
 				continue
 			}
 			if sym == 256 {
@@ -345,19 +346,19 @@ func (m *deflateMemo) fixedEnds(p []byte, base int) inflateEnd {
 		for {
 			if syms++; syms > memoAfter {
 				if m.id < 0 {
-					m.id = int32(len(m.done))
+					m.id = i32(len(m.done))
 					m.done, m.outs = append(m.done, false), append(m.outs, nil)
 				}
-				key := uint64(base*8+br.pos)*2 + uint64(final)
+				key := u64(base*8+br.pos)*2 + uint64(final)
 				e := &m.cache[key*0x9E3779B97F4A7C15>>48]
-				if e.gen == m.gen && e.key == key && uint64(out) <= e.out {
-					m.from, m.joinA, m.joinB, m.joinBit = e.att, int(e.out), out, br.pos
+				if e.gen == m.gen && e.key == key && u64(out) <= e.out {
+					m.from, m.joinA, m.joinB, m.joinBit = e.att, toInt(e.out), out, br.pos
 					if m.done[e.att] {
 						return inflateRedo
 					}
 					return inflateJoin
 				}
-				*e = memoEntry{gen: m.gen, att: m.id, key: key, out: uint64(out)}
+				*e = memoEntry{gen: m.gen, att: m.id, key: key, out: u64(out)}
 			}
 			sym, ok := br.fixedSym()
 			if !ok || sym > 285 {

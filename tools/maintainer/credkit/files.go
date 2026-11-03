@@ -164,7 +164,7 @@ func WriteFile(name string, data []byte, perm os.FileMode) error {
 	pl := pathLock(fileKey(name))
 	pl.Lock()
 	defer pl.Unlock()
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, perm)
+	f, err := openPath(name, os.O_WRONLY|os.O_CREATE, perm)
 	if err != nil {
 		return err // nothing opened, nothing truncated
 	}
@@ -231,7 +231,7 @@ func AppendFile(name string, record []byte, perm os.FileMode) error {
 		return err
 	}
 	if _, err := w.Write(record); err != nil {
-		w.Close()
+		_ = w.Close()
 		return err
 	}
 	return w.Close()
@@ -250,7 +250,7 @@ func OpenFile(name string, flag int, perm os.FileMode) (*Writer, error) {
 	pl.Lock()
 	defer pl.Unlock()
 	_, statErr := os.Lstat(name)
-	f, err := os.OpenFile(name, flag&^os.O_TRUNC, perm)
+	f, err := openPath(name, flag&^os.O_TRUNC, perm)
 	if err != nil {
 		return nil, err // nothing opened, nothing truncated
 	}
@@ -259,7 +259,7 @@ func OpenFile(name string, flag int, perm os.FileMode) (*Writer, error) {
 	}
 	fi, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, err // not truncated
 	}
 	if !fi.Mode().IsRegular() {
@@ -268,14 +268,14 @@ func OpenFile(name string, flag int, perm os.FileMode) (*Writer, error) {
 	}
 	fs, err := lockedState(f)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, err
 	}
 	defer fs.mu.Unlock()
 	if flag&os.O_TRUNC != 0 {
 		if err := faultAt("truncate", f.Truncate(0)); err != nil {
-			fs.fail(err)
-			f.Close()
+			_, _ = fs.fail(err)
+			_ = f.Close()
 			return nil, err
 		}
 		fs.restart(0)
@@ -821,7 +821,7 @@ func openRunStart(b []byte) int {
 	// none.
 	for j := 0; j < len(b); {
 		r, n := utf8.DecodeRune(b[j:])
-		if r == utf8.RuneError && n == 1 || r < 0x20 && !isSpaceByte(byte(r)) && r != 0x1b || r == 0x7f {
+		if r == utf8.RuneError && n == 1 || r < 0x20 && !isSpaceByte(byte(r&0xff)) && r != 0x1b || r == 0x7f {
 			start = min(start, j)
 			break
 		}

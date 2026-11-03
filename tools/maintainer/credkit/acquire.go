@@ -220,7 +220,7 @@ func uncode(b []byte, coding string) (out []byte, ok, exact bool) {
 		}
 	case "base64":
 		return lenientBase64(bytes.Map(func(r rune) rune {
-			if isSpaceByte(byte(r)) && r < 0x80 {
+			if isSpaceByte(byte(r&0xff)) && r < 0x80 {
 				return -1
 			}
 			return r
@@ -443,7 +443,7 @@ func canonicalMultipart(b []byte, boundary string) bool {
 		if err != nil {
 			return false
 		}
-		pw.Write(body)
+		_, _ = pw.Write(body)
 	}
 	return w.Close() == nil && bytes.Equal(buf.Bytes(), b)
 }

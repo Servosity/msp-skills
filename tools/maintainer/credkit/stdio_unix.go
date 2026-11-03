@@ -7,24 +7,34 @@ package credkit
 import (
 	"os"
 	"syscall"
-	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
+// openNonblock keeps an open of a credential file from blocking on a pipe
+// (readRegular refuses it once open).
+const openNonblock = syscall.O_NONBLOCK
+
+// openNofollow: an open that must not follow a final symbolic link.
+const openNofollow = syscall.O_NOFOLLOW
+
 // pending is how many bytes wait unread in the pipe f (FIONREAD), or -1.
+// The ioctl goes through golang.org/x/sys/unix, so the kit itself imports
+// no unsafe.
 func pending(f *os.File) int {
 	c, err := f.SyscallConn()
 	if err != nil {
 		return -1
 	}
-	n := int32(-1)
+	n := -1
 	if c.Control(func(fd uintptr) {
-		if _, _, e := syscall.Syscall(syscall.SYS_IOCTL, fd, fionread, uintptr(unsafe.Pointer(&n))); e != 0 {
-			n = -1
+		if v, err := unix.IoctlGetInt(int(fd), fionread); err == nil {
+			n = v
 		}
 	}) != nil {
 		return -1
 	}
-	return int(n)
+	return n
 }
 
 // redirectStd points fd at a new blocking pipe and returns the original
@@ -40,18 +50,18 @@ func redirectStd(fd int) (orig, r *os.File, err error) {
 	}
 	o, err := syscall.Dup(fd)
 	if err != nil {
-		syscall.Close(p[0])
-		syscall.Close(p[1])
+		_ = syscall.Close(p[0])
+		_ = syscall.Close(p[1])
 		return nil, nil, err
 	}
 	syscall.CloseOnExec(o)
 	if err := dup2(p[1], fd); err != nil {
-		syscall.Close(o)
-		syscall.Close(p[0])
-		syscall.Close(p[1])
+		_ = syscall.Close(o)
+		_ = syscall.Close(p[0])
+		_ = syscall.Close(p[1])
 		return nil, nil, err
 	}
-	syscall.Close(p[1])
+	_ = syscall.Close(p[1])
 	return os.NewFile(uintptr(o), "original"), os.NewFile(uintptr(p[0]), "credkit"), nil
 }
 
@@ -60,11 +70,11 @@ func redirectStd(fd int) (orig, r *os.File, err error) {
 func releaseStd(fd int) {
 	n, err := syscall.Open(os.DevNull, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 		return
 	}
 	_ = dup2(n, fd)
-	syscall.Close(n)
+	_ = syscall.Close(n)
 }
 
 // fdAppends reports whether f's descriptor was opened with O_APPEND.

@@ -67,6 +67,9 @@ type report struct {
 	BuildSeconds float64  `json:"build_seconds"`
 	SolveSeconds float64  `json:"solve_seconds"`
 	Errors       []string `json:"errors,omitempty"`
+	// KitArgv says why the reviewed kit's FlagValues was not tied to its
+	// flag: where module code may write into argv.
+	KitArgv string `json:"kit_argv,omitempty"`
 }
 
 func main() {
@@ -74,6 +77,8 @@ func main() {
 	maxRounds := flag.Int("max-rounds", 200, "fixpoint round limit")
 	explainPos := flag.String("explain", "", "debug: print the objects carrying the source registered at file:line")
 	cpuProfile := flag.String("cpuprofile", "", "debug: write a CPU profile here")
+	kitReviewed := flag.Bool("kit-reviewed", false, "internal/credkit is byte-identical to tools/maintainer/credkit "+
+		"(check_mcp_file_flags.py proves it with vendor_credkit.carrier_drift): read its FlagValues as a flag getter")
 	flag.Parse()
 	if *cpuProfile != "" {
 		if f, err := os.Create(*cpuProfile); err == nil {
@@ -86,7 +91,7 @@ func main() {
 		os.Exit(2)
 	}
 	start := time.Now()
-	rep, err := analyzeModule(*dir, *maxRounds, *explainPos)
+	rep, err := analyzeModule(*dir, *maxRounds, *explainPos, *kitReviewed)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "mcp_file_flags:", err)
 		os.Exit(1)
@@ -102,7 +107,7 @@ func main() {
 	}
 }
 
-func analyzeModule(dir string, maxRounds int, explainPos string) (*report, error) {
+func analyzeModule(dir string, maxRounds int, explainPos string, kitReviewed bool) (*report, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -184,12 +189,18 @@ func analyzeModule(dir string, maxRounds int, explainPos string) (*report, error
 	rep.BuildSeconds = time.Since(t1).Seconds()
 	t2 := time.Now()
 	e := newEngine(prog, inMod, funcs)
+	if kitReviewed && rep.Module != "" {
+		e.kitPath = rep.Module + "/internal/credkit"
+	}
 	e.seedEntryPoints()
 	if explainPos != "" {
 		e.explainSetup(explainPos)
 	}
 	rep.Rounds = e.run(maxRounds)
 	rep.Converged = e.converged
+	if e.argvWritten {
+		rep.KitArgv = e.argvWhy
+	}
 	rep.SolveSeconds = time.Since(t2).Seconds()
 	rep.Sources = len(e.sources)
 	if explainPos != "" {

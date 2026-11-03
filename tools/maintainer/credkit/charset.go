@@ -249,7 +249,7 @@ func groupTables(r *relevance) []tableGroup {
 		if id, ok := ids[k]; ok {
 			return id
 		}
-		ids[k] = int32(len(ids))
+		ids[k] = i32(len(ids))
 		return ids[k]
 	}
 	for gi := range out {

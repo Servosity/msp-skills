@@ -12,9 +12,17 @@ and nothing else. Its own tests and go.mod stay here, where CI runs them.
 
 --slug copies the package in, removes any file in that directory that is not
 part of the kit, and adds the modules the kit imports (golang.org/x/text,
-github.com/mark3labs/mcp-go) to the connector's go.mod when it lacks them,
+github.com/mark3labs/mcp-go, golang.org/x/sys) to the connector's go.mod when it lacks them,
 pinned to the version most connectors already use (`go get`, so go.sum
 follows). It then proves the copy builds with `go vet ./internal/credkit/`.
+
+--slug also routes the one child process the press template starts before the
+kit could see it: internal/cliutil/darwin_acl_darwin.go runs dsmemberutil, and
+the contract requires every child to start through credkit.RunCommand. The
+template is rewritten to ONE canonical kit-routed form (darwin_acl_kit_routed),
+so every adopter carries the same bytes and the security gate's reviewed,
+content-bound entries for that file (security_suppressions.json) hold for all
+of them; a copy that is neither the template nor that form is refused.
 
 --check fails when any connector's internal/credkit/ differs from the kit by
 one byte, lacks a kit file, or carries a file the kit does not have, and names
@@ -25,6 +33,8 @@ from __future__ import annotations
 
 import argparse
 import collections
+import contextlib
+import io
 import re
 import shutil
 import subprocess
@@ -35,7 +45,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 KIT_REL = Path("tools/maintainer/credkit")
 VENDOR_REL = Path("internal/credkit")
-KIT_MODULES = ("golang.org/x/text", "github.com/mark3labs/mcp-go")
+KIT_MODULES = ("golang.org/x/text", "github.com/mark3labs/mcp-go", "golang.org/x/sys")
 
 
 def kit_files(kit: Path) -> dict[str, bytes]:
@@ -47,22 +57,31 @@ def carriers(root: Path) -> list[Path]:
     return sorted(p for p in root.glob(f"skills/*/cli/{VENDOR_REL.as_posix()}") if p.is_dir())
 
 
+def carrier_drift(root: Path, d: Path, want: dict[str, bytes] | None = None) -> list[str]:
+    """Every way one carrier differs from the kit, one line each. Other gates
+    (check_env_schema) treat a carrier as the reviewed kit only when this is empty."""
+    if want is None:
+        want = kit_files(root / KIT_REL)
+    rel = d.relative_to(root).as_posix()
+    have = {p.name for p in d.iterdir()}
+    problems = []
+    for name in sorted(want):
+        f = d / name
+        if name not in have:
+            problems.append(f"{rel}/{name} is missing (the kit has {KIT_REL.as_posix()}/{name})")
+        elif not f.is_file() or f.is_symlink() or f.read_bytes() != want[name]:
+            problems.append(f"{rel}/{name} differs from {KIT_REL.as_posix()}/{name}")
+    for name in sorted(have - set(want)):
+        problems.append(f"{rel}/{name} is not part of the kit")
+    return problems
+
+
 def drift(root: Path) -> list[str]:
     """Every way a carrier differs from the kit, one line each."""
-    kit = root / KIT_REL
-    want = kit_files(kit)
+    want = kit_files(root / KIT_REL)
     problems = []
     for d in carriers(root):
-        rel = d.relative_to(root).as_posix()
-        have = {p.name for p in d.iterdir()}
-        for name in sorted(want):
-            f = d / name
-            if name not in have:
-                problems.append(f"{rel}/{name} is missing (the kit has {KIT_REL.as_posix()}/{name})")
-            elif f.read_bytes() != want[name]:
-                problems.append(f"{rel}/{name} differs from {KIT_REL.as_posix()}/{name}")
-        for name in sorted(have - set(want)):
-            problems.append(f"{rel}/{name} is not part of the kit")
+        problems += carrier_drift(root, d, want)
     return problems
 
 
@@ -123,6 +142,57 @@ def _semver_key(v: str) -> tuple:
     return tuple(int(n) for n in nums)
 
 
+DARWIN_ACL_REL = Path("internal/cliutil/darwin_acl_darwin.go")
+_ACL_EXEC = ('\tout, err := exec.Command("/usr/bin/dsmemberutil", "getuuid", "-u", '
+             'strconv.FormatUint(uint64(uid), 10)).CombinedOutput() // #nosec G204 -- fixed system path '
+             'plus a decimal uid; PATH must not hide it.\n')
+_ACL_ROUTED = ('\tcmd := exec.Command("/usr/bin/dsmemberutil", "getuuid", "-u", '
+               'strconv.FormatUint(uint64(uid), 10)) // #nosec G204 -- fixed system path plus a decimal uid; '
+               'PATH must not hide it.\n'
+               '\tvar buf bytes.Buffer\n'
+               '\tcmd.Stdout, cmd.Stderr = &buf, &buf\n'
+               '\terr := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)\n'
+               '\tout := buf.Bytes()\n')
+
+
+def darwin_acl_kit_routed(text: str, module: str) -> str | None:
+    """The press template's darwin_acl_darwin.go with dsmemberutil started
+    through credkit.RunCommand: the one canonical form every adopter gets.
+    None when text is not the template (already routed, or edited)."""
+    head = 'import (\n\t"encoding/binary"\n'
+    tail = '\t"golang.org/x/sys/unix"\n)\n'
+    if text.count(_ACL_EXEC) != 1 or text.count(head) != 1 or text.count(tail) != 1:
+        return None
+    return (text.replace(head, 'import (\n\t"bytes"\n\t"encoding/binary"\n')
+                .replace(tail, f'\t"golang.org/x/sys/unix"\n\n\t"{module}/internal/credkit"\n)\n')
+                .replace(_ACL_EXEC, _ACL_ROUTED))
+
+
+def darwin_acl_is_routed(text: str, module: str) -> bool:
+    return _ACL_ROUTED in text and f'\t"{module}/internal/credkit"\n' in text
+
+
+def route_darwin_acl(cli: Path, out=print) -> int:
+    """Rewrite cli's darwin_acl_darwin.go to the kit-routed form (see the
+    module docstring). 0 when done or nothing to do, 1 when the file is
+    neither the template nor the routed form."""
+    f = cli / DARWIN_ACL_REL
+    if not f.is_file():
+        return 0
+    text = f.read_text(encoding="utf-8")
+    m = re.search(r"(?m)^module\s+(\S+)", (cli / "go.mod").read_text())
+    routed = darwin_acl_kit_routed(text, m.group(1)) if m else None
+    if routed is not None:
+        f.write_text(routed, encoding="utf-8")
+        out(f"routed dsmemberutil through credkit.RunCommand in {DARWIN_ACL_REL.as_posix()}")
+        return 0
+    if m and darwin_acl_is_routed(text, m.group(1)):
+        return 0
+    out(f"vendor_credkit: {DARWIN_ACL_REL.as_posix()} is neither the press template nor the kit-routed form; "
+        "re-generate it from the template, then run --slug again")
+    return 1
+
+
 def vendor(root: Path, slug: str, out=print, run=subprocess.run) -> int:
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
         out(f"vendor_credkit: {slug!r} is not a connector slug")
@@ -157,11 +227,49 @@ def vendor(root: Path, slug: str, out=print, run=subprocess.run) -> int:
             out(f"vendor_credkit: go get {mod}@{pin} failed:\n{r.stderr.strip()}")
             return 1
         out(f"added {mod} {pin} to {(cli / 'go.mod').relative_to(root)} (the version most connectors use)")
+    if route_darwin_acl(cli, out) != 0:
+        return 1
     r = run(["go", "vet", f"./{VENDOR_REL.as_posix()}/"], cwd=cli, capture_output=True, text=True)
     if r.returncode != 0:
         out(f"vendor_credkit: go vet ./{VENDOR_REL.as_posix()}/ failed:\n{r.stderr.strip()}")
         return 1
     return 0
+
+
+def bound_to_routed(root: Path = ROOT) -> bool:
+    """Every content-bound security_suppressions.json entry for the template
+    file also accepts the kit-routed form of each connector's copy, so an
+    adopter keeps exactly the reviewed exceptions it had (same file, same rules)."""
+    import json
+    sys.path.insert(0, str(ROOT / "tools/maintainer"))
+    from check_security_gate import bound_digest  # noqa: E402  (local tools/ module)
+    entries = [e for e in json.loads((root / "tools/maintainer/security_suppressions.json").read_text())["bound"]
+               if e.get("file") == "cli/" + DARWIN_ACL_REL.as_posix()]
+    if not entries:
+        return False
+    ok = True
+    for f in sorted(root.glob(f"skills/*/cli/{DARWIN_ACL_REL.as_posix()}")):
+        cli = f.parents[2]
+        module = re.search(r"(?m)^module\s+(\S+)", (cli / "go.mod").read_text()).group(1)
+        text = f.read_text(encoding="utf-8")
+        # An adopter's copy is already routed; the digests below still decide.
+        routed = text if darwin_acl_is_routed(text, module) else darwin_acl_kit_routed(text, module)
+        if routed is None:
+            print(f"    {f.relative_to(root)} is neither the press template nor the kit-routed form")
+            ok = False
+            continue
+        slug = cli.parent.name
+        edited = routed.replace("cmd.Stdout, cmd.Stderr = &buf, &buf", "cmd.Stdout, cmd.Stderr = &buf, nil")
+        for e in entries:
+            neutral = e.get("slug_neutral") is True
+            d = bound_digest(routed.encode(), slug, neutral)
+            if e.get("bind") != "file" or d not in e["sha256"]:
+                print(f"    {e['rule']}: the kit-routed {f.relative_to(root)} ({d}) is not bound")
+                ok = False
+            if edited == routed or bound_digest(edited.encode(), slug, neutral) in e["sha256"]:
+                print(f"    {e['rule']}: an edit to the kit-routed {f.relative_to(root)} is still bound")
+                ok = False
+    return ok
 
 
 def self_test() -> int:
@@ -180,9 +288,12 @@ def self_test() -> int:
         (kit / "b.go").write_text("package credkit // b\n")
         (kit / "a_test.go").write_text("package credkit\n")
         (kit / "go.mod").write_text("module credkit\n")
-        for slug, text in (("one", "require golang.org/x/text v0.41.0\nrequire github.com/mark3labs/mcp-go v0.47.0\n"),
-                           ("two", "require (\n\tgolang.org/x/text v0.42.0\n\tgithub.com/mark3labs/mcp-go v0.57.0 // indirect\n)\n"),
-                           ("three", "require (\n\tgolang.org/x/text v0.42.0\n\tgithub.com/mark3labs/mcp-go v0.47.0\n)\n"),
+        for slug, text in (("one", "require golang.org/x/text v0.41.0\nrequire github.com/mark3labs/mcp-go v0.47.0\n"
+                                   "require golang.org/x/sys v0.46.0\n"),
+                           ("two", "require (\n\tgolang.org/x/text v0.42.0\n\tgithub.com/mark3labs/mcp-go v0.57.0 // indirect\n"
+                                   "\tgolang.org/x/sys v0.46.0 // indirect\n)\n"),
+                           ("three", "require (\n\tgolang.org/x/text v0.42.0\n\tgithub.com/mark3labs/mcp-go v0.47.0\n"
+                                     "\tgolang.org/x/sys v0.31.0\n)\n"),
                            ("bare", "module bare\n")):
             (root / "skills" / slug / "cli").mkdir(parents=True)
             (root / "skills" / slug / "cli" / "go.mod").write_text(f"module {slug}\n\ngo 1.26.10\n\n" + text)
@@ -207,7 +318,7 @@ def self_test() -> int:
         calls.clear()
         vendor(root, "bare", out=lambda *_: None, run=fake_run)
         gets = [c[0][2] for c in calls if c[0][:2] == ["go", "get"]]
-        expect(gets == ["golang.org/x/text@v0.42.0", "github.com/mark3labs/mcp-go@v0.47.0"],
+        expect(gets == ["golang.org/x/text@v0.42.0", "github.com/mark3labs/mcp-go@v0.47.0", "golang.org/x/sys@v0.46.0"],
                f"a connector without the modules gets them at the fleet pin ({gets})")
 
         lines = []
@@ -225,6 +336,43 @@ def self_test() -> int:
                "an extra file fails --check")
         vendor(root, "one", out=lambda *_: None, run=fake_run)
         expect(not (vend / "extra.go").exists() and check(root, out=lambda *_: None) == 0, "--slug removes the extra file")
+        acl = root / "skills/one/cli" / DARWIN_ACL_REL
+        acl.parent.mkdir(parents=True)
+        # The first copy still in the template's form: adopters' copies are routed.
+        template = next((t for t in sorted(ROOT.glob(f"skills/*/cli/{DARWIN_ACL_REL.as_posix()}"))
+                         if darwin_acl_kit_routed(t.read_text(encoding="utf-8"), "m") is not None), None)
+        if template is not None:
+            acl.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+            expect(vendor(root, "one", out=lambda *_: None, run=fake_run) == 0
+                   and _ACL_ROUTED in acl.read_text() and '\t"one/internal/credkit"\n' in acl.read_text(),
+                   "--slug routes the press template's dsmemberutil through credkit.RunCommand")
+            once = acl.read_text()
+            expect(vendor(root, "one", out=lambda *_: None, run=fake_run) == 0 and acl.read_text() == once,
+                   "--slug leaves the kit-routed form unchanged")
+            acl.write_text(once.replace("cmd.Stdout, cmd.Stderr", "cmd.Stdout"))
+            expect(vendor(root, "one", out=lambda *_: None, run=fake_run) == 1,
+                   "an edited darwin_acl_darwin.go is refused, not rewritten")
+            acl.unlink()
+            # A connector that has already adopted the kit, against the real rules.
+            adopter = root / "adopter"
+            cli = adopter / "skills" / template.parents[3].name / "cli"
+            (cli / DARWIN_ACL_REL).parent.mkdir(parents=True)
+            (adopter / "tools/maintainer").mkdir(parents=True)
+            (adopter / "tools/maintainer/security_suppressions.json").write_text(
+                (ROOT / "tools/maintainer/security_suppressions.json").read_text(encoding="utf-8"), encoding="utf-8")
+            gomod = (template.parents[2] / "go.mod").read_text(encoding="utf-8")
+            (cli / "go.mod").write_text(gomod, encoding="utf-8")
+            adopted = darwin_acl_kit_routed(template.read_text(encoding="utf-8"),
+                                            re.search(r"(?m)^module\s+(\S+)", gomod).group(1))
+            (cli / DARWIN_ACL_REL).write_text(adopted, encoding="utf-8")
+            expect(bound_to_routed(adopter), "a copy already kit-routed still counts as bound")
+            (cli / DARWIN_ACL_REL).write_text(adopted.replace("&buf, &buf", "&buf, nil"), encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                edited_refused = not bound_to_routed(adopter)
+            expect(edited_refused, "an edited kit-routed copy does not count as bound")
+        elif not any(ROOT.glob(f"skills/*/cli/{DARWIN_ACL_REL.as_posix()}")):
+            expect(False, "no connector carries darwin_acl_darwin.go to test against")
+        expect(bound_to_routed(), "every rule bound to the template binds the kit-routed form too, and not an edit of it")
         shutil.rmtree(kit)
         expect(check(root, out=lambda *_: None) == 1, "the kit removed while connectors carry it fails --check")
 
