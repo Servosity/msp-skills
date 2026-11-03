@@ -259,6 +259,72 @@ saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses 
 redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
+## The shared credential kit: `credkit`
+
+`tools/maintainer/credkit` is one Go package that makes a connector keep the
+[credential leak contract](../../docs/credential-leak-contract.md): it knows every credential the program holds and
+stops any of them from leaving through any output, in any of the encodings the contract lists. Every connector that
+adopts it carries the same bytes, so the fleet enforces one contract with one implementation instead of 65 hand-made
+filters.
+
+What it does, by contract section:
+
+- **Held credentials (1).** `Start`, the first statement of `main`, holds every credential known at startup before
+  anything is written: the declared secret environment variables, every credential file (read token by token, so a
+  file that does not parse still gives up its credentials; legacy paths and a `--config` path included), the password
+  and query values inside the base URL, credential flags (scanned from argv before the flag parser runs, so a parse
+  error that echoes one is withheld), and piped stdin when a stdin flag is declared. The outbound transport holds
+  request credentials, `Set-Cookie` values and declared response fields before the program sees them: a plain response
+  body is scanned as it streams, however long, and a field value reaches the program only once it is held; an encoded
+  body is decoded first. The MCP wrappers hold declared tool arguments before any handler runs. A credential file that
+  exists but cannot be read, or a response in an encoding the kit cannot read, withholds everything. A source is
+  exempt only when an identifier names it exactly (a header name ignores case).
+- **What counts as a leak (2) and the decoders (3).** The matcher finds a held value whole (a short one only as a
+  whole token) or any 8-character piece of it, after every decoding the contract names, applied recursively at every
+  offset, with NFKC and case folding on both sides. No decoder is limited to once per path; only a decoder reading
+  its own output again directly is skipped where that is provably nothing new. It has a depth and decoded-bytes
+  budget; running out of it withholds the unit, and a decoder error never makes a unit clean.
+- **Outbound requests (2(c)).** `credkit.Transport` refuses a request, before it is sent, when it carries a held value
+  to an origin outside that value's declared origins, over plain http, or across a redirect to a different origin.
+- **What happens on a match (4) and the sinks (5).** The whole unit is replaced by a fixed notice that names the sink.
+  stdout and stderr are redirected at the file-descriptor level, so `fmt`, `log`, a panic trace and an inherited child
+  process all pass through it. Files (`WriteFile`, `AppendFile`, `Create`, `OpenFile`, `NewWriter`; a config write
+  has no exemption), SQLite (`SQLDriver`), MCP (`MCPIn`, `MCPOut`, `MCPHTTP`, `MCPTools`) and child processes
+  (`StartCommand`, `RunCommand`) each check one unit at a time. If the output layer cannot be installed, the program
+  exits with status 70 before writing anything.
+- **Declarations (7).** A connector fills in one `credkit.Declarations` literal in one hand-written wiring file: its
+  secret environment variables, credential files and fields, credential flags and headers, response fields, MCP
+  arguments, each credential's allowed origins, and each exempt identifier with its reason. Every entry point is a plain
+  function call, so a type checker can find every declaration and every routed sink without running the program.
+
+How a connector adopts it:
+
+1. `python3 tools/maintainer/vendor_credkit.py --slug <slug>` copies the package to
+   `skills/<slug>/cli/internal/credkit/`, adds `golang.org/x/text` and `mcp-go` to the connector's `go.mod` at the
+   version most connectors use if it lacks them, and proves the copy builds.
+2. Write the wiring file with the `Declarations` literal, call `credkit.Start(...)` as the first statement of each
+   `main` and end the program with `credkit.Exit(code)` (returning from `main` would drop output still in the pipe).
+3. Route each sink through the kit: the HTTP client's transport, file writes, the SQLite driver, the MCP server's
+   input, output and HTTP handler, child processes, and `credkit.Terminal(os.Stdout)` wherever the program asked
+   whether its output is a terminal.
+
+How drift is caught: `vendor_credkit.py --check` (ci_guards guard 11) fails when any connector's copy differs from
+the kit by one byte, misses a file, or carries a file the kit does not have, and names the file. Change the kit here,
+then re-run `--slug` for each connector. The `credkit` workflow (`.github/workflows/credkit.yml`) runs the kit's contract tests under the race detector,
+vets it for Linux, macOS and Windows on amd64 and arm64, and vets it against every `mcp-go` version the fleet requires.
+
+Not yet: no connector uses the kit in this change. The verifier that proves a connector's wiring is complete and the
+leak test list that drives every connector against the contract are separate changes.
+
+Known limits (accepted): a single write over 4 MiB to stdout or stderr is checked in 4 MiB units; an encoded
+response body over 64 MiB, or one in an encoding other than gzip or deflate, withholds everything from then on; a
+credential typed at a terminal prompt is held by the connector itself with `credkit.Hold("stdin", v)`; a credential of
+a few characters is withheld wherever it appears as a token, decoded output included, so it withholds more often than a
+long one. Checking every decoding recursively costs time: about 0.1 s for 15 KB of JSON and 1 s for 150 KB, and a unit
+that runs out of budget is withheld, which a credential with non-ASCII characters makes far more likely. On Windows, a
+stream the program captured before `Start` (a package-level logger) writes into the kit's pipe; if that stream was a
+console, its writes fail rather than reach the console.
+
 ## Security gate: `mcp-http-no-bearer-auth`
 
 `check_security_gate.py` fires this MCP-surface rule when a connector's streamable HTTP server

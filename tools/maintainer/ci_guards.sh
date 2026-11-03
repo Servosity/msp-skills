@@ -141,6 +141,25 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a carrier missing one backstop file" fail \
     "$sf_install && $sf_carrier && rm skills/acme/cli/cmd/acme-mcp/secret_funnel_mcp.go"
   st_case "a carrier with the funnel tool removed" fail "$sf_install && $sf_carrier && rm tools/maintainer/apply_secret_funnel.py"
+  # Guard 11: every connector's credential kit copy matches the kit.
+  CK_SRC="$(dirname "$SELF")/vendor_credkit.py"
+  CK_CANON="$(dirname "$SELF")/credkit"
+  [ -f "$CK_SRC" ] && [ -d "$CK_CANON" ] || { echo "FAIL: ci_guards self-test needs $CK_SRC and $CK_CANON" >&2; exit 1; }
+  if python3 -I "$CK_SRC" --self-test >"$tmp/ck-selftest.out" 2>&1; then
+    echo "  ok   vendor_credkit.py --self-test"
+  else
+    echo "  FAIL vendor_credkit.py --self-test"; sed 's/^/       /' "$tmp/ck-selftest.out"; bad=1
+  fi
+  ck_install="mkdir -p tools/maintainer/credkit && cp \"$CK_SRC\" tools/maintainer/ && cp \"$CK_CANON\"/*.go \"$CK_CANON\"/go.mod tools/maintainer/credkit/"
+  ck_carrier="mkdir -p skills/acme/cli/internal/credkit && for f in tools/maintainer/credkit/*.go; do \
+    case \"\$f\" in *_test.go) ;; *) cp \"\$f\" skills/acme/cli/internal/credkit/ ;; esac; done"
+  st_case "a connector carrying the canonical kit" pass "$ck_install && $ck_carrier"
+  st_case "a connector whose kit copy differs by one byte" fail \
+    "$ck_install && $ck_carrier && printf ' ' >> skills/acme/cli/internal/credkit/match.go"
+  st_case "a carrier missing one kit file" fail "$ck_install && $ck_carrier && rm skills/acme/cli/internal/credkit/transport.go"
+  st_case "a carrier with a file the kit does not have" fail \
+    "$ck_install && $ck_carrier && printf 'package credkit\n' > skills/acme/cli/internal/credkit/local.go"
+  st_case "a carrier with the kit tool removed" fail "$ck_install && $ck_carrier && rm tools/maintainer/vendor_credkit.py"
   # Guards 8 and 9 read pages and manifests the way a reader and a JSON
   # parser do (Codex review, round 1). The phrase is assembled from two halves
   # so this script never carries it.
@@ -462,6 +481,25 @@ elif compgen -G 'skills/*/cli/internal/cliutil/secret_funnel.go' > /dev/null; th
   # Removing the tool must not turn this guard into a silent pass.
   echo "$sf_tool is missing while connectors carry the funnel, so their copies cannot be checked"
   note "restore apply_secret_funnel.py and tools/maintainer/secret_funnel/"
+  fail=1
+fi
+
+echo "==> 11. Every connector's credential kit matches tools/maintainer/credkit"
+# The shared credential kit ships byte-identical in every connector that
+# carries it, at skills/<slug>/cli/internal/credkit/. A copy edited in one
+# connector would enforce a different contract there and nothing else would
+# notice, so every carrier is compared with the one copy of record.
+ck_tool="tools/maintainer/vendor_credkit.py"
+if [ -f "$ck_tool" ]; then
+  if ! ck_out="$(python3 -I "$ck_tool" --check 2>&1)"; then
+    printf '%s\n' "$ck_out"
+    note "change the kit in tools/maintainer/credkit/ only, then re-run vendor_credkit.py --slug <slug> for each connector"
+    fail=1
+  fi
+elif compgen -G 'skills/*/cli/internal/credkit' > /dev/null; then
+  # Removing the tool must not turn this guard into a silent pass.
+  echo "$ck_tool is missing while connectors carry the kit, so their copies cannot be checked"
+  note "restore vendor_credkit.py and tools/maintainer/credkit/"
   fail=1
 fi
 
