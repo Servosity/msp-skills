@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "The full Abnormal Security REST API as an agent-ready CLI - with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/SKILL.md",
-      "digest": "sha256:5b770759ee4d8f6c8194597ff6b06b7fdd950c098702b76a3f49b392fbc59e5b"
+      "digest": "sha256:0e13a7e0496a192111d720eaa4461248ef5e2d15c5c0404b12bb93d24ddd07fa"
     },
     {
       "name": "acronis",

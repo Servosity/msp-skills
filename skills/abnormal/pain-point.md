@@ -20,7 +20,7 @@ new, what's unremediated, what to tell the client) is buried under clicking.
   impersonation breakdowns, and trending attacks pulled into one client-ready table or CSV.
 - **`abnormal-cli employee-risk "vip@acme.com"`** - one account-takeover risk picture per
   employee: profile, Genome identity analysis, 30-day login pattern, and open cases naming them.
-- **`abnormal-cli vendor-risk "acme-supplies.com"`** - one vendor-email-compromise picture
+- **`abnormal-cli vendor-risk "supplier.example.com"`** - one vendor-email-compromise picture
   per vendor: details, recent activity, and open vendor cases.
 - **`abnormal-cli remediate-watch <threat|case> <id>`** - remediate a threat or case and
   block until Abnormal reports the action reached a terminal state, with a typed exit code

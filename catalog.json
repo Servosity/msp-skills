@@ -31,7 +31,7 @@
       "cli_binary": "abnormal-cli",
       "mcp_binary": "abnormal-mcp",
       "version": "0.1.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Abnormal Security",
       "vendor_trademark_owner": "Abnormal Security Corporation",

@@ -190,7 +190,7 @@ partial snapshot is never silently presented as complete.`, "\n"),
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d dashboard sections failed; snapshot covers the remaining %d sections\n", len(view.FetchFailures), len(sections), len(view.Sections))
 			}
 			if len(view.Sections) == 0 {
-				return classifyAPIError(fmt.Errorf("all %d dashboard sections failed; first error: %s", len(sections), view.FetchFailures[0].Error), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("all %d dashboard sections failed; first error: %s", len(sections), view.FetchFailures[0].Error), flags)
 			}
 			if flags.csv {
 				return printJSONFiltered(cmd.OutOrStdout(), flattenSnapshotRows(view), flags)
