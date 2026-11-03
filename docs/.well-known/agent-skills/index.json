@@ -20,7 +20,7 @@
       "type": "skill-md",
       "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you. Trigger phrases: `action1 patch posture`, `which endpoints are missing patches`, `triage action1 vulnerabilities`, `find stale action1 agents`, `action1 fleet view across organizations`, `use action1`, `run action1-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/SKILL.md",
-      "digest": "sha256:78f554bf8e5952d64cc7468f74fc84263412eccc7ef9811b56b6afd134a33f79"
+      "digest": "sha256:cf620d76a43e91af1d0a71978bcef54dc42ed87108ec63c50d7340c1c7c5521d"
     },
     {
       "name": "afi",

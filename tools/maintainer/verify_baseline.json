@@ -4,12 +4,6 @@
   "acronis": [
    "install"
   ],
-  "action1": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "appdirect": [
    "mcp-http",
    "write-gating",

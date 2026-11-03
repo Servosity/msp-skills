@@ -3,7 +3,6 @@
   "rules": {
     "mcp-http-no-bearer-auth": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",
@@ -40,7 +39,6 @@
     ],
     "mcp-go-no-rebinding-guard": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",
@@ -80,7 +78,6 @@
     ],
     "mcp-execute-no-confirm": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",
