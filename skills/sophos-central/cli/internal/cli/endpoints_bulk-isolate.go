@@ -23,7 +23,6 @@ func newEndpointsBulkIsolateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "bulk-isolate",
-		Aliases:     []string{"create"},
 		Short:       "Turn on or off endpoint isolation for multiple endpoints.",
 		Example:     "  sophos-central-cli endpoints bulk-isolate --comment 'Isolating endpoints with suspicious health' --enabled true --ids '[\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\"9d5d6819-0238-43e6-ba03-815cae0d474d\",\"2da8b591-9164-4f7e-a367-ad9b9cb77736\",\"66046f6a-bff0-4b51-aa0b-ac18bd363207\"]'",
 		Args:        cobra.NoArgs,

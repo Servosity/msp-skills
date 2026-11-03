@@ -15,6 +15,7 @@ All notable changes to this skill are documented here. Format follows
 - Sync checkpoints are now kept per tenant and scope, so the first `sync` after upgrading walks each resource once from the start.
 
 ### Fixed
+- `endpoints bulk-isolate` no longer answers to the hidden alias `create` (the 4.35.1 generator had added it), so `sophos-central-cli endpoints create` no longer isolates endpoints.
 - `fleet revenue --tenant` reports only the selected customers.
 - A section the Account Health Check returns as null (Sophos documents it as an unexpected error) is a failed check: the tenant reads `partial`, `fleet gaps` reports `health_check_failed`, and `fleet health` gives a change only between two health checks that scored the same checks (otherwise `delta` is empty and `delta_note` says why).
 - Fleet rows always carry the tenant they were fetched for, and a row naming another tenant is refused. Rows an older build stored without a tenant are removed on the next `fleet refresh`; each tenant then reads as not refreshed until that refresh reaches it.
