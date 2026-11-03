@@ -94,9 +94,11 @@ import functools
 import gzip
 import hashlib
 import html
+import itertools
 import json
 import os
 import queue
+import random
 import re
 import secrets as _secrets
 import shlex
@@ -137,22 +139,52 @@ CLASS_ID = "secret-corpus"
 _ALNUM = string.ascii_letters + string.digits
 
 
+# A case's values come from a generator seeded by the connector, the case and
+# the attempt (case_attempts), so a verdict that depends on the value is the
+# same on every run: a row cannot go red on a random draw (corpus9rv, cipp's
+# succ-qp-mixed, about one run in eight), and a failure reproduces. Outside a
+# case (the self-test's own values) the draw stays random.
+_CASE = threading.local()
+
+
+def _choice(alphabet: str) -> str:
+    return getattr(_CASE, "rng", _secrets).choice(alphabet)
+
+
 def _rand(n: int) -> str:
-    return "".join(_secrets.choice(_ALNUM) for _ in range(n))
+    return "".join(_choice(_ALNUM) for _ in range(n))
+
+
+def case_attempts(slug: str, case_id: str, var: str | None, run):
+    """`run` once per call, each call with the next attempt's values."""
+    n = itertools.count()
+
+    def attempt() -> dict:
+        _CASE.rng = random.Random(f"{slug}/{case_id}/{var}/{next(n)}")
+        try:
+            return run()
+        finally:
+            del _CASE.rng
+    return attempt
 
 
 def make_cred(kind: str) -> str:
     if kind == "long":   # transport-sensitive characters, like the harness sentinel
         return f"clsK{_rand(8)}.{_rand(3)}+{_rand(3)}/{_rand(3)}={_rand(3)}"
+    if kind == "long-qp":   # two hex digits after the '=': quoted-printable reads them as one byte
+        return f"clsK{_rand(8)}.{_rand(3)}+{_rand(3)}/{_rand(3)}=A{_choice(string.hexdigits)}{_rand(1)}"
     if kind == "long16":
-        return _rand(16)
+        # The 8th character differs from the 1st: two adjacent 7-character
+        # prefixes of the value then never hold an 8-character piece of it.
+        head = _rand(7)
+        return head + _choice(_ALNUM.replace(head[0], "")) + _rand(8)
     if kind == "len8":
         return _rand(3) + "!" + _rand(4)
     return {"short7": "s3cr3t7", "short3": "q7Z", "digits": "48291375", "digits6": "482913",
             "decimal": "4829.1375"}[kind]
 
 
-CRED_KINDS = ("long", "long16", "len8", "short7", "short3", "digits", "digits6", "decimal")
+CRED_KINDS = ("long", "long-qp", "long16", "len8", "short7", "short3", "digits", "digits6", "decimal")
 
 # --------------------------------------------------------------------------- #
 # Encoders: one per form a finding used. A form composes left to right:
@@ -1054,6 +1086,9 @@ def in_linux(argv: list[str], out: str | None = None) -> int:
     directory mounted at the same path, for --json-out. The image is the
     host's Go release on bookworm, native to the host's CPU so ptrace sees
     the native ABI (CORPUS_LINUX_IMAGE overrides)."""
+    if out and os.path.realpath(out) in ("/tmp", "/private/tmp"):
+        raise SystemExit("class_secret_corpus: --json-out directly under /tmp would mount the host's /tmp over the "
+                         "container's, where the tree is unpacked: use a directory outside it")
     root = str(ch.ROOT)
     arch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
     ver = subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True).stdout.strip()[2:]
@@ -1065,9 +1100,7 @@ def in_linux(argv: list[str], out: str | None = None) -> int:
     files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "-z", "--", ".", ":!docs/assets"],
                            cwd=root, capture_output=True, check=True).stdout
     here = os.path.relpath(os.getcwd(), root) if os.getcwd().startswith(root) else "."
-    mods = re.findall(r"^\s*(?:require\s+)?(\S+\.\S+/\S+)\s+(v\S+)", _GO_MOD, re.M)   # the self-test's Go probes
-    script = ("set -e; mkdir -p /tmp/src /tmp/home; tar -x -C /tmp/src; cd /tmp/home; go mod download "
-              + " ".join(f"{m}@{v}" for m, v in mods) + " >/dev/null 2>&1 || true; cd /tmp/src/"
+    script = ("set -e; mkdir -p /tmp/src /tmp/home; tar -x -C /tmp/src; cd /tmp/src/"
               + shlex.quote(here) + "; exec python3 "
               "/tmp/src/tools/maintainer/class_secret_corpus.py " + " ".join(shlex.quote(a) for a in argv))
     cmd = ["docker", "run", "--rm", "-i", "--platform", f"linux/{arch}", "--user", "1000:1000",
@@ -3990,7 +4023,8 @@ def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: 
             return {"id": c["id"], "case": c["id"], "advisory": c.get("advisory", ""), "verdict": "N/A",
                     "note": "the connector declares no secret environment variable", "where": [],
                     "form": "raw", "shape": "row", "source": c["source"], "drive": "reads", "t": 0}
-        return settle(eng.run_case(c, v), lambda: eng.run_case(c, v))
+        attempt = case_attempts(ctx.slug, c["id"], v, lambda: eng.run_case(c, v))
+        return settle(attempt(), attempt)
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         results = list(pool.map(one, jobs))
@@ -5138,7 +5172,6 @@ def _r3_decoders() -> bool:
     encoded: every decoder, at every offset, both readings of decoded bytes,
     whole short credentials, joined values and integer spellings. And the
     other direction: credential-free output of every shape matches nothing."""
-    import random
     import zlib
     d8, d6, s3 = "48291375", "482913", "q7Z"
     cred = make_cred("long")
@@ -5950,27 +5983,19 @@ def _go_trace_run(files: dict[str, str], gomod_extra: str = "", kind: int = 1,
             (src / rel).parent.mkdir(parents=True, exist_ok=True)
             (src / rel).write_text(body, encoding="utf-8")
         shutil.copyfile(ch.ROOT / "skills" / "auvik" / "cli" / "go.sum", src / "go.sum")
-        saved = os.environ.get("GOPROXY")
-        os.environ["GOPROXY"] = "off"   # every module is in the cache
-        try:
-            r = subprocess.run(["go", "list", "-mod=mod", "-deps", "."], cwd=src, capture_output=True, text=True,
-                               timeout=600, env=go_env())   # fills go.sum
-            if r.returncode != 0:
-                return f"build: {r.stderr[-400:]}", []
-            gocmd, err = trace_build(src, ["."], tmp)
-            if err:
-                return err, []
-            bindir = Path(tmp) / "bin"
-            bindir.mkdir()
-            r = subprocess.run(gocmd + ["-o", str(bindir / "acme"), "."], cwd=src,
-                               capture_output=True, text=True, timeout=600, env={**go_env(), "GOTOOLCHAIN": "local"})
-            if r.returncode != 0:
-                return f"build: {r.stderr[-400:]}", []
-        finally:
-            if saved is None:
-                os.environ.pop("GOPROXY", None)
-            else:
-                os.environ["GOPROXY"] = saved
+        r = subprocess.run(["go", "list", "-mod=mod", "-deps", "."], cwd=src, capture_output=True, text=True,
+                           timeout=600, env=go_env())   # fills go.sum, fetching what the module cache lacks
+        if r.returncode != 0:
+            return f"build: {r.stderr[-400:]}", []
+        gocmd, err = trace_build(src, ["."], tmp)
+        if err:
+            return err, []
+        bindir = Path(tmp) / "bin"
+        bindir.mkdir()
+        r = subprocess.run(gocmd + ["-o", str(bindir / "acme"), "."], cwd=src,
+                           capture_output=True, text=True, timeout=600, env={**go_env(), "GOTOOLCHAIN": "local"})
+        if r.returncode != 0:
+            return f"build: {r.stderr[-400:]}", []
         trace = bindir / "corpus-sql.trace"
         home = Path(tmp) / "home"
         home.mkdir()
@@ -6700,7 +6725,7 @@ def _k_go() -> bool:
                 (src / rel).parent.mkdir(parents=True, exist_ok=True)
                 (src / rel).write_text(text, encoding="utf-8")
             shutil.copyfile(ch.ROOT / "skills" / "auvik" / "cli" / "go.sum", src / "go.sum")
-            env = {**go_env(), "GOPROXY": "off", "GOTOOLCHAIN": "local"}
+            env = {**go_env(), "GOTOOLCHAIN": "local"}
             b = subprocess.run(["go", "build", "-mod=mod", "-o", str(src / "acme"), "."], cwd=src, capture_output=True,
                                text=True, timeout=600, env=env)
             if b.returncode != 0:
@@ -6824,7 +6849,34 @@ def _settle_probe() -> bool:
     return ok
 
 
-C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go, "round 1": _c11_round1, "settle": _settle_probe}
+def _seed_probe() -> bool:
+    """corpus9rv: one connector and case draw the same values on every run, the
+    next attempt other values; the value shapes two rows depend on always hold."""
+    def draw(slug="a", case="c", var=None, tries=2):
+        attempt = case_attempts(slug, case, var, lambda: make_cred("long"))
+        return [attempt() for _ in range(tries)]
+    ok = True
+    for why, bad in (("two runs drew different values", draw() != draw()),
+                     ("a retry drew the same value", len(set(draw())) != 2),
+                     ("two connectors drew the same value", draw("a") == draw("b")),
+                     ("two cases drew the same value", draw(case="c") == draw(case="d")),
+                     ("two variables drew the same value", draw(var="X") == draw(var="Y")),
+                     ("a value drawn outside a case was seeded", make_cred("long") == make_cred("long")),
+                     ("a value's 8th character repeats its 1st", any(
+                         (lambda v: v[7] == v[0])(make_cred("long16")) for _ in range(5000))),
+                     ("a long-qp value lacks two hex digits after '='", any(
+                         not re.search(r"=[0-9A-Fa-f]{2}", make_cred("long-qp")) for _ in range(5000)))):
+        if bad:
+            print(f"    corpus self-test: seeded values: {why}")
+            ok = False
+    if not {"id", "len"} <= next(c for c in load_corpus(None, None) if c["id"] == "succ-qp-mixed").keys():
+        print("    corpus self-test: seeded values: succ-qp-mixed does not fix its value's shape")
+        ok = False
+    return ok
+
+
+C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go, "round 1": _c11_round1, "settle": _settle_probe,
+              "seeded values": _seed_probe}
 
 
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,

@@ -289,11 +289,17 @@ is one line, usually in minutes:
 From then on every connector runs the new line in CI, so the finding never has to be found by a
 review again.
 
-**A limit depends on the run.** The matcher can reach a limit on one run and not the next: a random
-value's bytes exhausting its budget (contract 6.7), or the kit's stream limits when a pipe split a clean
-large frame at a pause. On the first full run about one row in six failed on one. A case whose every
-reason is a limit gets two more attempts. A held credential found stands at once, on any row and any
-attempt, including in a stream: a whole short credential in one write, then a pause, is a leak.
+**The values are fixed.** A case's values come from a generator seeded by the connector, the case and
+the attempt, so a verdict that depends on a value is the same on every run and a failure reproduces
+locally. A row whose leak needs a certain value says so in its `len` (`long-qp` for `succ-qp-mixed`:
+without two hex digits after the `=`, a connector's own quoted-printable reading can happen to catch it).
+
+**A limit can still depend on the run.** The matcher can reach a limit on one run and not the next: a
+value's bytes exhausting its budget (contract 6.7), a database's page layout, or the kit's stream limits
+when a pipe split a clean large frame at a pause. On the first full run about one row in six failed on
+one. A case whose every reason is a limit gets two more attempts, each with the next attempt's values. A
+held credential found stands at once, on any row and any attempt, including in a stream: a whole short
+credential in one write, then a pause, is a leak.
 
 **The baseline only shrinks.** `corpus_baseline.json` lists, per connector, the gated cases it
 fails on main today. In the CI row a listed failure is reported as a known failure; any other gated
@@ -318,7 +324,7 @@ python3 tools/maintainer/class_harness.py --slug halopsa --class secret-corpus -
 python3 tools/maintainer/class_secret_corpus.py --slug halopsa -v                   # every case, every verdict
 python3 tools/maintainer/class_secret_corpus.py --slug halopsa --only succ-rot13    # one case
 python3 tools/maintainer/class_secret_corpus.py --slug halopsa --strict             # known failures fail too
-python3 tools/maintainer/class_secret_corpus.py --all --jobs 4 --json-out /tmp/leaks  # whole fleet
+python3 tools/maintainer/class_secret_corpus.py --all --jobs 4 --json-out "$HOME/leaks"  # whole fleet
 python3 tools/maintainer/class_secret_corpus.py --self-test                         # both directions
 ```
 
