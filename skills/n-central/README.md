@@ -1,4 +1,4 @@
-# N-able N-central + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# N-able N-central + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the N-able N-central
 > API. Not affiliated with, endorsed by, or sponsored by N-able, Inc.

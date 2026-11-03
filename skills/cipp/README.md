@@ -1,4 +1,4 @@
-# CIPP + AI: MCP server for Microsoft 365, Entra ID, Intune, Exchange, Defender and GDAP - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# CIPP + AI: MCP server for Microsoft 365, Entra ID, Intune, Exchange, Defender and GDAP - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the CIPP
 > API. Not affiliated with, endorsed by, or sponsored by CyberDrain.

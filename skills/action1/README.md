@@ -1,4 +1,4 @@
-# Action1 + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# Action1 + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Action1
 > API. Not affiliated with, endorsed by, or sponsored by Action1 Corporation.

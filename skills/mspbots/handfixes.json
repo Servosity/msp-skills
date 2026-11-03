@@ -323,6 +323,10 @@
      "not_contains": "Developer Mode"
     },
     {
+     "file": "README.md",
+     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+    },
+    {
      "file": "page.json",
      "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
      "min_count": 1

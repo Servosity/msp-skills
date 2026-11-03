@@ -118,7 +118,7 @@ For HTTP / remote: `claude mcp add --transport http <name> <url>`. Source: [code
 
 ## Claude Cowork (Anthropic desktop agent)
 
-Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. Either path works for MSP Skills.
+Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. For MSP Skills, use the Skill path below: the Connectors UI takes a remote web address, and MSP Skills connectors run locally.
 
 **Skill path (recommended) - paste this into Cowork:**
 
