@@ -26,8 +26,8 @@ import (
 // partitions are the `resource_type` values `sync` writes it under: the CURRENT
 // partition first (what this build's syncer writes; see syncResourcePath in
 // sync.go), then names an older print wrote, so a mirror synced before an
-// upgrade is still read until the current partition completes its first sync
-// (see loadResources). The press renames partitions between versions: 4.35.1
+// upgrade is still read until a writable open moves those rows into the
+// current partition (see loadResources and auvikLegacyMoves). The press renames partitions between versions: 4.35.1
 // moved "inventory" from devices to components, "asm" from apps to clients and
 // "auvik-inventory" from v2 devices to v2 discovery status.
 //
@@ -69,6 +69,19 @@ var (
 	rtASMLicenses       = auvikFamily{[]string{"asm-license-info"}, []string{"asmLicense"}, "/v1/asm/license/info"}
 	rtASMClients        = auvikFamily{[]string{"asm", "asm-client-info"}, []string{"asmClient"}, "/v1/asm/client/info"}
 )
+
+// auvikLegacyMoves are the partitions the 4.30 print wrote a family under that
+// this build writes another family to (or nothing): their rows of the family's
+// types move into the current partition at every writable store open. A listed
+// partition that is NOT here is one this build still syncs (tenants-detail).
+var auvikLegacyMoves = []store.PartitionMove{
+	{From: "inventory", To: rtDevices.current(), Types: rtDevices.types},
+	{From: "asm", To: rtASMApps.current(), Types: rtASMApps.types},
+	{From: "auvik-inventory-discovery-status", To: rtDiscoveryStatus.current(), Types: rtDiscoveryStatus.types},
+	{From: "asm-client-info", To: rtASMClients.current(), Types: rtASMClients.types},
+}
+
+func init() { store.LegacyPartitionMoves = auvikLegacyMoves }
 
 // auvikFamilies is every family a novel reads; the partition tests walk it.
 var auvikFamilies = map[string]auvikFamily{
@@ -205,15 +218,13 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath string, empty 
 // loadResources drains every row of a family, keeping only rows whose JSON:API
 // type the family allows, one row per id (the most recently synced copy wins).
 //
-// Which partitions it reads: once this build's syncer has COMPLETED a walk of
-// the family's current partition, that partition is the whole truth and no
-// other is read. A legacy partition an older print wrote is never pruned by the
-// current syncer, so reading it beside a completed current partition would
-// resurrect every record Auvik has since stopped returning (a decommissioned
-// device would stay in eol, usage reconcile and the inventory diff baseline
-// forever). Until the current partition has completed once, every partition
-// the family has ever been synced under is read, so a mirror synced before an
-// upgrade still answers.
+// It reads every partition the family lists. Rows an older print left under a
+// partition this build no longer writes the family to are moved into the
+// current partition at the first writable store open (auvikLegacyMoves,
+// store.moveLegacyPartitions), which every `sync` performs before it walks, so
+// the current partition's reconcile governs them: an unfiltered full sync
+// prunes a record Auvik stopped returning, a filtered one prunes nothing. A
+// mirror read before any post-upgrade sync still answers from the legacy rows.
 //
 // Drain-first is mandatory: SQLite uses a single connection, so no follow-up
 // query may run while this parent *sql.Rows is open.
@@ -221,9 +232,6 @@ func loadResources(ctx context.Context, db *store.Store, family auvikFamily) ([]
 	candidates := family.partitions
 	if len(candidates) == 0 || len(family.types) == 0 {
 		return nil, nil
-	}
-	if len(candidates) > 1 && partitionSyncCompleted(ctx, db, family.current()) {
-		candidates = candidates[:1]
 	}
 	placeholders := make([]string, len(candidates))
 	args := make([]any, 0, len(candidates)+len(family.types))
@@ -284,18 +292,6 @@ func loadResources(ctx context.Context, db *store.Store, family auvikFamily) ([]
 		out = append(out, auvikRow{ID: rr.id, Data: obj})
 	}
 	return out, nil
-}
-
-// partitionSyncCompleted reports whether a sync walk of partition has ever
-// completed (sync_state.last_synced_at is written only at a proven natural end
-// of a walk). Any error -- including a store too old to have the table --
-// answers false, which keeps the legacy-inclusive read.
-func partitionSyncCompleted(ctx context.Context, db *store.Store, partition string) bool {
-	var one int
-	err := db.DB().QueryRowContext(ctx,
-		`SELECT 1 FROM sync_state WHERE resource_type = ? AND last_synced_at IS NOT NULL LIMIT 1`,
-		partition).Scan(&one)
-	return err == nil && one == 1
 }
 
 // tenantNames maps tenant id -> human label, so reports never print bare ids.

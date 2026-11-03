@@ -225,8 +225,9 @@
   },
   {
    "id": "novel-reads-follow-partition-renames",
-   "summary": "Every novel command reads its store rows through one family table (auvik_local.go): the CURRENT sync partition first, legacy partition names after, and only rows whose JSON:API type Auvik documents for that family, one row per id (newest synced wins). Every freshness hint and every `sync --resources` instruction names the current partition.",
-   "why": "Press 4.35.1 renamed Auvik's sync partitions: \"inventory\" moved from devices to COMPONENTS, \"asm\" from apps to ASM CLIENTS, \"auvik-inventory\" from v2 devices to v2 DISCOVERY STATUS. The ported novels read {\"inventory\",\"inventory-device-info\"} as devices, so eol, inventory diff, configuration audit, usage reconcile and alert noise counted every component as a device; device discovery-gaps read a partition that no longer exists and reported no gaps; asm shadow mixed clients into apps; and every sync instruction told the operator to sync components. auvik_partition_test.go seeds a store in the 4.35.1 shape plus rows an older print left behind and fails on the pre-fix code (seen failing: seen/partition-tests-failing.log); TestAuvikFamiliesPinTheirEndpoint fails the build when a later reprint renames a partition again.",
+   "class": "local-store",
+   "summary": "Every novel command reads its store rows through one family table (auvik_local.go): the CURRENT sync partition first, legacy partition names after, and only rows whose JSON:API type Auvik documents for that family, one row per id (newest synced wins). Every freshness hint and every `sync --resources` instruction names the current partition. Rows an older print left under a partition this build writes another family to move into the current partition (typed, current copy wins) at every writable store open, so the current partition's reconcile governs them.",
+   "why": "Press 4.35.1 renamed Auvik's sync partitions: \"inventory\" moved from devices to COMPONENTS, \"asm\" from apps to ASM CLIENTS, \"auvik-inventory\" from v2 devices to v2 DISCOVERY STATUS. The ported novels read {\"inventory\",\"inventory-device-info\"} as devices, so eol, inventory diff, configuration audit, usage reconcile and alert noise counted every component as a device; device discovery-gaps read a partition that no longer exists and reported no gaps; asm shadow mixed clients into apps; and every sync instruction told the operator to sync components. auvik_partition_test.go seeds a store in the 4.35.1 shape plus rows an older print left behind and fails on the pre-fix code (seen failing: seen/partition-tests-failing.log); TestAuvikFamiliesPinTheirEndpoint fails the build when a later reprint renames a partition again. Partition authority (review round 2): the earlier fix stopped reading legacy partitions once sync_state showed a completed walk of the current one, but a FILTERED full sync also completes a walk, so legacy d2 vanished after `sync --resources inventory-device-info --full --param filter[deviceType]=switch` returned only d1. The one-time typed move (store/extras.go moveLegacyPartitions, fed by auvikLegacyMoves) hands legacy rows to the current partition before sync walks it; the press reconcile then prunes on an unfiltered full sync and refuses on a filtered one. Both directions are driven through the real sync command (auvik_partition_migration_test.go, seen failing first).",
    "status": "active",
    "spec-encode": "The press picks a group's canonical partition by endpoint-name order, so the name moves when the spec's endpoint set changes. x-pp-resource cannot pin it (it flattens the command tree). Ask upstream for an x-pp-sync-name extension; until then the family table plus its endpoint pin is the guard.",
    "asserts": [
@@ -266,13 +267,41 @@
     },
     {
      "file": "cli/internal/cli/auvik_local.go",
-     "contains": "if len(candidates) > 1 && partitionSyncCompleted(ctx, db, family.current()) {",
+     "not_contains": "partitionSyncCompleted("
+    },
+    {
+     "file": "cli/internal/cli/auvik_local.go",
+     "contains": "func init() { store.LegacyPartitionMoves = auvikLegacyMoves }",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/auvik_review_r1_test.go",
-     "contains": "func TestLegacyPartitionDoesNotResurrectRemovedRecords(",
+     "file": "cli/internal/store/extras.go",
+     "contains": "return moveLegacyPartitions(ctx, conn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "func moveLegacyPartitions(ctx context.Context, conn *sql.Conn) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auvik_partition_migration_test.go",
+     "contains": "func TestFilteredFullSyncKeepsLegacyRowsItDidNotAskAbout(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auvik_partition_migration_test.go",
+     "contains": "func TestUnfilteredFullSyncRetiresLegacyRowsItNoLongerReturns(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auvik_partition_migration_test.go",
+     "contains": "func TestEveryLegacyReadPartitionIsMovedOrStillSynced(",
      "min_count": 1,
      "code_only": true
     }
@@ -280,6 +309,7 @@
   },
   {
    "id": "select-help-names-the-emitted-shape",
+   "class": "doc-claims-output",
    "summary": "The root --select help text says what paths select against: API responses have the JSON:API envelope stripped (--select attributes.deviceName), local-store reports are envelopes (--select rows.client).",
    "why": "The generated example (--select alertDefinitionId,description,detectedOn) names top-level fields that do not exist in either shape this CLI emits, so following the help returned empty objects. Carried from the shipped tree; root.go is generated, so tools/apply_edits.py in the reprint run re-applies it.",
    "status": "active",
@@ -293,6 +323,7 @@
   },
   {
    "id": "mcp-novel-rationale-full-text",
+   "class": "doc-claims-output",
    "summary": "The MCP context tool lists each novel command's full research.json rationale, not the ~96-character cut press 4.35.1 renders, and carries no unverifiable competitor claim.",
    "why": "4.35.1 truncates each novel rationale mid-sentence in internal/mcp/tools.go (\"... credentials and device inventory; discoveryStatus has no v1 equivalent\"), and the prior research text claimed \"no competitor implementation\" and \"the leading competitor MCP omits all of ASM\", which nothing in this repo verifies. research.json now carries the shipped tree's wording; apply_edits.py restores the full text by novel name. Review r1 (2026-11-02) corrected three rationales at the source because they were false: discoveryStatus DOES have a v1 equivalent (deviceDetailsAttributes.discoveryStatus), the usage endpoint DOES list billed devices, and ASM licenses are read per application. The same text also renders as each novel's context \"insight\", which apply_edits.py now restores too.",
    "status": "active",
@@ -332,6 +363,7 @@
   },
   {
    "id": "which-index-gofmt",
+   "class": "test-determinism",
    "summary": "internal/cli/which.go is gofmt-clean: the trailing // pp:which-promoted comments stay aligned.",
    "why": "The 4.35.1 render that adds the ninth novel's which-index row (tenants scorecard) leaves the promoted rows' trailing comments unaligned, so `gofmt -l .` is not empty and the fleet's format gate fails. apply_edits.py runs gofmt over which.go when it is not clean (whitespace only).",
    "status": "active",
@@ -348,6 +380,7 @@
   },
   {
    "id": "auvik-mcp-path-flag-floor",
+   "class": "mcp-file-flag",
    "summary": "cliArgsFromMCP refuses, at forward time and whatever blocked set its caller passed, every name in mcpPathFlagFloor (blockedDestinationFlags + blockedInputFlags + from-csv, home, reconcile); UnblockedFilesystemPathFlags fails the build when a regenerated shell-out command grows a local-path flag.",
    "why": "Press 4.35.1 moved the destination check out of cliArgsFromMCP into the per-command blocked set, so the forward-time floor the shipped tree had (mcp-filesystem-destination-gate) was gone: cliArgsFromMCP({\"db\": \"/tmp/x\"}, {}) forwarded --db=/tmp/x (TestMCPCannotDirectTheLocalStore failed on the fresh render). Runtime calls still pass the native blocked set; this keeps the shipped defense in depth and the shipped floor names (never weaker than the published surface). shellout.go is generated: tools/apply_edits.py re-applies the one-line call.",
    "status": "active",
@@ -397,6 +430,7 @@
   },
   {
    "id": "x-text-not-downgraded",
+   "class": "dependency-floor",
    "summary": "go.mod keeps golang.org/x/text at or above the fleet floor v0.42.0; the 4.35.1 render pins v0.14.0.",
    "why": "GO-2026-5970 (fixed v0.39.0) and GO-2026-6629 (fixed v0.41.0); the fleet floor is v0.42.0 (tools/maintainer/fleet_handfixes.json floors). A reprint that takes the render's pin downgrades it silently while every build stays green.",
    "status": "active",

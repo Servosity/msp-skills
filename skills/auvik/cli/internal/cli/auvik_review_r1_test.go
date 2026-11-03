@@ -97,28 +97,9 @@ func TestReconcileReadsTheDocumentedDailyUsageArrays(t *testing.T) {
 	}
 }
 
-// A legacy partition an older print wrote must not resurrect a record once the
-// current partition has completed a sync that no longer returns it. Auvik's
-// device list simply omits a decommissioned device (auvik-v1
-// #/paths/~1v1~1inventory~1device~1info/get), so the completed current
-// partition is the whole truth.
-func TestLegacyPartitionDoesNotResurrectRemovedRecords(t *testing.T) {
-	db := seedPartitionStore(t, []seedRow{
-		{"inventory", "d0", "device", "2026-10-01 10:00:00"},
-		{"inventory-device-info", "d1", "device", "2026-11-01 10:00:00"},
-	})
-	if _, err := db.DB().Exec(`INSERT INTO sync_state (resource_type, last_synced_at, total_count, last_attempt_complete)
-		VALUES ('inventory-device-info', '2026-11-01T10:00:00Z', 1, 1)`); err != nil {
-		t.Fatalf("seed sync_state: %v", err)
-	}
-	got, err := loadResources(context.Background(), db, rtDevices)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ids := strings.Join(rowIDs(got), ","); ids != "d1" {
-		t.Fatalf("device read returned %q, want d1 only (d0 is gone from a completed current sync)", ids)
-	}
-}
+// The legacy-partition resurrection input (round 1 #4) is driven through the
+// real sync command in auvik_partition_migration_test.go
+// (TestUnfilteredFullSyncRetiresLegacyRowsItNoLongerReturns).
 
 // deviceLifecycleAttributes enums include "unpublished" and "empty" (auvik-v1
 // #/components/schemas/deviceLifecycleAttributes). Neither says the device is
