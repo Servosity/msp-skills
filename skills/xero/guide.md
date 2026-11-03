@@ -505,7 +505,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `xero-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/xero-accounting-pp-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\xero-cli\config.toml` on Windows; `--home`, `XERO_HOME`, and per-kind env vars can relocate it.
+Run `xero-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/xero-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\xero-cli\config.toml` on Windows; `--home`, `XERO_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - unreleased
+
+### Changed
+- **Rebuilt on press 4.35.1.** The CLI and MCP server are regenerated on the current engine; every recorded fix carries over.
+- **Analytics totals are now per currency.** `aging`, `exposure`, `snapshot`, `reconcile` and `tie-out` report money as a `{"<currency>": amount}` map instead of one number, so amounts in different currencies are never added together. `tie-out` reports `variance` as null unless every invoice is in the organisation's base currency.
+
+### Fixed
+- Analytics read the local database read-only and answer empty on a machine that never synced, instead of creating it.
+- Deleted or voided payments and bank transactions no longer count as cash; only AUTHORISED records do.
+- `tie-out` reads payables in their credit direction, so a tied bill reports zero variance.
+- `bank-recon` takes a payment's contact from its invoice and only suggests a payment in the same currency as the bank line.
+- `since` dates journals by their creation time, and reports records whose timestamp cannot be read as `undated_count`.
+
+### Security
+- An MCP tool that changes data, in Xero or in this machine's local files, previews and runs only with `confirm` set to boolean true. The preview is the command's own dry run, so a file flag is still refused by name and nothing is written.
+- An MCP call that is not confirmed writes no local state: no learn journal entry and no local database.
+
 ## [0.1.9] - 2026-10-23
 
 ### Security
