@@ -26,8 +26,9 @@ type reconcileRow struct {
 }
 
 type reconcileView struct {
-	Tenants []reconcileRow `json:"tenants"`
-	Note    string         `json:"note,omitempty"`
+	Tenants    []reconcileRow `json:"tenants"`
+	Note       string         `json:"note,omitempty"`
+	Incomplete []string       `json:"incomplete,omitempty"`
 }
 
 func newNovelReconcileLicensesCmd(flags *rootFlags) *cobra.Command {
@@ -193,6 +194,9 @@ Do NOT use this command for raw subscription history; use 'orgs licensing get-su
 			})
 			if subsSeen == 0 {
 				view.Note = "no subscriptions in the local store; run 'afi-cli fleet-sync' to populate it"
+			}
+			if err := withFleetGaps(cmd.Context(), db, nil, &view.Incomplete, &view.Note); err != nil {
+				return err
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

@@ -71,7 +71,7 @@
       ],
       "representativeQueries": [
         "Which resources have no backup protection at all?",
-        "Which protected resources have a stale backup (silent failures)?",
+        "Which protected resources are not getting backed up (silent failures)?",
         "Is the whole fleet green this morning, or who failed?",
         "What is one tenant's full backup posture for a QBR or ticket?",
         "Am I over- or under-licensed on Afi seats?"

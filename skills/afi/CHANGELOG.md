@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - unreleased
+
+### Changed
+- Rebuilt on the current press. The MCP server's HTTP mode now listens on localhost by default, refuses to start without `AFI_MCP_HTTP_TOKEN`, and needs TLS for any other address; every MCP write previews first and sends only with `confirm: true`; `AFI_MCP_READ_ONLY=1` refuses writes; `AFI_NO_LOCAL_DATA=1` keeps no local copy; `local-data purge` erases what is stored.
+- **`backup-stale` now reports what the API can prove.** It flags protected resources with no archive at all, and protected resources in a tenant whose synced task statistics show no finished task. An archive's `created_at` dates its backup sequence, not its latest backup, so `--max-age` is hidden and ignored with a note.
+- `offboard` trusts the finished backup task, refuses a task that ended in `warnings`, and refuses a trigger that returns no task id.
+- `orgs create` prints the `invitation_url` redacted; Afi emails the invitation to `admin_email`.
+- `import` is CLI-only: it reads a local file, which an MCP tool argument can never name.
+
+### Fixed
+- `fleet-sync` removes what the API no longer returns, once a list was read in full: a protection released by `offboard` or in the portal no longer reads as protected. A list it could not read in full keeps its rows and is recorded, and `coverage-gaps`, `fleet-health`, `backup-stale`, `reconcile-licenses`, `tenant-scorecard` and `resolve` name those gaps (`incomplete` and `note`).
+- `sync --resources applications` and `workflow archive` store installations (they stored none).
+- `doctor` no longer calls the real `papi.afi.ai` host a placeholder, so a default install gets its key probed.
+- `resolve --kind` filters before `--limit`, so a match is no longer dropped by the limit.
+
+### Security
+- The key goes only to the scheme, host and port of `https://papi.afi.ai` (or `AFI_BASE_URL`), and only in the `Authorization` header; a redirect to another host is refused, and a request that would carry the key anywhere else is refused before it is sent. Responses are never cached on disk.
+
 ## [0.1.8] - 2026-10-23
 
 ### Changed

@@ -7,9 +7,12 @@
 // --------------------
 // afi exposes an API resource literally named `resources`, so the press emitted
 // its typed domain table under the same bare name as the framework's generic
-// catch-all `resources` table. The fix parent-prefixes the typed table to
-// `tenants_resources`, which meant the generated fixture in
-// TestMigrate_AddsColumnsOnUpgrade_Resources had to move to the new identifier.
+// catch-all `resources` table. Up to press 4.24 the fix parent-prefixed the
+// typed table to `tenants_resources`. From press 4.34 the generator emits no
+// typed table under the reserved name at all (the collision is absorbed): the
+// full record lives only in the catch-all, which every novel reads. A store a
+// 0.1.x binary wrote still carries `tenants_resources`; it is left in place,
+// unused, and the open must not fail on it.
 //
 // That rename could look like it hides a legacy-database case: what happens to
 // an on-disk `resources` table carrying the TYPED shape (id / data / synced_at,
@@ -81,12 +84,11 @@ func resourcesColumns(t *testing.T, db *sql.DB, table string) map[string]bool {
 	return cols
 }
 
-// TestMigrate_FreshDBLeavesGenericResourcesShape is the reachability proof for
-// the fixture rename in TestMigrate_AddsColumnsOnUpgrade_Resources. Opening a
-// database with this binary must leave `resources` carrying the generic
-// catch-all shape (resource_type present) and the typed projection in its own
-// parent-prefixed table. As long as that holds, no database this connector
-// writes can present the typed shape under the bare name to a later open.
+// TestMigrate_FreshDBLeavesGenericResourcesShape is the reachability proof.
+// Opening a database with this binary must leave `resources` carrying the
+// generic catch-all shape (resource_type present) and no typed table under the
+// reserved name. As long as that holds, no database this connector writes can
+// present the typed shape under the bare name to a later open.
 func TestMigrate_FreshDBLeavesGenericResourcesShape(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	s, err := Open(dbPath)
@@ -103,15 +105,14 @@ func TestMigrate_FreshDBLeavesGenericResourcesShape(t *testing.T) {
 		t.Fatalf("fresh `resources` table is not the generic catch-all shape: %v", generic)
 	}
 
-	typed := resourcesColumns(t, s.DB(), "tenants_resources")
-	if len(typed) == 0 {
-		t.Fatalf("typed projection table `tenants_resources` was not created")
+	// No typed table may share the reserved name: the generic catch-all above
+	// is the only `resources` table, and the store records no second one.
+	var n int
+	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND lower(name) = 'resources'`).Scan(&n); err != nil {
+		t.Fatalf("count resources tables: %v", err)
 	}
-	if !typed["tenants_id"] {
-		t.Fatalf("typed table `tenants_resources` missing its parent key column: %v", typed)
-	}
-	if typed["resource_type"] {
-		t.Fatalf("typed table `tenants_resources` carries resource_type; it is the catch-all under a new name, not the typed projection")
+	if n != 1 {
+		t.Fatalf("found %d tables named resources, want exactly the generic catch-all", n)
 	}
 }
 
@@ -139,6 +140,20 @@ func TestMigrate_LegacyGenericResourcesTableUpgrades(t *testing.T) {
 	if _, err := raw.Exec(`INSERT INTO resources (id, resource_type, data) VALUES ('r1', 'resources', '{"id":"r1","name":"legacy row"}')`); err != nil {
 		raw.Close()
 		t.Fatalf("seed legacy row: %v", err)
+	}
+	// A 0.1.x binary also left its parent-prefixed typed projection on disk.
+	if _, err := raw.Exec(`CREATE TABLE "tenants_resources" (
+		"id" TEXT PRIMARY KEY,
+		"tenants_id" TEXT,
+		"data" JSON NOT NULL,
+		"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create 0.1.x typed projection: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO "tenants_resources" (id, tenants_id, data) VALUES ('r1', 't1', '{"id":"r1"}')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed 0.1.x typed row: %v", err)
 	}
 	if _, err := raw.Exec(`PRAGMA user_version = 0`); err != nil {
 		raw.Close()
@@ -170,14 +185,13 @@ func TestMigrate_LegacyGenericResourcesTableUpgrades(t *testing.T) {
 		t.Fatalf("legacy row payload = %s, want the original JSON", data)
 	}
 
-	// The typed projection is created empty; it fills on the next successful
-	// resync, not from the catch-all.
+	// The 0.1.x typed projection is left in place, untouched and unused.
 	var typed int
 	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM "tenants_resources"`).Scan(&typed); err != nil {
-		t.Fatalf("count typed projection: %v", err)
+		t.Fatalf("count 0.1.x typed projection: %v", err)
 	}
-	if typed != 0 {
-		t.Fatalf("typed projection = %d rows after upgrade, want 0 (it fills on the next resync)", typed)
+	if typed != 1 {
+		t.Fatalf("0.1.x typed projection = %d rows after upgrade, want 1 (left as it was)", typed)
 	}
 }
 

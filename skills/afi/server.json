@@ -40,6 +40,36 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://papi.afi.ai"
+        },
+        {
+          "name": "AFI_MCP_READ_ONLY",
+          "description": "Set to 1 to make the MCP server refuse every write to Afi: only read tools are callable. Leave blank to allow writes (each MCP write still previews first and sends only when called again with confirm set to true).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AFI_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AFI_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Afi requests. Leave blank to use the CLI's built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AFI_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
