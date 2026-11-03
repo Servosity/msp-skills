@@ -12,6 +12,7 @@ import (
 
 	"fortinet-pp-cli/internal/cliutil"
 	"fortinet-pp-cli/internal/config"
+	"fortinet-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +47,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  On the FortiGate: System > Administrators > Create New > REST API Admin. Pick a read-only admin profile, add your source IP as a trusted host, and copy the token (shown once). Or CLI: config system api-user / execute api-user generate-key <name>.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export FORTINET_API_TOKEN=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "FORTINET_API_TOKEN", "your-token-here"))
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | fortinet-cli auth set-token")
 			if !launch {
 				return nil
@@ -80,7 +81,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
@@ -141,7 +142,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export FORTINET_API_TOKEN=\"your-token-here\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "FORTINET_API_TOKEN", "your-token-here"))
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | fortinet-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -152,7 +153,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set it with: echo \"$TOKEN\" | fortinet-cli auth set-token or export FORTINET_API_TOKEN=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set it with: echo \"$TOKEN\" | fortinet-cli auth set-token or "+cliutil.EnvAssignHint(true, "FORTINET_API_TOKEN", "your-token-here"))
 				}
 			}
 			return nil

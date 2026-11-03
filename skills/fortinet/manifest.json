@@ -26,6 +26,7 @@
         "FORTINET_CLOUD_ACCOUNT_ID": "${user_config.fortinet_cloud_account_id}",
         "FORTINET_MCP_READ_ONLY": "${user_config.fortinet_mcp_read_only}",
         "FORTINET_MCP_HTTP_TOKEN": "${user_config.fortinet_mcp_http_token}",
+        "FORTINET_NO_LOCAL_DATA": "${user_config.fortinet_no_local_data}",
         "FORTINET_USER_AGENT": "${user_config.fortinet_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
@@ -110,6 +111,13 @@
       "required": false,
       "sensitive": true
     },
+    "fortinet_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
     "fortinet_user_agent": {
       "type": "string",
       "title": "User-Agent header",
@@ -133,11 +141,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-13T22:49:07.112701Z",
-    "spec_checksum": "sha256:76b087a08473742ac26aa321bdf55956df7302b48ebf4188a2709003928f2c3f",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T20:57:10.76271Z",
+    "spec_checksum": "sha256:eac6f8c48e8cf08f5c780205413b8ab2e6f9ce60d56b3ae8bf32968936571fbb",
     "spec_format": "openapi3"
   }
 }
