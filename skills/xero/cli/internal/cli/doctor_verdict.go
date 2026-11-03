@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored: makes `doctor` report a verdict that tracks reality.
 //
 // Before this file existed, doctor answered "OK API: reachable" whenever the
@@ -37,8 +37,12 @@ import (
 // fix, not just the symptom.
 const doctorBaseURLEnv = "XERO_BASE_URL"
 
-// doctorShippedBaseURL is the literal base_url this connector ships with. An
-// operator who never set doctorBaseURLEnv is still on this exact value.
+// doctorShippedBaseURL is the literal base_url this connector ships with when
+// that value is a stand-in the operator must replace. It is EMPTY here: Xero
+// has one real API host (https://api.xero.com/api.xro/2.0), so the shipped
+// default is the correct value for every install, and matching it made doctor
+// print "base_url is still the shipped placeholder" on every healthy install
+// and skip the credential probe. Pinned by TestDoctorDialsXerosRealAPIHost.
 //
 // Matching it EXACTLY matters. An earlier version of this check matched any
 // host containing "your-", which refuses a real operator domain: an MSP at
@@ -46,33 +50,9 @@ const doctorBaseURLEnv = "XERO_BASE_URL"
 // placeholder and doctor would never dial it. Refusing to check a healthy
 // install is the same class of defect as blessing a broken one, pointed the
 // other way.
-const doctorShippedBaseURL = "https://api.xero.com/api.xro/2.0"
+const doctorShippedBaseURL = ""
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +61,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}

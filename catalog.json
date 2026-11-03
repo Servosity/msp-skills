@@ -2135,7 +2135,7 @@
       "cli_binary": "xero-cli",
       "mcp_binary": "xero-mcp",
       "version": "0.1.9",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Xero",
       "vendor_trademark_owner": "Xero Limited",

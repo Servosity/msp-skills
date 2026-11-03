@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -18,11 +18,13 @@ type sinceResourceChange struct {
 	ResourceType string   `json:"resource_type"`
 	ChangedCount int      `json:"changed_count"`
 	ChangedIDs   []string `json:"changed_ids"`
+	UndatedCount int      `json:"undated_count"` // records with no readable timestamp: changed or not, unknown
 }
 
 type sinceReport struct {
 	Since        string                `json:"since"`
 	TotalChanged int                   `json:"total_changed"`
+	TotalUndated int                   `json:"total_undated"`
 	Resources    []sinceResourceChange `json:"resources"`
 }
 
@@ -34,7 +36,8 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "since <when>",
 		Short: "List records across every synced entity whose last-modified timestamp is newer than a given time",
-		Long: "List records across all synced entities whose UpdatedDateUTC is newer than <when> — read\n" +
+		Long: "List records across all synced entities modified after <when> (UpdatedDateUTC, or\n" +
+			"CreatedDateUTC for journals) — read\n" +
 			"entirely from the local store, zero API calls. <when> is a YYYY-MM-DD date or a duration\n" +
 			"ago (e.g. 24h, 7d, 1w). The org delta an agent can poll cheaply between syncs.",
 		Example:     "  xero-cli since 2026-05-01 --json\n  xero-cli since 7d",
@@ -61,7 +64,7 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -74,7 +77,12 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 				}
 				change := sinceResourceChange{ResourceType: rt, ChangedIDs: []string{}}
 				for _, r := range rows {
-					if t, ok := xfin.UpdatedDate(r.Data); ok && t.After(cutoff) {
+					t, ok := xfin.ModifiedDate(r.Data)
+					if !ok {
+						change.UndatedCount++
+						continue
+					}
+					if t.After(cutoff) {
 						change.ChangedCount++
 						if len(change.ChangedIDs) < maxIDs {
 							change.ChangedIDs = append(change.ChangedIDs, r.ID)
@@ -82,6 +90,7 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				report.TotalChanged += change.ChangedCount
+				report.TotalUndated += change.UndatedCount
 				report.Resources = append(report.Resources, change)
 			}
 
@@ -90,10 +99,10 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, r := range report.Resources {
-				out = append(out, []string{r.ResourceType, strconv.Itoa(r.ChangedCount)})
+				out = append(out, []string{r.ResourceType, strconv.Itoa(r.ChangedCount), strconv.Itoa(r.UndatedCount)})
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%d record(s) changed since %s\n", report.TotalChanged, report.Since)
-			return flags.printTable(cmd, []string{"resource", "changed"}, out)
+			fmt.Fprintf(cmd.OutOrStdout(), "%d record(s) changed since %s; %d with no readable timestamp\n", report.TotalChanged, report.Since, report.TotalUndated)
+			return flags.printTable(cmd, []string{"resource", "changed", "undated"}, out)
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/xero-cli/data.db)")

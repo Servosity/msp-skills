@@ -741,7 +741,7 @@
       "type": "skill-md",
       "description": "Every Xero Accounting read plus a local SQLite ledger - aging, reconciliation, and GL tie-out that no other Xero tool computes offline. Trigger phrases: `xero aging report`, `who owes us money in xero`, `reconcile xero payments`, `tie out the general ledger`, `what changed in xero since`, `use xero`, `run xero-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/SKILL.md",
-      "digest": "sha256:1fbb76418249d45f2277139b097e5ca2c31b65c1a7e88020e7c8753eaa112cb7"
+      "digest": "sha256:d4f1d244283545d46c60aa6cec6632290f8c4a2903638fe33a6a5d5cca65c01d"
     },
     {
       "name": "zammad",

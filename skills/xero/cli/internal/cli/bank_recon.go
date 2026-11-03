@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -34,7 +34,7 @@ func newNovelBankReconCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -61,9 +61,9 @@ func newNovelBankReconCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, u := range report.Unreconciled {
-				out = append(out, []string{u.BankTransactionID, u.Type, u.Contact, money(u.Total), strconv.Itoa(len(u.Candidates))})
+				out = append(out, []string{u.BankTransactionID, u.Type, u.Contact, u.Currency + " " + money(u.Total), strconv.Itoa(len(u.Candidates))})
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Unreconciled: %d transaction(s), %s total\n", report.UnreconciledCount, money(report.UnreconciledTotal))
+			fmt.Fprintf(cmd.OutOrStdout(), "Unreconciled: %d transaction(s), %s total\n", report.UnreconciledCount, report.UnreconciledTotal)
 			return flags.printTable(cmd, []string{"txn id", "type", "contact", "total", "candidate matches"}, out)
 		},
 	}
