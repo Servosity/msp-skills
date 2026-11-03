@@ -51,7 +51,7 @@ func newDeviceControlGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "device_control", false, path, params, nil, "type", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "device_control", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -78,7 +78,7 @@ func newDeviceControlGetCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"account_id": true, "child_trace_count": true, "cleaned_at": true, "detection_id": true, "group_id": true, "id": true, "machine_id": true, "machine_name": true, "process_name": true, "reported_at": true, "scan_id": true, "scanned_at": true, "status": true, "threat_name": true, "trace_id": true, "type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -110,7 +110,7 @@ func newDeviceControlGetCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "child_trace_count": true, "cleaned_at": true, "detection_id": true, "group_id": true, "id": true, "machine_id": true, "machine_name": true, "process_name": true, "reported_at": true, "scan_id": true, "scanned_at": true, "status": true, "threat_name": true, "trace_id": true, "type": true})
 		},
 	}
 

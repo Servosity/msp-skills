@@ -63,10 +63,10 @@ func newEndpointJobsSearchGroupbyCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 				if !cmd.Flags().Changed("group-by") && bodyGroupBy == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "group-by")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "group-by"))
 				}
 			}
 			path := "/v1/jobs/search-groupby"

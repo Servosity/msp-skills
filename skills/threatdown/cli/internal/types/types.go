@@ -27,6 +27,12 @@ type AccountStatisticsResponse struct {
 	PercentageOfEmailThreatTypes json.RawMessage `json:"percentage_of_email_threat_types"`
 }
 
+type AddJobToQueueResponse struct {
+	CorrelationId string          `json:"correlation_id"`
+	Jobs          json.RawMessage `json:"jobs"`
+	TotalCount    int             `json:"total_count"`
+}
+
 type AidrMetadata struct {
 	Categories json.RawMessage `json:"categories"`
 	Tools      json.RawMessage `json:"tools"`
@@ -44,35 +50,6 @@ type AidrRule struct {
 	Tool      string `json:"tool"`
 	UpdatedAt string `json:"updated_at"`
 	UpdatedBy string `json:"updated_by"`
-}
-
-type AidrToolsSearchItem struct {
-	AccountCount        int             `json:"account_count"`
-	AiCategory          string          `json:"ai_category"`
-	AiRisk              string          `json:"ai_risk"`
-	AiStatuses          json.RawMessage `json:"ai_statuses"`
-	AiTool              string          `json:"ai_tool"`
-	EndpointCount       int             `json:"endpoint_count"`
-	InstallCount        int             `json:"install_count"`
-	LastDetected        string          `json:"last_detected"`
-	LastUsed            string          `json:"last_used"`
-	MinInstallationDate string          `json:"min_installation_date"`
-	QueryCount          json.RawMessage `json:"query_count"`
-	Vendor              string          `json:"vendor"`
-}
-
-type AllowListEntry struct {
-	Comment           string `json:"comment"`
-	Date              string `json:"date"`
-	ExternalCampaigns bool   `json:"external_campaigns"`
-	Id                int    `json:"id"`
-	IgnoreAuth        bool   `json:"ignore_auth"`
-	Scope             int    `json:"scope"`
-	Type              int    `json:"type"`
-	UserEmail         string `json:"user_email"`
-	UserFirstName     string `json:"user_first_name"`
-	UserLastName      string `json:"user_last_name"`
-	Value             string `json:"value"`
 }
 
 type AppBlockActivitySchema struct {
@@ -376,43 +353,6 @@ type CveGetResponse struct {
 	VulnerableSoftwareList     json.RawMessage `json:"vulnerable_software_list"`
 }
 
-type CveSearchItem struct {
-	AccountId                  string          `json:"account_id"`
-	ActiveDirectory            json.RawMessage `json:"active_directory"`
-	Alias                      string          `json:"alias"`
-	CisaExploitable            bool            `json:"cisa_exploitable"`
-	CreatedAt                  string          `json:"created_at"`
-	CveId                      string          `json:"cve_id"`
-	Cvss20Score                float64         `json:"cvss20_score"`
-	Cvss30Score                float64         `json:"cvss30_score"`
-	Description                string          `json:"description"`
-	DisplayInstalledVersion    string          `json:"display_installed_version"`
-	DisplayProduct             string          `json:"display_product"`
-	DisplayVendor              string          `json:"display_vendor"`
-	FullyQualifiedHostName     string          `json:"fully_qualified_host_name"`
-	GroupId                    string          `json:"group_id"`
-	HostName                   string          `json:"host_name"`
-	IgnoredBy                  string          `json:"ignored_by"`
-	IgnoredByName              string          `json:"ignored_by_name"`
-	IgnoredReason              string          `json:"ignored_reason"`
-	IgnoredUntil               string          `json:"ignored_until"`
-	InstallationDate           string          `json:"installation_date"`
-	InstalledVersion           string          `json:"installed_version"`
-	KnownRansomwareCampaignUse bool            `json:"known_ransomware_campaign_use"`
-	MachineId                  string          `json:"machine_id"`
-	NormalizedInstalledVersion string          `json:"normalized_installed_version"`
-	NormalizedProduct          string          `json:"normalized_product"`
-	NormalizedVendor           string          `json:"normalized_vendor"`
-	OsInfo                     string          `json:"os_info"`
-	ParentAccountId            string          `json:"parent_account_id"`
-	Product                    string          `json:"product"`
-	PublishedAt                string          `json:"published_at"`
-	RootGroupId                string          `json:"root_group_id"`
-	Severity                   string          `json:"severity"`
-	SeverityScore              float64         `json:"severity_score"`
-	Vendor                     string          `json:"vendor"`
-}
-
 type DeleteSubscriptionResponseSchema struct {
 	Deleted bool   `json:"deleted"`
 	Id      string `json:"id"`
@@ -421,48 +361,6 @@ type DeleteSubscriptionResponseSchema struct {
 type DetailsOfSuspiciousActivities struct {
 	Data       json.RawMessage `json:"data"`
 	NextCursor string          `json:"next_cursor"`
-}
-
-type DetectionItems struct {
-	Account                string          `json:"account"`
-	AccountId              string          `json:"account_id"`
-	ActionTaken            string          `json:"action_taken"`
-	ActiveDirectory        json.RawMessage `json:"active_directory"`
-	AffectedApplication    string          `json:"affected_application"`
-	Agent                  string          `json:"agent"`
-	Category               string          `json:"category"`
-	ChildTraceCount        int             `json:"child_trace_count"`
-	CleanedAt              string          `json:"cleaned_at"`
-	DestinationLocation    string          `json:"destination_location"`
-	DetectionId            string          `json:"detection_id"`
-	DeviceControl          json.RawMessage `json:"device_control"`
-	Group                  json.RawMessage `json:"group"`
-	GroupId                string          `json:"group_id"`
-	Id                     string          `json:"id"`
-	IsRootDetection        bool            `json:"is_root_detection"`
-	IsRtpStreamEvent       bool            `json:"is_rtp_stream_event"`
-	LastUser               string          `json:"last_user"`
-	MachineId              string          `json:"machine_id"`
-	MachineIp              string          `json:"machine_ip"`
-	MachineLocation        string          `json:"machine_location"`
-	MachineName            string          `json:"machine_name"`
-	Md5                    string          `json:"md5"`
-	Path                   string          `json:"path"`
-	ProcessName            string          `json:"process_name"`
-	ReportedAt             string          `json:"reported_at"`
-	ResourceCreatedAt      string          `json:"resource_created_at"`
-	ResourceModifiedAt     string          `json:"resource_modified_at"`
-	RidDetails             json.RawMessage `json:"rid_details"`
-	ScanId                 string          `json:"scan_id"`
-	ScanResult             json.RawMessage `json:"scan_result"`
-	ScannedAt              string          `json:"scanned_at"`
-	ScannedAtOffsetSeconds int             `json:"scanned_at_offset_seconds"`
-	Sha256                 string          `json:"sha256"`
-	SourceLocation         string          `json:"source_location"`
-	Status                 string          `json:"status"`
-	ThreatName             string          `json:"threat_name"`
-	TraceId                string          `json:"trace_id"`
-	Type                   json.RawMessage `json:"type"`
 }
 
 type DeviceControlExclusionsSuggestionsItem struct {
@@ -517,22 +415,6 @@ type DnsGlobalExclusions struct {
 	UpdatedBy  string          `json:"updated_by"`
 }
 
-type DnsSearchItem struct {
-	Timestamp       string `json:"@timestamp"`
-	AccountId       string `json:"account_id"`
-	Action          string `json:"action"`
-	GroupId         string `json:"group_id"`
-	GroupName       string `json:"group_name"`
-	Id              string `json:"id"`
-	Log             string `json:"log"`
-	MachineId       string `json:"machine_id"`
-	ParentAccountId string `json:"parent_account_id"`
-	PolicyId        string `json:"policy_id"`
-	PolicyName      string `json:"policy_name"`
-	RuleId          string `json:"rule_id"`
-	RuleName        string `json:"rule_name"`
-}
-
 type Edit911MailboxResponse struct {
 	Email     string `json:"email"`
 	IsEnabled bool   `json:"is_enabled"`
@@ -546,6 +428,20 @@ type EmailProtectionAddDomainsResponse struct {
 
 type EmailProtectionDomainSecurityCheckResponse struct {
 	DomainsStatus json.RawMessage `json:"domains_status"`
+}
+
+type EmailProtectionDomainStatsResponse struct {
+	Domains       json.RawMessage `json:"domains"`
+	DomainsStatus json.RawMessage `json:"domains_status"`
+}
+
+type EmailProtectionEmailStats struct {
+	EmailsByPhishingThreatType json.RawMessage `json:"emails_by_phishing_threat_type"`
+	TotalEmailsDetected        int             `json:"total_emails_detected"`
+	TotalEmailsInspected       int             `json:"total_emails_inspected"`
+	TotalImpersonationEmails   int             `json:"total_impersonation_emails"`
+	TotalPhishingEmails        int             `json:"total_phishing_emails"`
+	TotalSpamEmails            int             `json:"total_spam_emails"`
 }
 
 type EmailProtectionEmailsItem struct {
@@ -698,17 +594,6 @@ type EmailProtectionSettingsUpdateItem struct {
 	State string `json:"state"`
 }
 
-type EmailProtectionStatsDomainsItem struct {
-	ActiveMailboxes int    `json:"active_mailboxes"`
-	Domain          string `json:"domain"`
-	TotalMailboxes  int    `json:"total_mailboxes"`
-}
-
-type EmailProtectionStatsEmailsItem struct {
-	EmailsCount int    `json:"emails_count"`
-	Name        string `json:"name"`
-}
-
 type EmailProtectionStatsMostTargetedDepartmentsItem struct {
 	EmailsCount int    `json:"emails_count"`
 	Name        string `json:"name"`
@@ -731,35 +616,6 @@ type EnableDisableContentFilteringRuleForANebulaPolicy struct {
 
 type EnableDisableMailboxResponse struct {
 	EditedMailboxIds json.RawMessage `json:"edited_mailbox_ids"`
-}
-
-type EndpointItems struct {
-	Agent            json.RawMessage `json:"agent"`
-	DisplayName      string          `json:"display_name"`
-	Link             string          `json:"link"`
-	Machine          json.RawMessage `json:"machine"`
-	MachineVersion   int             `json:"machineVersion"`
-	ProtectionStatus string          `json:"protection_status"`
-}
-
-type EndpointJobsParentChildrenSearchItem struct {
-	AccountId       string  `json:"account_id"`
-	CancelledBy     string  `json:"cancelled_by"`
-	CancelledByName string  `json:"cancelled_by_name"`
-	Command         string  `json:"command"`
-	CorrelationId   string  `json:"correlation_id"`
-	Data            string  `json:"data"`
-	ExpiresAt       string  `json:"expires_at"`
-	Id              string  `json:"id"`
-	IssuedAt        string  `json:"issued_at"`
-	IssuedBy        string  `json:"issued_by"`
-	IssuedByEmail   string  `json:"issued_by_email"`
-	IssuedByName    string  `json:"issued_by_name"`
-	MachineId       string  `json:"machine_id"`
-	MachineName     string  `json:"machine_name"`
-	Reason          string  `json:"reason"`
-	State           float64 `json:"state"`
-	UpdatedAt       string  `json:"updated_at"`
 }
 
 type EndpointJobsParentSearchItem struct {
@@ -822,32 +678,6 @@ type EndpointJobsSearchItem struct {
 	UpdatedAt        string          `json:"updated_at"`
 }
 
-type EntitlementObject struct {
-	CatalogCode     string `json:"catalog_code"`
-	CatalogName     string `json:"catalog_name"`
-	Code            string `json:"code"`
-	Name            string `json:"name"`
-	VolumeAllocated int    `json:"volume_allocated"`
-	VolumeAvailable int    `json:"volume_available"`
-	VolumePurchased int    `json:"volume_purchased"`
-	VolumeUsed      int    `json:"volume_used"`
-}
-
-type Entitlements struct {
-	BillingDate       int    `json:"billing_date"`
-	BillingDuration   string `json:"billing_duration"`
-	CatalogCode       string `json:"catalog_code"`
-	CatalogName       string `json:"catalog_name"`
-	OriginalStartDate string `json:"original_start_date"`
-	ResetCount        string `json:"reset_count"`
-	Status            string `json:"status"`
-	TermEndsOn        string `json:"term_ends_on"`
-	TermLength        int    `json:"term_length"`
-	TermType          string `json:"term_type"`
-	VolumePurchased   int    `json:"volume_purchased"`
-	VolumeUsed        int    `json:"volume_used"`
-}
-
 type Event struct {
 	Details      json.RawMessage `json:"details"`
 	FriendlyType string          `json:"friendly_type"`
@@ -895,6 +725,15 @@ type FirewallPoliciesHistoryItem struct {
 	RelationId         string  `json:"relation_id"`
 	Timestamp          string  `json:"timestamp"`
 	UserId             string  `json:"user_id"`
+}
+
+type FlightRecorderProcessGraphResult struct {
+	Children json.RawMessage `json:"children"`
+	EdgeInfo json.RawMessage `json:"edge_info"`
+	Id       string          `json:"id"`
+	Name     string          `json:"name"`
+	NodeInfo json.RawMessage `json:"node_info"`
+	NodeType string          `json:"node_type"`
 }
 
 type FlightRecorderRawEventsItem struct {
@@ -988,6 +827,15 @@ type GetAllInstallersForAManagedNebulaAccount struct {
 	X64Msi          json.RawMessage `json:"x64_msi"`
 }
 
+type GetAllowListResponse struct {
+	AllowList      json.RawMessage `json:"allow_list"`
+	ExternalActive bool            `json:"external_active"`
+	InternalActive bool            `json:"internal_active"`
+	ItemsPerPage   int             `json:"items_per_page"`
+	Page           int             `json:"page"`
+	PagesCount     int             `json:"pages_count"`
+}
+
 type GetAssetsOfAnEndpoint struct {
 	ComputerInfo           json.RawMessage `json:"computer_info"`
 	Culture                string          `json:"culture"`
@@ -1051,6 +899,42 @@ type GetDetectionById struct {
 	ThreatName          string          `json:"threat_name"`
 	Type                json.RawMessage `json:"type"`
 	Url                 string          `json:"url"`
+}
+
+type GetDeviceControlEventById struct {
+	Account                string          `json:"account"`
+	AccountId              string          `json:"account_id"`
+	ActionTaken            string          `json:"action_taken"`
+	AffectedApplication    string          `json:"affected_application"`
+	Agent                  string          `json:"agent"`
+	Category               string          `json:"category"`
+	ChildTraceCount        int             `json:"child_trace_count"`
+	CleanedAt              string          `json:"cleaned_at"`
+	DestinationLocation    string          `json:"destination_location"`
+	DetectionId            string          `json:"detection_id"`
+	DeviceControl          json.RawMessage `json:"device_control"`
+	GroupId                string          `json:"group_id"`
+	Id                     string          `json:"id"`
+	IsRootDetection        bool            `json:"is_root_detection"`
+	IsRtpStreamEvent       bool            `json:"is_rtp_stream_event"`
+	LastUser               string          `json:"last_user"`
+	MachineId              string          `json:"machine_id"`
+	MachineIp              string          `json:"machine_ip"`
+	MachineLocation        string          `json:"machine_location"`
+	MachineName            string          `json:"machine_name"`
+	Md5                    string          `json:"md5"`
+	Path                   string          `json:"path"`
+	ProcessName            string          `json:"process_name"`
+	ReportedAt             string          `json:"reported_at"`
+	ScanId                 string          `json:"scan_id"`
+	ScannedAt              string          `json:"scanned_at"`
+	ScannedAtOffsetSeconds int             `json:"scanned_at_offset_seconds"`
+	Sha256                 string          `json:"sha256"`
+	SourceLocation         string          `json:"source_location"`
+	Status                 string          `json:"status"`
+	ThreatName             string          `json:"threat_name"`
+	TraceId                string          `json:"trace_id"`
+	Type                   json.RawMessage `json:"type"`
 }
 
 type GetDiagnosticLogsResponse struct {
@@ -1143,6 +1027,14 @@ type GetHistogramSummary struct {
 	BUSCLOUDIR01     json.RawMessage `json:"BUS-CLOUD-IR-01"`
 }
 
+type GetNetworkInformationAboutAnEndpoint struct {
+	AgentInfoLastUpdatedAt string          `json:"agent_info_last_updated_at"`
+	FullyQualifiedHostName string          `json:"fully_qualified_host_name"`
+	HostName               string          `json:"host_name"`
+	LastSeenAt             string          `json:"last_seen_at"`
+	Nics                   json.RawMessage `json:"nics"`
+}
+
 type GetParentJobsResponseBody struct {
 	AccountId     string  `json:"account_id"`
 	AccountName   string  `json:"account_name"`
@@ -1183,187 +1075,11 @@ type GetParentJobsSummaryResponseAcrossMultipleAccountResponseBody struct {
 	Total               int `json:"total"`
 }
 
-type GridActionLogsSearchItem struct {
-	AccountId             string          `json:"account_id"`
-	AccountName           string          `json:"account_name"`
-	ActionSource          string          `json:"action_source"`
-	ActionType            string          `json:"action_type"`
-	AffectedProperties    json.RawMessage `json:"affected_properties"`
-	AffectedPropertyNames json.RawMessage `json:"affected_property_names"`
-	DocumentId            string          `json:"document_id"`
-	IpAddress             string          `json:"ip_address"`
-	LoggedAt              string          `json:"logged_at"`
-	MachineId             string          `json:"machine_id"`
-	Metadata              json.RawMessage `json:"metadata"`
-	NewResource           json.RawMessage `json:"new_resource"`
-	ParentAccountId       string          `json:"parent_account_id"`
-	ResourceType          string          `json:"resource_type"`
-	UserEmail             string          `json:"user_email"`
-	UserId                string          `json:"user_id"`
-	UserMode              string          `json:"user_mode"`
-	UserName              string          `json:"user_name"`
-}
-
-type GridAiDomainsSearchItem struct {
-	AccountId      string `json:"account_id"`
-	AiCategory     string `json:"ai_category"`
-	AiStatus       string `json:"ai_status"`
-	AiTool         string `json:"ai_tool"`
-	AiToolId       string `json:"ai_tool_id"`
-	AiToolProvider string `json:"ai_tool_provider"`
-	Alias          string `json:"alias"`
-	Domain         string `json:"domain"`
-	FirstSeen      string `json:"first_seen"`
-	GroupId        string `json:"group_id"`
-	GroupName      string `json:"group_name"`
-	HostName       string `json:"host_name"`
-	LastSeen       string `json:"last_seen"`
-	LastUser       string `json:"last_user"`
-	MachineId      string `json:"machine_id"`
-	OsPlatform     string `json:"os_platform"`
-	OsType         string `json:"os_type"`
-	PolicyId       string `json:"policy_id"`
-	PolicyName     string `json:"policy_name"`
-	ProcessName    string `json:"process_name"`
-	QueryCount     int    `json:"query_count"`
-}
-
-type GridAssetsSoftwareSearchItem struct {
-	AccountId                  string          `json:"account_id"`
-	AccountName                string          `json:"account_name"`
-	ActiveDirectory            json.RawMessage `json:"active_directory"`
-	AiCategory                 string          `json:"ai_category"`
-	AiFlags                    json.RawMessage `json:"ai_flags"`
-	AiRisk                     string          `json:"ai_risk"`
-	AiStatus                   string          `json:"ai_status"`
-	AiTier                     string          `json:"ai_tier"`
-	AiTool                     string          `json:"ai_tool"`
-	Alias                      string          `json:"alias"`
-	Architecture               string          `json:"architecture"`
-	Categories                 json.RawMessage `json:"categories"`
-	CreatedAt                  string          `json:"created_at"`
-	Cves                       json.RawMessage `json:"cves"`
-	CvesByStatus               string          `json:"cves_by_status"`
-	CvesCount                  int             `json:"cves_count"`
-	CvesCountByStatus          string          `json:"cves_count_by_status"`
-	CvesScore                  float64         `json:"cves_score"`
-	DisplayInstalledVersion    string          `json:"display_installed_version"`
-	DisplayProduct             string          `json:"display_product"`
-	DisplayVendor              string          `json:"display_vendor"`
-	DomainName                 string          `json:"domain_name"`
-	FullyQualifiedHostName     string          `json:"fully_qualified_host_name"`
-	GroupId                    string          `json:"group_id"`
-	GroupName                  string          `json:"group_name"`
-	HostName                   string          `json:"host_name"`
-	IgnoreRuleIds              json.RawMessage `json:"ignore_rule_ids"`
-	IgnoredUntil               string          `json:"ignored_until"`
-	InstallationDate           string          `json:"installation_date"`
-	InstalledVersion           string          `json:"installed_version"`
-	Language                   string          `json:"language"`
-	LatestVersionAvailable     string          `json:"latest_version_available"`
-	MachineId                  string          `json:"machine_id"`
-	NormalizedInstalledVersion string          `json:"normalized_installed_version"`
-	NormalizedProduct          string          `json:"normalized_product"`
-	NormalizedVendor           string          `json:"normalized_vendor"`
-	ObjectGuid                 string          `json:"object_guid"`
-	OsInfo                     string          `json:"os_info"`
-	ParentAccountId            string          `json:"parent_account_id"`
-	PolicyId                   string          `json:"policy_id"`
-	PolicyName                 string          `json:"policy_name"`
-	Product                    string          `json:"product"`
-	ProductSignature           int             `json:"product_signature"`
-	RootGroupId                string          `json:"root_group_id"`
-	Vendor                     string          `json:"vendor"`
-}
-
-type GridCveEventsSearchItem struct {
-	AccountId                  string          `json:"account_id"`
-	ActiveDirectory            json.RawMessage `json:"active_directory"`
-	Alias                      string          `json:"alias"`
-	CisaExploitable            bool            `json:"cisa_exploitable"`
-	CreatedAt                  string          `json:"created_at"`
-	CveId                      string          `json:"cve_id"`
-	Cvss20Score                float64         `json:"cvss20_score"`
-	Cvss30Score                float64         `json:"cvss30_score"`
-	Description                string          `json:"description"`
-	DisplayInstalledVersion    string          `json:"display_installed_version"`
-	DisplayProduct             string          `json:"display_product"`
-	DisplayVendor              string          `json:"display_vendor"`
-	FullyQualifiedHostName     string          `json:"fully_qualified_host_name"`
-	GroupId                    string          `json:"group_id"`
-	HostName                   string          `json:"host_name"`
-	IgnoredBy                  string          `json:"ignored_by"`
-	IgnoredByName              string          `json:"ignored_by_name"`
-	IgnoredReason              string          `json:"ignored_reason"`
-	IgnoredUntil               string          `json:"ignored_until"`
-	InstallationDate           string          `json:"installation_date"`
-	InstalledVersion           string          `json:"installed_version"`
-	KnownRansomwareCampaignUse bool            `json:"known_ransomware_campaign_use"`
-	MachineId                  string          `json:"machine_id"`
-	NormalizedInstalledVersion string          `json:"normalized_installed_version"`
-	NormalizedProduct          string          `json:"normalized_product"`
-	NormalizedVendor           string          `json:"normalized_vendor"`
-	OsInfo                     string          `json:"os_info"`
-	ParentAccountId            string          `json:"parent_account_id"`
-	Product                    string          `json:"product"`
-	PublishedAt                string          `json:"published_at"`
-	RootGroupId                string          `json:"root_group_id"`
-	Severity                   string          `json:"severity"`
-	SeverityScore              float64         `json:"severity_score"`
-	Vendor                     string          `json:"vendor"`
-}
-
-type GridCveSearchItem struct {
-	AccountId                  string          `json:"account_id"`
-	ActiveDirectory            json.RawMessage `json:"active_directory"`
-	Alias                      string          `json:"alias"`
-	CisaExploitable            bool            `json:"cisa_exploitable"`
-	CreatedAt                  string          `json:"created_at"`
-	CveId                      string          `json:"cve_id"`
-	Cvss20Score                float64         `json:"cvss20_score"`
-	Cvss30Score                float64         `json:"cvss30_score"`
-	Description                string          `json:"description"`
-	DisplayInstalledVersion    string          `json:"display_installed_version"`
-	DisplayProduct             string          `json:"display_product"`
-	DisplayVendor              string          `json:"display_vendor"`
-	FullyQualifiedHostName     string          `json:"fully_qualified_host_name"`
-	GroupId                    string          `json:"group_id"`
-	HostName                   string          `json:"host_name"`
-	IgnoredBy                  string          `json:"ignored_by"`
-	IgnoredByName              string          `json:"ignored_by_name"`
-	IgnoredReason              string          `json:"ignored_reason"`
-	IgnoredUntil               string          `json:"ignored_until"`
-	InstallationDate           string          `json:"installation_date"`
-	InstalledVersion           string          `json:"installed_version"`
-	KnownRansomwareCampaignUse bool            `json:"known_ransomware_campaign_use"`
-	MachineId                  string          `json:"machine_id"`
-	NormalizedInstalledVersion string          `json:"normalized_installed_version"`
-	NormalizedProduct          string          `json:"normalized_product"`
-	NormalizedVendor           string          `json:"normalized_vendor"`
-	OsInfo                     string          `json:"os_info"`
-	ParentAccountId            string          `json:"parent_account_id"`
-	Product                    string          `json:"product"`
-	PublishedAt                string          `json:"published_at"`
-	RootGroupId                string          `json:"root_group_id"`
-	Severity                   string          `json:"severity"`
-	SeverityScore              float64         `json:"severity_score"`
-	Vendor                     string          `json:"vendor"`
-}
-
-type GridDnsSearchItem struct {
-	Timestamp       string `json:"@timestamp"`
-	AccountId       string `json:"account_id"`
-	Action          string `json:"action"`
-	GroupId         string `json:"group_id"`
-	GroupName       string `json:"group_name"`
-	Id              string `json:"id"`
-	Log             string `json:"log"`
-	MachineId       string `json:"machine_id"`
-	ParentAccountId string `json:"parent_account_id"`
-	PolicyId        string `json:"policy_id"`
-	PolicyName      string `json:"policy_name"`
-	RuleId          string `json:"rule_id"`
-	RuleName        string `json:"rule_name"`
+type GridActionLogsSearchResponse struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	NextCursor   string          `json:"next_cursor"`
+	Results      json.RawMessage `json:"results"`
+	TotalCount   int             `json:"total_count"`
 }
 
 type GridEventsSearchItem struct {
@@ -1387,86 +1103,6 @@ type GridEventsSearchItem struct {
 	Severity        string          `json:"severity"`
 	Source          string          `json:"source"`
 	Type            string          `json:"type"`
-}
-
-type GridFirewallSearchItem struct {
-	AccountId   string `json:"account_id"`
-	AccountName string `json:"account_name"`
-	Action      string `json:"action"`
-	CreatedAt   string `json:"created_at"`
-	Direction   string `json:"direction"`
-	DocumentId  string `json:"document_id"`
-	EndTime     string `json:"end_time"`
-	GroupId     string `json:"group_id"`
-	Hits        int    `json:"hits"`
-	Location    string `json:"location"`
-	MachineId   string `json:"machine_id"`
-	MachineName string `json:"machine_name"`
-	Program     string `json:"program"`
-	Protocol    string `json:"protocol"`
-	RootGroupId string `json:"root_group_id"`
-	RuleId      string `json:"rule_id"`
-	RuleName    string `json:"rule_name"`
-	RulesetId   string `json:"ruleset_id"`
-	RulesetName string `json:"ruleset_name"`
-	Service     string `json:"service"`
-	StartTime   string `json:"start_time"`
-}
-
-type GridOsPatchesSearchItem struct {
-	AccountId              string          `json:"account_id"`
-	ActiveDirectory        json.RawMessage `json:"active_directory"`
-	Category               string          `json:"category"`
-	CreatedAt              string          `json:"created_at"`
-	Description            string          `json:"description"`
-	DisplayName            string          `json:"display_name"`
-	DomainName             string          `json:"domain_name"`
-	Endpoint               string          `json:"endpoint"`
-	FullyQualifiedHostName string          `json:"fully_qualified_host_name"`
-	Group                  string          `json:"group"`
-	GroupId                string          `json:"group_id"`
-	GroupName              string          `json:"group_name"`
-	HostName               string          `json:"host_name"`
-	IgnoreRuleIds          json.RawMessage `json:"ignore_rule_ids"`
-	IgnoredUntil           string          `json:"ignored_until"`
-	MachineId              string          `json:"machine_id"`
-	ObjectGuid             string          `json:"object_guid"`
-	OsInfo                 string          `json:"os_info"`
-	ParentAccountId        string          `json:"parent_account_id"`
-	PatchId                string          `json:"patch_id"`
-	PreviewPatch           bool            `json:"preview_patch"`
-	Product                string          `json:"product"`
-	RebootRequired         bool            `json:"reboot_required"`
-	ReleasedAt             string          `json:"released_at"`
-	RootGroupId            string          `json:"root_group_id"`
-	SecurityUpdateId       string          `json:"security_update_id"`
-	Severity               string          `json:"severity"`
-	Size                   float64         `json:"size"`
-	Title                  string          `json:"title"`
-	Vendor                 string          `json:"vendor"`
-}
-
-type GridRidSearchItem struct {
-	AccountId           string          `json:"account_id"`
-	AccountName         string          `json:"account_name"`
-	Agent               json.RawMessage `json:"agent"`
-	AttackUser          string          `json:"attack_user"`
-	Attempts            int             `json:"attempts"`
-	CreateTime          string          `json:"create_time"`
-	Deleted             bool            `json:"deleted"`
-	DestinationLocation json.RawMessage `json:"destination_location"`
-	Duration            int             `json:"duration"`
-	ExpireTime          string          `json:"expire_time"`
-	GroupId             string          `json:"group_id"`
-	Ip                  string          `json:"ip"`
-	MachineId           string          `json:"machine_id"`
-	MachineName         string          `json:"machine_name"`
-	ParentId            string          `json:"parent_id"`
-	Port                int             `json:"port"`
-	Protocol            string          `json:"protocol"`
-	RootGroupId         string          `json:"root_group_id"`
-	RuleId              string          `json:"rule_id"`
-	SourceLocation      json.RawMessage `json:"source_location"`
 }
 
 type GridXdrAlertsSearchItem struct {
@@ -1612,11 +1248,6 @@ type JobByIdResponse struct {
 	UpdatedAt     string `json:"updated_at"`
 }
 
-type JobsItems struct {
-	JobId     string `json:"job_id"`
-	MachineId string `json:"machine_id"`
-}
-
 type ListItems struct {
 	ClientId      string          `json:"client_id"`
 	CustomHeaders json.RawMessage `json:"custom_headers"`
@@ -1627,11 +1258,6 @@ type ListItems struct {
 	MaxRetries    int             `json:"max_retries"`
 	SecretToken   string          `json:"secret_token"`
 	Url           string          `json:"url"`
-}
-
-type MachineObject struct {
-	Enabled bool   `json:"enabled"`
-	Id      string `json:"id"`
 }
 
 type MdrSiteConfigurationPayload struct {
@@ -1690,39 +1316,6 @@ type OneViewReport struct {
 	UpdatedBy         string          `json:"updated_by"`
 	UpdatedByEmail    string          `json:"updated_by_email"`
 	UpdatedByUsername string          `json:"updated_by_username"`
-}
-
-type OsPatchesSearchItem struct {
-	AccountId              string          `json:"account_id"`
-	ActiveDirectory        json.RawMessage `json:"active_directory"`
-	Category               string          `json:"category"`
-	CreatedAt              string          `json:"created_at"`
-	Description            string          `json:"description"`
-	DisplayName            string          `json:"display_name"`
-	DomainName             string          `json:"domain_name"`
-	Endpoint               string          `json:"endpoint"`
-	FullyQualifiedHostName string          `json:"fully_qualified_host_name"`
-	Group                  string          `json:"group"`
-	GroupId                string          `json:"group_id"`
-	GroupName              string          `json:"group_name"`
-	HostName               string          `json:"host_name"`
-	IgnoreRuleIds          json.RawMessage `json:"ignore_rule_ids"`
-	IgnoredUntil           string          `json:"ignored_until"`
-	MachineId              string          `json:"machine_id"`
-	ObjectGuid             string          `json:"object_guid"`
-	OsInfo                 string          `json:"os_info"`
-	ParentAccountId        string          `json:"parent_account_id"`
-	PatchId                string          `json:"patch_id"`
-	PreviewPatch           bool            `json:"preview_patch"`
-	Product                string          `json:"product"`
-	RebootRequired         bool            `json:"reboot_required"`
-	ReleasedAt             string          `json:"released_at"`
-	RootGroupId            string          `json:"root_group_id"`
-	SecurityUpdateId       string          `json:"security_update_id"`
-	Severity               string          `json:"severity"`
-	Size                   float64         `json:"size"`
-	Title                  string          `json:"title"`
-	Vendor                 string          `json:"vendor"`
 }
 
 type PayloadReturnedWhenGettingASubscription struct {
@@ -1970,6 +1563,12 @@ type ReportAboutSubscriptions struct {
 	Timestamp                     string          `json:"timestamp"`
 }
 
+type ReportAboutUsage struct {
+	Entitlements json.RawMessage `json:"entitlements"`
+	SeatsData    json.RawMessage `json:"seats_data"`
+	Timestamp    string          `json:"timestamp"`
+}
+
 type ResponseOfIsolationImageRequest struct {
 	Url string `json:"url"`
 }
@@ -1985,29 +1584,6 @@ type ResultItems struct {
 	MachineId       string          `json:"machine_id"`
 	OsType          string          `json:"os_type"`
 	PcHostname      string          `json:"pc_hostname"`
-}
-
-type RidSearchItem struct {
-	AccountId           string          `json:"account_id"`
-	AccountName         string          `json:"account_name"`
-	Agent               json.RawMessage `json:"agent"`
-	AttackUser          string          `json:"attack_user"`
-	Attempts            int             `json:"attempts"`
-	CreateTime          string          `json:"create_time"`
-	Deleted             bool            `json:"deleted"`
-	DestinationLocation json.RawMessage `json:"destination_location"`
-	Duration            int             `json:"duration"`
-	ExpireTime          string          `json:"expire_time"`
-	GroupId             string          `json:"group_id"`
-	Ip                  string          `json:"ip"`
-	MachineId           string          `json:"machine_id"`
-	MachineName         string          `json:"machine_name"`
-	ParentId            string          `json:"parent_id"`
-	Port                int             `json:"port"`
-	Protocol            string          `json:"protocol"`
-	RootGroupId         string          `json:"root_group_id"`
-	RuleId              string          `json:"rule_id"`
-	SourceLocation      json.RawMessage `json:"source_location"`
 }
 
 type RmmNotificationResponse struct {
@@ -2041,16 +1617,96 @@ type ScheduleResponse struct {
 	Splay       int             `json:"splay"`
 }
 
+type SearchAccountsEndpointsResponse struct {
+	After        string          `json:"after"`
+	Aggregations json.RawMessage `json:"aggregations"`
+	Endpoints    json.RawMessage `json:"endpoints"`
+	NextCursor   string          `json:"next_cursor"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchAiDomainsResponse struct {
+	AggregationNextCursor string          `json:"aggregation_next_cursor"`
+	Aggregations          json.RawMessage `json:"aggregations"`
+	EndpointDetails       json.RawMessage `json:"endpoint_details"`
+	NextCursor            string          `json:"next_cursor"`
+	Results               json.RawMessage `json:"results"`
+	TotalCount            int             `json:"total_count"`
+}
+
+type SearchAiToolsResponse struct {
+	Tools          json.RawMessage `json:"tools"`
+	ToolsByAccount json.RawMessage `json:"tools_by_account"`
+	TotalCount     int             `json:"total_count"`
+}
+
+type SearchAssetsCveResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	NextCursor   string          `json:"next_cursor"`
+	Results      json.RawMessage `json:"results"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchAssetsSoftwareResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	Assets       json.RawMessage `json:"assets"`
+	NextCursor   string          `json:"next_cursor"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchChildrenJobsResponseBody struct {
+	Counts     json.RawMessage `json:"counts"`
+	Jobs       json.RawMessage `json:"jobs"`
+	NextCursor string          `json:"next_cursor"`
+	TotalCount int             `json:"total_count"`
+}
+
+type SearchDetectionsResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	Detections   json.RawMessage `json:"detections"`
+	NextCursor   string          `json:"next_cursor"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchDeviceControlResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	Detections   json.RawMessage `json:"detections"`
+	NextCursor   string          `json:"next_cursor"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchDnsLogsResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	NextCursor   string          `json:"next_cursor"`
+	Results      json.RawMessage `json:"results"`
+	TotalCount   int             `json:"total_count"`
+}
+
 type SearchEndpoints struct {
-	CreatedAt  string          `json:"created_at"`
-	ResourceId string          `json:"resource_id"`
-	Tags       json.RawMessage `json:"tags"`
-	UpdatedAt  string          `json:"updated_at"`
+	After        string          `json:"after"`
+	Aggregations json.RawMessage `json:"aggregations"`
+	Endpoints    json.RawMessage `json:"endpoints"`
+	NextCursor   string          `json:"next_cursor"`
+	TotalCount   int             `json:"total_count"`
+}
+
+type SearchFirewallActivity struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	NextCursor   string          `json:"next_cursor"`
+	Results      json.RawMessage `json:"results"`
+	TotalCount   int             `json:"total_count"`
 }
 
 type SearchGroupedActionLogResponse struct {
 	NextCursor string          `json:"next_cursor"`
 	Results    json.RawMessage `json:"results"`
+}
+
+type SearchOsPatchesResult struct {
+	Aggregations json.RawMessage `json:"aggregations"`
+	NextCursor   string          `json:"next_cursor"`
+	Results      json.RawMessage `json:"results"`
+	TotalCount   int             `json:"total_count"`
 }
 
 type SiteIntegrationStatus struct {
@@ -2075,70 +1731,6 @@ type SiteResponseSchema struct {
 	Id              string          `json:"id"`
 	Lastname        string          `json:"lastname"`
 	SiteEndDate     string          `json:"site_end_date"`
-}
-
-type SitesByAccountItem struct {
-	Email     string `json:"email"`
-	Firstname string `json:"firstname"`
-	Id        string `json:"id"`
-	Lastname  string `json:"lastname"`
-	Roles     string `json:"roles"`
-}
-
-type SitesGetItem struct {
-	Email     string `json:"email"`
-	Firstname string `json:"firstname"`
-	Id        string `json:"id"`
-	Lastname  string `json:"lastname"`
-	Roles     string `json:"roles"`
-}
-
-type SoftwareSearchItem struct {
-	AccountId                  string          `json:"account_id"`
-	AccountName                string          `json:"account_name"`
-	ActiveDirectory            json.RawMessage `json:"active_directory"`
-	AiCategory                 string          `json:"ai_category"`
-	AiFlags                    json.RawMessage `json:"ai_flags"`
-	AiRisk                     string          `json:"ai_risk"`
-	AiStatus                   string          `json:"ai_status"`
-	AiTier                     string          `json:"ai_tier"`
-	AiTool                     string          `json:"ai_tool"`
-	Alias                      string          `json:"alias"`
-	Architecture               string          `json:"architecture"`
-	Categories                 json.RawMessage `json:"categories"`
-	CreatedAt                  string          `json:"created_at"`
-	Cves                       json.RawMessage `json:"cves"`
-	CvesByStatus               string          `json:"cves_by_status"`
-	CvesCount                  int             `json:"cves_count"`
-	CvesCountByStatus          string          `json:"cves_count_by_status"`
-	CvesScore                  float64         `json:"cves_score"`
-	DisplayInstalledVersion    string          `json:"display_installed_version"`
-	DisplayProduct             string          `json:"display_product"`
-	DisplayVendor              string          `json:"display_vendor"`
-	DomainName                 string          `json:"domain_name"`
-	FullyQualifiedHostName     string          `json:"fully_qualified_host_name"`
-	GroupId                    string          `json:"group_id"`
-	GroupName                  string          `json:"group_name"`
-	HostName                   string          `json:"host_name"`
-	IgnoreRuleIds              json.RawMessage `json:"ignore_rule_ids"`
-	IgnoredUntil               string          `json:"ignored_until"`
-	InstallationDate           string          `json:"installation_date"`
-	InstalledVersion           string          `json:"installed_version"`
-	Language                   string          `json:"language"`
-	LatestVersionAvailable     string          `json:"latest_version_available"`
-	MachineId                  string          `json:"machine_id"`
-	NormalizedInstalledVersion string          `json:"normalized_installed_version"`
-	NormalizedProduct          string          `json:"normalized_product"`
-	NormalizedVendor           string          `json:"normalized_vendor"`
-	ObjectGuid                 string          `json:"object_guid"`
-	OsInfo                     string          `json:"os_info"`
-	ParentAccountId            string          `json:"parent_account_id"`
-	PolicyId                   string          `json:"policy_id"`
-	PolicyName                 string          `json:"policy_name"`
-	Product                    string          `json:"product"`
-	ProductSignature           int             `json:"product_signature"`
-	RootGroupId                string          `json:"root_group_id"`
-	Vendor                     string          `json:"vendor"`
 }
 
 type SuspiciousActivityItems struct {
@@ -2190,14 +1782,6 @@ type TheBodyForCreatingANewUser struct {
 	Phone     string          `json:"phone"`
 	Roles     json.RawMessage `json:"roles"`
 	Sites     json.RawMessage `json:"sites"`
-}
-
-type TheChildrenNodeRecursiveStructure struct {
-	EdgeInfo json.RawMessage `json:"edge_info"`
-	Id       string          `json:"id"`
-	Name     string          `json:"name"`
-	NodeInfo json.RawMessage `json:"node_info"`
-	NodeType string          `json:"node_type"`
 }
 
 type TheDeleteEndpointsBulkBody200Schema struct {

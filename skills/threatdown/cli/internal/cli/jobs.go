@@ -19,6 +19,7 @@ import (
 
 	"threatdown-pp-cli/internal/client"
 	"threatdown-pp-cli/internal/cliutil"
+	"threatdown-pp-cli/internal/credkit"
 )
 
 // JobRow is one entry in the local jobs ledger. Rows are appended as NDJSON
@@ -66,7 +67,7 @@ func RecordJob(row JobRow) error {
 		row.SubmittedAt = time.Now().UTC()
 	}
 	row.UpdatedAt = time.Now().UTC()
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening jobs ledger: %w", err)
 	}
@@ -240,7 +241,7 @@ func asyncJobPendingErr(cmd *cobra.Command, flags *rootFlags, jobID, recoveryCom
 			"job_id":           jobID,
 			"status":           "pending",
 			"recovery_command": recoveryCommand,
-			"error":            funnelShownError(err),
+			"error":            err.Error(),
 			"code":             ExitJobPending,
 		})
 	}
@@ -405,7 +406,7 @@ func newJobsPruneCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			tmp := p + ".tmp"
-			f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+			f, err := credkit.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 			if err != nil {
 				return fmt.Errorf("opening tmp ledger: %w", err)
 			}

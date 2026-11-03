@@ -52,7 +52,7 @@ func newReportsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPopulate {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPopulate, "populate", allowedPopulate)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPopulate, "populate", allowedPopulate))
 				}
 			}
 			path := "/v1/accounts/{account_id}/reports"
@@ -74,7 +74,7 @@ func newReportsListCmd(flags *rootFlags) *cobra.Command {
 				"populate":    formatCLIParamValue(flagPopulate),
 				"page_size":   formatCLIParamValue(flagPageSize),
 				"next_cursor": formatCLIParamValue(flagCursor),
-			}, map[string][]string{"populate": {"populate"}, "page_size": {"page-size"}, "next_cursor": {"cursor"}}, "cursor", "cursor"), headerOverrides, flagAll, "cursor", "cursor", "page_size", 0, "next_cursor", "", "reports", cmd.ErrOrStderr())
+			}, map[string][]string{"populate": {"populate"}, "page_size": {"page-size"}, "next_cursor": {"cursor"}}, "next_cursor", "cursor"), headerOverrides, flagAll, "next_cursor", "cursor", "page_size", 0, "next_cursor", "", "reports", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

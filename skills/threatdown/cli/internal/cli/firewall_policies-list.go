@@ -52,7 +52,7 @@ func newFirewallPoliciesListCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "firewall", path, retainCLIQueryParams(cmd, map[string]string{
 				"page_size":   formatCLIParamValue(flagPageSize),
 				"next_cursor": formatCLIParamValue(flagCursor),
-			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "page_size", 0, "", "", "policies", cmd.ErrOrStderr())
+			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "page_size", 0, "", "", "policies", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

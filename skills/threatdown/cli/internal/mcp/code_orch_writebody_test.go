@@ -104,33 +104,41 @@ func TestCodeOrchArrayBody_SendsTopLevelArray(t *testing.T) {
 
 func TestCodeOrchExecuteReadOnlyRefusesNonGET(t *testing.T) {
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "")
-	if codeOrchBlockedByMCPReadOnly("POST", false) {
+	if codeOrchBlockedByMCPReadOnly("POST") {
 		t.Fatal("unset switch blocked POST")
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
-	if codeOrchBlockedByMCPReadOnly("DELETE", false) {
+	if codeOrchBlockedByMCPReadOnly("DELETE") {
 		t.Fatal(`"true" enabled the read-only switch`)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "yes")
-	if codeOrchBlockedByMCPReadOnly("PATCH", false) {
+	if codeOrchBlockedByMCPReadOnly("PATCH") {
 		t.Fatal(`"yes" enabled the read-only switch`)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
-	if codeOrchBlockedByMCPReadOnly("GET", false) {
+	if codeOrchBlockedByMCPReadOnly("GET") {
 		t.Fatal("GET was blocked by the read-only switch")
 	}
 	for _, method := range []string{"POST", "PUT", "PATCH", "DELETE"} {
-		if !codeOrchBlockedByMCPReadOnly(method, false) {
+		if !codeOrchBlockedByMCPReadOnly(method) {
 			t.Fatalf("%s was not blocked", method)
 		}
 	}
 
 	for _, ep := range codeOrchEndpoints {
 		if ep.Method == "GET" {
+			if codeOrchBlockedByMCPReadOnly(ep.Method) {
+				t.Fatalf("GET endpoint %s was blocked", ep.ID)
+			}
 			// hand-fix (handfixes.json diag-log-is-endpoint-action): only a
 			// GET with a side effect on the endpoint is refused.
-			if got, want := codeOrchBlockedByMCPReadOnly(ep.Method, ep.Mutating), ep.ID == "endpoints.diag-log"; got != want {
-				t.Fatalf("GET endpoint %s blocked=%v, want %v", ep.ID, got, want)
+			// GETs that act on an endpoint (scan, diag-log) are writes too.
+			want := ep.NeedsConfirm || ep.Mutating
+			if ep.ID == "endpoints.diag-log" && !want {
+				t.Fatal("endpoints.diag-log is not gated as an endpoint action")
+			}
+			if got := codeOrchRefuseForReadOnlySwitch(&ep, ep.Method, false); got != want {
+				t.Fatalf("GET endpoint %s refused=%v, want %v", ep.ID, got, want)
 			}
 			continue
 		}

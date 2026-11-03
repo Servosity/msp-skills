@@ -186,7 +186,9 @@ func (e Endpoint) Label() string {
 // ParseTime accepts the RFC3339 variants OneView emits (with or without
 // fractional seconds) and bare dates.
 func ParseTime(s string) (time.Time, bool) {
-	s = strings.TrimSpace(s)
+	// RFC 3339 allows a lowercase t and z; Go's layouts take only uppercase.
+	// Timestamps hold no other letters, so upper-casing is safe.
+	s = strings.ToUpper(strings.TrimSpace(s))
 	if s == "" {
 		return time.Time{}, false
 	}
@@ -559,16 +561,20 @@ func (d Detection) When() (time.Time, bool) {
 
 // SpreadRow is one threat (by hash, else name) and how far it reached.
 type SpreadRow struct {
-	Threat       string         `json:"threat"`
-	SHA256       string         `json:"sha256,omitempty"`
-	Category     string         `json:"category,omitempty"`
-	Sites        int            `json:"sites"`
-	Endpoints    int            `json:"endpoints"`
-	Detections   int            `json:"detections"`
-	FirstSeen    string         `json:"first_seen,omitempty"`
-	LastSeen     string         `json:"last_seen,omitempty"`
-	ActionsTaken map[string]int `json:"actions_taken"`
-	SiteNames    []string       `json:"site_names"`
+	Threat     string `json:"threat"`
+	SHA256     string `json:"sha256,omitempty"`
+	Category   string `json:"category,omitempty"`
+	Sites      int    `json:"sites"`
+	Endpoints  int    `json:"endpoints"`
+	Detections int    `json:"detections"`
+	// UndatedDetections counts detections whose reported_at and scanned_at
+	// could not be read: they may fall in the window, so they are counted
+	// rather than hidden, and never set first/last seen.
+	UndatedDetections int            `json:"undated_detections,omitempty"`
+	FirstSeen         string         `json:"first_seen,omitempty"`
+	LastSeen          string         `json:"last_seen,omitempty"`
+	ActionsTaken      map[string]int `json:"actions_taken"`
+	SiteNames         []string       `json:"site_names"`
 }
 
 // Spread groups detections reported at or after since by sha256 (falling
@@ -581,11 +587,12 @@ func Spread(dets []Detection, sites map[string]Site, since time.Time, minSites i
 		endpoints map[string]bool
 		first     time.Time
 		last      time.Time
+		dated     bool
 	}
 	groups := map[string]*agg{}
 	for _, d := range dets {
 		t, ok := d.When()
-		if !ok || t.Before(since) {
+		if ok && t.Before(since) {
 			continue
 		}
 		key := strings.ToLower(d.SHA256)
@@ -597,7 +604,7 @@ func Spread(dets []Detection, sites map[string]Site, since time.Time, minSites i
 		}
 		g := groups[key]
 		if g == nil {
-			g = &agg{row: SpreadRow{Threat: d.ThreatName, SHA256: d.SHA256, Category: d.Category, ActionsTaken: map[string]int{}}, sites: map[string]bool{}, endpoints: map[string]bool{}, first: t, last: t}
+			g = &agg{row: SpreadRow{Threat: d.ThreatName, SHA256: d.SHA256, Category: d.Category, ActionsTaken: map[string]int{}}, sites: map[string]bool{}, endpoints: map[string]bool{}}
 			groups[key] = g
 		}
 		g.row.Detections++
@@ -609,12 +616,18 @@ func Spread(dets []Detection, sites map[string]Site, since time.Time, minSites i
 		if g.row.Threat == "" {
 			g.row.Threat = d.ThreatName
 		}
-		if t.Before(g.first) {
+		if !ok {
+			// An undated detection may fall in the window: count it, never hide it.
+			g.row.UndatedDetections++
+			continue
+		}
+		if !g.dated || t.Before(g.first) {
 			g.first = t
 		}
-		if t.After(g.last) {
+		if !g.dated || t.After(g.last) {
 			g.last = t
 		}
+		g.dated = true
 	}
 	rows := make([]SpreadRow, 0, len(groups))
 	for _, g := range groups {
@@ -622,7 +635,9 @@ func Spread(dets []Detection, sites map[string]Site, since time.Time, minSites i
 			continue
 		}
 		g.row.Sites, g.row.Endpoints = len(g.sites), len(g.endpoints)
-		g.row.FirstSeen, g.row.LastSeen = g.first.Format(time.RFC3339), g.last.Format(time.RFC3339)
+		if g.dated {
+			g.row.FirstSeen, g.row.LastSeen = g.first.Format(time.RFC3339), g.last.Format(time.RFC3339)
+		}
 		names := make([]string, 0, len(g.sites))
 		for acct := range g.sites {
 			n := sites[acct].Name

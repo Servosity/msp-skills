@@ -123,11 +123,13 @@ func selectPending(jobs []jobRow, sites map[string]fleet.Site, now time.Time, si
 		}
 		failed := fleet.JobFailed(j.Status)
 		waiting := j.Status&fleet.JobStatusWaiting != 0
-		age := 0
+		age := -1 // unknown: issued_at could not be read
 		if ok {
 			age = int(now.Sub(issued).Hours())
 		}
-		if !failed && !(waiting && ok && now.Sub(issued) >= minAge) {
+		// An issued_at that cannot be read never hides a waiting job: its age
+		// is unknown, so it is listed (handfixes.json timestamps-never-hide-a-row).
+		if !failed && !(waiting && (!ok || now.Sub(issued) >= minAge)) {
 			continue
 		}
 		site := sites[j.AccountID].Name

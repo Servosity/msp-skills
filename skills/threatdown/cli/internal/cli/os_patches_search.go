@@ -182,7 +182,7 @@ func newOsPatchesSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/os-patches"
@@ -674,7 +674,7 @@ func newOsPatchesSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "created_at": true, "display_name": true, "domain_name": true, "fully_qualified_host_name": true, "group_id": true, "group_name": true, "host_name": true, "machine_id": true, "parent_account_id": true, "patch_id": true, "released_at": true, "root_group_id": true, "security_update_id": true, "title": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -706,7 +706,7 @@ func newOsPatchesSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "created_at": true, "display_name": true, "domain_name": true, "fully_qualified_host_name": true, "group_id": true, "group_name": true, "host_name": true, "machine_id": true, "parent_account_id": true, "patch_id": true, "released_at": true, "root_group_id": true, "security_update_id": true, "title": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountIds, "account-ids", "", "The account ids to filter your search")

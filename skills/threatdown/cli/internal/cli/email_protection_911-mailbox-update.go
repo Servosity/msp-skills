@@ -62,7 +62,7 @@ func newEmailProtection911MailboxUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("email") && bodyEmail == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "email")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "email"))
 				}
 			}
 			path := "/v1/accounts/{account_id}/email-protection/account/911-mailbox"
@@ -167,16 +167,13 @@ func newEmailProtection911MailboxUpdateCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
