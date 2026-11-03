@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "auvik-pp-mcp",
+  "name": "auvik-mcp",
   "display_name": "Auvik",
   "version": "0.2.8",
   "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
@@ -10,34 +10,34 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/auvik-pp-mcp",
+    "entry_point": "bin/auvik-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/auvik-pp-mcp",
+      "command": "${__dirname}/bin/auvik-mcp",
       "args": [],
       "env": {
         "AUVIK_API_KEY": "${user_config.auvik_api_key}",
-        "AUVIK_USERNAME": "${user_config.auvik_username}",
         "AUVIK_BASE_URL": "${user_config.auvik_base_url}",
         "AUVIK_TENANT": "${user_config.auvik_tenant}",
+        "AUVIK_USERNAME": "${user_config.auvik_username}",
         "AUVIK_USER_AGENT": "${user_config.auvik_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
   "user_config": {
-    "auvik_api_key": {
-      "type": "string",
-      "title": "Auvik API key",
-      "description": "Auvik > Admin > Integrations > Auvik API. This is the password half of the Basic credential.",
-      "required": true,
-      "sensitive": true
-    },
     "auvik_username": {
       "type": "string",
       "title": "Auvik user email",
       "description": "The email address of the Auvik user whose API key you are using. Auvik authenticates with HTTP Basic; this is the username half.",
       "required": true,
       "sensitive": false
+    },
+    "auvik_api_key": {
+      "type": "string",
+      "title": "Auvik API key",
+      "description": "Auvik > Admin > Integrations > Auvik API. This is the password half of the Basic credential.",
+      "required": true,
+      "sensitive": true
     },
     "auvik_base_url": {
       "type": "string",

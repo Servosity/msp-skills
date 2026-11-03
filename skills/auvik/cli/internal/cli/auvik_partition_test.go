@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written: the novel commands' store reads must survive a reprint that
 // renames sync partitions. Press 4.35.1 moved Auvik's partitions under the

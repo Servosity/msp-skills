@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Shared local-store helpers for the hand-written Auvik transcendence commands.
 // Every Auvik record lands in the generic `resources` table as a JSON:API
