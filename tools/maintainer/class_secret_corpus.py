@@ -97,6 +97,7 @@ import re
 import secrets as _secrets
 import shutil
 import stat
+import struct
 import string
 import subprocess
 import sys
@@ -668,12 +669,40 @@ def kit_public(values: list[str]) -> list[bool]:
 
 def judge(text, held: list[str], outbound: bool = False) -> str | None:
     """How a held credential survives in one unit, or None when the kit's
-    matcher finds it clean. An exhausted unit is a failure (contract 3)."""
-    v, clause = kit_verdict(text, held, outbound)
+    matcher finds it clean. An exhausted unit is a failure (contract 3). A
+    Stream is also checked write by write as the kit's pump checks it."""
+    writes = getattr(text, "writes", None)
+    if not outbound and writes and len(writes) > 1 and held and _raw(text):
+        got = _ask({"held": [_b64(h) for h in held], "unit": _b64(text), "request": False,
+                    "units": [_b64(w) for w in writes]})
+        if got.get("verdict") not in ("clean", "leak", "exhausted"):
+            raise RuntimeError(f"the kit's matcher command gave no verdict ({got!r})")
+        v, clause = got["verdict"], got.get("clause", "")
+    else:
+        v, clause = kit_verdict(text, held, outbound)
     if v == "leak":
         return f"a held credential (the kit's matcher, contract {clause})"
     if v == "exhausted":
         return "the kit's matcher ran out of budget (contract 3: exhausted, a failure)"
+    return None
+
+
+DEAD = "bytes its rows do not show"   # sqlite_dead's pieces
+WINDOW = 1024
+
+
+def judge_windows(text, held: list[str]) -> str | None:
+    """A database's dead bytes the kit cannot read whole (old index cells in
+    a page's free space exhaust its budget on ordinary caches): judged again
+    in windows of WINDOW bytes, each overlapping the next by half, so every
+    reading of WINDOW // 2 bytes or fewer is read whole. A window that leaks
+    or exhausts fails. Known limit (README): in such bytes, a reading that
+    needs more than WINDOW // 2 bytes is not read whole."""
+    b = _raw(text)
+    for i in range(0, max(1, len(b) - WINDOW // 2), WINDOW // 2):
+        how = judge(b[i:i + WINDOW], held)
+        if how:
+            return how + " (read in windows)"
     return None
 
 
@@ -710,37 +739,176 @@ def _magic(p: str) -> bytes:
         return b""
 
 
+def _varint(b: bytes, i: int) -> tuple[int, int]:
+    """A SQLite varint at b[i]: (value, next index); (-1, i) when cut off."""
+    v = 0
+    for k in range(9):
+        if i + k >= len(b):
+            return -1, i
+        c = b[i + k]
+        if k == 8:
+            return (v << 8) | c, i + 9
+        v = (v << 7) | (c & 0x7F)
+        if c < 0x80:
+            return v, i + k + 1
+    return -1, i
+
+
+def _record(payload: bytes) -> bytes | None:
+    """One record's values, one per line, as a row reads; None when the
+    bytes are not a whole record."""
+    hlen, i = _varint(payload, 0)
+    if hlen < 1 or hlen > len(payload):
+        return None
+    types, at = [], hlen
+    while i < hlen:
+        t, i = _varint(payload, i)
+        if t < 0 or t in (10, 11):
+            return None
+        types.append(t)
+    vals = []
+    for t in types:
+        n = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 6, 6: 8, 7: 8, 8: 0, 9: 0}.get(t, (t - 12) // 2 if t >= 12 else 0)
+        if at + n > len(payload):
+            return None
+        v = payload[at:at + n]
+        at += n
+        if 1 <= t <= 6:
+            vals.append(str(int.from_bytes(v, "big", signed=True)).encode())
+        elif t == 7:
+            vals.append(repr(struct.unpack(">d", v)[0]).encode())
+        elif t in (8, 9):
+            vals.append(str(t - 8).encode())
+        elif t >= 12:
+            vals.append(v)
+    return b"\n".join(vals)
+
+
+def _page(page: bytes, at: int, ps: int, old: bool) -> list[bytes]:
+    """What one b-tree page holds that the database's rows do not show: the
+    gap between its cell pointers and its cell content, each freeblock and,
+    for an old page image (a freed page, a replaced WAL frame), every cell's
+    record (a record that does not parse comes back as its bytes). A page
+    that is not a b-tree page comes back whole when old, else nothing."""
+    kind = page[at] if at < len(page) else 0
+    if kind not in (2, 5, 10, 13):
+        return [page] if old else []
+    hdr = at + (12 if kind in (2, 5) else 8)
+    if hdr + 2 > len(page):
+        return [page]
+    first_free, ncells, content = struct.unpack(">HHH", page[at + 1:at + 7])
+    content = content or 65536
+    out = [page[hdr + 2 * ncells:content]]
+    seen, off = set(), first_free
+    while off and off not in seen and off + 4 <= len(page):
+        seen.add(off)
+        nxt, size = struct.unpack(">HH", page[off:off + 4])
+        out.append(page[off + 4:off + max(size, 4)])
+        off = nxt
+    if old:
+        cells = [struct.unpack(">H", page[hdr + 2 * k:hdr + 2 * k + 2])[0]
+                 for k in range(ncells) if hdr + 2 * k + 2 <= len(page)]
+        for c in cells:
+            i = c + (4 if kind in (2, 5) else 0)
+            if kind == 5:
+                continue   # a table interior cell carries a child and a rowid only
+            n, i = _varint(page, i)
+            if kind == 13:
+                _rowid, i = _varint(page, i)
+            if n < 0 or i >= len(page):
+                out.append(page[c:])
+                continue
+            local = page[i:i + n]   # the part on this page (an overflow is cut off)
+            rec = _record(local)
+            out.append(rec if rec is not None else local)
+    return out
+
+
+def sqlite_dead(db: bytes, wal: bytes | None, journal: bytes | None) -> list[bytes]:
+    """Every byte of a database file that its rows do not show (contract 5:
+    the file is a sink too): bytes past the database's size, freed pages (read
+    as the old records they hold), the free space inside b-tree pages, WAL
+    frames a later frame of the same page replaced (read the same way) and
+    the rollback journal whole. Runs of 64 or more NUL bytes split a piece:
+    zero padding is not text, and no decoder spells a credential with them."""
+    out: list[bytes] = []
+    ps = struct.unpack(">H", db[16:18])[0] if len(db) >= 100 else 0
+    ps = 65536 if ps == 1 else ps
+    if ps < 512 or ps & (ps - 1):
+        return [db]
+    n = len(db) // ps
+    if db[24:28] == db[92:96]:
+        n = min(n, struct.unpack(">I", db[28:32])[0]) or n
+    out.append(db[n * ps:])
+    free: set[int] = set()
+    trunk, seen = struct.unpack(">I", db[32:36])[0], set()
+    while 0 < trunk <= n and trunk not in seen:
+        seen.add(trunk)
+        page = db[(trunk - 1) * ps:trunk * ps]
+        out.append(page)   # a trunk page: its leaf list, then whatever it held before
+        cnt = min(struct.unpack(">I", page[4:8])[0], (ps - 8) // 4)
+        free.update(x for x in struct.unpack(f">{cnt}I", page[8:8 + 4 * cnt]) if 0 < x <= n)
+        trunk = struct.unpack(">I", page[0:4])[0]
+    for i in range(1, n + 1):
+        if i not in seen:
+            out += _page(db[(i - 1) * ps:i * ps], 100 if i == 1 else 0, ps, i in free)
+    if wal and len(wal) >= 32:
+        wps = struct.unpack(">I", wal[8:12])[0] or ps
+        frames = [(struct.unpack(">I", wal[o:o + 4])[0], wal[o + 24:o + 24 + wps])
+                  for o in range(32, len(wal) - 24 - wps + 1, 24 + wps)]
+        last = {pg: k for k, (pg, _b) in enumerate(frames)}
+        for k, (pg, body) in enumerate(frames):
+            out += _page(body, 100 if pg == 1 else 0, wps, last.get(pg) != k)
+        out.append(wal[32 + len(frames) * (24 + wps):])
+    if journal:
+        out.append(journal)
+    return [x for b in out for x in re.split(rb"\x00{64,}", b) if x.strip(b"\x00")]
+
+
 def sqlite_units(path: str) -> list[tuple[str, str | None, str]]:
     """Contract 2's SQLite unit is one statement, its text and its bound
     values, which a run leaves only as rows. A database file (with its -wal,
-    -shm and -journal) is read through SQLite: each schema entry's SQL and each
-    row of every table is a unit, its values one per line. A database that
-    cannot be read fails the case (closed). Known limit: a row deleted or
-    overwritten before the run ended is not seen."""
+    -shm and -journal) is read through SQLite: each schema entry's SQL, each
+    row of every table, and each table's rows joined (one statement can write
+    several rows, so its bound values are judged together), values one per
+    line. The bytes the rows do not show are judged too (sqlite_dead). A
+    database that cannot be read fails the case (closed)."""
     import sqlite3
     out: list[tuple[str, str | None, str]] = []
+
+    def unit(where: str, b: bytes) -> None:
+        out.append((where, b.decode("utf-8", "surrogateescape"), ""))
+
     with tempfile.TemporaryDirectory(prefix="corpus-sqlite-") as tmp:
         db = os.path.join(tmp, "db")
+        side: dict[str, bytes] = {}
         try:
             for suffix in ("",) + SQLITE_SIDE:
                 if os.path.isfile(path + suffix):
                     shutil.copyfile(path + suffix, db + suffix)
+                    with open(db + suffix, "rb") as fh:
+                        side[suffix] = fh.read()
+            for k, b in enumerate(sqlite_dead(side[""], side.get("-wal"), side.get("-journal"))):
+                unit(f"{DEAD}, piece {k}", b)
             con = sqlite3.connect(db)
             try:
                 con.text_factory = bytes
                 schema = con.execute("SELECT type, name, sql FROM sqlite_master").fetchall()
                 for typ, name, sql in schema:
                     if sql:
-                        out.append((f"schema {_s(name)}", _s(sql), ""))
+                        unit(f"schema {_s(name)}", sql)
                     if typ != b"table" or (sql or b"").upper().startswith(b"CREATE VIRTUAL TABLE"):
                         continue   # an index, a view, or a virtual table read through its shadow tables
                     q = 'SELECT * FROM "' + _s(name).replace('"', '""') + '"'
-                    for n, row in enumerate(con.execute(q)):
-                        unit = b"\n".join(v if isinstance(v, bytes) else str(v).encode() for v in row if v is not None)
-                        out.append((f"table {_s(name)} row {n}", unit.decode("utf-8", "surrogateescape"), ""))
+                    rows = [b"\n".join(v if isinstance(v, bytes) else str(v).encode() for v in row if v is not None)
+                            for row in con.execute(q)]
+                    for n, row in enumerate(rows):
+                        unit(f"table {_s(name)} row {n}", row)
+                    if len(rows) > 1:
+                        unit(f"table {_s(name)}, its rows joined", b"\n".join(rows))
             finally:
                 con.close()
-        except (sqlite3.Error, OSError) as e:
+        except (sqlite3.Error, OSError, KeyError, struct.error) as e:
             return [("(SQLite database)", None, f"could not be read as SQLite ({e})")]
     return out
 
@@ -863,6 +1031,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // The connector's packages as its build sees them: go list evaluates build
@@ -884,23 +1053,61 @@ type pkg struct {
 }
 
 type result struct {
-	Fields    []string `json:"fields"`
-	SecretEnv []string `json:"secret_env"`
-	Errors    []string `json:"errors"`
+	Fields      []string            `json:"fields"`
+	SecretEnv   []string            `json:"secret_env"`
+	Identifiers []string            `json:"identifiers"`
+	Lists       map[string][]string `json:"lists"`
+	Errors      []string            `json:"errors"`
 }
 
-var watched = map[string]bool{"ResponseFields": true, "SecretEnv": true}
+// The Declarations fields the list reads: each a []string of constants, and
+// Identifiers (each element's Source). Every one of them, set anywhere but
+// in the one literal, fails closed.
+var lists = map[string]bool{"ResponseFields": true, "SecretEnv": true, "ConfigFields": true, "CredentialFlags": true,
+	"StdinFlags": true, "CredentialHeaders": true, "CredentialFields": true, "MCPArguments": true, "StoredRecords": true}
+
+var watched = func() map[string]bool {
+	w := map[string]bool{"Identifiers": true}
+	for k := range lists {
+		w[k] = true
+	}
+	return w
+}()
 
 type importerFunc func(string) (*types.Package, error)
 
 func (f importerFunc) Import(p string) (*types.Package, error) { return f(p) }
 
 func main() {
-	res := result{Fields: []string{}, SecretEnv: []string{}, Errors: []string{}}
+	res := result{Fields: []string{}, SecretEnv: []string{}, Identifiers: []string{}, Lists: map[string][]string{},
+		Errors: []string{}}
 	defer func() { _ = json.NewEncoder(os.Stdout).Encode(res) }()
 	fail := func(f string, a ...any) { res.Errors = append(res.Errors, fmt.Sprintf(f, a...)) }
-	root := os.Args[1]
-	cmd := exec.Command("go", "list", "-e", "-json", "-export", "-deps", "./...")
+	root, targets := os.Args[1], os.Args[2:]
+	if len(targets) == 0 {
+		fail("no build target named")
+		return
+	}
+	// The build's own settings: an overlay replaces source files the parser
+	// below would read from disk, so it fails closed; GOARCH sizes constants.
+	envOut, err := exec.Command("go", "env", "-json", "GOFLAGS", "GOARCH").Output()
+	var goenv struct{ GOFLAGS, GOARCH string }
+	if err != nil || json.Unmarshal(envOut, &goenv) != nil {
+		fail("go env: %v", err)
+		return
+	}
+	if strings.Contains(goenv.GOFLAGS, "-overlay") {
+		fail("GOFLAGS sets an overlay (%s): the declarations read from disk may not be the ones built", goenv.GOFLAGS)
+		return
+	}
+	sizes := types.SizesFor("gc", goenv.GOARCH)
+	if sizes == nil {
+		fail("no type sizes for GOARCH %q", goenv.GOARCH)
+		return
+	}
+	// Only the packages the two binaries link (contract 7: the files the
+	// connector's build compiles).
+	cmd := exec.Command("go", append([]string{"list", "-e", "-json", "-export", "-deps"}, targets...)...)
 	cmd.Dir = root
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
@@ -962,6 +1169,7 @@ func main() {
 		}
 		imap := p.ImportMap
 		conf := types.Config{
+			Sizes: sizes,
 			Importer: importerFunc(func(path string) (*types.Package, error) {
 				if m, ok := imap[path]; ok {
 					path = m
@@ -970,7 +1178,8 @@ func main() {
 			}),
 			Error: func(err error) { fail("%v", err) },
 		}
-		info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
+		info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Selections: map[*ast.SelectorExpr]*types.Selection{},
+			Uses: map[*ast.Ident]types.Object{}}
 		if _, err := conf.Check(p.ImportPath, fset, files, info); err != nil {
 			continue // reported through conf.Error
 		}
@@ -984,6 +1193,7 @@ func main() {
 			continue
 		}
 		decl := obj.Type()
+		startFn, _ := kit.Scope().Lookup("Start").(*types.Func)
 		st, _ := decl.Underlying().(*types.Struct)
 		if st == nil {
 			fail("%s.Declarations is not a struct", kitPath)
@@ -1020,9 +1230,111 @@ func main() {
 				*into = append(*into, constant.StringVal(tv.Value))
 			}
 		}
+		// An element of Identifiers: its Source, keyed or first by position.
+		ident := func(where string, v ast.Expr) {
+			if tv := info.Types[v]; tv.IsNil() {
+				return
+			}
+			lit, ok := ast.Unparen(v).(*ast.CompositeLit)
+			if !ok {
+				fail("%s: Identifiers is not a literal", where)
+				return
+			}
+			for _, e := range lit.Elts {
+				el, ok := ast.Unparen(e).(*ast.CompositeLit)
+				if !ok || len(el.Elts) == 0 {
+					fail("%s: an identifier that is not a literal with a source", where)
+					continue
+				}
+				src := el.Elts[0]
+				for _, f := range el.Elts {
+					if kv, ok := f.(*ast.KeyValueExpr); ok {
+						src = nil
+						if id, _ := kv.Key.(*ast.Ident); id != nil && id.Name == "Source" {
+							src = kv.Value
+							break
+						}
+					}
+				}
+				tv := info.Types[src]
+				if src == nil || tv.Value == nil || tv.Value.Kind() != constant.String {
+					fail("%s: an identifier's source is not a constant string", where)
+					continue
+				}
+				res.Identifiers = append(res.Identifiers, constant.StringVal(tv.Value))
+			}
+		}
+		isStartArg := func(parent ast.Node, child ast.Expr) bool {
+			call, ok := parent.(*ast.CallExpr)
+			if !ok || startFn == nil {
+				return false
+			}
+			var id *ast.Ident
+			switch fn := ast.Unparen(call.Fun).(type) {
+			case *ast.Ident:
+				id = fn
+			case *ast.SelectorExpr:
+				id = fn.Sel
+			}
+			if id == nil || info.Uses[id] != startFn {
+				return false
+			}
+			for _, a := range call.Args {
+				if a == child {
+					return true
+				}
+			}
+			return false
+		}
+		isDecl := func(e ast.Expr) bool {
+			tv, ok := info.Types[e]
+			if !ok || tv.IsType() || tv.Type == nil {
+				return false
+			}
+			return types.Identical(of(e), decl)
+		}
 		claimed := map[ast.Node]bool{}
 		for _, f := range files {
+			// A Declarations value is a literal in a variable's declaration, an
+			// assignment, a return or the kit's Start call, and is used only as
+			// Start's argument. Anything else (its address taken, a copy kept
+			// elsewhere, a field set or read, an element of another literal)
+			// could change it after the literal: fail closed (contract 7).
+			var stack []ast.Node
 			ast.Inspect(f, func(n ast.Node) bool {
+				if n == nil {
+					stack = stack[:len(stack)-1]
+					return true
+				}
+				var parent ast.Node
+				if len(stack) > 0 {
+					parent = stack[len(stack)-1]
+				}
+				stack = append(stack, n)
+				if e, ok := n.(ast.Expr); ok && isDecl(e) {
+					ok := false
+					switch e.(type) {
+					case *ast.CompositeLit:
+						switch parent.(type) {
+						case *ast.ValueSpec, *ast.AssignStmt, *ast.ReturnStmt:
+							ok = true
+						default:
+							ok = isStartArg(parent, e)
+						}
+					case *ast.Ident:
+						_, used := info.Uses[e.(*ast.Ident)]
+						ok = !used || isStartArg(parent, e) // a name being declared is not a use
+					case *ast.CallExpr:
+						ok = isStartArg(parent, e)
+					case *ast.SelectorExpr:
+						// A variable of another package (wiring.D), not a field.
+						_, field := info.Selections[e.(*ast.SelectorExpr)]
+						ok = !field && isStartArg(parent, e)
+					}
+					if !ok {
+						fail("%s: a Declarations value used other than as the kit's Start argument", fset.Position(e.Pos()))
+					}
+				}
 				switch x := n.(type) {
 				case *ast.CompositeLit:
 					t := of(x)
@@ -1047,11 +1359,17 @@ func main() {
 						} else if i < st.NumFields() {
 							name = st.Field(i).Name() // a positional literal, by field order
 						}
-						switch name {
-						case "ResponseFields":
+						switch {
+						case name == "ResponseFields":
 							take(where, val, &res.Fields)
-						case "SecretEnv":
+						case name == "SecretEnv":
 							take(where, val, &res.SecretEnv)
+						case name == "Identifiers":
+							ident(where, val)
+						case lists[name]:
+							l := res.Lists[name]
+							take(where, val, &l)
+							res.Lists[name] = l
 						}
 					}
 				case *ast.CallExpr:
@@ -1104,6 +1422,9 @@ def _fields_helper() -> str:
         return _FIELDS_BIN["path"]
 
 
+NO_KIT = {"fields": [], "secret_env": [], "identifiers": [], "lists": {}}
+
+
 def kit_declarations(slug: str) -> dict[str, list[str]]:
     """What a connector declares through the shared kit (contract 7): the
     vendor response fields that carry a credential and its secret
@@ -1112,22 +1433,32 @@ def kit_declarations(slug: str) -> dict[str, list[str]]:
     try:
         cli = ch.registry.skill_path(slug) / "cli"
     except (KeyError, SystemExit):
-        return {"fields": [], "secret_env": []}
-    return kit_declarations_in(cli) if (cli / "internal" / "credkit").is_dir() else {"fields": [], "secret_env": []}
-
-
-def kit_declarations_in(cli: Path) -> dict[str, list[str]]:
-    """The kit declarations of the Go code under `cli`. Raises ValueError when
-    they cannot be read (fail closed)."""
+        return dict(NO_KIT)
+    if not (cli / "internal" / "credkit").is_dir():
+        return dict(NO_KIT)
     try:
-        p = subprocess.run([_fields_helper(), str(cli)], capture_output=True, text=True, timeout=900)
+        targets = list(ch.registry.cmd_dirs(slug))
+    except SystemExit as e:
+        raise ValueError(f"the build targets of {slug} cannot be named: {e}")
+    return kit_declarations_in(cli, targets)
+
+
+def kit_declarations_in(cli: Path, targets: list[str]) -> dict:
+    """The kit declarations of the Go code under `cli` that the build
+    `targets` (package patterns relative to `cli`) link: response fields,
+    secret variables, identifier sources and every other list the kit
+    declares. Raises ValueError when they cannot be read (fail closed)."""
+    try:
+        p = subprocess.run([_fields_helper(), str(cli), *targets], capture_output=True, text=True, timeout=900)
         res = json.loads(p.stdout)
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
         raise ValueError(f"the declaration reader failed on {cli}: {e}")
     if p.returncode != 0 or res.get("errors"):
         raise ValueError(f"the kit declarations under {cli} cannot be read: "
                          f"{'; '.join(res.get('errors') or [p.stderr.strip()])[:400]}")
-    return {k: list(dict.fromkeys(res[k])) for k in ("fields", "secret_env")}
+    out = {k: list(dict.fromkeys(res[k])) for k in ("fields", "secret_env", "identifiers")}
+    out["lists"] = {k: list(dict.fromkeys(v)) for k, v in (res.get("lists") or {}).items()}
+    return out
 
 
 def has_kit(slug: str) -> bool:
@@ -1137,36 +1468,29 @@ def has_kit(slug: str) -> bool:
         return False
 
 
-def received(served: list, fields: list[str]) -> list[str]:
-    """Contract 1, values acquired at run time from the responses a fake sent:
-    every Set-Cookie value, and everything under a declared response field
-    (object keys too; every member of a duplicate key)."""
+def received_keys(served: list, fields: list[str]) -> list[str]:
+    """Object keys beneath a declared response field in a JSON body: a
+    credential a vendor stores as a key (halopsa custom fields). The kit's
+    acquisition holds the values beneath a declared field, not these keys
+    (a kit finding recorded in .review), so the list holds them itself."""
     out: list[str] = []
 
-    def take(x) -> None:
-        if isinstance(x, _Pairs):
-            for k, v in x:
+    def keys(x) -> None:
+        for k, v in x if isinstance(x, _Pairs) else enumerate(x if isinstance(x, list) else []):
+            if isinstance(k, str):
                 out.append(k)
-                take(v)
-        elif isinstance(x, list):
-            for v in x:
-                take(v)
-        else:   # no exemption by type: true, false and null too (the kit records them)
-            out.append(x if isinstance(x, str) else json.dumps(x))
+            keys(v)
 
     def walk(x) -> None:
         for k, v in x if isinstance(x, _Pairs) else enumerate(x if isinstance(x, list) else []):
             if isinstance(k, str) and _declares(fields, k):
-                take(v)
+                keys(v)
             else:
                 walk(v)
 
     for hd, bd in served:
-        for k, v in hd.items():
-            if k.lower() == "set-cookie":
-                out.append(v.split(";", 1)[0].partition("=")[2].strip())
         if not fields:
-            continue
+            break
         try:
             if "gzip" in str(hd.get("Content-Encoding", "")).lower():
                 bd = gzip.decompress(bd)
@@ -1174,6 +1498,42 @@ def received(served: list, fields: list[str]) -> list[str]:
         except (ValueError, OSError, EOFError):
             pass
     return [v for v in dict.fromkeys(out) if v]
+
+
+def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], fakes: list) -> dict:
+    """The kit's own held set for one run (contract 1, contract 8: one
+    implementation): what Start holds from the environment and the config
+    file the run was given, and what the kit's transport holds from every
+    request each fake received (auth headers, Basic parts, cookies, declared
+    headers and fields) and every response it sent (Set-Cookie values,
+    declared response fields in headers and bodies). Returns {held: [...],
+    recorded: n, unknown: bool}."""
+    with tempfile.TemporaryDirectory(prefix="corpus-acquire-") as tmp:
+        cfg_args, moved = [], {}
+        for path, body in written.items():   # the config as the run was given it, not as it left it
+            q = os.path.join(tmp, str(len(moved)), os.path.basename(path))
+            os.makedirs(os.path.dirname(q))
+            with open(q, "wb") as fh:
+                fh.write(body)
+            moved[path] = q
+        cfg_args = [moved.get(a, a) for a in args]
+        ex = []
+        for fake in fakes:
+            for (m, path, hdrs, body) in list(fake.requests):
+                if m == "?":
+                    continue
+                url = path if "://" in path else ("https://" + path if m == "CONNECT" else fake.url + path)
+                ex.append({"response": False, "method": m, "url": url, "body": _b64(body),
+                           "header": [[_b64(k), _b64(v)] for k, v in hdrs]})
+            for hd, bd in list(fake.served):
+                ex.append({"response": True, "method": "GET", "url": fake.url, "body": _b64(bd),
+                           "header": [[_b64(k), _b64(v)] for k, v in hd.items()]})
+        got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items()],
+                                "args": [_b64(a) for a in cfg_args], "exchanges": ex}})
+    if got.get("verdict") != "held" or not isinstance(got.get("held", []), list):
+        raise RuntimeError(f"the kit's matcher command gave no held set ({got!r})")
+    return {"held": [base64.b64decode(h).decode("utf-8", "surrogateescape") for h in got.get("held") or []],
+            "recorded": int(got.get("recorded") or 0), "unknown": bool(got.get("unknown"))}
 
 
 def _read_tools(ctx: ch.Ctx, tools: list[dict]) -> list[dict]:
@@ -1289,7 +1649,7 @@ def own_host(host: str) -> str:
 
 class Engine:
     def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
-                 secret_env: list[str] | None = None):
+                 secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.fields = list(fields or [])
         self.cli_bin, self.child_cli, self.mcp_bin = child_logging_bins(ctx, tmp)
@@ -1299,9 +1659,18 @@ class Engine:
         self.plumbing = set(w.url_vars) | set(w.host_vars)
         self.declared = declared_secrets(ctx.manifest, server)
         self.declared += [v for v in secret_env or [] if v not in self.declared]   # the kit's SecretEnv
+        # An identifier the connector declares (contract 1, with a reason) is
+        # not held: an env source leaves the secret rows for the 6.4 row.
+        ids = [i["source"] if isinstance(i, dict) else i for i in identifiers or []]
+        env_ids = [i[len("env:"):] for i in ids if i.startswith("env:")]
+        self.declared = [v for v in self.declared if v not in env_ids]
         self.seedable = [v for v in self.declared if v not in self.plumbing]
         self.identifiers = [k for k in self.env_keys if k not in self.declared and k not in self.plumbing
                             and w.env.get(k) and not k.endswith("_NO_CONFIG_WRITE")]
+        self.identifiers += [k for k in env_ids if k not in self.identifiers]
+        self.kit_decl = {**{k: list(v) for k, v in (lists or {}).items()},
+                         "SecretEnv": self.declared + env_ids, "ResponseFields": self.fields,
+                         "Identifiers": [{"Source": i, "Reason": "declared by the connector"} for i in ids]}
         all_reads = [lf for lf in ch.leaves(ctx.surface) if ch.runnable_read(lf)]
         self.se_reads = all_reads
         self.api_first = ([lf for lf in all_reads if lf.api_path] or all_reads)[:1]
@@ -1464,12 +1833,13 @@ class Engine:
             for v in self.seedable:
                 env.pop(v, None)
             hostport = url.split("://")[1]
+            user = "cu" + _rand(10)   # held as Basic auth's user part (contract 1): random, never a common token
             body = {
                 "config-auth-header": f'auth_header = "Bearer {cred}"\n',
                 "config-headers-auth": f'[headers]\nAuthorization = "Bearer {cred}"\n',
                 "config-headers-cookie": f'[headers]\nCookie = "session={cred}"\n',
-                "config-url-userinfo": f'base_url = "http://u:{urllib.parse.quote(cred, safe="")}@{hostport}"\n',
-                "config-url-userinfo-raw": f'base_url = "http://u:{cred}@{hostport}"\n',
+                "config-url-userinfo": f'base_url = "http://{user}:{urllib.parse.quote(cred, safe="")}@{hostport}"\n',
+                "config-url-userinfo-raw": f'base_url = "http://{user}:{cred}@{hostport}"\n',
                 "config-malformed": f'auth_header = "Bearer {cred}"\nbroken = [\n',
                 "config-multiline": f'auth_header = """Bearer {cred}"""\n',
                 "config-headers-cookie-escaped": 'headers = { Cookie = "session=' + "".join(f"\\U{ord(c):08X}" for c in cred) + '" }\n',
@@ -1490,25 +1860,11 @@ class Engine:
 
     # ---- process drivers --------------------------------------------------------
     def cli(self, args: list[str], env: dict) -> tuple[str, str]:
-        try:
-            p = subprocess.run([str(self.cli_bin)] + args, input="", capture_output=True,
-                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="surrogateescape")
-            return p.stdout or "", p.stderr or ""
-        except subprocess.TimeoutExpired as e:
-            return _s(e.stdout), _s(e.stderr) + TIMED_OUT
-        except OSError as e:
-            return "", f"<oserror {e}>"
+        return capture([str(self.cli_bin)] + args, b"", env)
 
     def mcp(self, msgs: list[dict], env: dict, args: list[str] | None = None) -> tuple[str, str]:
-        payload = "".join(json.dumps(m) + "\n" for m in msgs)
-        try:
-            p = subprocess.run([str(self.mcp_bin)] + (args or []), input=payload, capture_output=True,
-                               text=True, encoding="utf-8", env=env, timeout=RUN_TIMEOUT, errors="surrogateescape")
-            return p.stdout or "", p.stderr or ""
-        except subprocess.TimeoutExpired as e:
-            return _s(e.stdout), _s(e.stderr) + TIMED_OUT
-        except OSError as e:
-            return "", f"<oserror {e}>"
+        payload = "".join(json.dumps(m) + "\n" for m in msgs).encode()
+        return capture([str(self.mcp_bin)] + (args or []), payload, env)
 
     def leaves_for(self, case: dict) -> list:
         n = int(case.get("leaves", 1))
@@ -1546,7 +1902,7 @@ class Engine:
             elif src == "vendor-field-numeric":
                 creds = ["8642093"]
             elif src.startswith("vendor-field") or src == "set-cookie":
-                creds = ["cls-vend-" + _rand(10)]
+                creds = ["cv" + _rand(16)]   # no fixed prefix: a value never delivered cannot be guessed
             else:
                 creds = [make_cred(case.get("len", "long"))]
             cred = creds[0]
@@ -1646,18 +2002,26 @@ class Engine:
             # Acquired at run time (contract 1): every token the fake issued,
             # every Set-Cookie value and every declared response field value
             # it sent, whether or not a token was ever minted.
-            got = list(dict.fromkeys(issued + received(primary.served + second.served, self.fields)))
-            held = [] if (src == "each-ident" or (src == "vendor-field-numeric" and not num_declared)
-                          or (src == "minted" and cred not in got)) else list(creds)
-            held += [env[v] for v in self.declared if env.get(v) and env[v] not in held]
-            # A value acquired while running that occurs, as written, in the
-            # kit's public text (true, false, null, a protocol word) is
-            # recorded, not held (contract 2); one already held stays held.
-            fresh = [t for t in got if t not in held]
+            # The kit's own held set (contract 8): the environment and config
+            # the run was given, then every request sent and response
+            # received. A value that arrives in a response (a declared field,
+            # a Set-Cookie value) is held only through it: never when it was
+            # never delivered.
+            acq = kit_acquire(self.kit_decl, env, extra, written, [primary, second])
+            if acq["unknown"]:
+                res["where"].append("the kit could not read a declared credential source, so the held set "
+                                    "is unknown (contract 1: every unit withheld)")
+            arrives = src.startswith("vendor-field") or src == "set-cookie"
+            held = [] if (src == "each-ident" or arrives or (src == "minted" and cred not in issued)) else list(creds)
+            held += [v for v in acq["held"] if v not in held]
+            # A minted token is held like any value acquired while running:
+            # recorded, not held, when it occurs as written in public text.
+            fresh = [t for t in dict.fromkeys(issued + received_keys(primary.served + second.served, self.fields))
+                     if t not in held]
             public = kit_public(fresh)
             held += [t for t, pub in zip(fresh, public) if not pub]
-            if any(public):
-                res["recorded"] = sum(public)
+            if any(public) or acq["recorded"]:
+                res["recorded"] = sum(public) + acq["recorded"]
             # No piece is exempt (contract 2): a declared URL or host variable
             # gets an address of its own (base_env), so no unheld value the
             # harness gives the program shares a piece with a held one.
@@ -1678,6 +2042,8 @@ class Engine:
                 for rel, text, why in scan_files(h, written, runs):
                     texts.append(text or "")
                     how = why if text is None else judge(text, held)
+                    if how and DEAD in rel and "ran out of budget" in how:
+                        how = judge_windows(text, held)
                     if how:
                         sink = "argv the MCP server gave its CLI child" if rel == CHILD_LOG else f"{label}file {rel}"
                         res["where"].append(f"{sink}: {how}")
@@ -1810,6 +2176,86 @@ def _s(x) -> str:
     return x.decode("utf-8", "surrogateescape") if isinstance(x, bytes) else (x or "")
 
 
+class Stream(str):
+    """What a process wrote to stdout or stderr, byte for byte (read with
+    surrogateescape), with `writes`: its bytes cut where the pipe stayed
+    empty for PAUSE, the units the kit's pump checks one by one with the
+    stream's context (contract 3, Streams)."""
+    writes: list[bytes] = []
+
+
+# The kit's pump ends a unit when the pipe stays empty for 10 ms (unitIdle).
+# Half that here, so the list sees every boundary the kit would and more:
+# a boundary the kit would not see only adds a check.
+PAUSE = 0.005
+
+
+def _stream(chunks: list[bytes], extra: str = "") -> Stream:
+    out = Stream(b"".join(chunks).decode("utf-8", "surrogateescape") + extra)
+    out.writes = list(chunks)
+    return out
+
+
+def capture(argv: list[str], stdin: bytes, env: dict) -> tuple[Stream, Stream]:
+    """Run one process: stdin written, stdout and stderr read as bytes (no
+    newline translation) in the writes the kit's pump would check."""
+    try:
+        p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    except OSError as e:
+        return _stream([]), _stream([], f"<oserror {e}>")
+    outs: dict[int, list[bytes]] = {1: [], 2: []}
+
+    def read(fd: int, out: list[bytes]) -> None:
+        cur = bytearray()
+        while True:
+            t0 = time.monotonic()
+            b = os.read(fd, 1 << 16)
+            if time.monotonic() - t0 >= PAUSE and cur:
+                out.append(bytes(cur))   # the pipe was empty for a pause: the unit before it ended
+                cur = bytearray()
+            if not b:
+                break
+            cur += b
+        if cur:
+            out.append(bytes(cur))
+
+    def feed() -> None:
+        try:
+            p.stdin.write(stdin)
+        except OSError:
+            pass
+        finally:
+            try:
+                p.stdin.close()
+            except OSError:
+                pass
+
+    threads = [threading.Thread(target=read, args=(p.stdout.fileno(), outs[1]), daemon=True),
+               threading.Thread(target=read, args=(p.stderr.fileno(), outs[2]), daemon=True),
+               threading.Thread(target=feed, daemon=True)]
+    for t in threads:
+        t.start()
+    end = time.monotonic() + RUN_TIMEOUT
+    timed_out = False
+    try:
+        p.wait(timeout=RUN_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        p.kill()
+        p.wait()
+    for t in threads[:2]:
+        t.join(timeout=max(1.0, end - time.monotonic()))
+    if any(t.is_alive() for t in threads[:2]):
+        # A process it started still holds a pipe open: what it writes next
+        # is unknown, as at the timeout (the pipes stay open for its reader).
+        timed_out = True
+        p.kill()
+    else:
+        p.stdout.close()
+        p.stderr.close()
+    return _stream(list(outs[1])), _stream(list(outs[2]), TIMED_OUT if timed_out else "")
+
+
 def _call(mid, name: str, args: dict) -> dict:
     return {"jsonrpc": "2.0", "id": mid, "method": "tools/call", "params": {"name": name, "arguments": args}}
 
@@ -1871,11 +2317,12 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 
 def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: str | None = None,
               server: dict | None = None, fields: list[str] | None = None,
-              secret_env: list[str] | None = None) -> list[dict]:
-    kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else {}
+              secret_env: list[str] | None = None, identifiers: list | None = None) -> list[dict]:
+    kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
                  fields if fields is not None else kit["fields"],
-                 secret_env if secret_env is not None else kit["secret_env"])
+                 secret_env if secret_env is not None else kit["secret_env"],
+                 identifiers if identifiers is not None else kit["identifiers"], kit.get("lists"))
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -2370,6 +2817,14 @@ def _self_test_credmatch() -> bool:
     return ok
 
 
+# The leaky stand-in sends its key as "Bearer <key>", and the kit holds that
+# whole header value (contract 1, the kit's acquisition): the space before
+# the 7-character prefix it echoes makes an 8-character piece of it (2(b)),
+# so the 6.6 row fails on it. The 6.6 shape alone is proven ADVISORY in
+# _r2_advisory_scope.
+LEAKY_EXPECT = {"partial7-prefix": "FAIL"}
+
+
 def _self_test_standins() -> bool:
     ok = True
     cases = load_corpus()
@@ -2382,7 +2837,7 @@ def _self_test_standins() -> bool:
     for r in leaky:
         got.setdefault(r["case"], set()).add(r["verdict"])
     for c in cases:
-        want = "ADVISORY" if "advisory" in c else "FAIL"
+        want = LEAKY_EXPECT.get(c["id"]) or ("ADVISORY" if "advisory" in c else "FAIL")
         verdicts = got.get(c["id"], set())
         if c["id"] in LEAKY_LIMITS:
             if want in verdicts:
@@ -2860,7 +3315,7 @@ def _r2_response_fields() -> bool:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(body, encoding="utf-8")
             try:
-                return sorted(kit_declarations_in(Path(tmp))["fields"])
+                return sorted(kit_declarations_in(Path(tmp), ["."])["fields"])
             except ValueError as e:
                 return f"error: {e}"
 
@@ -3168,7 +3623,7 @@ def _r3_declarations() -> bool:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(body, encoding="utf-8")
             try:
-                d = kit_declarations_in(Path(tmp))
+                d = kit_declarations_in(Path(tmp), ["."])
                 return (sorted(d["fields"]), sorted(d["secret_env"]))
             except ValueError:
                 return "error"
@@ -3177,8 +3632,8 @@ def _r3_declarations() -> bool:
             ({"wire.go": imp + decl}, (["password"], ["ACME_X"]), "a literal of the kit's type"),
             ({"wire.go": 'package main\n\nimport ck "acme/internal/credkit"\n\n' + decl.replace("credkit.", "ck.")},
              (["password"], ["ACME_X"]), "the kit imported under another name"),
-            ({"wire.go": imp + 'var Ds = []credkit.Declarations{{ResponseFields: []string{"token"}}}\n'}, (["token"], []),
-             "an elided element of a slice of the kit's type"),
+            ({"wire.go": imp + 'var Ds = []credkit.Declarations{{ResponseFields: []string{"token"}}}\n'}, "error",
+             "an elided element of a slice of the kit's type (corpus4rv: only Start's argument counts)"),
             ({"x.go": 'package main\n\nvar x = []struct{ ResponseFields []string }{{ResponseFields: []string{"name"}}}\n'},
              ([], []), "an elided element of an unrelated struct (corpus3: not the kit's type)"),
             ({"x.go": 'package main\n\ntype T struct{ ResponseFields []string }\n\n'
@@ -3353,7 +3808,7 @@ def _c3_declarations() -> bool:
                 p.write_text(body, encoding="utf-8")
             try:
                 os.environ.update(env or {})
-                d = kit_declarations_in(Path(tmp))
+                d = kit_declarations_in(Path(tmp), ["."])
                 return (sorted(d["fields"]), sorted(d["secret_env"]))
             except ValueError:
                 return "error"
@@ -3373,7 +3828,7 @@ def _c3_declarations() -> bool:
             ({"main.go": imp + 'type D = credkit.Declarations\n\nvar d = D{ResponseFields: []string{"name"}}\n'},
              None, (["name"], []), "an alias of the kit's type, keyed"),
             ({"main.go": imp + 'const F = "token"\n\nvar d = []*credkit.Declarations{{ResponseFields: []string{F}}}\n'},
-             None, (["token"], []), "an elided element of a slice of pointers, a named constant"),
+             None, "error", "an elided element of a slice of pointers (corpus4rv: only Start's argument counts)"),
             ({"main.go": imp + 'type D credkit.Declarations\n\nvar d = D{ResponseFields: []string{"name"}}\n'},
              None, ([], []), "a literal of a type defined from the kit's type, never converted to it"),
             ({"main.go": imp + 'type D credkit.Declarations\n\n'
@@ -3439,6 +3894,184 @@ R3_PROBES = {"guard-engine-rebinding": lambda: True,   # in _self_test_guard and
              "response-field-declarations": _r3_declarations, "declared-secret-seeding": _r3_seeding,
              "held-set-runtime-tokens": _r3_held_runtime, "decoder-pieces": _r3_decoders,
              "sink-capture": _r3_sink_capture, "outbound-short-oracle": _r3_outbound_short}
+
+
+# --------------------------------------------------------------------------- #
+# corpus4rv: Codex round 1 of the pass (session round 3), one probe per
+# finding, each from the reviewer's own input, both directions where the
+# input allows one.
+# --------------------------------------------------------------------------- #
+
+
+def _c4_sink_capture() -> bool:
+    """Findings 1 to 4. The list judges what the kit would see: a SQLite
+    statement's bound values together (one table's rows joined), every byte of
+    a database file (trailing bytes, free pages), each pause-delimited write of
+    a stream with the stream's context, and stdout and stderr byte for byte."""
+    ok = True
+    key = 'os.environ.get("ACME_API_KEY", "")'
+    two_rows = ('import sqlite3, base64\ncall("GET", "/v1/items")\nb = base64.b64encode(' + key + '.encode()).decode()\n'
+                'db = sqlite3.connect(os.path.join(HOME, "c.db"))\ndb.execute("CREATE TABLE t (v TEXT)")\n'
+                'db.execute("INSERT INTO t(v) VALUES (?), (?)", (b[:len(b) // 2], b[len(b) // 2:]))\n'
+                'db.commit()\nprint("ok")\n')
+    tail = ('import sqlite3\ncall("GET", "/v1/items")\np = os.path.join(HOME, "c.db")\ndb = sqlite3.connect(p)\n'
+            'db.execute("CREATE TABLE t (v TEXT)")\ndb.execute("INSERT INTO t VALUES (\'clean\')")\ndb.commit()\n'
+            'db.close()\nopen(p, "ab").write(__TAIL__)\nsqlite3.connect(p).execute("SELECT * FROM t").fetchall()\n'
+            'print("ok")\n')
+    paused = ('import time\ncall("GET", "/v1/items")\nk = ' + key + '\nsys.stdout.write(__FIRST__)\nsys.stdout.flush()\n'
+              'time.sleep(0.3)\nsys.stdout.write(__REST__)\nsys.stdout.flush()\n')
+    ok &= _probes("sink capture (corpus4rv)", [
+        ("1: one INSERT of two rows whose values joined decode to the credential", "succ-jsonnum", "FAIL", dict(cli=two_rows)),
+        ("2: the credential appended after a clean SQLite database", "succ-raw", "FAIL",
+         dict(cli=tail.replace("__TAIL__", key + ".encode()"))),
+        ("2: clean bytes appended after a clean SQLite database", "succ-raw", "PASS",
+         dict(cli=tail.replace("__TAIL__", 'b"\\n"'))),
+        ("3: a short credential written whole, a pause, then a digit", "short6-raw", "FAIL",
+         dict(cli=paused.replace("__FIRST__", "k").replace("__REST__", '"7\\n"'))),
+        ("3: a short credential and a digit in one write", "short6-raw", "PASS",
+         dict(cli=paused.replace("__FIRST__", 'k + "7"').replace("__REST__", '"\\n"'))),
+    ])
+    # 4: stdout and stderr are captured byte for byte (no newline translation),
+    # and the bytes reach the matcher: math bold N in UTF-16 BE holds 0x0D.
+    with tempfile.TemporaryDirectory(prefix="corpus-c4-bytes-") as tmp:
+        held = "ABCNDEFG12345678"
+        bold = "".join(chr(0x1D400 + ord(c) - ord("A")) for c in held[:8])
+        cli = ('sys.stdout.buffer.write(bytes.fromhex("' + bold.encode("utf-16-be").hex() + '"))\n'
+               'sys.stderr.buffer.write(b"a\\rb\\r\\nc")\n')
+        eng = Engine(_fx(tmp, cli), tmp, {}, [], [])
+        so, se = eng.cli([], dict(os.environ))
+        if _raw(se) != b"a\rb\r\nc" or _raw(so) != bold.encode("utf-16-be"):
+            print(f"    corpus self-test: sink capture (corpus4rv): 4: capture changed the bytes: {_raw(so)!r} {_raw(se)!r}")
+            ok = False
+        if not judge(so, [held]):
+            print("    corpus self-test: sink capture (corpus4rv): 4: math bold in UTF-16 BE as captured was not withheld")
+            ok = False
+    return ok
+
+
+def _c4_held_set() -> bool:
+    """Findings 5 to 7, 8 and 9: the held set is the kit's own (contract 8):
+    what Start holds from the environment and the config file, and what the
+    kit's transport holds from every request sent and response received."""
+    ok = True
+    bearer = ('req = urllib.request.Request(BASE + "/v1/items", headers={"Authorization": "Bearer runtime-issued-secret-123456"})\n'
+              'OPENER.open(req, timeout=10).read()\nprint(__OUT__)\n')
+    hdr = 'st, hd, body = call("GET", "/v1/items")\nprint(hd.get("X-Request-Id", "")[:__N__])\n'
+    ok &= _probes("held set (corpus4rv)", [
+        ("5: a piece of a declared response header printed", "succ-header-echo", "FAIL",
+         dict(cli=hdr.replace("__N__", "8")), {"fields": ["X-Request-Id"], "secret_env": []}),
+        ("5: a 4-character piece of a declared response header printed", "succ-header-echo", "PASS",
+         dict(cli=hdr.replace("__N__", "4")), {"fields": ["X-Request-Id"], "secret_env": []}),
+        ("6: a bearer token the program sent, printed", "succ-raw", "FAIL",
+         dict(cli=bearer.replace("__OUT__", '"runtime-issued-secret-123456"'))),
+        ("6: a bearer token the program sent, never printed", "succ-raw", "PASS",
+         dict(cli=bearer.replace("__OUT__", '"ok"'))),
+        ("7: a declared field's value never delivered, its harness prefix printed", "vendor-field-echo", "NOTE",
+         dict(cli='print("cls-vend")\n'), ["password"]),
+        ("8: an 8-character piece of the whole auth_header value printed", "cfg-auth-header", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint("Bearer c" + "ls")\n')),
+        ("8: the scheme word alone printed", "cfg-auth-header", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint("Bearer")\n')),
+    ])
+    ident = dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_CLIENT_ID", ""))\n',
+                 env={"ACME_CLIENT_ID": "${user_config.client_id}"}, sensitive={"client_id": True})
+    for ids, want, why in (([{"source": "env:ACME_CLIENT_ID", "reason": "public tenant identifier"}],
+                            {"each-env-var[ACME_CLIENT_ID]": None, "each-identifier-var[ACME_CLIENT_ID]": "ADVISORY"},
+                            "9: a declared identifier printed (no gated row; the 6.4 row reports it)"),
+                           ([], {"each-env-var[ACME_CLIENT_ID]": "FAIL", "each-identifier-var[ACME_CLIENT_ID]": None},
+                            "9: the same variable without the identifier declaration, printed")):
+        with tempfile.TemporaryDirectory(prefix="corpus-c4-") as tmp:
+            res = run_cases(_fx(tmp, **ident), tmp, only=["each-env-var", "each-identifier-var"], server={},
+                            fields=[], secret_env=["ACME_CLIENT_ID"], identifiers=ids)
+        got = {r["id"]: r["verdict"] for r in res}
+        if any(got.get(k) != v for k, v in want.items()):
+            print(f"    corpus self-test: held set (corpus4rv): {why}: want {want}, got {got}")
+            ok = False
+    return ok
+
+
+def _c4_declarations() -> bool:
+    """Findings 9 to 13: the reader reads the identifiers; a Declarations value
+    used anywhere but as the kit's Start argument fails closed; only packages
+    the two binaries link are read; an overlay fails closed; constants are
+    sized for the target GOARCH."""
+    ok = True
+    kit = {"go.mod": "module acme\n\ngo 1.22\n",
+           "internal/credkit/kit.go": ("package credkit\n\ntype Source = string\n\n"
+                                       "type Identifier struct {\n\tSource Source\n\tReason string\n}\n\n"
+                                       "type Declarations struct {\n\tSecretEnv, ResponseFields []string\n"
+                                       "\tIdentifiers []Identifier\n}\n\nfunc Start(d Declarations) {}\n")}
+    hdr = 'package main\n\nimport "acme/internal/credkit"\n\n'
+
+    def read(files: dict[str, str], env: dict | None = None, targets: list[str] | None = None):
+        saved = {k: os.environ.get(k) for k in (env or {})}
+        with tempfile.TemporaryDirectory(prefix="corpus-c4-go-") as tmp:
+            tmp = os.path.realpath(tmp)
+            env = {k: v.replace("@TMP@", tmp) for k, v in (env or {}).items()}
+            for rel, body in {**kit, **files}.items():
+                q = Path(tmp) / rel
+                q.parent.mkdir(parents=True, exist_ok=True)
+                q.write_text(body.replace("@TMP@", tmp), encoding="utf-8")
+            try:
+                os.environ.update(env or {})
+                d = kit_declarations_in(Path(tmp), targets or ["."])
+                return (sorted(d["fields"]), sorted(d["secret_env"]), sorted(d.get("identifiers", [])))
+            except ValueError:
+                return "error"
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+    start = 'func main() { credkit.Start(d) }\n\n'
+    for files, env, want, why in (
+            ({"main.go": hdr + start + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_CLIENT_ID"}, '
+                                       'Identifiers: []credkit.Identifier{{Source: "env:ACME_CLIENT_ID", '
+                                       'Reason: "public tenant identifier"}}}\n'},
+             None, ([], ["ACME_CLIENT_ID"], ["env:ACME_CLIENT_ID"]), "9: the identifiers are read"),
+            ({"main.go": hdr.replace('import "acme', 'import (\n\t"encoding/json"\n\n\t"acme').replace(
+                '/credkit"\n', '/credkit"\n)\n', 1) + start + 'var d = credkit.Declarations{}\n\n'
+                'func init() { _ = json.Unmarshal([]byte(`{"ResponseFields":["password"]}`), &d) }\n'},
+             None, "error", "10: a declaration filled by json.Unmarshal through its address"),
+            ({"main.go": hdr + 'func main() { credkit.Start(credkit.Declarations{SecretEnv: []string{"ACME_X"}}) }\n'},
+             None, ([], ["ACME_X"], []), "10: a literal passed straight to Start"),
+            ({"main.go": hdr.replace('import "acme/internal/credkit"', 'import (\n\t"acme/internal/credkit"\n\t'
+                                                                        '"acme/internal/wiring"\n)') +
+              'func main() { credkit.Start(wiring.D) }\n',
+              "cmd/acme-mcp/main.go": hdr.replace('import "acme/internal/credkit"', 'import (\n\t"acme/internal/credkit"\n\t'
+                                                                                    '"acme/internal/wiring"\n)') +
+              'func main() { credkit.Start(wiring.D) }\n',
+              "internal/wiring/wiring.go": 'package wiring\n\nimport "acme/internal/credkit"\n\n'
+                                          'var D = credkit.Declarations{SecretEnv: []string{"ACME_X"}, '
+                                          'ResponseFields: []string{"token"}}\n'},
+             None, (["token"], ["ACME_X"], []), "the documented pattern: a wiring package, Start(wiring.D) in each main"),
+            ({"main.go": hdr + 'type cfg struct{ D credkit.Declarations }\n\nvar c = cfg{D: credkit.Declarations{}}\n\n'
+                               'func main() { credkit.Start(c.D) }\n'},
+             None, "error", "10: a Declarations value kept in a struct field"),
+            ({"main.go": "package main\n\nfunc main() {}\n",
+              "internal/tool/tool.go": 'package tool\n\nimport "acme/internal/credkit"\n\n'
+                                     'func Run() { credkit.Start(credkit.Declarations{SecretEnv: []string{"ACME_PUBLIC_LABEL"}}) }\n'},
+             None, ([], [], []), "11: a declaration in a package neither binary links"),
+            ({"main.go": hdr + start + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_PUBLIC"}}\n',
+              "ov/main.txt": hdr + start + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_PRIVATE"}}\n',
+              "overlay.json": '{"Replace": {"@TMP@/main.go": "@TMP@/ov/main.txt"}}\n'},
+             {"GOFLAGS": "-overlay=@TMP@/overlay.json"}, "error", "12: an overlay in GOFLAGS"),
+            ({"main.go": hdr.replace('import "acme', 'import (\n\t"unsafe"\n\n\t"acme').replace(
+                '/credkit"\n', '/credkit"\n)\n', 1) + start +
+                'const K = "ACME_" + string(rune(\'A\' + unsafe.Sizeof(uintptr(0))))\n\n'
+                'var d = credkit.Declarations{SecretEnv: []string{K}}\n'},
+             {"GOOS": "linux", "GOARCH": "386"}, ([], ["ACME_E"], []), "13: a constant sized for GOARCH=386")):
+        got = read(files, env)
+        if got != want:
+            print(f"    corpus self-test: declarations (corpus4rv): {why}: want {want}, got {got}")
+            ok = False
+    return ok
+
+
+C4_PROBES = {"sink-capture": _c4_sink_capture, "held-set-runtime-tokens": _c4_held_set,
+             "response-field-declarations": _c4_declarations}
 
 
 def _self_test_guard() -> bool:
@@ -3621,7 +4254,7 @@ def self_test() -> bool:
                      ("success HOME", _self_test_success_home), ("guard", _self_test_guard),
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
-                     *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(),
+                     *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed

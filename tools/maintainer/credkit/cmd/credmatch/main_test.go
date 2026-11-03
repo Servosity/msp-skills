@@ -88,3 +88,61 @@ func TestUnreadableLineFails(t *testing.T) {
 		}
 	}
 }
+
+func TestStreamWrites(t *testing.T) {
+	stream := func(units ...string) string {
+		us := make([]string, len(units))
+		for i, u := range units {
+			us[i] = b64(u)
+		}
+		b, _ := json.Marshal(request{Held: []string{b64("482913")}, Unit: b64(strings.Join(units, "")), Units: us})
+		return string(b)
+	}
+	got, err := ask(t, stream("482913", "7\n"), stream("4829137\n"), stream("a ", "b\n"))
+	if err != nil || len(got) != 3 || got[0].Verdict != "leak" || got[1].Verdict != "clean" || got[2].Verdict != "clean" {
+		t.Fatalf("a short value whole at the end of one write must be withheld, the same bytes in one write must not: %v %v", got, err)
+	}
+}
+
+func TestAcquire(t *testing.T) {
+	q := acquire{Env: []string{b64("ACME_API_KEY=clsKenvValue123456"), b64("ACME_CLIENT_ID=tenant-public-123")},
+		Decl: credkitDecl()}
+	add := func(resp bool, url string, hdr [][2]string, body string) {
+		h := make([][2]string, len(hdr))
+		for i, p := range hdr {
+			h[i] = [2]string{b64(p[0]), b64(p[1])}
+		}
+		q.Exchanges = append(q.Exchanges, struct {
+			Response bool        `json:"response"`
+			Method   string      `json:"method"`
+			URL      string      `json:"url"`
+			Header   [][2]string `json:"header"`
+			Trailer  [][2]string `json:"trailer"`
+			Body     string      `json:"body"`
+		}{Response: resp, Method: "GET", URL: url, Header: h, Body: b64(body)})
+	}
+	add(false, "http://127.0.0.1:1/v1/items", [][2]string{{"Authorization", "Bearer runtime-issued-secret-123456"}}, "")
+	add(true, "http://127.0.0.1:1/v1/items", [][2]string{{"X-Request-Id", "req-clsKheaderValue98765"},
+		{"Set-Cookie", "sid=cookieValue-4242; Path=/"}}, `{"password":"clsKbodyValue55555","name":"printer"}`)
+	b, _ := json.Marshal(request{Acquire: &q})
+	got, err := ask(t, string(b))
+	if err != nil || len(got) != 1 || got[0].Verdict != "held" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	var held []string
+	for _, h := range got[0].Held {
+		v, _ := base64.StdEncoding.DecodeString(h)
+		held = append(held, string(v))
+	}
+	for _, want := range []string{"clsKenvValue123456", "runtime-issued-secret-123456", "Bearer runtime-issued-secret-123456",
+		"req-clsKheaderValue98765", "cookieValue-4242", "clsKbodyValue55555"} {
+		if !slices.Contains(held, want) {
+			t.Errorf("not held: %q (held %q)", want, held)
+		}
+	}
+	for _, not := range []string{"tenant-public-123", "printer"} {
+		if slices.Contains(held, not) {
+			t.Errorf("held, but an identifier or an undeclared field: %q", not)
+		}
+	}
+}
