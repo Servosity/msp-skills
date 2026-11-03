@@ -65,7 +65,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sophos-central-mcp runs, and shares MCP configuration with Codex: add sophos-central-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sophos-central-mcp runs, and shares MCP configuration with Codex: add sophos-central-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see Remote agents in the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -108,7 +108,7 @@
       "a": "No. The dashboard stays best for policy authoring, investigations and day-to-day console work. This skill answers the across-every-customer questions and runs scripted actions from your AI agent."
     }
   ],
-  "governance_summary": "The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only. contain and fleet tamper preview by default and act only with --yes, which the MCP server never passes; the MCP server's generic execute tool can still call any write endpoint except the six that return a password or token, so set SOPHOS_CENTRAL_MCP_READ_ONLY=1 for an agent that should only read.",
+  "governance_summary": "The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that reach a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only; the CLI withholds both secrets from its output, so read them in the Sophos Central console. contain and fleet tamper preview by default and act only with --yes, which the MCP server never passes; the MCP server's generic execute tool can still call any write endpoint except the six that return a password or token, so set SOPHOS_CENTRAL_MCP_READ_ONLY=1 for an agent that should only read.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -132,7 +132,7 @@
     },
     {
       "tier": "Credential and access",
-      "examples": "endpoints get-tamper-protection and endpoints set-tamper-protection (return the tamper password); migrations get-job, get-jobs, create-receiving-job (return the migration token); auth login; partner-admins create; admins create-role-assignment; roles create-tenant",
+      "examples": "endpoints get-tamper-protection and endpoints set-tamper-protection (reach the tamper password, which the CLI withholds); migrations get-job, get-jobs, create-receiving-job (reach the migration token, also withheld); auth login; partner-admins create; admins create-role-assignment; roles create-tenant",
       "policy": "Human-in-the-loop only"
     },
     {

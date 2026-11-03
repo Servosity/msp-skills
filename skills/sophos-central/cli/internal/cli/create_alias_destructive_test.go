@@ -22,6 +22,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"alerts", "act-on"},
 		{"blocked-addresses", "delete-blocked-address-sets"},
 		{"endpoints", "bulk-delete"},
+		{"endpoints", "bulk-isolate"},
 		{"health-check", "post-snooze"},
 		{"migrations", "create-receiving-job"},
 		{"software", "add-special-static-package"},

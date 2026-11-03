@@ -72,6 +72,12 @@
           "default": "1"
         },
         {
+          "name": "SOPHOS_CENTRAL_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync and fleet refresh refuse to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "SOPHOS_CENTRAL_MCP_HTTP_TOKEN",
           "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
           "isRequired": false,

@@ -51,12 +51,12 @@ func newDeviceSoftwarePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			if (cmd.Flags().Changed("computer-encryption-assigned-id") || bodyComputerEncryptionAssignedId != "") || (cmd.Flags().Changed("computer-ids") || bodyComputerIds != "") || (cmd.Flags().Changed("computer-protection-assigned-id") || bodyComputerProtectionAssignedId != "") || (cmd.Flags().Changed("computer-ztna-assigned-id") || bodyComputerZtnaAssignedId != "") {
 				if !cmd.Flags().Changed("computer-ids") && bodyComputerIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "computer-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "computer-ids"))
 				}
 			}
 			if (cmd.Flags().Changed("server-encryption-assigned-id") || bodyServerEncryptionAssignedId != "") || (cmd.Flags().Changed("server-ids") || bodyServerIds != "") || (cmd.Flags().Changed("server-protection-assigned-id") || bodyServerProtectionAssignedId != "") || (cmd.Flags().Changed("server-ztna-assigned-id") || bodyServerZtnaAssignedId != "") {
 				if !cmd.Flags().Changed("server-ids") && bodyServerIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "server-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "server-ids"))
 				}
 			}
 			c, err := flags.newClient()
@@ -149,6 +149,9 @@ func newDeviceSoftwarePromotedCmd(flags *rootFlags) *cobra.Command {
 			// opt out of the auto-JSON path so piped consumers that asked for a
 			// non-JSON format reach the standard pipeline below.
 			if flags.asJSON || (!isTerminal(cmd.OutOrStdout()) && !flags.csv && !flags.quiet && !flags.plain) {
+				// --select and --compact can drop the transport sentinel.
+				// Read it before those filters so a verify noop is not stamped as a completed preview.
+				verifyNoop := isVerifySyntheticResponse(data)
 				var selectErr error
 				filtered := data
 				if flags.selectFields != "" {
@@ -168,7 +171,7 @@ func newDeviceSoftwarePromotedCmd(flags *rootFlags) *cobra.Command {
 				// Stamp after provenance and platform wrapping so those wrappers
 				// cannot hide dry_run and action under results.
 				if flags.dryRun {
-					stamped, stampErr := stampDryRunEnvelope(wrapped, "patch")
+					stamped, stampErr := stampDryRunEnvelope(wrapped, "patch", verifyNoop)
 					if stampErr != nil {
 						return stampErr
 					}

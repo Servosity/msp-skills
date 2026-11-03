@@ -52,10 +52,10 @@ func newBillingPromotedCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("month") && flagMonth == 0 && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "month")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "month"))
 			}
 			if !cmd.Flags().Changed("year") && flagYear == 0 && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "year")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "year"))
 			}
 			c, err := flags.newClient()
 			if err != nil {

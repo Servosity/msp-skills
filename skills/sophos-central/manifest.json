@@ -22,6 +22,7 @@
         "SOPHOS_CENTRAL_TOKEN_URL": "${user_config.sophos_central_token_url}",
         "SOPHOS_CENTRAL_OAUTH_SCOPE": "${user_config.sophos_central_oauth_scope}",
         "SOPHOS_CENTRAL_MCP_READ_ONLY": "${user_config.sophos_central_mcp_read_only}",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "${user_config.sophos_central_no_local_data}",
         "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "${user_config.sophos_central_mcp_http_token}",
         "SOPHOS_CENTRAL_USER_AGENT": "${user_config.sophos_central_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
@@ -99,6 +100,13 @@
       "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
       "required": false,
       "sensitive": true
+    },
+    "sophos_central_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync and fleet refresh refuse to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -109,11 +117,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T03:57:14.749888Z",
-    "spec_checksum": "sha256:372391f51256c468dd6d60f5d37a7a10f210fa617bcfb127adac8c6f1e8d23ef",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-03T03:13:46.834339Z",
+    "spec_checksum": "sha256:b0ec5c2fa31d5cd8830c22872fe733f20959506b8a12b290a3d49da4fe0f0a5c",
     "spec_format": "openapi3"
   }
 }

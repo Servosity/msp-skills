@@ -37,7 +37,7 @@ func newPartnerRolesGetRolePermissionSetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			if cmd.Flags().Changed("product") {
@@ -50,7 +50,7 @@ func newPartnerRolesGetRolePermissionSetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProduct {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProduct, "product", allowedProduct)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProduct, "product", allowedProduct))
 				}
 			}
 			if cmd.Flags().Changed("access") {
@@ -63,7 +63,7 @@ func newPartnerRolesGetRolePermissionSetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAccess {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccess, "access", allowedAccess)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccess, "access", allowedAccess))
 				}
 			}
 			if cmd.Flags().Changed("principal-type") {
@@ -76,7 +76,7 @@ func newPartnerRolesGetRolePermissionSetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPrincipalType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPrincipalType, "principal-type", allowedPrincipalType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPrincipalType, "principal-type", allowedPrincipalType))
 				}
 			}
 			path := "/partner/v1/roles/permission-sets"

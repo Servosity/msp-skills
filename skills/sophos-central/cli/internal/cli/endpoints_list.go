@@ -69,7 +69,7 @@ func newEndpointsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validIsolationStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagIsolationStatus, "isolation-status", allowedIsolationStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagIsolationStatus, "isolation-status", allowedIsolationStatus))
 				}
 			}
 			if cmd.Flags().Changed("view") {
@@ -82,7 +82,7 @@ func newEndpointsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validView {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView))
 				}
 			}
 			path := "/endpoint/v1/endpoints"

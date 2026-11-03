@@ -53,7 +53,7 @@ func newAuditEventsPromotedCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("start-date") && flagStartDate == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "start-date")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "start-date"))
 			}
 			c, err := flags.newClient()
 			if err != nil {

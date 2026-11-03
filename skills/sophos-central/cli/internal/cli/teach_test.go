@@ -20,7 +20,7 @@ import (
 	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/cliutil/testenv"
 	"sophos-central-pp-cli/internal/learn"
-
+	"sophos-central-pp-cli/internal/learn/entities"
 	"sophos-central-pp-cli/internal/store"
 )
 
@@ -676,6 +676,7 @@ func TestTeachRecall_IdentifierOnlyFindsRow(t *testing.T) {
 // Defense: assert the per-CLI entity Config the tests use is non-nil
 // by referencing the package so the unused-import lint doesn't fire
 // when the suite shrinks.
+var _ = entities.NewConfig
 
 // TestTeachCommand_IntegratedPlaybookFile covers R3: a single
 // `teach --query --resource --playbook-file --playbook-notes-file`

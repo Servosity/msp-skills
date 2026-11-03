@@ -418,6 +418,9 @@ var writeThroughNestedEnvelopeKeys = []string{"data", "Data", "result", "Result"
 // FTS search covers everything the user has looked up — not just explicit syncs.
 // Best-effort: failures are silently ignored (the live result already succeeded).
 func writeThroughCache(ctx context.Context, resourceType string, data json.RawMessage) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("sophos-central-cli"))
 	if err != nil {
 		return
@@ -652,6 +655,9 @@ func isRawJSONNull(raw json.RawMessage) bool {
 }
 
 func writeMutationResponseToStore(ctx context.Context, resourceType string, data json.RawMessage, responsePath string) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("sophos-central-cli"))
 	if err != nil {
 		return
@@ -670,57 +676,57 @@ func writeMutationResponseToStore(ctx context.Context, resourceType string, data
 // Name). A lowercase kebab-case key is stored unchanged; snake_case is not
 // that name.
 var syncOwnedPartitions = map[string]struct{}{
-	"admins":                               {},
-	"alerts":                               {},
-	"allowed_items":                        {},
-	"audit_events":                         {},
-	"blocked_addresses":                    {},
-	"blocked_items":                        {},
-	"endpoint_groups":                      {},
-	"endpoints":                            {},
-	"enrichment_pivots":                    {},
-	"exclusions":                           {},
-	"exclusions-isolation":                 {},
-	"exclusions-scanning":                  {},
-	"exploit_mitigation":                   {},
-	"exploit_mitigation-categories":        {},
-	"exploit_mitigation-detected-exploits": {},
-	"health_check":                         {},
-	"health_check-regional":                {},
-	"installers":                           {},
-	"licenses":                             {},
-	"licenses-v1-licenses-firewalls":       {},
-	"live_discover":                        {},
-	"live_discover-categories":             {},
-	"live_discover-queries":                {},
-	"migrations":                           {},
-	"org_admins":                           {},
-	"org_roles":                            {},
-	"org_roles-roles":                      {},
-	"org_tenants":                          {},
-	"partner_admins":                       {},
-	"partner_roles":                        {},
-	"partner_roles-permission-sets":        {},
-	"peripherals":                          {},
-	"policies":                             {},
-	"policies-settings":                    {},
-	"provisioning":                         {},
-	"provisioning-default-products":        {},
-	"roles":                                {},
-	"siem":                                 {},
-	"software":                             {},
-	"software-packages-recommended":        {},
-	"software-packages-static":             {},
-	"tenants":                              {},
-	"user_groups":                          {},
-	"users":                                {},
-	"web_control":                          {},
-	"web_control-categories":               {},
-	"web_control-excluded-websites":        {},
-	"web_control-local-sites":              {},
-	"xdr":                                  {},
-	"xdr-categories":                       {},
-	"xdr-queries":                          {},
+	"admins":                                {},
+	"alerts":                                {},
+	"allowed_items":                         {},
+	"audit_events":                          {},
+	"blocked_addresses":                     {},
+	"blocked_items":                         {},
+	"common_v1_directory_users_groups":      {},
+	"endpoint_groups":                       {},
+	"endpoints":                             {},
+	"enrichment_pivots":                     {},
+	"exclusions":                            {},
+	"exclusions-isolation":                  {},
+	"exclusions-scanning":                   {},
+	"exploit_mitigation":                    {},
+	"exploit_mitigation-categories":         {},
+	"exploit_mitigation-detected-exploits":  {},
+	"health_check":                          {},
+	"installers":                            {},
+	"licenses":                              {},
+	"licenses-v1-licenses-firewalls":        {},
+	"live_discover":                         {},
+	"live_discover-categories":              {},
+	"live_discover-queries":                 {},
+	"migrations":                            {},
+	"org_admins":                            {},
+	"org_roles":                             {},
+	"org_roles-roles":                       {},
+	"org_tenants":                           {},
+	"partner_admins":                        {},
+	"partner_roles":                         {},
+	"partner_roles-permission-sets":         {},
+	"partner_v1_tenants_account_amendments": {},
+	"peripherals":                           {},
+	"policies":                              {},
+	"policies-settings":                     {},
+	"provisioning":                          {},
+	"provisioning-default-products":         {},
+	"roles":                                 {},
+	"siem":                                  {},
+	"software":                              {},
+	"software-packages-recommended":         {},
+	"software-packages-static":              {},
+	"tenants":                               {},
+	"user_groups":                           {},
+	"users":                                 {},
+	"web_control":                           {},
+	"web_control-excluded-websites":         {},
+	"web_control-local-sites":               {},
+	"xdr":                                   {},
+	"xdr-categories":                        {},
+	"xdr-queries":                           {},
 }
 
 // Sync upserts the profiler resource name, so a lowercase kebab-case key stays

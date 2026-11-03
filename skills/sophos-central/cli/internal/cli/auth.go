@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"sophos-central-pp-cli/internal/client"
 	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/config"
 )
@@ -96,9 +97,13 @@ Credentials default to SOPHOS_CENTRAL_CLIENT_ID (Client ID) and SOPHOS_CENTRAL_C
 				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
 				return nil
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
+			tokenHTTP, err := flags.oauthHTTPClient(cfg)
 			if err != nil {
-				return authErr(err)
+				return err
+			}
+			tok, err := mintClientCredentialsToken(tokenHTTP, tokenURL, clientID, clientSecret)
+			if err != nil {
+				return authTransportErr(err)
 			}
 
 			cfg.AuthHeaderVal = ""
@@ -168,13 +173,17 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if scope := resolveClientCredentialsScope(); scope != "" {
 		form.Set("scope", scope)
 	}
-	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(cliutil.TokenForm(form)))
 	if err != nil {
 		return nil, fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
 	// HAND-FIX(sophos-token-form-auth): no SetBasicAuth; credentials ride in the form.
+	req, err = client.GuardTokenRequest(httpClient, req, []byte(cliutil.TokenForm(form)))
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
@@ -184,7 +193,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret})))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
@@ -193,6 +202,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	cliutil.Hold("minted:access_token", tok.AccessToken) // Hand-fix (handfixes.json credkit-wiring)
 	return &tok, nil
 }
 
@@ -253,8 +263,8 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Mint a token:")
-				fmt.Fprintln(w, "  export SOPHOS_CENTRAL_CLIENT_ID=\"<client-id>\"")
-				fmt.Fprintln(w, "  export SOPHOS_CENTRAL_CLIENT_SECRET=\"<client-secret>\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "SOPHOS_CENTRAL_CLIENT_ID", "<client-id>"))
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "SOPHOS_CENTRAL_CLIENT_SECRET", "<client-secret>"))
 				fmt.Fprintf(w, "  sophos-central-cli auth login\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}

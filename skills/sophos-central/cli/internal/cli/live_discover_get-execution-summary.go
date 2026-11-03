@@ -52,7 +52,7 @@ func newLiveDiscoverGetExecutionSummaryCmd(flags *rootFlags) *cobra.Command {
 				path = appendArrayQueryParam(path, "fields", flagFields, "form", false)
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "live_discover", false, path, params, nil, "variables", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "live_discover", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newLiveDiscoverGetExecutionSummaryCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"name": true})
+					filtered = compactFields(filtered, map[string]bool{"createdAt": true, "finishedAt": true, "id": true, "name": true, "resultCount": true, "status": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newLiveDiscoverGetExecutionSummaryCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"createdAt": true, "finishedAt": true, "id": true, "name": true, "resultCount": true, "status": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagFields, "fields", "", "The fields to return in a partial response.")

@@ -93,6 +93,21 @@ type AlertsActOnResponse struct {
 	Status      string `json:"status"`
 }
 
+type AlertsGetResponse struct {
+	AllowedActions json.RawMessage `json:"allowedActions"`
+	Category       string          `json:"category"`
+	Description    string          `json:"description"`
+	GroupKey       string          `json:"groupKey"`
+	Id             string          `json:"id"`
+	ManagedAgent   json.RawMessage `json:"managedAgent"`
+	Person         json.RawMessage `json:"person"`
+	Product        string          `json:"product"`
+	RaisedAt       string          `json:"raisedAt"`
+	Severity       string          `json:"severity"`
+	Tenant         json.RawMessage `json:"tenant"`
+	Type           string          `json:"type"`
+}
+
 type AlertsListItem struct {
 	AllowedActions json.RawMessage `json:"allowedActions"`
 	Category       string          `json:"category"`
@@ -315,9 +330,9 @@ type EndpointCoreEventCertificate struct {
 	Thumbprint string `json:"thumbprint"`
 }
 
-type EndpointGroupsAddMultipleEndpointsToGroupItem struct {
-	Hostname string `json:"hostname"`
-	Id       string `json:"id"`
+type EndpointGroupsAddMultipleEndpointsToGroupResponse struct {
+	AddedEndpoints json.RawMessage `json:"addedEndpoints"`
+	Errors         json.RawMessage `json:"errors"`
 }
 
 type EndpointGroupsCreateTenantResponse struct {
@@ -410,9 +425,9 @@ type EndpointGroupsPatchTenantResponse struct {
 	UpdatedAt   string          `json:"updatedAt"`
 }
 
-type EndpointGroupsRemoveMultipleEndpointsFromGroupItem struct {
-	Hostname string `json:"hostname"`
-	Id       string `json:"id"`
+type EndpointGroupsRemoveMultipleEndpointsFromGroupResponse struct {
+	Errors           json.RawMessage `json:"errors"`
+	RemovedEndpoints json.RawMessage `json:"removedEndpoints"`
 }
 
 type EndpointGroupsRemoveSingleEndpointFromGroupResponse struct {
@@ -519,9 +534,10 @@ type EndpointsGetResponse struct {
 	Type                      string          `json:"type"`
 }
 
-type EndpointsGetTamperProtectionItem struct {
-	InvalidatedAt string `json:"invalidatedAt"`
-	Password      string `json:"password"`
+type EndpointsGetTamperProtectionResponse struct {
+	Enabled           bool            `json:"enabled"`
+	Password          string          `json:"password"`
+	PreviousPasswords json.RawMessage `json:"previousPasswords"`
 }
 
 type EndpointsListItem struct {
@@ -570,9 +586,10 @@ type EndpointsSetIsolationResponse struct {
 	LastEnabledBy  json.RawMessage `json:"lastEnabledBy"`
 }
 
-type EndpointsSetTamperProtectionItem struct {
-	InvalidatedAt string `json:"invalidatedAt"`
-	Password      string `json:"password"`
+type EndpointsSetTamperProtectionResponse struct {
+	Enabled           bool            `json:"enabled"`
+	Password          string          `json:"password"`
+	PreviousPasswords json.RawMessage `json:"previousPasswords"`
 }
 
 type EndpointsUpdateAapResponse struct {
@@ -787,8 +804,26 @@ type ExclusionsUpdateScanningByIdResponse struct {
 	Value                   string `json:"value"`
 }
 
+type ExploitMitigationAddApplicationResponse struct {
+	Category      string          `json:"category"`
+	Id            string          `json:"id"`
+	Modifications json.RawMessage `json:"modifications"`
+	Name          string          `json:"name"`
+	Paths         json.RawMessage `json:"paths"`
+	Type          string          `json:"type"`
+}
+
 type ExploitMitigationDeleteApplicationByIdResponse struct {
 	Deleted bool `json:"deleted"`
+}
+
+type ExploitMitigationGetApplicationByIdResponse struct {
+	Category      string          `json:"category"`
+	Id            string          `json:"id"`
+	Modifications json.RawMessage `json:"modifications"`
+	Name          string          `json:"name"`
+	Paths         json.RawMessage `json:"paths"`
+	Type          string          `json:"type"`
 }
 
 type ExploitMitigationGetApplicationsItem struct {
@@ -828,12 +863,18 @@ type ExploitMitigationGetDetectedExploitsItem struct {
 	Thumbprint   string          `json:"thumbprint"`
 }
 
-type HealthCheckGetHistoricalScoresItem struct {
-	ComputerTotal int             `json:"computerTotal"`
-	Date          string          `json:"date"`
-	Endpoint      json.RawMessage `json:"endpoint"`
-	NetworkDevice json.RawMessage `json:"networkDevice"`
-	ServerTotal   int             `json:"serverTotal"`
+type ExploitMitigationPatchApplicationByIdResponse struct {
+	Category      string          `json:"category"`
+	Id            string          `json:"id"`
+	Modifications json.RawMessage `json:"modifications"`
+	Name          string          `json:"name"`
+	Paths         json.RawMessage `json:"paths"`
+	Type          string          `json:"type"`
+}
+
+type HealthCheckGetHistoricalScoresResponse struct {
+	Datapoints json.RawMessage `json:"datapoints"`
+	Tenant     json.RawMessage `json:"tenant"`
 }
 
 type HealthCheckGetRegionalScoresItem struct {
@@ -911,17 +952,11 @@ type LicensesListFirewallItem struct {
 	Tenant        json.RawMessage `json:"tenant"`
 }
 
-type LicensesListItem struct {
-	EndDate           string          `json:"endDate"`
-	Id                string          `json:"id"`
-	LicenseIdentifier string          `json:"licenseIdentifier"`
-	Perpetual         bool            `json:"perpetual"`
-	Product           json.RawMessage `json:"product"`
-	Quantity          int             `json:"quantity"`
-	StartDate         string          `json:"startDate"`
-	Type              string          `json:"type"`
-	Unlimited         bool            `json:"unlimited"`
-	Usage             json.RawMessage `json:"usage"`
+type LicensesListResponse struct {
+	Licenses     json.RawMessage `json:"licenses"`
+	Organization json.RawMessage `json:"organization"`
+	Partner      json.RawMessage `json:"partner"`
+	Tenant       json.RawMessage `json:"tenant"`
 }
 
 type LiveDiscoverGetCategoryResponse struct {
@@ -961,11 +996,24 @@ type LiveDiscoverGetExecutionResultsByIdItem struct {
 	Hostname   string `json:"hostname"`
 }
 
-type LiveDiscoverGetExecutionSummaryItem struct {
-	DataType  string `json:"dataType"`
-	Name      string `json:"name"`
-	PivotType string `json:"pivotType"`
-	Value     string `json:"value"`
+type LiveDiscoverGetExecutionSummaryResponse struct {
+	Category               json.RawMessage `json:"category"`
+	CreatedAt              string          `json:"createdAt"`
+	CreatedBy              json.RawMessage `json:"createdBy"`
+	EndpointCounts         json.RawMessage `json:"endpointCounts"`
+	FinishedAt             string          `json:"finishedAt"`
+	Id                     string          `json:"id"`
+	MatchEndpoints         json.RawMessage `json:"matchEndpoints"`
+	MaxDurationInSeconds   int             `json:"maxDurationInSeconds"`
+	Name                   string          `json:"name"`
+	Performance            json.RawMessage `json:"performance"`
+	Query                  json.RawMessage `json:"query"`
+	Result                 string          `json:"result"`
+	ResultCount            int             `json:"resultCount"`
+	Status                 string          `json:"status"`
+	Template               string          `json:"template"`
+	TimeRemainingInSeconds int             `json:"timeRemainingInSeconds"`
+	Variables              json.RawMessage `json:"variables"`
 }
 
 type LiveDiscoverGetQueryResponse struct {
@@ -1039,11 +1087,24 @@ type LiveDiscoverListQueriesItem struct {
 	Variables     json.RawMessage `json:"variables"`
 }
 
-type LiveDiscoverRunQueryItem struct {
-	DataType  string `json:"dataType"`
-	Name      string `json:"name"`
-	PivotType string `json:"pivotType"`
-	Value     string `json:"value"`
+type LiveDiscoverRunQueryResponse struct {
+	Category               json.RawMessage `json:"category"`
+	CreatedAt              string          `json:"createdAt"`
+	CreatedBy              json.RawMessage `json:"createdBy"`
+	EndpointCounts         json.RawMessage `json:"endpointCounts"`
+	FinishedAt             string          `json:"finishedAt"`
+	Id                     string          `json:"id"`
+	MatchEndpoints         json.RawMessage `json:"matchEndpoints"`
+	MaxDurationInSeconds   int             `json:"maxDurationInSeconds"`
+	Name                   string          `json:"name"`
+	Performance            json.RawMessage `json:"performance"`
+	Query                  json.RawMessage `json:"query"`
+	Result                 string          `json:"result"`
+	ResultCount            int             `json:"resultCount"`
+	Status                 string          `json:"status"`
+	Template               string          `json:"template"`
+	TimeRemainingInSeconds int             `json:"timeRemainingInSeconds"`
+	Variables              json.RawMessage `json:"variables"`
 }
 
 type MigrationsCreateReceivingJobResponse struct {
@@ -1148,8 +1209,30 @@ type OrgAdminsGetOrganizationAdminsItem struct {
 	Username        string          `json:"username"`
 }
 
+type OrgRolesCreateOrganizationRoleResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
 type OrgRolesDeleteOrganizationRoleByIdResponse struct {
 	Deleted bool `json:"deleted"`
+}
+
+type OrgRolesGetOrganizationRoleByIdResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
 }
 
 type OrgRolesGetRolePermissionSetItem struct {
@@ -1164,6 +1247,17 @@ type OrgRolesGetRolePermissionSetItem struct {
 }
 
 type OrgRolesListOrganizationRolesItem struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
+type OrgRolesPatchOrganizationRoleResponse struct {
 	CreatedAt      string          `json:"createdAt"`
 	Description    string          `json:"description"`
 	Id             string          `json:"id"`
@@ -1248,8 +1342,30 @@ type PartnerAdminsGetPartnerResponse struct {
 	Username        string          `json:"username"`
 }
 
+type PartnerRolesCreateResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
 type PartnerRolesDeleteByIdResponse struct {
 	Deleted bool `json:"deleted"`
+}
+
+type PartnerRolesGetByIdResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
 }
 
 type PartnerRolesGetRolePermissionSetItem struct {
@@ -1264,6 +1380,17 @@ type PartnerRolesGetRolePermissionSetItem struct {
 }
 
 type PartnerRolesListItem struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
+type PartnerRolesPatchResponse struct {
 	CreatedAt      string          `json:"createdAt"`
 	Description    string          `json:"description"`
 	Id             string          `json:"id"`
@@ -1408,9 +1535,10 @@ type PoliciesGetPolicyResponse struct {
 	UpdatedBy               json.RawMessage `json:"updatedBy"`
 }
 
-type PoliciesGetSettingMetadatasItem struct {
-	Items json.RawMessage `json:"items"`
-	Type  string          `json:"type"`
+type PoliciesGetSettingMetadatasResponse struct {
+	Items   json.RawMessage `json:"items"`
+	Schemas json.RawMessage `json:"schemas"`
+	Version string          `json:"version"`
 }
 
 type PoliciesGetValueOfSettingItemInBasePolicyResponse struct {
@@ -1494,6 +1622,17 @@ type ProvisioningResetDefaultProductsResponse struct {
 	Deleted bool `json:"deleted"`
 }
 
+type RolesCreateTenantResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
 type RolesDeleteTenantByIdResponse struct {
 	Deleted bool `json:"deleted"`
 }
@@ -1509,7 +1648,29 @@ type RolesGetPermissionSetItem struct {
 	Type                 string          `json:"type"`
 }
 
+type RolesGetTenantByIdResponse struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
 type RolesListTenantItem struct {
+	CreatedAt      string          `json:"createdAt"`
+	Description    string          `json:"description"`
+	Id             string          `json:"id"`
+	Name           string          `json:"name"`
+	PermissionSets json.RawMessage `json:"permissionSets"`
+	PrincipalType  string          `json:"principalType"`
+	Type           string          `json:"type"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
+type RolesPatchTenantResponse struct {
 	CreatedAt      string          `json:"createdAt"`
 	Description    string          `json:"description"`
 	Id             string          `json:"id"`
@@ -1563,9 +1724,17 @@ type SiemEventsItem struct {
 	WhitelistProperties json.RawMessage `json:"whitelist_properties"`
 }
 
-type SoftwareAddSpecialStaticPackageItem struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+type SoftwareAddSpecialStaticPackageResponse struct {
+	EndpointType    string          `json:"endpointType"`
+	ExpiresAt       string          `json:"expiresAt"`
+	Id              string          `json:"id"`
+	Modules         json.RawMessage `json:"modules"`
+	Name            string          `json:"name"`
+	PackageNotesUrl string          `json:"packageNotesUrl"`
+	Platform        string          `json:"platform"`
+	ReleasedAt      string          `json:"releasedAt"`
+	Type            string          `json:"type"`
+	Visible         bool            `json:"visible"`
 }
 
 type SoftwareDeleteCommentResponse struct {
@@ -1591,9 +1760,17 @@ type SoftwareGetRecommendedPackagesItem struct {
 	Platform     string          `json:"platform"`
 }
 
-type SoftwareGetStaticPackageItem struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+type SoftwareGetStaticPackageResponse struct {
+	EndpointType    string          `json:"endpointType"`
+	ExpiresAt       string          `json:"expiresAt"`
+	Id              string          `json:"id"`
+	Modules         json.RawMessage `json:"modules"`
+	Name            string          `json:"name"`
+	PackageNotesUrl string          `json:"packageNotesUrl"`
+	Platform        string          `json:"platform"`
+	ReleasedAt      string          `json:"releasedAt"`
+	Type            string          `json:"type"`
+	Visible         bool            `json:"visible"`
 }
 
 type SoftwareGetStaticPackagesItem struct {
@@ -1623,9 +1800,20 @@ type TenantsCancelPendingAmendmentResponse struct {
 	Canceled bool `json:"canceled"`
 }
 
-type TenantsCreateItem struct {
-	Code     string `json:"code"`
-	Quantity int    `json:"quantity"`
+type TenantsCreateResponse struct {
+	ApiHost       string          `json:"apiHost"`
+	BillingType   string          `json:"billingType"`
+	Contact       json.RawMessage `json:"contact"`
+	DataGeography string          `json:"dataGeography"`
+	DataRegion    string          `json:"dataRegion"`
+	Id            string          `json:"id"`
+	Managed       bool            `json:"managed"`
+	Name          string          `json:"name"`
+	Organization  json.RawMessage `json:"organization"`
+	Partner       json.RawMessage `json:"partner"`
+	Primary       bool            `json:"primary"`
+	Products      json.RawMessage `json:"products"`
+	Status        string          `json:"status"`
 }
 
 type TenantsGetAccountAmendmentByIdResponse struct {
@@ -1640,9 +1828,20 @@ type TenantsGetAccountAmendmentByIdResponse struct {
 	Type        string          `json:"type"`
 }
 
-type TenantsGetItem struct {
-	Code     string `json:"code"`
-	Quantity int    `json:"quantity"`
+type TenantsGetResponse struct {
+	ApiHost       string          `json:"apiHost"`
+	BillingType   string          `json:"billingType"`
+	Contact       json.RawMessage `json:"contact"`
+	DataGeography string          `json:"dataGeography"`
+	DataRegion    string          `json:"dataRegion"`
+	Id            string          `json:"id"`
+	Managed       bool            `json:"managed"`
+	Name          string          `json:"name"`
+	Organization  json.RawMessage `json:"organization"`
+	Partner       json.RawMessage `json:"partner"`
+	Primary       bool            `json:"primary"`
+	Products      json.RawMessage `json:"products"`
+	Status        string          `json:"status"`
 }
 
 type TenantsListAccountAmendmentsItem struct {
@@ -1685,14 +1884,28 @@ type TenantsPostAccountAmendmentItem struct {
 	Type        string          `json:"type"`
 }
 
-type TenantsPostProductSelectionItem struct {
-	Code     string `json:"code"`
-	Quantity int    `json:"quantity"`
+type TenantsPostProductSelectionResponse struct {
+	AutoAssignEndpoint bool            `json:"autoAssignEndpoint"`
+	AutoAssignServer   bool            `json:"autoAssignServer"`
+	PreviewOnly        bool            `json:"previewOnly"`
+	ProductChanges     json.RawMessage `json:"productChanges"`
+	Products           json.RawMessage `json:"products"`
 }
 
-type TenantsUpdateItem struct {
-	Code     string `json:"code"`
-	Quantity int    `json:"quantity"`
+type TenantsUpdateResponse struct {
+	ApiHost       string          `json:"apiHost"`
+	BillingType   string          `json:"billingType"`
+	Contact       json.RawMessage `json:"contact"`
+	DataGeography string          `json:"dataGeography"`
+	DataRegion    string          `json:"dataRegion"`
+	Id            string          `json:"id"`
+	Managed       bool            `json:"managed"`
+	Name          string          `json:"name"`
+	Organization  json.RawMessage `json:"organization"`
+	Partner       json.RawMessage `json:"partner"`
+	Primary       bool            `json:"primary"`
+	Products      json.RawMessage `json:"products"`
+	Status        string          `json:"status"`
 }
 
 type UserGroupsAddMultipleUsersToGroupItem struct {
@@ -1776,9 +1989,9 @@ type UserGroupsPatchTenantResponse struct {
 	Users       json.RawMessage `json:"users"`
 }
 
-type UserGroupsRemoveMultipleUsersFromGroupItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type UserGroupsRemoveMultipleUsersFromGroupResponse struct {
+	Errors       json.RawMessage `json:"errors"`
+	RemovedUsers json.RawMessage `json:"removedUsers"`
 }
 
 type UserGroupsRemoveSingleUserFromGroupResponse struct {
@@ -1873,14 +2086,21 @@ type UsersPatchTenantResponse struct {
 	UpdatedAt     string          `json:"updatedAt"`
 }
 
-type UsersRemoveFromMultipleGroupsItem struct {
-	DisplayName string `json:"displayName"`
-	Id          string `json:"id"`
-	Name        string `json:"name"`
+type UsersRemoveFromMultipleGroupsResponse struct {
+	Errors            json.RawMessage `json:"errors"`
+	RemovedFromGroups json.RawMessage `json:"removedFromGroups"`
 }
 
 type UsersRemoveFromSingleGroupResponse struct {
 	Removed bool `json:"removed"`
+}
+
+type WebControlAddLocalSiteExclusionResponse struct {
+	CategoryId int             `json:"categoryId"`
+	Comment    string          `json:"comment"`
+	Id         string          `json:"id"`
+	Tags       json.RawMessage `json:"tags"`
+	Url        string          `json:"url"`
 }
 
 type WebControlClearWebDecryptionExcludedSitesResponse struct {
@@ -1891,11 +2111,17 @@ type WebControlDeleteLocalSitesByIdResponse struct {
 	Deleted bool `json:"deleted"`
 }
 
-type WebControlGetWebDecryptionSettingsItem struct {
-	DecryptionEnabled bool   `json:"decryptionEnabled"`
-	Id                int    `json:"id"`
-	Label             string `json:"label"`
-	Name              string `json:"name"`
+type WebControlGetLocalSiteByIdResponse struct {
+	CategoryId int             `json:"categoryId"`
+	Comment    string          `json:"comment"`
+	Id         string          `json:"id"`
+	Tags       json.RawMessage `json:"tags"`
+	Url        string          `json:"url"`
+}
+
+type WebControlGetWebDecryptionSettingsResponse struct {
+	Categories       json.RawMessage `json:"categories"`
+	ExcludedWebsites json.RawMessage `json:"excludedWebsites"`
 }
 
 type WebControlListCategoriesItem struct {
@@ -1917,16 +2143,22 @@ type WebControlListWebDecryptionExcludedSitesItem struct {
 	Value   string `json:"value"`
 }
 
+type WebControlUpdateLocalSiteSettingByIdResponse struct {
+	CategoryId int             `json:"categoryId"`
+	Comment    string          `json:"comment"`
+	Id         string          `json:"id"`
+	Tags       json.RawMessage `json:"tags"`
+	Url        string          `json:"url"`
+}
+
 type WebControlUpdateWebDecryptionExcludedSitesResponse struct {
 	Added   json.RawMessage `json:"added"`
 	Removed json.RawMessage `json:"removed"`
 }
 
-type WebControlUpdateWebDecryptionSettingsItem struct {
-	DecryptionEnabled bool   `json:"decryptionEnabled"`
-	Id                int    `json:"id"`
-	Label             string `json:"label"`
-	Name              string `json:"name"`
+type WebControlUpdateWebDecryptionSettingsResponse struct {
+	Categories       json.RawMessage `json:"categories"`
+	ExcludedWebsites json.RawMessage `json:"excludedWebsites"`
 }
 
 type WhoamiWhoamiResponse struct {
@@ -1970,11 +2202,22 @@ type XdrGetQueryResponse struct {
 	Variables   json.RawMessage `json:"variables"`
 }
 
-type XdrGetQueryRunItem struct {
-	DataType  string `json:"dataType"`
-	Name      string `json:"name"`
-	PivotType string `json:"pivotType"`
-	Value     string `json:"value"`
+type XdrGetQueryRunResponse struct {
+	Category       json.RawMessage `json:"category"`
+	CreatedAt      string          `json:"createdAt"`
+	CreatedBy      json.RawMessage `json:"createdBy"`
+	ExpiresAt      string          `json:"expiresAt"`
+	FinishedAt     string          `json:"finishedAt"`
+	From           string          `json:"from"`
+	Id             string          `json:"id"`
+	MatchEndpoints json.RawMessage `json:"matchEndpoints"`
+	Name           string          `json:"name"`
+	Query          json.RawMessage `json:"query"`
+	Result         string          `json:"result"`
+	Status         string          `json:"status"`
+	Template       string          `json:"template"`
+	To             string          `json:"to"`
+	Variables      json.RawMessage `json:"variables"`
 }
 
 type XdrGetQueryRunsItem struct {
@@ -2026,9 +2269,20 @@ type XdrListQueriesItem struct {
 	Variables   json.RawMessage `json:"variables"`
 }
 
-type XdrStartQueryRunItem struct {
-	DataType  string `json:"dataType"`
-	Name      string `json:"name"`
-	PivotType string `json:"pivotType"`
-	Value     string `json:"value"`
+type XdrStartQueryRunResponse struct {
+	Category       json.RawMessage `json:"category"`
+	CreatedAt      string          `json:"createdAt"`
+	CreatedBy      json.RawMessage `json:"createdBy"`
+	ExpiresAt      string          `json:"expiresAt"`
+	FinishedAt     string          `json:"finishedAt"`
+	From           string          `json:"from"`
+	Id             string          `json:"id"`
+	MatchEndpoints json.RawMessage `json:"matchEndpoints"`
+	Name           string          `json:"name"`
+	Query          json.RawMessage `json:"query"`
+	Result         string          `json:"result"`
+	Status         string          `json:"status"`
+	Template       string          `json:"template"`
+	To             string          `json:"to"`
+	Variables      json.RawMessage `json:"variables"`
 }
