@@ -38,7 +38,16 @@ Add (or merge with your existing `mcpServers` block):
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -78,7 +87,16 @@ Configuration**) and add:
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -100,7 +118,16 @@ Claude Desktop:
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -121,8 +148,8 @@ set; every request must send `Authorization: Bearer <token>`. Any address other
 than loopback also needs TLS:
 
 ```bash
-export SOPHOS_CENTRAL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> sophos-central-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+# make the token with: openssl rand -hex 32 (32 characters or more)
+SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> SOPHOS_CENTRAL_TENANT_ID=<value> SOPHOS_CENTRAL_BASE_URL=<value> SOPHOS_CENTRAL_TOKEN_URL=<value> SOPHOS_CENTRAL_OAUTH_SCOPE=<value> SOPHOS_CENTRAL_MCP_READ_ONLY=1 SOPHOS_CENTRAL_NO_LOCAL_DATA=<value> SOPHOS_CENTRAL_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
