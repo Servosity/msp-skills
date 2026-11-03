@@ -57,22 +57,22 @@ func StartCommand(cmd *exec.Cmd) error {
 	e := emitBegin() // the barrier, to the start of the child (held.go heldMu)
 	if withheld([]byte(strings.Join(argv, "\n") + "\n" + strings.Join(env, "\n"))) {
 		emitEnd(e)
-		r.Close()
-		w.Close()
+		_ = r.Close()
+		_ = w.Close()
 		return withheldError{SinkChild}
 	}
 	err = cmd.Start()
 	emitEnd(e)
 	if err != nil {
-		r.Close()
-		w.Close()
+		_ = r.Close()
+		_ = w.Close()
 		return err
 	}
-	r.Close()
+	_ = r.Close()
 	recs := heldRecords()
 	go func() {
 		_ = json.NewEncoder(w).Encode(recs)
-		w.Close()
+		_ = w.Close()
 	}()
 	return nil
 }

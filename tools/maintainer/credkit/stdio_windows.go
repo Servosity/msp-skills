@@ -30,21 +30,34 @@ var (
 // into the pipe too. It returns the original stream, on a duplicate handle,
 // and the pipe's read end. If the number cannot be taken over, the error
 // makes Start exit before anything is written.
+// openNonblock: opening a file does not block on Windows.
+const openNonblock = 0
+
+// openNofollow: Windows opens take no O_NOFOLLOW.
+const openNofollow = 0
+
+// The DWORD values SetStdHandle takes for STD_OUTPUT_HANDLE (-11) and
+// STD_ERROR_HANDLE (-12): constant expressions, checked by the compiler.
+const (
+	stdOutputHandle = uint32(1<<32 + syscall.STD_OUTPUT_HANDLE)
+	stdErrorHandle  = uint32(1<<32 + syscall.STD_ERROR_HANDLE)
+)
+
 func redirectStd(fd int) (orig, r *os.File, err error) {
 	if err := setStdHandle.Find(); err != nil {
 		return nil, nil, err
 	}
-	std, cur := int32(syscall.STD_OUTPUT_HANDLE), os.Stdout
+	std, cur := stdOutputHandle, os.Stdout
 	if fd == 2 {
-		std, cur = int32(syscall.STD_ERROR_HANDLE), os.Stderr
+		std, cur = stdErrorHandle, os.Stderr
 	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		return nil, nil, err
 	}
 	fail := func(e error) (*os.File, *os.File, error) {
-		r.Close()
-		w.Close()
+		_ = r.Close()
+		_ = w.Close()
 		return nil, nil, e
 	}
 	p, err := syscall.GetCurrentProcess()
@@ -70,14 +83,14 @@ func redirectStd(fd int) (orig, r *os.File, err error) {
 		if o, err = dup(h); err != nil {
 			return fail(err)
 		}
-		syscall.CloseHandle(h)
+		_ = syscall.CloseHandle(h)
 		if err := squat(dup, syscall.Handle(w.Fd()), h); err != nil {
-			syscall.CloseHandle(o)
+			_ = syscall.CloseHandle(o)
 			return fail(err)
 		}
 		taken[h], squatted[fd] = o, h
 	}
-	if ok, _, e := setStdHandle.Call(uintptr(uint32(std)), w.Fd()); ok == 0 {
+	if ok, _, e := setStdHandle.Call(uintptr(std), w.Fd()); ok == 0 {
 		return fail(e)
 	}
 	replaced = append(replaced, cur)
@@ -101,7 +114,7 @@ func squat(dup func(syscall.Handle) (syscall.Handle, error), src, want syscall.H
 	var misses []syscall.Handle
 	defer func() {
 		for _, m := range misses {
-			syscall.CloseHandle(m)
+			_ = syscall.CloseHandle(m)
 		}
 	}()
 	for range 256 {
@@ -121,13 +134,13 @@ func squat(dup func(syscall.Handle) (syscall.Handle, error), src, want syscall.H
 // number taken over) so the pump sees the end of the stream.
 func releaseStd(fd int) {
 	if h, ok := squatted[fd]; ok {
-		syscall.CloseHandle(h)
+		_ = syscall.CloseHandle(h)
 		delete(squatted, fd)
 	}
 	if fd == 1 {
-		os.Stdout.Close()
+		_ = os.Stdout.Close()
 	} else {
-		os.Stderr.Close()
+		_ = os.Stderr.Close()
 	}
 }
 

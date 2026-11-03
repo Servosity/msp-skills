@@ -57,7 +57,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		c = base.Clone()
 		if c.GetProxyConnectHeader != nil || c.DialTLSContext != nil || c.DialTLS != nil {
 			if req.Body != nil {
-				req.Body.Close()
+				_ = req.Body.Close()
 			}
 			return nil, errRefusedTransport
 		}
@@ -65,7 +65,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var body []byte
 	if req.Body != nil && req.Body != http.NoBody {
 		b, err := io.ReadAll(req.Body)
-		req.Body.Close()
+		_ = req.Body.Close()
 		if err != nil {
 			// The bytes read before the error are held as the request's
 			// would be (kit13rv: a read that ends in an error skipped
@@ -450,7 +450,7 @@ func wireTransport(c *http.Transport, m *matcher, body []byte, rejudge func() (*
 		}
 		tc := tls.Client(raw, cfg)
 		if err := tc.HandshakeContext(ctx); err != nil {
-			raw.Close()
+			_ = raw.Close()
 			return nil, err
 		}
 		return &checkConn{Conn: tc, m: m, body: body, rejudge: rejudge}, nil
@@ -485,7 +485,7 @@ func (c *checkConn) Write(p []byte) (int, error) {
 		m, ok := c.rejudge()
 		if !ok {
 			c.failed = true
-			c.Conn.Close()
+			_ = c.Conn.Close()
 			return 0, withheldError{SinkHTTP}
 		}
 		c.m = m
@@ -498,14 +498,14 @@ func (c *checkConn) Write(p []byte) (int, error) {
 	if i < 0 {
 		if len(c.buf) > maxUnit { // a head this large is not HTTP/1.1: refuse
 			c.failed = true
-			c.Conn.Close()
+			_ = c.Conn.Close()
 			return 0, withheldError{SinkHTTP}
 		}
 		return len(p), nil
 	}
 	if c.m.check(slices.Concat(c.buf[:i+4], c.body)) != clean {
 		c.failed = true
-		c.Conn.Close()
+		_ = c.Conn.Close()
 		return 0, withheldError{SinkHTTP}
 	}
 	if _, err := c.Conn.Write(c.buf); err != nil {

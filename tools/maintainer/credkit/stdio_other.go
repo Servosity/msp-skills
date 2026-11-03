@@ -9,6 +9,12 @@ import (
 	"os"
 )
 
+// openNonblock: not used where the output layer is not built.
+const openNonblock = 0
+
+// openNofollow: not used where the output layer is not built.
+const openNofollow = 0
+
 // The output layer is built for Linux, macOS and Windows only. Elsewhere it
 // cannot be installed, so Start exits before writing anything (contract 4).
 func redirectStd(int) (orig, r *os.File, err error) {

@@ -3,8 +3,11 @@
 package main
 
 import (
+	"fmt"
 	"go/constant"
+	"go/token"
 	"go/types"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -92,6 +95,438 @@ func init() {
 	pflagSpecs["ShorthandLookup"] = flagSpec{ptr: -1, name: -1, short: 0, value: -1, usage: -1, fn: -1, kind: regLookup}
 	pflagSpecs["VisitAll"] = flagSpec{ptr: -1, name: -1, short: -1, value: -1, usage: -1, fn: 0, kind: regVisit}
 	pflagSpecs["Visit"] = flagSpec{ptr: -1, name: -1, short: -1, value: -1, usage: -1, fn: 0, kind: regVisit}
+}
+
+// kitFlagValues reads a call to the reviewed credential kit's
+// FlagValues(args, "--name") as a getter of flag name: it returns only the
+// values the program's flag parser could give --name (the kit's own tests pin
+// that), so what it returns is that flag's value, whatever argv it scanned.
+// The MCP shell-out refuses every path flag by name (the assertions
+// check_mcp_file_flags.py drives), which is what makes the os.Args the kit
+// scans unable to carry it. Only with a constant name and only for the
+// reviewed kit: a computed name, or a kit copy that differs from the
+// reviewed one by a byte, is analysed as code, so its os.Args stays os.Args.
+func (e *engine) kitFlagValues(st *fnState, callee *ssa.Function, args []ssa.Value, instr ssa.CallInstruction) (tagSet, bool) {
+	if e.kitPath == "" || callee.Pkg == nil || callee.Pkg.Pkg.Path() != e.kitPath ||
+		callee.Name() != "FlagValues" || callee.Signature.Recv() != nil || len(args) != 2 {
+		return tagSet{}, false
+	}
+	flag, ok := constString(args[1])
+	name := strings.TrimLeft(flag, "-")
+	if !ok || len(name) < 2 || len(flag)-len(name) != 2 || !e.isArgv(args[0]) || e.argvMayBeWritten() {
+		return tagSet{}, false
+	}
+	spec := flagSpec{ptr: -1, name: 0, short: -1, value: -1, usage: -1, fn: -1, kind: regGetter, typ: "StringSlice"}
+	t := e.flagSource(st, spec, []ssa.Value{ssa.NewConst(constant.MakeString(name), args[1].Type())}, nil, instr)
+	if c, ok := instr.(*ssa.Call); ok && e.obj(c).union(t) {
+		e.changed = true
+		e.touchObj(c)
+	}
+	return t, true
+}
+
+// argvReaders are the calls outside the module a value derived from argv
+// may be passed to: each reads its slice argument, never writes into it and
+// keeps no reference to it (checked against cobra v1.9.1 and v1.10.2 and
+// pflag v1.0.5 to v1.0.10, which copy what they keep). The standard flag
+// package is not one: FlagSet.Parse keeps argv, and Args() hands it back.
+// A result of the same type may share argv's array, so it is followed too.
+var argvReaders = map[string]bool{
+	"github.com/spf13/cobra.Command.Find":       true,
+	"github.com/spf13/cobra.Command.Traverse":   true,
+	"github.com/spf13/cobra.Command.ParseFlags": true,
+	"github.com/spf13/pflag.FlagSet.Parse":      true,
+	"slices.Clone":                              true,
+	"slices.Contains":                           true,
+	"slices.Index":                              true,
+	"strings.Join":                              true,
+}
+
+// argvMayBeWritten: some module code may write into the array os.Args
+// names, or replace os.Args. FlagValues over argv then returns what the
+// program wrote - a constant "--config" carries no taint - so no scan of it
+// is tied to a flag. Every value derived from argv is followed through the
+// module: a read (index, len, range, a slice of it, a module function's
+// parameter or result, the kit's d.Files) is fine; a store into it, a copy
+// or in-place append into it, a call outside argvReaders, or any other use
+// (an interface, a struct field, a closure) counts as a write.
+func (e *engine) argvMayBeWritten() bool {
+	if e.argvDone {
+		return e.argvWritten
+	}
+	e.argvDone = true
+	e.argvWhy = e.scanArgvWrites()
+	e.argvWritten = e.argvWhy != ""
+	return e.argvWritten
+}
+
+// scanArgvWrites is where module code may write into argv, or "".
+func (e *engine) scanArgvWrites() string {
+	osPkg := e.prog.ImportedPackage("os")
+	if osPkg == nil {
+		return ""
+	}
+	g, _ := osPkg.Members["Args"].(*ssa.Global)
+	if g == nil {
+		return ""
+	}
+	e.argvIndex()
+	calls := map[*ssa.Function][]*ssa.Call{} // static call sites of each module function
+	seen := map[ssa.Value]bool{}
+	var work []ssa.Value
+	add := func(v ssa.Value) {
+		if v != nil && !seen[v] {
+			seen[v] = true
+			work = append(work, v)
+		}
+	}
+	for _, fn := range e.funcs {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				switch x := instr.(type) {
+				case *ssa.UnOp:
+					if x.X == g && x.Op == token.MUL {
+						add(x)
+					}
+				case *ssa.Store:
+					if x.Addr == g {
+						return e.pos(x.Pos()) + ": os.Args assigned"
+					}
+				case *ssa.Call:
+					if f, ok := x.Call.Value.(*ssa.Function); ok {
+						calls[f] = append(calls[f], x)
+					}
+				}
+				for _, op := range instr.Operands(nil) {
+					if op != nil && *op == g {
+						if _, ok := instr.(*ssa.UnOp); !ok {
+							if st, ok := instr.(*ssa.Store); !ok || st.Addr != g {
+								return e.pos(instr.Pos()) + ": &os.Args handed on"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	// results adds what a call returns when its callee returns argv.
+	// idx < 0: every result that is a slice (what an argv reader may hand back).
+	isSlice := func(v ssa.Value) bool { _, ok := v.Type().Underlying().(*types.Slice); return ok }
+	results := func(c *ssa.Call, idx int) {
+		if _, ok := c.Type().(*types.Tuple); !ok {
+			if idx >= 0 || isSlice(c) {
+				add(c)
+			}
+			return
+		}
+		for _, r := range *c.Referrers() {
+			if ex, ok := r.(*ssa.Extract); ok && (ex.Index == idx || idx < 0 && isSlice(ex)) {
+				add(ex)
+			}
+		}
+	}
+	for len(work) > 0 {
+		v := work[len(work)-1]
+		work = work[:len(work)-1]
+		refs := v.Referrers()
+		if refs == nil {
+			continue
+		}
+		for _, r := range *refs {
+			switch x := r.(type) {
+			case *ssa.DebugRef, *ssa.Index, *ssa.BinOp, *ssa.If:
+			case *ssa.Slice, *ssa.Phi, *ssa.ChangeType:
+				add(x.(ssa.Value))
+			case *ssa.IndexAddr:
+				for _, u := range *x.Referrers() {
+					if l, ok := u.(*ssa.UnOp); !ok || l.Op != token.MUL {
+						if _, ok := u.(*ssa.DebugRef); !ok {
+							return e.pos(u.Pos()) + ": a store into argv, or its element's address"
+						}
+					}
+				}
+			case *ssa.Return:
+				fn := x.Parent()
+				if e.argvEscaped[fn] || fn.Signature.Recv() != nil {
+					// Called through a value or an interface: its callers are unseen.
+					return e.pos(x.Pos()) + ": argv returned from a function called through a value or an interface"
+				}
+				for i, res := range x.Results {
+					if res == v {
+						for _, c := range calls[fn] {
+							results(c, i)
+						}
+					}
+				}
+			case ssa.CallInstruction:
+				common := x.Common()
+				if common.Value == v {
+					return e.pos(x.Pos()) + ": argv called"
+				}
+				if b, ok := common.Value.(*ssa.Builtin); ok {
+					switch b.Name() {
+					case "len", "cap":
+						continue
+					case "append", "copy":
+						if len(common.Args) > 0 && common.Args[0] != v {
+							continue // argv is the source, copied out
+						}
+					}
+					return e.pos(x.Pos()) + ": argv is the destination of " + b.Name()
+				}
+				var callees []*ssa.Function
+				resolved := false
+				if f, ok := common.Value.(*ssa.Function); ok && !common.IsInvoke() {
+					callees, resolved = []*ssa.Function{f}, true
+				} else if e.isKitFilesCall(x.Parent(), common) && e.kitFilesOK {
+					callees, resolved = e.kitFiles, true // no Files stored: never called
+				}
+				if len(callees) == 1 && !e.hasBody(callees[0]) {
+					fnObj, _ := callees[0].Object().(*types.Func)
+					if _, key := funcKey(fnObj); argvReaders[key] {
+						if c, ok := x.(*ssa.Call); ok {
+							results(c, -1)
+						}
+						continue
+					}
+					return e.pos(x.Pos()) + ": argv passed to " + callees[0].String()
+				}
+				if !resolved {
+					return e.pos(x.Pos()) + ": argv passed to a call whose callee is not known"
+				}
+				for _, f := range callees {
+					for i, a := range common.Args {
+						if a == v && i < len(f.Params) {
+							add(f.Params[i])
+						}
+					}
+				}
+			default:
+				return e.pos(r.Pos()) + fmt.Sprintf(": argv used as %T", r)
+			}
+		}
+	}
+	return ""
+}
+
+// kitFilesCallees resolves the reviewed kit's own d.Files(args) call
+// (start.go) to the functions the module stores into a Declarations' Files
+// field, so the connector's Files function is analysed with its real body
+// instead of every argument flowing to the result. ok is false (the call
+// stays dynamic, every argument tainting the result) outside the reviewed
+// kit, or when some Files value is not a plain function: a closure, a
+// variable, a parameter, or a conversion from another struct type.
+func (e *engine) kitFilesCallees(st *fnState, common *ssa.CallCommon) ([]*ssa.Function, bool) {
+	if !e.isKitFilesCall(st.fn, common) {
+		return nil, false
+	}
+	if !e.kitFilesDone {
+		e.kitFilesDone = true
+		e.kitFiles, e.kitFilesOK = e.collectKitFiles()
+	}
+	return e.kitFiles, e.kitFilesOK
+}
+
+// isKitFilesCall: common, in fn, is the reviewed kit calling d.Files.
+func (e *engine) isKitFilesCall(fn *ssa.Function, common *ssa.CallCommon) bool {
+	if e.kitPath == "" || fn.Pkg == nil || fn.Pkg.Pkg.Path() != e.kitPath || common.IsInvoke() {
+		return false
+	}
+	var x ssa.Value
+	var i int
+	switch v := common.Value.(type) {
+	case *ssa.Field: // d.Files on a struct value
+		x, i = v.X, v.Field
+	case *ssa.UnOp: // d.Files on an addressed d: a load through FieldAddr
+		fa, ok := v.X.(*ssa.FieldAddr)
+		if !ok || v.Op != token.MUL {
+			return false
+		}
+		x, i = fa.X, fa.Field
+	default:
+		return false
+	}
+	return e.isKitDecls(x.Type()) && kitField(x.Type(), i) == "Files"
+}
+
+// isArgv: v is the process argv itself - os.Args, a slice of it, or a
+// parameter every caller passes argv to (the kit's gather, and a Files
+// function the kit calls with that argv). An argv the program builds (a
+// literal, an append, an element it chose) is not: FlagValues over it
+// returns whatever the program put there, not what the flag holds.
+func (e *engine) isArgv(v ssa.Value) bool {
+	e.argvIndex()
+	return e.isArgvMemo(v)
+}
+
+// argvIndex builds argvCalls and argvEscaped once.
+func (e *engine) argvIndex() {
+	if e.argvMemo == nil {
+		e.argvMemo = map[ssa.Value]bool{}
+		e.indexArgvCalls()
+	}
+}
+
+func (e *engine) isArgvMemo(v ssa.Value) bool {
+	if r, ok := e.argvMemo[v]; ok {
+		return r
+	}
+	e.argvMemo[v] = false // a value reached again on a cycle is not argv
+	r := false
+	switch x := v.(type) {
+	case *ssa.UnOp:
+		g, ok := x.X.(*ssa.Global)
+		r = ok && x.Op == token.MUL && g.Pkg != nil && g.Pkg.Pkg.Path() == "os" && g.Name() == "Args"
+	case *ssa.Slice:
+		r = e.isArgvMemo(x.X)
+	case *ssa.Parameter:
+		fn := x.Parent()
+		i := slices.Index(fn.Params, x)
+		calls, ok := e.argvCalls[fn]
+		r = ok && len(calls) > 0 && i >= 0 && fn.FreeVars == nil
+		for _, args := range calls {
+			r = r && i < len(args) && e.isArgvMemo(args[i])
+		}
+	}
+	e.argvMemo[v] = r
+	return r
+}
+
+// indexArgvCalls records every argument list each module function is called
+// with: its static calls, and for a function stored in Declarations.Files,
+// the kit's d.Files calls. A function used as a value any other way escapes
+// (nil): its callers are unknown.
+func (e *engine) indexArgvCalls() {
+	e.argvCalls = map[*ssa.Function][][]ssa.Value{}
+	escaped := map[*ssa.Function]bool{}
+	var filesCalls [][]ssa.Value
+	for _, fn := range e.funcs {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				var ops []*ssa.Value
+				if c, ok := instr.(ssa.CallInstruction); ok {
+					common := c.Common()
+					if f, ok := common.Value.(*ssa.Function); ok && !common.IsInvoke() {
+						e.argvCalls[f] = append(e.argvCalls[f], common.Args)
+						for i := range common.Args {
+							ops = append(ops, &common.Args[i])
+						}
+					} else {
+						if e.isKitFilesCall(fn, common) {
+							filesCalls = append(filesCalls, common.Args)
+						}
+						ops = instr.Operands(nil)
+					}
+				} else {
+					ops = instr.Operands(nil)
+				}
+				st, _ := instr.(*ssa.Store)
+				for _, op := range ops {
+					if op == nil || *op == nil {
+						continue
+					}
+					f, ok := (*op).(*ssa.Function)
+					if !ok {
+						continue
+					}
+					if st != nil && st.Val == f {
+						if fa, ok := st.Addr.(*ssa.FieldAddr); ok && e.isKitDecls(fa.X.Type()) && kitField(fa.X.Type(), fa.Field) == "Files" {
+							continue
+						}
+					}
+					escaped[f] = true
+				}
+				if mc, ok := instr.(*ssa.MakeClosure); ok {
+					if f, ok := mc.Fn.(*ssa.Function); ok {
+						escaped[f] = true
+					}
+				}
+			}
+		}
+	}
+	if !e.kitFilesDone {
+		e.kitFilesDone = true
+		e.kitFiles, e.kitFilesOK = e.collectKitFiles()
+	}
+	if e.kitFilesOK {
+		for _, f := range e.kitFiles {
+			e.argvCalls[f] = append(e.argvCalls[f], filesCalls...)
+		}
+	} else {
+		for _, f := range e.kitFiles {
+			escaped[f] = true
+		}
+	}
+	for f := range e.argvCalls {
+		if f.Signature.Recv() != nil {
+			escaped[f] = true // a method can be called through an interface, unseen here
+		}
+	}
+	for f := range escaped {
+		delete(e.argvCalls, f)
+	}
+	e.argvEscaped = escaped
+}
+
+// isKitDecls: t is the kit's Declarations, or a pointer to it.
+func (e *engine) isKitDecls(t types.Type) bool {
+	if p, ok := t.Underlying().(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	n, ok := types.Unalias(t).(*types.Named)
+	return ok && n.Obj().Pkg() != nil && n.Obj().Pkg().Path() == e.kitPath && n.Obj().Name() == "Declarations"
+}
+
+// kitField is the name of field i of the (pointed-to) struct t.
+func kitField(t types.Type, i int) string {
+	if p, ok := t.Underlying().(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	if st, ok := t.Underlying().(*types.Struct); ok && i < st.NumFields() {
+		return st.Field(i).Name()
+	}
+	return ""
+}
+
+// collectKitFiles is every function stored into a Declarations' Files field
+// in the module; ok is false when any store or conversion could put another
+// value there.
+func (e *engine) collectKitFiles() ([]*ssa.Function, bool) {
+	var out []*ssa.Function
+	for _, fn := range e.funcs {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				switch v := instr.(type) {
+				case *ssa.Store:
+					fa, ok := v.Addr.(*ssa.FieldAddr)
+					if !ok || !e.isKitDecls(fa.X.Type()) || kitField(fa.X.Type(), fa.Field) != "Files" {
+						continue
+					}
+					switch val := v.Val.(type) {
+					case *ssa.Function:
+						if !slices.Contains(out, val) {
+							out = append(out, val)
+						}
+					case *ssa.Const:
+						if !val.IsNil() {
+							return nil, false
+						}
+					default:
+						return nil, false
+					}
+				case *ssa.Convert, *ssa.ChangeType:
+					x := v.(ssa.Value)
+					op := x.(interface {
+						Operands([]*ssa.Value) []*ssa.Value
+					}).Operands(nil)
+					if e.isKitDecls(x.Type()) && len(op) > 0 && !e.isKitDecls((*op[0]).Type()) {
+						return nil, false
+					}
+				}
+			}
+		}
+	}
+	return out, true
 }
 
 // externalSpecial handles the opaque calls that create sources: pflag

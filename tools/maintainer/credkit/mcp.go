@@ -167,7 +167,7 @@ func (f *frameWriter) emit(frame, msg []byte) error {
 		if frame = lineFrame(mcpReplacement(msg)); withheld(frame) {
 			f.dead = true
 			if c, ok := f.w.(io.Closer); ok {
-				c.Close()
+				_ = c.Close()
 			}
 			return errMCPClosed
 		}
@@ -254,7 +254,7 @@ func MCPHTTP(h http.Handler) http.Handler {
 		}
 		if r.Body != nil {
 			b, err := io.ReadAll(r.Body)
-			r.Body.Close()
+			_ = r.Body.Close()
 			// The body as written and as its headers declare it
 			// (acquire.go), held before any response, the error ones
 			// included: a read that ends in an error still returns the
@@ -425,7 +425,7 @@ func (m *mcpResponse) closeConn() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.conn != nil {
-		m.conn.Close()
+		_ = m.conn.Close()
 		m.conn = nil
 	}
 }
@@ -557,7 +557,7 @@ func (m *mcpResponse) send(f mcpFrame, alt func() mcpFrame) error {
 	}
 	m.dead = true
 	if m.conn != nil {
-		m.conn.Close()
+		_ = m.conn.Close()
 		m.conn = nil
 	}
 	return errMCPClosed

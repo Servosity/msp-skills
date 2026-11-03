@@ -42,7 +42,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-type verdict int
+type verdict int32
 
 const (
 	clean verdict = iota
@@ -254,7 +254,7 @@ func newAutomaton(pats map[string]bool) *automaton {
 			c := a.class[p[i]]
 			nx, ok := nodes[s].kids[c]
 			if !ok {
-				nx = int32(len(nodes))
+				nx = i32(len(nodes))
 				nodes = append(nodes, node{kids: map[uint8]int32{}})
 				nodes[s].kids[c] = nx
 			}
@@ -287,7 +287,7 @@ func newAutomaton(pats map[string]bool) *automaton {
 		}
 		a.out[s] = -1
 		if len(pats) > 0 {
-			a.out[s] = int32(len(a.outs))
+			a.out[s] = i32(len(a.outs))
 			a.outs = append(a.outs, pats)
 		}
 	}
@@ -707,7 +707,7 @@ func (h *hashSet) has(k [2]uint64) bool {
 	if len(h.keys) == 0 {
 		return false
 	}
-	mask := uint64(len(h.keys) - 1)
+	mask := u64(len(h.keys) - 1)
 	for i := k[0] & mask; ; i = (i + 1) & mask {
 		switch h.keys[i] {
 		case k:
@@ -732,7 +732,7 @@ func (h *hashSet) add(k [2]uint64) bool {
 			}
 		}
 	}
-	mask := uint64(len(h.keys) - 1)
+	mask := u64(len(h.keys) - 1)
 	for i := k[0] & mask; ; i = (i + 1) & mask {
 		switch h.keys[i] {
 		case k:

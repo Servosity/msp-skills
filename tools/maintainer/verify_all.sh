@@ -315,7 +315,8 @@ warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
 echo "== Maintainer gate self-tests (each proved both directions) =="
 for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
          release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
-         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py; do
+         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py \
+         check_env_schema.py check_doctor_truth.py; do
   gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest

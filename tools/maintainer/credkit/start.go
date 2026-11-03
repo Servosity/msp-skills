@@ -77,7 +77,7 @@ func gather(d Declarations, args []string) {
 	if d.Files != nil {
 		files = d.Files(args)
 	}
-	files = append(files, flagValues(args, "--config")...)
+	files = append(files, FlagValues(args, "--config")...)
 	base := ""
 	for _, f := range files {
 		if b := gatherFile(f); base == "" {
@@ -143,6 +143,38 @@ func flagValues(args []string, flag string) []string {
 	return out
 }
 
+// FlagValues is every value the program's flag parser could give the long
+// flag ("--config") on the command line args, up to the "--" that ends the
+// flags. The kit finds --config files with it, and a connector's
+// Declarations.Files should too: tools/maintainer/mcp_file_flags reads a
+// call with a constant flag name as that flag's value, so a file it names is
+// tied to the flag the MCP server refuses. An argv scan of the connector's
+// own is os.Args reaching a file, and fails that check.
+func FlagValues(args []string, flag string) []string {
+	return flagValues(flagArgs(args), flag)
+}
+
+// flagArgs is args up to the "--" that ends the flags Cobra parses: a
+// --config after it is a positional the program never opens, so the kit
+// does not open it either (a pipe there hung startup). Only file reads use
+// it; credential flags are held from every argument, which holds more.
+func flagArgs(args []string) []string {
+	for i, a := range args {
+		if a == "--" && (i == 0 || !mayTakeValue(args[i-1])) {
+			return args[:i]
+		}
+	}
+	return args
+}
+
+// mayTakeValue reports whether a could be a flag whose value is the next
+// argument (pflag reads `--name --` as name="--"). The kit does not know
+// which flags take values, so any flag without "=" may: a "--" after one
+// does not end the scan, which then reads more, never less.
+func mayTakeValue(a string) bool {
+	return len(a) > 1 && a[0] == '-' && a != "--" && !strings.Contains(a, "=")
+}
+
 // isFlag reports whether a names flag, with one dash or two.
 func isFlag(a, flag string) bool {
 	n := strings.TrimLeft(flag, "-")
@@ -187,7 +219,7 @@ func readStdin() {
 	}
 	go func() {
 		_, _ = w.Write(b)
-		w.Close()
+		_ = w.Close()
 	}()
 	os.Stdin = r
 }

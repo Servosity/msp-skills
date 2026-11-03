@@ -300,13 +300,26 @@ What it does, by contract section:
 How a connector adopts it:
 
 1. `python3 tools/maintainer/vendor_credkit.py --slug <slug>` copies the package to
-   `skills/<slug>/cli/internal/credkit/`, adds `golang.org/x/text` and `mcp-go` to the connector's `go.mod` at the
-   version most connectors use if it lacks them, and proves the copy builds.
+   `skills/<slug>/cli/internal/credkit/`, adds `golang.org/x/text`, `mcp-go` and `golang.org/x/sys` to the connector's
+   `go.mod` at the version most connectors use if it lacks them, routes the press template's
+   `internal/cliutil/darwin_acl_darwin.go` (it runs `dsmemberutil`) through `credkit.RunCommand` in one canonical form
+   whose reviewed security entries hold for every adopter, and proves the copy builds.
 2. Write the wiring file with the `Declarations` literal, call `credkit.Start(...)` as the first statement of each
    `main` and end the program with `credkit.Exit(code)` (returning from `main` would drop output still in the pipe).
 3. Route each sink through the kit: the HTTP client's transport, file writes, the SQLite driver, the MCP server's
    input, output and HTTP handler, child processes, and `credkit.Terminal(os.Stdout)` wherever the program asked
    whether its output is a terminal.
+
+`Declarations.Files` finds a config file named on the command line with `credkit.FlagValues(args, "--config")`, not
+a scan of its own: `check_mcp_file_flags.py` reads a call with a constant flag name as that flag's value (tied to the
+flag the MCP server refuses), while any other argv scan that reaches a file is `os.Args` reaching a file and fails.
+
+The fleet gates read the vendored kit only while `vendor_credkit.carrier_drift` proves it byte-identical to this one:
+`check_env_schema.py` then takes the names the kit reads for the connector (`SecretEnv`, `BaseURL.Env`) from its
+`Declarations` literal and requires them in the manifest; `check_mcp_file_flags.py` ties the kit's `--config` read
+to the `--config` flag. The kit itself carries no `unsafe` import and no scanner finding, so the security gate scans
+it like connector code with no suppression. `check_doctor_truth.py` serves its stub over https (a certificate made for
+the run, trusted through `SSL_CERT_FILE`), because the kit refuses to send a credential over plain http.
 
 How drift is caught: `vendor_credkit.py --check` (ci_guards guard 11) fails when any connector's copy differs from
 the kit by one byte, misses a file, or carries a file the kit does not have, and names the file. Change the kit here,
