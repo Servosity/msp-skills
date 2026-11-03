@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "HaloPSA + Servosity in Microsoft 365 Copilot / Copilot Studio"
+title: "HaloPSA + Servosity in Microsoft 365 Copilot / Copilot Studio: not supported yet"
 description: "Microsoft 365 Copilot and Copilot Studio reach MCP servers only at a remote web address. MSP Skills connectors run locally and their HTTP mode is paused until each one is reprinted, so Microsoft 365 Copilot is not supported yet. Use a hosted gateway, or GitHub Copilot in VS Code locally."
 permalink: /integrations/microsoft-365-copilot/
 faqs:
@@ -14,7 +14,7 @@ faqs:
     a: "GitHub Copilot in VS Code - it runs MSP Skills' local binary today with no hosting or license."
 ---
 
-# HaloPSA and Servosity in Microsoft 365 Copilot / Copilot Studio
+# HaloPSA and Servosity in Microsoft 365 Copilot / Copilot Studio: not supported yet
 
 Microsoft 365 Copilot is the Copilot most MSPs and their clients actually have - it's bundled into the Microsoft 365 stack you already resell. So it's worth knowing exactly where MSP Skills stands with it.
 

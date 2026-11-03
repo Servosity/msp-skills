@@ -1,6 +1,6 @@
 > For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/integrations/microsoft-365-copilot/
 
-# HaloPSA and Servosity in Microsoft 365 Copilot / Copilot Studio
+# HaloPSA and Servosity in Microsoft 365 Copilot / Copilot Studio: not supported yet
 
 Microsoft 365 Copilot is the Copilot most MSPs and their clients actually have - it's bundled into the Microsoft 365 stack you already resell. So it's worth knowing exactly where MSP Skills stands with it.
 
