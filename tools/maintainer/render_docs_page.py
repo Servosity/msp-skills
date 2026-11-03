@@ -398,7 +398,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |

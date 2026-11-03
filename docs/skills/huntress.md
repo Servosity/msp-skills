@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Huntress MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUNTRESS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `HUNTRESS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host huntress-mcp in HTTP mode: it refuses to start until HUNTRESS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way huntress-mcp runs, and shares MCP configuration with Codex: add huntress-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Huntress data safe?"
@@ -105,7 +105,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -149,7 +149,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host huntress-mcp in HTTP mode: it refuses to start until HUNTRESS_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way huntress-mcp runs, and shares MCP configuration with Codex: add huntress-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

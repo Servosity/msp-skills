@@ -714,8 +714,8 @@ def render_index(pages: list[dict], site: dict[str, dict], copies: dict[str, str
         "",
         "> Free MCP servers and Skills that connect your MSP tools (PSA, RMM, "
         "backup, M365, and more) to the AI you already use - Claude, ChatGPT, "
-        "Copilot, Codex, Cursor, and any agent that speaks the Model Context "
-        "Protocol. Local SQLite mirror so cross-client questions don't hit API "
+        "Copilot, Codex, Cursor, and any agent that runs local Model Context "
+        "Protocol servers. Local SQLite mirror so cross-client questions don't hit API "
         "rate limits. Built for MSP business owners. No code required. "
         "Apache-2.0 licensed.",
         "",

@@ -5,11 +5,11 @@
 Google's Gemini comes in two shapes that consume MCP differently. Pick the one you have.
 
 - **Gemini CLI** - local, self-serve, no hosting. Like Claude Code. **Start here if you can.**
-- **Gemini app / web** - remote-only. You host the MCP server over HTTPS.
+- **Gemini app / web** - needs a remote server. Not supported by MSP Skills yet (see below).
 
 ## What you need
 
-- **Gemini CLI** installed (for the local path) **or** a **Gemini app** account (for the remote path)
+- **Gemini CLI** installed
 - A **HaloPSA tenant + OAuth credentials** **or** a **Servosity MSP partner API token** - or both
 - A terminal once for install
 
@@ -59,16 +59,9 @@ Restart Gemini CLI. Its tool list now includes the MSP Skills tools. Ask:
 - *"Use halopsa: triage what needs attention across all clients today."*
 - *"Use servosity: show me stale backups across all clients this week."*
 
-## Gemini app / web (remote)
+## Gemini app / web (not supported yet)
 
-The Gemini app doesn't launch a local binary. Host the MCP server over HTTPS first:
-
-```bash
-HALOPSA_TENANT=<tenant> HALOPSA_CLIENT_ID=<id> HALOPSA_CLIENT_SECRET=<secret> \
-  halopsa-mcp --transport http --addr :7777
-```
-
-Expose `http://localhost:7777/mcp` as a public **HTTPS** URL via a secure tunnel (Cloudflare Tunnel, ngrok), then connect that endpoint in the Gemini app. The path is part of the endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the bare root. Treat the URL as a credential. If you want a no-hosting path on Google, use Gemini CLI above instead.
+The Gemini app doesn't launch a local binary: it reaches MCP servers at a web address, so it needs a remote server. MSP Skills does not support that yet. Our [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to run a connector in HTTP mode until it is reprinted, so don't host one over HTTPS or put it behind a tunnel for the Gemini app. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. For a no-hosting path on Google, use Gemini CLI above.
 
 ## Troubleshooting
 

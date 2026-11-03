@@ -11,7 +11,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/halopsa/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live Halo API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
+Add **HaloPSA ticket triage, SLA-breach pre-emption, per-client situational awareness, and cross-client analytics** to the AI you already use - **Claude Code**, **Claude Desktop**, **ChatGPT** (desktop app), **Codex**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open source, runs on your laptop. A local SQLite mirror means your AI can answer cross-client questions the live Halo API can't return in one shot - no rate-limit hits during QBR prep. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -27,12 +27,12 @@ The five agents MSP owners actually use:
 | Your AI agent | How to install the HaloPSA skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `halopsa-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `halopsa-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Claude Code** | Paste the install prompt below. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `halopsa-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI - plus [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw), both via MCP and the pre-wired skill frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -187,11 +187,11 @@ This skill puts the PSA's cross-entity truth one sentence away from any team mem
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the HaloPSA MCP server in HTTP mode. In this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `halopsa-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `halopsa-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
-Yes - all of them speak MCP. Cross-tool install commands are in the matrix above and the deep-dive in [docs/which-agent.md](../../docs/which-agent.md). Tool-specific gotchas (Copilot uses `servers` not `mcpServers`, Cline's Windows `npx` issue, ChatGPT's tier + bridge) are documented there.
+Yes - all of them speak MCP. Cross-tool install commands are in the matrix above and the deep-dive in [docs/which-agent.md](../../docs/which-agent.md). Tool-specific gotchas (Copilot uses `servers` not `mcpServers`, Cline's Windows `npx` issue) are documented there.
 
 ### Do I need to know how to code?
 
