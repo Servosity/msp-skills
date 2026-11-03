@@ -20,6 +20,9 @@
 //	6 image   "dev:ino" NUL name NUL the whole bytes of a shared mapping
 //	5 end     the root's exit status, written after every traced process ended
 //	7 exec    the program a process now runs (its /proc exe link), after each exec
+//	8 args    the starter's pid, a newline, and the argv and environment an exec
+//	          gave a program, newline-joined, unless the process only passed on
+//	          what it was given
 //
 // The set of calls is closed with a failing default: a call outside the
 // architecture's own table (another ABI, or a number above the newest this
@@ -34,6 +37,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -56,6 +60,7 @@ const (
 	kEnd   = 5
 	kImage = 6
 	kExec  = 7
+	kArgs  = 8
 
 	maxGap  = 64<<20 + 1 // the zeros a file extension materializes, capped where the kit cannot read whole
 	maxPath = 4096
@@ -101,7 +106,6 @@ const (
 	cMmap
 	cMunmap
 	cMsync
-	cMremap
 	cMprotect
 	cExecve
 	cExecveat
@@ -130,7 +134,7 @@ func init() {
 			"truncate": 76, "ftruncate": 77, "open": 2, "openat": 257, "openat2": 437, "creat": 85, "mkdir": 83,
 			"mkdirat": 258, "mknod": 133, "mknodat": 259, "rename": 82, "renameat": 264, "renameat2": 316,
 			"link": 86, "linkat": 265, "symlink": 88, "symlinkat": 266, "setxattr": 188, "lsetxattr": 189,
-			"fsetxattr": 190, "setxattrat": 463, "bind": 49, "mmap": 9, "munmap": 11, "msync": 26, "mremap": 25,
+			"fsetxattr": 190, "setxattrat": 463, "bind": 49, "mmap": 9, "munmap": 11, "msync": 26,
 			"mprotect": 10, "pkey_mprotect": 329,
 			"execve": 59, "execveat": 322, "ioctl": 16, "prctl": 157, "clone": 56,
 			"clone3": 435}
@@ -146,7 +150,7 @@ func init() {
 			"truncate": 45, "ftruncate": 46, "openat": 56, "openat2": 437, "mkdirat": 34, "mknodat": 33,
 			"renameat": 38, "renameat2": 276, "linkat": 37, "symlinkat": 36, "setxattr": 5, "lsetxattr": 6,
 			"fsetxattr": 7, "setxattrat": 463, "bind": 200, "mmap": 222, "munmap": 215, "msync": 227,
-			"mremap": 216, "mprotect": 226, "pkey_mprotect": 288, "execve": 221, "execveat": 281, "ioctl": 29, "prctl": 167, "clone": 220,
+			"mprotect": 226, "pkey_mprotect": 288, "execve": 221, "execveat": 281, "ioctl": 29, "prctl": 167, "clone": 220,
 			"clone3": 435}
 		denied = map[string]uint64{"io_uring_setup": 425, "io_uring_enter": 426, "io_uring_register": 427,
 			"process_vm_writev": 271, "ptrace": 117, "seccomp": 277, "bpf": 280, "userfaultfd": 282,
@@ -164,7 +168,7 @@ func init() {
 		"mknod": cMknod, "mknodat": cMknodat, "rename": cRename, "renameat": cRenameat, "renameat2": cRenameat2,
 		"link": cLink, "linkat": cLinkat, "symlink": cSymlink, "symlinkat": cSymlinkat, "setxattr": cSetxattr,
 		"lsetxattr": cLsetxattr, "fsetxattr": cFsetxattr, "setxattrat": cSetxattrat, "bind": cBind, "mmap": cMmap,
-		"munmap": cMunmap, "msync": cMsync, "mremap": cMremap, "mprotect": cMprotect, "pkey_mprotect": cMprotect, "execve": cExecve, "execveat": cExecveat,
+		"munmap": cMunmap, "msync": cMsync, "mprotect": cMprotect, "pkey_mprotect": cMprotect, "execve": cExecve, "execveat": cExecveat,
 		"ioctl": cIoctl, "prctl": cPrctl, "clone": cClone, "clone3": cClone3}
 	table, names = map[uint64]int{}, map[uint64]string{}
 	for n, nr := range t {
@@ -219,31 +223,32 @@ type thread struct {
 
 // What a call's entry saw, for its exit.
 type pre struct {
-	skip   bool
-	fd     int
-	ident  string // "dev:ino" of the destination file
-	name   string
-	reg    bool
-	off    int64 // where the bytes go; -1 when appended
-	size   int64 // the file's size before the call
-	names  [][]byte
-	isShm  bool
-	creat  bool
-	mapLen uint64
-	shm    *os.File // the -shm file, opened through the process's descriptor
+	skip              bool
+	fd                int
+	ident             string // "dev:ino" of the destination file
+	name              string
+	reg               bool
+	off               int64 // where the bytes go; -1 when appended
+	size              int64 // the file's size before the call
+	names             [][]byte
+	isShm             bool
+	creat             bool
+	isExec            bool
+	ppid              int
+	execArgv, execEnv [][]byte
+	shm               *os.File // the -shm file, opened through the process's descriptor
 }
 
 type mapping struct {
-	addr, length uint64
-	ident, name  string
-	f            *os.File // the -shm itself: a shared mapping shows the file's bytes
-	last         string   // the bytes last recorded, so an unchanged image is not repeated
+	ident, name string
+	f           *os.File // the -shm itself: a shared mapping shows the file's bytes
+	last        string   // the bytes last recorded, so an unchanged image is not repeated
 }
 
 var (
 	threads  = map[int]*thread{}
 	seen     = map[int]bool{}
-	maps     = map[int][]*mapping{} // per thread group: SQLite -shm shared mappings
+	shms     = map[string]*mapping{} // every SQLite -shm mapped by any traced process, by file identity
 	mems     = map[int]*os.File{}
 	live     = map[int]bool{} // thread groups, for the timeout's kill
 	liveMu   sync.Mutex
@@ -251,16 +256,23 @@ var (
 	rootCode = -1
 )
 
-func tgidOf(tid int) int {
+func statusField(tid int, field string) (int, bool) {
 	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", tid))
 	if err == nil {
 		for _, l := range strings.Split(string(b), "\n") {
-			if strings.HasPrefix(l, "Tgid:") {
-				if n, err := strconv.Atoi(strings.TrimSpace(l[5:])); err == nil {
-					return n
+			if strings.HasPrefix(l, field) {
+				if n, err := strconv.Atoi(strings.TrimSpace(l[len(field):])); err == nil {
+					return n, true
 				}
 			}
 		}
+	}
+	return 0, false
+}
+
+func tgidOf(tid int) int {
+	if n, ok := statusField(tid, "Tgid:"); ok {
+		return n
 	}
 	return tid
 }
@@ -381,6 +393,79 @@ func fdOf(tid, fd int) (fdFile, error) {
 	return f, nil
 }
 
+// given: the argv and environment a thread group's program received.
+type given struct{ argv, env [][]byte }
+
+var givens = map[int]*given{}
+
+const maxArgs = 8 << 20 // more than execve accepts
+
+// readVec reads a NULL-terminated array of strings (argv, envp).
+func readVec(tid int, p uint64) ([][]byte, error) {
+	var out [][]byte
+	total := 0
+	for p != 0 {
+		b, err := readMem(tid, p, 8)
+		if err != nil {
+			return nil, err
+		}
+		q := binary.LittleEndian.Uint64(b)
+		if q == 0 {
+			break
+		}
+		var str []byte
+		for {
+			n := 4096 - q%4096
+			c, err := readMem(tid, q, n)
+			if err != nil {
+				return nil, err
+			}
+			i := bytes.IndexByte(c, 0)
+			if i >= 0 {
+				str = append(str, c[:i]...)
+				break
+			}
+			str = append(str, c...)
+			q += n
+			if len(str) > maxArgs {
+				return nil, fmt.Errorf("a string longer than execve accepts")
+			}
+		}
+		total += len(str)
+		if total > maxArgs {
+			return nil, fmt.Errorf("more than execve accepts")
+		}
+		out = append(out, str)
+		p += 8
+	}
+	return out, nil
+}
+
+// passedOn: the environment unchanged and the arguments a tail of what the
+// program was given.
+func passedOn(g *given, argv, env [][]byte) bool {
+	if len(argv) == 0 || len(env) != len(g.env) || len(argv)-1 > len(g.argv) {
+		return false
+	}
+	for i := range env {
+		if !bytes.Equal(env[i], g.env[i]) {
+			return false
+		}
+	}
+	tail := g.argv[len(g.argv)-(len(argv)-1):]
+	for i, x := range argv[1:] {
+		if !bytes.Equal(x, tail[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// noFd: the process has no such descriptor, so the call fails with EBADF
+// and writes nothing. Any other error (a process that made itself not
+// dumpable hides its descriptors) means the call cannot be read.
+func noFd(err error) bool { return errors.Is(err, syscall.ENOENT) }
+
 func isRec(f fdFile) bool { return f.dev == recDev && f.ino == recIno }
 
 // ---- one call ------------------------------------------------------------
@@ -455,6 +540,10 @@ func entry(tid int, t *thread) {
 	for _, fd := range outFds(c, a) {
 		f, err := fdOf(tid, fd)
 		if err != nil {
+			if !noFd(err) {
+				fail(t, tid, name+": its descriptor cannot be read: "+err.Error())
+				return
+			}
 			t.pre.skip = true // a bad descriptor: the call fails with EBADF and writes nothing
 			continue
 		}
@@ -475,6 +564,10 @@ func entry(tid int, t *thread) {
 			fd = fdArg(a[0])
 		}
 		f, err := fdOf(tid, fd)
+		if err != nil && !noFd(err) {
+			fail(t, tid, name+": its descriptor cannot be read: "+err.Error())
+			return
+		}
 		if err != nil || !f.reg {
 			t.pre.skip = true
 			return
@@ -648,6 +741,10 @@ func entry(tid int, t *thread) {
 		fd := fdArg(a[4])
 		f, err := fdOf(tid, fd)
 		if err != nil {
+			if !noFd(err) {
+				fail(t, tid, name+": its descriptor cannot be read: "+err.Error())
+				return
+			}
 			t.pre.skip = true // EBADF: no mapping
 			return
 		}
@@ -670,7 +767,7 @@ func entry(tid int, t *thread) {
 			fail(t, tid, "mmap: the -shm "+f.name+" cannot be opened: "+err.Error())
 			return
 		}
-		t.pre.isShm, t.pre.ident, t.pre.name, t.pre.mapLen, t.pre.shm = true, f.ident, f.name, a[1], sf
+		t.pre.isShm, t.pre.ident, t.pre.name, t.pre.shm = true, f.ident, f.name, sf
 	case cMprotect:
 		if a[2]&protWrite != 0 {
 			if name := sharedFileIn(t.tgid, a[0], a[1]); name != "" {
@@ -678,19 +775,28 @@ func entry(tid int, t *thread) {
 				return
 			}
 		}
-	case cMremap:
-		for _, m := range maps[t.tgid] {
-			if a[0] < m.addr+m.length && m.addr < a[0]+a[1] {
-				fail(t, tid, "mremap of a shared mapping of "+m.name)
-				return
-			}
-		}
 	case cMunmap, cMsync:
 		scanMaps(t.tgid)
 	case cExecve, cExecveat:
 		scanMaps(t.tgid)
+		ap, ep := a[1], a[2]
+		if c == cExecveat {
+			ap, ep = a[2], a[3]
+		}
+		argv, err1 := readVec(tid, ap)
+		env, err2 := readVec(tid, ep)
+		if err1 != nil || err2 != nil {
+			fail(t, tid, name+": its argv or environment cannot be read")
+			return
+		}
+		t.pre.execArgv, t.pre.execEnv, t.pre.isExec = argv, env, true
+		t.pre.ppid, _ = statusField(t.tgid, "PPid:")
 	case cIoctl:
 		f, err := fdOf(tid, fdArg(a[0]))
+		if err != nil && !noFd(err) {
+			fail(t, tid, name+": its descriptor cannot be read: "+err.Error())
+			return
+		}
 		if err != nil || !f.reg {
 			return
 		}
@@ -710,7 +816,8 @@ func entry(tid int, t *thread) {
 			fail(t, tid, "prctl(PR_SET_SECCOMP): a call no record reads")
 		}
 	case cClone, cClone3:
-		// CLONE_UNTRACED would start a process this record does not follow.
+		// CLONE_UNTRACED would start a process this record does not follow;
+		// CLONE_PARENT would hide which process started it (kind 8's ledger).
 		flags := a[0]
 		if c == cClone3 {
 			b, err := readMem(tid, a[0], 8)
@@ -723,6 +830,9 @@ func entry(tid int, t *thread) {
 		if flags&0x00800000 != 0 {
 			fail(t, tid, name+" with CLONE_UNTRACED: a process this record would not follow")
 		}
+		if flags&0x00008000 != 0 {
+			fail(t, tid, name+" with CLONE_PARENT: a process whose starter this record would not know")
+		}
 	}
 }
 
@@ -732,6 +842,16 @@ func exit(tid int, t *thread, rval int64) {
 	a := t.args
 	for _, n := range p.names {
 		emit(t.tgid, kName, n)
+	}
+	if p.isExec && rval == 0 {
+		// A process that runs what it was given on (env to python, a shell
+		// script's exec "$@") gives no process anything new; every other
+		// exec is what a child receives (contract 2).
+		if g := givens[t.tgid]; g == nil || !passedOn(g, p.execArgv, p.execEnv) {
+			emit(t.tgid, kArgs, append([]byte(strconv.Itoa(p.ppid)+"\n"),
+				bytes.Join(append(append([][]byte{}, p.execArgv...), p.execEnv...), []byte("\n"))...))
+		}
+		givens[t.tgid] = &given{p.execArgv, p.execEnv}
 	}
 	switch c {
 	case cOpen, cOpenat, cOpenat2, cCreat:
@@ -753,7 +873,11 @@ func exit(tid int, t *thread, rval int64) {
 	}
 	if p.skip || !p.reg || rval <= 0 {
 		if c == cMmap && p.isShm && rval > 0 {
-			maps[t.tgid] = append(maps[t.tgid], &mapping{addr: uint64(rval), length: p.mapLen, ident: p.ident, name: p.name, f: p.shm})
+			if shms[p.ident] == nil {
+				shms[p.ident] = &mapping{ident: p.ident, name: p.name, f: p.shm}
+			} else {
+				p.shm.Close()
+			}
 			scanMaps(t.tgid)
 		} else if p.shm != nil {
 			p.shm.Close()
@@ -863,14 +987,6 @@ func sqliteDB(name string) bool {
 
 const protWrite = 0x2
 
-// dropMaps forgets a thread group's -shm mappings (exit, exec).
-func dropMaps(tgid int) {
-	for _, m := range maps[tgid] {
-		m.f.Close()
-	}
-	delete(maps, tgid)
-}
-
 // sharedFileIn: the file of a shared file mapping overlapping [addr,
 // addr+n) other than a recorded -shm ("" when none), from the kernel's own
 // list of the process's mappings. Unreadable is treated as one.
@@ -892,8 +1008,8 @@ func sharedFileIn(tgid int, addr, n uint64) string {
 		}
 		name := strings.Join(f[5:], " ")
 		shm := false
-		for _, m := range maps[tgid] {
-			shm = shm || (m.name == name && l >= m.addr && h <= m.addr+m.length+uint64(os.Getpagesize()))
+		for _, m := range shms {
+			shm = shm || m.name == name
 		}
 		if !shm {
 			return name
@@ -902,18 +1018,25 @@ func sharedFileIn(tgid int, addr, n uint64) string {
 	return ""
 }
 
-// scanMaps records each SQLite -shm shared mapping of a thread group whose
-// bytes changed since the last record: at every munmap, msync and exec, at
-// its creation and at exit.
+// scanMaps records each SQLite -shm file whose bytes changed since the last
+// record, whole, at every record point of any traced process: the mapping
+// made, munmap, msync, exec and exit, and when the record ends. A shared
+// mapping shows its file's bytes, so the file is read: any mapped range, by
+// any process that inherited the mapping.
 func scanMaps(tgid int) {
-	for _, m := range maps[tgid] {
-		b := make([]byte, m.length)
-		n, err := m.f.ReadAt(b, 0)
-		if err != nil && err != io.EOF {
-			emit(tgid, kFail, []byte("a shared mapping of "+m.name+" cannot be read: "+err.Error()))
+	for _, m := range shms {
+		st, err := m.f.Stat()
+		if err != nil || st.Size() > maxGap {
+			emit(tgid, kFail, []byte("the -shm "+m.name+" cannot be read"))
 			continue
 		}
-		b = b[:n] // past the file's end a mapping has no bytes (SIGBUS)
+		b := make([]byte, st.Size())
+		n, err := m.f.ReadAt(b, 0)
+		if err != nil && err != io.EOF {
+			emit(tgid, kFail, []byte("the -shm "+m.name+" cannot be read: "+err.Error()))
+			continue
+		}
+		b = b[:n]
 		if string(b) == m.last {
 			continue
 		}
@@ -1013,6 +1136,12 @@ func main() {
 	}
 	seen[rootPid] = true
 	th(rootPid)
+	// What the root was given is the harness's, not a child's.
+	cl, err1 := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", rootPid))
+	ev, err2 := os.ReadFile(fmt.Sprintf("/proc/%d/environ", rootPid))
+	if err1 == nil && err2 == nil {
+		givens[rootPid] = &given{nulSplit(cl), nulSplit(ev)}
+	}
 	_ = syscall.PtraceSyscall(rootPid, 0)
 
 	for {
@@ -1030,7 +1159,7 @@ func main() {
 			dropMem(tid)
 			delete(seen, tid)
 			if t := threads[tid]; t != nil && t.tgid == tid {
-				dropMaps(tid)
+				delete(givens, tid)
 				liveMu.Lock()
 				delete(live, tid)
 				liveMu.Unlock()
@@ -1096,7 +1225,6 @@ func main() {
 				dropMem(old)
 				exe, _ := os.Readlink(fmt.Sprintf("/proc/%d/exe", tid))
 				emit(t.tgid, kExec, []byte(exe))
-				dropMaps(t.tgid)
 				t.inSys = true // the execve exit stop follows
 			case syscall.PTRACE_EVENT_EXIT:
 				scanMaps(t.tgid)
@@ -1111,11 +1239,19 @@ func main() {
 		}
 		_ = syscall.PtraceSyscall(tid, int(s))
 	}
+	scanMaps(rootPid)
 	emit(rootPid, kEnd, []byte(strconv.Itoa(rootCode)))
 	if rootCode < 0 {
 		rootCode = 1
 	}
 	os.Exit(rootCode)
+}
+
+func nulSplit(b []byte) [][]byte {
+	if len(b) == 0 {
+		return nil
+	}
+	return bytes.Split(bytes.TrimSuffix(b, []byte{0}), []byte{0})
 }
 
 func ptraceSiginfo(tid int) ([128]byte, error) {
