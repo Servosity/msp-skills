@@ -5,13 +5,18 @@
 package main
 
 import (
-	"os"
-
 	"connectwise-rmm-pp-cli/internal/cli"
+	"connectwise-rmm-pp-cli/internal/credkit"
+	"connectwise-rmm-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credwire.RestoreFeedbackStdin() // Hand-fix (handfixes.json credkit-wiring): feedback --stdin keeps its body
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

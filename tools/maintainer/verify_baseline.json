@@ -45,11 +45,6 @@
    "read-only",
    "local-data"
   ],
-  "connectwise-rmm": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "crowdstrike": [
    "mcp-stdio"
   ],

@@ -106,33 +106,33 @@ func newSitesCreateCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("name") && bodyName == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "name")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name"))
 				}
 				if cmd.Flags().Changed("primary-address-active-flag") || (cmd.Flags().Changed("primary-address-address-line1") || bodyPrimaryAddressAddressLine1 != "") || (cmd.Flags().Changed("primary-address-address-line2") || bodyPrimaryAddressAddressLine2 != "") || (cmd.Flags().Changed("primary-address-address-line3") || bodyPrimaryAddressAddressLine3 != "") || (cmd.Flags().Changed("primary-address-address-line4") || bodyPrimaryAddressAddressLine4 != "") || (cmd.Flags().Changed("primary-address-administrative-area") || bodyPrimaryAddressAdministrativeArea != "") || cmd.Flags().Changed("primary-address-billing-flag") || (cmd.Flags().Changed("primary-address-country-code") || bodyPrimaryAddressCountryCode != "") || (cmd.Flags().Changed("primary-address-dependent-locality") || bodyPrimaryAddressDependentLocality != "") || (cmd.Flags().Changed("primary-address-description") || bodyPrimaryAddressDescription != "") || (cmd.Flags().Changed("primary-address-external-ids") || bodyPrimaryAddressExternalIds != "") || (cmd.Flags().Changed("primary-address-locality") || bodyPrimaryAddressLocality != "") || (cmd.Flags().Changed("primary-address-name") || bodyPrimaryAddressName != "") || (cmd.Flags().Changed("primary-address-phone-number-id") || bodyPrimaryAddressPhoneNumberId != "") || (cmd.Flags().Changed("primary-address-post-code") || bodyPrimaryAddressPostCode != "") || cmd.Flags().Changed("primary-address-primary-flag") || cmd.Flags().Changed("primary-address-shipping-flag") || (cmd.Flags().Changed("primary-address-time-zone") || bodyPrimaryAddressTimeZone != "") || (cmd.Flags().Changed("primary-address-type-id") || bodyPrimaryAddressTypeId != "") {
 					if !cmd.Flags().Changed("primary-address-country-code") && bodyPrimaryAddressCountryCode == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "primary-address-country-code")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "primary-address-country-code"))
 					}
 				}
 				if cmd.Flags().Changed("primary-email-active-flag") || (cmd.Flags().Changed("primary-email-description") || bodyPrimaryEmailDescription != "") || (cmd.Flags().Changed("primary-email-email-address") || bodyPrimaryEmailEmailAddress != "") || cmd.Flags().Changed("primary-email-primary-flag") || (cmd.Flags().Changed("primary-email-type-id") || bodyPrimaryEmailTypeId != "") {
 					if !cmd.Flags().Changed("primary-email-email-address") && bodyPrimaryEmailEmailAddress == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "primary-email-email-address")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "primary-email-email-address"))
 					}
 				}
 				if cmd.Flags().Changed("primary-phone-number-active-flag") || (cmd.Flags().Changed("primary-phone-number-country-code") || bodyPrimaryPhoneNumberCountryCode != "") || (cmd.Flags().Changed("primary-phone-number-description") || bodyPrimaryPhoneNumberDescription != "") || (cmd.Flags().Changed("primary-phone-number-extension") || bodyPrimaryPhoneNumberExtension != "") || (cmd.Flags().Changed("primary-phone-number-external-ids") || bodyPrimaryPhoneNumberExternalIds != "") || (cmd.Flags().Changed("primary-phone-number-national-number") || bodyPrimaryPhoneNumberNationalNumber != "") || cmd.Flags().Changed("primary-phone-number-primary-flag") || (cmd.Flags().Changed("primary-phone-number-type-id") || bodyPrimaryPhoneNumberTypeId != "") {
 					if !cmd.Flags().Changed("primary-phone-number-country-code") && bodyPrimaryPhoneNumberCountryCode == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "primary-phone-number-country-code")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "primary-phone-number-country-code"))
 					}
 					if !cmd.Flags().Changed("primary-phone-number-national-number") && bodyPrimaryPhoneNumberNationalNumber == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "primary-phone-number-national-number")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "primary-phone-number-national-number"))
 					}
 				}
 				if cmd.Flags().Changed("primary-social-media-active-flag") || (cmd.Flags().Changed("primary-social-media-description") || bodyPrimarySocialMediaDescription != "") || (cmd.Flags().Changed("primary-social-media-link") || bodyPrimarySocialMediaLink != "") || cmd.Flags().Changed("primary-social-media-primary-flag") || (cmd.Flags().Changed("primary-social-media-type-id") || bodyPrimarySocialMediaTypeId != "") {
 					if !cmd.Flags().Changed("primary-social-media-link") && bodyPrimarySocialMediaLink == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "primary-social-media-link")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "primary-social-media-link"))
 					}
 				}
 				if !cmd.Flags().Changed("time-zone") && bodyTimeZone == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "time-zone")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "time-zone"))
 				}
 			}
 			path := "/api/platform/v1/company/companies/{companyId}/sites"
@@ -402,7 +402,7 @@ func newSitesCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "sites", data, "externalIds")
+				writeMutationResponseToStore(cmd.Context(), "sites", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -453,16 +453,13 @@ func newSitesCreateCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -489,7 +486,7 @@ func newSitesCreateCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"externalId": true, "id": true, "productId": true, "productInstanceId": true, "siteId": true})
+					filtered = compactFields(filtered, map[string]bool{"deleteTxnId": true, "friendlyName": true, "id": true, "industryCode": true, "name": true, "partnerId": true, "type": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -529,7 +526,7 @@ func newSitesCreateCmd(flags *rootFlags) *cobra.Command {
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"externalId": true, "id": true, "productId": true, "productInstanceId": true, "siteId": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"deleteTxnId": true, "friendlyName": true, "id": true, "industryCode": true, "name": true, "partnerId": true, "type": true})
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "sites", partialFailure.Message))
 			}
