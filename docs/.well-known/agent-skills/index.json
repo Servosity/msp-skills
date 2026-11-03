@@ -515,9 +515,9 @@
     {
       "name": "proxmox",
       "type": "skill-md",
-      "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox. Trigger phrases: `are my proxmox backups good`, `which VMs are not backed up`, `check PBS verify failures`, `proxmox backup posture for all clients`, `when will the backup datastore fill up`, `use proxmox`, `run proxmox-cli`.",
+      "description": "Use when the user asks whether Proxmox VE or Proxmox Backup Server (PBS) backups are good across client clusters: which VMs are unprotected, stale or failed verification, what failed overnight, when a datastore fills, or which restore points exist. Read-only (GET-only) CLI and MCP server with per-guest backup verdicts. Trigger phrases: `are my proxmox backups good`, `which VMs are not backed up`, `check PBS verify failures`, `proxmox backup posture for all clients`, `when will the backup datastore fill up`, `use proxmox`, `run proxmox-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/SKILL.md",
-      "digest": "sha256:54dca2c167fd21b346946f16e305bbd5b65659f89e39d0def63803c7ac3fe86d"
+      "digest": "sha256:660dbdeda7ad39f3ad0c68053bc55efdde7a2f929d294a640a97a7c2c26f0a31"
     },
     {
       "name": "prtg",
