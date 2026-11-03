@@ -244,7 +244,7 @@
       "type": "skill-md",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has. Trigger phrases: `datto rmm stale devices`, `which endpoints have antivirus disabled`, `datto rmm patch gaps`, `qbr scorecard for a site`, `warranty expiring devices`, `use datto-rmm`, `run datto-rmm-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/SKILL.md",
-      "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
+      "digest": "sha256:693b5a73ab0926e5e3133395933346f978813c9dc6203ad263f74a6b44e98510"
     },
     {
       "name": "datto-saas",
