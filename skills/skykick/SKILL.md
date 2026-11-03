@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current apis.cloudservices.connectwise.com host - the only CLI that works post-migration.
+Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current apis.cloudservices.connectwise.com host - an open-source CLI that works post-migration.
 
 ## When to Use This CLI
 

@@ -2,7 +2,7 @@
 
 **Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.**
 
-Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current apis.cloudservices.connectwise.com host - the only CLI that works post-migration.
+Every evidenced SkyKick (ConnectWise Cloud Services) Backup API operation as typed commands, plus a local SQLite fleet store that answers the questions the per-tenant API can't: which customers aren't fully protected (fleet-health), which mailboxes silently stopped snapshotting (stale-snapshots), and what changed since last review (drift). Built for the current apis.cloudservices.connectwise.com host - an open-source CLI that works post-migration.
 
 ## Install
 
