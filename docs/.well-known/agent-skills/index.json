@@ -132,7 +132,7 @@
       "type": "skill-md",
       "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/SKILL.md",
-      "digest": "sha256:977ea5d1785da0ac94bcdd1c38b1ae1cbe688d1872e4ca1c84d152ded2716656"
+      "digest": "sha256:6ca27a36b01a98554a2c67ba57de47aac9fed6145871a95f42daf2e0c430e7cd"
     },
     {
       "name": "connectsecure",
