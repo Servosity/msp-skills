@@ -97,6 +97,13 @@ def guard(session: str, target: str) -> int:
     # resolve to exactly one element. The HOLD checks above have already passed.
     code = re.search(r'"code"\s*:\s*"([A-Za-z0-9_.]+)"', out + (r.stderr or ""))
     why = code.group(1) if code else f"exit {r.returncode}"
+    if "not dispatched" not in out + (r.stderr or ""):
+        # Any other failure may have landed (e.g. the page navigated mid-click); a second
+        # click could run a command or create a credential twice. Surface, never retry.
+        sys.stdout.write(out)
+        print(f"FAIL: native click on '{target}' failed ({why}) and OpenCLI did not say it "
+              "was undelivered. NOT retrying.", file=sys.stderr)
+        return r.returncode or 1
     try:
         p = ct.run(ct.browser_argv(oc, session, "eval", _page_click_js(target)), timeout=90)
     except subprocess.TimeoutExpired:
@@ -145,6 +152,10 @@ def _selfcheck() -> None:
                         sys.exit(1)
                     print('{"matches_n":' + n + ',"entries":[{"label":"Save changes"}]}')
                 elif cmd == "click":
+                    if os.environ.get("NATIVE_FAIL") == "landed":
+                        print('{"ok":false,"error":{"code":"COMMAND_EXEC","message":'
+                              '"Execution context was destroyed."}}')
+                        sys.exit(1)
                     if os.environ.get("NATIVE_FAIL"):
                         print('{"ok":false,"error":{"code":"COMMAND_EXEC","message":'
                               '"Native input requires a visible browser page; input was not dispatched."}}')
@@ -196,7 +207,14 @@ def _selfcheck() -> None:
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
             assert guard("sess", "Save changes") != 0, "ambiguous fallback reported success"
         assert "click_path" not in buf.getvalue()
-        del os.environ["PAGE_N"], os.environ["NATIVE_FAIL"]
+        del os.environ["PAGE_N"]
+        # a failure that may have landed is never retried by the fallback
+        os.environ["NATIVE_FAIL"] = "landed"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            assert guard("sess", "Save changes") != 0, "possibly-landed failure reported success"
+        assert "click_path" not in buf.getvalue(), "possibly-landed failure fell back"
+        del os.environ["NATIVE_FAIL"]
         # the native path names itself too
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
