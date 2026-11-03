@@ -2592,7 +2592,7 @@
       "category": "Billing",
       "display_name": "Xero",
       "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
-      "cli_hash": "sha256:03b38e2243f4b83d41bc92a9eaf291d3fa47596e6a36cad22fa0de5b762252c4",
+      "cli_hash": "sha256:27029d0beebdc2db2b56becd2b5cfef9158df4aac9f1b17bff65b88183a33475",
       "template_version": 3,
       "version": "0.1.9",
       "cli_hash_at_release": "sha256:0b4e049d840c594ca1b104a70e4487dba643aeaf968057e4925d7eafc17231d5",
