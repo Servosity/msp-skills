@@ -47,10 +47,10 @@ func newKnowledgebaseListArticlesCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("query") && flagQuery == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "query")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "query"))
 			}
 			if !cmd.Flags().Changed("highlight") && flagHighlight == false && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "highlight")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "highlight"))
 			}
 			path := "/knowledgebase/article"
 			c, err := flags.newClient()

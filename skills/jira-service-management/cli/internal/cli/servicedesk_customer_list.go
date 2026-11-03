@@ -54,7 +54,7 @@ func newServicedeskCustomerListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validXExperimentalApi {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi))
 				}
 			}
 			path := "/servicedesk/{serviceDeskId}/customer"
@@ -76,7 +76,7 @@ func newServicedeskCustomerListCmd(flags *rootFlags) *cobra.Command {
 				"query": formatCLIParamValue(flagQuery),
 				"start": formatCLIParamValue(flagOffset),
 				"limit": formatCLIParamValue(flagLimit),
-			}, map[string][]string{"query": {"query"}, "start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), headerOverrides, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"query": {"query"}, "start": {"offset"}, "limit": {"limit"}}, "start", "offset"), headerOverrides, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

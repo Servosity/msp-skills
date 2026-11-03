@@ -88,6 +88,18 @@
           "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_MCP_UPLOAD_ROOT",
+          "description": "Optional. Leave blank: MCP file uploads then take the file as base64 content and the server never opens a local path. Set it to a folder only to let MCP uploads read files from inside that folder.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

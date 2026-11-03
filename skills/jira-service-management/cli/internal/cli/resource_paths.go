@@ -40,7 +40,9 @@ var resourceReadPaths = map[string]string{ // #nosec G101 -- endpoint paths, not
 var resourceDetailPaths = map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
 	"config":        "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}",
 	"icon":          "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/{id}",
+	"importsource":  "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{id}",
 	"knowledgebase": "/knowledgebase/article/view/{pageId}",
+	"object":        "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}",
 	"objectschema":  "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}",
 	"objecttype":    "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}",
 	"organization":  "/organization/{organizationId}",
@@ -60,18 +62,18 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 }
 
 var resourceReadConfigs = map[string]resourceReadConfig{
-	"aql":           {responsePath: "", paginationType: "page", cursorParam: "page", limitParam: "per_page", nextCursorPath: "", hasMoreField: "", pageSize: 25},
-	"assets":        {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 50},
+	"aql":           {responsePath: "", paginationType: "page", cursorParam: "page", limitParam: "resultPerPage", nextCursorPath: "", hasMoreField: "", pageSize: 25},
+	"assets":        {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 50},
 	"config":        {responsePath: "", pageSize: 100},
 	"icon":          {responsePath: "", pageSize: 100},
-	"insight":       {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 50},
-	"iql":           {responsePath: "", paginationType: "page", cursorParam: "page", limitParam: "per_page", nextCursorPath: "", hasMoreField: "", pageSize: 25},
+	"insight":       {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 50},
+	"iql":           {responsePath: "", paginationType: "page", cursorParam: "page", limitParam: "resultPerPage", nextCursorPath: "", hasMoreField: "", pageSize: 25},
 	"knowledgebase": {responsePath: "values", paginationType: "cursor", cursorParam: "cursor", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"objectschema":  {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "maxResults", nextCursorPath: "", hasMoreField: "", pageSize: 25},
-	"organization":  {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"request":       {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"requesttype":   {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"servicedesk":   {responsePath: "values", paginationType: "offset", cursorParam: "offset", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
+	"objectschema":  {responsePath: "values", paginationType: "offset", cursorParam: "startAt", limitParam: "maxResults", nextCursorPath: "", hasMoreField: "", pageSize: 25},
+	"organization":  {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
+	"request":       {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
+	"requesttype":   {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
+	"servicedesk":   {responsePath: "values", paginationType: "offset", cursorParam: "start", limitParam: "limit", nextCursorPath: "", hasMoreField: "", pageSize: 100},
 	"usage":         {responsePath: "perSchemaUsageInfo", pageSize: 100},
 }
 

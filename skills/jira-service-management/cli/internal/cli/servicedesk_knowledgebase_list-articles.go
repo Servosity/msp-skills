@@ -64,7 +64,7 @@ func newServicedeskKnowledgebaseListArticlesCmd(flags *rootFlags) *cobra.Command
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <serviceDeskId>"))
 			}
 			if !cmd.Flags().Changed("query") && flagQuery == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "query")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "query"))
 			}
 			path := "/servicedesk/{serviceDeskId}/knowledgebase/article"
 			if len(args) < 1 || args[0] == "" {

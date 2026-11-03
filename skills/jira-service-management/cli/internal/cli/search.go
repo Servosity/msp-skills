@@ -129,10 +129,14 @@ Run sync first to populate the local search index.`,
 			switch resourceType {
 			case "config":
 				results, err = db.SearchConfig(query, limit)
+			case "importsource":
+				results, err = db.SearchImportsource(query, limit)
 			case "objectschema":
 				results, err = db.SearchObjectschema(query, limit)
 			case "objecttype":
 				results, err = db.SearchObjecttype(query, limit)
+			case "objecttypeattribute":
+				results, err = db.SearchObjecttypeattribute(query, limit)
 			case "":
 				// Search every FTS-enabled source — typed per-resource tables
 				// AND the generic resources_fts — and dedup by raw JSON so a
@@ -146,6 +150,19 @@ Run sync first to populate the local search index.`,
 					partial, searchErr := db.SearchConfig(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search config failed: %w", searchErr)
+					}
+					for _, r := range partial {
+						key := string(r)
+						if !seen[key] {
+							seen[key] = true
+							results = append(results, r)
+						}
+					}
+				}
+				{
+					partial, searchErr := db.SearchImportsource(query, limit)
+					if searchErr != nil {
+						return fmt.Errorf("search importsource failed: %w", searchErr)
 					}
 					for _, r := range partial {
 						key := string(r)
@@ -172,6 +189,19 @@ Run sync first to populate the local search index.`,
 					partial, searchErr := db.SearchObjecttype(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search objecttype failed: %w", searchErr)
+					}
+					for _, r := range partial {
+						key := string(r)
+						if !seen[key] {
+							seen[key] = true
+							results = append(results, r)
+						}
+					}
+				}
+				{
+					partial, searchErr := db.SearchObjecttypeattribute(query, limit)
+					if searchErr != nil {
+						return fmt.Errorf("search objecttypeattribute failed: %w", searchErr)
 					}
 					for _, r := range partial {
 						key := string(r)

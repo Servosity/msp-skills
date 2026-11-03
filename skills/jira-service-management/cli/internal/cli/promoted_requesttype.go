@@ -41,7 +41,7 @@ func newRequesttypePromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validXExperimentalApi {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi))
 				}
 			}
 			c, err := flags.newClient()
@@ -68,7 +68,7 @@ func newRequesttypePromotedCmd(flags *rootFlags) *cobra.Command {
 				"limit":                             formatCLIParamValue(flagLimit),
 				"includeHiddenRequestTypesInSearch": formatCLIParamValue(flagIncludeHiddenRequestTypesInSearch),
 				"restrictionStatus":                 formatCLIParamValue(flagRestrictionStatus),
-			}, map[string][]string{"searchQuery": {"search-query"}, "start": {"offset"}, "limit": {"limit"}, "includeHiddenRequestTypesInSearch": {"include-hidden-request-types-in-search"}, "restrictionStatus": {"restriction-status"}}, "offset", "offset"), headerOverrides, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"searchQuery": {"search-query"}, "start": {"offset"}, "limit": {"limit"}, "includeHiddenRequestTypesInSearch": {"include-hidden-request-types-in-search"}, "restrictionStatus": {"restriction-status"}}, "start", "offset"), headerOverrides, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

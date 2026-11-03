@@ -4,6 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - unreleased
+
+### Changed
+- Rebuilt on CLI Printing Press 4.35.1.
+- HTTP mode (`jira-service-management-mcp --transport http`) for remote agents is documented again. It refuses to start until `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN` is set to at least 32 characters, every request must send that token as a bearer header, any address other than loopback also needs `--tls-cert` and `--tls-key`, and browser origins other than loopback are refused unless listed in `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_ALLOWED_ORIGINS`.
+- New `local-data purge` previews and, with `--yes`, erases the local store, response cache and learn journal. `JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA=1` runs every read live and writes nothing locally.
+- `--csv` prefixes `'` on cells that a spreadsheet would run as a formula. `--deliver file:` writes a private 0600 file; `--deliver webhook:` does not follow redirects.
+- `sync` stores Assets object type attributes in their own table.
+- Six POST commands that do not create anything (`request approval answer`, `request transition perform`, `request feedback post`, `importsource token generate`, `objecttype position change`, `servicedesk attach-temporary-file upload-temporary-file`) no longer answer to the `create` alias.
+
+### Fixed
+- A one-page list read whose JSM or Assets page says more pages follow now reports the result as truncated and suggests `--all`.
+- `export` and `sync` read the rows inside JSM's paged `values` envelope, and Assets object schemas, schema usage, request type groups, SLAs and transitions keep one row per item.
+- The local store is kept per Atlassian site. A store saved before site scoping, or one no site has claimed, is left in place and not adopted by whichever site runs first; that site syncs fresh.
+
+### Security
+- MCP tools mirrored from CLI write commands, such as `request_note`, return a preview and send nothing unless the call passes `confirm: true`.
+- No MCP tool takes `--path-context`, so a tool call cannot point the configured credential at another site.
+- Headers from the config file are sent only to the configured site: a redirect to another origin drops them, and a request carrying one is refused over plain HTTP to a non-loopback host.
+- Both binaries run on the shared msp-skills credential kit: the API token, config-file credentials and headers, the MCP HTTP token and saved profile credentials are held from startup and kept out of every output (stdout, stderr, MCP results, the local store, response cache and learn journal), and a credential is sent only to the configured site and `api.atlassian.com`, over HTTPS, never across a redirect to another origin.
+
 ## [0.1.4] - 2026-10-23
 
 ### Changed

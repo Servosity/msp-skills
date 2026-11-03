@@ -364,7 +364,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -373,7 +373,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   jira-service-management-cli servicedesk list --agent --select id,projectKey,projectName
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear. `--yes` gates only local confirmations such as `profile delete`; API writes and deletes send immediately, so preview them with `--dry-run` first
@@ -399,7 +399,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `JIRA_SERVICE_MANAGEMENT_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `JIRA_SERVICE_MANAGEMENT_CONFIG_DIR`, `JIRA_SERVICE_MANAGEMENT_DATA_DIR`, `JIRA_SERVICE_MANAGEMENT_STATE_DIR`, `JIRA_SERVICE_MANAGEMENT_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `JIRA_SERVICE_MANAGEMENT_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains runtime state such as `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `jira-service-management-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -418,6 +418,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `JIRA_SERVICE_MANAGEMENT_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `JIRA_SERVICE_MANAGEMENT_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `JIRA_SERVICE_MANAGEMENT_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -646,10 +648,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -695,6 +697,8 @@ Parse `$ARGUMENTS`:
    claude mcp add jira-service-management-mcp --env JIRA_SERVICE_MANAGEMENT_SITE=acme --env JIRA_SERVICE_MANAGEMENT_EMAIL=you@example.com --env JIRA_SERVICE_MANAGEMENT_API_TOKEN=<api-token> -- jira-service-management-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `jira-service-management-mcp --transport http` requires `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

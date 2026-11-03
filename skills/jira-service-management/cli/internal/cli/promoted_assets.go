@@ -34,7 +34,7 @@ func newAssetsPromotedCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "assets", path, retainCLIQueryParams(cmd, map[string]string{
 				"start": formatCLIParamValue(flagOffset),
 				"limit": formatCLIParamValue(flagLimit),
-			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 50, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "start", "offset"), nil, flagAll, "start", "offset", "limit", 50, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

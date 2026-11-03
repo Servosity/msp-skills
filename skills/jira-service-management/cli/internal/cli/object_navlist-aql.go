@@ -57,20 +57,20 @@ func newObjectNavlistAqlCmd(flags *rootFlags) *cobra.Command {
 			if !stdinBody {
 				if cmd.Flags().Changed("attributes-to-display-attributes-to-display-ids") || bodyAttributesToDisplayAttributesToDisplayIds != "" {
 					if !cmd.Flags().Changed("attributes-to-display-attributes-to-display-ids") && bodyAttributesToDisplayAttributesToDisplayIds == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "attributes-to-display-attributes-to-display-ids")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "attributes-to-display-attributes-to-display-ids"))
 					}
 				}
 				if !cmd.Flags().Changed("object-schema-id") && bodyObjectSchemaId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "object-schema-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "object-schema-id"))
 				}
 				if !cmd.Flags().Changed("object-type-id") && bodyObjectTypeId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "object-type-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "object-type-id"))
 				}
 				if !cmd.Flags().Changed("ql-query") && bodyQlQuery == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "ql-query")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ql-query"))
 				}
 				if !cmd.Flags().Changed("results-per-page") && bodyResultsPerPage == 0 && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "results-per-page")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "results-per-page"))
 				}
 			}
 			path := "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/navlist/aql"
@@ -211,16 +211,13 @@ func newObjectNavlistAqlCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

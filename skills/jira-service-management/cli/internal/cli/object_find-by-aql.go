@@ -47,7 +47,7 @@ func newObjectFindByAqlCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("ql-query") && bodyQlQuery == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "ql-query")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ql-query"))
 				}
 			}
 			path := "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql"
@@ -112,7 +112,7 @@ func newObjectFindByAqlCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"startAt": true})
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -144,7 +144,7 @@ func newObjectFindByAqlCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"startAt": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 	cmd.Flags().IntVar(&flagStartAt, "start-at", 0, "The starting index for the next page of results (default: 0)")

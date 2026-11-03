@@ -377,7 +377,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to triage Jira Service Management (JSM) queues by SLA risk, add an internal note to a service desk ticket, read a ticket's full history, manage JSM customers and client organizations, or look up and reconcile Assets (CMDB) objects: ranks open tickets across every queue by SLA time remaining, posts agent-only notes that error if JSM stores them as public, joins Assets objects to the tickets that touch them, and diffs Assets against an RMM or PSA export. Trigger phrases: `which tickets are about to breach SLA`, `add an internal note to this service desk ticket`, `show the full timeline for SD-123`, `which tickets touch this server in Assets`, `reconcile Assets against my RMM export`, `use jira service management`, `run jira-service-management-cli`, `jsm queues`, `jira service desk sla`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/SKILL.md",
-      "digest": "sha256:ebf0c36440b4bfe17f5a889fe603be22e15bf2e3a335a0fbd1a87c76322bfa26"
+      "digest": "sha256:04169444fcb355ac766e403090dc53f119fe4599a2eed59762d40d660b8eda3b"
     },
     {
       "name": "kaseya-bms",

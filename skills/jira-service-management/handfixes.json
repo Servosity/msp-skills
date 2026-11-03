@@ -1,1359 +1,1685 @@
 {
-  "slug": "jira-service-management",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/jira-service-management/regen.sh, which re-applies cli-factory/jira-service-management/apply_handfixes.py.",
-  "handfixes": [
+ "slug": "jira-service-management",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/jira-service-management/regen.sh, which re-applies cli-factory/jira-service-management/apply_handfixes.py.",
+ "handfixes": [
+  {
+   "id": "jsm-pagination-wire-names",
+   "summary": "--all and sync page with the wire keys (JSM start, Assets startAt and resultPerPage) instead of the public offset/per_page names, and clamp JSM page size to 50",
+   "why": "The authored spec exposes start/startAt as a public --offset flag (x-url-name keeps the wire key) and resultPerPage as --per-page. Press 4.33.5 paginatedGet and the sync page config send the PUBLIC names, so `servicedesk list --all --limit 3` requested ?limit=3&offset=3 and JSM ignored offset: page 1 repeated until the page cap (proved against a mock in the factory run). JSM also caps limit at 50; a larger value returns fewer rows than asked and the walk stopped early. The hooks map cursor/limit params to the wire names and clamp the limit (logic in internal/cli/jsm_pagination.go, a hand-written file).",
+   "status": "active",
+   "spec_encode_followup": "Press defect: paginatedGet and sync pageSize should honor x-url-name for the cursor and limit params. Retro note in cli-factory/jira-service-management/RUN-NOTES.md (known press defect 1).",
+   "asserts": [
     {
-      "id": "windows-sddl-alias-sid-compare",
-      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-      "status": "active",
-      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-      "asserts": [
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_windows.go",
-          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_windows.go",
-          "contains": "sid, err := windows.StringToSid(alias)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_windows.go",
-          "not_contains": "return evalCredsSecurity(sd.String(), me)"
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-          "code_only": true
-        }
-      ]
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cursorParam, limitParam = jsmWireParam(path, cursorParam), jsmWireParam(path, limitParam)",
+     "code_only": true
     },
     {
-      "id": "windows-null-dacl-behind-flags",
-      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-      "status": "active",
-      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-      "asserts": [
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "contains": "if len(fields) != 6 {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_eval.go",
-          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-          "code_only": true
-        }
-      ]
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "jsmClampAllLimit(path, params, limitParam, fetchAll)",
+     "code_only": true
     },
     {
-      "id": "jsm-pagination-wire-names",
-      "summary": "--all and sync page with the wire keys (JSM start, Assets startAt and resultPerPage) instead of the public offset/per_page names, and clamp JSM page size to 50",
-      "why": "The authored spec exposes start/startAt as a public --offset flag (x-url-name keeps the wire key) and resultPerPage as --per-page. Press 4.33.5 paginatedGet and the sync page config send the PUBLIC names, so `servicedesk list --all --limit 3` requested ?limit=3&offset=3 and JSM ignored offset: page 1 repeated until the page cap (proved against a mock in the factory run). JSM also caps limit at 50; a larger value returns fewer rows than asked and the walk stopped early. The hooks map cursor/limit params to the wire names and clamp the limit (logic in internal/cli/jsm_pagination.go, a hand-written file).",
-      "status": "active",
-      "spec_encode_followup": "Press defect: paginatedGet and sync pageSize should honor x-url-name for the cursor and limit params. Retro note in cli-factory/jira-service-management/RUN-NOTES.md (known press defect 1).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "cursorParam, limitParam = jsmWireParam(path, cursorParam), jsmWireParam(path, limitParam)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "jsmClampAllLimit(path, params, limitParam, fetchAll)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "pageSize := jsmSyncPagination(resource)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "pageSize := jsmWirePagination(determinePaginationDefaults(dep.ParentTable+\"/\"+dep.Name), dep.PathTemplate)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "\tpageSize := determinePaginationDefaults(resource)\n"
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pageSize := jsmSyncPagination(resource)",
+     "code_only": true
     },
     {
-      "id": "jsm-comment-sync-parent-key",
-      "summary": "the comment sync dependent reads its parent key from the request row's issueId, not the snake-cased issue_id",
-      "why": "The press snake-cases the parent key field (issueId -> issue_id) and then looks it up as $.issue_id in the stored request JSON, which never has that key, so the comment dependent found no parent and synced 0 rows with no error.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "{Param: \"issueIdOrKey\", Field: \"issueId\"},",
-          "code_only": true
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pageSize := jsmWirePagination(determinePaginationDefaults(dep.ParentTable+\"/\"+dep.Name), dep.PathTemplate)",
+     "code_only": true
     },
     {
-      "id": "jsm-comment-opt-in",
-      "summary": "request dependents never cascade from a plain sync: comment runs only when named (--resources request,comment) and the other request dependents are refused with an explicit result",
-      "why": "sla and transition ids repeat per request (store primary-key collisions), status rows have no id, and approval, attachment and participant would each add one API call per request to every default sync for data the live commands already fetch. Comments are opt-in because they can be large and include internal notes. The generated help promised a parent->dependent cascade, so the help text is rewritten to match (sync.go long and short help).",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "if skip, res := jsmSkipDependent(dep.Name, dep.ParentTable, allow); skip {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "except comment, which runs only when named; other request dependents are not synced"
-        }
-      ]
-    },
-    {
-      "id": "jsm-request-replace",
-      "summary": "a synced request row with an sla key replaces the stored row instead of deep-merging into it",
-      "why": "The store's merge keeps keys the incoming row no longer carries. JSM's request list is the current state: a completed SLA cycle drops out of the sla block, and merging resurrected ended cycles, so breaches/sla-report counted stale breaches.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "if resourceType == \"request\" && jsmHasTopLevelKey(incoming, \"sla\") {",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-template-var-guard",
-      "summary": "buildURL refuses a {site}, {cloudId} or {workspaceId} value that is not a plain identifier before it is spliced into the host or path",
-      "why": "Template values are spliced into the host and path raw. A value carrying /, @, #, ?, : or .. would move the request, Basic credentials included, to another host or endpoint, and it is reachable from an agent via sync --path-context. Logic in internal/client/jsm_template_guard.go (hand-written).",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/client/url.go",
-          "contains": "if err := jsmCheckTemplateVars(full, vars); err != nil {",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-mcpb-assets-ids-optional",
-      "summary": "the .mcpb user_config marks cloudId and workspaceId optional (Assets only) and the server entry is the stripped jira-service-management-mcp binary",
-      "why": "Lock promote's manifest env scan makes every env var it sees a REQUIRED user_config field, so a site without Assets (JSM Standard) could not install the extension at all. Promote also rewrote manifest.json after its own hand-fix check and dropped this fix (factory retro R11); onboard re-copies manifest.json from the source, so a reprint restores the required flags.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "manifest.json",
-          "contains": "\"description\": \"Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\","
-        },
-        {
-          "file": "manifest.json",
-          "contains": "\"entry_point\": \"bin/jira-service-management-mcp\""
-        },
-        {
-          "file": "manifest.json",
-          "not_contains": "jira-service-management-pp-mcp"
-        },
-        {
-          "file": "manifest.json",
-          "contains": "\"description\": \"Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
-        },
-        {
-          "file": "manifest.json",
-          "contains": "\"description\": \"Assets only: your site's workspaceId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
-        }
-      ]
-    },
-    {
-      "id": "jsm-reconcile-open-per-os",
-      "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it opens through an os.Root on the working directory and refuses any filesystem-root or home working directory",
-      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. Under MCP the containment check originally ran by path before the open, compared the working directory only with '/', and a later open-then-verify version still left a symlink-swap window between resolve and stat (Codex review rounds 1-2, 2026-10-16). os.Root resolves every component relative to the working-directory handle and refuses escapes, which closes the race by construction. cmdb_reconcile_mcp_test.go covers it. Round 3: os.OpenRoot(wd) by pathname still let a swap of the working directory's path redirect the root, so the root is now the process working directory handle (\".\") and the root/home refusal compares directory identity, not strings.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "f, err = openNoFollow(path)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "not_contains": "syscall.O_NOFOLLOW"
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile_open_windows.go",
-          "contains": "if fi, err := f.Stat(); err != nil || !os.SameFile(li, fi) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "f, err := r.OpenFile(rel, inventoryOpenFlags, 0)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
-          "contains": "const inventoryOpenFlags = os.O_RDONLY | syscall.O_NONBLOCK",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
-          "contains": "return os.OpenFile(path, inventoryOpenFlags|syscall.O_NOFOLLOW, 0)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "r, err := os.OpenRoot(\".\")",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "if fi, err := os.Stat(top); err == nil && os.SameFile(here, fi) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "not_contains": "os.OpenRoot(wd)"
-        }
-      ]
-    },
-    {
-      "id": "jsm-claims-match-the-evidence",
-      "summary": "the generated headline no longer claims the official Atlassian MCP lacks these features, and roster no longer presents a fixed JSM paging bug as current",
-      "why": "The research headline said the SLA radar, internal notes, timelines and CMDB joins are things 'the official Atlassian MCP lacks'. Atlassian's Rovo MCP Server now documents JSM request tools (search with SLA signals, create, transition, approvals) and Assets search (supported-tools page, checked 2026-10-16), so the claim was not verifiable. The roster help and the which-index said naive customer paging 'silently stops at 50' citing JSDCLOUD-8012/8279, both of which Atlassian closed (duplicate / fixed). A reprint from the same research.json restores both strings into root.go, agent_context.go, the MCP context tool and which.go.",
-      "status": "active",
-      "spec_encode_followup": "Edit narrative.headline and the roster novel-feature why_it_matters in the factory research.json (cli-factory/jira-service-management) so the press stops emitting the stale claims.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/root.go",
-          "not_contains": "the official Atlassian MCP lacks"
-        },
-        {
-          "file": "cli/internal/cli/agent_context.go",
-          "not_contains": "the official Atlassian MCP lacks"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "the official Atlassian MCP lacks"
-        },
-        {
-          "file": "SKILL.md",
-          "not_contains": "the official Atlassian MCP lacks"
-        },
-        {
-          "file": "manifest.json",
-          "not_contains": "the official Atlassian MCP lacks"
-        },
-        {
-          "file": "cli/internal/cli/which.go",
-          "not_contains": "silently stops at 50"
-        },
-        {
-          "file": "SKILL.md",
-          "not_contains": "silently stops at 50"
-        },
-        {
-          "file": "cli/internal/cli/roster.go",
-          "not_contains": "so naive paging stops at 50"
-        }
-      ]
-    },
-    {
-      "id": "jsm-skill-doc-fixes",
-      "summary": "template doc sections in SKILL.md, guide.md and AGENTS.md are rewritten for JSM: claude mcp add passes SITE/EMAIL/API_TOKEN, exit codes name exit 1, examples use real JSM commands, the quick start runs doctor",
-      "why": "The press templates ship sports-domain teach examples, a 'claude mcp add' line with no credentials (the server then 401s on every call), placeholder <command> examples, a 'doctor --dry-run' quick start that does nothing, and a bundle line naming platforms the msp-skills .mcpb does not ship. The factory's apply_handfixes.py (apply_docfixes) and the onboarding run fixed them; a reprint brings the template text back.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "SKILL.md",
-          "contains": "claude mcp add jira-service-management-mcp --env JIRA_SERVICE_MANAGEMENT_SITE=acme --env JIRA_SERVICE_MANAGEMENT_EMAIL=you@example.com --env JIRA_SERVICE_MANAGEMENT_API_TOKEN=<api-token> -- jira-service-management-mcp"
-        },
-        {
-          "file": "SKILL.md",
-          "not_contains": "Arizona Cardinals"
-        },
-        {
-          "file": "SKILL.md",
-          "not_contains": "Printing Press CLI"
-        },
-        {
-          "file": "guide.md",
-          "not_contains": "jira-service-management-cli doctor --dry-run"
-        },
-        {
-          "file": "guide.md",
-          "contains": "Pre-built bundles ship for macOS (Apple Silicon and Intel), Linux (`amd64`) and Windows (`amd64`)"
-        },
-        {
-          "file": "AGENTS.md",
-          "not_contains": "jira-service-management-cli <command> --agent"
-        },
-        {
-          "file": "SKILL.md",
-          "contains": "  --query \"$QUERY\" \\\n  --resource-type <type> \\\n  --resource <id> \\"
-        }
-      ]
-    },
-    {
-      "id": "jsm-detail-no-unwrap",
-      "summary": "single-object GETs return the whole DTO; object create/update cache the entity and request approval answer writes nothing to the store, instead of unwrapping one array field",
-      "why": "The press picks a response path for any response with an array field, so 'request sla get' printed only completedCycles (the ongoing cycle, breach state and remaining time vanished), 'request comment get' printed _expands, 'servicedesk queue get' printed only the field list, 'request approval get' only the approvers, 'usage' dropped the total, 'importsource' dropped the config, and 'object get' (auto strategy) printed the attributes and wrote each one into the local store as an 'object' row keyed by the attribute id, overwriting unrelated cached objects. object create/update and request approval answer did the same through writeMutationResponseToStore. Found by the Codex read-only review, 2026-10-16; the list commands that do unwrap a list (tickets, keys, requestTypeFields, values) are unchanged. Round 3: writing the whole approval DTO then failed the typed approval table (request_id NOT NULL) and printed a misleading 'typed-table upsert failed' warning on every successful answer, so approval answer no longer writes to the store; approvals are read live.",
-      "status": "active",
-      "spec_encode_followup": "Press defect: only list endpoints (or a response whose only meaningful content is the array) should get a response path; detail DTOs with an array member must not. Reported in the factory retro notes.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/object_get.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_sla_get.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_comment_get.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/servicedesk_queue_get.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_approval_get.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/promoted_importsource.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/promoted_usage.go",
-          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/object_create.go",
-          "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/object_update.go",
-          "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_sla_get.go",
-          "not_contains": "\"completedCycles\", cmd.ErrOrStderr()"
-        },
-        {
-          "file": "cli/internal/cli/request_comment_get.go",
-          "not_contains": "\"_expands\", cmd.ErrOrStderr()"
-        },
-        {
-          "file": "cli/internal/cli/object_create.go",
-          "not_contains": "data, \"attributes\")"
-        },
-        {
-          "file": "cli/internal/cli/request_approval_answer.go",
-          "not_contains": "writeMutationResponseToStore(cmd.Context(), \"approval\""
-        }
-      ]
-    },
-    {
-      "id": "doctor-verdict-tracks-reality",
-      "summary": "doctor probes GET /servicedesk with the real credential and names JIRA_SERVICE_MANAGEMENT_SITE / _BASE_URL when the base URL is still the {site} placeholder, instead of calling any response to GET / reachable and printing 'present, not verified'",
-      "why": "The 4.33.5 doctor called any HTTP response to `GET /` reachable and never probed the credential: it printed 'present, not verified' and told the operator to run `objectschema list`, an Assets command that needs JSM Premium plus a cloudId and workspaceId, so on a Standard site the suggested check could never pass. A base_url aimed at a host where every API path 404s, and a revoked token, both rendered healthy, and the placeholder branch never named the variable to set. GET /servicedesk answers for any authenticated account. check_doctor_truth.py drives healthy / expired / wrong-base / placeholder against a stub server; it failed 5 assertions before this fix (verify_all, 2026-10-16) and passes after. Same fix as skills/fortinet doctor-verdict-tracks-reality; see issue #282.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "func doctorProbeCredentials(",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "doctorProbePath = \"/servicedesk\"",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor_verdict.go",
-          "contains": "WARN scope-limited (HTTP 403 from %s)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "doctorProbeCredentials(cmd.Context()",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "\"; set \" + doctorSiteEnv + \" to your site subdomain",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "present, not verified. Run `%s %s`"
-        }
-      ]
-    },
-    {
-      "id": "jsm-sync-defaults-skip-removed-aql",
-      "summary": "a bare sync no longer walks GET /aql/objects and /iql/objects, endpoints Atlassian removed; both stay syncable by name",
-      "why": "The generated default sync set included aql and iql, whose own command help says Atlassian removed them (18 September 2024), so every bare sync on an Assets site logged warnings instead of objects. The sync help example also named aql. Found by the adversarial review, 2026-10-16. The exact default list is pinned (Codex round 7, 2026-10-19: the aql-only not_contains let iql back in unnoticed).",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "return []string{\n\t\t\"aql\",\n\t\t\"assets\","
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "sync --resources organization,aql"
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "names := []string{\n\t\t\"aql\",",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\treturn []string{\n\t\t\"assets\",\n\t\t\"config\",\n\t\t\"config-statustype\",\n\t\t\"icon\",\n\t\t\"insight\",\n\t\t\"objectschema\",\n\t\t\"organization\",\n\t\t\"request\",\n\t\t\"requesttype\",\n\t\t\"servicedesk\",\n\t\t\"usage\",\n\t}",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-store-scope-by-site",
-      "summary": "the local store is scoped by credential AND resolved site URL, so one Atlassian token used on several client sites gets one database per site; sync --path-context site=... re-scopes the store to the site it selects",
-      "why": "An Atlassian API token reaches every site its account belongs to, which is normal for an MSP. The generated store scope hashed only the credential, so switching JIRA_SERVICE_MANAGEMENT_SITE reused one data-<hash>.db: sites mixed in reports and search, and a --full sync of one site pruned the other's rows (Codex review round 2, 2026-10-16). The fix uses the generator's config.StoreScopeIdentity hook from a hand-written file; the MCP server resolves its store path through the same package. jsm_store_scope_test.go covers it. Round 3: sync --path-context site=... changed the target after the store was scoped, so it still mixed sites; sync now re-scopes before opening the default store.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/jsm_store_scope.go",
-          "contains": "config.StoreScopeIdentity = jsmStoreScopeIdentity",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/jsm_store_scope.go",
-          "contains": "return auth + \"|site=\" + client.ResolvedBaseURL(c.BaseURL, c.TemplateVars)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/config/config.go",
-          "contains": "if StoreScopeIdentity != nil {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "setDefaultDBScopeIdentity(c.Config.StoreScopeCredential(), c.Config.StoreScopeLegacyCredential(), c.Config.BaseURL)",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-scrub-media-jwt",
-      "summary": "every successful API response has Assets' mediaJwtToken removed before the response cache, local store, write-through or stdout sees it",
-      "why": "Assets object responses carry avatar.mediaClientConfig.mediaJwtToken, a bearer JWT for Atlassian's media API. Once object get returned the whole DTO (jsm-detail-no-unwrap), and on any Assets sync, it was persisted in plaintext in the mirror and the HTTP cache and echoed into agent transcripts (Codex review round 2, 2026-10-16). The scrub is exact-key so importsource token generate still returns the token the user asked for. jsm_scrub_test.go covers it.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "return json.RawMessage(jsmScrubIncidentalSecrets(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "not_contains": "\t\t\treturn json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil\n"
-        },
-        {
-          "file": "cli/internal/client/jsm_scrub.go",
-          "contains": "const jsmIncidentalSecretKey = \"mediaJwtToken\"",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-mcp-delete-body",
-      "summary": "the MCP execute tool sends a JSON body for the four DELETE endpoints whose spec declares one (participant, organization-member, desk-customer and desk-organization removal)",
-      "why": "The generated execute path sent every DELETE parameter as a query string, so removing request participants, organization users, desk customers or desk organizations through MCP could never succeed (the API needs accountIds / organizationId in the body); the CLI already sends the body. Verified against an echo stub, 2026-10-16 (Codex review round 2).",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/code_orch.go",
-          "contains": "if ep.Method == \"GET\" || (ep.Method == \"DELETE\" && !jsmDeleteBodyEndpoints[ep.ID]) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/code_orch.go",
-          "contains": "data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/jsm_delete_body.go",
-          "contains": "\"request.participant.remove\":      true,",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "mcp-blocks-local-file-inputs",
-      "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach / teach-playbook notes and playbook files, import --input, upload-temporary-file --file); the import tool is hidden from MCP because its required --input can no longer be passed",
-      "why": "teach_playbook --notes-file (and teach --playbook-notes-file / --playbook-file) read any local file the MCP client names and returned it through playbook_list and recall, even with JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1, so a prompt-injected ticket could read ~/.ssh or credentials.toml (adversarial review round 2 and Codex round 3, 2026-10-16; reproduced with a canary file, now refused as an unknown MCP parameter). Same fix as skills/connectsecure mcp-blocks-local-file-inputs; jsm_file_inputs_test.go scans internal/cli so a reprint that adds a file-reading flag fails the test.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/cobratree/typemap.go",
-          "contains": "for _, name := range fileInputFlagNames(cmd) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/cobratree/jsm_file_inputs.go",
-          "contains": "\"teach-playbook\": {\"notes-file\", \"playbook-file\"},",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/cobratree/jsm_file_inputs_test.go",
-          "contains": "func TestEveryFileInputFlagIsBlocked(",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/import.go",
-          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-experimental-header-on-every-request",
-      "summary": "every request-API (servicedeskapi) call carries X-ExperimentalApi: opt-in, set per request in the client's send path, so sync and the MCP execute tool reach the experimental endpoints too",
-      "why": "Request types, desk customers and request feedback are experimental endpoints that answer HTTP 412 without the header. The generated commands send it per call, but sync and MCP execute did not, so `sync --resources requesttype` (which sla-report --group-by requesttype and client rely on) failed (Codex review round 4, 2026-10-16; reproduced against a stub that enforces the header). Atlassian ignores the header on stable endpoints. It is applied in jsmBeforeRequest (internal/client/jsm_request_guard.go) behind one hook in client.go doInternal; an earlier version wrapped the HTTP transport, which silently disabled StreamingHTTPClient's ResponseHeaderTimeout on binary downloads (adversarial review round 4). jsm_request_guard_test.go covers it.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "if err := jsmBeforeRequest(opCtx, c, req); err != nil {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "req.Header.Set(\"X-ExperimentalApi\", \"opt-in\")",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-assets-ids-per-site",
-      "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them; and every Assets request is refused unless its cloudId is the current site's (tenant_info) and its workspaceId is one the site lists (servicedeskapi/assets/workspace), each read once per process",
-      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled. Round 5 (adversarial review, 2026-10-19): a leftover JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID was still unchecked (the code relied on an unproven claim that Atlassian rejects a workspaceId outside the cloud), and a trailing-dot host (api.atlassian.com.) skipped the guard. The guard now also requires the workspaceId to be one the site's own /rest/servicedeskapi/assets/workspace lists (fetched with the request's own Authorization header from the same <site>.atlassian.net host) and normalizes the host; jsm_request_guard_test.go fails with either check disabled (mutation-tested). Round 6: a 401/403/429 from the workspace lookup reads 'HTTP <code>' so the CLI and MCP classify it as auth (exit 4, with the credentials hint) or rate limit; other statuses read 'status <code>' so they never look like a missing resource. TestFetchSiteWorkspaceIDs covers both.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/config/config.go",
-          "contains": "cfg.bindAssetsIDsToSite()",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "c.Config.RebindAssetsIDs(pathContext)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_discover.go",
-          "contains": "config.JSMSiteBoundKey(\"cloudId\", site): view.CloudID",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_discover.go",
-          "not_contains": "map[string]string{\"cloudId\": view.CloudID"
-        },
-        {
-          "file": "cli/internal/config/jsm_config.go",
-          "contains": "func (c *Config) bindAssetsIDsToSite() {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "if want != cloudID {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "ids, err := jsmSiteWorkspaceIDs(ctx, c, site, req.Header.Get(\"Authorization\"))",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "strings.TrimSuffix(strings.ToLower(u.Hostname()), \".\") != \"api.atlassian.com\"",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/jsm_request_guard.go",
-          "contains": "fmt.Errorf(\"the site's Assets workspace list returned HTTP %d\", resp.StatusCode)",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-auth-hint-email-placeholder",
-      "summary": "every auth hint names an email for JIRA_SERVICE_MANAGEMENT_EMAIL (not a token placeholder), shows the PowerShell form beside the POSIX export, and the set-credentials example passes an email first",
-      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19. Adversarial round 6 (2026-10-19): auth setup, auth status and the placeholder-credential error still had no PowerShell form, and the placeholder error's <you@example.com> parsed as a shell redirect; all three now print quoted, runnable POSIX and PowerShell forms (both run under bash and pwsh). Round 7: auth status's export lines carried trailing '# ...' comments that fail when pasted into an interactive zsh (the macOS default); the explanation is now its own line.",
-      "spec_encode_followup": "Press template defect for composed Basic auth (email + token); not spec-encodable.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "not_contains": "set-credentials your-token-here your-token-here"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "EMAIL=\\\"your-token-here\\\""
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "not_contains": "EMAIL=<"
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "fmt.Fprintln(w, \"  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\"\")",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "not_contains": "# Atlassian account email (Basic auth username).\")"
-        }
-      ]
-    },
-    {
-      "id": "jsm-doctor-prefers-site",
-      "summary": "doctor's placeholder-base_url api and credentials lines tell the user to set JIRA_SERVICE_MANAGEMENT_SITE and warn that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative; the 404 probe verdict says the same",
-      "why": "Following the generated advice (set BASE_URL to the request-API root) moved every Assets call onto the site host, where it 404s and is reported as 'resource not found'. The guide and manifest already say to prefer SITE. Found by the adversarial review, round 5, 2026-10-19.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "Prefer it over \" + doctorBaseURLEnv + \", which also moves Assets (CMDB) calls onto that host and breaks them",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "base_url is still a placeholder; set \" + doctorSiteEnv + \" or \" + doctorBaseURLEnv"
-        },
-        {
-          "file": "cli/internal/cli/doctor_verdict.go",
-          "not_contains": "to your site subdomain, or %s to https://<site>.atlassian.net/rest/servicedeskapi"
-        }
-      ]
-    },
-    {
-      "id": "jsm-archive-skips-removed-aql",
-      "summary": "workflow archive (and the MCP workflow_archive tool) syncs sync's default resource list, so it no longer walks the removed aql/iql endpoints",
-      "why": "jsm-sync-defaults-skip-removed-aql dropped aql/iql from sync's defaults, but the generated archive command hard-coded its own list with both, so every archive on an Assets site logged two resource errors hidden behind exit 0. Found by the adversarial review, round 5, 2026-10-19.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/channel_workflow.go",
-          "contains": "resources := defaultSyncResources()",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/channel_workflow.go",
-          "not_contains": "[]string{\"aql\", \"assets\""
-        }
-      ]
-    },
-    {
-      "id": "jsm-mcp-context-paging",
-      "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
-      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses. Round 9 (Codex P1, adversarial P2): 'stop on a page shorter than limit' ends an agent's walk on page 1 when it sends a limit above the server's page cap, because execute forwards limit as given; the tip now says stop only on an empty page. Round 10 (adversarial P2s): an MCP output-trimmed page can come back with no values and _pp_truncated set, so the tip now says to retry that start with a smaller limit instead of stopping; the bounded-list note in internal/mcp/bound/bound.go no longer suggests offset (ignored on request lists); the roster rationale names the page size it compares against.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "\"Page with JSM's own parameter names, which execute sends as given: start and limit on request-API lists (offset is translated to start only on the knowledgebase article lists), startAt and maxResults on Assets AQL search (object.find-by-aql).\"",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "Pagination uses cursor-based paging"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "sent to JSM as start/startAt"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "\"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty without _pp_truncated: JSM can return fewer rows than the limit you sent on a page that is not the last. If a page is _pp_truncated, ask again at the same start with a smaller limit.\"",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "always-true isLastPage"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "until a page comes back empty or shorter than limit"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "stopping on an empty or short page rather than trusting isLastPage"
-        },
-        {
-          "file": "cli/internal/mcp/bound/bound.go",
-          "contains": "Narrow the request with a smaller limit (page with start, or startAt on Assets)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/bound/bound.go",
-          "not_contains": "Narrow the request with limit, offset, filters"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "on a short page JSM does not mark isLastPage:false (a capped page can be short without being the last), or on a page with no new rows (the server stopped advancing); a full page with new rows continues whatever isLastPage says, up to 2,000 pages",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "rather than trusting isLastPage"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "Merges six endpoints (request, participants, comments with internal notes, status history, approvals, SLA)",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "\"description\": \"Go from a hostname\""
-        },
-        {
-          "file": "guide.md",
-          "contains": "which pages until an empty page or a short page JSM does not mark isLastPage:false, and de-duplicates."
-        },
-        {
-          "file": "guide.md",
-          "not_contains": "pages until an empty or short page"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "Merges five endpoints"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "a full page always continues, whatever isLastPage says"
-        }
-      ]
-    },
-    {
-      "id": "jsm-export-pagination-wire-names",
-      "summary": "export (CLI and the MCP export tool) pages with JSM's wire keys (start, Assets startAt) and the 50-row JSM page cap, through one hook in resourceReadConfigFor (tail reads one page per poll; see jsm-tail-says-first-page)",
-      "why": "export and tail read their own generic page table (resourceReadConfigs: offset, limit 100) that jsm-pagination-wire-names never touched. JSM ignores offset, so with its 50-row cap export stopped after one 'short' page and exited 0 with 50 of 120 requests, and with a cap of 100 or more it re-fetched page one until the 100000-page guard, writing duplicates (Codex round 10 P1 and adversarial round 9 P1, 2026-10-19, both reproduced against a stub). Receipt after the fix: export request, servicedesk, organization and requesttype each wrote 120 of 120 with start=0/50/100 and limit=50, and 250 of 250 against a 100-row cap. TestResourceReadConfigWireNames fails with the hook removed. Correction (adversarial round 10): an earlier summary said tail also pages through this hook; it does not, tail only extracts rows with this config.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/resource_paths.go",
-          "contains": "config.cursorParam = jsmWireParam(path, config.cursorParam)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/resource_paths.go",
-          "contains": "config.pageSize = jsmPageCap(path, config.pageSize)",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-sync-complete-request-sla",
-      "summary": "sync fills in a request's embedded SLA when JSM marks that expand=sla page incomplete (isLastPage false), reading the rest from /request/{key}/sla; sla-report and client count any request still incomplete (sla_incomplete) instead of silently undercounting",
-      "why": "sla-report and client read only the SLA that sync stored, and expand=sla returns one page of metrics; an incomplete page was stored as if complete (Codex round 11 P1, 2026-10-19). The hook (jsmCompleteRequestSLA in the hand-written internal/cli/jsm_sync_sla.go) runs once per synced page beside hydrateScalarItems; TestSyncCompletesRequestSLA fails with it disabled.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "items = jsmCompleteRequestSLA(ctx, c, resource, items)",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-tail-says-first-page",
-      "summary": "tail reads one page per poll and now says so: its help states it, and it emits an {\"event\":\"more\"} NDJSON line when the API reports more pages (isLastPage or isLast false)",
-      "why": "The generated tail polls the first page with no paging and emitted it as if complete: tail request --follow=false returned 50 of 120 rows and exited 0 (Codex round 11 P1, 2026-10-19). Paging every row on every 10-second poll would hammer the API's rate limits, so tail keeps one page and makes the limit visible; export and sync read every row. Stub receipt: 50 data lines plus one more event.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/tail.go",
-          "contains": "if jsmPageHasMore(data) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/tail.go",
-          "contains": "API reports more pages, tail also emits an {\"event\":\"more\"} line",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-export-item-placeholder",
-      "summary": "a single-item export fills the item id into the path's LAST placeholder, so Assets exports (export objectschema 123) no longer write the id into {cloudId}",
-      "why": "resourceDetailPath replaced the first {...} in the path; every Assets detail path starts with {cloudId} and {workspaceId}, so export objectschema 123 put 123 in the cloudId slot and left {id} unresolved (Codex round 11 P2, 2026-10-19). Every detail path ends with its item placeholder. TestResourceDetailPathFillsItemID fails with the first-placeholder version.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/resource_paths.go",
-          "contains": "start := strings.LastIndex(path, \"{\")",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-pages-by-rows-returned",
-      "summary": "every pager advances start by the rows a page actually returned and keeps going on a short page JSM marks isLastPage:false (or Assets isLast:false): export, --all (helpers.go), and sync's flat and dependent walks; jsmWalk (hand-written) follows the same rule; every sync stop decision, including the --max-pages cap path that gates --full pruning, goes through jsmShortPageEnds",
-      "why": "Atlassian documents that a page can hold fewer items than limit without being the last ('size is less than limit and isLastPage is false') when the server caps it. The generated pagers stopped on any short page and strided by the requested size, so at a 20-row cap sync stored 20 of 120 rows per resource and export wrote 60 of 120, both exit 0 (Codex round 12 P1s; reproduced with a stub that caps pages at 20 and echoes the requested limit). After the fix: export, --all, --all --limit 50, and sync (flat and every dependent table) return 120 of 120 at caps 20, 50 and 100. A full page still continues whatever isLastPage says, so the old always-true isLastPage bug (JSDCLOUD-8279, since fixed) cannot cut a walk short. TestJSMWalkFollowsCappedPages fails with the old jsmWalk rule. Round 13 (Codex P1): the --max-pages cap path still used the raw short-page rule, so `sync --full --max-pages 1` treated a capped isLastPage:false page as the end and pruned 100 unseen rows from a 120-row mirror (reproduced: 120 -> 20). All four sync decisions now go through jsmShortPageEnds, and no offset stride by the requested size remains (receipt: 120 rows kept).",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "if paginationType == \"offset\" {\n\t\tpageSize = itemCount",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "moreByTotal || jsmPageHasMore(data)); ok {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "(len(items) >= pageSize.limit || (len(items) > 0 && jsmPageHasMore(data))) && pageAllowsPageIntFallback(data)",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "nextCursor = strconv.Itoa(currentOffset + len(items))",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/export.go",
-          "contains": "params[config.cursorParam] = strconv.Itoa(fetched)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/export.go",
-          "contains": "len(items) < requested && !jsmPageHasMore(data) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "shortPageEndsPagination(pageSize"
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "jsmShortPageEnds(pageSize.cursorType",
-          "code_only": true,
-          "min_count": 4
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "currentOffset + pageSize.limit"
-        }
-      ]
-    },
-    {
-      "id": "jsm-mcp-tail-single-poll",
-      "summary": "the MCP tail tool always polls once and returns: --follow is forced false for the tail command path",
-      "why": "tail follows by default and the generated cliArgsFromMCP forwards only true booleans, so an agent's follow:false was dropped: the tool call never returned and the child CLI kept polling the JSM API until the MCP server exited (adversarial round 10 P1; reproduced: 13 then 16 polls, no result after 25 s). A targeted fix was chosen over forwarding every explicit false, which would let an MCP caller switch off any default-true flag. Receipt: tools/call tail with and without follow:false returns after exactly one poll. TestJSMTailSinglePoll covers the argv rewrite.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/cobratree/shellout.go",
-          "contains": "finalArgs = jsmTailSinglePoll(finalArgs, len(prefixArgs))",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-export-repeated-page-guard",
-      "summary": "export writes each row once and stops with an error when a page adds no new row (a server that ignores the paging key), rather than writing duplicates until the 100000-page guard or exiting 0 with a short or duplicated file",
-      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120. Round 14 (Codex P1): the first guard compared whole responses, so a server echoing the requested start while serving the same rows slipped past it (120 rows written, 20 unique); it now compares the page's rows. Receipt: exit 1 against that stub, with and without --limit 120. Round 15 (Codex P1): comparing a page to the previous one missed a --limit-shortened last request (export request --limit 75 wrote 75 rows, 50 unique); export now de-duplicates by row hash and errors when a page adds nothing new. Receipt: exit 1 for no limit, --limit 120 and --limit 75; normal exports still 120/120.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/export.go",
-          "contains": "if page > 0 && len(items) > 0 && len(fresh) == 0 {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/export.go",
-          "contains": "if h := sha256.Sum256(item); !seenRows[h] {",
-          "code_only": true
-        }
-      ]
-    },
-    {
-      "id": "jsm-no-prune-on-filtered-walk",
-      "summary": "sync --full does not prune a resource whose walk a --param, --global-param or --resource-param shaped; it emits reconcile_skipped with reason user_params instead",
-      "why": "A filtered walk only sees the rows the filter lets through, but --full reconciled the whole table against it: `sync --full --resources request --resource-param request:requestStatus=OPEN_REQUESTS` deleted 100 of 120 local rows (Codex round 14 P1, 2026-10-19; reproduced 120 -> 20). Receipts after the fix: the filtered run keeps 120 and logs reconcile_skipped/user_params; an unfiltered --full against a server that really dropped 20 rows still prunes to 100.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "prune = jsmPruneUnfiltered(prune, userParams, ",
-          "code_only": true,
-          "min_count": 2
-        }
-      ]
-    },
-    {
-      "id": "jsm-comment-public-help",
-      "summary": "request comment add --public and request attachment add --public help say that omitting the flag sends no public field (JSM's default then applies and can make the comment customer-visible); comment add routes internal notes to request note. SKILL.md and guide.md say --yes gates only local confirmations and API writes send immediately.",
-      "why": "The generated help read 'public (true) or private/internal (false)', which suggests leaving the flag off gives an internal note; the command then sends {\"body\":...} with no public key and JSM picks visibility, the exact internal-note leak this connector headlines. SKILL.md (the file agents load) said only that --agent does not imply --yes, which reads as if writes wait for --yes. Found by adversarial review round 14 (Opus), 2026-10-19. Round 15 (Opus) found the sibling request attachment add --public (same omitted-field shape, help implied omitted = not visible) and the guide.md twin of the SKILL.md sentence.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/request_comment_add.go",
-          "contains": "Omitted, no public field is sent and JSM applies its own default, which can make the comment customer-visible. For an internal note use request note instead, which checks the stored visibility.",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_comment_add.go",
-          "not_contains": "Indicates whether the comment is public (true) or private/internal (false)."
-        },
-        {
-          "file": "SKILL.md",
-          "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
-        },
-        {
-          "file": "cli/internal/cli/request_attachment_add.go",
-          "contains": "Omitted, no public field is sent and JSM applies its own default, which can make them customer-visible.",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/request_attachment_add.go",
-          "not_contains": "Controls whether the comment and its attachments are visible to customers\""
-        },
-        {
-          "file": "guide.md",
-          "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
-        }
-      ]
-    },
-    {
-      "id": "interim-http-security-note-2026-10-22",
-      "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-      "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "mcp-install.md",
-          "contains": "**Security note (until this connector is reprinted).**",
-          "min_count": 1
-        },
-        {
-          "file": "mcp-install.md",
-          "contains": "# Remote agents (paused until this connector is reprinted)",
-          "min_count": 1
-        },
-        {
-          "file": "mcp-install.md",
-          "not_contains": "via a secure tunnel"
-        },
-        {
-          "file": "mcp-install.md",
-          "contains": "\"JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY\": \"1\"",
-          "min_count": 3
-        },
-        {
-          "file": "manifest.json",
-          "contains": "Preset to 1; clear it only when you want the agent to make changes.",
-          "min_count": 1
-        },
-        {
-          "file": "README.md",
-          "contains": "**Security note (until this connector is reprinted).**",
-          "min_count": 1
-        },
-        {
-          "file": "README.md",
-          "contains": "this connector's HTTP mode is paused until it is reprinted",
-          "min_count": 1
-        },
-        {
-          "file": "README.md",
-          "not_contains": "--addr :7777"
-        },
-        {
-          "file": "page.json",
-          "contains": "this connector's HTTP mode is paused until it is reprinted",
-          "min_count": 1
-        },
-        {
-          "file": "page.json",
-          "not_contains": "--addr :7777"
-        }
-      ]
-    },
-    {
-      "id": "mcp-file-flags-refused",
-      "class": "mcp-file-flag",
-      "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor",
-      "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-      "status": "active",
-      "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "return mcplib.NewToolResultError(fmt.Sprintf(\"refusing %q: it names a file on the machine running the MCP server",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
-        }
-      ]
-    },
-    {
-      "id": "derive-lock-tests-deterministic",
-      "class": "test-determinism",
-      "summary": "The two derive-lock tests (ContendedAppendIsDerivedBeforeReturn, CaughtUpPassDoesNotWait) wait on what the pass is doing, read from goroutine stacks, instead of fixed 200 ms, 500 ms and 5 s windows; every remaining wait is bounded by the test binary's own deadline",
-      "why": "On windows(fortinet) in CI (2026-10-22, PR #421) the contended test failed with 'contended pass did not finish after the peer released the lock': after release the pass opens a fresh SQLite store and commits, and a slow Windows runner took longer than the fixed 5 s. The 200 ms 'did not return while held' window was also weak: on a slow runner it could elapse before the pass even reached the wait. The contended test now waits until the pass is provably blocked in cliutil.WithFileLock called from DeriveFlagCorrections (it cannot return before release), so it is stronger, not weaker. Proven: a pass that returns early under contention fails it; a caught-up pass that polls or blocks fails the caught-up test; with a simulated 6 s store open after the lock, the old test fails with the CI message and the new one passes.",
-      "status": "active",
-      "spec_encode_followup": "Press-side: the generated internal/learn derive_test.go should use this state-based wait in place of the fixed windows.",
-      "asserts": [
-        {
-          "file": "cli/internal/learn/derive_test.go",
-          "contains": "func deriveBlockedOnLock() bool {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/learn/derive_test.go",
-          "contains": "for !deriveBlockedOnLock() {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/learn/derive_test.go",
-          "not_contains": "case <-time.After(200 * time.Millisecond):"
-        },
-        {
-          "file": "cli/internal/learn/derive_test.go",
-          "not_contains": "if time.Since(start) > 500*time.Millisecond {"
-        }
-      ]
-    },
-    {
-      "id": "secret-echo-decoded-funnel",
-      "class": "secret-echo",
-      "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-      "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-      "status": "active",
-      "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-      "asserts": [
-        {
-          "file": "cli/internal/cliutil/secret_funnel.go",
-          "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/secret_funnel_test.go",
-          "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "held = append(held, value)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "return cliutil.FunnelWithhold(masked, held)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "not_contains": "bodyText := truncateBody(respBody)"
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "c.shownSummary(respBody, summary, authHeader)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-        },
-        {
-          "file": "cli/internal/cliutil/secret_funnel.go",
-          "contains": "var funnelSteps = []func(string) []string{",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/secret_funnel.go",
-          "contains": "funnelTextStep(funnelIdentityUnescape),",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/secret_funnel.go",
-          "contains": "func FunnelHeld(text string) string {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cliutil/secret_funnel_test.go",
-          "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/secret_funnel_cli.go",
-          "contains": "func funnelCommandErrors(root *cobra.Command) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/secret_funnel_cli_test.go",
-          "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/root.go",
-          "contains": "funnelCommandErrors(rootCmd)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/cmd/jira-service-management-mcp/main.go",
-          "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/cmd/jira-service-management-mcp/secret_funnel_mcp.go",
-          "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/cmd/jira-service-management-mcp/secret_funnel_mcp_test.go",
-          "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "c.holdCredentials()",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "cliutil.FunnelHold(authHeader)",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "funnelShownError(err),",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "\"error\": err.Error(),"
-        }
-      ]
-    },
-    {
-      "id": "chatgpt-desktop-local-web-unsupported",
-      "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
-      "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
-      "status": "active",
-      "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
-      "asserts": [
-        {
-          "file": "mcp-install.md",
-          "contains": "## ChatGPT desktop app (OpenAI)",
-          "min_count": 1
-        },
-        {
-          "file": "mcp-install.md",
-          "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
-          "min_count": 1
-        },
-        {
-          "file": "mcp-install.md",
-          "not_contains": "## ChatGPT (Developer Mode)"
-        },
-        {
-          "file": "mcp-install.md",
-          "not_contains": "*Remote* agents (ChatGPT"
-        },
-        {
-          "file": "README.md",
-          "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
-          "min_count": 1
-        },
-        {
-          "file": "README.md",
-          "not_contains": "Plus/Pro+"
-        },
-        {
-          "file": "README.md",
-          "not_contains": "Developer Mode"
-        },
-        {
-          "file": "README.md",
-          "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
-        },
-        {
-          "file": "page.json",
-          "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
-          "min_count": 1
-        },
-        {
-          "file": "page.json",
-          "not_contains": "connects only to remote"
-        }
-      ]
-    },
-    {
-      "id": "sync-event-writer-serialized",
-      "class": "concurrent-writer",
-      "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
-      "why": "The generated sync hands cmd.OutOrStdout() (or ErrOrStderr() in machine output) to every --concurrency worker, and each writes sync_start, progress and error events. os.Stdout tolerates that; the writers --deliver (a mirror into a bytes.Buffer) and --receipt-file / --audit-dir (a running SHA-256) install do not, nor does an in-process caller's buffer: Windows CI on PR #655 panicked in bytes.Buffer.grow from syncResource, and go test -race found 28 races on veeam. TestSyncWorkerPoolSerializesEventWrites pins it. A reprint regenerates sync.go and drops the wrap; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-event-writer-serialized).",
-      "status": "active",
-      "spec_encode_followup": "Press-side (mvanhorn/cli-printing-press#5369): the sync template should serialize the event writer its top-level worker pool shares, as its dependent path already does with lockedWriter.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "syncEventWriter = &syncSerialWriter{w: syncEventWriter}",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync_event_writer.go",
-          "contains": "func (s *syncSerialWriter) Write(p []byte) (int, error) {",
-          "min_count": 1,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/sync_event_writer_test.go",
-          "contains": "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {",
-          "min_count": 1,
-          "code_only": true
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\tpageSize := determinePaginationDefaults(resource)\n"
     }
-  ]
+   ]
+  },
+  {
+   "id": "jsm-comment-sync-parent-key",
+   "summary": "the comment sync dependent reads its parent key from the request row's issueId, not the snake-cased issue_id",
+   "why": "The press snake-cases the parent key field (issueId -> issue_id) and then looks it up as $.issue_id in the stored request JSON, which never has that key, so the comment dependent found no parent and synced 0 rows with no error.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Param: \"issueIdOrKey\", Field: \"issueId\"},",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-comment-opt-in",
+   "summary": "request dependents never cascade from a plain sync: comment runs only when named (--resources request,comment) and the other request dependents are refused with an explicit result",
+   "why": "sla and transition ids repeat per request (store primary-key collisions), status rows have no id, and approval, attachment and participant would each add one API call per request to every default sync for data the live commands already fetch. Comments are opt-in because they can be large and include internal notes. The generated help promised a parent->dependent cascade, so the help text is rewritten to match (sync.go long and short help).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if skip, res := jsmSkipDependent(dep.Name, dep.ParentTable, allow); skip {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "except comment, which runs only when named; other request dependents are not synced"
+    }
+   ]
+  },
+  {
+   "id": "jsm-request-replace",
+   "summary": "a synced request row with an sla key replaces the stored row instead of deep-merging into it",
+   "why": "The store's merge keeps keys the incoming row no longer carries. JSM's request list is the current state: a completed SLA cycle drops out of the sla block, and merging resurrected ended cycles, so breaches/sla-report counted stale breaches.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if resourceType == \"request\" && jsmHasTopLevelKey(incoming, \"sla\") {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-template-var-guard",
+   "summary": "buildURL refuses a {site}, {cloudId} or {workspaceId} value that is not a plain identifier before it is spliced into the host or path",
+   "why": "Template values are spliced into the host and path raw. A value carrying /, @, #, ?, : or .. would move the request, Basic credentials included, to another host or endpoint, and it is reachable from an agent via sync --path-context. Logic in internal/client/jsm_template_guard.go (hand-written).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/url.go",
+     "contains": "if err := jsmCheckTemplateVars(full, vars); err != nil {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcpb-assets-ids-optional",
+   "summary": "the .mcpb user_config marks cloudId and workspaceId optional (Assets only) and the server entry is the stripped jira-service-management-mcp binary",
+   "why": "Lock promote's manifest env scan makes every env var it sees a REQUIRED user_config field, so a site without Assets (JSM Standard) could not install the extension at all. Promote also rewrote manifest.json after its own hand-fix check and dropped this fix (factory retro R11); onboard re-copies manifest.json from the source, so a reprint restores the required flags.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"description\": \"Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\","
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"entry_point\": \"bin/jira-service-management-mcp\""
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "jira-service-management-pp-mcp"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"description\": \"Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"description\": \"Assets only: your site's workspaceId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
+    }
+   ]
+  },
+  {
+   "id": "jsm-reconcile-open-per-os",
+   "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it opens through an os.Root on the working directory and refuses any filesystem-root or home working directory",
+   "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. Under MCP the containment check originally ran by path before the open, compared the working directory only with '/', and a later open-then-verify version still left a symlink-swap window between resolve and stat (Codex review rounds 1-2, 2026-10-16). os.Root resolves every component relative to the working-directory handle and refuses escapes, which closes the race by construction. cmdb_reconcile_mcp_test.go covers it. Round 3: os.OpenRoot(wd) by pathname still let a swap of the working directory's path redirect the root, so the root is now the process working directory handle (\".\") and the root/home refusal compares directory identity, not strings.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "contains": "f, err = openNoFollow(path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "not_contains": "syscall.O_NOFOLLOW"
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile_open_windows.go",
+     "contains": "if fi, err := f.Stat(); err != nil || !os.SameFile(li, fi) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "contains": "f, err := r.OpenFile(rel, inventoryOpenFlags, 0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
+     "contains": "const inventoryOpenFlags = os.O_RDONLY | syscall.O_NONBLOCK",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
+     "contains": "return os.OpenFile(path, inventoryOpenFlags|syscall.O_NOFOLLOW, 0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "contains": "r, err := os.OpenRoot(\".\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "contains": "if fi, err := os.Stat(top); err == nil && os.SameFile(here, fi) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_reconcile.go",
+     "not_contains": "os.OpenRoot(wd)"
+    }
+   ]
+  },
+  {
+   "id": "jsm-claims-match-the-evidence",
+   "summary": "the generated headline no longer claims the official Atlassian MCP lacks these features, and roster no longer presents a fixed JSM paging bug as current",
+   "why": "The research headline said the SLA radar, internal notes, timelines and CMDB joins are things 'the official Atlassian MCP lacks'. Atlassian's Rovo MCP Server now documents JSM request tools (search with SLA signals, create, transition, approvals) and Assets search (supported-tools page, checked 2026-10-16), so the claim was not verifiable. The roster help and the which-index said naive customer paging 'silently stops at 50' citing JSDCLOUD-8012/8279, both of which Atlassian closed (duplicate / fixed). A reprint from the same research.json restores both strings into root.go, agent_context.go, the MCP context tool and which.go. 4.35.1 reprint (2026-11-02): the headline claim is removed from research.json's narrative, so every surface (root.go, agent_context.go, tools.go, SKILL, README, manifest, goreleaser, agentcookie) renders without it natively.",
+   "status": "active",
+   "spec_encode_followup": "Edit narrative.headline and the roster novel-feature why_it_matters in the factory research.json (cli-factory/jira-service-management) so the press stops emitting the stale claims.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "the official Atlassian MCP lacks"
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "not_contains": "the official Atlassian MCP lacks"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "the official Atlassian MCP lacks"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "the official Atlassian MCP lacks"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "the official Atlassian MCP lacks"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "silently stops at 50"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "silently stops at 50"
+    },
+    {
+     "file": "cli/internal/cli/roster.go",
+     "not_contains": "so naive paging stops at 50"
+    }
+   ]
+  },
+  {
+   "id": "jsm-skill-doc-fixes",
+   "summary": "template doc sections in SKILL.md, guide.md and AGENTS.md are rewritten for JSM: claude mcp add passes SITE/EMAIL/API_TOKEN, exit codes name exit 1, examples use real JSM commands, the quick start runs doctor",
+   "why": "The press templates ship sports-domain teach examples, a 'claude mcp add' line with no credentials (the server then 401s on every call), placeholder <command> examples, a 'doctor --dry-run' quick start that does nothing, and a bundle line naming platforms the msp-skills .mcpb does not ship. The factory's apply_handfixes.py (apply_docfixes) and the onboarding run fixed them; a reprint brings the template text back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "claude mcp add jira-service-management-mcp --env JIRA_SERVICE_MANAGEMENT_SITE=acme --env JIRA_SERVICE_MANAGEMENT_EMAIL=you@example.com --env JIRA_SERVICE_MANAGEMENT_API_TOKEN=<api-token> -- jira-service-management-mcp"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Arizona Cardinals"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Printing Press CLI"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "jira-service-management-cli doctor --dry-run"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Pre-built bundles ship for macOS (Apple Silicon and Intel), Linux (`amd64`) and Windows (`amd64`)"
+    },
+    {
+     "file": "AGENTS.md",
+     "not_contains": "jira-service-management-cli <command> --agent"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "  --query \"$QUERY\" \\\n  --resource-type <type> \\\n  --resource <id> \\"
+    }
+   ]
+  },
+  {
+   "id": "jsm-detail-no-unwrap",
+   "summary": "single-object GETs return the whole DTO; object create/update cache the entity and request approval answer writes nothing to the store, instead of unwrapping one array field",
+   "why": "The press picks a response path for any response with an array field, so 'request sla get' printed only completedCycles (the ongoing cycle, breach state and remaining time vanished), 'request comment get' printed _expands, 'servicedesk queue get' printed only the field list, 'request approval get' only the approvers, 'usage' dropped the total, 'importsource' dropped the config, and 'object get' (auto strategy) printed the attributes and wrote each one into the local store as an 'object' row keyed by the attribute id, overwriting unrelated cached objects. object create/update and request approval answer did the same through writeMutationResponseToStore. Found by the Codex read-only review, 2026-10-16; the list commands that do unwrap a list (tickets, keys, requestTypeFields, values) are unchanged. Round 3: writing the whole approval DTO then failed the typed approval table (request_id NOT NULL) and printed a misleading 'typed-table upsert failed' warning on every successful answer, so approval answer no longer writes to the store; approvals are read live.",
+   "status": "active",
+   "spec_encode_followup": "Press defect: only list endpoints (or a response whose only meaningful content is the array) should get a response path; detail DTOs with an array member must not. Reported in the factory retro notes.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/object_get.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_sla_get.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_comment_get.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/servicedesk_queue_get.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_approval_get.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_importsource.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_usage.go",
+     "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/object_create.go",
+     "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/object_update.go",
+     "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_sla_get.go",
+     "not_contains": "\"completedCycles\", cmd.ErrOrStderr()"
+    },
+    {
+     "file": "cli/internal/cli/request_comment_get.go",
+     "not_contains": "\"_expands\", cmd.ErrOrStderr()"
+    },
+    {
+     "file": "cli/internal/cli/object_create.go",
+     "not_contains": "data, \"attributes\")"
+    },
+    {
+     "file": "cli/internal/cli/request_approval_answer.go",
+     "not_contains": "writeMutationResponseToStore(cmd.Context(), \"approval\""
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes GET /servicedesk with the real credential and names JIRA_SERVICE_MANAGEMENT_SITE / _BASE_URL when the base URL is still the {site} placeholder, instead of calling any response to GET / reachable and printing 'present, not verified'",
+   "why": "The 4.33.5 doctor called any HTTP response to `GET /` reachable and never probed the credential: it printed 'present, not verified' and told the operator to run `objectschema list`, an Assets command that needs JSM Premium plus a cloudId and workspaceId, so on a Standard site the suggested check could never pass. A base_url aimed at a host where every API path 404s, and a revoked token, both rendered healthy, and the placeholder branch never named the variable to set. GET /servicedesk answers for any authenticated account. check_doctor_truth.py drives healthy / expired / wrong-base / placeholder against a stub server; it failed 5 assertions before this fix (verify_all, 2026-10-16) and passes after. Same fix as skills/fortinet doctor-verdict-tracks-reality; see issue #282. 4.35.1 reprint (2026-11-02): the two credential ERROR verdicts (placeholder base_url, no credential) were carried but never asserted; they are now. 4.35.1's plaintext-HTTP branch sits beside the no-credential verdict.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorProbePath = \"/servicedesk\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "WARN scope-limited (HTTP 403 from %s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "\"; set \" + doctorSiteEnv + \" to your site subdomain",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: base_url is still a placeholder; set \" + doctorSiteEnv",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-sync-defaults-skip-removed-aql",
+   "summary": "a bare sync no longer walks GET /aql/objects and /iql/objects, endpoints Atlassian removed; both stay syncable by name",
+   "why": "The generated default sync set included aql and iql, whose own command help says Atlassian removed them (18 September 2024), so every bare sync on an Assets site logged warnings instead of objects. The sync help example also named aql. Found by the adversarial review, 2026-10-16. The exact default list is pinned (Codex round 7, 2026-10-19: the aql-only not_contains let iql back in unnoticed).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "return []string{\n\t\t\"aql\",\n\t\t\"assets\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "sync --resources organization,aql"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "names := []string{\n\t\t\"aql\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\treturn []string{\n\t\t\"assets\",\n\t\t\"config\",\n\t\t\"config-statustype\",\n\t\t\"icon\",\n\t\t\"insight\",\n\t\t\"objectschema\",\n\t\t\"organization\",\n\t\t\"request\",\n\t\t\"requesttype\",\n\t\t\"servicedesk\",\n\t\t\"usage\",\n\t}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-store-scope-by-site",
+   "summary": "the local store is scoped by credential AND resolved site URL, so one Atlassian token used on several client sites gets one database per site; sync --path-context site=... re-scopes the store to the site it selects",
+   "why": "An Atlassian API token reaches every site its account belongs to, which is normal for an MSP. The generated store scope hashed only the credential, so switching JIRA_SERVICE_MANAGEMENT_SITE reused one data-<hash>.db: sites mixed in reports and search, and a --full sync of one site pruned the other's rows (Codex review round 2, 2026-10-16). The fix uses the generator's config.StoreScopeIdentity hook from a hand-written file; the MCP server resolves its store path through the same package. jsm_store_scope_test.go covers it. Round 3: sync --path-context site=... changed the target after the store was scoped, so it still mixed sites; sync now re-scopes before opening the default store. 4.35.1 reprint (2026-11-02, Codex r1 P1 cross-site local-store adoption): the press's legacy-store adoption offered the credential-only data-<hash>.db to whichever site ran first, so Beta's sla-report read Acme's rows. A store named by the credential alone belongs to no site, so none adopts it (config.StoreScopeLegacyIdentity returns \"\"); such a store is left in place and the site re-syncs. Codex r2: an unscoped data.db with no .owner marker was still claimed by the first site to run (claimLegacyUnscopedDB); no site claims one now (a marker a site already wrote is honoured), and the generated MCP path test that expected the adoption asserts the opposite.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jsm_store_scope.go",
+     "contains": "config.StoreScopeIdentity = jsmStoreScopeIdentity",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_store_scope.go",
+     "contains": "return auth + \"|site=\" + client.ResolvedBaseURL(c.BaseURL, c.TemplateVars)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if StoreScopeIdentity != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "setDefaultDBScopeIdentity(c.Config.StoreScopeCredential(), c.Config.StoreScopeLegacyCredential(), c.Config.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return StoreScopeLegacyIdentity(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_store_scope.go",
+     "contains": "config.StoreScopeLegacyIdentity = func(*config.Config) string { return \"\" }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_store_legacy_test.go",
+     "contains": "func TestNoSiteAdoptsACredentialOnlyStore(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if jsmNoUnscopedClaim {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_store_scope.go",
+     "contains": "var jsmNoUnscopedClaim = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_store_legacy_test.go",
+     "contains": "func TestNoSiteClaimsAnUnownedUnscopedStore(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "never the unowned %q",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-scrub-media-jwt",
+   "summary": "every successful API response has Assets' mediaJwtToken removed before the response cache, local store, write-through or stdout sees it",
+   "why": "Assets object responses carry avatar.mediaClientConfig.mediaJwtToken, a bearer JWT for Atlassian's media API. Once object get returned the whole DTO (jsm-detail-no-unwrap), and on any Assets sync, it was persisted in plaintext in the mirror and the HTTP cache and echoed into agent transcripts (Codex review round 2, 2026-10-16). The scrub is exact-key so importsource token generate still returns the token the user asked for. jsm_scrub_test.go covers it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return json.RawMessage(jsmScrubIncidentalSecrets(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "\t\t\treturn json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil\n"
+    },
+    {
+     "file": "cli/internal/client/jsm_scrub.go",
+     "contains": "const jsmIncidentalSecretKey = \"mediaJwtToken\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcp-delete-body",
+   "summary": "the MCP execute tool sends a JSON body for the four DELETE endpoints whose spec declares one (participant, organization-member, desk-customer and desk-organization removal)",
+   "why": "The generated execute path sent every DELETE parameter as a query string, so removing request participants, organization users, desk customers or desk organizations through MCP could never succeed (the API needs accountIds / organizationId in the body); the CLI already sends the body. Verified against an echo stub, 2026-10-16 (Codex review round 2). 4.35.1 reprint (2026-11-02): the execute handler now branches on a local `method`; the assert follows that form.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if method == \"GET\" || (method == \"DELETE\" && !jsmDeleteBodyEndpoints[ep.ID]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/jsm_delete_body.go",
+     "contains": "\"request.participant.remove\":      true,",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-blocks-local-file-inputs",
+   "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach / teach-playbook notes and playbook files, import --input, upload-temporary-file --file); the import tool is hidden from MCP because its required --input can no longer be passed",
+   "why": "teach_playbook --notes-file (and teach --playbook-notes-file / --playbook-file) read any local file the MCP client names and returned it through playbook_list and recall, even with JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1, so a prompt-injected ticket could read ~/.ssh or credentials.toml (adversarial review round 2 and Codex round 3, 2026-10-16; reproduced with a canary file, now refused as an unknown MCP parameter). Same fix as skills/connectsecure mcp-blocks-local-file-inputs; jsm_file_inputs_test.go scans internal/cli so a reprint that adds a file-reading flag fails the test.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/typemap.go",
+     "contains": "for _, name := range fileInputFlagNames(cmd) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_file_inputs.go",
+     "contains": "\"teach-playbook\": {\"notes-file\", \"playbook-file\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_file_inputs_test.go",
+     "contains": "func TestEveryFileInputFlagIsBlocked(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-experimental-header-on-every-request",
+   "summary": "every request-API (servicedeskapi) call carries X-ExperimentalApi: opt-in, set per request in the client's send path, so sync and the MCP execute tool reach the experimental endpoints too",
+   "why": "Request types, desk customers and request feedback are experimental endpoints that answer HTTP 412 without the header. The generated commands send it per call, but sync and MCP execute did not, so `sync --resources requesttype` (which sla-report --group-by requesttype and client rely on) failed (Codex review round 4, 2026-10-16; reproduced against a stub that enforces the header). Atlassian ignores the header on stable endpoints. It is applied in jsmBeforeRequest (internal/client/jsm_request_guard.go) behind one hook in client.go doInternal; an earlier version wrapped the HTTP transport, which silently disabled StreamingHTTPClient's ResponseHeaderTimeout on binary downloads (adversarial review round 4). jsm_request_guard_test.go covers it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := jsmBeforeRequest(opCtx, c, req); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "req.Header.Set(\"X-ExperimentalApi\", \"opt-in\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-assets-ids-per-site",
+   "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them; and every Assets request is refused unless its cloudId is the current site's (tenant_info) and its workspaceId is one the site lists (servicedeskapi/assets/workspace), each read once per process",
+   "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled. Round 5 (adversarial review, 2026-10-19): a leftover JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID was still unchecked (the code relied on an unproven claim that Atlassian rejects a workspaceId outside the cloud), and a trailing-dot host (api.atlassian.com.) skipped the guard. The guard now also requires the workspaceId to be one the site's own /rest/servicedeskapi/assets/workspace lists (fetched with the request's own Authorization header from the same <site>.atlassian.net host) and normalizes the host; jsm_request_guard_test.go fails with either check disabled (mutation-tested). Round 6: a 401/403/429 from the workspace lookup reads 'HTTP <code>' so the CLI and MCP classify it as auth (exit 4, with the credentials hint) or rate limit; other statuses read 'status <code>' so they never look like a missing resource. TestFetchSiteWorkspaceIDs covers both. 4.35.1 reprint (2026-11-02): the which.go 'once per client site' wording was an unrecorded generated-file edit; it is now in research.json's novel descriptions, so the render produces it, and it is asserted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.bindAssetsIDsToSite()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "c.Config.RebindAssetsIDs(pathContext)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_discover.go",
+     "contains": "config.JSMSiteBoundKey(\"cloudId\", site): view.CloudID",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cmdb_discover.go",
+     "not_contains": "map[string]string{\"cloudId\": view.CloudID"
+    },
+    {
+     "file": "cli/internal/config/jsm_config.go",
+     "contains": "func (c *Config) bindAssetsIDsToSite() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "if want != cloudID {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "ids, err := jsmSiteWorkspaceIDs(ctx, c, site, req.Header.Get(\"Authorization\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "strings.TrimSuffix(strings.ToLower(u.Hostname()), \".\") != \"api.atlassian.com\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "fmt.Errorf(\"the site's Assets workspace list returned HTTP %d\", resp.StatusCode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "run 'cmdb discover --save' once per client site.",
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "jsm-auth-hint-email-placeholder",
+   "summary": "every auth hint names an email for JIRA_SERVICE_MANAGEMENT_EMAIL (not a token placeholder), shows the PowerShell form beside the POSIX export, and the set-credentials example passes an email first",
+   "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19. Adversarial round 6 (2026-10-19): auth setup, auth status and the placeholder-credential error still had no PowerShell form, and the placeholder error's <you@example.com> parsed as a shell redirect; all three now print quoted, runnable POSIX and PowerShell forms (both run under bash and pwsh). Round 7: auth status's export lines carried trailing '# ...' comments that fail when pasted into an interactive zsh (the macOS default); the explanation is now its own line. 4.35.1 reprint (2026-11-02): the press now renders these hints through cliutil.EnvAssignHint with a token placeholder for the email; the published text (both shells, an email placeholder) is kept at every site, and the auth status export lines are asserted too.",
+   "spec_encode_followup": "Press template defect for composed Basic auth (email + token); not spec-encodable.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "set-credentials your-token-here your-token-here"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "EMAIL=\\\"your-token-here\\\""
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "EMAIL=<"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "fmt.Fprintln(w, \"  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\"\")",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "# Atlassian account email (Basic auth username).\")"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "fmt.Fprintln(w, \"  export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\"\")",
+     "code_only": true,
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "jsm-doctor-prefers-site",
+   "summary": "doctor's placeholder-base_url api and credentials lines tell the user to set JIRA_SERVICE_MANAGEMENT_SITE and warn that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative; the 404 probe verdict says the same",
+   "why": "Following the generated advice (set BASE_URL to the request-API root) moved every Assets call onto the site host, where it 404s and is reported as 'resource not found'. The guide and manifest already say to prefer SITE. Found by the adversarial review, round 5, 2026-10-19.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Prefer it over \" + doctorBaseURLEnv + \", which also moves Assets (CMDB) calls onto that host and breaks them",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "base_url is still a placeholder; set \" + doctorSiteEnv + \" or \" + doctorBaseURLEnv"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "not_contains": "to your site subdomain, or %s to https://<site>.atlassian.net/rest/servicedeskapi"
+    }
+   ]
+  },
+  {
+   "id": "jsm-archive-skips-removed-aql",
+   "summary": "workflow archive (and the MCP workflow_archive tool) syncs sync's default resource list, so it no longer walks the removed aql/iql endpoints",
+   "why": "jsm-sync-defaults-skip-removed-aql dropped aql/iql from sync's defaults, but the generated archive command hard-coded its own list with both, so every archive on an Assets site logged two resource errors hidden behind exit 0. Found by the adversarial review, round 5, 2026-10-19.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := defaultSyncResources()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "[]string{\"aql\", \"assets\""
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcp-context-paging",
+   "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
+   "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses. Round 9 (Codex P1, adversarial P2): 'stop on a page shorter than limit' ends an agent's walk on page 1 when it sends a limit above the server's page cap, because execute forwards limit as given; the tip now says stop only on an empty page. Round 10 (adversarial P2s): an MCP output-trimmed page can come back with no values and _pp_truncated set, so the tip now says to retry that start with a smaller limit instead of stopping; the bounded-list note in internal/mcp/bound/bound.go no longer suggests offset (ignored on request lists); the roster rationale names the page size it compares against.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"Page with JSM's own parameter names, which execute sends as given: start and limit on request-API lists (offset is translated to start only on the knowledgebase article lists), startAt and maxResults on Assets AQL search (object.find-by-aql).\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Pagination uses cursor-based paging"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sent to JSM as start/startAt"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty without _pp_truncated: JSM can return fewer rows than the limit you sent on a page that is not the last. If a page is _pp_truncated, ask again at the same start with a smaller limit.\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "always-true isLastPage"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "until a page comes back empty or shorter than limit"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "stopping on an empty or short page rather than trusting isLastPage"
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "Narrow the request with a smaller limit (page with start, or startAt on Assets)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "not_contains": "Narrow the request with limit, offset, filters"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "on a short page JSM does not mark isLastPage:false (a capped page can be short without being the last), or on a page with no new rows (the server stopped advancing); a full page with new rows continues whatever isLastPage says, up to 2,000 pages",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "rather than trusting isLastPage"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Merges six endpoints (request, participants, comments with internal notes, status history, approvals, SLA)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"description\": \"Go from a hostname\""
+    },
+    {
+     "file": "guide.md",
+     "contains": "which pages until an empty page or a short page JSM does not mark isLastPage:false, and de-duplicates."
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "pages until an empty or short page"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Merges five endpoints"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "a full page always continues, whatever isLastPage says"
+    }
+   ]
+  },
+  {
+   "id": "jsm-export-pagination-wire-names",
+   "summary": "export (CLI and the MCP export tool) pages with JSM's wire keys (start, Assets startAt) and the 50-row JSM page cap, through one hook in resourceReadConfigFor (tail reads one page per poll; see jsm-tail-says-first-page)",
+   "why": "export and tail read their own generic page table (resourceReadConfigs: offset, limit 100) that jsm-pagination-wire-names never touched. JSM ignores offset, so with its 50-row cap export stopped after one 'short' page and exited 0 with 50 of 120 requests, and with a cap of 100 or more it re-fetched page one until the 100000-page guard, writing duplicates (Codex round 10 P1 and adversarial round 9 P1, 2026-10-19, both reproduced against a stub). Receipt after the fix: export request, servicedesk, organization and requesttype each wrote 120 of 120 with start=0/50/100 and limit=50, and 250 of 250 against a 100-row cap. TestResourceReadConfigWireNames fails with the hook removed. Correction (adversarial round 10): an earlier summary said tail also pages through this hook; it does not, tail only extracts rows with this config.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "config.cursorParam = jsmWireParam(path, config.cursorParam)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "config.pageSize = jsmPageCap(path, config.pageSize)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-sync-complete-request-sla",
+   "summary": "sync fills in a request's embedded SLA when JSM marks that expand=sla page incomplete (isLastPage false), reading the rest from /request/{key}/sla; sla-report and client count any request still incomplete (sla_incomplete) instead of silently undercounting",
+   "why": "sla-report and client read only the SLA that sync stored, and expand=sla returns one page of metrics; an incomplete page was stored as if complete (Codex round 11 P1, 2026-10-19). The hook (jsmCompleteRequestSLA in the hand-written internal/cli/jsm_sync_sla.go) runs once per synced page beside hydrateScalarItems; TestSyncCompletesRequestSLA fails with it disabled.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "items = jsmCompleteRequestSLA(ctx, c, resource, items)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-tail-says-first-page",
+   "summary": "tail reads one page per poll and now says so: its help states it, and it emits an {\"event\":\"more\"} NDJSON line when the API reports more pages (isLastPage or isLast false)",
+   "why": "The generated tail polls the first page with no paging and emitted it as if complete: tail request --follow=false returned 50 of 120 rows and exited 0 (Codex round 11 P1, 2026-10-19). Paging every row on every 10-second poll would hammer the API's rate limits, so tail keeps one page and makes the limit visible; export and sync read every row. Stub receipt: 50 data lines plus one more event.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "if jsmPageHasMore(data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "API reports more pages, tail also emits an {\"event\":\"more\"} line",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-export-item-placeholder",
+   "summary": "a single-item export fills the item id into the path's LAST placeholder, so Assets exports (export objectschema 123) no longer write the id into {cloudId}",
+   "why": "resourceDetailPath replaced the first {...} in the path; every Assets detail path starts with {cloudId} and {workspaceId}, so export objectschema 123 put 123 in the cloudId slot and left {id} unresolved (Codex round 11 P2, 2026-10-19). Every detail path ends with its item placeholder. TestResourceDetailPathFillsItemID fails with the first-placeholder version.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "start := strings.LastIndex(path, \"{\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-pages-by-rows-returned",
+   "summary": "every pager advances start by the rows a page actually returned and keeps going on a short page JSM marks isLastPage:false (or Assets isLast:false): export, --all (helpers.go), and sync's flat and dependent walks; jsmWalk (hand-written) follows the same rule; every sync stop decision, including the --max-pages cap path that gates --full pruning, goes through jsmShortPageEnds",
+   "why": "Atlassian documents that a page can hold fewer items than limit without being the last ('size is less than limit and isLastPage is false') when the server caps it. The generated pagers stopped on any short page and strided by the requested size, so at a 20-row cap sync stored 20 of 120 rows per resource and export wrote 60 of 120, both exit 0 (Codex round 12 P1s; reproduced with a stub that caps pages at 20 and echoes the requested limit). After the fix: export, --all, --all --limit 50, and sync (flat and every dependent table) return 120 of 120 at caps 20, 50 and 100. A full page still continues whatever isLastPage says, so the old always-true isLastPage bug (JSDCLOUD-8279, since fixed) cannot cut a walk short. TestJSMWalkFollowsCappedPages fails with the old jsmWalk rule. Round 13 (Codex P1): the --max-pages cap path still used the raw short-page rule, so `sync --full --max-pages 1` treated a capped isLastPage:false page as the end and pruned 100 unseen rows from a 120-row mirror (reproduced: 120 -> 20). All four sync decisions now go through jsmShortPageEnds, and no offset stride by the requested size remains (receipt: 120 rows kept).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if paginationType == \"offset\" {\n\t\tpageSize = itemCount",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "moreByTotal || jsmPageHasMore(data)); ok {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "(len(items) >= pageSize.limit || (len(items) > 0 && jsmPageHasMore(data))) && pageAllowsPageIntFallback(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursor = strconv.Itoa(currentOffset + len(items))",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "params[config.cursorParam] = strconv.Itoa(fetched)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "len(items) < requested && !jsmPageHasMore(data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "shortPageEndsPagination(pageSize"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "jsmShortPageEnds(pageSize.cursorType",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "currentOffset + pageSize.limit"
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcp-tail-single-poll",
+   "summary": "the MCP tail tool always polls once and returns: --follow is forced false for the tail command path",
+   "why": "tail follows by default and the generated cliArgsFromMCP forwards only true booleans, so an agent's follow:false was dropped: the tool call never returned and the child CLI kept polling the JSM API until the MCP server exited (adversarial round 10 P1; reproduced: 13 then 16 polls, no result after 25 s). A targeted fix was chosen over forwarding every explicit false, which would let an MCP caller switch off any default-true flag. Receipt: tools/call tail with and without follow:false returns after exactly one poll. TestJSMTailSinglePoll covers the argv rewrite.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "finalArgs = jsmTailSinglePoll(finalArgs, len(prefixArgs))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-export-repeated-page-guard",
+   "summary": "export writes each row once and stops with an error when a page adds no new row (a server that ignores the paging key), rather than writing duplicates until the 100000-page guard or exiting 0 with a short or duplicated file",
+   "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120. Round 14 (Codex P1): the first guard compared whole responses, so a server echoing the requested start while serving the same rows slipped past it (120 rows written, 20 unique); it now compares the page's rows. Receipt: exit 1 against that stub, with and without --limit 120. Round 15 (Codex P1): comparing a page to the previous one missed a --limit-shortened last request (export request --limit 75 wrote 75 rows, 50 unique); export now de-duplicates by row hash and errors when a page adds nothing new. Receipt: exit 1 for no limit, --limit 120 and --limit 75; normal exports still 120/120.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if page > 0 && len(items) > 0 && len(fresh) == 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if h := sha256.Sum256(item); !seenRows[h] {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-no-prune-on-filtered-walk",
+   "summary": "sync --full does not prune a resource whose walk a --param, --global-param or --resource-param shaped; it emits reconcile_skipped with reason user_params instead",
+   "why": "A filtered walk only sees the rows the filter lets through, but --full reconciled the whole table against it: `sync --full --resources request --resource-param request:requestStatus=OPEN_REQUESTS` deleted 100 of 120 local rows (Codex round 14 P1, 2026-10-19; reproduced 120 -> 20). Receipts after the fix: the filtered run keeps 120 and logs reconcile_skipped/user_params; an unfiltered --full against a server that really dropped 20 rows still prunes to 100.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "prune = jsmPruneUnfiltered(prune, userParams, ",
+     "code_only": true,
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "jsm-comment-public-help",
+   "summary": "request comment add --public and request attachment add --public help say that omitting the flag sends no public field (JSM's default then applies and can make the comment customer-visible); comment add routes internal notes to request note. SKILL.md and guide.md say --yes gates only local confirmations and API writes send immediately.",
+   "why": "The generated help read 'public (true) or private/internal (false)', which suggests leaving the flag off gives an internal note; the command then sends {\"body\":...} with no public key and JSM picks visibility, the exact internal-note leak this connector headlines. SKILL.md (the file agents load) said only that --agent does not imply --yes, which reads as if writes wait for --yes. Found by adversarial review round 14 (Opus), 2026-10-19. Round 15 (Opus) found the sibling request attachment add --public (same omitted-field shape, help implied omitted = not visible) and the guide.md twin of the SKILL.md sentence.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/request_comment_add.go",
+     "contains": "Omitted, no public field is sent and JSM applies its own default, which can make the comment customer-visible. For an internal note use request note instead, which checks the stored visibility.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_comment_add.go",
+     "not_contains": "Indicates whether the comment is public (true) or private/internal (false)."
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
+    },
+    {
+     "file": "cli/internal/cli/request_attachment_add.go",
+     "contains": "Omitted, no public field is sent and JSM applies its own default, which can make them customer-visible.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/request_attachment_add.go",
+     "not_contains": "Controls whether the comment and its attachments are visible to customers\""
+    },
+    {
+     "file": "guide.md",
+     "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
+    }
+   ]
+  },
+  {
+   "id": "derive-lock-tests-deterministic",
+   "class": "test-determinism",
+   "summary": "The two derive-lock tests (ContendedAppendIsDerivedBeforeReturn, CaughtUpPassDoesNotWait) wait on what the pass is doing, read from goroutine stacks, instead of fixed 200 ms, 500 ms and 5 s windows; every remaining wait is bounded by the test binary's own deadline",
+   "why": "On windows(fortinet) in CI (2026-10-22, PR #421) the contended test failed with 'contended pass did not finish after the peer released the lock': after release the pass opens a fresh SQLite store and commits, and a slow Windows runner took longer than the fixed 5 s. The 200 ms 'did not return while held' window was also weak: on a slow runner it could elapse before the pass even reached the wait. The contended test now waits until the pass is provably blocked in cliutil.WithFileLock called from DeriveFlagCorrections (it cannot return before release), so it is stronger, not weaker. Proven: a pass that returns early under contention fails it; a caught-up pass that polls or blocks fails the caught-up test; with a simulated 6 s store open after the lock, the old test fails with the CI message and the new one passes.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the generated internal/learn derive_test.go should use this state-based wait in place of the fixed windows.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "func deriveBlockedOnLock() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "contains": "for !deriveBlockedOnLock() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "case <-time.After(200 * time.Millisecond):"
+    },
+    {
+     "file": "cli/internal/learn/derive_test.go",
+     "not_contains": "if time.Since(start) > 500*time.Millisecond {"
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcp-mirror-write-confirm",
+   "status": "active",
+   "summary": "every mirrored MCP tool that can change Jira Service Management data (today request note) returns a --dry-run preview and sends only with confirm set to boolean true; local-only commands (sync, export, learnings, teach, cmdb discover/reconcile) are exempt",
+   "why": "Press 4.35.1 gates only the code-orchestration execute tool. The mirrored request_note tool posted an internal comment to the customer's JSM site on any call, with no confirm (pre-review P1 class mcp-write-without-confirm, found 2026-11-02 on the reprint; TestRegisteredMirroredWritesNeedConfirm failed on the grafted tree: logs/seen/mirror-confirm-fails.log). The gate is cisco-meraki's meraki-mcp-mirror-write-confirm design: fail closed for any non-read-only mirrored tool not on the local-only list, so a command a later print adds is covered too; the string \"true\" previews.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_confirm.go",
+     "contains": "rest[\"dry-run\"] = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_confirm_test.go",
+     "contains": "func TestMirroredWritesSendOnlyWithBooleanConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/jsm_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-sync-keys-pinned-in-spec",
+   "status": "active",
+   "summary": "the authored specs pin record keys the 4.35.1 fallback gets wrong: objectschema id, usage schemaId (rows unwrapped from perSchemaUsageInfo), and the requesttypegroup, sla and transition dependents keyed by id with per-parent reconcile",
+   "why": "Press 4.35.1's key fallback keyed objectschema on the envelope fields startAt+maxResults and usage on totalObjectsCount (every page collapses into one row), and dropped the requesttypegroup, sla and transition id keys (their dependents fell to ReconcileMode none); /usage rows were no longer unwrapped because totalObjectsCount is not envelope metadata. 4.33.5 got all of these. Fixed in the spec (path-level x-resource-id; totalObjectsCount dropped from the TenantUsageResponse schema only, the runtime body is unchanged) by cli-factory/jira-service-management/reprint-4351-20261102/bin/prep.py, so the render produces them.",
+   "spec_encode_followup": "Encoded in the authored specs (bin/prep.py); carry prep.py's edits into cli-factory/jira-service-management/spec/author_specs.py before the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"objectschema\":             \"id\","
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"objectschema\":             \"id\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"usage\":                    \"schemaId\","
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"usage\":                    \"schemaId\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return []string{\"perSchemaUsageInfo\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"requesttypegroup\":         \"id\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"sla\":                      \"id\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"transition\":               \"id\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"sla\", ParentTable: \"request\", ParentIDParam: \"issueIdOrKey\", PathTemplate: \"/request/{issueIdOrKey}/sla\", KeyField: \"\", ReconcileMode: \"per_parent\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-config-headers-stay-on-origin",
+   "status": "active",
+   "summary": "a redirect hop that leaves the configured origin keeps only allowlisted non-secret headers (Accept*, Content-*, User-Agent, X-ExperimentalApi), and a request carrying a config-file [headers] value is refused over plaintext http to a non-loopback host",
+   "why": "Press 4.33.5 and 4.35.1 strip only Authorization on a cross-origin redirect and treat only Authorization and cookies as credentials for the plaintext refusal, so a secret in the config file's [headers] table (any name) followed a 302 to another host and was sent over http (Codex r1 P1 classes credential-sent-to-another-host and credential-over-plaintext). Fails closed by allowlist; TestConfiguredHeadersNeverLeaveTheOrigin and TestConfiguredHeaderRefusedOverPlaintext failed on the grafted tree. Codex r2: a configured value under an allowlisted name (User-Agent, X-ExperimentalApi) still followed the redirect; every configured header is now removed by name first, then everything not allowlisted.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "jsmStripOffOriginHeaders(c, req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_config_headers_test.go",
+     "contains": "func TestConfiguredHeaderUnderAllowlistedNameNeverLeavesTheOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := jsmConfigHeadersPlaintext(c, req); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_config_headers.go",
+     "contains": "func jsmStripOffOriginHeaders(c *Client, req *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_config_headers_test.go",
+     "contains": "func TestConfiguredHeadersNeverLeaveTheOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_config_headers_test.go",
+     "contains": "func TestConfiguredHeaderRefusedOverPlaintext(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-mcp-no-site-selection",
+   "status": "active",
+   "summary": "no MCP tool takes --path-context (or any flag that selects the site), in the schema or at call time, so a tool call cannot re-target the configured Basic credential at another client's site",
+   "why": "sync and workflow archive mirrored --path-context, so MCP `sync` with path-context site=beta sent the Acme credential to beta.atlassian.net (Codex r1 P1 class credential-sent-to-another-site). The site stays the operator's choice (env, config, CLI flag). TestNoToolSelectsTheSite and TestPathContextNeverReachesTheChild failed on the grafted tree.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_file_inputs.go",
+     "contains": "var hostSelectingFlags = []string{\"path-context\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_file_inputs.go",
+     "contains": "names := append([]string(nil), hostSelectingFlags...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/jsm_destination_test.go",
+     "contains": "func TestNoToolSelectsTheSite(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jsm_destination_test.go",
+     "contains": "func TestPathContextNeverReachesTheChild(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-paged-envelope-unwrap",
+   "status": "active",
+   "summary": "export, tail and sync read JSM list rows out of `values` (PagedDTO and Assets envelopes), never the envelope as one record",
+   "why": "Press 4.35.1 unwraps a single array only when every sibling is on its envelope-metadata list; JSM's start, size, isLastPage (Assets startAt, maxResults, isLast, last) are not, so all eight `values` response paths vanished from sync and export (export servicedesk wrote one envelope record; Codex r1 P1, vendor schema PagedDTOServiceDeskDTO.values). Spec repair in bin/prep.py drops those scalars from the envelope schemas only (the runtime body is unchanged; the JSM pagers read isLastPage/isLast from the raw page). TestJSMPagedEnvelopesUnwrapValues failed on the grafted tree.",
+   "spec_encode_followup": "Encoded in the authored specs (bin/prep.py); carry into cli-factory/jira-service-management/spec/author_specs.py.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"servicedesk\":   {responsePath: \"values\","
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"request\":       {responsePath: \"values\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return []string{\"values\"}",
+     "code_only": true,
+     "min_count": 8
+    },
+    {
+     "file": "cli/internal/cli/jsm_envelope_unwrap_test.go",
+     "contains": "func TestJSMPagedEnvelopesUnwrapValues(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jsm-single-page-says-more",
+   "status": "active",
+   "summary": "a one-page read (no --all) of a JSM or Assets list whose page says more follow (isLastPage / isLast false) emits the truncated event and marks the run truncated",
+   "why": "JSM and Assets pages carry isLastPage / isLast, not a has-more field or next cursor, so the generated single-page warning never fired: request sla list showed one healthy metric and read as complete while JSM said more (a breached one) followed (Codex r2 P1 class incomplete-read-reported-as-complete, vendor schema PagedDTOSlaInformationDTO.isLastPage). One shared parser (jsmPageHasMore) with --all and sync. TestSinglePageMarkedNotLastIsReportedTruncated failed on the tree before the fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "jsmSinglePageTruncation(ctx, data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_single_page.go",
+     "contains": "func jsmSinglePageTruncation(ctx context.Context, data json.RawMessage) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jsm_single_page_test.go",
+     "contains": "func TestSinglePageMarkedNotLastIsReportedTruncated(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "chatgpt-desktop-local-web-unsupported",
+   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+   "status": "active",
+   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "## ChatGPT desktop app (OpenAI)",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "## ChatGPT (Developer Mode)"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "*Remote* agents (ChatGPT"
+    },
+    {
+     "file": "README.md",
+     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Plus/Pro+"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Developer Mode"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+    },
+    {
+     "file": "page.json",
+     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API with tenant_info and the Assets workspace list, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand and credkit.StartCommand, the terminal check through credkit.Terminal, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config.toml and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile); Declarations.Files names the config and both credential stores.",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer. It retires secret-echo-decoded-funnel (replaced by the shared credential kit; the 4.35.1 reprint had already dropped its files, and it is not a `retired` record because check_handfixes.py accepts only registry-backed retirements and fleet_handfixes.json marks that id delegated). The JSM guards stay (jsm_scrub.go, jsm_config_headers.go, jsm_request_guard.go, jsm_template_guard.go, jsm_store_scope.go); tenant_info and the Assets workspace lookup now refuse a nil client instead of falling back to http.DefaultClient. The base URL is a template (https://{site}.atlassian.net/...), so the kit cannot read its origin: every credential may go to https://*.atlassian.net and https://api.atlassian.com, and the connector's pins narrow that to the one site. The account email (env, config and the Basic user) is an identifier, since Atlassian answers repeat it. Classes closed, each by a test seen failing first on the pre-kit build: an API error that echoes part of the API token, on CLI, --agent and MCP (TestAPIErrorEchoOfTokenIsWithheld); the Basic credential or a config [headers] value sent to another origin, over plain http to loopback (which the program's own rule allowed), or in a feedback body replayed across a 307 (TestBasicCredentialRefusedOffOriginOverPlainHTTPAndAcrossRedirect); the learn journal, written with credkit.AppendFile, never records a held credential (TestJournalNeverRecordsAHeldCredential); an Assets mediaJwtToken under a JSON-escaped key, which jsm_scrub.go's literal match missed, never reaches stdout, the response cache or the local store (TestAssetsMediaJwtTokenWithEscapedKeyNeverPrinted); a token in a config that does not parse is held at startup (TestMalformedConfigCredentialHeldAtStartup); the `auth set-credentials` positionals and a profiles.json value under a credential-like name are held at startup (TestSetCredentialsAndProfileValueHeldAtStartup). --stdin is no credential source (no StdinFlags): on every command but two it reads a JSON request body that Atlassian answers repeat, so holding it whole withheld every write's and read's answer at exit 0 and failed the learn store migration. takeStdinBody takes the body off stdin inside Start and holds only its credential fields with credkit.HoldBody (previews and --dry-run included; a body that is no document is held whole), and RestoreStdinBody hands the same bytes back after Start (TestStdinRequestBodyAnswerIsPrinted, TestStdinBodyCredentialFieldIsHeld, TestStdinBodyDryRunPreview). `feedback --stdin` and `request note --stdin` keep their free-text body out of HoldBody, so a line such as OK cannot refuse the start (TestFreeTextStdinIsKept). In-process tests never run Start, so cliutil.OutboundGuard and Hold are variables the test mains swap (root_test.go, credkit_seam_test.go). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name.",
+   "asserts": [
+    {
+     "file": "cli/cmd/jira-service-management-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-cli/main.go",
+     "contains": "credwire.RestoreStdinBody()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jira-service-management-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "[]string{\"--stdin\"}"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\"mediaJwtToken\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://*.atlassian.net\", \"https://api.atlassian.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:spacefast-page-key\", Allowed: []string{\"https://api.spacefast.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.Hold(\"config:service_management_api_token\", a)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "takeStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(stdinBody)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "contains": "return \"\", fmt.Errorf(\"no HTTP client\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/jsm_request_guard.go",
+     "not_contains": "hc = http.DefaultClient"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path,",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "credkit.WriteFile(path, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/cli/root_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAPIErrorEchoOfTokenIsWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestBasicCredentialRefusedOffOriginOverPlainHTTPAndAcrossRedirect(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestJournalNeverRecordsAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAssetsMediaJwtTokenWithEscapedKeyNeverPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigCredentialHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestSetCredentialsAndProfileValueHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFreeTextStdinIsKept(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-event-writer-serialized",
+   "class": "concurrent-writer",
+   "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
+   "why": "The generated sync hands cmd.OutOrStdout() (or ErrOrStderr() in machine output) to every --concurrency worker, and each writes sync_start, progress and error events. os.Stdout tolerates that; the writers --deliver (a mirror into a bytes.Buffer) and --receipt-file / --audit-dir (a running SHA-256) install do not, nor does an in-process caller's buffer: Windows CI on PR #655 panicked in bytes.Buffer.grow from syncResource, and go test -race found 28 races on veeam. TestSyncWorkerPoolSerializesEventWrites pins it. A reprint regenerates sync.go and drops the wrap; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-event-writer-serialized).",
+   "status": "active",
+   "spec_encode_followup": "Press-side (mvanhorn/cli-printing-press#5369): the sync template should serialize the event writer its top-level worker pool shares, as its dependent path already does with lockedWriter.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncEventWriter = &syncSerialWriter{w: syncEventWriter}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_event_writer.go",
+     "contains": "func (s *syncSerialWriter) Write(p []byte) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_event_writer_test.go",
+     "contains": "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
+  }
+ ]
 }

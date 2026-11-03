@@ -65,7 +65,7 @@ func newServicedeskRequesttypeListCmd(flags *rootFlags) *cobra.Command {
 				"limit":                             formatCLIParamValue(flagLimit),
 				"includeHiddenRequestTypesInSearch": formatCLIParamValue(flagIncludeHiddenRequestTypesInSearch),
 				"restrictionStatus":                 formatCLIParamValue(flagRestrictionStatus),
-			}, map[string][]string{"groupId": {"group-id"}, "searchQuery": {"search-query"}, "start": {"offset"}, "limit": {"limit"}, "includeHiddenRequestTypesInSearch": {"include-hidden-request-types-in-search"}, "restrictionStatus": {"restriction-status"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"groupId": {"group-id"}, "searchQuery": {"search-query"}, "start": {"offset"}, "limit": {"limit"}, "includeHiddenRequestTypesInSearch": {"include-hidden-request-types-in-search"}, "restrictionStatus": {"restriction-status"}}, "start", "offset"), nil, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

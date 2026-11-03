@@ -49,7 +49,7 @@ func newServicedeskRequesttypeGetPropertyCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validXExperimentalApi {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi))
 				}
 			}
 			path := "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}"

@@ -11,7 +11,7 @@ import (
 func newRequestApprovalCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "approval",
-		Short:       "List, get, and create approval for request",
+		Short:       "List and get approval for request",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

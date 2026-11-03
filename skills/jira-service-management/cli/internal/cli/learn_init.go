@@ -168,7 +168,7 @@ func learnResourceTypeFields() map[string][]string {
 		"object":                   {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"objectschema":             {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"objecttype":               {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
-		"objecttypeattribute":      {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
+		"objecttypeattribute":      {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"objecttypes":              {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"organization":             {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"participant":              {"accountId", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
