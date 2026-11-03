@@ -989,6 +989,9 @@ func RegisterTools(s *server.MCPServer) {
 
 	// Hand-fix (handfixes.json mcp-write-confirm): every tool that is not
 	// read-only previews and sends only with confirm set to boolean true.
+	// Mirrored commands preview as their own --dry-run (file flags refused by
+	// name); the rest preview as an echo of their arguments.
+	cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)
 	requireConfirmOnWrites(s)
 
 	// The read-only switch covers every tool, so this runs after all

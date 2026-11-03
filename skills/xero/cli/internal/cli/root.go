@@ -656,7 +656,9 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 	// parse-failure path the flag was never parsed into rootFlags, so
 	// the raw args are consulted as well. --dry-run is the same shape:
 	// a preview must not create the learn journal.
-	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || isLocalDataInvocation(rootCmd, executed) {
+	// xero handfix (mcp-preview-no-local-write): an MCP child writes nothing
+	// the caller did not confirm, so it never journals.
+	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || isLocalDataInvocation(rootCmd, executed) || cliutil.IsMCPChildEnv() {
 		return
 	}
 	exitCode := 0
@@ -947,7 +949,7 @@ var learnFamilyCommands = map[string]struct{}{
 func deriveFlagCorrections(flags *rootFlags, rootCmd, executed *cobra.Command) {
 	// Derivation opens the store once it pairs a correction and creates
 	// the journal directory on the way in. A preview must do neither.
-	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() || isLocalDataInvocation(rootCmd, executed) {
+	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() || isLocalDataInvocation(rootCmd, executed) || cliutil.IsMCPChildEnv() {
 		return
 	}
 	chain := journalVerbChain(rootCmd, executed)

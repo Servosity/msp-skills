@@ -11,6 +11,7 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"xero-pp-cli/internal/mcp/bound"
+	"xero-pp-cli/internal/mcp/cobratree"
 )
 
 // confirmArg is the tool argument that turns a write preview into a send.
@@ -22,10 +23,17 @@ const confirmArg = "confirm"
 // else, including a tool registered by a future print with no annotation,
 // fails closed. It is the same predicate the read-only switch
 // (dropNonReadOnlyTools) uses, so the two can never disagree about which
-// tools write. It must run after every registration.
+// tools write. It must run after every registration, and after
+// cobratree.RequireConfirmForMirroredWrites, which gates the mirrored tools.
 func requireConfirmOnWrites(s *server.MCPServer) {
 	for name, entry := range s.ListTools() {
 		if hint := entry.Tool.Annotations.ReadOnlyHint; hint != nil && *hint {
+			continue
+		}
+		// Mirrored commands carry their own gate
+		// (cobratree.RequireConfirmForMirroredWrites), whose preview keeps the
+		// mirror's file-flag refusal; wrapping them again would answer first.
+		if cobratree.IsMirroredTool(entry.Tool) {
 			continue
 		}
 		tool, err := withConfirmParam(entry.Tool)

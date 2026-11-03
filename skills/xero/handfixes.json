@@ -501,8 +501,8 @@
    "id": "mcp-write-confirm",
    "status": "active",
    "class": "C",
-   "summary": "every MCP tool not annotated read-only previews and sends only with confirm set to boolean true",
-   "why": "Work order 2026-11-02: an MCP write must preview and send only with confirm: true. One gate in internal/mcp/write_confirm.go wraps every tool the read-only switch would drop (same predicate), so a tool a future print adds without an annotation fails closed. The call sits in the generated tools.go; an mcp regeneration drops it silently.",
+   "summary": "every MCP tool not annotated read-only previews and sends only with confirm set to boolean true; mirrored commands preview as their own --dry-run so file flags are still refused by name",
+   "why": "Work order 2026-11-02: an MCP write must preview and send only with confirm: true. One gate in internal/mcp/write_confirm.go wraps every tool the read-only switch would drop (same predicate), so a tool a future print adds without an annotation fails closed. The call sits in the generated tools.go; an mcp regeneration drops it silently. 2026-11-02 publish: the echo preview answered before the mirror's argument checks, so check_mcp_file_flags failed (100 findings, 12 tools: a host-file flag was dropped silently, an ordinary flag never reached the CLI). Mirrored tools now get cobratree.RequireConfirmForMirroredWrites (skykick shape, but with NO local-only exemption: a write to the CLI's own files is still a write the caller did not confirm), and requireConfirmOnWrites skips them.",
    "asserts": [
     {
      "file": "cli/internal/mcp/tools.go",
@@ -525,6 +525,36 @@
     {
      "file": "cli/internal/mcp/write_confirm_test.go",
      "contains": "func TestWriteToolSendsOnlyWithConfirmTrue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/write_confirm.go",
+     "contains": "if cobratree.IsMirroredTool(entry.Tool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/xero_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command, cliPath func() (string, error)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/xero_confirm.go",
+     "contains": "append(strings.Fields(path), \"--dry-run\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/xero_confirm_test.go",
+     "contains": "func TestMirroredWriteNeedsBooleanConfirm(",
      "min_count": 1,
      "code_only": true
     }
@@ -630,6 +660,39 @@
     {
      "file": "cli/internal/cli/analytics_review_test.go",
      "contains": "func TestAnalyticsNeverCreateTheStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-preview-no-local-write",
+   "status": "active",
+   "class": "B",
+   "summary": "an unconfirmed MCP call writes no local state: MCP child processes never journal or derive learnings, and sync --dry-run walks a throwaway store",
+   "why": "Codex 2026-11-02 round 2 (unconfirmed-local-write): every MCP read-only tool ran the companion CLI's Execute, whose deferred journalInvocation appended to the learn journal, and the confirm gate's --dry-run preview of sync created the SQLite store. The MCP server marks its children with XERO_MCP_CHILD, so journalInvocation and deriveFlagCorrections return for them (a spoofed marker only turns journaling off). Both sites are in generated files (root.go, sync.go); a reprint drops them silently.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isLocalDataInvocation(rootCmd, executed) || cliutil.IsMCPChildEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalCaptureDisabled() || isLocalDataInvocation(rootCmd, executed) || cliutil.IsMCPChildEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "previewDir, err := os.MkdirTemp(\"\", \"xero-sync-preview-\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_preview_no_write_test.go",
+     "contains": "func TestUnconfirmedMCPCallsWriteNoLocalState(",
      "min_count": 1,
      "code_only": true
     }

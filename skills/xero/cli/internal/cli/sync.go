@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -138,6 +139,17 @@ Resource scoping:
 				dbPath = defaultDBPath("xero-cli")
 			}
 
+			// xero handfix (mcp-preview-no-local-write): a --dry-run preview
+			// (the MCP confirm gate's preview) walks against a throwaway store,
+			// so it never creates or changes the local database.
+			if c.DryRun {
+				previewDir, err := os.MkdirTemp("", "xero-sync-preview-")
+				if err != nil {
+					return fmt.Errorf("creating preview store: %w", err)
+				}
+				defer os.RemoveAll(previewDir)
+				dbPath = filepath.Join(previewDir, "preview.db")
+			}
 			db, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("opening local database: %w", err)
