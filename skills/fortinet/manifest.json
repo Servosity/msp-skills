@@ -26,6 +26,7 @@
         "FORTINET_CLOUD_ACCOUNT_ID": "${user_config.fortinet_cloud_account_id}",
         "FORTINET_MCP_READ_ONLY": "${user_config.fortinet_mcp_read_only}",
         "FORTINET_MCP_HTTP_TOKEN": "${user_config.fortinet_mcp_http_token}",
+        "FORTINET_NO_LOCAL_DATA": "${user_config.fortinet_no_local_data}",
         "FORTINET_USER_AGENT": "${user_config.fortinet_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
@@ -109,6 +110,13 @@
       "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
       "required": false,
       "sensitive": true
+    },
+    "fortinet_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
     },
     "fortinet_user_agent": {
       "type": "string",
