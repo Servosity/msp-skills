@@ -60,7 +60,7 @@ func newOrganizationsSummaryGetOrganizationSustainabilityDailyConsumerMetricsNet
 			if cmd.Flags().Changed("timespan") || flagTimespan != 0.0 {
 				params["timespan"] = formatCLIParamValue(flagTimespan)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "summary", false, path, params, nil, "contents", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "summary", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

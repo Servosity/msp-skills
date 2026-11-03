@@ -5,13 +5,17 @@
 package main
 
 import (
-	"os"
-
 	"cisco-meraki-pp-cli/internal/cli"
+	"cisco-meraki-pp-cli/internal/credkit"
+	"cisco-meraki-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

@@ -11,7 +11,7 @@ import (
 func newNetworksDevicesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "devices",
-		Short:       "Get, create, update, and remove devices for networks",
+		Short:       "Get, update, and remove devices for networks",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

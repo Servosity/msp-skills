@@ -11,7 +11,7 @@ import (
 func newNetworksUnbindCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "unbind",
-		Short:       "Create unbind for networks",
+		Short:       "Manage unbind for networks",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

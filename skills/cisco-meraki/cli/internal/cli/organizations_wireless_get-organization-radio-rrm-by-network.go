@@ -54,7 +54,7 @@ func newOrganizationsWirelessGetOrganizationRadioRrmByNetworkCmd(flags *rootFlag
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/organizations/{organizationId}/wireless/radio/rrm/byNetwork"
