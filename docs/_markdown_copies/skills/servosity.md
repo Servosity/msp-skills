@@ -71,7 +71,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
 | **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
 | **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
@@ -114,7 +114,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host servosity-mcp in HTTP mode: it refuses to start until SERVOSITY_MSP_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way servosity-mcp runs, and shares MCP configuration with Codex: add servosity-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

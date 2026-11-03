@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/sentinelone/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics  -  fleet health, threat triage, blast radius, drift  -  that no console view offers. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -31,22 +31,22 @@ The six agents MSP owners actually use (self-serve, works today):
 | Your AI agent | How to install the SentinelOne skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `sentinelone-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Run installer, host `sentinelone-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `sentinelone-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `sentinelone-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `SENTINELONE_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `sentinelone-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Host `sentinelone-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -115,9 +115,9 @@ iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sen
 
 Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update sentinelone@msp-skills`.
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -200,7 +200,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `sentinelone-mcp` in HTTP mode: it refuses to start until `SENTINELONE_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. It serves `http://127.0.0.1:7777/mcp` by default and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. The connector works only if its authentication settings can send the bearer token. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `sentinelone-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `sentinelone-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

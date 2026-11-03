@@ -16,7 +16,7 @@ faqs:
   - q: "Why not use Microsoft's own Defender MCP server?"
     a: "Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel MCP server can't be used \"as a guest in another tenant or with delegated access\" (Microsoft Learn, Sentinel MCP triage tool), so an MSP can't point them at client tenants. This connector reads Defender across every client tenant through the GDAP access your CIPP instance already holds."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries. The CIPP MCP server runs locally over stdio by default. Its HTTP mode (cipp-mcp --transport http, in cipp 0.1.13 and later) serves http://127.0.0.1:7777/mcp, refuses to start until CIPP_MCP_HTTP_TOKEN is set, requires Authorization: Bearer <token> on every request, and needs --tls-cert/--tls-key for any other address. Step-by-step in the install guide."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cipp-mcp runs, and shares MCP configuration with Codex: add cipp-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my CIPP data safe?"
@@ -115,7 +115,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -167,7 +167,7 @@ Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel
 
 ### Does this work with ChatGPT?
 
-Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries. The CIPP MCP server runs locally over stdio by default. Its HTTP mode (cipp-mcp --transport http, in cipp 0.1.13 and later) serves http://127.0.0.1:7777/mcp, refuses to start until CIPP_MCP_HTTP_TOKEN is set, requires Authorization: Bearer <token> on every request, and needs --tls-cert/--tls-key for any other address. Step-by-step in the install guide.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cipp-mcp runs, and shares MCP configuration with Codex: add cipp-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

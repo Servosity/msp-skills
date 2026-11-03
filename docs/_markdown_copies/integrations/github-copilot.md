@@ -83,6 +83,6 @@ Copilot discovers the MCP tools the servers expose and runs them.
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions) - we'll work it live with the MSP cohort.
-- **Live in the Microsoft 365 business apps instead?** See the [Microsoft 365 Copilot / Copilot Studio guide](https://msp-skills.compoundingteams.com/integrations/microsoft-365-copilot.md) (remote path).
+- **Live in the Microsoft 365 business apps instead?** See [where MSP Skills stands with Microsoft 365 Copilot](https://msp-skills.compoundingteams.com/integrations/microsoft-365-copilot.md) (not supported yet).
 
 [← Back to main install](https://msp-skills.compoundingteams.com/#install-in-60-seconds)

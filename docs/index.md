@@ -80,12 +80,12 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Anthropic's desktop agent - paste a prompt, it installs itself | [Setup →](/integrations/cowork/) |
 | **GitHub Copilot** (VS Code) | The Microsoft surface that runs the local binary today, in Agent mode | [Setup →](/integrations/github-copilot/) |
 
-**Microsoft & Google paths** - big install base, but the honest remote / enterprise route:
+**Microsoft & Google paths** - big install base, honest status:
 
 | Your AI agent | What it takes | Install |
 | --- | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Remote only: host over HTTPS + Copilot Studio license + tenant admin | [Setup →](/integrations/microsoft-365-copilot/) |
-| **Google Gemini** | Gemini CLI: local. Gemini app: remote (HTTPS). | [Setup →](/integrations/gemini/) |
+| **Microsoft 365 Copilot / Copilot Studio** | Remote only, so not supported by MSP Skills yet: a hosted gateway is the better pick | [Details →](/integrations/microsoft-365-copilot/) |
+| **Google Gemini** | Gemini CLI: local. Gemini app: needs a remote server, not supported yet. | [Setup →](/integrations/gemini/) |
 
 > **Skill-native agents (secondary):** [Hermes →](/integrations/hermes/) and [OpenClaw →](/integrations/openclaw/) read the skill directly and speak MCP. **Also works with** Cursor, Windsurf, Cline, Continue.dev, and Zed. Full per-tool deep-dive in [which agent →](/which-agent/).
 

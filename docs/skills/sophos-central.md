@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Sophos Central MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `SOPHOS_CENTRAL_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `SOPHOS_CENTRAL_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. The client secret stays in your environment (it is written to disk only if you pass auth login --client-secret), and the short-lived access token minted from it is cached in a permission-restricted credentials file on your machine until it expires or you run auth logout, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running sophos-central-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sophos-central-mcp runs, and shares MCP configuration with Codex: add sophos-central-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Sophos Central data safe?"
@@ -114,7 +114,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -160,7 +160,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running sophos-central-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sophos-central-mcp runs, and shares MCP configuration with Codex: add sophos-central-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

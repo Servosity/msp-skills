@@ -11,7 +11,7 @@ faqs:
   - q: "Why doesn't GitHub Copilot see my MCP server?"
     a: "Two common causes: the config root key must be servers (not mcpServers like Claude), and MCP tools only fire in Agent mode - pick Agent in the Copilot Chat mode dropdown, not Ask or Edit."
   - q: "Is this the same as Microsoft 365 Copilot?"
-    a: "No. GitHub Copilot (the coding tool in VS Code) runs MSP Skills locally today. Microsoft 365 Copilot (the business assistant in Teams/Word/Outlook) is remote-only and needs hosting plus a Copilot Studio license - see the Microsoft 365 Copilot guide."
+    a: "No. GitHub Copilot (the coding tool in VS Code) runs MSP Skills locally today. Microsoft 365 Copilot (the business assistant in Teams/Word/Outlook) needs a remote server, which MSP Skills does not support yet - see the Microsoft 365 Copilot page."
 ---
 
 # HaloPSA and Servosity in GitHub Copilot
@@ -97,6 +97,6 @@ Copilot discovers the MCP tools the servers expose and runs them.
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions) - we'll work it live with the MSP cohort.
-- **Live in the Microsoft 365 business apps instead?** See the [Microsoft 365 Copilot / Copilot Studio guide](/integrations/microsoft-365-copilot/) (remote path).
+- **Live in the Microsoft 365 business apps instead?** See [where MSP Skills stands with Microsoft 365 Copilot](/integrations/microsoft-365-copilot/) (not supported yet).
 
 [← Back to main install](/#install-in-60-seconds)
