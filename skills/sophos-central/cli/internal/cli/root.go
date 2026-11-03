@@ -1027,7 +1027,9 @@ func localDataDisabled() bool {
 
 // localDataWriterCommands are the generated commands whose job is to copy API
 // data into the local store, keyed by command path below the root.
-var localDataWriterCommands = map[string]bool{"sync": true, "workflow archive": true}
+// HAND-FIX(fleet-refresh-honors-no-local-data): fleet refresh copies every
+// tenant's data into the store too.
+var localDataWriterCommands = map[string]bool{"sync": true, "workflow archive": true, "fleet refresh": true}
 
 // applyLocalDataEnv folds the local-data env switches into the parsed flags.
 // The disable switch outranks every flag so an agent-supplied argument cannot
