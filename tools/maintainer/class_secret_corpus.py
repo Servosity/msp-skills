@@ -6273,7 +6273,7 @@ def _c7_go_file_writes() -> bool:
     return True
 
 
-_GO_KEY = "synthetic-go-key-48291375"
+_GO_VALUE = "synthetic-go-key-48291375"
 
 
 def _c8_go(body: str, imports: str = "") -> tuple[str | None, list, dict]:
@@ -6300,24 +6300,24 @@ def _c8_sink_capture() -> bool:
          dict(cli=big.replace("__GZ__", "").replace('b"\\x00" * (64 * 1024 * 1024 + 1) + __DOC__', 'b"ok"'))),
     ])
     named = ('if err := os.Chdir(os.Getenv("HOME")); err != nil {\n\t\tpanic(err)\n\t}\n'
-             '\tf, _ := os.Create("|cache")\n\tf.Write([]byte("' + _GO_KEY + '-a"))\n\tf.Close()\n\tos.Remove("|cache")\n'
-             '\tg, _ := os.Create("plain")\n\th := os.NewFile(g.Fd(), "/dev/fd/3")\n\th.Write([]byte("' + _GO_KEY + '-b"))\n'
+             '\tf, _ := os.Create("|cache")\n\tf.Write([]byte("' + _GO_VALUE + '-a"))\n\tf.Close()\n\tos.Remove("|cache")\n'
+             '\tg, _ := os.Create("plain")\n\th := os.NewFile(g.Fd(), "/dev/fd/3")\n\th.Write([]byte("' + _GO_VALUE + '-b"))\n'
              '\tos.Stdout.Write([]byte("to-stdout"))\n\tg.Close()\n\tos.Remove("plain")')
     err, recs, _o = _c8_go(named)
     got = sorted(b"".join(r[2]) for r in recs)
-    if err or got != [(_GO_KEY + "-a").encode(), (_GO_KEY + "-b").encode()]:
+    if err or got != [(_GO_VALUE + "-a").encode(), (_GO_VALUE + "-b").encode()]:
         print(f"    corpus self-test: sink capture (corpus4rv r5): 2: writes to '|cache' and a file named /dev/fd/3 "
               f"recorded, stdout not: got {err or got}")
         ok = False
     for why, body, imp in (
             ("3: syscall.Write on a file's descriptor",
-             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tsyscall.Write(int(f.Fd()), []byte("' + _GO_KEY + '"))\n'
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tsyscall.Write(int(f.Fd()), []byte("' + _GO_VALUE + '"))\n'
              '\tf.Close()\n\tos.Remove(os.Getenv("HOME") + "/t")', '\t"syscall"\n'),
             ("3: unix.Pwrite on a file's descriptor",
-             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tunix.Pwrite(int(f.Fd()), []byte("' + _GO_KEY + '"), 0)\n'
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tunix.Pwrite(int(f.Fd()), []byte("' + _GO_VALUE + '"), 0)\n'
              '\tf.Close()', '\t"golang.org/x/sys/unix"\n'),
             ("3: a raw system call with the write trap",
-             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tb := []byte("' + _GO_KEY + '")\n'
+             'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\tb := []byte("' + _GO_VALUE + '")\n'
              '\tunix.Syscall(unix.SYS_WRITE, f.Fd(), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)))\n\tf.Close()',
              '\t"unsafe"\n\n\t"golang.org/x/sys/unix"\n')):
         err, _r, _o = _c8_go(body, imp)
@@ -6331,9 +6331,9 @@ def _c8_sink_capture() -> bool:
         print(f"    corpus self-test: sink capture (corpus4rv r5): 3: a program with no write below os.File refused: {err}")
         ok = False
     ro = ('exe, _ := os.Executable()\n\tos.Chmod(filepath.Join(filepath.Dir(exe), "corpus-sql.trace"), 0o400)\n'
-          '\tos.WriteFile(filepath.Join(os.Getenv("HOME"), "k.txt"), []byte("' + _GO_KEY + '"), 0o600)')
+          '\tos.WriteFile(filepath.Join(os.Getenv("HOME"), "k.txt"), []byte("' + _GO_VALUE + '"), 0o600)')
     err, _r, o = _c8_go(ro, '\t"path/filepath"\n')
-    if err or _GO_KEY.encode() in b"".join(o.get("home", {}).values()):
+    if err or _GO_VALUE.encode() in b"".join(o.get("home", {}).values()):
         print(f"    corpus self-test: sink capture (corpus4rv r5): 4: a write the trace cannot record was made: "
               f"{err or o}")
         ok = False
@@ -6675,7 +6675,7 @@ def _k_go() -> bool:
     (corpus4rv r5-3, r6-1 to r6-4), built plainly here: the kernel record
     sees each one's bytes."""
     goarch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
-    k = _GO_KEY
+    k = _GO_VALUE
     t = 'f, _ := os.Create(os.Getenv("HOME") + "/t")\n\t'
     bodies = [
         ("syscall.Write", t + 'syscall.Write(int(f.Fd()), []byte("' + k + '"))\n\tf.Close()\n\tos.Remove(os.Getenv("HOME") + "/t")',
