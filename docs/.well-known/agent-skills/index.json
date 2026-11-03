@@ -216,7 +216,7 @@
       "type": "skill-md",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once - something no other Falcon tool (including the official MCP server) does. Trigger phrases: `check crowdstrike alerts across all tenants`, `show stale falcon sensors`, `critical vulnerabilities across my crowdstrike fleet`, `crowdstrike tenant scorecard`, `list falcon child CIDs`, `use crowdstrike-cli`, `run crowdstrike-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/SKILL.md",
-      "digest": "sha256:eff167fcd0bbf04de79478a60e585bb0f280431b13c1ac5cf914927280bb09bd"
+      "digest": "sha256:a07655fa3d2e37da5f45f59d3292110fd112cab0b7784f988ea1ead81ac783bd"
     },
     {
       "name": "datagate",

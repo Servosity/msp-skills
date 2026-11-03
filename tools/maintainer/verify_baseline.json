@@ -98,11 +98,7 @@
    "local-data"
   ],
   "crowdstrike": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "datagate": [
    "read-only",
