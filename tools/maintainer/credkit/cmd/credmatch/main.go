@@ -24,7 +24,7 @@
 // them (credkit.StreamWithheld) and a withheld write is a leak.
 //
 // A request {"acquire": {"decl": {...}, "env": [...], "args": [...],
-// "exchanges": [...]}} asks for the kit's held set of one run
+// "mcp_in": ..., "stdin": ..., "exchanges": [...]}} asks for the kit's held set of one run
 // (credkit.Acquire), answered {"verdict": "held", "held": [...],
 // "recorded": n, "unknown": bool}.
 //
@@ -60,6 +60,7 @@ type acquire struct {
 	Env       []string   `json:"env"`
 	Args      []string   `json:"args"`
 	MCPIn     string     `json:"mcp_in"` // what the MCP server read on stdin
+	Stdin     string     `json:"stdin"`  // what the process was given on stdin
 	Exchanges []exchange `json:"exchanges"`
 }
 
@@ -80,13 +81,14 @@ type decl struct {
 	SecretEnv, ConfigFields, StoredRecords, CredentialFlags, StdinFlags []string
 	CredentialHeaders, CredentialFields, ResponseFields, MCPArguments   []string
 	Identifiers                                                         []credkit.Identifier
+	BaseURL                                                             credkit.BaseURL
 }
 
 func (d decl) kit() credkit.Declarations {
 	return credkit.Declarations{SecretEnv: d.SecretEnv, ConfigFields: d.ConfigFields, StoredRecords: d.StoredRecords,
 		CredentialFlags: d.CredentialFlags, StdinFlags: d.StdinFlags, CredentialHeaders: d.CredentialHeaders,
 		CredentialFields: d.CredentialFields, ResponseFields: d.ResponseFields, MCPArguments: d.MCPArguments,
-		Identifiers: d.Identifiers}
+		Identifiers: d.Identifiers, BaseURL: d.BaseURL}
 }
 
 type answer struct {
@@ -151,7 +153,11 @@ func acquired(a *acquire) (answer, error) {
 	if err != nil {
 		return answer{}, err
 	}
-	held, rec, unknown, err := credkit.Acquire(a.Decl.kit(), env, args, mcpIn, ex)
+	stdin, err := base64.StdEncoding.DecodeString(a.Stdin)
+	if err != nil {
+		return answer{}, err
+	}
+	held, rec, unknown, err := credkit.Acquire(a.Decl.kit(), env, args, mcpIn, stdin, ex)
 	if err != nil {
 		return answer{}, err
 	}

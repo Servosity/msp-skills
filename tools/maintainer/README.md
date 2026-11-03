@@ -137,7 +137,8 @@ transport code), once for each process as it ran (its own argv and environment e
 and an MCP server's input, read for declared MCP arguments) and once for each CLI child an MCP
 server started (recorded by the wrapper at paths written into it, never in a variable the server
 could drop): what `Start` holds from the process's environment, argv and the config file it was
-given (read at its own path with the bytes the run was given, then restored)
+given (read at its own path with the bytes the run was given, then restored), the declared
+`BaseURL` (its variable and default) and the bytes it read on stdin when a declared stdin flag was given
 (`auth_header`, every `[headers]` value, the base URL's user and password, a file that does not
 read the one canonical way held whole), then what the kit's transport holds from every request the
 fakes received (auth headers whole and their parts, Basic auth's user and password, cookie values,
@@ -164,14 +165,15 @@ URL variable included. A vendor response field is held only when the connector d
 `ResponseFields` (and `SecretEnv`, `Identifiers` with their reasons, and every other list) of the
 one literal of the shared kit's own `Declarations` type, read from every package the connector's
 two binaries link that reaches the kit, directly or through another package (a nested module's
-included), under the build's own tags and target. The type may be named only as that literal's
+included), under the build's own settings once for each release target (declarations that differ
+between targets fail the connector's run). The type may be named only as that literal's
 type, and the value used only as `credkit.Start`'s argument, a literal or a variable of the kit's
 own type (the documented wiring: a literal in a wiring package, `credkit.Start(wiring.D)` in each
 `main`), and `Start` is only ever called directly; its address taken, a copy kept in a field, a
 field set or read elsewhere, an element of another literal, a call's result, a generic type
 argument, an unnamed struct of the same fields, `Start` as a function value (reflection), an
-identifier with no reason, a GOFLAGS overlay or a literal that does not type-check fails the
-connector's run.
+identifier with no reason, a `BaseURL` that is not a literal or a literal that does not type-check
+fails the connector's run.
 
 Stdout and stderr are captured byte for byte, and in the writes the kit's pump checks one by one:
 the bytes between two pauses of the pipe (5 ms here, 10 ms in the kit, so the list sees every
@@ -193,9 +195,18 @@ outside the trusted modules (the driver, `modernc.org/libc`, `mathutil`, `memory
 a path's prefix) other than for its `SQLITE_` constants (read by type, so no spelling of the import
 hides a use), carries assembly or a `go:linkname` that names SQLite, or whose driver the patch does
 not fit cannot be judged and fails the run.
+
+Every file write a run makes is a unit too (contract section 2: a file written as a stream of
+writes). The same build patches the toolchain's `os.File` `Write`, `WriteAt` and `ReadFrom` (in a
+hard-linked mirror of the connector's toolchain, since `go build -overlay` refuses files under the
+module cache) to record each write with its file's name in the same trace. Each process's writes to
+each file are judged in order, whole and write by write, on that process's held set, so a write
+later deleted or overwritten is still judged. A stream the kit cannot read whole is read again as
+the pieces between runs of 64 or more NUL bytes (zero padding; read whole when a held value has a
+NUL byte), and a piece that still runs out of budget fails.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
-reports, under the environment the connector build uses (`GOFLAGS` build tags, `GOOS`, `GOARCH`),
-so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
+reports, under the settings the connector build uses (no inherited `GOFLAGS`, `GOOS` or `GOARCH`;
+`CGO_ENABLED=0`), once for each release target, so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
 an alias of the kit's type counts (a positional literal by field order), and a named string constant
 counts by its value. A conversion to the kit's type from another type, a field of it
 set outside a literal, an element that is not a constant string, a second literal and code that does
@@ -279,8 +290,6 @@ so a connector that refuses the hop is not held in its own retry backoff.
   here either: the list judges every unit by the kit's verdict alone (contract section 8). The
   kit withholds a short value after a letter or digit (its readings start at every byte offset),
   so a 3-character credential fails more often than a long one.
-- Files are read when the run ends, so a file written and then deleted (or overwritten) during the
-  run is not seen; the shared kit's file layer covers that sink in process.
 - A SQLite database's files (with its `-wal`, `-shm` or `-journal`) are judged besides the traced
   statements: its schema statements, its rows one unit each and each table's rows joined, and every
   other byte. Each page image (database page or WAL frame) is judged whole, values included as the
@@ -292,8 +301,9 @@ so a connector that refuses the hop is not held in its own retry backoff.
   budget on some ordinary pages read whole (auvik's index pages), so a piece the kit cannot read
   whole is read again in 1 KB windows overlapping by half: in such a piece a reading that needs more
   than 512 bytes is not read whole. A database SQLite cannot open fails the case.
-- The child process sink is the argv the MCP server gives its own CLI (logged by a wrapper); other
-  children are not observed. A child's exchanges with the fakes cannot be told from its MCP
+- The child process sink is the argv and environment the MCP server gives its own CLI, one unit
+  judged on the server's held set (recorded by a wrapper, with its stdin when a declared stdin flag
+  is given); other children are not observed. A child's exchanges with the fakes cannot be told from its MCP
   server's, so each child is acquired over its server's exchanges.
 - A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
   retries, so its success-path cases mostly exercise its error path.

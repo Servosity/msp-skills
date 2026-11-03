@@ -104,6 +104,33 @@ func TestStreamWrites(t *testing.T) {
 	}
 }
 
+func TestAcquireStdin(t *testing.T) {
+	// A declared stdin flag in the arguments: the kit reads the process's
+	// stdin (finding r4-4); without the flag, stdin is not a credential.
+	for _, c := range []struct {
+		args []string
+		held bool
+	}{{[]string{"--token-stdin"}, true}, {nil, false}} {
+		q := acquire{Decl: decl{StdinFlags: []string{"--token-stdin"}}, Stdin: b64("stdin-secret-271828\n")}
+		for _, a := range c.args {
+			q.Args = append(q.Args, b64(a))
+		}
+		b, _ := json.Marshal(request{Acquire: &q})
+		got, err := ask(t, string(b))
+		if err != nil || len(got) != 1 {
+			t.Fatalf("got %v, %v", got, err)
+		}
+		var held []string
+		for _, h := range got[0].Held {
+			v, _ := base64.StdEncoding.DecodeString(h)
+			held = append(held, string(v))
+		}
+		if slices.Contains(held, "stdin-secret-271828") != c.held {
+			t.Errorf("args %q: held %q", c.args, held)
+		}
+	}
+}
+
 func TestAcquire(t *testing.T) {
 	q := acquire{Env: []string{b64("ACME_API_KEY=clsKenvValue123456"), b64("ACME_CLIENT_ID=tenant-public-123")},
 		Decl: credkitDecl()}

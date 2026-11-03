@@ -994,8 +994,9 @@ TRACE_FILE = "corpus-sql.trace"   # beside the executable (sqlite_trace): no var
 def read_trace(path: str) -> list[tuple[int, int, bytes]] | None:
     """The SQLite trace a run's processes wrote (sqlite_trace): each record
     an 8-byte big-endian length, the writer's 8-byte pid, a kind (0: the
-    process started with the trace, 1: a statement) and the unit. None when
-    the file is cut off."""
+    process started with the trace, 1: a statement, 2: a file write, its
+    file's name, a NUL and the bytes) and the unit. None when the file is cut
+    off."""
     try:
         with open(path, "rb") as fh:
             data = fh.read()
@@ -1006,7 +1007,7 @@ def read_trace(path: str) -> list[tuple[int, int, bytes]] | None:
         if i + 17 > len(data):
             return None
         n, pid, kind = struct.unpack(">QQB", data[i:i + 17])
-        if i + 17 + n > len(data) or kind not in (0, 1):
+        if i + 17 + n > len(data) or kind not in (0, 1, 2):
             return None
         out.append((pid, kind, data[i + 17:i + 17 + n]))
         i += 17 + n
@@ -1032,6 +1033,140 @@ _TRACE_PATCHES = (
     ("func (t *tx) exec(ctx context.Context, sql string) (err error) {",
      "func (t *tx) exec(ctx context.Context, sql string) (err error) {\n\tcorpusTrace(sql, nil)"),
 )
+
+
+# Every write a Go program makes through os.File (Write, WriteAt, WriteString,
+# WriteFile, ReadFrom), recorded to the same trace (kind 2: the file's name, a
+# NUL, the bytes) before the write: contract 2's file-write unit, a file
+# written as a stream of writes, and a write later deleted or overwritten
+# (finding r4-2). Standard output and error (/dev/...) and pipes are not files.
+_FILE_PATCHES = (
+    ("func (f *File) Write(b []byte) (n int, err error) {\n",
+     "func (f *File) Write(b []byte) (n int, err error) {\n\tcorpusFileWrite(f, b)\n"),
+    ("func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n",
+     "func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n\tcorpusFileWrite(f, b)\n"),
+    # ReadFrom always copies through Write (no copy_file_range or splice).
+    ("\tn, handled, e := f.readFrom(r)\n", "\tn, handled, e := int64(0), false, error(nil)\n"),
+)
+_FILE_GO = """package os
+
+// Written by the leak test list (class_secret_corpus.py): each write to a
+// file, appended to corpus-sql.trace beside the executable before it is made.
+
+import (
+	"sync"
+	"syscall"
+)
+
+var corpusOnce sync.Once
+var corpusTraceFile string
+
+func corpusPut(b []byte, v uint64) {
+	for i := 7; i >= 0; i-- {
+		b[i] = byte(v)
+		v >>= 8
+	}
+}
+
+func corpusFileWrite(f *File, b []byte) {
+	if f == nil || f.file == nil {
+		return
+	}
+	name := f.name
+	if name == "" || name[0] == '|' || len(name) >= 5 && name[:5] == "/dev/" {
+		return
+	}
+	corpusOnce.Do(func() {
+		if exe, err := Executable(); err == nil {
+			for i := len(exe) - 1; i >= 0; i-- {
+				if exe[i] == '/' {
+					corpusTraceFile = exe[:i+1] + "corpus-sql.trace"
+					break
+				}
+			}
+		}
+	})
+	if corpusTraceFile == "" || name == corpusTraceFile {
+		return
+	}
+	u := len(name) + 1 + len(b)
+	rec := make([]byte, 17, 17+u)
+	corpusPut(rec, uint64(u))
+	corpusPut(rec[8:], uint64(syscall.Getpid()))
+	rec[16] = 2
+	rec = append(append(append(rec, name...), 0), b...)
+	fd, err := syscall.Open(corpusTraceFile, syscall.O_WRONLY|syscall.O_APPEND|syscall.O_CREAT|syscall.O_CLOEXEC, 0o600)
+	if err != nil {
+		return
+	}
+	for len(rec) > 0 {
+		n, err := syscall.Write(fd, rec)
+		if err != nil || n <= 0 {
+			break
+		}
+		rec = rec[n:]
+	}
+	_ = syscall.Close(fd)
+}
+"""
+
+
+def _goroot_mirror(cli_dir: Path) -> tuple[str | None, str | None]:
+    """The connector's own toolchain (its go.mod's), hard-linked outside the
+    module cache, where a build overlay may replace standard-library files.
+    Returns (the mirror's go command, error)."""
+    r = subprocess.run(["go", "env", "GOROOT"], cwd=cli_dir, capture_output=True, text=True, timeout=600,
+                       env=go_env())
+    root = r.stdout.strip()
+    if r.returncode != 0 or not os.path.isfile(os.path.join(root, "src", "os", "file.go")):
+        return None, f"go env GOROOT: {r.stderr.strip()[:200]}"
+    mirror = os.path.join(tempfile.gettempdir(), "corpus-goroot-" + hashlib.sha256(root.encode()).hexdigest()[:16])
+    if not os.path.isdir(mirror):
+        part = tempfile.mkdtemp(prefix="corpus-goroot-part-")
+        for d, _dirs, files in os.walk(root):
+            out = os.path.join(part, os.path.relpath(d, root))
+            os.makedirs(out, exist_ok=True)
+            for f in files:
+                src = os.path.join(d, f)
+                if os.path.islink(src):
+                    os.symlink(os.readlink(src), os.path.join(out, f))
+                    continue
+                try:
+                    os.link(src, os.path.join(out, f))
+                except OSError:
+                    shutil.copy2(src, os.path.join(out, f))
+        try:
+            os.rename(part, mirror)
+        except OSError:
+            shutil.rmtree(part, ignore_errors=True)   # another build made it first
+    return os.path.join(mirror, "bin", "go"), None
+
+
+def trace_build(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str], str | None]:
+    """The `go build` command line (the connector's toolchain, mirrored, with
+    the SQLite statement trace and the file-write trace) a connector is built
+    with for the list; run it with go_env() and GOTOOLCHAIN=local."""
+    flags, err = sqlite_trace(cli_dir, targets, tmp)
+    if err:
+        return [], err
+    go, err = _goroot_mirror(cli_dir)
+    if err:
+        return [], err
+    src = os.path.join(os.path.dirname(os.path.dirname(go)), "src", "os")
+    with open(os.path.join(src, "file.go"), encoding="utf-8") as fh:
+        body = fh.read()
+    for old, new in _FILE_PATCHES:
+        if body.count(old) != 1:
+            return [], f"the file-write trace does not fit this toolchain's os package ({old.strip()[:40]!r})"
+        body = body.replace(old, new)
+    d = tempfile.mkdtemp(prefix="filetrace-", dir=tmp)
+    for name, text in (("file.go", body), ("zz_corpus_file.go", _FILE_GO)):
+        with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+            fh.write(text)
+    with open(os.path.join(d, "overlay.json"), "w", encoding="utf-8") as fh:
+        json.dump({"Replace": {os.path.join(src, "file.go"): os.path.join(d, "file.go"),
+                               os.path.join(src, "zz_corpus_file.go"): os.path.join(d, "zz_corpus_file.go")}}, fh)
+    return [go, "build", *flags, "-overlay", os.path.join(d, "overlay.json")], None
 
 
 def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str], str | None]:
@@ -1197,9 +1332,40 @@ def _sql_unit(sql, params):
             b = str(v).encode("utf-8", "surrogateescape")
         out.append(name.encode() + b)
     return b"\n".join(out)
+import builtins as _bi, io as _io
+_bi_open = _bi.open
 def _sql_write(kind, u):
-    with open(_SQL_PATH, "ab") as f:
+    with _bi_open(_SQL_PATH, "ab") as f:
         f.write(_st.pack(">QQB", len(u), os.getpid(), kind) + u)
+class _FileW:
+    # Each write to a file, recorded before it is made (kind 2), as the Go
+    # build's os.File hook records it.
+    def __init__(self, f, name):
+        self._f, self._n = f, name
+    def write(self, b):
+        raw = b.encode(getattr(self._f, "encoding", None) or "utf-8", "surrogateescape") if isinstance(b, str) else bytes(b)
+        _sql_write(2, self._n + b"\0" + raw)
+        return self._f.write(b)
+    def writelines(self, lines):
+        for x in lines:
+            self.write(x)
+    def __enter__(self):
+        self._f.__enter__()
+        return self
+    def __exit__(self, *a):
+        return self._f.__exit__(*a)
+    def __iter__(self):
+        return iter(self._f)
+    def __getattr__(self, a):
+        return getattr(self._f, a)
+def _file_open(file, mode="r", *a, **k):
+    f = _bi_open(file, mode, *a, **k)
+    if isinstance(file, (str, bytes, os.PathLike)) and any(c in mode for c in "wax+"):
+        n = os.fsencode(file)
+        if os.path.abspath(n) != os.fsencode(_SQL_PATH) and not n.startswith(b"/dev/"):
+            return _FileW(f, n)
+    return f
+_bi.open = _io.open = _file_open
 _SQL_PATH = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "corpus-sql.trace")
 _sql_write(0, b"")
 def _sql_trace(sql, params=()):
@@ -1254,8 +1420,8 @@ def _fixture(tmp: str, cli: str, mcp: str, surface: dict | None = None) -> ch.Ct
     return ctx
 
 
-def scan_files(home: str, unchanged: dict[str, bytes], runs: dict[str, bytes] | None = None
-               ) -> list[tuple[str, str | None, str]]:
+def scan_files(home: str, unchanged: dict[str, bytes], runs: dict[str, bytes] | None = None,
+               contents: bool = True) -> list[tuple[str, str | None, str]]:
     """Every file under `home`, read as bytes, except a file the harness wrote
     whose bytes are still exactly what it wrote: (path, text, ""). A file or
     directory the harness cannot read, anything that is not a regular file,
@@ -1277,6 +1443,9 @@ def scan_files(home: str, unchanged: dict[str, bytes], runs: dict[str, bytes] | 
                 if not stat.S_ISREG(st.st_mode):
                     out.append((rel, None, "not a regular file, so it could not be read"))
                     continue
+                if not contents:   # only whether it can be read
+                    with open(p, "rb"):
+                        continue
                 if st.st_size > MAX_FILE:
                     out.append((rel, None, "too large to scan"))
                     continue
@@ -1406,6 +1575,7 @@ type result struct {
 	SecretEnv   []string            `json:"secret_env"`
 	Identifiers []ident             `json:"identifiers"`
 	Lists       map[string][]string `json:"lists"`
+	BaseURL     map[string]string   `json:"base_url"`
 	Errors      []string            `json:"errors"`
 }
 
@@ -1416,7 +1586,7 @@ var lists = map[string]bool{"ResponseFields": true, "SecretEnv": true, "ConfigFi
 	"StdinFlags": true, "CredentialHeaders": true, "CredentialFields": true, "MCPArguments": true, "StoredRecords": true}
 
 var watched = func() map[string]bool {
-	w := map[string]bool{"Identifiers": true}
+	w := map[string]bool{"Identifiers": true, "BaseURL": true}
 	for k := range lists {
 		w[k] = true
 	}
@@ -1889,6 +2059,39 @@ func main() {
 							take(where, val, &res.SecretEnv)
 						case name == "Identifiers":
 							identOf(where, val)
+						case name == "BaseURL":
+							// Its source and default, each a constant string, in
+							// a literal of its own (contract 1: the password and
+							// query values of a base URL are held).
+							lit, ok := ast.Unparen(val).(*ast.CompositeLit)
+							if !ok {
+								fail("%s: BaseURL is not a literal", where)
+								break
+							}
+							if res.BaseURL == nil {
+								res.BaseURL = map[string]string{}
+							}
+							bt, _ := types.Unalias(info.Types[lit].Type).Underlying().(*types.Struct)
+							for j, e := range lit.Elts {
+								k, v := "", e
+								if kv, ok := e.(*ast.KeyValueExpr); ok {
+									id, _ := kv.Key.(*ast.Ident)
+									if id == nil {
+										fail("%s: a BaseURL key that is not a field name", where)
+										continue
+									}
+									k, v = id.Name, kv.Value
+									claimed[id] = true
+								} else if bt != nil && j < bt.NumFields() {
+									k = bt.Field(j).Name()
+								}
+								tv := info.Types[v]
+								if tv.Value == nil || tv.Value.Kind() != constant.String {
+									fail("%s: a BaseURL value that is not a constant string", where)
+									continue
+								}
+								res.BaseURL[k] = constant.StringVal(tv.Value)
+							}
 						case lists[name]:
 							l := res.Lists[name]
 							take(where, val, &l)
@@ -1962,7 +2165,7 @@ def _fields_helper() -> str:
         return _FIELDS_BIN["path"]
 
 
-NO_KIT = {"fields": [], "secret_env": [], "identifiers": [], "lists": {}}
+NO_KIT = {"fields": [], "secret_env": [], "identifiers": [], "lists": {}, "base_url": {}}
 
 
 def kit_declarations(slug: str) -> dict[str, list[str]]:
@@ -1987,9 +2190,28 @@ def kit_declarations_in(cli: Path, targets: list[str]) -> dict:
     """The kit declarations of the Go code under `cli` that the build
     `targets` (package patterns relative to `cli`) link: response fields,
     secret variables, identifier sources and every other list the kit
-    declares. Raises ValueError when they cannot be read (fail closed)."""
+    declares. Raises ValueError when they cannot be read (fail closed).
+
+    Read under each release target's settings (go_env plus GOOS/GOARCH, as
+    _build and release.yml use): an inherited GOFLAGS, GOOS or GOARCH the
+    build does not use is not read (finding r4-5), and a connector whose
+    declarations differ between release targets fails closed, since the list
+    judges one build and every target ships (corpus4rv blunt rule)."""
+    seen: dict = {}
+    for t in ch.registry.TARGETS:
+        out = _declarations_for(cli, targets, {**go_env(), "GOOS": t["goos"], "GOARCH": t["goarch"]})
+        key = json.dumps(out, sort_keys=True)
+        if seen and key not in seen:
+            raise ValueError(f"the kit declarations under {cli} differ between release targets "
+                             f"{next(iter(seen.values()))} and {t['goos']}/{t['goarch']}")
+        seen.setdefault(key, f"{t['goos']}/{t['goarch']}")
+    return out
+
+
+def _declarations_for(cli: Path, targets: list[str], env: dict) -> dict:
     try:
-        p = subprocess.run([_fields_helper(), str(cli), *targets], capture_output=True, text=True, timeout=900)
+        p = subprocess.run([_fields_helper(), str(cli), *targets], capture_output=True, text=True, timeout=900,
+                           env=env)
         res = json.loads(p.stdout)
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
         raise ValueError(f"the declaration reader failed on {cli}: {e}")
@@ -1999,6 +2221,8 @@ def kit_declarations_in(cli: Path, targets: list[str]) -> dict:
     out = {k: list(dict.fromkeys(res[k])) for k in ("fields", "secret_env")}
     out["identifiers"] = list({i["source"]: i for i in res["identifiers"]}.values())
     out["lists"] = {k: list(dict.fromkeys(v)) for k, v in (res.get("lists") or {}).items()}
+    b = res.get("base_url") or {}
+    out["base_url"] = {k: b.get(k, "") for k in ("ConfigKey", "Env", "Default")} if b else {}
     return out
 
 
@@ -2061,7 +2285,7 @@ def exchanges(fakes: list, before: tuple, after: tuple) -> list[dict]:
 
 
 def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], ex: list[dict],
-                mcp_in: bytes = b"") -> dict:
+                mcp_in: bytes = b"", stdin: bytes = b"") -> dict:
     """The kit's own held set for one process (contract 1, contract 8: one
     implementation): what Start holds from its environment and argv, exactly
     as given, and the config file it names as the run was given it (written
@@ -2085,7 +2309,8 @@ def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes
             with open(path, "wb") as fh:
                 fh.write(body)
         got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items()],
-                                "args": [_b64(a) for a in args], "mcp_in": _b64(mcp_in), "exchanges": ex}})
+                                "args": [_b64(a) for a in args], "mcp_in": _b64(mcp_in), "stdin": _b64(stdin),
+                                "exchanges": ex}})
     finally:
         for path, body in saved.items():
             if body is None:
@@ -2143,48 +2368,110 @@ def _no_dup_keys(pairs):
     return dict(pairs)
 
 
+_JSON = json.JSONDecoder()
+
+
+def _id_spans(line: str, rid: str) -> list[tuple[int, int]]:
+    """The spans (in `line`) of each top-level `id` value equal to `rid` in a
+    response frame (an object, or each object of a batch, with `result` or
+    `error` and no `method`); none when the line is not such JSON or a frame
+    has a duplicate key."""
+    try:
+        frame = json.loads(line, object_pairs_hook=_no_dup_keys)
+    except ValueError:
+        return []
+    ws = " \t\n\r"
+
+    def obj(i: int) -> tuple[dict, int]:   # an object's keys: (value, its span)
+        keys: dict = {}
+        i += 1
+        while True:
+            while line[i] in ws:
+                i += 1
+            if line[i] == "}":
+                return keys, i + 1
+            if line[i] == ",":
+                i += 1
+                continue
+            k, i = _JSON.raw_decode(line, i)
+            while line[i] in ws + ":":
+                i += 1
+            v0 = i
+            v, i = _JSON.raw_decode(line, i)
+            keys[k] = (v, v0, i)
+
+    def frame_spans(i: int) -> tuple[list[tuple[int, int]], int]:
+        keys, i = obj(i)
+        f = {k: v for k, (v, _a, _b) in keys.items()}
+        if f.get("id") == rid and "method" not in f and ("result" in f or "error" in f):
+            return [keys["id"][1:]], i
+        return [], i
+
+    i = len(line) - len(line.lstrip(ws))
+    out: list[tuple[int, int]] = []
+    if isinstance(frame, dict):
+        out, _ = frame_spans(i)
+    elif isinstance(frame, list):
+        i += 1
+        while True:
+            while line[i] in ws + ",":
+                i += 1
+            if line[i] == "]":
+                break
+            if line[i] == "{":
+                sp, i = frame_spans(i)
+                out += sp
+            else:
+                _v, i = _JSON.raw_decode(line, i)
+    return out
+
+
 def strip_rpc_id(text: str, rid: str) -> str:
     """Contract 6.1, and nothing wider: the client's own request id where a
     response frame (one JSON line with `result` or `error` and no `method`)
-    echoes it as its top-level `id`. A nested `id`, a server request, a line
-    that is not JSON, or a frame with a duplicate key keeps every byte. A
-    Stream stays a Stream: its writes are cut where they were, a cut inside
-    a changed line moving to that line's end (finding r3-6)."""
+    echoes it as its top-level `id`. Only that value's own bytes become
+    `null`; every other byte stays as written (finding r4-1). A nested `id`,
+    a server request, a line that is not JSON, or a frame with a duplicate
+    key keeps every byte. A Stream stays a Stream: its writes are cut where
+    they were, a cut inside a replaced id moving to the id's end (r3-6)."""
     raw = _raw(text)
-    lines, out = raw.split(b"\n"), []
-    for line in lines:
-        try:
-            frame = json.loads(line.decode("utf-8", "surrogateescape"), object_pairs_hook=_no_dup_keys)
-        except ValueError:
-            out.append(line)
-            continue
-        hit = False
-        for f in frame if isinstance(frame, list) else [frame]:
-            if isinstance(f, dict) and f.get("id") == rid and "method" not in f and ("result" in f or "error" in f):
-                f["id"], hit = None, True
-        out.append(json.dumps(frame, ensure_ascii=False).encode("utf-8", "surrogateescape") if hit else line)
-    new = b"\n".join(out)
+    edits: list[tuple[int, int]] = []   # byte spans of `raw` that become null
+    at = 0
+    for line in raw.split(b"\n"):
+        u = line.decode("utf-8", "surrogateescape")
+        for x, y in _id_spans(u, rid):
+            edits.append((at + len(u[:x].encode("utf-8", "surrogateescape")),
+                          at + len(u[:y].encode("utf-8", "surrogateescape"))))
+        at += len(line) + 1
+    new, prev = bytearray(), 0
+    for x, y in edits:
+        new += raw[prev:x] + b"null"
+        prev = y
+    new += raw[prev:]
+    new = bytes(new)
+
+    def moved(k: int) -> int:   # an offset of `raw` in `new`
+        d = 0
+        for x, y in edits:
+            if k <= x:
+                break
+            if k < y:
+                return x + d + 4
+            d += 4 - (y - x)
+        return k + d
+
     if not isinstance(text, Stream):
         return new.decode("utf-8", "surrogateescape")
-    cuts, at, shift, k = [], 0, 0, 0   # each write's end, mapped line by line
-    ends = []
-    for old, nw in zip(lines, out):
-        ends.append((at + len(old), shift, old == nw, at + shift + len(nw)))
-        at, shift = at + len(old) + 1, shift + len(nw) - len(old)
+    res = Stream(new.decode("utf-8", "surrogateescape"))
+    res.writes, cut, k = [], 0, 0
     for w in text.writes:
         k += len(w)
-        for end, sh, same, new_end in ends:
-            if k <= end:
-                cuts.append(k + sh if same else new_end)
-                break
-        else:
-            cuts.append(len(new))
-    res = Stream(new.decode("utf-8", "surrogateescape"))
-    res.writes, prev = [], 0
-    for c in sorted(set(min(c, len(new)) for c in cuts)) + [len(new)]:
-        if c > prev:
-            res.writes.append(new[prev:c])
-            prev = c
+        c = moved(k)
+        if c > cut:
+            res.writes.append(new[cut:c])
+            cut = c
+    if cut < len(new):
+        res.writes.append(new[cut:])
     res.proc = getattr(text, "proc", None)
     return res
 
@@ -2216,18 +2503,40 @@ def _note_proc(args: list[str], env: dict, stdin: bytes) -> None:
         procs.append((list(args), dict(env), stdin))
 _WRAPPER = """#!/bin/sh
 # The CLI the MCP server starts: log the argv it was given (a contract sink),
-# and its argv, environment and pid for the kit's acquisition, at paths fixed
-# here (no variable the server could leave out: finding r3-7), then run the
-# real CLI. A child whose record cannot be written does not run.
+# and its argv, environment, pid and (for a declared stdin flag) stdin for the
+# kit's acquisition, at paths fixed here (no variable the server could leave
+# out: finding r3-7), then run the real CLI. A child whose record cannot be
+# written does not run.
 printf '%s\\n' "$*" >> __LOG__ || exit 97
-f=$(mktemp __ACQ__/argv.XXXXXX) && printf '%s\\0' "$@" > "$f" && env -0 > "$f.env" \\
+f=$(mktemp __ACQ__/argv.XXXXXX) && printf '%s\\0' "$0" "$@" > "$f" && env -0 > "$f.env" \\
   && printf '%s %s' "$$" "$PPID" > "$f.pid" || exit 97
-exec __REAL__ "$@"
+__STDIN__exec __REAL__ "$@"
 """
 
 
-def child_logging_bins(ctx: ch.Ctx, tmp: str, log: str | None = None, acq: str | None = None
-                       ) -> tuple[Path, Path, Path]:
+def _stdin_capture(flags: list[str]) -> str:
+    """Wrapper lines that keep a child's stdin when its argv names a declared
+    stdin flag, in every spelling the kit's `present` accepts (one dash or
+    two, `=value`, a one-letter flag inside a cluster): the kit reads all of
+    stdin at start then, so reading it first changes nothing the child sees
+    (finding r4-4). The child gets the same bytes from the file."""
+    pats = []
+    for fl in flags:
+        n = fl.lstrip("-")
+        if not n:
+            continue
+        q = shlex.quote(n)
+        pats += [f"-{q}", f"--{q}", f"-{q}=*", f"--{q}=*"]
+        if len(fl) == 2 and fl[0] == "-" and fl[1] != "-":
+            pats.append(f"-[!-]*{q}*")
+    if not pats:
+        return ""
+    return ('cap=\nfor a in "$@"; do case "$a" in ' + "|".join(pats) + ') cap=1;; esac; done\n'
+            'if [ -n "$cap" ]; then cat > "$f.stdin" || exit 97; exec __REAL__ "$@" < "$f.stdin"; fi\n')
+
+
+def child_logging_bins(ctx: ch.Ctx, tmp: str, log: str | None = None, acq: str | None = None,
+                       stdin_flags: list[str] | None = None) -> tuple[Path, Path, Path]:
     """A private copy of the MCP server whose sibling CLI is a wrapper that
     logs its argv to `log` (a case's MCP HOME, so a credential the server
     passes its child on the command line is scanned like any file) and
@@ -2244,7 +2553,8 @@ def child_logging_bins(ctx: ch.Ctx, tmp: str, log: str | None = None, acq: str |
             os.link(src, dst)
         except OSError:
             shutil.copy2(src, dst)
-    wrapper.write_text(_WRAPPER.replace("__LOG__", shlex.quote(log or str(d / CHILD_LOG)))
+    wrapper.write_text(_WRAPPER.replace("__STDIN__", _stdin_capture(stdin_flags or []))
+                       .replace("__LOG__", shlex.quote(log or str(d / CHILD_LOG)))
                        .replace("__ACQ__", shlex.quote(acq)).replace("__REAL__", shlex.quote(str(real))),
                        encoding="utf-8")
     wrapper.chmod(0o755)
@@ -2260,7 +2570,8 @@ def own_host(host: str) -> str:
 
 class Engine:
     def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
-                 secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None):
+                 secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None,
+                 base_url: dict | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.traced = str(ctx.cli_bin) in _TRACED and str(ctx.mcp_bin) in _TRACED
         self.links = {"cli": str(ctx.cli_bin) in _LINKS, "mcp": str(ctx.mcp_bin) in _LINKS}
@@ -2284,7 +2595,8 @@ class Engine:
         self.identifiers += [k for k in env_ids if k not in self.identifiers]
         self.kit_decl = {**{k: list(v) for k, v in (lists or {}).items()},
                          "SecretEnv": self.declared + env_ids, "ResponseFields": self.fields,
-                         "Identifiers": [{"Source": i["source"], "Reason": i["reason"]} for i in idl]}
+                         "Identifiers": [{"Source": i["source"], "Reason": i["reason"]} for i in idl],
+                         "BaseURL": {k: (base_url or {}).get(k, "") for k in ("ConfigKey", "Env", "Default")}}
         all_reads = [lf for lf in ch.leaves(ctx.surface) if ch.runnable_read(lf)]
         self.se_reads = all_reads
         self.api_first = ([lf for lf in all_reads if lf.api_path] or all_reads)[:1]
@@ -2487,7 +2799,8 @@ class Engine:
         if procs is not None:
             procs.append({"which": which, "args": list(args), "env": dict(env), "stdin": stdin, "pid": so.pid,
                           "before": before, "after": counts() if counts else None,
-                          "files": _PROCS.changed() if getattr(_PROCS, "changed", None) else set()})
+                          **dict(zip(("files", "state"), _PROCS.changed() if getattr(_PROCS, "changed", None)
+                                                                    else ({}, {})))})
             so.proc = se.proc = len(procs) - 1
         return so, se
 
@@ -2513,7 +2826,8 @@ class Engine:
                 ex = exchanges(fakes, pr["before"], pr["after"])
                 got = {"held": [], "bare": [], "recorded": 0, "unknown": False}
                 for decl, no_ids in decls:
-                    a = kit_acquire(decl, pr["env"], pr["args"], written, ex, pr["stdin"])
+                    a = kit_acquire(decl, pr["env"], pr["args"], written, ex,
+                                    pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"])
                     if no_ids:
                         got["bare"] = a["held"]
                     else:
@@ -2643,18 +2957,22 @@ class Engine:
             # acquisition records, and every process's SQLite trace, at paths
             # fixed in the files themselves, not in any variable (r3-3, r3-7).
             child_acq = tempfile.mkdtemp(prefix="child-", dir=self.tmp)
-            bins = child_logging_bins(self.ctx, self.tmp, os.path.join(mcp_home, CHILD_LOG), child_acq)
+            bins = child_logging_bins(self.ctx, self.tmp, os.path.join(mcp_home, CHILD_LOG), child_acq,
+                                      (self.kit_decl.get("StdinFlags") or []))
             trace = os.path.join(os.path.dirname(bins[0]), TRACE_FILE)
             mcp_env = {**env, "HOME": mcp_home, "TMPDIR": os.path.join(mcp_home, ".tmp")}
             runs: dict[str, bytes] = {}   # a file's bytes after each earlier run (contract 6.5)
             fakes = [primary, second]
             state = {"files": {**file_bytes(home), **file_bytes(mcp_home)}}
 
-            def changed() -> set[str]:
+            def changed() -> tuple[dict, dict]:
+                """The files changed since the last snapshot, each (bytes
+                before, bytes now), and the snapshot now (r4-7: each
+                process's file contents are judged on its own ledger)."""
                 cur = {**file_bytes(home), **file_bytes(mcp_home)}
-                out = {q for q in set(cur) | set(state["files"]) if cur.get(q) != state["files"].get(q)}
+                out = {q: (state["files"].get(q), b) for q, b in cur.items() if state["files"].get(q) != b}
                 state["files"] = cur
-                return out
+                return out, cur
 
             _PROCS.procs, _PROCS.bins, _PROCS.changed = [], bins, changed
             _PROCS.counts = lambda: tuple(n for f in fakes for n in (len(f.requests), len(f.served))) + (len(issued),)
@@ -2667,22 +2985,28 @@ class Engine:
             zero = tuple(0 for _ in ends)
             top = len(procs)
             for f in sorted(os.listdir(child_acq)):   # the CLI children the MCP server started
-                if f.endswith((".env", ".pid")):
+                if f.endswith((".env", ".pid", ".stdin")):
                     continue
                 q = os.path.join(child_acq, f)
                 try:
                     with open(q, "rb") as fh:
                         argv = fh.read().split(b"\0")[:-1]
                     with open(q + ".env", "rb") as fh:
-                        cenv = dict(_s(kv).partition("=")[::2] for kv in fh.read().split(b"\0") if kv)
+                        envb = [kv for kv in fh.read().split(b"\0") if kv]
                     with open(q + ".pid", "rb") as fh:
                         pid, ppid = (int(x) for x in fh.read().split())
+                    cin = b""
+                    if os.path.exists(q + ".stdin"):
+                        with open(q + ".stdin", "rb") as fh:
+                            cin = fh.read()
                 except (OSError, ValueError):
                     res["where"].append("a CLI child's record could not be read, so its held set is unknown")
                     continue
+                cenv = dict(_s(kv).partition("=")[::2] for kv in envb)
                 parent = next((i for i in range(top) if procs[i]["pid"] == ppid), None)
-                procs.append({"which": "child", "args": [_s(a) for a in argv], "env": cenv, "stdin": b"", "pid": pid,
-                              "parent": parent, "files": set(),
+                procs.append({"which": "child", "args": [_s(a) for a in argv[1:]], "env": cenv, "stdin": cin,
+                              "pid": pid, "parent": parent, "files": {}, "state": {},
+                              "envelope": b"\n".join(argv) + b"\n" + b"\n".join(envb),
                               "before": procs[parent]["before"] if parent is not None else zero,
                               "after": procs[parent]["after"] if parent is not None else ends})
             shutil.rmtree(child_acq, ignore_errors=True)
@@ -2754,23 +3078,75 @@ class Engine:
                 how = judge(text, held_for([proc]) if proc is not None else held)
                 if how:
                     res["where"].append(f"{where}: {how}")
-            files = state["files"]
-            for label, h in (("", home), ("mcp ", mcp_home)):
-                for rel, text, why in scan_files(h, written, runs):
-                    if not self.traced and rel.endswith(f"{DEAD}, piece 0"):
-                        res["where"].append(f"{label}file {rel[:-len(DEAD) - 10]}: a SQLite database written by a build "
-                                            "without the statement trace, so its statements cannot be read")
-                    texts.append(text or "")
-                    # The processes that changed the file (r3-9); every one
-                    # when none did or it cannot be told.
-                    q = next((x for x in files if rel == os.path.relpath(x, h) or rel.startswith(os.path.relpath(x, h) + " ")),
-                             None)
-                    by = [i for i in range(top) if q is not None and q in procs[i]["files"]]
-                    hf = held_for(by) if by else held
-                    how = why if text is None else (judge_dead(text, hf) if DEAD in rel else judge(text, hf))
+            # Files, per process (r4-7): what each process changed, as it
+            # left it, judged on that process's ledger (an append judged as
+            # the bytes it added, contract 6.5); changes made after the last
+            # process (a child it left running) on every process's. SQLite
+            # files are read through their database (sqlite_units) as that
+            # process left them.
+            late, final = changed()
+            spans = [(i, procs[i]["files"], procs[i]["state"]) for i in range(top)] + [(None, late, final)]
+            roots = (("", home), ("mcp ", mcp_home))
+
+            def rel_of(q: str) -> tuple[str, str]:
+                for label, h in roots[::-1]:
+                    if q.startswith(h + os.sep):
+                        return label, os.path.relpath(q, h)
+                return "", q
+
+            for i, chg, st in spans:
+                hf = held_for([i]) if i is not None else held
+                dbs = set()
+                for q, (prev, cur) in sorted(chg.items()):
+                    side = next((q[:-len(x)] for x in SQLITE_SIDE if q.endswith(x)), None)
+                    if cur.startswith(SQLITE_MAGIC) or (side and st.get(side, b"").startswith(SQLITE_MAGIC)):
+                        dbs.add(side if side and not cur.startswith(SQLITE_MAGIC) else q)
+                        continue
+                    label, rel = rel_of(q)
+                    sink = "argv the MCP server gave its CLI child" if label and rel == CHILD_LOG else f"{label}file {rel}"
+                    if len(cur) > MAX_FILE:
+                        res["where"].append(f"{sink}: too large to scan")
+                        continue
+                    part = cur[len(prev):] if prev and len(cur) > len(prev) and cur.startswith(prev) else cur
+                    text = part.decode("utf-8", "surrogateescape")
+                    texts.append(text)
+                    how = judge(text, hf)
                     if how:
-                        sink = "argv the MCP server gave its CLI child" if rel == CHILD_LOG else f"{label}file {rel}"
                         res["where"].append(f"{sink}: {how}")
+                for q in sorted(dbs):
+                    label, rel = rel_of(q)
+                    with tempfile.TemporaryDirectory(prefix="corpus-snap-") as snap:
+                        dst = os.path.join(snap, os.path.basename(q))
+                        for suffix in ("",) + SQLITE_SIDE:
+                            if q + suffix in st:
+                                with open(dst + suffix, "wb") as fh:
+                                    fh.write(st[q + suffix])
+                        units = sqlite_units(dst)
+                    for where, text, why in units:
+                        rel2 = f"{rel} {where}"
+                        if not self.traced and where.endswith(f"{DEAD}, piece 0"):
+                            res["where"].append(f"{label}file {rel}: a SQLite database written by a build "
+                                                "without the statement trace, so its statements cannot be read")
+                        texts.append(text or "")
+                        how = why if text is None else (judge_dead(text, hf) if DEAD in where else judge(text, hf))
+                        if how:
+                            res["where"].append(f"{label}file {rel2}: {how}")
+            for label, h in roots:
+                # What cannot be read at all (an unreadable file, one that is
+                # not a regular file) fails the case (closed).
+                for rel, text, why in scan_files(h, written, runs, contents=False):
+                    if text is None:
+                        res["where"].append(f"{label}file {rel}: {why}")
+            for j in range(top, len(procs)):
+                # Contract 2: the argv and environment of one child process,
+                # as the child receives them, one unit, on its parent's ledger.
+                par = procs[j].get("parent")
+                env_text = procs[j]["envelope"].decode("utf-8", "surrogateescape")
+                texts.append(env_text)
+                how = judge(env_text, held_of[par] if par is not None else
+                            list(dict.fromkeys(v for k in range(top) for v in held_of[k])))
+                if how:
+                    res["where"].append(f"argv and environment the MCP server gave its CLI child: {how}")
             recs = read_trace(trace)
             if recs is None:
                 res["where"].append("SQLite statements: the trace is cut off, so they could not be read")
@@ -2784,6 +3160,29 @@ class Engine:
                     res["where"].append(f"SQLite statements: process {i + 1} ({pr['which']}) wrote no trace, so "
                                         "its statements cannot be read")
             by_pid = {pr["pid"]: i for i, pr in enumerate(procs)}
+            # File writes (kind 2): each file a process wrote, its writes in
+            # order, judged like stdout (whole and write by write) on that
+            # process's ledger (contract 2: a file written as a stream of
+            # writes; a write later deleted or overwritten is still judged).
+            streams: dict[tuple[int, bytes], list[bytes]] = {}
+            for pid, kind, u in recs:
+                if kind == 2:
+                    name, _nul, data = u.partition(b"\0")
+                    streams.setdefault((pid, name), []).append(data)
+            for (pid, name), ws in streams.items():
+                st_ = _stream(ws)
+                texts.append(str(st_))
+                h_ = held_for([by_pid[pid]]) if pid in by_pid else held
+                how = judge(st_, h_)
+                if how and "ran out of budget" in how and not any("\x00" in h for h in h_):
+                    # Zero padding is not text (judge_dead's rule, finding
+                    # r2-4 kept): a stream the kit cannot read whole is read
+                    # again as the pieces between runs of 64 or more NUL
+                    # bytes, each piece keeping its write boundaries; a piece
+                    # that still exhausts fails.
+                    how = next(filter(None, (judge(x, h_) for x in _nul_pieces(ws))), None)
+                if how:
+                    res["where"].append(f"file write {_s(name)}: {how}")
             k = 0
             for pid, kind, u in recs:
                 if kind != 1:
@@ -2940,6 +3339,23 @@ class Stream(str):
 PAUSE = 0.005
 
 
+def _nul_pieces(ws: list[bytes]) -> list[Stream]:
+    """The writes `ws` cut at runs of 64 or more NUL bytes: one stream per
+    piece between runs, each with the parts of the writes that fall in it."""
+    joined, out, at = b"".join(ws), [], 0
+    spans = [(a, b) for a, b in zip([0] + [m.end() for m in re.finditer(rb"\x00{64,}", joined)],
+                                    [m.start() for m in re.finditer(rb"\x00{64,}", joined)] + [len(joined)])]
+    bounds = []
+    for w in ws:
+        bounds.append((at, at + len(w)))
+        at += len(w)
+    for a, b in spans:
+        parts = [joined[max(a, x):min(b, y)] for x, y in bounds if max(a, x) < min(b, y)]
+        if any(p.strip(b"\x00") for p in parts):
+            out.append(_stream(parts))
+    return out
+
+
 def _stream(chunks: list[bytes], extra: str = "") -> Stream:
     out = Stream(b"".join(chunks).decode("utf-8", "surrogateescape") + extra)
     out.writes = list(chunks)
@@ -3086,13 +3502,14 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: str | None = None,
               server: dict | None = None, fields: list[str] | None = None,
               secret_env: list[str] | None = None, identifiers: list | None = None,
-              lists: dict | None = None) -> list[dict]:
+              lists: dict | None = None, base_url: dict | None = None) -> list[dict]:
     kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
                  fields if fields is not None else kit["fields"],
                  secret_env if secret_env is not None else kit["secret_env"],
                  identifiers if identifiers is not None else kit["identifiers"],
-                 lists if lists is not None else kit.get("lists"))
+                 lists if lists is not None else kit.get("lists"),
+                 base_url if base_url is not None else kit.get("base_url"))
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -3858,7 +4275,8 @@ _CHILD_MCP = """import subprocess
 TOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, "inputSchema": {"type": "object", "properties": {}}}]
 def on_call(params):
     argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list"] + __EXTRA__
-    out = subprocess.run(argv, capture_output=True, text=True).returncode
+    env = {k: v for k, v in os.environ.items() if k != "ACME_API_KEY"}   # the kit drops a declared secret env
+    out = subprocess.run(argv, capture_output=True, text=True, env=env).returncode
     return {"content": [{"type": "text", "text": "exit %d" % out}]}
 serve(TOOLS, on_call)
 """
@@ -4625,12 +5043,12 @@ def _c3_declarations() -> bool:
                          'var t = T{ResponseFields: []string{"n"}}\n'},
              None, ([], []), "an unrelated type with a field of the same name"),
             ({"main.go": main, "wire.go": tagged}, None, ([], []), "a tag-guarded file without the tag"),
-            ({"main.go": main, "wire.go": tagged}, {"GOFLAGS": "-tags=corpuswire"}, (["password"], ["ACME_X"]),
-             "a tag-guarded file with the tag in GOFLAGS"),
-            ({"main.go": main, "wire_windows.go": hdr + decl}, {"GOOS": "windows"}, (["password"], ["ACME_X"]),
-             "a GOOS file under that GOOS"),
-            ({"main.go": main, "wire_windows.go": hdr + decl}, {"GOOS": "linux"}, ([], []),
-             "a GOOS file under another GOOS"),
+            ({"main.go": main, "wire.go": tagged}, {"GOFLAGS": "-tags=corpuswire"}, ([], []),
+             "a tag-guarded file with the tag in an inherited GOFLAGS the build does not use"),
+            ({"main.go": main, "wire_windows.go": hdr + decl}, {"GOOS": "windows"}, "error",
+             "a windows-only declaration (targets differ, blunt rule)"),
+            ({"main.go": main, "wire_windows.go": hdr + decl}, {"GOOS": "linux"}, "error",
+             "a windows-only declaration with an inherited GOOS (targets differ, blunt rule)"),
             ({"main.go": imp + decl + "var broken int = \"x\"\n"}, None, "error", "code that does not type-check")):
         got = read(files, env)
         if got != want:
@@ -4793,6 +5211,8 @@ def _decl_read(files: dict[str, str], env: dict | None = None, targets: list[str
             os.environ.update(env or {})
             d = kit_declarations_in(Path(tmp), targets or ["."])
             ids = d.get("identifiers", [])
+            if full == "all":
+                return d
             if full:
                 return ids
             return (sorted(d["fields"]), sorted(d["secret_env"]),
@@ -4847,12 +5267,14 @@ def _c4_declarations() -> bool:
             ({"main.go": hdr + start + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_PUBLIC"}}\n',
               "ov/main.txt": hdr + start + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_PRIVATE"}}\n',
               "overlay.json": '{"Replace": {"@TMP@/main.go": "@TMP@/ov/main.txt"}}\n'},
-             {"GOFLAGS": "-overlay=@TMP@/overlay.json"}, "error", "12: an overlay in GOFLAGS"),
+             {"GOFLAGS": "-overlay=@TMP@/overlay.json"}, ([], ["ACME_PUBLIC"], []),
+             "12: an overlay in an inherited GOFLAGS the build does not use either"),
             ({"main.go": hdr.replace('import "acme', 'import (\n\t"unsafe"\n\n\t"acme').replace(
                 '/credkit"\n', '/credkit"\n)\n', 1) + start +
                 'const K = "ACME_" + string(rune(\'A\' + unsafe.Sizeof(uintptr(0))))\n\n'
                 'var d = credkit.Declarations{SecretEnv: []string{K}}\n'},
-             {"GOOS": "linux", "GOARCH": "386"}, ([], ["ACME_E"], []), "13: a constant sized for GOARCH=386")):
+             {"GOOS": "linux", "GOARCH": "386"}, ([], ["ACME_I"], []),
+             "13: a constant sized by the pointer width: every release target is 64-bit, an inherited GOARCH unused")):
         got = read(files, env)
         if got != want:
             print(f"    corpus self-test: declarations (corpus4rv): {why}: want {want}, got {got}")
@@ -5018,7 +5440,7 @@ _GO_MOD = ("module acme\n\ngo 1.24\n\nrequire modernc.org/sqlite v1.37.0\n\nrequ
            "\tmodernc.org/memory v1.9.1 // indirect\n)\n")
 
 
-def _go_trace_run(files: dict[str, str], gomod_extra: str = "") -> tuple[str | None, list[bytes]]:
+def _go_trace_run(files: dict[str, str], gomod_extra: str = "", kind: int = 1) -> tuple[str | None, list[bytes]]:
     """A small Go program on modernc.org/sqlite v1.37.0, built with the
     statement trace and run once: (the trace's refusal, the statements it
     wrote). Its go.sum is a real connector's (every module is in the cache)."""
@@ -5036,13 +5458,13 @@ def _go_trace_run(files: dict[str, str], gomod_extra: str = "") -> tuple[str | N
                                timeout=600, env=go_env())   # fills go.sum
             if r.returncode != 0:
                 return f"build: {r.stderr[-400:]}", []
-            flags, err = sqlite_trace(src, ["."], tmp)
+            gocmd, err = trace_build(src, ["."], tmp)
             if err:
                 return err, []
             bindir = Path(tmp) / "bin"
             bindir.mkdir()
-            r = subprocess.run(["go", "build"] + flags + ["-o", str(bindir / "acme"), "."], cwd=src,
-                               capture_output=True, text=True, timeout=600, env=go_env())
+            r = subprocess.run(gocmd + ["-o", str(bindir / "acme"), "."], cwd=src,
+                               capture_output=True, text=True, timeout=600, env={**go_env(), "GOTOOLCHAIN": "local"})
             if r.returncode != 0:
                 return f"build: {r.stderr[-400:]}", []
         finally:
@@ -5054,7 +5476,7 @@ def _go_trace_run(files: dict[str, str], gomod_extra: str = "") -> tuple[str | N
         subprocess.run([str(bindir / "acme"), str(Path(tmp) / "c.db")], capture_output=True, timeout=60,
                        env={"PATH": os.environ.get("PATH", ""), "HOME": tmp})
         recs = read_trace(str(trace)) or []
-        return None, [r if isinstance(r, bytes) else r[2] for r in recs if isinstance(r, bytes) or r[1] == 1]
+        return None, [r if isinstance(r, bytes) else r[2] for r in recs if isinstance(r, bytes) or r[1] == kind]
 
 
 _GO_MAIN = ('package main\n\nimport (\n\t"database/sql"\n\t"os"\n\n\t_ "modernc.org/sqlite"\n)\n\n'
@@ -5145,7 +5567,7 @@ def _c6_held_set() -> bool:
     ok = True
     child_mcp = ('import subprocess, random, string\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
                  '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
-                 '    e = {k: v for k, v in os.environ.items() if not k.startswith("CLS_")}\n'
+                 '    e = {k: v for k, v in os.environ.items() if not k.startswith("CLS_") and k != "ACME_API_KEY"}\n'
                  '    e.update(FROM_MCP="1", ACME_OTHER_KEY="zq" + "".join(random.choice(string.ascii_letters) for _ in range(20)))\n'
                  '    argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list"]\n'
                  '    out = subprocess.run(argv, capture_output=True, text=True, env=e).stdout\n'
@@ -5219,6 +5641,138 @@ def _c6_declarations() -> bool:
             print(f"    corpus self-test: declarations (corpus4rv r3): {why}: want {want}, got {got}")
             ok = False
     return ok
+
+
+# --------------------------------------------------------------------------- #
+# corpus4rv round 4: the reviewer's inputs, one probe each, both directions.
+# --------------------------------------------------------------------------- #
+
+
+def _c7_held_and_sinks() -> bool:
+    """Findings 1 to 4 and 7: the 6.1 id strip changes no other byte; a file
+    written as a stream of writes is judged write by write, a write later
+    deleted included; a CLI child's argv and environment are one unit; a
+    child's stdin is acquired for its declared stdin flags; each process's
+    file contents are judged on its own ledger."""
+    ok = True
+    rpc = ('OPENER.open(urllib.request.Request(BASE + "/v1/items", method="POST", headers={"Content-Type": '
+           '"application/json"}, data=json.dumps({"password": "27.1828000"}).encode()), timeout=10).read()\n'
+           'for line in sys.stdin:\n    m = json.loads(line) if line.strip() else {}\n'
+           '    if m.get("id") is None:\n        continue\n'
+           '    if m.get("method") == "tools/list":\n'
+           '        print(\'{"jsonrpc": "2.0", "id": %s, "result": {"tools": [], "n": __N__}}\' % json.dumps(m["id"]), flush=True)\n'
+           '    else:\n        print(json.dumps({"jsonrpc": "2.0", "id": m["id"], "result": {}}), flush=True)\n')
+    rpc_kw = {"fields": [], "secret_env": [], "lists": {"CredentialFields": ["password"]}}
+    two = ('call("GET", "/v1/items")\nf = open(os.path.join(HOME, "out.txt"), "w")\nf.write(__A__)\nf.flush()\n'
+           'f.write("7")\nf.close()\n__AFTER__print("ok")\n')
+    child = ('import subprocess\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
+             '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
+             '    e = {k: v for k, v in os.environ.items() if k != "ACME_API_KEY"}\n__ENV__'
+             '    argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list"__ARGS__]\n'
+             '    out = subprocess.run(argv, capture_output=True, text=True, env=e, input=__IN__).stdout\n'
+             '    return {"content": [{"type": "text", "text": out}]}\nserve(TOOLS, on_call)\n')
+    stdin_cli = ('call("GET", "/v1/items")\nprint(sys.stdin.read() if "--token-stdin" in sys.argv and __ECHO__ else "ok")\n')
+    stdin_kw = {"fields": [], "secret_env": [], "lists": {"StdinFlags": ["--token-stdin"]}}
+    agent = ('import platform\nif "--agent" in sys.argv:\n__AGENT__else:\n    call("GET", "/v1/items")\n'
+             '    open(os.path.join(HOME, "cache.txt"), "w").write("clean")\n    print("ok")\n')
+    local = '    open(os.path.join(HOME, "cache.txt"), "w").write("BaseHTTP/0.6 Python/" + platform.python_version())\n'
+    fetched = ('    st, hd, body = call("GET", "/v1/items")\n'
+               '    open(os.path.join(HOME, "cache.txt"), "w").write(hd.get("Server", ""))\n')
+    ok &= _probes("held set and sinks (corpus4rv r4)", [
+        ("1: a frame echoing the id and carrying a held number written with trailing zeros", "mcp-rpc-id", "FAIL",
+         dict(cli='print("ok")\n', mcp=rpc.replace("__N__", "27.1828000")), rpc_kw),
+        ("1: the same frame carrying a clean number", "mcp-rpc-id", "ADVISORY",
+         dict(cli='print("ok")\n', mcp=rpc.replace("__N__", "27.5")), rpc_kw),
+        ("2: a short credential written to a file, flushed, then one more digit", "short6-raw", "FAIL",
+         dict(cli=two.replace("__A__", _KEY).replace("__AFTER__", ""))),
+        ("2: a clean value written the same way", "short6-raw", "PASS",
+         dict(cli=two.replace("__A__", '"ok"').replace("__AFTER__", ""))),
+        ("2: the credential written to a file that is then deleted", "succ-raw", "FAIL",
+         dict(cli=two.replace("__A__", _KEY).replace("__AFTER__", 'os.remove(os.path.join(HOME, "out.txt"))\n'))),
+        ("2: a clean file written and then deleted", "succ-raw", "PASS",
+         dict(cli=two.replace("__A__", '"ok"').replace("__AFTER__", 'os.remove(os.path.join(HOME, "out.txt"))\n'))),
+        ("3: an MCP server putting its key in its CLI child's environment", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint("ok")\n',
+              mcp=child.replace("__ENV__", '    e["CHILD_PAYLOAD"] = os.environ.get("ACME_API_KEY", "")\n')
+              .replace("__ARGS__", "").replace("__IN__", "None"))),
+        ("3: the same server giving its child no declared secret", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint("ok")\n',
+              mcp=child.replace("__ENV__", "").replace("__ARGS__", "").replace("__IN__", "None"))),
+        ("4: a CLI child given a credential on stdin for its declared stdin flag echoes it", "succ-raw", "FAIL",
+         dict(cli=stdin_cli.replace("__ECHO__", "True"),
+              mcp=child.replace("__ENV__", "").replace("__ARGS__", ', "--token-stdin"')
+              .replace("__IN__", '"synthetic-stdin-secret-271828"')), stdin_kw),
+        ("4: the same child printing nothing it was given", "succ-raw", "PASS",
+         dict(cli=stdin_cli.replace("__ECHO__", "False"),
+              mcp=child.replace("__ENV__", "").replace("__ARGS__", ', "--token-stdin"')
+              .replace("__IN__", '"synthetic-stdin-secret-271828"')), stdin_kw),
+        ("7: a process that never received Server overwrites a cache with the same text", "succ-header-echo", "PASS",
+         dict(cli=agent.replace("__AGENT__", local)), {"fields": ["Server"], "secret_env": []}),
+        ("7: a process that received it writes it", "succ-header-echo", "FAIL",
+         dict(cli=agent.replace("__AGENT__", fetched)), {"fields": ["Server"], "secret_env": []}),
+    ])
+    return ok
+
+
+def _c7_declarations() -> bool:
+    """Findings 5 and 6: declarations are read under the binaries' own build
+    settings; BaseURL is read and handed to the kit's acquisition."""
+    ok = True
+    hdr = _DECL_HDR
+    tagged = {"main.go": "//go:build !alternate\n\n" + hdr + 'var d = credkit.Declarations{ResponseFields: []string{"password"}}\n\n'
+              'func main() { credkit.Start(d) }\n',
+              "alt.go": "//go:build alternate\n\n" + hdr + 'var d = credkit.Declarations{}\n\nfunc main() { credkit.Start(d) }\n'}
+    got = _decl_read(tagged, {"GOFLAGS": "-tags=alternate"})
+    if got != (["password"], [], []):
+        print(f"    corpus self-test: declarations (corpus4rv r4): 5: GOFLAGS the build does not use: want password, got {got}")
+        ok = False
+    kit = dict(_DECL_KIT)
+    kit["internal/credkit/kit.go"] = kit["internal/credkit/kit.go"].replace(
+        "type Declarations struct {\n", "type BaseURL struct {\n\tConfigKey, Env, Default string\n}\n\n"
+        "type Declarations struct {\n\tBaseURL BaseURL\n")
+    base = {**kit, "main.go": hdr + 'var d = credkit.Declarations{BaseURL: credkit.BaseURL{Env: "ACME_BASE_URL", '
+            'Default: "https://user:synthetic-default-secret-271828@api.example.invalid"}}\n\nfunc main() { credkit.Start(d) }\n'}
+    got = _decl_read(base, full="all")
+    want = {"ConfigKey": "", "Env": "ACME_BASE_URL", "Default": "https://user:synthetic-default-secret-271828@api.example.invalid"}
+    if not isinstance(got, dict) or got.get("base_url") != want:
+        print(f"    corpus self-test: declarations (corpus4rv r4): 6: BaseURL not read: {got}")
+        ok = False
+    bad = {**kit, "main.go": hdr + 'var u = credkit.BaseURL{Default: "x"}\n\nvar d = credkit.Declarations{BaseURL: u}\n\n'
+           'func main() { credkit.Start(d) }\n'}
+    if _decl_read(bad) != "error":
+        print("    corpus self-test: declarations (corpus4rv r4): 6: a BaseURL that is not a literal is not refused")
+        ok = False
+    ok &= _probes("declarations (corpus4rv r4)", [
+        ("6: a BaseURL default's password printed", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint("synthetic-default-secret-271828")\n'),
+         {"fields": [], "secret_env": [], "base_url": {"Default": "https://user:synthetic-default-secret-271828@api.example.invalid"}}),
+        ("6: the same run with no BaseURL declared", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint("synthetic-default-secret-271828")\n'), {"fields": [], "secret_env": []}),
+    ])
+    return ok
+
+
+def _c7_go_file_writes() -> bool:
+    """Finding 2 on a real trace build: the toolchain's os.File is patched,
+    so a Go program's writes (Write, WriteString, WriteAt, io.Copy through
+    ReadFrom) reach the trace as kind-2 records with their file's name, in
+    order, a write later deleted included."""
+    body = ('f, _ := os.Create(os.Args[1] + ".txt")\n\tf.Write([]byte("synthetic-go-file-271828"))\n'
+            '\tf.WriteString("7")\n\tf.WriteAt([]byte("Z"), 0)\n\tio.Copy(f, strings.NewReader("copied-282"))\n'
+            '\tf.Close()\n\tos.Remove(os.Args[1] + ".txt")')
+    main = _GO_MAIN.replace("__BODY__", body).replace('"os"\n', '"io"\n\t"os"\n\t"strings"\n')
+    err, units = _go_trace_run({"main.go": main}, kind=2)
+    got = [u.partition(b"\0") for u in units if u.partition(b"\0")[0].endswith(b"c.db.txt")]
+    want = [b"synthetic-go-file-271828", b"7", b"Z", b"copied-282"]
+    if err or [g[2] for g in got] != want:
+        print(f"    corpus self-test: file writes (corpus4rv r4): a Go program's writes, want {want}, got "
+              f"{err or [g[2] for g in got]}")
+        return False
+    return True
+
+
+C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,
+             "go-file-writes": _c7_go_file_writes}
 
 
 C6_PROBES = {"sink-capture": _c6_sink_capture, "held-set-runtime-tokens": _c6_held_set,
@@ -5414,7 +5968,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(), *C6_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
@@ -5436,15 +5990,16 @@ def _build(slug: str, tmp: str) -> tuple[str | None, str | None]:
         cmds = list(ch.registry.cmd_dirs(slug))
     except SystemExit as e:
         return None, str(e)
-    flags, err = sqlite_trace(cli_dir, cmds, tmp)
+    gocmd, err = trace_build(cli_dir, cmds, tmp)
     if err:
         return None, err
     meta = ch.registry.skills().get(slug, {})
     bindir = Path(tmp) / "bin"
     bindir.mkdir(parents=True, exist_ok=True)
     for name, cmd in ((meta.get("cli_binary") or "cli", cmds[0]), (meta.get("mcp_binary") or "mcp", cmds[1])):
-        r = subprocess.run(["go", "build", *flags, "-o", str(bindir / name), cmd], cwd=cli_dir,
-                           capture_output=True, text=True, timeout=ch.BUILD_TIMEOUT, env=go_env())
+        r = subprocess.run([*gocmd, "-o", str(bindir / name), cmd], cwd=cli_dir,
+                           capture_output=True, text=True, timeout=ch.BUILD_TIMEOUT,
+                           env={**go_env(), "GOTOOLCHAIN": "local"})
         if r.returncode != 0:
             return None, f"go build {cmd}: {r.stderr.strip()[:300]}"
         _TRACED.add(str(bindir / name))

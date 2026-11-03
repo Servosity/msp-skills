@@ -97,12 +97,13 @@ type Exchange struct {
 // --config, credential flags), then what the kit's transport holds from each
 // request sent and each response received, in order. unknown: a declared
 // credential source could not be read, so the kit withholds every unit.
-// Stdin flags are not read (stdin here is this command's request pipe), nor
-// Files (the caller names the config file with --config). mcpIn is what an
-// MCP server read on stdin: its declared arguments are held frame by frame,
-// as MCPIn holds them.
-func Acquire(d Declarations, env, args []string, mcpIn []byte, ex []Exchange) (held []string, recorded int, unknown bool, err error) {
-	d.StdinFlags, d.Files = nil, nil
+// Files is not read (the caller names the config file with --config). stdin
+// is what the process was given on stdin: Start reads it for a declared
+// stdin flag from a file standing in for os.Stdin (this command's own stdin
+// is its request pipe, and is put back). mcpIn is what an MCP server read on
+// stdin: its declared arguments are held frame by frame, as MCPIn holds them.
+func Acquire(d Declarations, env, args []string, mcpIn, stdin []byte, ex []Exchange) (held []string, recorded int, unknown bool, err error) {
+	d.Files = nil
 	if err := d.validate(); err != nil {
 		return nil, 0, false, err
 	}
@@ -119,7 +120,25 @@ func Acquire(d Declarations, env, args []string, mcpIn []byte, ex []Exchange) (h
 		k, v, _ := strings.Cut(kv, "=")
 		_ = os.Setenv(k, v)
 	}
+	in, err := os.CreateTemp("", "credmatch-stdin-")
+	if err != nil {
+		return nil, 0, false, err
+	}
+	defer os.Remove(in.Name())
+	defer in.Close()
+	if _, err := in.Write(stdin); err != nil {
+		return nil, 0, false, err
+	}
+	if _, err := in.Seek(0, io.SeekStart); err != nil {
+		return nil, 0, false, err
+	}
+	orig := os.Stdin
+	os.Stdin = in
 	gather(d, args)
+	if os.Stdin != in {
+		_ = os.Stdin.Close() // the pipe readStdin gave the program
+	}
+	os.Stdin = orig
 	reg.Lock()
 	reg.startup = false
 	reg.Unlock()
