@@ -1,6 +1,6 @@
 ---
 name: sonicwall
-description: "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `use sonicwall`, `run sonicwall-cli`."
+description: "Use when the user asks about client SonicWall firewalls through NSM SaaS or MySonicWall: grades every firewall for firmware, end of support, PSIRT advisories, licence expiry, admin TOTP and SSL-VPN exposure in one read-only pass, triages one advisory or CVE across the fleet, lists SSL-VPN users without MFA, builds the licence renewal list and finds MySonicWall firewalls NSM cannot see. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `which clients are hit by CVE-2024-40766`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `firewalls missing from NSM`, `use sonicwall`, `run sonicwall-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "SonicWall"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sonicwall/install.ps1
 ---
 
-# SonicWall  -  Printing Press CLI
+# SonicWall - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Reads Network Security Manager (NSM SaaS) and MySonicWall with one MySonicWall API key. 'posture' answers the insurer questionnaire per firewall, 'exposure' triages a SonicWall advisory down to the firewalls with SSL-VPN reachable on WAN, and 'mfa-audit' lists every account without a one-time password. Read-only by design.
+Reads Network Security Manager (NSM SaaS) and MySonicWall with one MySonicWall API key. 'posture' answers the insurer questionnaire per firewall, 'exposure' triages a SonicWall advisory down to the firewalls with SSL-VPN reachable on WAN, and 'mfa-audit' lists every local account without a one-time password and flags firewalls whose users sign in through SAML or a directory. Read-only by design.
 
 ## When to Use This CLI
 
@@ -59,7 +59,6 @@ Do not use this CLI for:
 ## Unique Capabilities
 
 ### Cyber-insurance evidence
-
 - **`posture`**  -  One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY.
 
   _Reach for this when an insurer or compliance questionnaire asks whether the SonicWall fleet is patched, MFA-protected and licensed; it answers per firewall with pass, warn, fail or unknown._
@@ -74,7 +73,7 @@ Do not use this CLI for:
   ```bash
   sonicwall-cli licenses renewals --days 90 --agent
   ```
-- **`mfa-audit`**  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML or RADIUS sign-in marked as delegated.
+- **`mfa-audit`**  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated.
 
   _Use it when the question is which accounts lack MFA, the gap attackers used against SonicWall SSL-VPN in 2024 and 2025._
 
@@ -90,8 +89,7 @@ Do not use this CLI for:
   ```
 
 ### Patch and exposure
-
-- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it.
 
   _Use it the moment a SonicWall advisory drops (for example CVE-2024-40766) to pick the firewalls that need tonight's change window._
 
@@ -107,13 +105,12 @@ Do not use this CLI for:
   ```
 
 ### Local history
-
-- **`posture changes`**  -  What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
+- **`posture changes`**  -  What changed in fleet posture between saved posture runs of the same scope (--fleet, --tenant or --serial picks it; the default is the newest run's): newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
 
   _Use it for the Monday question of what got worse since last week._
 
   ```bash
-  sonicwall-cli posture changes --since 7d --agent
+  sonicwall-cli posture changes --fleet --since 7d --agent
   ```
 
 `--ca-cert`, `SONICWALL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SONICWALL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. `doctor` reports the trust in use and names the setting that fixes a chain or hostname failure.
@@ -254,7 +251,7 @@ Do not use this CLI for:
 **exposure**
 
 
-- `sonicwall-cli exposure`  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- `sonicwall-cli exposure`  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it.
 
 
 **firmware**
@@ -272,7 +269,7 @@ Do not use this CLI for:
 **mfa-audit**
 
 
-- `sonicwall-cli mfa-audit`  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML or RADIUS sign-in marked as delegated.
+- `sonicwall-cli mfa-audit`  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated.
 
 
 **posture**
@@ -280,7 +277,7 @@ Do not use this CLI for:
 
 - `sonicwall-cli posture`  -  One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY.
 
-- `sonicwall-cli posture changes`  -  What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
+- `sonicwall-cli posture changes`  -  What changed in fleet posture between saved posture runs of the same scope (--fleet, --tenant or --serial picks it; the default is the newest run's): newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
 
 
 
@@ -312,7 +309,7 @@ Pass, warn, fail or unknown for firmware, advisories, end of support, licences, 
 sonicwall-cli exposure SNWLID-2024-0015 --agent
 ```
 
-Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on a zone whose name contains WAN (custom-named internet zones are missed); an empty list for a CVE ID means no advisory text matched, not zero exposure.
+Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted, or a name containing WAN; unknown when a zone's type is not reported); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 
 ### Lean inventory for an agent
 
@@ -333,20 +330,14 @@ Returns {days, renewals[], fetch_failures[]} (inside .results under --agent; fet
 ### What got worse this week
 
 ```bash
-sonicwall-cli posture changes --since 7d --agent
+sonicwall-cli posture changes --fleet --since 7d --agent
 ```
 
 Compares the newest saved posture run with the latest same-scope run at least 7 days old (or the oldest one). Reads local history only, so run posture first and again later.
 
 ## Auth Setup
 
-Run `sonicwall-cli auth setup` for the URL and steps to obtain a token (add `--launch` to open the URL). Then store it:
-
-```bash
-echo "$TOKEN" | sonicwall-cli auth set-token
-```
-
-Or set `SONICWALL_NSM_TOKEN` as an environment variable.
+You need one credential: a MySonicWall API key (MySonicWall > My Workspace > User Groups > User list > Generate My API Key; valid up to a year, and MSW API permission must be enabled for your user). Export it as SONICWALL_MSW_API_KEY; MySonicWall commands, licence checks and blind-spots read it from the environment on every run. NSM calls need a separate NSM session token minted from that key: run 'sonicwall-cli nsm-login' (add --tenant "<name or product group ID>" when the key sees more than one NSM tenant, the usual MSP case) and it performs SonicWall's three-step exchange and saves the token. The token lasts 8 hours with a 15-minute idle timeout; when NSM calls exit 4, rerun nsm-login. Exit 4 from MySonicWall commands means the key is missing or not permitted. If SONICWALL_NSM_TOKEN is set it overrides the saved token. EU portals: export SONICWALL_REGION=eucentral (default uswest). For the MCP server, pass SONICWALL_MSW_API_KEY (and SONICWALL_REGION when not uswest) in the server's env block.
 
 Run `sonicwall-cli doctor` to verify setup.
 
@@ -372,7 +363,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Read-only**  -  no command changes firewall, NSM or MySonicWall configuration; the only POSTs are read-style queries and the NSM token exchange (`nsm-login`, `nsm-session`, `msw-tenants access-code`)
-- **Unknown is never pass**  -  posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`). A fan-out that could not check a firewall exits 6; `licenses renewals` exits with the underlying error (3, 4 or 5) when every lookup failed, so always read `fetch_failures`
+- **Unknown is never pass**  -  posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`). A fan-out that could not check a firewall exits 6; `licenses renewals` exits with the underlying error (3, 4 or 5) when every lookup failed, so always read `fetch_failures`. When no NSM firewall matches the token and filter, posture, mfa-audit, firmware drift, licenses renewals and exposure exit 3 with a JSON error instead of an empty list. exposure exits 6 when a firewall has no reported SonicOS version (NSM cannot match advisories to it) or the device inventory is unreadable, and blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads and exits 3 when it compared no firewall (an empty registry, or no firewall with a serial number unless `--all-products`); blind-spots drops a product by default only when it is a known non-firewall family and lists anything unrecognised with `product_class: unknown`
 
 ### Response envelope
 
@@ -533,7 +524,7 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 - `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
 - `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "Cards" → Arizona Cardinals + St. Louis Cardinals). Surface the ambiguity from context before committing to a resource.
 - `candidates_present` (top-level): the envelope carries a `candidates` section. Handle it via the candidates branch in Step 2 before anything else.
-- `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `sonicwall-cli sync` to refresh entity lookups.
+- `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `sonicwall-cli sync` to refresh entity lookups, after the user confirms: sync is a Sensitive read (it copies config-audit configuration text into the local store).
 - Top-level `no_learnings_for_query_family`: the table had no rows above the Jaccard floor. Pure cold start.
 
 ### Step 4: `teach &` after finalizing your response - always

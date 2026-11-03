@@ -1318,6 +1318,61 @@
      "contains": "func TestBlindSpotsNoComparedFirewallIsNotAllClear("
     }
    ]
+  },
+  {
+   "id": "curated-skill-guide-text",
+   "class": "docs-revendor-regression",
+   "summary": "SKILL.md and guide.md keep the curated SonicWall text a re-vendor regenerates over: skill title, the MySonicWall-key auth setup, mfa-audit LDAP/TACACS+ wording, posture changes --fleet, the internet-facing zone rule and the full unknown-is-never-pass exit contract",
+   "why": "onboard.py re-vendors SKILL.md and guide.md from the press source on every UPDATE. The 4.35.1 re-vendor (2026-11-02) replaced main's curated text with template text that was wrong for this connector (a generic auth set-token setup, posture changes without --fleet, SAML-or-RADIUS-only delegation, the WAN-name zone rule the reprint replaced with the zone security type). The docs were restored by a three-way merge; these markers make the next re-vendor fail check_handfixes instead of silently regressing.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "# SonicWall - Claude Code Skill"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "You need one credential: a MySonicWall API key"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated",
+     "min_count": 2
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "sonicwall-cli posture changes --fleet --since 7d --agent",
+     "min_count": 2
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "on an internet-facing zone (security type untrusted, or a name containing WAN"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "name contains WAN"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "exits 3 when it compared no firewall"
+    },
+    {
+     "file": "guide.md",
+     "contains": "You need one credential: a MySonicWall API key"
+    },
+    {
+     "file": "guide.md",
+     "contains": "sonicwall-cli posture changes --fleet --since 7d --agent"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "name contains WAN"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Check config and verify the NSM token with one authenticated read (GET /tenants)"
+    }
+   ]
   }
  ],
  "retired": [
