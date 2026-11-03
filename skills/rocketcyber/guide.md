@@ -2,7 +2,7 @@
 
 **The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.**
 
-Every RocketCyber Customer API v3 endpoint as an agent-ready command, including the suppression rules and CSV report export that the only other tool (a PowerShell module) lacks. On top sit computed SOC analytics: a cross-account triage board, incident MTTR, stale-agent detection, Defender risk ranking, and secure-score trends, backed by an offline SQLite store with full-text search.
+Every RocketCyber Customer API v3 endpoint as an agent-ready command, including the suppression rules and CSV report export that the PowerShell module lacks. On top sit computed SOC analytics: a cross-account triage board, incident MTTR, stale-agent detection, Defender risk ranking, and secure-score trends, backed by an offline SQLite store with full-text search.
 
 ## Install
 

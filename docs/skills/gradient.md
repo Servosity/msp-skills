@@ -93,7 +93,7 @@ Gradient's Synthesize portal is where MSPs review and approve mappings; it has n
 ## The pain this closes
 
 - Billing reconciliation is a monthly fire drill: pull a CSV from each vendor, hand-map the fields to your PSA, and hope you caught every seat that drifted. r/msp threads return to it every cycle, and Gradient's own data puts the manual version at up to 90% more time than automating it.
-- The only programmatic path Synthesize ships is a PowerShell SDK that wants a script project per integration, so usage pushes end up living in brittle one-off scripts with no record of what was sent or what changed between runs.
+- Synthesize ships a PowerShell SDK that wants a script project per integration, so usage pushes end up living in brittle one-off scripts with no record of what was sent or what changed between runs.
 - Fire-and-forget alerting means you never know whether an alert became a PSA ticket until someone goes looking, and a count push with no audit trail makes 'why did this invoice change?' unanswerable.
 
 ## Install

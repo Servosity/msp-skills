@@ -476,6 +476,32 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The narrative says the PowerShell module lacks suppression rules and CSV export, not that it is \"the only other tool\"",
+   "why": "The press narrative claimed an exclusivity ('the only other tool') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "that the PowerShell module lacks",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "the only other tool"
+    },
+    {
+     "file": "guide.md",
+     "contains": "that the PowerShell module lacks",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "the only other tool"
+    }
+   ]
   }
  ]
 }

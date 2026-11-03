@@ -584,6 +584,32 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The narrative says Synthesize ships a PowerShell SDK, not that it is Synthesize's \"only tooling\"",
+   "why": "The press narrative claimed an exclusivity ('its only tooling is a PowerShell SDK') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "but its PowerShell SDK makes you write",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "its only tooling is a PowerShell SDK"
+    },
+    {
+     "file": "guide.md",
+     "contains": "but its PowerShell SDK makes you write",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "its only tooling is a PowerShell SDK"
+    }
+   ]
   }
  ]
 }

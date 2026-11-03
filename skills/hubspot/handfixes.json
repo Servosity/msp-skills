@@ -607,6 +607,23 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The README says \"an open-source HubSpot CLI/MCP that captures\", not \"the only HubSpot CLI/MCP\"",
+   "why": "The press narrative claimed an exclusivity ('the only HubSpot CLI/MCP') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "an open-source HubSpot CLI/MCP that captures",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "the only HubSpot CLI/MCP"
+    }
+   ]
   }
  ]
 }

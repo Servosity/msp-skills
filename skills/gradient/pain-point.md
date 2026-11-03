@@ -9,8 +9,8 @@ a standing topic on r/msp, and Gradient MSP's own research frames the manual
 version as costing up to 90% more time than automating it - which is exactly why
 1,000+ MSPs run Synthesize to reconcile usage against billing.
 
-But Synthesize's only programmatic surface for feeding that data is a PowerShell
-SDK that expects a script project per integration. So the usage pushes that drive
+But Synthesize ships a PowerShell SDK for feeding that data, and it expects a
+script project per integration. So the usage pushes that drive
 reconciliation end up living in brittle one-off scripts: no record of what was
 sent, no answer to "what changed since last night?", and no confirmation that a
 dispatched alert ever became a PSA ticket. Push one count per account in a loop

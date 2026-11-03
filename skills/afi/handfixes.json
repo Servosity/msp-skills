@@ -552,6 +552,32 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The narrative says \"An open-source CLI and MCP server for Afi\", not that Afi has no other CLI, SDK, or MCP server",
+   "why": "The press narrative claimed an exclusivity ('Afi has no other CLI, SDK, or MCP server') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "An open-source CLI and MCP server for Afi",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Afi has no other CLI, SDK, or MCP server"
+    },
+    {
+     "file": "guide.md",
+     "contains": "An open-source CLI and MCP server for Afi",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "Afi has no other CLI, SDK, or MCP server"
+    }
+   ]
   }
  ]
 }
