@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source live
 
 package cli
@@ -195,6 +195,12 @@ func newNovelBlindSpotsCmd(flags *rootFlags) *cobra.Command {
 			products, err := fetchMSWProducts(ctx, c)
 			if err != nil {
 				return classifyReadError(cmd.OutOrStdout(), err, flags)
+			}
+			if len(products) == 0 {
+				// An empty registry compares nothing: never an all-clear (Codex review 2026-11-02 round 1).
+				nerr := notFoundErr(fmt.Errorf("MySonicWall returned no registered products for this API key, so nothing was compared with NSM; check the key's account and MySonicWall API permission"))
+				writeAPIErrorEnvelope(cmd.OutOrStdout(), flags, nerr, ExitCode(nerr))
+				return nerr
 			}
 			devices, err := fetchFleet(ctx, c, "", "")
 			if err != nil {

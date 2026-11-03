@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T21:22:42.23536Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "sonicwall",
+  "display_name": "SonicWall",
+  "cli_name": "sonicwall-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:2606d498acfd19a34a4bb3fdc7d832e4cd8248f657a8555af996470dd705c31e",
+  "run_id": "20261102-212242",
+  "category": "monitoring",
+  "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
+  "mcp_binary": "sonicwall-pp-mcp",
+  "mcp_tool_count": 68,
+  "mcp_public_tool_count": 4,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "NsmBearer",
+  "auth_env_vars": [
+    "SONICWALL_NSM_TOKEN"
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "X-API-KEY",
+      "in": "header",
+      "scheme": "MswApiKey",
+      "per_operation": true,
+      "env_var": {
+        "name": "SONICWALL_MSW_API_KEY",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "inferred": true
+      }
+    }
+  ],
+  "endpoint_template_vars": [
+    "region"
+  ],
+  "endpoint_template_var_defaults": {
+    "region": "uswest"
+  },
+  "auth_key_url": "https://www.mysonicwall.com/",
+  "auth_title": "NSM session token",
+  "auth_description": "Run `sonicwall-pp-cli nsm-login` with SONICWALL_MSW_API_KEY set; it mints the NSM token from your MySonicWall API key and saves it.",
+  "auth_optional": true,
+  "novel_features": [
+    {
+      "name": "Insurance posture report",
+      "command": "posture",
+      "description": "One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY."
+    },
+    {
+      "name": "Advisory exposure triage",
+      "command": "exposure",
+      "description": "Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it."
+    },
+    {
+      "name": "Firmware drift",
+      "command": "firmware drift",
+      "description": "See how far each firewall's running SonicOS build is behind the newest available build and which advisories the upgrade clears."
+    },
+    {
+      "name": "Licence renewals list",
+      "command": "licenses renewals",
+      "description": "Every licence and security service expiring in the next N days (expired ones included), per firewall and client, flagged when the hardware is near end of support; needs SONICWALL_MSW_API_KEY."
+    },
+    {
+      "name": "MFA audit",
+      "command": "mfa-audit",
+      "description": "Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated."
+    },
+    {
+      "name": "NSM blind spots",
+      "command": "blind-spots",
+      "description": "Find firewalls registered in MySonicWall that NSM cannot see, with their registered firmware's advisories and support expiry; needs SONICWALL_MSW_API_KEY and an NSM token."
+    },
+    {
+      "name": "Posture change log",
+      "command": "posture changes",
+      "description": "What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Insurance posture report",
+      "command": "posture",
+      "description": "One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY."
+    },
+    {
+      "name": "Advisory exposure triage",
+      "command": "exposure",
+      "description": "Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it."
+    },
+    {
+      "name": "Firmware drift",
+      "command": "firmware drift",
+      "description": "See how far each firewall's running SonicOS build is behind the newest available build and which advisories the upgrade clears."
+    },
+    {
+      "name": "Licence renewals list",
+      "command": "licenses renewals",
+      "description": "Every licence and security service expiring in the next N days (expired ones included), per firewall and client, flagged when the hardware is near end of support; needs SONICWALL_MSW_API_KEY."
+    },
+    {
+      "name": "MFA audit",
+      "command": "mfa-audit",
+      "description": "Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated."
+    },
+    {
+      "name": "NSM blind spots",
+      "command": "blind-spots",
+      "description": "Find firewalls registered in MySonicWall that NSM cannot see, with their registered firmware's advisories and support expiry; needs SONICWALL_MSW_API_KEY and an NSM token."
+    },
+    {
+      "name": "Posture change log",
+      "command": "posture changes",
+      "description": "What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant."
+    }
+  ]
+}

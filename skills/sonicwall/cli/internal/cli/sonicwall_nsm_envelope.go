@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -33,6 +33,8 @@ func init() {
 			base = http.DefaultTransport
 		}
 		if _, already := base.(nsmEnvelopeTransport); !already {
+			// Hand-wired (handfixes.json: credential-host-pin): innermost, so every request and redirect hop is checked.
+			base = credentialPinTransport{base: base, c: c}
 			// Redaction sits INSIDE the envelope hook, so it always sees the
 			// server's raw body and the 401 text below is built from data that
 			// was already redacted (see sonicwall_secret_redact.go).

@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/sonicwall/handfixes.json under the
 // "mcp-teach-local-file-flags-blocked" entry. External test package so it can
@@ -57,7 +57,7 @@ func TestTeachFileFlagsNotSettableOverMCP(t *testing.T) {
 			if cmd.Flags().Lookup(name) == nil {
 				t.Fatalf("%s no longer declares --%s; update this test", c.command, name)
 			}
-			if !cobratree.DestinationFlagBlocked(cmd, name) {
+			if !cobratree.DestinationFlagBlocked(cmd, name) && !cobratree.InputFlagBlocked(cmd, name) {
 				t.Errorf("%s --%s reads a local file and must be blocked over MCP", c.command, name)
 			}
 			if _, ok := entry.Tool.InputSchema.Properties[name]; ok {

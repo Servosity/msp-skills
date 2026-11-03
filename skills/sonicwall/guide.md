@@ -2,7 +2,7 @@
 
 **Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.**
 
-Reads Network Security Manager (NSM SaaS) and MySonicWall with one MySonicWall API key. 'posture' answers the insurer questionnaire per firewall, 'exposure' triages a SonicWall advisory down to the firewalls with SSL-VPN reachable on WAN, and 'mfa-audit' lists every local account without a one-time password and flags firewalls whose users sign in through SAML or a directory. Read-only by design.
+Reads Network Security Manager (NSM SaaS) and MySonicWall with one MySonicWall API key. 'posture' answers the insurer questionnaire per firewall, 'exposure' triages a SonicWall advisory down to the firewalls with SSL-VPN reachable on WAN, and 'mfa-audit' lists every account without a one-time password. Read-only by design.
 
 Learn more at [SonicWall](https://www.sonicwall.com).
 
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sonicwall/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -97,24 +97,41 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`sonicwall-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SONICWALL_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `SONICWALL_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export SONICWALL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+sonicwall-mcp --transport http
+```
+
+Set `SONICWALL_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
+
+NSM commands need an NSM session token and MySonicWall commands need a MySonicWall API key; `nsm-login` turns the key into the token.
 
 You need one credential: a MySonicWall API key (MySonicWall > My Workspace > User Groups > User list > Generate My API Key; valid up to a year, and MSW API permission must be enabled for your user). Export it as SONICWALL_MSW_API_KEY; MySonicWall commands, licence checks and blind-spots read it from the environment on every run. NSM calls need a separate NSM session token minted from that key: run 'sonicwall-cli nsm-login' (add --tenant "<name or product group ID>" when the key sees more than one NSM tenant, the usual MSP case) and it performs SonicWall's three-step exchange and saves the token. The token lasts 8 hours with a 15-minute idle timeout; when NSM calls exit 4, rerun nsm-login. Exit 4 from MySonicWall commands means the key is missing or not permitted. If SONICWALL_NSM_TOKEN is set it overrides the saved token. EU portals: export SONICWALL_REGION=eucentral (default uswest). For the MCP server, pass SONICWALL_MSW_API_KEY (and SONICWALL_REGION when not uswest) in the server's env block.
 
 ## Quick Start
 
 ```bash
+# Check config, that credentials are present (not that the NSM token is still valid) and that the NSM host answers
+sonicwall-cli doctor
+
+
 # Mint and save the NSM session token from your MySonicWall API key
 sonicwall-cli nsm-login
 
-# Check config and verify the NSM token with one authenticated read (GET /tenants)
-sonicwall-cli doctor
 
 # Pull the fleet inventory and advisory matches into the local database
 sonicwall-cli sync --resources devices,devices-inventory-tenant,vulnerabilities,tenants
 
+
 # One insurance-posture row per firewall
 sonicwall-cli posture --agent
+
 
 # Which firewalls the SSL-VPN access-control advisory (CVE-2024-40766) hits, and which expose SSL-VPN on WAN
 sonicwall-cli exposure SNWLID-2024-0015
@@ -124,6 +141,7 @@ sonicwall-cli exposure SNWLID-2024-0015
 ## Unique Features
 
 ### Cyber-insurance evidence
+
 - **`posture`**  -  One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY.
 
   _Reach for this when an insurer or compliance questionnaire asks whether the SonicWall fleet is patched, MFA-protected and licensed; it answers per firewall with pass, warn, fail or unknown._
@@ -138,7 +156,7 @@ sonicwall-cli exposure SNWLID-2024-0015
   ```bash
   sonicwall-cli licenses renewals --days 90 --agent
   ```
-- **`mfa-audit`**  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated.
+- **`mfa-audit`**  -  Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML or RADIUS sign-in marked as delegated.
 
   _Use it when the question is which accounts lack MFA, the gap attackers used against SonicWall SSL-VPN in 2024 and 2025._
 
@@ -154,6 +172,7 @@ sonicwall-cli exposure SNWLID-2024-0015
   ```
 
 ### Patch and exposure
+
 - **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
 
   _Use it the moment a SonicWall advisory drops (for example CVE-2024-40766) to pick the firewalls that need tonight's change window._
@@ -170,15 +189,17 @@ sonicwall-cli exposure SNWLID-2024-0015
   ```
 
 ### Local history
-- **`posture changes`**  -  What changed in fleet posture between saved posture runs of the same scope (--fleet, --tenant or --serial picks it; the default is the newest run's): newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
+
+- **`posture changes`**  -  What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
 
   _Use it for the Monday question of what got worse since last week._
 
   ```bash
-  sonicwall-cli posture changes --fleet --since 7d --agent
+  sonicwall-cli posture changes --since 7d --agent
   ```
 
 ## Recipes
+
 
 ### Insurance evidence for one firewall
 
@@ -215,7 +236,7 @@ Returns {days, renewals[], fetch_failures[]} (inside .results under --agent; fet
 ### What got worse this week
 
 ```bash
-sonicwall-cli posture changes --fleet --since 7d --agent
+sonicwall-cli posture changes --since 7d --agent
 ```
 
 Compares the newest saved posture run with the latest same-scope run at least 7 days old (or the oldest one). Reads local history only, so run posture first and again later.
@@ -259,6 +280,15 @@ sonicwall-cli doctor
 
 Under `SONICWALL_HOME=/srv/sonicwall`, the four dirs resolve to `/srv/sonicwall/config`, `/srv/sonicwall/data`, `/srv/sonicwall/state`, and `/srv/sonicwall/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SONICWALL_HOME = "C:\srv\sonicwall"
+sonicwall-cli doctor
+```
+
+Under `$env:SONICWALL_HOME = "C:\srv\sonicwall"`, the four dirs resolve to `C:\srv\sonicwall\config`, `C:\srv\sonicwall\data`, `C:\srv\sonicwall\state`, and `C:\srv\sonicwall\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -279,6 +309,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `SONICWALL_DA
 Relocation is one-way. Unsetting `SONICWALL_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `sonicwall-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `sonicwall-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `sonicwall-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SONICWALL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SONICWALL_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -468,7 +508,7 @@ Manage vulnerabilities
 ### mfa-audit
 
 
-- **`sonicwall-cli mfa-audit`** - Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated.
+- **`sonicwall-cli mfa-audit`** - Per-account remediation list: admin TOTP per firewall and every local SSL-VPN user (direct or nested group member) without a one-time password, with SAML or RADIUS sign-in marked as delegated.
 
 
 ### posture
@@ -476,7 +516,7 @@ Manage vulnerabilities
 
 - **`sonicwall-cli posture`** - One row per firewall with firmware currency, end-of-support date, published advisories, soonest licence expiry, admin TOTP, SSL-VPN exposure and SSL-VPN users without one-time passwords; each check is pass, warn, fail or unknown, and the licence check needs SONICWALL_MSW_API_KEY.
 
-- **`sonicwall-cli posture changes`** - What changed in fleet posture between saved posture runs of the same scope (--fleet, --tenant or --serial picks it; the default is the newest run's): newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
+- **`sonicwall-cli posture changes`** - What changed in fleet posture between saved posture runs of the same scope: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, licence lapsed, firmware fixed. Local only: run posture now and again later, with the same SONICWALL_MSW_API_KEY and NSM tenant.
 
 
 
@@ -516,6 +556,8 @@ sonicwall-cli alerts list --dry-run
 sonicwall-cli alerts list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -525,7 +567,7 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only** - no command changes firewall, NSM or MySonicWall configuration; the only POSTs are read-style queries and the NSM token exchange (`nsm-login`, `nsm-session`, `msw-tenants access-code`)
-- **Unknown is never pass** - posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`), and they and exposure exit 3 instead of returning an empty list when no NSM firewall matches the token and filter. exposure exits 6 when a firewall has no reported SonicOS version or the device inventory is unreadable; blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads, drops a product by default only when it is a known non-firewall family, and lists anything unrecognised with `product_class: unknown`
+- **Unknown is never pass** - posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`)
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
@@ -546,13 +588,15 @@ Base URL: `https://nsm-{region}.sonicwall.com/api/manager`
 sonicwall-cli doctor
 ```
 
-Checks configuration and paths, then verifies the NSM session token with one authenticated read (`GET /tenants`): it reports the token as valid, rejected (run `nsm-login` again) or not verified, and names `SONICWALL_REGION` when the NSM host is in doubt. Run `sonicwall-cli nsm-login` first; rerun it when NSM calls exit 4. Add `--fail-on error` to make a failed check exit non-zero.
+Checks configuration, that credentials are present (it does not test whether the NSM token is still valid) and that the NSM host answers. Run `sonicwall-cli nsm-login` first; rerun it when NSM calls exit 4.
 
 ## Configuration
 
-Run `sonicwall-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sonicwall-cli/config.toml` (`%USERPROFILE%\.config\sonicwall-cli\config.toml` on Windows); `--home`, `SONICWALL_HOME`, and per-kind env vars can relocate it.
+Run `sonicwall-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sonicwall-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\sonicwall-cli\config.toml` on Windows; `--home`, `SONICWALL_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SONICWALL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SONICWALL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -579,14 +623,17 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
+
 - **NSM commands exit 4 with E_INVALIDAUTH**  -  The NSM token expired (8 hours, 15 minutes idle); run 'sonicwall-cli nsm-login' again
 - **MySonicWall commands return HTTP 401**  -  Check SONICWALL_MSW_API_KEY; if the key is new, ask SonicWall (thirdpartyintegrations@sonicwall.com) to enable MySonicWall API permission for your user
 - **nsm-login fails or the NSM host does not answer, and your NSM portal is in Europe**  -  export SONICWALL_REGION=eucentral and rerun nsm-login
 - **A firewall is missing from devices list and posture**  -  Only firewalls onboarded to NSM SaaS are visible; run 'sonicwall-cli blind-spots' to list registered firewalls NSM cannot see
 - **sync warns about firewall resources**  -  SonicOS passthrough reads need a target firewall; sync the inventory with 'sync --resources devices,devices-inventory-tenant,vulnerabilities,tenants' and read config with 'firewall <command> --x-device-id <serial>'
 - **nsm-login exits 2 listing several tenants**  -  Pick one: sonicwall-cli nsm-login --tenant "<name or product group ID>"
-- **posture changes says only one run is saved**  -  History is stored per MySonicWall key and NSM tenant (per token when no key is set); keep SONICWALL_MSW_API_KEY set and use the same nsm-login tenant, or pass the same --db to posture and posture changes. Runs are also kept per filter: after a 'posture --serial' or '--tenant' run, the default compares that scope, so pass --fleet (or the same filters you gave posture)
+- **posture changes says only one run is saved**  -  History is stored per MySonicWall key and NSM tenant (per token when no key is set); keep SONICWALL_MSW_API_KEY set and use the same nsm-login tenant, or pass the same --db to posture and posture changes
 - **posture overall is never pass**  -  Set SONICWALL_MSW_API_KEY; without it every licence check is unknown, so overall can be at best unknown
+
+---
 
 ## Sources & Inspiration
 

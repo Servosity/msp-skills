@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Package posture holds the pure evaluation logic behind the SonicWall posture
 // commands: firmware version ordering, MFA coverage from SonicOS config, SSL-VPN
@@ -436,8 +436,9 @@ func groupName(groups []localGroup, lower string) string {
 }
 
 // SSLVPNZones reads /firewall/ssl-vpn/server/accesses and returns the zones with
-// SSL VPN enabled, plus whether any of them is a WAN zone.
-// ponytail: WAN = zone name contains "WAN"; custom-named untrusted zones are missed.
+// SSL VPN enabled, plus whether any of them is NAMED like a WAN zone. Callers
+// grade exposure with ZonesInternetFacing, which also reads each zone's
+// security type, because SonicOS zone names are free text.
 func SSLVPNZones(raw json.RawMessage) (zones []string, wan bool, ok bool) {
 	var doc struct {
 		SSLVPN *struct {
@@ -467,6 +468,58 @@ func SSLVPNZones(raw json.RawMessage) (zones []string, wan bool, ok bool) {
 		}
 	}
 	return zones, wan, true
+}
+
+// zoneSecurityTypes is the SonicOS zone.security_type enum
+// (sonicos-api-swagger.json#/definitions/zone).
+var zoneSecurityTypes = map[string]bool{"trusted": true, "public": true, "wireless": true, "sslvpn": true,
+	"encrypted": true, "untrusted": true, "management": true}
+
+// ZoneSecurityTypes reads /firewall/zones and returns each zone's security type
+// by lower-cased name. A zone whose type is absent or outside the schema enum is
+// left out (undecided); ok is false when the list itself was not reported or a
+// name repeats or carries no identity.
+func ZoneSecurityTypes(raw json.RawMessage) (types map[string]string, ok bool) {
+	var doc struct {
+		Zones *[]*struct {
+			Name         *string `json:"name"`
+			SecurityType *string `json:"security_type"`
+		} `json:"zones"`
+	}
+	if json.Unmarshal(raw, &doc) != nil || doc.Zones == nil {
+		return nil, false
+	}
+	types = map[string]string{}
+	seen := map[string]bool{}
+	for _, z := range *doc.Zones {
+		if z == nil || z.Name == nil || !hasIdentity(*z.Name) || seen[strings.ToLower(*z.Name)] {
+			return nil, false
+		}
+		seen[strings.ToLower(*z.Name)] = true
+		if z.SecurityType != nil && zoneSecurityTypes[strings.ToLower(strings.TrimSpace(*z.SecurityType))] {
+			types[strings.ToLower(*z.Name)] = strings.ToLower(strings.TrimSpace(*z.SecurityType))
+		}
+	}
+	return types, true
+}
+
+// ZonesInternetFacing grades the SSL-VPN zones: a zone is internet-facing when
+// its security type is untrusted (SonicOS's WAN type) or its name contains WAN.
+// known is false when no zone is internet-facing and at least one zone's type
+// could not be read (types unreadable, zone not listed, or type not reported):
+// a custom-named zone of unknown type is never graded as not exposed.
+func ZonesInternetFacing(zones []string, types map[string]string, typesOK bool) (facing bool, known bool) {
+	undecided := false
+	for _, z := range zones {
+		t, listed := types[strings.ToLower(z)]
+		switch {
+		case strings.Contains(strings.ToUpper(z), "WAN") || (typesOK && listed && t == "untrusted"):
+			facing = true
+		case !typesOK || !listed:
+			undecided = true
+		}
+	}
+	return facing, facing || !undecided
 }
 
 // SSLVPNAuth reads /firewall/ssl-vpn/server/base and returns its auth_type

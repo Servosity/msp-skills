@@ -620,9 +620,9 @@
     {
       "name": "sonicwall",
       "type": "skill-md",
-      "description": "Use when the user asks about client SonicWall firewalls through NSM SaaS or MySonicWall: grades every firewall for firmware, end of support, PSIRT advisories, licence expiry, admin TOTP and SSL-VPN exposure in one read-only pass, triages one advisory or CVE across the fleet, lists SSL-VPN users without MFA, builds the licence renewal list and finds MySonicWall firewalls NSM cannot see. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `which clients are hit by CVE-2024-40766`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `firewalls missing from NSM`, `use sonicwall`, `run sonicwall-cli`.",
+      "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `use sonicwall`, `run sonicwall-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/SKILL.md",
-      "digest": "sha256:249dcdce6221f2cb281dc22dc4cc9c0e4b176218f41a00470be3f99175b7fe87"
+      "digest": "sha256:d88386237bf4ab39cd630ca8a6f0c8e4e195070caf9e664d1adf73a0dc4d92b9"
     },
     {
       "name": "sophos-central",
