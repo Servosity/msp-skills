@@ -16,13 +16,6 @@ Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror an
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Tactical RMM skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `tactical-rmm-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `tactical-rmm-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `tactical-rmm-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -182,7 +175,7 @@ This skill closes that gap:
 
 - **`fleet health`** - whole-fleet posture (online/offline/overdue, failing checks, pending reboots, outstanding patches, active alerts) in one command.
 - **`triage --limit 20`** - the agents that need attention first, ranked across offline state, failing checks, reboots, and patches.
-- **`patch posture --by client`** - pending Windows updates and reboots rolled up per client or site, before patch night.
+- **`patch posture --by client`** - pending Windows updates and reboots rolled up per client, or per site within its client, before patch night.
 - **`since "2h"`** - what moved across the fleet since you last looked: new alerts, newly-offline agents.
 - **`agents bulk-run --command whoami --filter "os=windows,online=true"`** - fan a command across a filtered cohort, previewed by default and run only with `--execute`.
 
@@ -192,7 +185,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `tactical-rmm-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `tactical-rmm-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `tactical-rmm-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `tactical-rmm-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -216,7 +209,7 @@ No. Tactical RMM is free and open source, and you self-host it. You only need an
 
 ### Will this hit my server's rate limits?
 
-Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fan out live (like `services down` or `actions pending`) are paced and capped with `--max-scan-agents`.
+Rarely. Most questions run against the local SQLite mirror after a one-time `sync`, so they make zero API calls. The few commands that fan out live (like `services down`, `actions pending`, `checks worst` and `checks flapping --snapshot`) are paced and capped with `--max-scan-agents`.
 
 ### Will this replace my Tactical RMM web UI?
 

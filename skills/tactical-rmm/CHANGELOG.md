@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode now listens on `127.0.0.1:7777` by default, refuses to start until `TACTICAL_RMM_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback. HTTP mode is documented in [mcp-install.md](./mcp-install.md) for reference; web-only AI apps (ChatGPT on the web, Copilot Studio, the Gemini app) are not supported by msp-skills yet.
+- **One credential guard for every output.** The CLI and the MCP server now run on the shared msp-skills credential kit. Your Tactical RMM API key (from `TRMM_API_KEY`, the config file or the saved credential store) is known before anything prints, and any output, file, local database write or MCP result that would carry it, in any common encoding, is replaced by a short notice instead. The key is sent only to the Tactical RMM server you configured, never over plain `http`, and never to another site (a `--deliver` webhook URL that carries it is refused). This replaces the earlier error-only filter from 0.1.7.
+- **Agent actions now ask first.** The Tactical RMM endpoints that act on agents rather than read them (bulk agent recovery, clearing the server cache, and the ping, process, event log, registry and service lookups that send a command to the endpoint) are treated as actions: `sync`, `export`, `tail` and other local reads never call them, and over MCP they run only with `confirm: true`. The MCP tools that mirror `agents bulk-run` and `maintenance set` preview first and send only with `confirm: true`.
+
+### Added
+- `TACTICAL_RMM_MCP_READ_ONLY=1` exposes only read tools and refuses state-changing calls; `TACTICAL_RMM_NO_LOCAL_DATA=1` keeps no local copy of API responses. Both are optional and declared on every install channel, as is `TACTICAL_RMM_USER_AGENT`.
+- `--all` on `agents bulk-run` and `maintenance set`: with no `--filter`, the command now needs `--all` to target every synced agent.
+
+### Fixed
+- **Alert reports read your alerts, not your alert templates.** `sync` now stores the Tactical RMM alert list, and fleet health, the alerts digest, the client scorecard and `since` count active alerts (not resolved, not snoozed). In fleet health JSON, `alerts.by_severity` now counts active alerts only.
+- **Cohort filters fail closed.** `agents bulk-run` and `maintenance set` refuse an unknown or malformed `--filter` entry instead of ignoring it and targeting a wider cohort.
+- **Client inventory is complete.** The client scorecard lists every synced client, and fleet health counts sites from the synced site list.
+- **`checks worst` reports the checks that are failing.** Tactical RMM keeps a check's status on each agent, not in the check list `sync` stores, so `checks worst` always printed an empty list. It now reads each failing agent's checks live (`GET /agents/{agent_id}/checks/`, capped by `--max-scan-agents`) and prints an object: `items` (each check with `agents_failing` and the `agents`), plus `scanned_agents` and `fetch_failures`. `total_checks` is gone. `checks flapping --snapshot` reads the same live status, so flips are now detected.
+- **Sites are told apart by client.** Site names repeat across clients. `patch posture --by site` now keeps same-named sites in different clients as separate rows with a `client` field, and `agents bulk-run` and `maintenance set` refuse a `--filter site=` name used by more than one client unless `client=` picks one.
+- **A saved profile never shows a password in its base URL.** `profile show` printed a password or query token saved inside a profile's `base-url`; that value is now withheld like any other credential.
+- **A new Spacefast page key is never printed.** `--deliver spacefast:` printed the private page link, which carries the page key; the output now names the private delivery record that keeps the link.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

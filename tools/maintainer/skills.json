@@ -2375,7 +2375,7 @@
       "category": "RMM",
       "display_name": "Tactical RMM",
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
-      "cli_hash": "sha256:a8b7f1459ad945320557294177f55723eb7b2e6fd1dde5721b101abff691c9ea",
+      "cli_hash": "sha256:1b48489d13a2d2708a5d631c26789235cc038afe3fb8d74befd45e84feb7ee5f",
       "template_version": 3,
       "version": "0.1.7",
       "cli_hash_at_release": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9",

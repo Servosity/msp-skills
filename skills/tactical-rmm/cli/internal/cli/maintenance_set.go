@@ -16,15 +16,19 @@ import (
 func newNovelMaintenanceSetCmd(flags *rootFlags) *cobra.Command {
 	var filter []string
 	var until string
-	var clear, execute bool
+	var clear, execute, all bool
 	cmd := &cobra.Command{
-		Use:   "set",
-		Short: "Put a filtered cohort of agents into (or out of) maintenance mode",
+		Use: "set",
+		// tactical-rmm handfix mcp-mirror-write-confirm: --execute is the write; over MCP it needs confirm: true.
+		Annotations: map[string]string{"mcp:read-only-unless-flags": "execute"},
+		Short:       "Put a filtered cohort of agents into (or out of) maintenance mode",
 		Long: `Put a filtered cohort of agents into maintenance mode. Do NOT use it to run a
 script on a cohort; use 'agents bulk-run' instead.
 
 The cohort is selected from the local store with --filter (k=v entries over
-client, site, os/plat, status, online). Each matching agent is toggled live via
+client, site, os/plat, status, online; an unknown key or malformed entry is
+refused, a site name that more than one client uses needs client= as well, and
+with no --filter pass --all for every synced agent). Each matching agent is toggled live via
 PUT /agents/{agent_id}/.
 
 Previews the cohort by default (no mutation); pass --execute to apply.
@@ -42,7 +46,15 @@ out of maintenance when the window ends.`,
 			if err := validateDataSourceStrategy(flags, "live"); err != nil {
 				return err
 			}
-			where, whereArgs := novelAgentFilterWhere(filter)
+			where, whereArgs, err := novelAgentFilterWhere(filter, all)
+			if err != nil {
+				return err
+			}
+			// tactical-rmm handfix site-identity-client-and-site: a site name
+			// held by more than one client needs client= to pick the site.
+			if err := novelRefuseAmbiguousSite(cmd, flags, filter); err != nil {
+				return err
+			}
 			ids, hosts := novelSelectCohort(cmd, flags, where, whereArgs)
 			action := "enable"
 			maint := true
@@ -135,5 +147,6 @@ out of maintenance when the window ends.`,
 	cmd.Flags().StringVar(&until, "until", "", "Reminder window (e.g. 4h, 1d). NOT server-enforced; re-run with --clear to end maintenance")
 	cmd.Flags().BoolVar(&clear, "clear", false, "Take the cohort OUT of maintenance mode")
 	cmd.Flags().BoolVar(&execute, "execute", false, "Actually apply (default: preview only)")
+	cmd.Flags().BoolVar(&all, "all", false, "Target every synced agent (required when no --filter is given)")
 	return cmd
 }
