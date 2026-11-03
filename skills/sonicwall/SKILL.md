@@ -694,7 +694,7 @@ Parse `$ARGUMENTS`:
 3. Run `sonicwall-cli nsm-login` before using NSM tools, and again whenever they exit 4 (8-hour token, 15-minute idle timeout); the MCP server reads the saved token.
 4. Verify: `claude mcp list`
 
-For a remote host, `sonicwall-mcp --transport http` requires `SONICWALL_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `SONICWALL_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `SONICWALL_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `sonicwall-mcp --transport http` requires `SONICWALL_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `SONICWALL_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `SONICWALL_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

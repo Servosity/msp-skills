@@ -42,6 +42,7 @@ Add (or merge with your existing `mcpServers` block):
         "SONICWALL_REGION": "uswest",
         "SONICWALL_BASE_URL": "",
         "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_NO_LOCAL_DATA": "",
         "SONICWALL_MCP_HTTP_TOKEN": "",
         "SONICWALL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -93,6 +94,7 @@ Configuration**) and add:
         "SONICWALL_REGION": "uswest",
         "SONICWALL_BASE_URL": "",
         "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_NO_LOCAL_DATA": "",
         "SONICWALL_MCP_HTTP_TOKEN": "",
         "SONICWALL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -121,6 +123,7 @@ Claude Desktop:
         "SONICWALL_REGION": "uswest",
         "SONICWALL_BASE_URL": "",
         "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_NO_LOCAL_DATA": "",
         "SONICWALL_MCP_HTTP_TOKEN": "",
         "SONICWALL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""

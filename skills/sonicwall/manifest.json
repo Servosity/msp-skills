@@ -20,6 +20,7 @@
         "SONICWALL_REGION": "${user_config.sonicwall_region}",
         "SONICWALL_BASE_URL": "${user_config.sonicwall_base_url}",
         "SONICWALL_MCP_READ_ONLY": "${user_config.sonicwall_mcp_read_only}",
+        "SONICWALL_NO_LOCAL_DATA": "${user_config.sonicwall_no_local_data}",
         "SONICWALL_MCP_HTTP_TOKEN": "${user_config.sonicwall_mcp_http_token}",
         "SONICWALL_USER_AGENT": "${user_config.sonicwall_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
@@ -63,6 +64,13 @@
       "sensitive": false,
       "required": false,
       "default": "1"
+    },
+    "sonicwall_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "sensitive": false,
+      "required": false
     },
     "sonicwall_mcp_http_token": {
       "type": "string",

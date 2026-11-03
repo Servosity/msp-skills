@@ -622,7 +622,7 @@
       "type": "skill-md",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall. Trigger phrases: `sonicwall posture report`, `which sonicwall firewalls are vulnerable`, `sonicwall mfa audit`, `sonicwall licences expiring`, `sonicwall firmware behind`, `use sonicwall`, `run sonicwall-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/SKILL.md",
-      "digest": "sha256:d88386237bf4ab39cd630ca8a6f0c8e4e195070caf9e664d1adf73a0dc4d92b9"
+      "digest": "sha256:d7b1f3065dfe04e44bb55aaacab411d09a7604b648b04f146eb6f33e9d1b47b4"
     },
     {
       "name": "sophos-central",
