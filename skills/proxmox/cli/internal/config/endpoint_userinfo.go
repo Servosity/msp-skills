@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: Proxmox API tokens never ride in an endpoint's userinfo, so a
 // user:password@ part pasted into a host or URL is dropped at load and
 // redacted wherever an endpoint is printed (errors, listings, MCP results).

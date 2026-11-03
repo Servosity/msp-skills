@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: an endpoint from one run's environment is never saved, and
 // PROXMOX_HOST beats a base_url in config.toml (a token must reach its own host).
 

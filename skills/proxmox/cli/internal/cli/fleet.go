@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: shared fleet plumbing for the backup-assurance commands
 // (posture, backup coverage, verify-health, failures, capacity,
 // restore-points, rpo). Every call here is a GET.

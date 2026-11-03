@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: multi-cluster profiles. One entry per client cluster in
 // clusters.toml; `--cluster <name>` (or PROXMOX_CLUSTER) points every command
 // at that cluster, and fleet commands loop over all of them.

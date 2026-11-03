@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written (not generated): Proxmox Backup Server routing, PBS token prefix,
 // per-service TLS fingerprint pinning (applied by a cli-package client hook),
 // and the PBS display URL. Wired from client.go by one-line hooks.

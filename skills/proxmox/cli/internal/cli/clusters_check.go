@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: per-cluster connectivity check. doctor reads the PROXMOX_*
 // environment only; this walks the clusters the fleet commands actually visit.
 
