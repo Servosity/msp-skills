@@ -98,12 +98,6 @@
    "read-only",
    "local-data"
   ],
-  "domotz": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "fortinet": [
    "read-only",
    "local-data"

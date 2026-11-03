@@ -265,7 +265,7 @@
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/SKILL.md",
-      "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
+      "digest": "sha256:03d0c5e3bbd8d6cd2ce84e75b8d753f97d6bcf3e4438de92a0ca84b3679c3c59"
     },
     {
       "name": "dropsuite",

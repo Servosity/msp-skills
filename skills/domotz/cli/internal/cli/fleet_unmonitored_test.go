@@ -36,11 +36,7 @@ func seedCoverageStore(t *testing.T) string {
 		`{"id":4,"agent_id":"100","display_name":"Printer","authentication_status":"NO_AUTHENTICATION","snmp_status":"NOT_FOUND","importance":"FLOATING","type":{"label":"Printer"}}`,
 		`{"id":5,"agent_id":"100","display_name":"AP","authentication_status":"AUTHENTICATED","snmp_status":"AUTHENTICATED","importance":"FLOATING","type":{"label":"AP"}}`,
 	}
-	for _, d := range devices {
-		if err := db.UpsertDevice(json.RawMessage(d)); err != nil {
-			t.Fatalf("seed device: %v", err)
-		}
-	}
+	seedSyncedDevices(t, db, devices)
 	return dbPath
 }
 
