@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.35.1 (was 4.33.5).** See [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c) for why the press was upgraded.
+- **The MCP server's HTTP mode for remote agents is back.** `sophos-central-mcp --transport http` refuses to start until `SOPHOS_CENTRAL_MCP_HTTP_TOKEN` (32 characters or more) is set, rejects any request without that bearer token, refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive, serves `http://127.0.0.1:7777/mcp` by default and needs `--tls-cert` and `--tls-key` for any other address. The remote-agent steps are back in `mcp-install.md`; stdio stays the default.
+- **Every MCP call that changes Sophos Central data previews first.** `sophos-central_execute` returns what it would send and sends nothing until the call carries `confirm: true`. `contain` and `fleet tamper` stay preview-only over MCP.
+- New install setting on every channel: `SOPHOS_CENTRAL_NO_LOCAL_DATA=1` keeps no local copy of API responses (reads go to the API, the response cache is off, and `sync`, `fleet refresh` and `workflow archive` refuse to run).
+- `sync` with no resource list no longer includes `licenses` or `web_control-categories` (`fleet refresh` still reads licences). The `health_check` sync partition is now `/scores/regional` and `web_control` is `/web-control/categories`.
+- Sync checkpoints are now kept per tenant and scope, so the first `sync` after upgrading walks each resource once from the start.
+
+### Fixed
+- `fleet revenue --tenant` reports only the selected customers.
+- A section the Account Health Check returns as null (Sophos documents it as an unexpected error) is a failed check: the tenant reads `partial`, `fleet gaps` reports `health_check_failed`, and `fleet health` gives a change only between two health checks that scored the same checks (otherwise `delta` is empty and `delta_note` says why).
+- Fleet rows always carry the tenant they were fetched for, and a row naming another tenant is refused. Rows an older build stored without a tenant are removed on the next `fleet refresh`; each tenant then reads as not refreshed until that refresh reaches it.
+- `fleet gaps` reads unlicensed protection from `deviceSoftware` too, counts a licence with quantity 0 as an entitlement, and treats a licence as valid through the end of its end date (UTC).
+
 ## [0.1.3] - 2026-10-23
 
 ### Security

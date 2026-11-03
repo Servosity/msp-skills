@@ -314,7 +314,7 @@ Reads are saved locally by default: in `--data-source auto` mode every successfu
 None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
 
 - **Erase it:** `sophos-central-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
-- **Run without a local copy:** set `SOPHOS_CENTRAL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Run without a local copy:** set `SOPHOS_CENTRAL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync`, `fleet refresh` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
 - **Choose the read source without flags:** `SOPHOS_CENTRAL_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands

@@ -67,8 +67,9 @@ server, so an agent cannot read a tamper password on its own.
   Code or Codex.
 - **The MCP server can still write.** Its generic `sophos-central_execute` tool can
   call any Sophos Central endpoint except the six that return a password or token (named above),
-  including isolation, scans, exclusions and policy changes, gated only by your AI
-  app's per-tool approval prompt. For an agent that should only read, set
+  including isolation, scans, exclusions and policy changes. Every such call
+  returns a preview and sends nothing until it carries `confirm: true`, so the
+  real gate is your AI app's per-tool approval prompt on that confirmed call. For an agent that should only read, set
   `SOPHOS_CENTRAL_MCP_READ_ONLY=1` in the MCP server's environment: it refuses every
   non-GET call and hides the `sync` and `export` tools.
 - **Read commands are always safe to run** (the fleet reports, list, get, search);
@@ -107,7 +108,8 @@ for an autonomous agent is **read only**; require a human for anything below Rea
 - **Never let an agent run Credential, Destructive, or Endpoint response commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md). Sophos shows
+  MCP server's HTTP mode is reached from a host you did not intend - see
+  mcp-install.md). Sophos shows
   the client secret only once and does not alert you when a credential expires.
 
 ## Why an MSP owner can be comfortable

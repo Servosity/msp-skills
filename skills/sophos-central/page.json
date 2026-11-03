@@ -65,7 +65,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sophos-central-mcp runs, and shares MCP configuration with Codex: add sophos-central-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, on paid plans with Developer Mode. ChatGPT connects only to remote MCP servers over HTTPS, so host sophos-central-mcp in its HTTP mode: it refuses to start until SOPHOS_CENTRAL_MCP_HTTP_TOKEN is set, requires that token as a bearer header on every request, and needs --tls-cert and --tls-key for any address other than loopback. The install guide has the steps."
     },
     {
       "q": "Do I need to know how to code?",
