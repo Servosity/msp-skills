@@ -608,6 +608,15 @@
     {
      "file": "guide.md",
      "not_contains": "its only tooling is a PowerShell SDK"
+    },
+    {
+     "file": "README.md",
+     "contains": "But Synthesize ships a PowerShell SDK that wants a script project per integration",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Synthesize's only programmatic surface"
     }
    ]
   }

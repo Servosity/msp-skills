@@ -175,7 +175,7 @@ This skill syncs Gradient MSP into a **local SQLite mirror** with full-text sear
 
 ## The pain this closes
 
-Billing reconciliation is the recurring tax on MSP margin: every cycle someone pulls a CSV from each vendor, hand-maps the fields to the PSA, and hopes they caught every seat that drifted. It's a standing topic on r/msp, and Gradient MSP's own research frames the manual version as costing up to 90% more time than automating it - which is why 1,000+ MSPs run Synthesize. But Synthesize's only programmatic surface is a PowerShell SDK that wants a script project per integration, so the pushes that drive reconciliation live in brittle one-off scripts with no record of what was sent.
+Billing reconciliation is the recurring tax on MSP margin: every cycle someone pulls a CSV from each vendor, hand-maps the fields to the PSA, and hopes they caught every seat that drifted. It's a standing topic on r/msp, and Gradient MSP's own research frames the manual version as costing up to 90% more time than automating it - which is why 1,000+ MSPs run Synthesize. But Synthesize ships a PowerShell SDK that wants a script project per integration, so the pushes that drive reconciliation live in brittle one-off scripts with no record of what was sent.
 
 This skill closes that gap:
 
