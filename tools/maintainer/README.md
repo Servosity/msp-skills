@@ -201,15 +201,21 @@ Every file write a run makes is a unit too (contract section 2: a file written a
 writes). The same build patches the toolchain's `os.File` `Write`, `WriteAt` and `ReadFrom` (in a
 hard-linked mirror of the connector's toolchain, since `go build -overlay` refuses files under the
 module cache) to record each write to a regular file, whatever its name (by `fstat`, not by
-spelling), with its file's name in the same trace before the write is made. A write the trace
+spelling), with the file's device and inode and its name in the same trace before the write is
+made; extending a file (`Truncate`, `os.Truncate`, a write past its end) records the zeros it
+materializes. A write the trace
 cannot record, or a write into the trace's own file, is not made: the process stops with exit 97
-(the statement trace does the same). Each process's writes to each file are judged in order, whole
-and write by write, on that process's held set, so a write later deleted or overwritten is still
+(the statement trace does the same). Each process's writes to each file (by device and inode, so
+every alias of one file is one stream) are judged in order, whole and write by write, on that
+process's held set, so a write later deleted or overwritten is still
 judged; a stream the kit cannot read whole fails. A file can be written below `os.File` only
 through a system call, so the trace build refuses any use outside the standard library and the
-trusted modules (`golang.org/x/sys` added) of a `syscall`, `x/sys/unix`, `x/sys/windows` or
-`modernc.org/libc` function that writes, maps memory, splices or makes a raw system call, assembly
-that makes a system call, and a `go:linkname` naming a system call or a write.
+trusted modules (`golang.org/x/sys`, `x/net` and `x/crypto` added; never the connector's own
+module) of a `syscall`, `x/sys/unix`, `x/sys/windows` or `modernc.org/libc` function that writes,
+truncates, maps memory, splices or makes a raw system call (a raw call is allowed only with a named
+read-only trap: `SYS_PROC_INFO`, `SYS_FGETATTRLIST`, `SYS_GETATTRLIST`), assembly that contains a
+system-call instruction or a raw encoding (`WORD`, `BYTE` and the like) anywhere, and a
+`go:linkname` naming a system call or a write.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
 reports, under the settings the connector build uses (no inherited `GOFLAGS`, `GOOS` or `GOARCH`;
 `CGO_ENABLED=0`), once for each release target, so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,

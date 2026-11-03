@@ -1040,14 +1040,22 @@ _TRACE_PATCHES = (
 # NUL, the bytes) before the write: contract 2's file-write unit, a file
 # written as a stream of writes, and a write later deleted or overwritten
 # (finding r4-2). Standard output and error (/dev/...) and pipes are not files.
-_FILE_PATCHES = (
-    ("func (f *File) Write(b []byte) (n int, err error) {\n",
-     "func (f *File) Write(b []byte) (n int, err error) {\n\tcorpusFileWrite(f, b)\n"),
-    ("func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n",
-     "func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n\tcorpusFileWrite(f, b)\n"),
-    # ReadFrom always copies through Write (no copy_file_range or splice).
-    ("\tn, handled, e := f.readFrom(r)\n", "\tn, handled, e := int64(0), false, error(nil)\n"),
-)
+_FILE_PATCHES = {
+    "file.go": (
+        ("func (f *File) Write(b []byte) (n int, err error) {\n",
+         "func (f *File) Write(b []byte) (n int, err error) {\n\tcorpusFileWrite(f, b, -1)\n"),
+        ("func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n",
+         "func (f *File) WriteAt(b []byte, off int64) (n int, err error) {\n\tcorpusFileWrite(f, b, off)\n"),
+        # ReadFrom always copies through Write (no copy_file_range or splice).
+        ("\tn, handled, e := f.readFrom(r)\n", "\tn, handled, e := int64(0), false, error(nil)\n")),
+    # Extending a file writes the zeros it materializes (corpus4rv r6-4).
+    "file_posix.go": (
+        ("func (f *File) Truncate(size int64) error {\n",
+         "func (f *File) Truncate(size int64) error {\n\tcorpusFileExtend(f, size)\n"),),
+    "file_unix.go": (
+        ("func Truncate(name string, size int64) error {\n",
+         "func Truncate(name string, size int64) error {\n\tcorpusPathExtend(name, size)\n"),),
+}
 _FILE_GO = """package os
 
 // Written by the leak test list (class_secret_corpus.py): each write to a
@@ -1068,16 +1076,82 @@ func corpusPut(b []byte, v uint64) {
 	}
 }
 
-func corpusFileWrite(f *File, b []byte) {
+// corpusGap is the zeros between a file's end and a write or a size past
+// it: bytes the file now holds (corpus4rv r6-4). Past the kit's unit size it
+// is cut to one byte more, which the kit cannot read whole (a failure).
+func corpusGap(st *syscall.Stat_t, at int64) []byte {
+	if at <= st.Size {
+		return nil
+	}
+	n := at - st.Size
+	if n > 64<<20+1 {
+		n = 64<<20 + 1
+	}
+	return make([]byte, n)
+}
+
+func corpusFileWrite(f *File, b []byte, off int64) {
 	if f == nil || f.file == nil {
 		return
 	}
 	// By destination, not by name (corpus4rv r5-2): a regular file is
 	// recorded whatever it is called; a pipe, socket or terminal is not a file.
 	var st syscall.Stat_t
-	if syscall.Fstat(f.pfd.Sysfd, &st) == nil && uint32(st.Mode)&syscall.S_IFMT != syscall.S_IFREG {
+	known := syscall.Fstat(f.pfd.Sysfd, &st) == nil
+	if known && uint32(st.Mode)&syscall.S_IFMT != syscall.S_IFREG {
 		return
 	}
+	if known {
+		if off < 0 {
+			off, _ = syscall.Seek(f.pfd.Sysfd, 0, 1)
+		}
+		if f.appendMode {
+			off = st.Size
+		}
+		if g := corpusGap(&st, off); g != nil {
+			corpusRecord(&st, known, f.name, g)
+		}
+	}
+	corpusRecord(&st, known, f.name, b)
+}
+
+func corpusFileExtend(f *File, size int64) {
+	var st syscall.Stat_t
+	if f == nil || f.file == nil || syscall.Fstat(f.pfd.Sysfd, &st) != nil || uint32(st.Mode)&syscall.S_IFMT != syscall.S_IFREG {
+		return
+	}
+	if g := corpusGap(&st, size); g != nil {
+		corpusRecord(&st, true, f.name, g)
+	}
+}
+
+func corpusPathExtend(name string, size int64) {
+	var st syscall.Stat_t
+	if syscall.Stat(name, &st) != nil || uint32(st.Mode)&syscall.S_IFMT != syscall.S_IFREG {
+		return
+	}
+	if g := corpusGap(&st, size); g != nil {
+		corpusRecord(&st, true, name, g)
+	}
+}
+
+func corpusNum(b []byte, v uint64) []byte {
+	var d [20]byte
+	i := len(d)
+	for {
+		i--
+		d[i] = byte('0' + v%10)
+		if v /= 10; v == 0 {
+			break
+		}
+	}
+	return append(b, d[i:]...)
+}
+
+// corpusRecord appends one kind-2 record: the file's identity (device:inode,
+// so every alias of one file is one stream: corpus4rv r6-1), its name and
+// the bytes.
+func corpusRecord(st *syscall.Stat_t, known bool, name string, b []byte) {
 	corpusOnce.Do(func() {
 		if exe, err := Executable(); err == nil {
 			for i := len(exe) - 1; i >= 0; i-- {
@@ -1098,15 +1172,19 @@ func corpusFileWrite(f *File, b []byte) {
 		syscall.Exit(97)
 	}
 	var ts syscall.Stat_t
-	if syscall.Fstat(fd, &ts) != nil || ts.Dev == st.Dev && ts.Ino == st.Ino {
+	if syscall.Fstat(fd, &ts) != nil || known && ts.Dev == st.Dev && ts.Ino == st.Ino {
 		syscall.Exit(97)
 	}
-	u := len(f.name) + 1 + len(b)
+	var id []byte
+	if known {
+		id = corpusNum(append(corpusNum(nil, uint64(st.Dev)), ':'), uint64(st.Ino))
+	}
+	u := len(id) + 1 + len(name) + 1 + len(b)
 	rec := make([]byte, 17, 17+u)
 	corpusPut(rec, uint64(u))
 	corpusPut(rec[8:], uint64(syscall.Getpid()))
 	rec[16] = 2
-	rec = append(append(append(rec, f.name...), 0), b...)
+	rec = append(append(append(append(append(rec, id...), 0), name...), 0), b...)
 	for len(rec) > 0 {
 		n, err := syscall.Write(fd, rec)
 		if err != nil || n <= 0 {
@@ -1161,19 +1239,21 @@ def trace_build(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str],
     if err:
         return [], err
     src = os.path.join(os.path.dirname(os.path.dirname(go)), "src", "os")
-    with open(os.path.join(src, "file.go"), encoding="utf-8") as fh:
-        body = fh.read()
-    for old, new in _FILE_PATCHES:
-        if body.count(old) != 1:
-            return [], f"the file-write trace does not fit this toolchain's os package ({old.strip()[:40]!r})"
-        body = body.replace(old, new)
+    files = {"zz_corpus_file.go": _FILE_GO}
+    for fname, patches in _FILE_PATCHES.items():
+        with open(os.path.join(src, fname), encoding="utf-8") as fh:
+            body = fh.read()
+        for old, new in patches:
+            if body.count(old) != 1:
+                return [], f"the file-write trace does not fit this toolchain's os package ({old.strip()[:40]!r})"
+            body = body.replace(old, new)
+        files[fname] = body
     d = tempfile.mkdtemp(prefix="filetrace-", dir=tmp)
-    for name, text in (("file.go", body), ("zz_corpus_file.go", _FILE_GO)):
+    for name, text in files.items():
         with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
             fh.write(text)
     with open(os.path.join(d, "overlay.json"), "w", encoding="utf-8") as fh:
-        json.dump({"Replace": {os.path.join(src, "file.go"): os.path.join(d, "file.go"),
-                               os.path.join(src, "zz_corpus_file.go"): os.path.join(d, "zz_corpus_file.go")}}, fh)
+        json.dump({"Replace": {os.path.join(src, n): os.path.join(d, n) for n in files}}, fh)
     return [go, "build", *flags, "-overlay", os.path.join(d, "overlay.json")], None
 
 
@@ -1204,7 +1284,8 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
         ip, mod = x["ImportPath"], x.get("Module") or {}
         if mod.get("Replace") and mod.get("Path", "").startswith("modernc.org/"):
             return [], f"{mod['Path']} is replaced: the statement trace trusts only the published modernc.org modules"
-        own = mod.get("Path") in TRUSTED_MODULES   # by module, never by a path's prefix (corpus4rv r3)
+        # By module, never by a path's prefix (corpus4rv r3), never the main module (r6-2).
+        own = mod.get("Path") in TRUSTED_MODULES and not mod.get("Main")
         if "sqlite" in ip.lower() and not own:
             return [], f"{ip}: a SQLite package the statement trace does not cover"
     # Every build, driver or not: the C layer, and any write below os.File
@@ -1362,10 +1443,23 @@ class _FileW:
     # build's os.File hook records it.
     def __init__(self, f, name):
         self._f, self._n = f, name
+    def _rec(self, raw):
+        try:
+            st = os.fstat(self._f.fileno())
+            ident = b"%d:%d" % (st.st_dev, st.st_ino)
+        except (OSError, ValueError):
+            ident = b""
+        _sql_write(2, ident + b"\0" + self._n + b"\0" + raw)
     def write(self, b):
         raw = b.encode(getattr(self._f, "encoding", None) or "utf-8", "surrogateescape") if isinstance(b, str) else bytes(b)
-        _sql_write(2, self._n + b"\0" + raw)
+        self._rec(raw)
         return self._f.write(b)
+    def truncate(self, size=None):
+        # Extending a file writes the zeros it materializes (corpus4rv r6-4).
+        self._f.flush()
+        if size is not None and size > os.fstat(self._f.fileno()).st_size:
+            self._rec(b"\0" * (size - os.fstat(self._f.fileno()).st_size))
+        return self._f.truncate(size)
     def writelines(self, lines):
         for x in lines:
             self.write(x)
@@ -1621,9 +1715,11 @@ func (f importerFunc) Import(p string) (*types.Package, error) { return f(p) }
 // The modules the SQLite statement trace trusts: the driver and the C
 // runtime it is built on, as published (not replaced).
 var trusted = map[string]bool{"modernc.org/sqlite": true, "modernc.org/libc": true, "modernc.org/mathutil": true,
-	"modernc.org/memory": true, "golang.org/x/sys": true, "golang.org/x/net": true}
-// x/sys defines the system calls; x/net's internal/socket writes sockets
-// (sendmsg), never a file, and no connector can import an internal package.
+	"modernc.org/memory": true, "golang.org/x/sys": true, "golang.org/x/net": true, "golang.org/x/crypto": true}
+// The Go project's own modules: x/sys defines the system calls; x/net's
+// internal/socket writes sockets (sendmsg), never a file, and no connector
+// can import an internal package; x/crypto hand-encodes vector instructions
+// with WORD. Never the main module, never a replaced one.
 
 // clayer: every linked package outside the trusted modules that reaches the
 // driver's C layer (modernc.org/sqlite/<sub>) around the statement trace.
@@ -1637,8 +1733,8 @@ func sysPkg(path string) bool {
 }
 
 var (
-	sysDeny  = regexp.MustCompile(`(?i)write|syscall|mmap|sendfile|copyfilerange|splice|^tee$`)
-	sysInsn  = regexp.MustCompile(`(?m)^\\s*(SYSCALL|SVC|INT\\s+\\$0x80)\\b`)
+	sysDeny  = regexp.MustCompile(`(?i)write|syscall|mmap|sendfile|copyfilerange|splice|^tee$|truncate|fallocate`)
+	sysInsn  = regexp.MustCompile(`\\b(SYSCALL|SVC|INT|BYTE|WORD|HWORD|LONG|DWORD|QUAD|OCTA|INST)\\b`)
 	linkDeny = regexp.MustCompile(`sqlite|syscall|write|mmap|internal/poll|x/sys`)
 )
 
@@ -1692,15 +1788,15 @@ func clayer(root string, targets []string) (errs []string) {
 	})
 	const c = "modernc.org/sqlite/"
 	for _, p := range pkgs {
-		if p.Module == nil || (trusted[p.Module.Path] && p.Module.Replace == nil) {
-			continue // the standard library, or the driver and its runtime
+		if p.Module == nil || (trusted[p.Module.Path] && p.Module.Replace == nil && !p.Module.Main) {
+			continue // the standard library, or a trusted dependency (never the connector itself: r6-2)
 		}
 		for _, f := range p.SFiles {
 			b, err := os.ReadFile(filepath.Join(p.Dir, f))
 			if err != nil || bytes.Contains(bytes.ToLower(b), []byte("sqlite")) {
 				fail("%s: assembly that names SQLite (%s)", p.ImportPath, f)
 			} else if sysInsn.Match(b) {
-				fail("%s: assembly that makes a system call (%s), a file write the trace cannot see", p.ImportPath, f)
+				fail("%s: assembly with a system-call instruction or a raw encoding (%s), a file write the trace cannot see", p.ImportPath, f)
 			}
 		}
 		var files []*ast.File
@@ -3262,12 +3358,7 @@ class Engine:
             # order, judged like stdout (whole and write by write) on that
             # process's ledger (contract 2: a file written as a stream of
             # writes; a write later deleted or overwritten is still judged).
-            streams: dict[tuple[int, bytes], list[bytes]] = {}
-            for pid, kind, u in recs:
-                if kind == 2:
-                    name, _nul, data = u.partition(b"\0")
-                    streams.setdefault((pid, name), []).append(data)
-            for (pid, name), ws in streams.items():
+            for (pid, _key), (name, ws) in file_streams(recs).items():
                 st_ = _stream(ws)
                 texts.append(str(st_))
                 h_ = held_for([by_pid[pid]]) if pid in by_pid else held
@@ -3430,6 +3521,20 @@ class Stream(str):
 # Half that here, so the list sees every boundary the kit would and more:
 # a boundary the kit would not see only adds a check.
 PAUSE = 0.005
+
+
+def file_streams(recs: list[tuple[int, int, bytes]]) -> dict[tuple[int, bytes], tuple[bytes, list[bytes]]]:
+    """A trace's file writes (kind 2: the file's device:inode, NUL, its name,
+    NUL, the bytes) as one stream per process and file, in order. The file is
+    its identity, so every alias of one descriptor or path is one stream
+    (corpus4rv r6-1); by name only when its identity was unknown."""
+    out: dict[tuple[int, bytes], tuple[bytes, list[bytes]]] = {}
+    for pid, kind, u in recs:
+        if kind == 2:
+            ident, _n1, rest = u.partition(b"\0")
+            name, _n2, data = rest.partition(b"\0")
+            out.setdefault((pid, ident or b"name:" + name), (name, []))[1].append(data)
+    return out
 
 
 def _stream(chunks: list[bytes], extra: str = "") -> Stream:
@@ -5847,11 +5952,10 @@ def _c7_go_file_writes() -> bool:
             '\tf.Close()\n\tos.Remove(os.Args[1] + ".txt")')
     main = _GO_MAIN.replace("__BODY__", body).replace('"os"\n', '"io"\n\t"os"\n\t"strings"\n')
     err, units = _go_trace_run({"main.go": main}, kind=2)
-    got = [u.partition(b"\0") for u in units if u.partition(b"\0")[0].endswith(b"c.db.txt")]
-    want = [b"synthetic-go-file-271828", b"7", b"Z", b"copied-282"]
-    if err or [g[2] for g in got] != want:
-        print(f"    corpus self-test: file writes (corpus4rv r4): a Go program's writes, want {want}, got "
-              f"{err or [g[2] for g in got]}")
+    got = [ws for n, ws in file_streams([(0, 2, u) for u in units]).values() if n.endswith(b"c.db.txt")]
+    want = [[b"synthetic-go-file-271828", b"7", b"Z", b"copied-282"]]
+    if err or got != want:
+        print(f"    corpus self-test: file writes (corpus4rv r4): a Go program's writes, want {want}, got {err or got}")
         return False
     return True
 
@@ -5863,7 +5967,7 @@ def _c8_go(body: str, imports: str = "") -> tuple[str | None, list, dict]:
     out: dict = {}
     main = _GO_MAIN.replace("__BODY__", body).replace('"os"\n', '"os"\n' + imports)
     err, units = _go_trace_run({"main.go": main}, kind=2, out=out)
-    return err, [u.partition(b"\0") for u in units], out
+    return err, [(n, b"", ws) for n, ws in file_streams([(0, 2, u) for u in units]).values()], out
 
 
 def _c8_sink_capture() -> bool:
@@ -5887,7 +5991,7 @@ def _c8_sink_capture() -> bool:
              '\tg, _ := os.Create("plain")\n\th := os.NewFile(g.Fd(), "/dev/fd/3")\n\th.Write([]byte("' + _GO_KEY + '-b"))\n'
              '\tos.Stdout.Write([]byte("to-stdout"))\n\tg.Close()\n\tos.Remove("plain")')
     err, recs, _o = _c8_go(named)
-    got = sorted(r[2] for r in recs)
+    got = sorted(b"".join(r[2]) for r in recs)
     if err or got != [(_GO_KEY + "-a").encode(), (_GO_KEY + "-b").encode()]:
         print(f"    corpus self-test: sink capture (corpus4rv r5): 2: writes to '|cache' and a file named /dev/fd/3 "
               f"recorded, stdout not: got {err or got}")
@@ -5961,6 +6065,70 @@ def _c8_held_and_declarations() -> bool:
 
 
 C8_PROBES = {"sink-capture": _c8_sink_capture, "held-set-runtime-tokens": _c8_held_and_declarations}
+
+
+def _c9_streams(units: list[bytes]) -> list[list[bytes]]:
+    """The file-write streams the list judges, from a trace's kind-2 units."""
+    if "file_streams" in globals():
+        return [ws for _n, ws in file_streams([(0, 2, u) for u in units]).values()]
+    by: dict = {}   # the grouping of f0f70196c..392d4347f: by the name each handle was given
+    for u in units:
+        name, _nul, data = u.partition(b"\0")
+        by.setdefault(name, []).append(data)
+    return list(by.values())
+
+
+def _c9_sink_capture() -> bool:
+    """Round 6 findings 1 to 4: aliases of one descriptor are one stream; the
+    main module is never trusted; assembly is read whole for system calls;
+    extending a file is a write of the zeros it materializes."""
+    ok = True
+    alias = ('f, _ := os.Create(os.Getenv("HOME") + "/t")\n\ta := os.NewFile(f.Fd(), "first")\n'
+             '\tb := os.NewFile(f.Fd(), "second")\n\ta.Write([]byte("4829"))\n\tb.Write([]byte("1375"))\n'
+             '\tos.Remove(os.Getenv("HOME") + "/t")')
+    for why, body, want in (("1: one file written through two aliases of its descriptor", alias, True),
+                            ("1: two files written with the halves", alias.replace(
+                                'b := os.NewFile(f.Fd(), "second")', 'g, _ := os.Create(os.Getenv("HOME") + "/u")\n'
+                                '\tb := os.NewFile(g.Fd(), "second")'), False)):
+        out: dict = {}
+        err, units = _go_trace_run({"main.go": _GO_MAIN.replace("__BODY__", body)}, kind=2, out=out)
+        got = any(judge(_stream(ws), ["48291375"]) for ws in _c9_streams(units))
+        if err or got != want:
+            print(f"    corpus self-test: sink capture (corpus4rv r6): {why}: want leak={want}, got {err or got}")
+            ok = False
+    err, _u = _go_trace_run({"go.mod": "module golang.org/x/sys\n\ngo 1.24\n", "main.go": (
+        'package main\n\nimport (\n\t"os"\n\t"syscall"\n)\n\nfunc main() {\n\tf, _ := os.Create(os.Getenv("HOME") + "/t")\n'
+        '\tsyscall.Write(int(f.Fd()), []byte("x"))\n\tf.Close()\n}\n')})
+    if not err or "build:" in err:
+        print(f"    corpus self-test: sink capture (corpus4rv r6): 2: a main module named golang.org/x/sys calling "
+              f"syscall.Write: want the trace build refused, got {err}")
+        ok = False
+    stub = _GO_MAIN.replace("__BODY__", "raw()").replace("func main()", "func raw()\n\nfunc main()")
+    for why, asm, want in (("3: a labelled SVC", "issue: SVC $0x80\n\tRET\n", True),
+                           ("3: an instruction hand-encoded with WORD", "WORD $0xd4001001\n\tRET\n", True),
+                           ("3: assembly that makes no system call", "MOVD $1, R0\n\tRET\n", False)):
+        err, _u = _go_trace_run({"main.go": stub, "raw_arm64.s": '#include "textflag.h"\n\n'
+                                 'TEXT ·raw(SB),NOSPLIT,$0\n\t' + asm})
+        refused = bool(err) and "build:" not in err
+        if refused != want:
+            print(f"    corpus self-test: sink capture (corpus4rv r6): {why}: want refused={want}, got {err}")
+            ok = False
+    ext = ('h := os.Getenv("HOME")\n\tf, _ := os.Create(h + "/a")\n\tf.Truncate(64)\n\tf.Close()\n'
+           '\tos.WriteFile(h + "/b", nil, 0o600)\n\tos.Truncate(h + "/b", 65)\n'
+           '\tg, _ := os.Create(h + "/c")\n\tg.WriteAt([]byte("x"), 66)\n\tg.Close()\n'
+           '\tk, _ := os.Create(h + "/d")\n\tk.Seek(67, 0)\n\tk.Write([]byte("y"))\n\tk.Close()\n'
+           '\tfor _, n := range []string{"a", "b", "c", "d"} {\n\t\tos.Remove(h + "/" + n)\n\t}')
+    err, units = _go_trace_run({"main.go": _GO_MAIN.replace("__BODY__", ext)}, kind=2)
+    got = sorted(b"".join(ws) for ws in _c9_streams(units))
+    want = sorted([b"\0" * 64, b"\0" * 65, b"\0" * 66 + b"x", b"\0" * 67 + b"y"])
+    if err or got != want:
+        print(f"    corpus self-test: sink capture (corpus4rv r6): 4: a file extended by Truncate, os.Truncate, WriteAt "
+              f"and Seek: want its zeros recorded, got {err or [len(g) for g in got]}")
+        ok = False
+    return ok
+
+
+C9_PROBES = {"sink-capture": _c9_sink_capture}
 
 
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,
@@ -6160,7 +6328,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()
         ok = ok and passed
