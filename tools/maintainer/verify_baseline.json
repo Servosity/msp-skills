@@ -87,11 +87,6 @@
    "read-only",
    "local-data"
   ],
-  "connectwise-control": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "connectwise-manage": [
    "mcp-http",
    "write-gating",

@@ -1,9 +1,9 @@
 {
   "api_name": "connectwise-control",
   "base_url": "https://your-instance.screenconnect.com",
-  "description": "Unofficial OpenAPI 3 description of the ConnectWise Control (ScreenConnect) instance REST surface, authored from the public ScreenConnect documentation and the community PowerShell wrapper github.com/christaylorcodes/ConnectWiseControlAPI.\nConnectWise Control has no first-party OpenAPI document. Its instance exposes RPC-style endpoints under `Services/\u003cService\u003e.ashx/\u003cMethod\u003e` that accept and return JSON. This spec models those endpoints with typed request/response schemas for a usable CLI; each operation's description records the exact JSON wire shape the live `.ashx` endpoint expects (most take a positional JSON array), since the documented endpoints are positional rather than named-field.\nAuthentication is HTTP Basic with an instance user's credentials. Mutating calls additionally require an `x-anti-forgery-token` header that the instance front page emits; reads generally work with Basic auth alone. The base URL is per-instance (your ScreenConnect host).",
+  "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI.",
   "mcp_ready": "full",
-  "http_transport": "browser-chrome-h2",
+  "http_transport": "standard",
   "auth": {
     "type": "api_key",
     "header": "Authorization",
@@ -106,7 +106,7 @@
     },
     {
       "name": "security_save-user",
-      "description": "Creates a new instance user or updates an existing one. Requires the `x-anti-forgery-token` header. Wire format: a positional array carrying the user record fields. Required: userName. Optional: displayName, email, password (plus 1 more). Returns array of string.",
+      "description": "Creates a new instance user or updates an existing one. Requires the `x-anti-forgery-token` header. Wire format: a positional array carrying the user record fields. Required: userName. Optional: displayName, email, password (plus 1 more). Returns the new User.",
       "method": "POST",
       "path": "/Services/SecurityService.ashx/SaveUser",
       "params": [
@@ -366,6 +366,18 @@
           "required": true
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Stale guest sessions",
+      "command": "sessions stale",
+      "description": "List sessions whose guest has not connected for at least --days (default 30), oldest first, plus sessions with no recorded connection."
+    },
+    {
+      "name": "User access review",
+      "command": "security access-review",
+      "description": "Flag instance users that are disabled, have an expired password, or belong to no security group, with each user's groups listed."
     }
   ]
 }
