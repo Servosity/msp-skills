@@ -54,6 +54,10 @@ Deliberately narrow, so it cannot be flaky:
   plain http (docs/credential-leak-contract.md), so an http stub made every
   adopter read "API unreachable" in every state. The kit has no loopback
   exception and the harness asks for none; verification is never disabled.
+* A probe credential no sentence can collide with. The kit withholds any output
+  sharing an 8-character piece with a held value, so PROBE_TOKEN is written to
+  share none with ordinary English or doctor's own text, and the self-test scans
+  every connector's doctor source to keep it that way.
 * Prose-insensitive. Only the positive/negative polarity of a verdict is
   asserted, so rewording a message cannot break the gate, and a connector that
   grows a new verdict shape is judged on what it means.
@@ -70,9 +74,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import codecs
 import http.server
 import json
 import os
+import re
 import ssl
 import subprocess
 import sys
@@ -82,6 +88,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+from kit_tls import PIECE_LEN, make_cert, shared_pieces, windows_hold_digit_and_letter  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
@@ -117,7 +124,18 @@ def is_positive(verdict: object) -> bool:
 # assert doctor actually SENT the credential, not merely that it classified
 # status codes correctly. Without this a doctor probing an unauthenticated
 # endpoint passes every state while never testing the installed credential.
-PROBE_TOKEN = "check-doctor-truth"
+#
+# It is held by the credential kit, and the kit withholds any output sharing an
+# 8-character piece with a held value (contract 2(b)). The kit also holds the
+# whole `Bearer <token>`, so the pieces include the scheme's tail. A readable
+# probe therefore collides with ordinary prose: the previous value's piece
+# `er check` matched doctor's own "the credential was never checked" and doctor's
+# whole report was withheld. So the token starts with a digit and never runs more
+# than one letter or one digit, which puts both in every window, and it is not
+# written in ordinary English or in anything doctor prints. It is repetitive on
+# purpose: it is a marker, not a secret. self_test() keeps all of this true.
+PROBE_TOKEN = "7q8z9x7q8z9x7q8z9x"
+PROBE_AUTH_HEADER = f"Bearer {PROBE_TOKEN}"
 
 
 class _Stub(http.server.BaseHTTPRequestHandler):
@@ -155,19 +173,6 @@ class _Stub(http.server.BaseHTTPRequestHandler):
                 self._send(404, b'{"error":"not found"}')
 
     do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = do_HEAD = _handle
-
-
-def make_cert(out_dir: str) -> tuple[str, str]:
-    """A self-signed certificate for 127.0.0.1, generated for this run only.
-    Returns (certificate path, key path). The certificate is also the trust
-    anchor the connector is given, so nothing else is ever trusted."""
-    cert, key = os.path.join(out_dir, "stub-cert.pem"), os.path.join(out_dir, "stub-key.pem")
-    r = subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
-                        "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1",
-                        "-keyout", key, "-out", cert], capture_output=True, text=True)
-    if r.returncode != 0:
-        raise RuntimeError(f"could not generate the stub's TLS certificate with openssl: {r.stderr.strip()[-400:]}")
-    return cert, key
 
 
 def serve(mode: str, cert: tuple[str, str] | None):
@@ -231,14 +236,14 @@ def run_doctor(binary: str, slug: str, home: str, base_url: str | None,
     # makes config.Load fail, which looks like a doctor defect and is not one -
     # so pick the dialect the connector actually parses.
     if config_is_json(slug):
-        payload = {"auth_header": "Bearer check-doctor-truth"}
+        payload = {"auth_header": PROBE_AUTH_HEADER}
         if base_url:
             payload["base_url"] = base_url
         if trust and ca_cert:
             payload["ca_cert"] = trust
         cfg.write_text(json.dumps(payload), encoding="utf-8")
     else:
-        lines = ['auth_header = "Bearer check-doctor-truth"']
+        lines = [f'auth_header = "{PROBE_AUTH_HEADER}"']
         if base_url:
             lines.append(f'base_url = "{base_url}"')
         if trust and ca_cert:
@@ -359,7 +364,6 @@ def placeholder_default(slug: str) -> bool:
         text = cfg.read_text(encoding="utf-8")
     except OSError:
         return False
-    import re
     m = re.search(r'BaseURL:\s*"([^"]*)"', text)
     if not m:
         return False
@@ -456,14 +460,56 @@ print(json.dumps(out))
 """
 
 
+def doctor_sources(skills_dir: Path = SKILLS_DIR) -> dict[str, str]:
+    """Every connector's doctor source, with Go string concatenation joined, so
+    a sentence split across `" + "` reads whole. The whole file is searched, not
+    just its literals: a superset, and it cannot miss a literal it failed to parse."""
+    out: dict[str, str] = {}
+    for src in sorted(skills_dir.glob("*/cli/internal/cli/doctor*.go")):
+        if not src.name.endswith("_test.go"):
+            text = src.read_text(encoding="utf-8", errors="replace")
+            out[str(src.relative_to(skills_dir))] = re.sub(r'"\s*\+\s*"', "", text)
+    return out
+
+
+def probe_self_test() -> list[tuple[str, bool]]:
+    """The probe shares no window with anything doctor prints, and the check that
+    says so really fires, on the value and the sentence that once did collide."""
+    results: list[tuple[str, bool]] = []
+    sentence = "the credential was never checked"
+    results.append(("the previous probe collides with doctor's own sentence (er check)",
+                    "er check" in shared_pieces("Bearer check-doctor-truth", sentence)))
+    results.append(("the current probe does not collide with that sentence",
+                    not shared_pieces(PROBE_AUTH_HEADER, sentence)))
+    results.append(("a sentence carrying a window of the probe is caught as written",
+                    bool(shared_pieces(PROBE_AUTH_HEADER, f"ok {PROBE_TOKEN[:PIECE_LEN]} ok"))))
+    results.append(("a sentence carrying a window of the probe is caught in another case",
+                    bool(shared_pieces(PROBE_AUTH_HEADER, f"ok {PROBE_TOKEN[:PIECE_LEN].upper()} ok"))))
+    results.append(("a sentence carrying a window of the probe is caught through ROT13",
+                    bool(shared_pieces(PROBE_AUTH_HEADER,
+                                          "ok " + codecs.encode(PROBE_TOKEN[:PIECE_LEN], "rot13") + " ok"))))
+    sources = doctor_sources()
+    results.append(("the fleet's doctor sources were found (an empty scan proves nothing)", bool(sources)))
+    hits = {name: found for name, text in sources.items() if (found := shared_pieces(PROBE_AUTH_HEADER, text))}
+    results.append((f"the probe shares no window with {len(sources)} doctor source file(s)"
+                    + (f"; collides: {sorted(hits.items())[:3]}" if hits else ""), not hits))
+    windows = [PROBE_AUTH_HEADER[i:i + PIECE_LEN] for i in range(len(PROBE_AUTH_HEADER) - PIECE_LEN + 1)]
+    results.append(("every window of the probe holds a digit, so none is ordinary English",
+                    all(any(c.isdigit() for c in w) for w in windows)))
+    results.append(("every window of the token holds a digit and a letter, so none is a word, a port or a status code",
+                    windows_hold_digit_and_letter(PROBE_TOKEN)))
+    return results
+
+
 def self_test() -> int:
     """Both directions, with a stand-in doctor (no connector is built): over the
     TLS stub a working install verifies and the stub sees the credential; the
     old plain-http stub still reads "unreachable" for a kit adopter (the kit
     refuses a credential over http and the harness did not loosen that); an
-    untrusted certificate, an API that is down, and a 401 all stay negative."""
+    untrusted certificate, an API that is down, and a 401 all stay negative.
+    Then probe_self_test(): the fixture credential cannot collide with doctor."""
     slug = "doctor-truth-selftest"
-    results: list[tuple[str, bool]] = []
+    results: list[tuple[str, bool]] = probe_self_test()
     with tempfile.TemporaryDirectory() as tmp:
         binary = os.path.join(tmp, "fake-doctor")
         Path(binary).write_text(FAKE_DOCTOR, encoding="utf-8")

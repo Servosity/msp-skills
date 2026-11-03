@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import html
 import json
 import os
@@ -69,6 +70,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import kit_tls  # noqa: E402
 import registry  # noqa: E402
 
 ROOT = registry.ROOT
@@ -94,9 +96,15 @@ def sentinel(var: str) -> str:
     would make those encodings identical to the raw value and the per-encoding
     probes would be no-ops. Avoids `<`/`>`/space, which a connector's
     placeholder-credential guard would reject as a `<...>` placeholder. Long
-    enough that a last-4-chars mask never equals the whole value."""
-    short = "".join(ch for ch in var.lower() if ch.isalnum())[:16]
-    return f"clsSENT{short}.0a1+2b3/4c5=6d7e8f"
+    enough that a last-4-chars mask never equals the whole value.
+
+    Letters and digits alternate, from a hash of the name, because a kit adopter
+    holds this value and withholds any output sharing an 8-character piece with
+    it: `clientid` in the old readable form withheld every tools/list that named a
+    clientId, and the suffix all sentinels shared made them one piece."""
+    digest = hashlib.sha256(var.encode()).digest()
+    p = "".join("ghjkmnpqrstuvwxyz"[b % 17] + str(b % 10) for b in digest[:12])
+    return f"cls{p[:8]}.{p[8:12]}+{p[12:16]}/{p[16:20]}={p[20:]}"
 
 
 def encodings(value: str) -> dict[str, str]:
@@ -354,17 +362,42 @@ class Server:
         self.srv.server_close()
 
 
+def set_kit_tls(tls: kit_tls.Served | None) -> None:
+    """Serve the connector under test over TLS, or (None) over plain http. A kit
+    adopter needs TLS: the kit refuses to send a held credential over plain http,
+    so a plain fake server would see nothing and every class would judge no requests."""
+    kit_tls.set_serving(tls)
+
+
+def kit_tls_for(slug: str, tmp: str) -> tuple[kit_tls.Served | None, str | None]:
+    """(the TLS setup for this connector, or None when it has no kit; why it
+    cannot be set up on this host)."""
+    skill = registry.skill_path(slug)
+    if not kit_tls.adopts_kit(skill):
+        return None, None
+    why = kit_tls.refusal(skill)
+    if why:
+        return None, why
+    cert = kit_tls.make_cert(tmp)
+    return kit_tls.Served(cert, kit_tls.trust_env(skill, cert[0])), None
+
+
 def start_server(mode: str = "echo", status: int = 200, sentinels: list[str] | None = None,
                  redirect_to: str | None = None, body_echo: bool = True) -> Server:
     """Start a fake server. mode: 'echo' (reflect sentinels), 'redirect' (one
     cross-host 307 then echo). status: the HTTP status the echo answers with.
     body_echo False reflects the sentinels in HEADERS only (credential-free
-    body), for the success-path probe."""
+    body), for the success-path probe. It serves https for a kit adopter."""
     cap = Capture()
     handler = _make_handler(cap, mode, status, sentinels or [], redirect_to, body_echo)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    scheme = "http"
+    served = kit_tls.serving()
+    if served is not None:
+        kit_tls.serve_tls(srv, served.cert)
+        scheme = "https"
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return Server(srv, cap, f"http://127.0.0.1:{srv.server_address[1]}")
+    return Server(srv, cap, f"{scheme}://127.0.0.1:{srv.server_address[1]}")
 
 
 def fresh_home(ctx: "Ctx", tag: str) -> str:
@@ -472,6 +505,9 @@ def apply_urls(wiring: Wiring, url: str) -> dict[str, str]:
         env[k] = url + TOKEN_PATH if k.upper().endswith(("_TOKEN_URL", "_AUTHORIZATION_URL")) else url
     for k in wiring.host_vars:
         env[k] = host
+    served = kit_tls.serving()
+    if served is not None and url.startswith("https://"):
+        env.update(served.trust)
     return env
 
 
@@ -947,6 +983,112 @@ def self_test_baseline_guard() -> bool:
     return ok
 
 
+def self_test_kit_tls_per_worker() -> bool:
+    """--all runs connectors on a thread pool, so one connector's certificate must
+    not reach another's classes, nor reach a connector with no kit. With one shared
+    variable, A's server took B's trust and a broken adopter read as not judged."""
+    ok = True
+    barrier = threading.Barrier(3, timeout=30)
+    with tempfile.TemporaryDirectory(prefix="class-kit-workers-") as tmp:
+        certs = {}
+        for name in ("a", "b"):
+            d = os.path.join(tmp, name)
+            os.makedirs(d)
+            certs[name] = kit_tls.make_cert(d)
+        seen: dict[str, tuple] = {}
+
+        def worker(name: str) -> None:
+            cert = certs.get(name)
+            set_kit_tls(kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]}) if cert else None)
+            try:
+                barrier.wait()  # all three have set their state before any reads it
+                srv = start_server()
+                try:
+                    barrier.wait()
+                    seen[name] = (srv.url.split(":")[0], apply_urls(Wiring({}, {}, ["ACME_BASE_URL"], []), srv.url).get("SSL_CERT_FILE"))
+                finally:
+                    srv.stop()
+            finally:
+                set_kit_tls(None)
+
+        threads = [threading.Thread(target=worker, args=(n,)) for n in ("a", "b", "nokit")]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        want = {"a": ("https", certs["a"][0]), "b": ("https", certs["b"][0]), "nokit": ("http", None)}
+        if seen != want:
+            print(f"    kit TLS self-test: workers saw {seen}; expected {want}")
+            ok = False
+    return ok
+
+
+def self_test_sentinels() -> bool:
+    """A sentinel is held by a kit adopter, which withholds any output sharing an
+    8-character piece with it. So no piece may read like a word, and no two
+    sentinels may share one (a piece shared with a value allowed nowhere refuses
+    the request). The check is proved on the old shape, which withheld tools/list."""
+    ok = True
+
+    def expect(cond: bool, label: str) -> None:
+        nonlocal ok
+        if not cond:
+            print(f"    sentinel self-test: {label}")
+            ok = False
+
+    old = "clsSENTimmybotclientid.0a1+2b3/4c5=6d7e8f"
+    expect("clientid" in kit_tls.shared_pieces(old, '{"name":"clientId"}'),
+           "the check must fire on the old sentinel against a tool that names clientId")
+    expect(bool(kit_tls.shared_pieces(old, "clsSENTimmybotclientsec.0a1+2b3/4c5=6d7e8f")),
+           "the check must fire on two old sentinels, which share a suffix")
+    names = ["IMMYBOT_CLIENT_ID", "IMMYBOT_CLIENT_SECRET", "HALOPSA_TOKEN", "HALOPSA_OAUTH_SCOPE", "X_API_KEY", "TOKEN"]
+    values = [sentinel(n) for n in names]
+    words = '{"name":"clientId","clientSecret":1,"accessToken":2,"apikey":3,"subscription":4,"password":5}'
+    for name, value in zip(names, values):
+        expect(not kit_tls.shared_pieces(value, words), f"{name}: {value} shares a piece with ordinary words")
+        expect(kit_tls.windows_hold_digit_and_letter(value), f"{name}: {value} has a window with no digit or no letter")
+        expect(value == sentinel(name), f"{name}: a sentinel must be stable")
+        enc = encodings(value)
+        expect(len({enc["raw"], enc["url"], enc["html"], enc["json_u"]}) == 4,
+               f"{name}: {value} must differ in its raw, URL, HTML and JSON forms")
+    for i, a in enumerate(values):
+        for b in values[i + 1:]:
+            expect(not kit_tls.shared_pieces(a, b), f"{a} and {b} share a piece")
+    return ok
+
+
+def self_test_kit_tls_seen_by_classes() -> bool:
+    """The driver runs as __main__ and the class modules import class_harness again,
+    so TLS set here must reach what THEY call. It did not at first: the classes got a
+    plain server while the driver believed otherwise, and every adopter read as not
+    judged. Run from the real entry point, this fails on state kept per module."""
+    import class_harness as as_the_classes_see_it
+    ok = True
+    with tempfile.TemporaryDirectory(prefix="class-kit-tls-") as tmp:
+        cert = kit_tls.make_cert(tmp)
+        set_kit_tls(kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]}))
+        try:
+            srv = as_the_classes_see_it.start_server()
+            try:
+                urls = as_the_classes_see_it.apply_urls(Wiring({}, {}, ["ACME_BASE_URL"], []), srv.url)
+                if not srv.url.startswith("https://") or urls.get("SSL_CERT_FILE") != cert[0]:
+                    print(f"    kit TLS self-test: a class saw {srv.url} with {urls}; expected https and the trust")
+                    ok = False
+            finally:
+                srv.stop()
+        finally:
+            set_kit_tls(None)
+        srv = as_the_classes_see_it.start_server()
+        try:
+            urls = as_the_classes_see_it.apply_urls(Wiring({}, {}, ["ACME_BASE_URL"], []), srv.url)
+            if not srv.url.startswith("http://") or "SSL_CERT_FILE" in urls:
+                print(f"    kit TLS self-test: with no kit a class saw {srv.url} with {urls}; expected plain http")
+                ok = False
+        finally:
+            srv.stop()
+    return ok
+
+
 def run_slug(slug: str, which: list[str], classes: dict) -> dict[str, list[str]]:
     """Run the selected classes against one connector. Returns {class: findings}."""
     results: dict[str, list[str]] = {}
@@ -956,12 +1098,22 @@ def run_slug(slug: str, which: list[str], classes: dict) -> dict[str, list[str]]
             if err is None:
                 return {}  # markdown-only skill, nothing to test
             return {c: [f"[{slug}] could not build or inspect: {err}"] for c in which}
-        for name in which:
-            mod = classes[name]
-            try:
-                results[name] = mod.run(ctx)
-            except Exception as exc:  # noqa: BLE001 - a crashing class is a failure
-                results[name] = [f"[{slug}] class {name} crashed: {exc}"]
+        try:
+            tls, why = kit_tls_for(slug, tmp)
+        except RuntimeError as exc:
+            tls, why = None, str(exc)
+        if why:
+            return {c: [f"[{slug}] could not be exercised: {why}"] for c in which}
+        set_kit_tls(tls)
+        try:
+            for name in which:
+                mod = classes[name]
+                try:
+                    results[name] = mod.run(ctx)
+                except Exception as exc:  # noqa: BLE001 - a crashing class is a failure
+                    results[name] = [f"[{slug}] class {name} crashed: {exc}"]
+        finally:
+            set_kit_tls(None)
     return results
 
 
@@ -1000,6 +1152,15 @@ def main(argv: list[str]) -> int:
     if args.self_test:
         ok = self_test_baseline_guard()
         print(f"  {'ok  ' if ok else 'FAIL'} baseline-guard self-test")
+        tls_ok = self_test_kit_tls_seen_by_classes()
+        print(f"  {'ok  ' if tls_ok else 'FAIL'} kit TLS reaches the classes self-test")
+        ok = ok and tls_ok
+        workers_ok = self_test_kit_tls_per_worker()
+        print(f"  {'ok  ' if workers_ok else 'FAIL'} kit TLS stays with its own worker self-test")
+        ok = ok and workers_ok
+        sentinels_ok = self_test_sentinels()
+        print(f"  {'ok  ' if sentinels_ok else 'FAIL'} sentinels cannot collide with output self-test")
+        ok = ok and sentinels_ok
         for name, mod in classes.items():
             passed = mod.self_test()
             print(f"  {'ok  ' if passed else 'FAIL'} {name} self-test")
