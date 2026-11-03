@@ -139,12 +139,6 @@
    "read-only",
    "local-data"
   ],
-  "pagerduty": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "pandadoc": [
    "mcp-http",
    "write-gating",
