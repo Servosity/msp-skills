@@ -1010,6 +1010,32 @@ def read_trace(path: str) -> list[bytes] | None:
     return out
 
 
+def _c_layer_use(pkg: dict) -> str | None:
+    """A use of the driver's C layer (modernc.org/sqlite/<sub>) other than
+    one of its SQLITE_ constants, in a package's own files; None when none."""
+    for f in pkg.get("GoFiles") or []:
+        try:
+            with open(os.path.join(pkg["Dir"], f), encoding="utf-8") as fh:
+                src = fh.read()
+        except OSError as e:
+            return f"{f}: {e}"
+        for m in re.finditer(r'(?m)^\s*(?:import\s+)?([A-Za-z_][A-Za-z0-9_]*|\.)?\s*"' + re.escape(SQLITE_DRIVER) +
+                             r'/[^"]*"', src):
+            alias = m.group(1)
+            if alias in (None, "import"):
+                return f"{f}: an import of the C layer without a name of its own"
+            if alias == "_":
+                continue
+            if alias == ".":
+                return f"{f}: a dot import of the C layer"
+            for use in re.finditer(r"\b" + re.escape(alias) + r"\.([A-Za-z_][A-Za-z0-9_]*)", src):
+                if not re.fullmatch(r"SQLITE_[A-Z0-9_]+", use.group(1)):
+                    return f"{f}: {alias}.{use.group(1)}"
+            if not re.search(r"\b" + re.escape(alias) + r"\.", src):
+                return f"{f}: the C layer imported and not read as constants"
+    return None
+
+
 _TRACE_PATCHES = (
     ("type stmt struct {\n\tc    *conn\n\tpsql uintptr\n}", "type stmt struct {\n\tc    *conn\n\tpsql uintptr\n\tcorpusSQL string\n}"),
     ("stm := stmt{c: c, psql: p}", "stm := stmt{c: c, psql: p, corpusSQL: sql}"),
@@ -1032,7 +1058,7 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
     Blunt rule (corpus4rv r2): a build that links another SQLite driver, the
     driver's C layer from outside it, or a driver this patch does not fit
     fails closed (an error)."""
-    r = subprocess.run(["go", "list", "-deps", "-json=ImportPath,Dir,Imports,Module"] + targets, cwd=cli_dir,
+    r = subprocess.run(["go", "list", "-deps", "-json=ImportPath,Dir,Imports,Module,GoFiles"] + targets, cwd=cli_dir,
                        capture_output=True, text=True, timeout=600)
     if r.returncode != 0:
         return [], f"go list for the SQLite trace: {r.stderr.strip()[:300]}"
@@ -1051,7 +1077,11 @@ def sqlite_trace(cli_dir: Path, targets: list[str], tmp: str) -> tuple[list[str]
         if "sqlite" in ip.lower() and not own:
             return [], f"{ip}: a SQLite package the statement trace does not cover"
         if not own and any(m.startswith(SQLITE_DRIVER + "/") for m in x.get("Imports") or []):
-            return [], f"{ip}: imports the SQLite driver's C layer, around the statement trace"
+            # The C layer only for its constants (SQLITE_TOOBIG, a limit's
+            # number) runs no statement; any other use could, around the trace.
+            bad = _c_layer_use(x)
+            if bad:
+                return [], f"{ip}: uses the SQLite driver's C layer around the statement trace ({bad})"
     if drv is None:
         return [], None
     src = os.path.join(drv["Dir"], "sqlite.go")
@@ -1975,8 +2005,10 @@ _WRAPPER = """#!/bin/sh
 # The CLI the MCP server starts: log the argv it was given (a contract sink),
 # then run the real CLI.
 printf '%s\\n' "$*" >> "${CLS_CHILD_LOG:-$HOME/.cls-child-argv}" 2>/dev/null
-# Each child's argv exactly, outside HOME, for the kit's acquisition.
-if [ -n "$CLS_CHILD_ACQ" ]; then printf '%s\\0' "$@" > "$(mktemp "$CLS_CHILD_ACQ/argv.XXXXXX")" 2>/dev/null; fi
+# Each child's argv and environment exactly, outside HOME, for the kit's acquisition.
+if [ -n "$CLS_CHILD_ACQ" ]; then
+  f=$(mktemp "$CLS_CHILD_ACQ/argv.XXXXXX") && printf '%s\\0' "$@" > "$f" && env -0 > "$f.env"
+fi
 exec "$0.real" "$@"
 """
 
@@ -2384,9 +2416,17 @@ class Engine:
             finally:
                 procs, _PROCS.procs = _PROCS.procs, None
             for f in sorted(os.listdir(child_acq)):   # the CLI children the MCP server started
+                if f.endswith(".env"):
+                    continue
                 with open(os.path.join(child_acq, f), "rb") as fh:
                     argv = fh.read().split(b"\0")[:-1]
-                procs.append(([_s(a) for a in argv], mcp_env, b""))
+                try:
+                    with open(os.path.join(child_acq, f + ".env"), "rb") as fh:
+                        cenv = dict(_s(kv).partition("=")[::2] for kv in fh.read().split(b"\0") if kv)
+                except OSError:
+                    res["where"].append("a CLI child's environment could not be read, so its held set is unknown")
+                    cenv = mcp_env
+                procs.append(([_s(a) for a in argv], cenv, b""))
             shutil.rmtree(child_acq, ignore_errors=True)
             if case.get("drive") == "mcp-unknown-tool-split":   # sent in separate messages
                 needles = [[p] for p in contract_parts(payload, cred, halves=True)]
