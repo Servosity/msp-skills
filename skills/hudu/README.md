@@ -1,4 +1,4 @@
-# Hudu + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# Hudu + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Hudu
 > API. Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc.
@@ -12,38 +12,31 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/hudu/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
-
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Hudu skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `hudu-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `hudu-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `hudu-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `hudu-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -55,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `hudu-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `HUDU_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Hudu MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.16/hudu-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Hudu release on the [releases page](https://github.com/servosity/msp-skills/releases?q=hudu).)
+[**Download Hudu MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.17/hudu-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Hudu release on the [releases page](https://github.com/servosity/msp-skills/releases?q=hudu).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -112,9 +105,9 @@ iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hud
 
 Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update hudu@msp-skills`.
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -184,7 +177,7 @@ This skill syncs Hudu into a **local SQLite mirror** with full-text search. Aggr
 This skill turns those recurring questions into one command each:
 
 - `hudu-cli audit completeness --agent` - rank clients by how much required documentation is actually filled in.
-- `hudu-cli audit stale-passwords --older-than 180d --agent` - surface vault credentials nobody has rotated, grouped by company (computed locally; secret values are never read).
+- `hudu-cli audit stale-passwords --older-than 180d --agent` - surface vault credentials nobody has rotated, grouped by company (computed locally; vault passwords and OTP secrets are never shown, stored or cached).
 - `hudu-cli audit expirations --within 30d --agent` - one typed list of SSL, domain, warranty, and password expirations due soon, across every tenant.
 - `hudu-cli audit summary --agent` - a single worst-first hygiene scorecard so you know which client to fix first.
 
@@ -194,7 +187,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Hudu MCP server in HTTP mode. In this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `hudu-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `hudu-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -206,7 +199,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Hudu data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Vault passwords and OTP secrets are never shown, stored or cached: the CLI keeps only each vault entry's metadata (name, username, URL, folder, dates), so fetch a secret in the Hudu portal. The value of a password-type asset field is withheld the same way (it reads `[withheld: password field]`), and an error from a vault or asset request shows only its HTTP status. Your Hudu API key is read from `HUDU_API_KEY` (your environment or your agent's config), or from `credentials.toml` in the CLI's data directory (owner-only permissions) if you save it with `auth set-token`; it is never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Will a company-scoped Hudu API key work?
 

@@ -1,0 +1,160 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/mspbots/
+
+# The MSPbots MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by MSPbots, Inc..
+
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for MSPbots. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects MSPbots to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+MSPbots aggregates your PSA, RMM, and finance data into KPI dashboards - then keeps it there. Ask your AI "is our ticket backlog up or down this week" and get the answer the dashboard can't give: point-in-time snapshots, week-over-week deltas, row-level diffs, and full CSV exports - through readable aliases and filters instead of 19-digit resource IDs and a comma-encoded query DSL.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/mspbots/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/mspbots)
+
+## Instead of clicking through MSPbots, just ask
+
+**Instead of** Screenshotting the open_tickets widget every Monday and hand-maintaining a week-over-week column in a spreadsheet, because the dashboard only shows now
+**just ask:** *"Is our ticket backlog up or down versus last week?"*
+Your agent runs: `mspbots-cli trend open_tickets --agg count`
+
+**Instead of** Hand-encoding filters into URL query params - price=12.6,56.3 for a range, a trailing comma for on-or-after - one undocumented comma rule per operator
+**just ask:** *"Pull the open tickets updated since June 1"*
+Your agent runs: `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"`
+
+**Instead of** Paging a dataset 50 rows at a time and stitching the pages together by hand to get the full table into a spreadsheet
+**just ask:** *"Export the whole tickets dataset to CSV for the QBR deck"*
+Your agent runs: `mspbots-cli export open_tickets --format csv`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/mspbots/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Is our open-ticket backlog up or down versus last week? | `mspbots-cli trend open_tickets --agg count` |
+| What changed in open tickets since the last snapshot - rows added, removed, or edited? | `mspbots-cli diff open_tickets` |
+| Pull the open tickets updated since June 1 | `mspbots-cli pull open_tickets --where "Update Date >= 2026-06-01"` |
+| What columns does this dataset have, and what types? | `mspbots-cli describe open_tickets` |
+| Export the entire dataset to CSV for the QBR deck | `mspbots-cli export open_tickets --format csv` |
+| Capture today's KPI snapshot (schedule it and history accrues) | `mspbots-cli snapshot open_tickets` |
+| Stop pasting 19-digit IDs - name the dataset once | `mspbots-cli registry add open_tickets 1534956341424005122` |
+| Are my API key and resource bindings working? | `mspbots-cli doctor` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/mspbots/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/mspbots/guide.md).
+
+## What makes this one different
+
+A thin wrapper on the MSPbots Public API inherits everything painful about it: two endpoints, 19-digit IDs, comma-encoded filters, no enumeration, no history. This skill adds the missing layers locally - an alias registry so resources have names, readable --where predicates compiled into the wire DSL, auto-paginated exports, and timestamped snapshots in a local SQLite store that diff and trend turn into the KPI history the API cannot return.
+
+MSPbots' own AI and bots act inside its dashboards and workflows. This skill complements them: it brings the data those dashboards hold out to whichever agent you already use, and keeps the local snapshot history that lets your agent answer versus-last-week questions the Public API has no endpoint for.
+
+## The pain this closes
+
+- The MSPbots Public API is two endpoints with no enumeration: per the official API documentation (the wiki.mspbots.ai Public API article, archived April 2024), resource IDs are 19-digit identifiers you copy out of Settings > Public API one at a time - no list endpoint, no metadata endpoint, and as of June 2026 no published CLI, SDK, or MCP server for it that we could find.
+- The API and the dashboards both show now - there is no history endpoint. The week-over-week KPI column every ops manager wants (backlog trend, SLA drift) is hand-maintained in a spreadsheet from screenshots, and it dies the week someone forgets to update it.
+- Filters are a comma-encoded DSL keyed by column name - price=12.6,56.3 is a range, a trailing comma means on-or-after - and the same official docs list rate limits with unspecified numbers and intermittent HTTP 502 responses on heavy widget fetches.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.ps1 | iex
+```
+
+After install, authenticate once with your MSPbots credentials, then verify with `mspbots-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read (live API) | mspbots-cli pull open_tickets --where "Status = Open"; mspbots-cli export open_tickets --format csv; mspbots-cli describe open_tickets; mspbots-cli dataset <resourceId>; mspbots-cli widget <resourceId>; mspbots-cli doctor | Allow |
+| Local-only writes (never touch the tenant) | mspbots-cli registry add open_tickets <resourceId>; mspbots-cli snapshot open_tickets; mspbots-cli sync - all writes land in your local SQLite store; the API has no write endpoint | Allow - safe to schedule |
+| Credentials / local config | mspbots-cli auth set-token; mspbots-cli auth logout; mspbots-cli registry rm (removes a local alias) | Human-in-the-loop only |
+
+The skill drives the mspbots-cli and mspbots-mcp binaries, authenticating with an API key read from MSPBOTS_API_KEY or saved locally via auth set-token - never logged and never sent anywhere except the MSPbots API. The Public API is read-only, so no command can change anything in your MSPbots tenant; the only writes are local (alias registry, snapshot store, sync cache in your own SQLite file). The permission boundary is which datasets and widgets an admin binds to the key. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/mspbots/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for MSPbots?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for MSPbots, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the MSPbots MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `MSPBOTS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `MSPBOTS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way mspbots-mcp runs, and shares MCP configuration with Codex: add mspbots-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+
+### Is my MSPbots data safe?
+
+Your data stays on your machine. The CLI, MCP server, and the local snapshot store are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### What credentials do I need?
+
+An MSPbots API key: an admin creates it at Settings > Public API in the MSPbots app and binds each dataset or widget to it. Set MSPBOTS_API_KEY in your environment or run mspbots-cli auth set-token. The binding is the permission boundary - the key can only read resources explicitly bound to it, and the global Enable Public API toggle gates everything.
+
+### Can this write to MSPbots?
+
+No. The MSPbots Public API is read-only - datasets and widgets out, nothing in. The only things this skill writes are local: alias registrations, snapshots, and the sync cache in your own SQLite store. No command can change anything in your MSPbots tenant.
+
+### Why do I register datasets before pulling them?
+
+The Public API has no list endpoint - it cannot tell you what is bound to your key. You copy each resource ID from Settings > Public API once, register it with mspbots-cli registry add open_tickets <resourceId>, and every other command accepts the alias from then on.
+
+### Will this hit MSPbots rate limits?
+
+The API documents rate limits without publishing numbers. The CLI ships a --rate-limit throttle, export bounds its page-walking with --max-pages and reports when the cap was hit, and the history questions (trend, diff) run entirely against local snapshots - zero API calls after capture.
+
+### Does it support widgets as well as datasets?
+
+Yes - pull, export, snapshot, describe, and registry add all accept --type widget. One documented exception inherited from the API: widgets with measure or calculate layers are not supported by the Public API itself.
+
+## Status
+
+Beta. Validated against the MSPbots API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

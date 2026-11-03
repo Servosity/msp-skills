@@ -1,0 +1,158 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/runzero/
+
+# The runZero MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by runZero, Inc..
+
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for runZero. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects runZero to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+runZero's API answers one entity at a time; it cannot join assets to services to vulnerabilities in a single call. This skill syncs your whole attack surface into a local SQLite copy, then ranks exposure, diffs what changed since the last sync, and traces any CVE to the exact assets it hits - offline, at zero API quota. Ask in plain language; your agent runs the command and reads back the answer.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/runzero/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/runzero)
+
+## Instead of clicking through runZero, just ask
+
+**Instead of** Export the asset inventory to CSV, pivot it against the services export, then cross-reference a third export for vulnerabilities just to see what is actually exposed
+**just ask:** *"Which of our assets are most exposed right now?"*
+Your agent runs: `runzero-cli triage --agent`
+
+**Instead of** Kick off a fresh discovery scan and eyeball two reports side by side trying to spot what changed on the network
+**just ask:** *"What appeared or disappeared on our attack surface since last week?"*
+Your agent runs: `runzero-cli diff --since 7d`
+
+**Instead of** Open the CVE bulletin, then hand-search the asset inventory hostname by hostname to find what it actually hits
+**just ask:** *"Which of our assets are affected by CVE-2024-3094?"*
+Your agent runs: `runzero-cli affected "CVE-2024-3094" --agent`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/runzero/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Which of our assets are most exposed right now? | `runzero-cli triage --agent` |
+| Only the internet-facing ones? | `runzero-cli triage --internet-facing --agent` |
+| What changed on our attack surface since last week? | `runzero-cli diff --since 7d` |
+| What newly became exposed or vulnerable since the last sync? | `runzero-cli exposure-delta --agent` |
+| Which assets are affected by a given CVE? | `runzero-cli affected "CVE-2024-3094" --agent` |
+| Where are risky services concentrated in a subnet? | `runzero-cli exposure-map "10.0.0.0/8" --agent` |
+| Which TLS certificates are expiring soon or using weak crypto? | `runzero-cli certs-expiring --days 90 --weak` |
+| Which assets are stale, end-of-life, or unowned? | `runzero-cli stale --days 90 --json` |
+| How many assets run a given software product, by version? | `runzero-cli software rollup "openssl" --agent` |
+| Scan a subnet on a site and wait for the result? | `runzero-cli scan-watch "<site_id>" --targets "10.0.0.0/24"` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/runzero/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/runzero/guide.md).
+
+## What makes this one different
+
+Most runZero integrations proxy each question straight into a live API call. That works for one lookup and falls apart at scale: the API is scoped per entity, so 'which critical assets run a vulnerable service' is three calls and a manual join. This skill syncs the whole surface into a local SQLite copy once, then answers cross-entity questions with a single offline join - instant, repeatable, and free of API quota. Because every sync is a snapshot, it can also diff two points in time, which a stateless wrapper cannot do at all.
+
+runZero's console and API stay the source of truth for discovery; this skill does not replace them. It adds the offline cross-entity layer the API cannot return in one call - point-in-time diffs, CVE-to-asset blast radius, and exposure ranking - so an AI agent answers a security question in one step instead of stitching three exports together.
+
+## The pain this closes
+
+- Asset inventory is always stale: r/msp threads return again and again to unknown devices, shadow IT, and 'you cannot secure what you cannot see' - the portal shows assets, but answering a real security question means exporting reports and joining them in a spreadsheet.
+- The questions that matter are cross-entity - which critical assets run a vulnerable service, what newly became exposed, which machines a CVE lands on - and runZero's API is scoped per entity (/org, /account, /export), so each one is several calls plus a manual join.
+- Point-in-time is invisible: the console shows the surface now, not what changed since last week, so drift, newly-opened ports, and expiring certificates slip by until something breaks.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/install.ps1 | iex
+```
+
+After install, authenticate once with your runZero credentials, then verify with `runzero-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | triage, diff, affected, exposure-delta, exposure-map, stale, certs-expiring, software rollup, search, inventory list / status, and the non-secret account / org get-* reports (assets, sites, services, tasks, organizations, users) - NOT the credential/token/key reads below | Allow |
+| Write (routine) | inventory sync (writes the local copy), org create-site, org create-scan and scan-watch (these launch a real network scan against your targets), import / runzero-import, and asset tag/owner updates | Preview with --dry-run, then a reviewed write |
+| Credential / destructive / config | the secret-returning reads (account get-apitoken which mints a token, get-credential / get-credentials, get-key / get-keys, get-organization-export-token / -tokens), all credential and key writes (create-credential, create-key, rotate-key, reset-user-password / reset-user-mfa), and every delete-* / remove-* plus the org bulk-clear operations | Human-in-the-loop only |
+
+The skill reads your runZero attack surface - assets, services, software, vulnerabilities, and certificates - and keeps a local copy you can query offline. It can also write: launch network scans, create sites, manage account users and keys, and import data, all opt-in. Most read commands are safe, but the credential, token, and key reads (e.g. account get-apitoken, get-credentials, get-keys) return or mint secrets, so treat them like writes. Keep an autonomous agent to non-secret reads plus previewed (--dry-run) writes, and require a human for scan launches, any credential / token / key operation, and any delete. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/runzero/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for runZero?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for runZero, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the runZero MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `RUNZERO_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `RUNZERO_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way runzero-mcp runs, and shares MCP configuration with Codex: add runzero-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your runZero API key once.
+
+### Is my runZero data safe?
+
+Your data stays on your machine. The CLI, MCP server, and the local SQLite copy are all local. The AI sees query results, not raw bulk data, and your API key is never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### Does this burn my runZero API quota?
+
+Only 'inventory sync' and live queries call the API. The cross-entity analysis - triage, diff, affected, exposure-map, exposure-delta, certs-expiring, software rollup - runs entirely against the local SQLite copy, so re-slicing your attack surface a hundred ways costs zero additional API calls.
+
+### Does it work with self-hosted runZero?
+
+Yes. It defaults to the hosted console at console.runzero.com; point it at your own console with RUNZERO_BASE_URL. The same API-token scopes apply.
+
+### What token scope do I need?
+
+A read/Export token (Export ET, Organization OT, or Account CT key) covers sync and every analysis command. Launching a scan with scan-watch or org create-scan needs a token with scan permission. Scope the credential to only what your workflow uses.
+
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](https://msp-skills.compoundingteams.com/skills/abnormal.md) · [Avanan](https://msp-skills.compoundingteams.com/skills/avanan.md) · [Bitdefender GravityZone](https://msp-skills.compoundingteams.com/skills/bitdefender.md) · [Blumira](https://msp-skills.compoundingteams.com/skills/blumira.md) · [CIPP + Microsoft 365](https://msp-skills.compoundingteams.com/skills/cipp.md) · [Cisco Duo](https://msp-skills.compoundingteams.com/skills/cisco-duo.md) · [ConnectSecure](https://msp-skills.compoundingteams.com/skills/connectsecure.md) · [Cork](https://msp-skills.compoundingteams.com/skills/cork.md) · [CrowdStrike Falcon](https://msp-skills.compoundingteams.com/skills/crowdstrike.md) · [Fortinet](https://msp-skills.compoundingteams.com/skills/fortinet.md) · [Google Workspace](https://msp-skills.compoundingteams.com/skills/google-workspace.md) · [Huntress](https://msp-skills.compoundingteams.com/skills/huntress.md) · [KnowBe4](https://msp-skills.compoundingteams.com/skills/knowbe4.md) · [Microsoft Graph](https://msp-skills.compoundingteams.com/skills/microsoft-graph.md) · [Proofpoint TAP](https://msp-skills.compoundingteams.com/skills/proofpoint.md) · [RocketCyber](https://msp-skills.compoundingteams.com/skills/rocketcyber.md) · [SaaS Alerts](https://msp-skills.compoundingteams.com/skills/saas-alerts.md) · [SentinelOne](https://msp-skills.compoundingteams.com/skills/sentinelone.md) · [SonicWall](https://msp-skills.compoundingteams.com/skills/sonicwall.md) · [Sophos Central](https://msp-skills.compoundingteams.com/skills/sophos-central.md) · [ThreatDown](https://msp-skills.compoundingteams.com/skills/threatdown.md) · [ThreatLocker](https://msp-skills.compoundingteams.com/skills/threatlocker.md) · [WatchGuard Cloud](https://msp-skills.compoundingteams.com/skills/watchguard.md)
+
+## Status
+
+Beta. Validated against the runZero API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

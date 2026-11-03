@@ -113,8 +113,7 @@ Filter to one layout with --layout-id or --layout-name.`,
 				if flagCompany > 0 && cid != flagCompany {
 					continue
 				}
-				cf, _ := json.Marshal(m["custom_fields"])
-				present := filledLabels(cf) // keys = labels the asset carries (any value)
+				present := assetFieldLabels(m) // keys = labels the asset carries (any value)
 				var extra, missing []string
 				for label := range present {
 					if !sc.labels[label] {

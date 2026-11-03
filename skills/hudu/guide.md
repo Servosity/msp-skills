@@ -77,7 +77,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hudu/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +93,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`hudu-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `HUDU_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export HUDU_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+hudu-mcp --transport http
+```
+
+Set `HUDU_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -119,8 +130,6 @@ hudu-cli audit expirations --within 30d
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Documentation hygiene audits
 - **`audit completeness`**  -  Score how completely each company's assets fill their layout's required fields, worst-first.
@@ -199,7 +208,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Cross-client hygiene scorecard, worst-first
 
@@ -286,8 +294,8 @@ hudu-cli sync --resources companies,articles,folders --concurrency 4 --phase-tra
 | --- | --- |
 | `queue_wait_ms` | Enqueue until a worker picked the resource up. Not covered by `duration_ms` at all. |
 | `api_fetch_ms` | Time on the wire, with the two waits below already subtracted out. |
-| `rate_limit_wait_ms` | The proactive client-side rate limiter, before each request. |
-| `retry_wait_ms` | 429 `Retry-After` and 5xx backoff sleeps. |
+| `rate_limit_wait_ms` | The client-side rate limiter and request-budget waits, including the refill wait after a 429. |
+| `retry_wait_ms` | 429 `Retry-After`, 5xx and network-error backoff sleeps. |
 | `id_extract_ms` | Pulling items and primary keys out of each page. |
 | `store_upsert_ms` | The SQLite batch upsert, which serializes every worker on one write lock. |
 
@@ -328,6 +336,81 @@ hudu-cli sync --resource-param matchers:integration_id=6
 ## Usage
 
 Run `hudu-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `HUDU_CONFIG_DIR`, `HUDU_DATA_DIR`, `HUDU_STATE_DIR`, or `HUDU_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `HUDU_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export HUDU_HOME=/srv/hudu
+hudu-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:HUDU_HOME = "C:\ProgramData\hudu"
+hudu-cli doctor
+```
+
+Under `HUDU_HOME=/srv/hudu`, the four dirs resolve to `/srv/hudu/config`, `/srv/hudu/data`, `/srv/hudu/state`, and `/srv/hudu/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:HUDU_HOME = "C:\srv\hudu"
+hudu-cli doctor
+```
+
+Under `$env:HUDU_HOME = "C:\srv\hudu"`, the four dirs resolve to `C:\srv\hudu\config`, `C:\srv\hudu\data`, `C:\srv\hudu\state`, and `C:\srv\hudu\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "hudu": {
+      "command": "hudu-mcp",
+      "env": {
+        "HUDU_HOME": "/srv/hudu"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `HUDU_DATA_DIR` overrides an explicit `--home` for that kind. Use `HUDU_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `HUDU_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `hudu-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Password-vault passwords and OTP secrets, and the values of password-type asset fields, are never part of any of it: the client drops the secrets from every vault response and replaces each filled password-type asset field value with `[withheld: password field]` before anything is printed, returned to an agent, stored or cached, and an error from a vault or asset request shows only its HTTP status, never Hudu's error text. A store written by an older version is scrubbed the first time this version opens it, an older cached response is never served, and vault and asset responses (including those Hudu redirected to) are never cached, so no purge is needed after upgrading. The API key lives in `credentials.toml` in the data directory when you save it with `auth set-token` (owner-only permissions); otherwise it is read from `HUDU_API_KEY`. The learn journal lives under `learn/` in the state directory. `hudu-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `hudu-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `HUDU_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `HUDU_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -371,8 +454,8 @@ Password vault entries
 - **`hudu-cli asset-passwords archive`** - Archive a password entry
 - **`hudu-cli asset-passwords create`** - Create a password vault entry
 - **`hudu-cli asset-passwords delete`** - Delete a password vault entry
-- **`hudu-cli asset-passwords get`** - Get a single password entry
-- **`hudu-cli asset-passwords list`** - List password vault entries (paginated). The secret is returned only on single get, never the list, per Hudu.
+- **`hudu-cli asset-passwords get`** - Get a single password entry (metadata only: this CLI withholds the password and OTP secret; fetch them in the Hudu portal)
+- **`hudu-cli asset-passwords list`** - List password vault entries (paginated). This CLI withholds the password and OTP secret; fetch them in the Hudu portal.
 - **`hudu-cli asset-passwords unarchive`** - Unarchive a password entry
 - **`hudu-cli asset-passwords update`** - Update a password vault entry
 
@@ -464,7 +547,7 @@ IP address records
 - **`hudu-cli ip-addresses create`** - Create an IP address record
 - **`hudu-cli ip-addresses delete`** - Delete an IP address record
 - **`hudu-cli ip-addresses get`** - Get a single IP address record
-- **`hudu-cli ip-addresses list`** - List IP address records (paginated)
+- **`hudu-cli ip-addresses list`** - List IP address records (not paginated: returns the whole collection)
 - **`hudu-cli ip-addresses update`** - Update an IP address record
 
 ### lists
@@ -489,7 +572,7 @@ Magic Dash  -  custom dashboard tiles on a company page
 
 Integration matchers  -  reconcile Hudu records to PSA/RMM records
 
-- **`hudu-cli matchers list`** - List integration matchers (paginated)
+- **`hudu-cli matchers list`** - List integration matchers for one integration (paginated; --integration-id is required)
 - **`hudu-cli matchers update`** - Update a matcher (link/unlink an integrator record to a Hudu company)
 
 ### networks
@@ -499,7 +582,7 @@ Network records
 - **`hudu-cli networks create`** - Create a network
 - **`hudu-cli networks delete`** - Delete a network
 - **`hudu-cli networks get`** - Get a single network
-- **`hudu-cli networks list`** - List networks (paginated)
+- **`hudu-cli networks list`** - List networks (not paginated: returns the whole collection)
 - **`hudu-cli networks update`** - Update a network
 
 ### procedure-tasks
@@ -538,7 +621,7 @@ Items mounted in a rack storage unit
 - **`hudu-cli rack-storage-items create`** - Mount an item in a rack
 - **`hudu-cli rack-storage-items delete`** - Delete a rack storage item
 - **`hudu-cli rack-storage-items get`** - Get a single rack storage item
-- **`hudu-cli rack-storage-items list`** - List rack storage items (paginated)
+- **`hudu-cli rack-storage-items list`** - List rack storage items (not paginated: returns the whole collection)
 - **`hudu-cli rack-storage-items update`** - Update a rack storage item
 
 ### rack-storages
@@ -581,7 +664,7 @@ VLAN zones
 - **`hudu-cli vlan-zones create`** - Create a VLAN zone
 - **`hudu-cli vlan-zones delete`** - Delete a VLAN zone
 - **`hudu-cli vlan-zones get`** - Get a single VLAN zone
-- **`hudu-cli vlan-zones list`** - List VLAN zones (paginated)
+- **`hudu-cli vlan-zones list`** - List VLAN zones (not paginated: returns the whole collection)
 - **`hudu-cli vlan-zones update`** - Update a VLAN zone
 
 ### vlans
@@ -591,7 +674,7 @@ VLAN records
 - **`hudu-cli vlans create`** - Create a VLAN
 - **`hudu-cli vlans delete`** - Delete a VLAN
 - **`hudu-cli vlans get`** - Get a single VLAN
-- **`hudu-cli vlans list`** - List VLANs (paginated)
+- **`hudu-cli vlans list`** - List VLANs (not paginated: returns the whole collection)
 - **`hudu-cli vlans update`** - Update a VLAN
 
 ### websites
@@ -605,6 +688,59 @@ Monitored websites with SSL/domain expiration tracking
 - **`hudu-cli websites update`** - Update a monitored website
 
 
+### audit
+
+
+- **`hudu-cli audit completeness`** - Score how completely each company's assets fill their layout's required fields, worst-first.
+
+- **`hudu-cli audit stale-passwords`** - Find vault passwords not rotated within a threshold, grouped by company.
+
+- **`hudu-cli audit expirations`** - Windowed, typed view of expiring SSL certs, domains, warranties, and passwords sorted by days remaining.
+
+- **`hudu-cli audit summary`** - One worst-first hygiene scorecard per company combining completeness, stale passwords, expirations due, and stale articles.
+
+- **`hudu-cli audit layout-drift`** - Find assets carrying custom fields not in their layout's current schema, or missing newly-added fields.
+
+- **`hudu-cli audit stale-articles`** - Rank knowledge-base articles by how long since they were last updated.
+
+
+### onboard
+
+
+- **`hudu-cli onboard`** - Preview (default) and apply with --apply a saved bundle of asset layouts, folder tree, and procedures-from-template to a new company; the write path needs a global (not company-scoped) API key.
+
+
+### reconcile
+
+
+- **`hudu-cli reconcile`** - Bulk bidirectional check of which integrator (PSA/RMM) records resolve to a live Hudu asset and which are orphaned.
+
+
+### resolve
+
+
+- **`hudu-cli resolve`** - Paste a Hudu object URL or exact name and get the object plus its company, layout, and relations.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`hudu-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`hudu-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`hudu-cli learnings list`** - Inspect taught rows
+- **`hudu-cli learnings forget <query>`** - Undo a teach
+- **`hudu-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`hudu-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`hudu-cli teach-pattern`** - Install a query/resource template up front
+- **`hudu-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `HUDU_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `hudu-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -613,9 +749,8 @@ hudu-cli activity-logs
 
 # JSON for scripting and agents
 hudu-cli activity-logs --json
-
 # Filter to specific fields
-hudu-cli activity-logs --json --select id,name,status
+hudu-cli activity-logs --json --select id,user_id,user_email
 
 # Dry run  -  show the request without sending
 hudu-cli activity-logs --dry-run
@@ -624,21 +759,23 @@ hudu-cli activity-logs --dry-run
 hudu-cli activity-logs --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -650,9 +787,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/hudu-cli/config.toml`
+Run `hudu-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/hudu-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\hudu-cli\config.toml` on Windows; `--home`, `HUDU_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `HUDU_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `HUDU_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

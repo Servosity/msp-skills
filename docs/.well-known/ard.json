@@ -1,0 +1,1722 @@
+{
+  "entries": [
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:abnormal",
+      "displayName": "Abnormal Security",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/SKILL.md",
+      "description": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What new, unremediated email threats need attention right now?",
+        "Pull a client-ready security report for the quarter",
+        "What is the account-takeover risk picture for this employee?",
+        "Is this vendor showing email-compromise signs?",
+        "Remediate a threat and block until it actually completes"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/abnormal.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:acronis",
+      "displayName": "Acronis Cyber Protect Cloud",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/SKILL.md",
+      "description": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Whose backups succeeded, failed, or went stale across every customer last night?",
+        "Show me each failed or missed backup in the last 24 hours, newest first",
+        "Which customers have gone too long without a good backup (SLA breach)?",
+        "Which backup agents have silently gone offline across all tenants?",
+        "Did every customer's agents update after the rollout?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/acronis.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:action1",
+      "displayName": "Action1",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/SKILL.md",
+      "description": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which endpoints across all clients are missing the most patches?",
+        "Which CVEs hit the most machines, weighted by severity and known-exploited status?",
+        "Which agents have stopped checking in across the fleet?",
+        "What is the patch-and-vulnerability posture for each client organization?",
+        "Which endpoints are waiting on a reboot to finish a patch cycle?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/action1.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:afi",
+      "displayName": "Afi",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
+      "description": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which resources have no backup protection at all?",
+        "Which protected resources have a stale backup (silent failures)?",
+        "Is the whole fleet green this morning, or who failed?",
+        "What is one tenant's full backup posture for a QBR or ticket?",
+        "Am I over- or under-licensed on Afi seats?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/afi.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:appdirect",
+      "displayName": "AppDirect",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/SKILL.md",
+      "description": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Which payments failed or stalled in the last week, across every company?",
+        "What's active-but-unbilled, overdue, or failed before month-close?",
+        "What changed in subscriptions this week - new, ended, or suspended?",
+        "Show one customer's full picture - users, subscriptions, invoices, opportunities.",
+        "What does my assisted-sales pipeline look like by status?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/appdirect.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:atera",
+      "displayName": "Atera",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/atera/SKILL.md",
+      "description": "Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which agents have gone offline or stopped checking in?",
+        "Which open tickets are closest to breaching SLA?",
+        "Who is overloaded on the service desk right now?",
+        "Which customers have managed agents but no active contract?",
+        "What contracts expire in the next 60 days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/atera.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:autotask",
+      "displayName": "Autotask PSA",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
+      "description": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Which approved time entries haven't been invoiced yet?",
+        "How stale is the service desk right now, bucketed by age?",
+        "Which open tickets has nobody touched in a week?",
+        "Which unassigned tickets should the dispatcher pick up first?",
+        "Who's overloaded before I assign the next ticket?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/autotask.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:auvik",
+      "displayName": "Auvik",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/SKILL.md",
+      "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you. Trigger phrases: `what is end of life across my clients`, `which devices have no config backup`, `what devices disappeared from auvik`, `reconcile auvik billable device counts`, `why can't auvik see this device`, `which client is generating the most alerts`, `use auvik`, `run auvik`.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "What hardware is past or approaching end-of-support across every client?",
+        "What ages out in the next 90 days, so I can put it in a QBR?",
+        "Which devices have no configuration backup, or only a stale one?",
+        "What was added, changed, or removed across the fleet since the last sync?",
+        "Which clients' billed device counts disagree with their actual inventory?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/auvik.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:avanan",
+      "displayName": "Avanan",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/SKILL.md",
+      "description": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What did Avanan catch across my tenants since the start of my shift?",
+        "Are these forty detections one phishing campaign or forty problems?",
+        "A user says we quarantined a legitimate email. What actually happened to it?",
+        "Is this domain, sender, URL, or hash already excepted anywhere?",
+        "Which of our exceptions contradict each other or have not matched any traffic in the mirrored window?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/avanan.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:aws-billing",
+      "displayName": "AWS",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
+      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Why did my bill change month-over-month?",
+        "Which linked account is driving org spend?",
+        "Where am I wasting money right now?",
+        "What does this cryptic usage-type line mean?",
+        "Where is my data-transfer cost leaking?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/aws-billing.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:axcient",
+      "displayName": "Axcient x360Recover",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/axcient/SKILL.md",
+      "description": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Whose backups failed or went stale across every client last night?",
+        "Give me one row per client: devices total, failing, stale, RPO-breach, and AutoVerify-fail counts",
+        "Which devices are past their recovery-point objective, grouped by client?",
+        "Only show the devices actually breaching RPO at the cloud tier",
+        "Produce backup-compliance evidence for one client (restore-point age + AutoVerify + RPO verdict)"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/axcient.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:backup-radar",
+      "displayName": "Backup Radar",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/SKILL.md",
+      "description": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which backups are failing or silent today, new or ongoing, and how many tickets are open on each?",
+        "Which backups is nobody watching: inactive, unmapped to ScalePad, failing with no ticket, no PSA company, or warnings counted as success?",
+        "What is one client's backup compliance rate over 90 days, with the weekly trend and the five worst devices?",
+        "Rank every client by backup compliance, worst first",
+        "What happened to one device's backups day by day this month, with tickets, tags and notes?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/backup-radar.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:betterstack",
+      "displayName": "Better Stack",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/SKILL.md",
+      "description": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "What's down right now and is anyone actually paged?",
+        "Which monitors would page nobody if they failed?",
+        "What's our MTTA and MTTR over the last 30 days, by monitor?",
+        "Which monitors are the noisiest over the last week?",
+        "Is anyone actually on call right now, or is there a gap?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/betterstack.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:bitdefender",
+      "displayName": "Bitdefender GravityZone",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/SKILL.md",
+      "description": "Endpoint health, threats, incidents and license usage across every GravityZone child company.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have unmanaged, outdated or unscanned endpoints?",
+        "What changed in endpoint protection since last week?",
+        "What open incidents across every client are high or critical?",
+        "Is the same malware quarantined at several customers, and is it blocklisted?",
+        "Which customer is this machine in, and what is its endpoint id?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/bitdefender.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:blumira",
+      "displayName": "Blumira",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/SKILL.md",
+      "description": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What are the worst open findings across all my client accounts right now?",
+        "What changed since my last sync, new, resolved, or status-changed findings?",
+        "What's my mean-time-to-resolve per account over the last month?",
+        "Which open findings are about to breach my age-based SLA?",
+        "Which detection rules are missing or disabled versus our basis ruleset?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/blumira.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cipp",
+      "displayName": "CIPP + Microsoft 365",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/SKILL.md",
+      "description": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which tenants have users with no MFA registered, as one row per tenant?",
+        "How does Conditional Access compare across all tenants?",
+        "Which tenants lack a Conditional Access policy most of the fleet has?",
+        "Which delegated-admin (GDAP) relationships expire in the next 30 days?",
+        "What changed in admin roles since last week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cipp.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cisco-duo",
+      "displayName": "Cisco Duo",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-duo/SKILL.md",
+      "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Why can't this user get through Duo, and which fix applies?",
+        "Unlock them and give them a one-hour, single-use bypass code (preview first)",
+        "They got a new phone number. Move their Duo to it.",
+        "Which customer is this person in?",
+        "Which customers have users in bypass, locked out, or never enrolled?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cisco-duo.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cisco-meraki",
+      "displayName": "Cisco Meraki",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/SKILL.md",
+      "description": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal.",
+      "tags": [
+        "Network Monitoring"
+      ],
+      "representativeQueries": [
+        "Which client org is in the worst shape right now?",
+        "What is offline or alerting across every org, and for how long?",
+        "Which MX WAN uplinks have failed?",
+        "Which licenses, subscriptions, and end-of-support dates are due in 90 days?",
+        "Who changed what across all orgs this week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cisco-meraki.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
+      "displayName": "connect-tool",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connect-tool/SKILL.md",
+      "description": "Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.",
+      "tags": [
+        "Meta"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connect-tool.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connectsecure",
+      "displayName": "ConnectSecure",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/SKILL.md",
+      "description": "See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which open vulnerabilities across every client are most likely to be exploited?",
+        "What on the CISA Known Exploited list showed up this week?",
+        "Which clients carry the most risk, side by side?",
+        "A CVE just made the news. Which clients and assets does it hit, and is there a fix?",
+        "Which assets have scan data we cannot trust?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connectsecure.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connectwise-automate",
+      "displayName": "ConnectWise Automate",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/SKILL.md",
+      "description": "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which agents haven't checked in for 30+ days, by client?",
+        "Which clients are behind on patches, worst first?",
+        "What open alerts need a human across every client?",
+        "What's my whole-fleet health right now - online/offline, last contact, open alerts?",
+        "Give me a one-line snapshot per client for the review."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connectwise-automate.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connectwise-control",
+      "displayName": "ConnectWise Control",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
+      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "tags": [
+        "Remote Access"
+      ],
+      "representativeQueries": [
+        "Which access sessions are in this group?",
+        "Show the full detail (connections, events) for one session",
+        "What session groups exist on the instance?",
+        "Run a command on a guest machine (approval-gated)",
+        "Who are the instance users and roles?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connectwise-control.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connectwise-manage",
+      "displayName": "ConnectWise PSA (Manage)",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-manage/SKILL.md",
+      "description": "Triage boards, catch unbilled time, and prep QBRs by asking.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Which tickets did we touch this week that have zero time logged against them?",
+        "Which clients are about to blow through their block-hours agreement?",
+        "What does the Help Desk board look like right now - age, owner, priority?",
+        "Which open tickets has nobody touched in five days?",
+        "Who has bandwidth for the next ticket?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connectwise-manage.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connectwise-rmm",
+      "displayName": "ConnectWise RMM",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/SKILL.md",
+      "description": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which endpoints are offline or silent for more than a day, by client?",
+        "Which clients are behind on patches, worst first?",
+        "Which machines need a reboot this patch week, and which have someone logged on?",
+        "Which machine is this user logged on to?",
+        "Give me one client's health card for the review."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/connectwise-rmm.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cork",
+      "displayName": "Cork",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/SKILL.md",
+      "description": "Explain why a client's risk score moved, patch by what is actually exploited, and catch the connector that reports healthy while its data went stale.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Why did this client's risk score move, and which component drove it?",
+        "Which clients across the whole book slipped the most this week?",
+        "What should we patch first, ranked by what is actually being exploited?",
+        "An advisory just named a CVE. Are we exposed, and where?",
+        "Which compliance events have blown their remediation window?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cork.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cove",
+      "displayName": "Cove Data Protection",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cove/SKILL.md",
+      "description": "Sweep every Cove customer for failed and stale backups, storage growth, and month-end billing from your terminal.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which devices failed their last backup since yesterday?",
+        "Which devices have had no successful backup in 3 days?",
+        "What is the fleet-wide health rollup, broken down per customer?",
+        "Which devices and customers grew their storage fastest this week?",
+        "What is the month-end billing usage per device, with codes decoded?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cove.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:crowdstrike",
+      "displayName": "CrowdStrike Falcon",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/SKILL.md",
+      "description": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What should I triage first across all my client tenants right now?",
+        "Rank the critical vulnerabilities across every tenant?",
+        "Which hosts haven't reported a sensor heartbeat lately?",
+        "Give me one posture scorecard per tenant for the QBR deck?",
+        "Which tenants are under-protected versus my prevention-policy baseline?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/crowdstrike.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datagate",
+      "displayName": "DataGate",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/SKILL.md",
+      "description": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Pull this month's invoices",
+        "Look up a customer",
+        "Which agreements belong to which customer?",
+        "Search for a customer or invoice by name/number"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datagate.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datto-bcdr",
+      "displayName": "Datto BCDR",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/SKILL.md",
+      "description": "Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which protected machines failed their last backup screenshot verification?",
+        "Which agents are behind on local snapshots or offsite sync?",
+        "What percentage of my fleet is actually recoverable right now?",
+        "Which clients are most at risk across backups, alerts, and storage?",
+        "Show me every open alert across the whole fleet, grouped by client."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datto-bcdr.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datto-rmm",
+      "displayName": "Datto RMM",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/SKILL.md",
+      "description": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which devices haven't checked in for 30 days, across every client?",
+        "Where is antivirus missing, disabled, or not running?",
+        "Which endpoints are most behind on patches right now?",
+        "Which devices have warranties expiring in the next 60 days?",
+        "Which devices are generating the most alert noise this week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datto-rmm.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
+      "displayName": "Domotz",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/SKILL.md",
+      "description": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
+      "tags": [
+        "Network Monitoring"
+      ],
+      "representativeQueries": [
+        "Is anything on fire across all my sites?",
+        "Which Collectors (sites) are offline or degraded right now?",
+        "What devices are offline across every client?",
+        "What new devices appeared on any network in the last day?",
+        "Give me one asset inventory across every site"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/domotz.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:fortinet",
+      "displayName": "Fortinet",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/SKILL.md",
+      "description": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Give me one posture verdict across every client FortiGate, showing only findings that are new since the last run.",
+        "Which FortiGates are below my firmware floor, and how many patches behind their branch is each one?",
+        "Where is SSL-VPN enabled on a WAN interface and open to any source address?",
+        "Which admins have no trusted hosts or no two-factor, and which WAN interfaces allow HTTP or Telnet?",
+        "Which FortiGuard and FortiCare licenses expire in the next 60 days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/fortinet.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:google-workspace",
+      "displayName": "Google Workspace",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/SKILL.md",
+      "description": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first?",
+        "Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts, per client?",
+        "Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer?",
+        "Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive, Calendar and app-sharing setting changes?",
+        "Who changed Drive or Calendar settings, and how many files went external or public (with sample names), in the last week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/google-workspace.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:grab-cookie",
+      "displayName": "grab-cookie",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/grab-cookie/SKILL.md",
+      "description": "Re-auth the tools that never issue an API key. One paste, stored in the OS credential store, verified live.",
+      "tags": [
+        "Meta"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/grab-cookie.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:gradient",
+      "displayName": "Gradient MSP",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/SKILL.md",
+      "description": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Push a whole file of usage counts and rebuild billing exactly once?",
+        "Which accounts' usage changed between my last two pushes?",
+        "Send an alert and confirm the PSA ticket was actually created?",
+        "Which of my dispatched alerts never became tickets?",
+        "Which accounts are unmapped or missing a vendor SKU?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/gradient.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:halopsa",
+      "displayName": "HaloPSA",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/halopsa/SKILL.md",
+      "description": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "What's about to breach SLA in the next 24 hours?",
+        "What's the dispatcher view across all agents and teams?",
+        "Who's overloaded right now?",
+        "What's the whole story for this client, on one screen?",
+        "How much contract time is left, and who's tracking over their bank?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/halopsa.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:hubspot",
+      "displayName": "HubSpot",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/SKILL.md",
+      "description": "Pipeline health, stale deals, and owner workload for every client by asking.",
+      "tags": [
+        "CRM"
+      ],
+      "representativeQueries": [
+        "Which open deals have gone cold with no engagement in the last three weeks?",
+        "Which of my contacts haven't been touched in a month?",
+        "What's my pipeline health right now - per-stage count, dollars, and what's at risk?",
+        "How is the open-deal load spread across my reps?",
+        "Who should I call today, ranked by stale-days, deal size, and stage?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/hubspot.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:hudu",
+      "displayName": "Hudu",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/SKILL.md",
+      "description": "Audit Hudu documentation hygiene, find stale passwords and expiring certs, and search every company offline.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "Which clients have the worst documentation completeness?",
+        "What's expiring in the next 30 days across every client?",
+        "Which vault passwords are overdue for rotation?",
+        "Which knowledge-base articles are stale and probably out of date?",
+        "Which assets have drifted from their layout's current schema?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/hudu.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:huntress",
+      "displayName": "Huntress",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/huntress/SKILL.md",
+      "description": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which incidents are oldest across every client org?",
+        "Where are my posture gaps - stale callbacks, disabled Defender or firewall?",
+        "Has this IP or file hash touched any of my clients?",
+        "Am I billed for more seats than I have agents deployed?",
+        "Which agents went dark in the last week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/huntress.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:immybot",
+      "displayName": "ImmyBot",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/SKILL.md",
+      "description": "Triage a night of failed maintenance by root cause, and rank one title across every tenant.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "What failed in last night's maintenance window, by root cause?",
+        "Which tenants are still below a patched version of a title?",
+        "Why did this computer not get the deployment?",
+        "What changed across the fleet since yesterday?",
+        "Which computers are stuck part way through onboarding?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/immybot.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:itglue",
+      "displayName": "IT Glue",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/SKILL.md",
+      "description": "Find any device, audit stale passwords, and rank thin client docs by asking.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "Which client owns this device, serial number, or contact?",
+        "Which clients are under-documented, thinnest first?",
+        "Which credentials haven't been rotated in a year, grouped by client?",
+        "What changed across every client since a given date?",
+        "Which contacts are duplicated across or within clients?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/itglue.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:jira-service-management",
+      "displayName": "Jira Service Management",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/SKILL.md",
+      "description": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Which tickets breach SLA in the next two hours, across every queue?",
+        "What happened on this ticket, internal notes included, before I reply?",
+        "Add a note for the other techs that the customer will never see",
+        "How are Acme Corp's open tickets doing before my client call?",
+        "What was our SLA breach rate by request type over the last 30 days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/jira-service-management.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:kaseya-bms",
+      "displayName": "Kaseya BMS",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/SKILL.md",
+      "description": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Which queues are underwater and what's going stale before standup?",
+        "Which open tickets haven't been touched in a week, oldest first?",
+        "Who's overloaded and who can take the next ticket?",
+        "How much of each contract have we burned this quarter?",
+        "What approved billable time is ready to invoice, by account?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/kaseya-bms.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:knowbe4",
+      "displayName": "KnowBe4",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/SKILL.md",
+      "description": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Who clicked the bait in more than one phishing test?",
+        "Whose risk score is getting worse this quarter?",
+        "Who clicked a phish but never passed training?",
+        "Which active users have zero training or zero phishing coverage?",
+        "Is training actually working for the Finance group?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/knowbe4.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:levelio",
+      "displayName": "Level",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/levelio/SKILL.md",
+      "description": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which devices are most at risk across alerts, patches, score, and staleness?",
+        "Which devices have gone dark and stopped checking in?",
+        "What is my fleet-wide patch exposure, by category?",
+        "How is my fleet broken down by OS, platform, or group?",
+        "Where are my active critical fires, clustered by group?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/levelio.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:liongard",
+      "displayName": "Liongard",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/SKILL.md",
+      "description": "See every config change, stale collector, and offline agent across your whole Liongard estate from one command.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "What changed across all my clients in the last 24 hours?",
+        "Which collectors (launchpoints) have gone stale?",
+        "Which agents are offline right now, and whose environment do they serve?",
+        "Give me one health scorecard for the whole estate.",
+        "Show me one client's complete picture in a single command."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/liongard.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:maxio",
+      "displayName": "Maxio",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/SKILL.md",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing - MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "What's our current MRR and ARR right now?",
+        "How did MRR move month over month (new, expansion, contraction, churn, reactivation)?",
+        "What's our net and gross revenue retention, and quick ratio?",
+        "What's recurring revenue for this customer, and how has it trended?",
+        "Which accounts need attention this week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/maxio.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:microsoft-graph",
+      "displayName": "Microsoft Graph",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/SKILL.md",
+      "description": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which SKUs are we paying for but not fully using, ranked by wasted seats?",
+        "Which disabled or guest accounts still hold a paid license?",
+        "Who exactly is consuming one specific SKU before I reclaim seats?",
+        "Who holds a privileged directory role right now, and which holders are guest or disabled?",
+        "What open security alerts are new since yesterday, by severity and source?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/microsoft-graph.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:msp-skills-concierge",
+      "displayName": "Concierge",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/_meta/SKILL.md",
+      "description": "Tell it your stack - it recommends and installs the right connectors.",
+      "tags": [
+        "Meta"
+      ],
+      "metadata": {
+        "page": "https://github.com/servosity/msp-skills/tree/main/skills/_meta"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:mspbots",
+      "displayName": "MSPbots",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/SKILL.md",
+      "description": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
+      "tags": [
+        "Analytics"
+      ],
+      "representativeQueries": [
+        "Is our open-ticket backlog up or down versus last week?",
+        "What changed in open tickets since the last snapshot - rows added, removed, or edited?",
+        "Pull the open tickets updated since June 1",
+        "What columns does this dataset have, and what types?",
+        "Export the entire dataset to CSV for the QBR deck"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/mspbots.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:n-central",
+      "displayName": "N-able N-central",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/n-central/SKILL.md",
+      "description": "Find any device, triage issues, and search across every client by asking.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "What's red right now, grouped by customer and ranked by severity?",
+        "Where is EXCHANGE01 - server, service org, customer, site?",
+        "Find anything named acme across every server we run",
+        "Which devices are missing the Backup Plan custom property, by customer?",
+        "Which devices have no maintenance window before the June 15 patch wave?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/n-central.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:nerdio",
+      "displayName": "Nerdio Manager",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/SKILL.md",
+      "description": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which host pools have autoscale off or drifting across every customer?",
+        "What is running right now across all accounts, and where?",
+        "What did each customer get billed this period, and who is unpaid?",
+        "Which customers' Azure usage spiked month-over-month?",
+        "List every customer account I manage"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/nerdio.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:ninjaone",
+      "displayName": "NinjaOne",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ninjaone/SKILL.md",
+      "description": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which organizations are below 95% patch compliance?",
+        "Which endpoints across the fleet have no backup at all?",
+        "Which devices is a given threat on, fleet-wide?",
+        "Which devices have antivirus definitions older than a week?",
+        "What is each organization's overall health score, and why?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/ninjaone.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:pagerduty",
+      "displayName": "PagerDuty",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/SKILL.md",
+      "description": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.",
+      "tags": [
+        "Incident Response"
+      ],
+      "representativeQueries": [
+        "What's on fire right now, ranked by SLA risk?",
+        "Who's on call for a service right now, and when's the handoff?",
+        "What's our MTTA and MTTR by service this month?",
+        "Which services have a broken escalation chain or single point of failure?",
+        "Where does a schedule have nobody on call over the next two weeks?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/pagerduty.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:pandadoc",
+      "displayName": "PandaDoc",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pandadoc/SKILL.md",
+      "description": "Find stalled proposals, aging quotes, and unsigned PandaDoc documents from the terminal.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "Which documents were sent but never completed?",
+        "How much money is tied up in open quotes?",
+        "What does my whole document funnel look like right now?",
+        "How long has each document sat in its current status?",
+        "Which clients haven't signed anything in a month?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/pandadoc.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:pax8",
+      "displayName": "Pax8",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/SKILL.md",
+      "description": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Where is my billing leaking - invoiced for a cancelled product, or active but never billed?",
+        "Can I catch that leakage before the next invoice finalizes?",
+        "What is my MRR and margin right now, broken down by product?",
+        "Which usage summaries are running hot before they hit the invoice?",
+        "What changed in my book of business this week - new, cancelled, resized subscriptions?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/pax8.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:pipedrive",
+      "displayName": "Pipedrive",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pipedrive/SKILL.md",
+      "description": "Surface stale deals, weighted forecasts, and overdue follow-ups across your pipeline by asking.",
+      "tags": [
+        "CRM"
+      ],
+      "representativeQueries": [
+        "Which open deals has nobody touched in two weeks, worst dollar value first?",
+        "What's my weighted forecast for this quarter, and what's expected to close?",
+        "Which deals are stuck in a stage longer than that stage usually takes?",
+        "Which open deals have no next activity scheduled?",
+        "Rank my reps by won value over the last 90 days."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/pipedrive.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:proofpoint",
+      "displayName": "Proofpoint TAP",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/SKILL.md",
+      "description": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What malicious clicks and messages got through overnight?",
+        "Who is both Very Attacked and a top clicker?",
+        "Give me the full incident brief for a threatId",
+        "What indicators should I block from this threat?",
+        "Show me every event that touched one user"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/proofpoint.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:proxmox",
+      "displayName": "Proxmox",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/SKILL.md",
+      "description": "Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which client VMs lack a good, recent backup (verified, where it is on PBS)?",
+        "Which VMs or disks are in no enabled backup job?",
+        "What failed or stopped part-way overnight, by guest, with the error line?",
+        "How far has a PBS verify failure spread?",
+        "Which backup datastores fill up within 30 days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/proxmox.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:quickbooks",
+      "displayName": "QuickBooks Online",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/SKILL.md",
+      "description": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?",
+        "What do we owe vendors, and when is it due?",
+        "Which overdue invoices should I chase first?",
+        "Where does our cash stand across accounts, AR, and AP?",
+        "What net cash movement is scheduled over the next 4 weeks?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/quickbooks.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:quotewerks",
+      "displayName": "QuoteWerks",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/SKILL.md",
+      "description": "Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking.",
+      "tags": [
+        "CRM"
+      ],
+      "representativeQueries": [
+        "Where does the Acme quote stand?",
+        "What is on quote 1042, line by line, with margin per line?",
+        "Is anything on this quote priced below cost or under 10% margin before it goes out?",
+        "What does an 18% margin on these laptops do to the quote? Show me before you change it.",
+        "Which open quotes are 30 days old or more, and who do I chase?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/quotewerks.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:resourceguru",
+      "displayName": "Resource Guru",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/SKILL.md",
+      "description": "Use when the user asks to see who is overbooked in Resource Guru, find who is on the bench, check a resource's day-by-day utilization, work out remaining capacity before booking a project, or report what changed on the schedule. Syncs your whole Resource Guru schedule into a local SQLite mirror so it computes the per-day, fleet-wide utilization the reports never expose. Trigger phrases: `resource utilization by day`, `who is overbooked in resource guru`, `who is on the bench`, `remaining capacity in resource guru`, `use resource guru`, `run resourceguru-cli`.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Who is overbooked across the whole fleet this month?",
+        "What is each person's utilization, day by day?",
+        "Who has slack to take on new work next week?",
+        "How much bookable capacity is left next month?",
+        "What changed on the schedule in the last week?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/resourceguru.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:rewst",
+      "displayName": "Rewst",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/SKILL.md",
+      "description": "Use when the user asks to check Rewst automation health, find failed or dormant workflows, report automation ROI/time-saved, compare config drift between client orgs, or check integration-pack coverage across tenants. Turns Rewst's GraphQL-only gateway into typed commands and adds cross-org rollups the web app makes you assemble one client at a time. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
+      "tags": [
+        "Automation"
+      ],
+      "representativeQueries": [
+        "Is automation healthy for this client right now?",
+        "Which workflows failed for this org overnight?",
+        "Which workflows have gone dormant (no runs in 30 days)?",
+        "How much time did automation save this client?",
+        "What does one org have that another is missing (variables, packs)?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/rewst.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:riverside-fm",
+      "displayName": "Riverside.fm",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/SKILL.md",
+      "description": "Use when the user asks to download, back up, export, or search their own Riverside.com (Riverside.fm) podcast or video account: bulk-export a studio's transcripts, audio, and video; grab a single recording; convert a transcript to VTT/SRT/Markdown; compute per-speaker talktime; or harvest Magic Clips with fresh URLs. Works on Pro/Live/Webinar accounts with no Business-plan API key. Trigger phrases: `download my riverside transcripts`, `back up my riverside studio`, `bulk export riverside studio`, `search riverside transcripts`, `convert riverside transcript to vtt`, `harvest magic clips`, `use riverside-fm`, `run riverside-fm`.",
+      "tags": [
+        "Marketing"
+      ],
+      "representativeQueries": [
+        "Back up everything in a studio to disk?",
+        "Get the most useful asset for one recording in a single shot?",
+        "Find a quote across my whole transcript archive?",
+        "Turn a transcript into captions for a web player?",
+        "Who talked the most in this episode?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/riverside-fm.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:rocketcyber",
+      "displayName": "RocketCyber",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/SKILL.md",
+      "description": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What broke across all my clients overnight?",
+        "Which devices went dark this week?",
+        "How fast is my SOC actually resolving incidents?",
+        "Which machines are riskiest in Defender right now?",
+        "Is this client's Microsoft 365 posture improving?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/rocketcyber.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:rootly",
+      "displayName": "Rootly",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rootly/SKILL.md",
+      "description": "Every Rootly incident, alert, and on-call object as a typed command, plus offline MTTR and coverage-gap answers.",
+      "tags": [
+        "Incident Response"
+      ],
+      "representativeQueries": [
+        "Who's on call right now across every service and schedule?",
+        "What past incidents are most similar to this one?",
+        "What actually fixed this service the last time it broke?",
+        "What's our MTTA and MTTR by service this quarter?",
+        "Where does an on-call schedule have an unstaffed gap?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/rootly.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:runzero",
+      "displayName": "runZero",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/SKILL.md",
+      "description": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which of our assets are most exposed right now?",
+        "Only the internet-facing ones?",
+        "What changed on our attack surface since last week?",
+        "What newly became exposed or vulnerable since the last sync?",
+        "Which assets are affected by a given CVE?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/runzero.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:saas-alerts",
+      "displayName": "SaaS Alerts",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/saas-alerts/SKILL.md",
+      "description": "Triage alerts across every customer tenant, clear the Respond approval queue, and contain a compromised account.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What fired across every customer in the last 24 hours, critical first?",
+        "Which Respond triggers expire or auto-ignore soonest?",
+        "Is one IP address hitting two or more of my customers?",
+        "Everything on this one account: events, country hops, Respond triggers, devices",
+        "Which customers went silent, lost their Respond connection or have no Respond rules?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/saas-alerts.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:salesbuildr",
+      "displayName": "Salesbuildr",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/SKILL.md",
+      "description": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",
+      "tags": [
+        "CRM"
+      ],
+      "representativeQueries": [
+        "Which sent or approved quotes are aging, and how much is at risk?",
+        "Which quote line items are priced below my markup floor?",
+        "How does my quote pipeline convert stage by stage, in count and dollars?",
+        "Where have per-company pricing-book prices drifted from the master catalog?",
+        "What's my win rate by owner, stage, or category?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/salesbuildr.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:sentinelone",
+      "displayName": "SentinelOne",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sentinelone/SKILL.md",
+      "description": "Triage threats, find protection gaps, and catch overnight fleet drift across every SentinelOne tenant by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What should I triage first across all my client sites right now?",
+        "Where did this malicious file spread, and which endpoints are still active?",
+        "Which endpoints are decaying - offline, out-of-date, infected, or under-protected?",
+        "Which clients have protection gaps (detect-only, Ranger off, firewall off)?",
+        "What changed across the whole fleet since yesterday?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/sentinelone.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:servosity",
+      "displayName": "Servosity",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/SKILL.md",
+      "description": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Where is my attention needed today, ranked worst-first?",
+        "What got worse since yesterday, and what recovered?",
+        "Which clients have backups stale for 7+ days?",
+        "Draft the follow-up email for every client with a stale backup",
+        "Build the backup section of Acme's QBR as a PDF"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/servosity.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:sherweb",
+      "displayName": "Sherweb",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sherweb/SKILL.md",
+      "description": "Reconcile what you owe Sherweb against what customers owe you and surface true net margin per customer.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "What is my net margin per customer this month - receivable minus payable?",
+        "Whose margin is sliding month over month before an account goes negative?",
+        "Which active subscriptions am I paying Sherweb for but not billing the customer?",
+        "Where am I absorbing metered usage I never billed back?",
+        "Which subscriptions have more seats paid than seats actually used?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/sherweb.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:skykick",
+      "displayName": "SkyKick",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/SKILL.md",
+      "description": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which customers have a protection gap right now?",
+        "Whose mailboxes haven't been snapshotted in 48 hours?",
+        "What's discovered but not actually being backed up?",
+        "Which tenants fall below our retention floor?",
+        "Where is autodiscover off, so new mailboxes silently never enroll?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/skykick.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:sonicwall",
+      "displayName": "SonicWall",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/SKILL.md",
+      "description": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Give me one insurance-posture row per client firewall: firmware, end of support, advisories, licences, admin TOTP and SSL-VPN exposure.",
+        "Which firewalls does the CVE-2024-40766 advisory hit, and which have SSL-VPN on a WAN zone?",
+        "Which SonicWall advisories hit the most firewalls in my fleet right now?",
+        "Which admins and local SSL-VPN users have no one-time password?",
+        "Which firewalls are behind the newest firmware, and which advisories does the upgrade clear?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/sonicwall.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:sophos-central",
+      "displayName": "Sophos Central",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/SKILL.md",
+      "description": "Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What needs attention across all my customers today?",
+        "Which customers have the worst Account Health Check scores, and who slipped since the last refresh?",
+        "Where are the security and commercial gaps, customer by customer?",
+        "Which machines have tamper protection off across every customer?",
+        "Isolate this machine without looking up which tenant it is in"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/sophos-central.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:superops",
+      "displayName": "SuperOps",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/SKILL.md",
+      "description": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Who's about to breach SLA, grouped by technician?",
+        "Which clients have alerts still sitting unresolved?",
+        "Which endpoints are missing a critical patch and actively alerting?",
+        "Which open tickets has nobody touched in a week?",
+        "Everything about one client - sites, users, contracts, tickets, assets, open invoices?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/superops.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:syncro",
+      "displayName": "Syncro",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/SKILL.md",
+      "description": "Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Which customers have logged time we never invoiced?",
+        "Which closed tickets had billable time that was never invoiced?",
+        "How is our unpaid AR aging (0-30/30-60/60-90/90+)?",
+        "What is our revenue per labor hour by customer this quarter?",
+        "Which open tickets are going stale with no recent activity?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/syncro.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:tactical-rmm",
+      "displayName": "Tactical RMM",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/SKILL.md",
+      "description": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "What's the overall health of my fleet right now?",
+        "Which agents need attention first?",
+        "Which agents have gone dark or stopped checking in?",
+        "Where are patches and reboots pending across every client?",
+        "What changed across the fleet in the last few hours?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/tactical-rmm.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:td-synnex",
+      "displayName": "TD SYNNEX StreamOne ION",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/SKILL.md",
+      "description": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Which subscriptions renew in the next 30 days with auto-renew switched off?",
+        "Which customers am I selling at a loss or below list price?",
+        "Which SKUs carry the thinnest margin across every customer?",
+        "Do my TD SYNNEX and Pax8 seats agree for each customer and SKU?",
+        "Am I billing every seat I pay TD SYNNEX for?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/td-synnex.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:threatdown",
+      "displayName": "ThreatDown",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/SKILL.md",
+      "description": "Find stale endpoints, rank site health and isolate infected machines across every ThreatDown OneView site by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which endpoints haven't checked in for 24 hours, across every site?",
+        "Which customer site needs attention first?",
+        "Which sites are over- or under-allocated on seats, and which subscriptions are expiring?",
+        "Which scans or isolations never ran?",
+        "Which threats hit more than one customer this month?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/threatdown.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:threatlocker",
+      "displayName": "ThreatLocker",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/SKILL.md",
+      "description": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "What application approvals are pending across all my clients right now?",
+        "Approve this file hash everywhere it's pending, but show me the plan first?",
+        "Which clients are about to lose audit evidence to the 31-day retention cliff?",
+        "Save every client's blocked-file (deny) audit events locally before they age off?",
+        "Export that saved audit log for a SIEM or an auditor?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/threatlocker.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:unifi-network",
+      "displayName": "UniFi Network",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/unifi-network/SKILL.md",
+      "description": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.",
+      "tags": [
+        "Network Monitoring"
+      ],
+      "representativeQueries": [
+        "What changed in this site's config since my last check?",
+        "What devices and clients joined the network this week?",
+        "Do I have switch port and PoE headroom before adding hardware?",
+        "Which firewall policy would match traffic from this host?",
+        "Which clients are sitting behind which device?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/unifi-network.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:veeam",
+      "displayName": "Veeam",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/SKILL.md",
+      "description": "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `use veeam`, `run veeam`.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which backup jobs are failing across all my customers?",
+        "Which jobs and agents haven't had a successful run in 3+ days?",
+        "Which protected workloads are past their RPO?",
+        "What active alarms actually need a human, deduped across tenants?",
+        "How is one customer doing across backups, agents, alarms, and license?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/veeam.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:watchguard",
+      "displayName": "WatchGuard Cloud",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/SKILL.md",
+      "description": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customer needs attention first across Firebox, endpoints, ThreatSync and licenses?",
+        "Which endpoints are unprotected, out of date, isolated or waiting on a reboot, across every customer?",
+        "Which new ThreatSync incidents from the last 30 days need triage first, and which has nobody touched?",
+        "Which customers and computers are exposed to this CVE?",
+        "Which Fireboxes and access points went offline, came back or changed firmware since the last sync?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/watchguard.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:wordpress",
+      "displayName": "WordPress",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/SKILL.md",
+      "description": "Use when the user asks to publish, update, search, or clean up WordPress pages, posts, or media from the terminal or an AI agent - drives the WordPress REST API and keeps a local SQLite mirror for offline full-text search. Trigger phrases: `publish a wordpress page`, `create a wordpress post`, `list draft pages`, `upload media to wordpress`, `search my wordpress site`, `use wordpress`, `run wordpress`.",
+      "tags": [
+        "Marketing"
+      ],
+      "representativeQueries": [
+        "Publish a landing page from HTML without opening wp-admin?",
+        "Which pages are still sitting in draft?",
+        "Update a live page's content in place?",
+        "Upload a hero image and get its media id for a featured image?",
+        "Find every page or post that mentions an outdated phrase (after a workflow archive)?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/wordpress.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:xero",
+      "displayName": "Xero",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/xero/SKILL.md",
+      "description": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
+      "tags": [
+        "Billing"
+      ],
+      "representativeQueries": [
+        "Who owes us, and how overdue is each invoice?",
+        "What do we owe suppliers, bucketed by age?",
+        "Which contacts carry the most receivable risk?",
+        "Which authorised invoices are still owed with no applied payment?",
+        "Which bank transactions are unreconciled, and what might they match?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/xero.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:zammad",
+      "displayName": "Zammad",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
+      "description": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
+      "tags": [
+        "PSA"
+      ],
+      "representativeQueries": [
+        "Who on the team is overloaded, and who is idle?",
+        "Is each agent's queue growing or shrinking week over week?",
+        "Which customers are struggling and should get attention first?",
+        "What tickets have been open too long, worst first?",
+        "Which customers sound upset and should be escalated?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/zammad.md"
+      }
+    }
+  ]
+}

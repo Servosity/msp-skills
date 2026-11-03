@@ -44,9 +44,10 @@ Preconditions:
 
 ## Gotchas
 
-- The fake vendor answers GET with `[]` and JSON-RPC with `"result": []`. A
-  client that rejects that generic reply after the request left correctly is
-  ERROR (the harness cannot judge the answer), not FAIL.
+- The fake vendor answers GET with `[]`, JSON-RPC with `"result": []`, and a
+  Synology DSM WebAPI call (a `/webapi/` path with `api=SYNO.*`) in DSM's
+  envelope. A client that rejects that generic reply after the request left
+  correctly is ERROR (the harness cannot judge the answer), not FAIL.
 - `<slug>_get` describes an endpoint and calls nothing; it is never the read call.
 - Local-store tools (`sql`, `context`, learnings, recall) answer without the
   vendor and do not count.

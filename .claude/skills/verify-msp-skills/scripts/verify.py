@@ -15,6 +15,7 @@ sandbox-exec profile that refuses every non-loopback connection.
     python3 .claude/skills/verify-msp-skills/scripts/verify.py run --slug cipp --gates
     python3 .claude/skills/verify-msp-skills/scripts/verify.py report
     python3 .claude/skills/verify-msp-skills/scripts/verify.py cleanup --stale
+    python3 .claude/skills/verify-msp-skills/scripts/verify.py self-test
 
 One verdict per feature:
   PASS   the harness ran and the check held
@@ -38,6 +39,7 @@ import argparse
 import datetime as dt
 import fcntl
 import hashlib
+import http.client
 import ipaddress
 import json
 import os
@@ -56,6 +58,7 @@ import threading
 import time
 import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -104,8 +107,23 @@ def stamp() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# The per-run secrets (feature 3's HTTP bearer token and its wrong token).
+# Ctx.secrets is this list. Wherever verify.py cuts, slices or formats a value
+# for evidence, a verdict or the console, it redacts the FULL value first and
+# cuts after (redact(x)[:n]): a cut secret cannot be matched any more. Values a
+# check asserts on are never redacted.
+RUN_SECRETS: list[str] = []
+
+
+def redact(text: str, secret_list: list[str] | None = None) -> str:
+    for x in RUN_SECRETS if secret_list is None else secret_list:
+        if x:
+            text = text.replace(x, "<redacted>")
+    return text
+
+
 def tail(text: str | None, n: int = 3, width: int = 240) -> str:
-    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    lines = [ln.strip() for ln in redact(text or "").splitlines() if ln.strip()]
     return " | ".join(lines[-n:])[:width]
 
 
@@ -213,6 +231,41 @@ def git_head() -> str:
 # machine) is refused and logged as an egress attempt.
 # --------------------------------------------------------------------------- #
 
+class _QuietHTTPServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address) -> None:
+        # The default prints a traceback whose frames can carry request data.
+        print("verify: the fake vendor's request handler raised; request data not logged", file=sys.stderr)
+
+
+def dsm_params(target: str, content_type: str, body: bytes) -> dict | None:
+    """The lower-cased query and form parameters of a Synology DSM WebAPI call:
+    an origin-form request target under /webapi/ whose `api` parameter names a
+    SYNO.* API. A body counts only when it is declared a form. None for every
+    other request, including a proxy-style target that names another host."""
+    path, _, query = target.partition("?")
+    if not path.lower().startswith("/webapi/"):
+        return None
+    sources = [query]
+    if content_type.split(";")[0].strip().lower() == "application/x-www-form-urlencoded":
+        sources.append(body.decode("utf-8", "replace"))
+    params: dict[str, str] = {}
+    for raw in sources:
+        for k, v in urllib.parse.parse_qsl(raw, keep_blank_values=True):
+            params.setdefault(k.lower(), v.lower())
+    return params if params.get("api", "").startswith("syno.") else None
+
+
+def dsm_answer(params: dict) -> dict:
+    """The {"success":true,"data":...} envelope a Synology DSM WebAPI answers
+    with: SYNO.API.Info lists the login API, SYNO.API.Auth login mints an
+    inert session, and every other call returns an empty data object."""
+    if params["api"] == "syno.api.info":
+        return {"success": True, "data": {"SYNO.API.Auth": {"path": "entry.cgi", "minVersion": 1, "maxVersion": 7}}}
+    if params["api"] == "syno.api.auth" and params.get("method") == "login":
+        return {"success": True, "data": {"sid": "verify-fake-dsm-sid", "synotoken": "verify-fake-dsm-synotoken"}}
+    return {"success": True, "data": {}}
+
+
 class FakeVendor:
     def __init__(self, log: Path, egress_log: Path):
         self.lock = threading.Lock()
@@ -254,6 +307,12 @@ class FakeVendor:
                 if self.command == "POST" and ("token" in low or "oauth" in low or b"grant_type" in body):
                     return self._reply(200, {"access_token": "verify-fake-access-token",
                                              "token_type": "Bearer", "expires_in": 3600})
+                dsm = dsm_params(self.path, self.headers.get("Content-Type") or "", body)
+                if dsm is not None:
+                    # A Synology DSM WebAPI answers every call in its own envelope,
+                    # and its client refuses a host that does not (it sends no
+                    # login until SYNO.API.Info lists SYNO.API.Auth).
+                    return self._reply(200, dsm_answer(dsm))
                 if self.command == "GET":
                     return self._reply(200, [])
                 return self._reply(200, {})
@@ -261,7 +320,7 @@ class FakeVendor:
             do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = _handle
             do_HEAD = do_OPTIONS = do_CONNECT = _handle
 
-        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.srv = _QuietHTTPServer(("127.0.0.1", 0), Handler)
         self.srv.daemon_threads = True
         self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -271,7 +330,7 @@ class FakeVendor:
         rec = {"t": stamp(), "method": h.command, "path": h.path,
                "header_names": sorted(hdrs),
                "auth_scheme": (hdrs.get("authorization") or "").split(" ")[0] or None,
-               "body_bytes": len(body), "body_head": body[:300].decode("utf-8", "replace")}
+               "body_bytes": len(body), "body_head": redact(body.decode("utf-8", "replace"))[:300]}
         with self.lock:
             rec["seq"] = len(self.requests)
             self.requests.append(rec)
@@ -464,7 +523,7 @@ class Ctx:
             d.mkdir(parents=True, exist_ok=True)
         self.pids: list[dict] = []
         self.sandbox: list[str] = []
-        self.secrets: list[str] = []
+        self.secrets: list[str] = RUN_SECRETS
         self.vendor: FakeVendor | None = None
         self.names = env_names(slug, self.skill, self.manifest)
         self.wiring = optional_ids_unset(wiring.classify_env(self.manifest), self.manifest)
@@ -495,9 +554,7 @@ class Ctx:
         self.save_state()
 
     def redact(self, text: str) -> str:
-        for s in self.secrets:
-            text = text.replace(s, "<redacted>")
-        return text
+        return redact(text, self.secrets)
 
     def env(self, drop: tuple[str, ...] = (), **extra: str) -> dict[str, str]:
         """A driven process's whole environment. Nothing is inherited from the
@@ -828,7 +885,7 @@ def f2_mcp_stdio(ctx: Ctx) -> dict:
         if read_ok(a):
             ep, req, n = a["arguments"].get("endpoint_id"), a["vendor_requests"][-1], len(a["vendor_requests"])
             return verdict(PASS, f"{head}; {a['tool']}{f'({ep})' if ep else ''} reached the fake vendor "
-                                 f"({req['method']} {req['path'][:80]}, auth={req['auth_scheme']}"
+                                 f"({req['method']} {redact(req['path'])[:80]}, auth={req['auth_scheme']}"
                                  f"{f', after {n - 1} earlier request(s)' if n > 1 else ''}) and answered")
     last = attempts[-1]
     reached = [a for a in attempts if a["vendor_requests"]]
@@ -836,7 +893,7 @@ def f2_mcp_stdio(ctx: Ctx) -> dict:
         # The request left correctly; the fake's generic reply is what the
         # client rejected, so this run cannot judge the answer path.
         req = reached[-1]["vendor_requests"][0]
-        return verdict(ERROR, f"{head}; read call reached the fake vendor ({req['method']} {req['path'][:60]}) "
+        return verdict(ERROR, f"{head}; read call reached the fake vendor ({req['method']} {redact(req['path'])[:60]}) "
                               f"but rejected its generic reply: {tail(reached[-1]['answer_head'], 1)}")
     return verdict(FAIL, f"{head}; {len(attempts)} read call(s), none reached the fake vendor: "
                          f"{tail(last['answer_head'], 1)}")
@@ -937,8 +994,7 @@ def rpc_body(headers, body: str) -> dict | None:
 
 def f3_mcp_http(ctx: Ctx) -> dict:
     d = ctx.fdir("f3-mcp-http")
-    checks = {"no-token default launch": http_default_launch(ctx, d),
-              "bearer auth": http_bearer_auth(ctx, d)}
+    checks = {"no-token default launch": http_default_launch(ctx, d), **http_bearer_auth(ctx, d)}
     return combine(checks)
 
 
@@ -999,9 +1055,9 @@ def http_default_launch(ctx: Ctx, d: Path) -> tuple[str, str]:
     return ERROR, "still running after 10s with no listening socket observed"
 
 
-def http_bearer_auth(ctx: Ctx, d: Path) -> tuple[str, str]:
-    """With a token set and a loopback address: a request without the token is
-    refused (401/403) and a request with it gets a working MCP session."""
+def http_bearer_auth(ctx: Ctx, d: Path) -> dict[str, tuple[str, str]]:
+    """With a token set and a loopback address, start the server and probe it
+    (probe_bearer). A server that does not start is ERROR."""
     token_var = ctx.names["http_token"]
     token = secrets.token_hex(32)
     ctx.secrets.append(token)
@@ -1029,31 +1085,279 @@ def http_bearer_auth(ctx: Ctx, d: Path) -> tuple[str, str]:
             if not up:
                 record["stderr"] = ctx.redact(err_path.read_text(encoding="utf-8", errors="replace"))
                 write_json(d / "bearer-auth.json", record)
-                return ERROR, f"did not start with {token_var} set: {tail(record['stderr'], 1)}"
-            init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": gate.HANDSHAKE[0]["params"]}
-            st0, _, body0 = http_post(url, init)
-            record["no_token"] = {"status": st0, "body_head": body0[:300]}
-            st1, h1, body1 = http_post(url, init, {"Authorization": f"Bearer {token}"})
-            msg1 = rpc_body(h1, body1)
-            sid = h1.get("Mcp-Session-Id") if h1 else None
-            record["with_token"] = {"status": st1, "session_id": bool(sid), "body_head": body1[:300]}
-            tools = []
-            if st1 == 200 and msg1 and "result" in msg1:
-                auth = {"Authorization": f"Bearer {token}", **({"Mcp-Session-Id": sid} if sid else {})}
-                http_post(url, {"jsonrpc": "2.0", "method": "notifications/initialized"}, auth)
-                st2, h2, body2 = http_post(url, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, auth)
-                msg2 = rpc_body(h2, body2) or {}
-                tools = (msg2.get("result") or {}).get("tools") or []
-                record["tools_list"] = {"status": st2, "tools": len(tools)}
+                return {"bearer auth": (ERROR, f"did not start with {token_var} set: {tail(record['stderr'], 1)}")}
+            record["origin_allowlist_expected"] = list(origin_allowlist_expected(ctx))
+            results = probe_bearer(url, token, token_var, record, ctx.secrets)
         finally:
             kill_group(p.pid, p)
     record["stderr"] = ctx.redact(err_path.read_text(encoding="utf-8", errors="replace"))
     write_json(d / "bearer-auth.json", {k: (ctx.redact(v) if isinstance(v, str) else v) for k, v in record.items()})
+    return results
+
+
+ORIGIN_ALLOWLIST_SINCE = (4, 34, 2)
+FOREIGN_ORIGIN = "https://verify-foreign-origin.invalid"
+
+
+def origin_allowlist_expected(ctx: Ctx) -> tuple[bool, str]:
+    """(does this server enforce an Origin allowlist?, why). Press 4.34.2 added
+    it, read from <PREFIX>_MCP_HTTP_ALLOWED_ORIGINS: the recorded press version
+    decides, and a binary that carries that variable name counts too."""
+    m = re.match(r"(\d+)\.(\d+)\.(\d+)", ctx.press or "")
+    if m and tuple(int(x) for x in m.groups()) >= ORIGIN_ALLOWLIST_SINCE:
+        return True, f"press {ctx.press}"
+    try:
+        if b"_MCP_HTTP_ALLOWED_ORIGINS" in ctx.mcp.read_bytes():
+            return True, f"{ctx.mcp_name} reads <PREFIX>_MCP_HTTP_ALLOWED_ORIGINS"
+    except OSError:
+        pass
+    return False, f"press {ctx.press}, and {ctx.mcp_name} does not read <PREFIX>_MCP_HTTP_ALLOWED_ORIGINS"
+
+
+def probe_bearer(url: str, token: str, token_var: str, record: dict, secret_list: list[str]) -> dict[str, tuple[str, str]]:
+    """Bearer auth: a request without the token and a request with a WRONG token
+    are refused (401/403), and a request with the token (and no Origin header)
+    gets a working MCP session. Origin allowlist: with the right token, a
+    foreign Origin is refused 403. A server without an allowlist (before press
+    4.34.2, record["origin_allowlist_expected"]) that answers it is SKIP, never
+    FAIL. Every recorded body passes through the redaction of secret_list."""
+    expected, why = (record.get("origin_allowlist_expected") or [False, "not recorded"])[:2]
+    wrong = secrets.token_hex(32)
+    secret_list.append(wrong)
+
+    def red(text: str) -> str:
+        return redact(text, secret_list)
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": gate.HANDSHAKE[0]["params"]}
+    st0, _, body0 = http_post(url, init)
+    record["no_token"] = {"status": st0, "body_head": red(body0)[:300]}
+    stw, _, bodyw = http_post(url, init, {"Authorization": f"Bearer {wrong}"})
+    record["wrong_token"] = {"status": stw, "body_head": red(bodyw)[:300]}
+    sto, _, bodyo = http_post(url, init, {"Authorization": f"Bearer {token}", "Origin": FOREIGN_ORIGIN})
+    record["foreign_origin_with_token"] = {"origin": FOREIGN_ORIGIN, "status": sto, "body_head": red(bodyo)[:300]}
+    st1, h1, body1 = http_post(url, init, {"Authorization": f"Bearer {token}"})
+    msg1 = rpc_body(h1, body1)
+    sid = h1.get("Mcp-Session-Id") if h1 else None
+    record["with_token"] = {"status": st1, "session_id": bool(sid), "body_head": red(body1)[:300]}
+    tools = []
+    if st1 == 200 and msg1 and "result" in msg1:
+        auth = {"Authorization": f"Bearer {token}", **({"Mcp-Session-Id": sid} if sid else {})}
+        http_post(url, {"jsonrpc": "2.0", "method": "notifications/initialized"}, auth)
+        st2, h2, body2 = http_post(url, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, auth)
+        msg2 = rpc_body(h2, body2) or {}
+        tools = (msg2.get("result") or {}).get("tools") or []
+        record["tools_list"] = {"status": st2, "tools": len(tools)}
+    out: dict[str, tuple[str, str]] = {}
     if st0 not in (401, 403):
-        return FAIL, f"answered an MCP initialize with no Authorization header (HTTP {st0}); no bearer auth"
-    if st1 != 200 or not tools:
-        return FAIL, f"refused the unauthenticated request (HTTP {st0}) but the configured token got HTTP {st1}, {len(tools)} tools"
-    return PASS, f"no token: HTTP {st0}; Bearer ${token_var}: HTTP {st1} and {len(tools)} tools"
+        out["bearer auth"] = (FAIL, f"answered an MCP initialize with no Authorization header (HTTP {st0}); no bearer auth")
+    elif stw not in (401, 403):
+        out["bearer auth"] = (FAIL, f"answered an MCP initialize with a WRONG bearer token (HTTP {stw}); the token is not compared")
+    elif st1 != 200 or not tools:
+        out["bearer auth"] = (FAIL, f"refused no token (HTTP {st0}) and a wrong token (HTTP {stw}) but the configured "
+                                    f"token with no Origin header got HTTP {st1}, {len(tools)} tools")
+    else:
+        out["bearer auth"] = (PASS, f"no token: HTTP {st0}; wrong token: HTTP {stw}; Bearer ${token_var}: HTTP {st1} "
+                                    f"and {len(tools)} tools")
+    if sto == 403:
+        out["origin allowlist"] = (PASS, f"foreign Origin with the token: HTTP 403; no Origin with the token: HTTP {st1} ({why})")
+    elif expected:
+        out["origin allowlist"] = (FAIL, f"{why}, yet a foreign Origin ({FOREIGN_ORIGIN}) with the token got HTTP {sto}, not 403")
+    else:
+        out["origin allowlist"] = (SKIP, f"no Origin allowlist ({why}): a foreign Origin with the token got HTTP {sto}")
+    return out
+
+
+class _StubMCPHandler(BaseHTTPRequestHandler):
+    """A fake `<slug>-mcp --transport http` for the self-test. `mode` picks how
+    it treats the bearer token and the Origin header."""
+    token = ""
+    mode = "enforces-origins"
+
+    def log_message(self, *a):  # silence
+        pass
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        msg = json.loads(self.rfile.read(n) or b"{}")
+        origin = self.headers.get("Origin")
+        authz = self.headers.get("Authorization") or ""
+        mode = type(self).mode
+        if mode.startswith("echo-at-") and origin is not None:
+            # A refusal body that carries the token at a chosen offset, so the
+            # 300-character body head is cut inside it, at it, or just after it.
+            body = ("x" * int(mode.rsplit("-", 1)[1]) + type(self).token + " end").encode()
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if mode == "no-origin-refused" and origin is None:
+            return self._send(403, {"error": "forbidden origin"})
+        if mode in ("enforces-origins", "accepts-any-bearer", "no-origin-refused") and origin is not None \
+                and origin != "http://127.0.0.1":
+            return self._send(403, {"error": "forbidden origin"})
+        ok = authz == f"Bearer {type(self).token}" or (mode == "accepts-any-bearer" and authz.startswith("Bearer "))
+        if mode != "no-auth" and not ok:
+            return self._send(401, {"error": "unauthorized"})
+        if "id" not in msg:
+            return self._send(202, None)
+        result = {"tools": [{"name": "stub_read"}]} if msg.get("method") == "tools/list" else {"serverInfo": {"name": "stub"}}
+        self._send(200, {"jsonrpc": "2.0", "id": msg["id"], "result": result}, {"Mcp-Session-Id": "stub-session"})
+
+    def _send(self, code: int, obj, headers: dict | None = None):
+        body = b"" if obj is None else json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def self_test() -> int:
+    """Drive probe_bearer against stand-in servers, one per behaviour, and
+    check each verdict both ways."""
+    cases = [  # (mode, allowlist expected, {check: verdict})
+        ("enforces-origins", True, {"bearer auth": PASS, "origin allowlist": PASS}),
+        ("ignores-origins", False, {"bearer auth": PASS, "origin allowlist": SKIP}),
+        ("enforces-origins", False, {"bearer auth": PASS, "origin allowlist": PASS}),
+        ("accepts-any-bearer", True, {"bearer auth": FAIL}),
+        ("ignores-origins", True, {"bearer auth": PASS, "origin allowlist": FAIL}),
+        ("no-origin-refused", True, {"bearer auth": FAIL}),
+        ("no-auth", False, {"bearer auth": FAIL}),
+    ]
+    bad = 0
+    for mode, expected, want in cases:
+        token = secrets.token_hex(32)
+        _StubMCPHandler.token, _StubMCPHandler.mode = token, mode
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), _StubMCPHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            record = {"origin_allowlist_expected": [expected, "self-test"]}
+            got = probe_bearer(f"http://127.0.0.1:{srv.server_address[1]}/mcp", token, "STUB_MCP_HTTP_TOKEN",
+                               record, [token])
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        ok = all(got.get(k, (None, ""))[0] == v for k, v in want.items())
+        leaked = token in json.dumps(record)
+        if leaked:
+            ok = False
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] {mode} (allowlist expected: {expected}): "
+              + "; ".join(f"{k} {v[0]}" for k, v in got.items()) + (" (token leaked into the record)" if leaked else ""))
+    bad += redaction_self_test()
+    bad += dsm_self_test()
+    print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
+    return 0 if not bad else 1
+
+
+def dsm_self_test() -> int:
+    """The fake vendor answers a Synology DSM WebAPI call in DSM's envelope and
+    every other request exactly as before ([] for GET, {} otherwise), over HTTP."""
+    info = {"success": True, "data": {"SYNO.API.Auth": {"path": "entry.cgi", "minVersion": 1, "maxVersion": 7}}}
+    login = {"success": True, "data": {"sid": "verify-fake-dsm-sid", "synotoken": "verify-fake-dsm-synotoken"}}
+    empty = {"success": True, "data": {}}
+    form, as_json = "application/x-www-form-urlencoded; charset=utf-8", "application/json"
+    cases = [  # (method, request target, content type, body, expected reply)
+        ("GET", "/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=all", None, b"", info),
+        ("POST", "/webapi/auth.cgi", form, b"api=SYNO.API.Auth&version=6&method=login&account=a", login),
+        ("GET", "/webapi/entry.cgi?api=SYNO.API.Auth&method=logout&version=6", None, b"", empty),
+        ("GET", "/webapi/entry.cgi?api=SYNO.ActiveBackup.Inventory&method=list&version=1", None, b"", empty),
+        ("GET", "/api/v1/devices", None, b"", []),
+        ("POST", "/api/v1/devices", as_json, b'{"name":"x"}', {}),
+        ("GET", "/webapi/entry.cgi?method=list", None, b"", []),
+        ("GET", "/webapi/entry.cgi?myapi=SYNO.API.Info", None, b"", []),
+        ("GET", "/v2/devices?api=SYNO.API.Info", None, b"", []),
+        ("GET", "/v2/devices?next=/webapi/query.cgi&api=SYNO.API.Info", None, b"", []),
+        ("GET", "/proxy/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        ("GET", "/webapi/entry.cgi?api=SYNOLOGY.Info", None, b"", []),
+        # An api= inside a body that is not a form is text, not a parameter.
+        ("POST", "/webapi/entry.cgi", as_json, b'{"note":"&api=SYNO.API.Info&"}', {}),
+        ("POST", "/webapi/entry.cgi", None, b"api=SYNO.API.Info", {}),
+        # A proxy-style target names another host, whatever the case of its scheme.
+        ("GET", "HTTP://example.invalid/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        # A target that does not parse as a URL is still answered, never raised on.
+        ("GET", "HTTP://[broken/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+        ("GET", "//[broken/webapi/query.cgi?api=SYNO.API.Info", None, b"", []),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory(prefix="verify-dsm-") as td:
+        d = Path(td)
+        vendor = FakeVendor(d / "vendor-requests.jsonl", d / "egress-attempts.jsonl")
+        try:
+            for method, target, ctype, body, want in cases:
+                conn = http.client.HTTPConnection("127.0.0.1", vendor.srv.server_address[1], timeout=10)
+                try:
+                    conn.request(method, target, body=body or None, headers={"Content-Type": ctype} if ctype else {})
+                    raw = conn.getresponse().read()
+                    got = json.loads(raw)
+                except (OSError, http.client.HTTPException, ValueError) as e:
+                    got = f"no reply: {type(e).__name__}"
+                finally:
+                    conn.close()
+                ok = got == want
+                bad += not ok
+                kind = "DSM envelope" if isinstance(got, dict) and "success" in got else f"generic reply {got}"
+                print(f"  [{'PASS' if ok else 'FAIL'}] fake vendor {method} {target} ({ctype}): {kind}")
+        finally:
+            vendor.stop()
+    return bad
+
+
+def longest_token_run(text: str, token: str, k: int = 8) -> int:
+    """The longest run (k or more characters) of `text` that is part of `token`; 0 if none."""
+    best = 0
+    for i in range(len(text) - k + 1):
+        if text[i:i + k] in token:
+            j = i + k
+            while j < len(text) and text[i:j + 1] in token:
+                j += 1
+            best = max(best, j - i)
+    return best
+
+
+def redaction_self_test() -> int:
+    """A token that a cut lands inside, at, or just after never reaches
+    evidence, a verdict or the console, not even 8 of its characters: each
+    value is redacted whole before it is cut. Covers feature 3's body heads
+    (written as http_bearer_auth writes bearer-auth.json), the fake vendor's
+    request body heads, tail()'s width, and a console line cut from a reason."""
+    bad = 0
+    for off in (237, 270, 292, 296, 299):
+        token = secrets.token_hex(32)
+        RUN_SECRETS.append(token)
+        _StubMCPHandler.token, _StubMCPHandler.mode = token, f"echo-at-{off}"
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), _StubMCPHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        with tempfile.TemporaryDirectory(prefix="verify-redact-") as td:
+            d = Path(td)
+            try:
+                record = {"origin_allowlist_expected": [True, "self-test"]}
+                probe_bearer(f"http://127.0.0.1:{srv.server_address[1]}/mcp", token, "STUB_MCP_HTTP_TOKEN",
+                             record, RUN_SECRETS)
+            finally:
+                srv.shutdown()
+                srv.server_close()
+            write_json(d / "bearer-auth.json", {k: (redact(v) if isinstance(v, str) else v) for k, v in record.items()})
+            vendor = FakeVendor(d / "vendor-requests.jsonl", d / "egress-attempts.jsonl")
+            try:
+                payload = ("z" * off + token + " end").encode()
+                req = urllib.request.Request(vendor.url + "/v1/items", data=payload, method="PUT")
+                urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=10).read()
+            finally:
+                vendor.stop()
+            reason = f"server said: {tail('w' * (off - 60) + token + ' tail')}"
+            write_json(d / "verdict.json", verdict(FAIL, reason))
+            console = redact(reason)[:150]
+            worst = max([longest_token_run(f.read_text(encoding="utf-8"), token) for f in d.iterdir()]
+                        + [longest_token_run(console, token)])
+        ok = worst == 0
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] a token at offset {off}, cut by a 300-character body head, a vendor "
+              f"body head, tail() and a console line: longest run of it in evidence {worst} (must be 0)")
+    return bad
 
 
 # --------------------------------------------------------------------------- #
@@ -1217,7 +1521,7 @@ def f6_local_data(ctx: Ctx) -> dict:
         checks["doctor"] = (ERROR, f"doctor names a store outside the scratch HOME ({where})")
     elif data_dir:
         rel = Path(data_dir).resolve().relative_to(ctx.home.resolve())
-        extra = (f"; local_data: {str(rep['local_data'])[:50]}" if isinstance(rep, dict) and "local_data" in rep
+        extra = (f"; local_data: {redact(str(rep['local_data']))[:50]}" if isinstance(rep, dict) and "local_data" in rep
                  else "; no local_data field")
         checks["doctor"] = (PASS, f"reports the store at ~/{rel} ({where}){extra}")
     else:
@@ -1337,7 +1641,7 @@ def run_slug(slug: str, features: list[int], args) -> int:
                 if num == 1:
                     ctx.notes.append("install.sh did not install; features 2-6 drove the built binaries directly")
             results[fid] = res
-            print(f"  {num} {fid:<13} {res['verdict']:<5} {res['reason'][:150]}", flush=True)
+            print(f"  {num} {fid:<13} {res['verdict']:<5} {redact(res['reason'])[:150]}", flush=True)
     except HarnessError as e:
         problems.append(str(e))
     except Exception as e:  # noqa: BLE001 - a crashed harness still writes its verdict
@@ -1397,7 +1701,7 @@ def summary_text(info: dict, code: int) -> str:
     for num, fid, _t in FEATURES:
         r = info["features"].get(fid)
         if r:
-            lines.append(f"{num} {fid:<13} {r['verdict']:<5} {r['reason'][:220]}")
+            lines.append(f"{num} {fid:<13} {r['verdict']:<5} {redact(r['reason'])[:220]}")
     for p in info["harness_problems"]:
         lines.append(f"HARNESS: {p}")
     for n in info["notes"]:
@@ -1605,11 +1909,14 @@ def main() -> int:
                    default="sandbox" if platform.system() == "Darwin" else "proxy-env")
     rp = sub.add_parser("report", help="latest verdict per slug, one row each")
     rp.add_argument("--json", action="store_true")
+    sub.add_parser("self-test", help="feature 3's HTTP probe against stand-in servers, both ways")
     c = sub.add_parser("cleanup", help="stop what a run started and remove its scratch (never evidence)")
     g = c.add_mutually_exclusive_group(required=True)
     g.add_argument("--run", help="one run's evidence folder")
     g.add_argument("--stale", action="store_true", help="every run that left a process or scratch dir behind")
     args = ap.parse_args()
+    if args.cmd == "self-test":
+        return self_test()
     if args.cmd == "doctor":
         return cmd_doctor(args)
     if args.cmd == "report":

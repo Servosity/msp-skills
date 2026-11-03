@@ -73,7 +73,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host threatlocker-mcp in HTTP mode: it refuses to start until THREATLOCKER_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. It serves http://127.0.0.1:7777/mcp by default. The connector works only if its authentication settings can send the bearer token. Step-by-step in the install guide."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way threatlocker-mcp runs, and shares MCP configuration with Codex: add threatlocker-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",

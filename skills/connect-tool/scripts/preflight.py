@@ -14,6 +14,7 @@ prints the setup steps.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -37,7 +38,7 @@ def opencli_argv(session: str, *args: str) -> list[str]:
     oc = ct.opencli_cmd()
     if not oc:
         raise SystemExit(3)
-    return [*oc, "browser", session, *args]
+    return ct.browser_argv(oc, session, *args)
 
 
 def doctor_text() -> str:
@@ -49,6 +50,23 @@ def doctor_text() -> str:
         return (r.stdout or "") + (r.stderr or "")
     except Exception:
         return ""
+
+
+def bridge_status(doc: str) -> tuple[bool, bool]:
+    """(daemon_ok, extension_ok) from `opencli doctor` output.
+
+    OpenCLI 2.x prints a JSON envelope ({"ok":true,"data":{"daemonRunning":true,
+    "extensionConnected":true,...}}); earlier releases print "[OK] Daemon" /
+    "[OK] Extension" lines. Read whichever is present."""
+    start = doc.find("{")
+    if start != -1:
+        try:
+            data = json.loads(doc[start:doc.rfind("}") + 1]).get("data") or {}
+            if "daemonRunning" in data or "extensionConnected" in data:
+                return bool(data.get("daemonRunning")), bool(data.get("extensionConnected"))
+        except (ValueError, AttributeError):
+            pass
+    return "[OK] Daemon" in doc, "[OK] Extension" in doc
 
 
 # -- dependency check ------------------------------------------------------
@@ -137,8 +155,7 @@ def deps() -> int:
 
     doc = doctor_text()
     if oc:
-        d_ok = "[OK] Daemon" in doc
-        e_ok = "[OK] Extension" in doc
+        d_ok, e_ok = bridge_status(doc)
         rows.append((d_ok, "daemon", "running" if d_ok else "opencli daemon restart"))
         rows.append((e_ok, "extension", "connected" if e_ok else
                      f"install {EXTENSION_URL} then reload its card in chrome://extensions/"))
@@ -162,12 +179,12 @@ def preflight(session: str) -> int:
         print("FAIL: opencli not installed.", file=sys.stderr)
         print(BOOTSTRAP_HINT, file=sys.stderr)
         return 3
-    doc = doctor_text()
-    if "[OK] Daemon" not in doc:
+    d_ok, e_ok = bridge_status(doctor_text())
+    if not d_ok:
         print("FAIL: OpenCLI daemon not running.", file=sys.stderr)
         print(BOOTSTRAP_HINT, file=sys.stderr)
         return 4
-    if "[OK] Extension" not in doc:
+    if not e_ok:
         print("FAIL: OpenCLI Chrome extension not connected.", file=sys.stderr)
         print(BOOTSTRAP_HINT, file=sys.stderr)
         return 4
@@ -235,6 +252,9 @@ def _selfcheck() -> None:
         assert "MISS opencli" in d, d
         assert "python" in d, "deps stopped before checking python"
         del os.environ["OPENCLI"]
+    v2 = '{"ok":true,"data":{"cliVersion":"2.0.2","daemonRunning":true,"extensionConnected":false}}'
+    assert bridge_status(v2) == (True, False), bridge_status(v2)
+    assert bridge_status("[OK] Daemon: running\n[OK] Extension: connected") == (True, True)
     print("preflight.py selfcheck OK")
 
 

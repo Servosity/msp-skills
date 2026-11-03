@@ -1,13 +1,13 @@
 ---
 layout: default
 title: "Which AI agent? Install MSP Skills in Claude, ChatGPT, Codex, or Copilot | MSP Skills"
-description: "Which AI tools speak MCP today and how to install MSP Skills connectors in each: Claude Desktop, Claude Code, ChatGPT, Codex CLI, GitHub Copilot, Microsoft 365 Copilot, and Google Gemini. Pick your agent, follow the steps, mind the gotchas."
+description: "Which AI tools speak MCP today and how to install MSP Skills connectors in the ones that run them locally: Claude Desktop, Claude Code, the ChatGPT desktop app, Codex CLI, GitHub Copilot, and Gemini CLI. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) are not supported yet."
 permalink: /which-agent/
 ---
 
-# Which AI agent? Install MSP Skills in any of them.
+# Which AI agent? Install MSP Skills in any local MCP client.
 
-MSP Skills works with **any AI tool that speaks MCP** (Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one, and the gotchas to watch for.
+MSP Skills works with **any AI tool that runs MCP servers on your machine** (MCP is the Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one that runs them locally, and the gotchas to watch for. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) need a remote server, which MSP Skills does not support yet.
 
 Pick the row for your agent and follow that section. If you're not sure what you have, jump to ["I don't know what I have"](#i-dont-know-what-i-have-yet) at the bottom.
 
@@ -20,18 +20,18 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | AI agent | Supports MCP? | Config file or panel | Verified |
 | --- | --- | --- | --- |
 | [Claude Desktop](#claude-desktop-anthropic) | Yes | `claude_desktop_config.json` | 2026-05-29 |
-| [ChatGPT (Plus / Pro+)](#chatgpt-openai-plus-pro-team-business-enterprise-education) | Yes¹ | Settings → Connectors | 2026-05-29 |
+| [ChatGPT desktop app](#chatgpt-openai) | Yes¹ | Settings → MCP servers, or `~/.codex/config.toml` | 2026-11-02 (bundled engine tested; settings screen per OpenAI's docs) |
 | [Codex CLI](#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-29 |
 | [Claude Code](#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-29 |
-| [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt + Settings > Connectors | 2026-05-29 |
+| [Claude Cowork](#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt (Skill path) | 2026-05-29 |
 | [GitHub Copilot](#github-copilot-in-vs-code) | Yes (Agent mode) | `mcp.json` (key: `servers`) | 2026-05-29 |
 
-**Microsoft & Google - named, honest paths** (big install base; the remote / enterprise route, not the local binary you installed):
+**Microsoft & Google - named, honest paths** (big install base; Gemini CLI runs the local binary you installed, the web-only apps are not supported yet):
 
 | AI agent | Supports MCP? | What it takes | Verified |
 | --- | --- | --- | --- |
-| [Microsoft 365 Copilot / Copilot Studio](#microsoft-365-copilot--copilot-studio) | Yes³ (remote only) | Host over HTTPS + Copilot Studio license + tenant admin | 2026-05-29 |
-| [Google Gemini](#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: remote (like ChatGPT). | 2026-05-29 |
+| [Microsoft 365 Copilot / Copilot Studio](#microsoft-365-copilot--copilot-studio) | Yes³ (remote only) | Not supported by MSP Skills yet: needs a remote server | 2026-05-29 |
+| [Google Gemini](#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: needs a remote server, not supported yet. | 2026-05-29 |
 
 **Skill-native agents (secondary)** - they read this skill's `SKILL.md` directly *and* speak MCP:
 
@@ -57,9 +57,9 @@ Pick the row for your agent and follow that section. If you're not sure what you
 | --- | --- | --- | --- |
 | [`npx skills`](#install-across-all-your-agents-at-once) | SKILL.md symlinks into every supported agent dir | `npx skills add Servosity/msp-skills` | 2026-05-29 (the [agentskills.io](https://agentskills.io) spec entry point; binary install is a separate step) |
 
-¹ ChatGPT requires a paid plan (Plus, Pro, Team, Business, Enterprise, or Education). Free tier does not yet expose Developer Mode. ChatGPT connects only to **remote** MCP servers; MSP Skills binaries run locally, so you expose one over HTTPS - most serve Streamable HTTP themselves (`--transport http`), and the stdio-only ones go behind a `supergateway` bridge.
+¹ The ChatGPT desktop app runs connectors locally (STDIO), the way Codex does, and shares Codex's MCP configuration. ChatGPT on the web needs a remote (HTTP) server, and MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so it is not supported today.
 ² Zed supports MCP Tools and Prompts today, not the full spec. Most MSP Skills functionality works; some advanced features may not.
-³ Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only** - there is no local-stdio path. You host `halopsa-mcp` / `servosity-mcp` over HTTPS and wire it via Copilot Studio (license required) or a declarative agent (tenant admin). **GitHub Copilot** (in the top 6) is the Microsoft surface that takes the local binary today.
+³ Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only** - there is no local-stdio path. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so they are not supported yet; a [hosted gateway](/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick there. **GitHub Copilot** (in the top 6) is the Microsoft surface that takes the local binary today.
 
 ---
 
@@ -112,13 +112,13 @@ claude mcp add servosity -- servosity-mcp
 claude mcp list   # confirm status
 ```
 
-For HTTP / remote: `claude mcp add --transport http <name> <url>`. Source: [code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp).
+MSP Skills connectors run as local (STDIO) servers; HTTP mode is paused (see [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md)). Source: [code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp).
 
 ---
 
 ## Claude Cowork (Anthropic desktop agent)
 
-Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. Either path works for MSP Skills.
+Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. For MSP Skills, use the Skill path below: the Connectors UI takes a remote web address, and MSP Skills connectors run locally.
 
 **Skill path (recommended) - paste this into Cowork:**
 
@@ -156,33 +156,15 @@ Codex supports stdio + Streamable HTTP, and runs concurrent read-only tools when
 
 ---
 
-## ChatGPT (OpenAI) - Plus, Pro, Team, Business, Enterprise, Education
+## ChatGPT (OpenAI)
 
-**Free tier does not yet expose Developer Mode**; you need a paid plan. ChatGPT speaks MCP through "Developer Mode" connectors (beta as of Sept 2025).
+**Desktop app - local, like Codex.** The ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers and share MCP configuration on the same machine. So a connector you already added to Codex (`~/.codex/config.toml`, see [Codex CLI](#codex-cli-openai) above) is available in the desktop app too. To add one in the app: **Settings → MCP servers**, choose **STDIO**, and give the connector's MCP binary as the command (`halopsa-mcp`, or its full path).
 
-**Important transport caveat:** ChatGPT connects only to **remote** MCP servers (HTTPS). MSP Skills binaries run on your machine. To use them with ChatGPT, expose one over HTTPS:
+On November 2, 2026 we ran our live-verified Zammad connector in local (STDIO) mode through the Codex engine built into the ChatGPT desktop app (v26.1027): it loaded all 38 tools and answered a read-only query. Step-by-step: [ChatGPT setup](/integrations/chatgpt/).
 
-**Option 1 - run `halopsa-mcp` / `servosity-mcp` in HTTP mode (no bridge package):**
+**ChatGPT on the web - not supported today.** ChatGPT on the web uses remote MCP tools through plugins and doesn't read local Codex configuration files. Reaching it would mean running a connector in HTTP mode, which [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to do until it is reprinted. Use the desktop app, or see [when a hosted gateway is the better pick](/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick).
 
-```bash
-HALOPSA_TENANT=... halopsa-mcp --transport http --addr :7777
-```
-
-The server answers at `http://localhost:7777/mcp`; the bare root returns 404, so the path is part of the endpoint. Then in ChatGPT: Settings → Advanced → **enable Developer Mode** → Connectors tab → Add MCP server → URL = `https://<your-tunnel>/mcp`. If your tunnel is local-only (e.g. ngrok), Developer Mode will refuse without HTTPS. Use a TLS tunnel (Cloudflare Tunnel, ngrok with HTTPS, your own reverse proxy).
-
-**Option 2 - `supergateway` bridge, for the stdio-only connectors:**
-
-```bash
-# avanan, blumira, connectwise-automate, cork, levelio and n-central have no
-# HTTP mode - their MCP binary never parses --transport, so the flag is inert.
-BLUMIRA_API_TOKEN=... npx -y supergateway --stdio "blumira-mcp" --port 7777
-# add --outputTransport streamableHttp --streamableHttpPath /mcp for a
-# Streamable-HTTP-only consumer such as Microsoft 365 Copilot
-```
-
-That serves SSE at `http://localhost:7777/sse`. Tunnel it the same way. `mcp-remote` is **not** the tool for this: it bridges a remote HTTPS server down to a local stdio client, and exits with `ERR_INVALID_URL` when handed `--stdio`. <!-- install-docs:ignore --> Always behind a secure tunnel; never expose your MCP server bare on the internet.
-
-Sources: [InfoQ ChatGPT MCP](https://www.infoq.com/news/2025/10/chat-gpt-mcp/) · [OpenAI Connectors help](https://help.openai.com/en/articles/11487775-connectors-in-chatgpt) · [Developer Mode docs](https://platform.openai.com/docs/guides/developer-mode).
+Source: [OpenAI - Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp).
 
 ---
 
@@ -285,7 +267,7 @@ Google's Gemini comes in two shapes that consume MCP very differently - know whi
 
 Restart Gemini CLI; its tool list includes the MCP tools.
 
-**Gemini app / web - remote (the HTTPS path).** The Gemini app does not launch a local binary. To use MSP Skills there, host `halopsa-mcp` / `servosity-mcp` over HTTPS (run with `--transport http`, expose the `/mcp` endpoint via a secure tunnel) and connect that URL - the same remote pattern as [ChatGPT](#chatgpt-openai-plus-pro-team-business-enterprise-education). For a no-hosting path on Google, use Gemini CLI above.
+**Gemini app / web - not supported yet.** The Gemini app does not launch a local binary; it needs a remote server. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so don't host a connector over HTTPS or put it behind a tunnel for it. If your team works there, a [hosted gateway](/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. For a no-hosting path on Google, use Gemini CLI above.
 
 Google Cloud also offers fully-managed remote MCP servers for Google services - not relevant to MSP Skills, but worth knowing about. Source: [Google Cloud Blog - official MCP support](https://cloud.google.com/blog/products/ai-machine-learning/announcing-official-mcp-support-for-google-services).
 
@@ -320,26 +302,15 @@ GA in VS Code 1.102 (July 2025). Most enterprise-ready MCP client by reputation:
 
 Or install through the Extensions view: search `@mcp` and install from the gallery. Source: [code.visualstudio.com/docs/copilot/customization/mcp-servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).
 
-> **Note:** "Copilot" is two products. **GitHub Copilot** (this section, the dev IDE) takes the local binary today. **Microsoft 365 Copilot** (the business assistant in Teams/Word/Outlook) is the remote-only path below - don't confuse them.
+> **Note:** "Copilot" is two products. **GitHub Copilot** (this section, the dev IDE) takes the local binary today. **Microsoft 365 Copilot** (the business assistant in Teams/Word/Outlook) is remote-only and not supported yet (below) - don't confuse them.
 
 ---
 
 ## Microsoft 365 Copilot / Copilot Studio
 
-This is the Copilot most MSPs and their clients actually have - bundled into the Microsoft 365 stack. **Honest heads-up: there is no local-stdio path.** Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only**, so the `halopsa-mcp` / `servosity-mcp` binary you installed isn't enough on its own. You also need a **Copilot Studio license** and a **tenant admin** to enable it. This is a build-and-host task, not a self-serve install - if that's a blocker, [GitHub Copilot](#github-copilot-in-vs-code) (local, in the top 6) is the Microsoft surface that works today.
+This is the Copilot most MSPs and their clients actually have - bundled into the Microsoft 365 stack. **Not supported by MSP Skills yet.** Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only**, so they need a remote server, not the `halopsa-mcp` / `servosity-mcp` binary you installed. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so don't host a connector over HTTPS or put it behind a tunnel for Copilot.
 
-**Step 1 - host the MCP server over HTTPS.** Run it in HTTP mode and expose it through a secure tunnel (Cloudflare Tunnel, ngrok) or your own reverse proxy:
-
-```bash
-HALOPSA_TENANT=<tenant> HALOPSA_CLIENT_ID=<id> HALOPSA_CLIENT_SECRET=<secret> \
-  halopsa-mcp --transport http --addr :7777
-```
-
-Treat the resulting HTTPS URL as a credential; gate it behind SSO / Cloudflare Access for team use.
-
-**Step 2 (lowest-code) - wire it in Copilot Studio.** In your Copilot Studio agent: **Tools → Add a tool → Model Context Protocol**. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth (OAuth 2.0 or API key). Copilot Studio builds the Power Platform connector behind the scenes; **generative orchestration must be on**. Publish the agent into Microsoft 365 Copilot. Source: [Microsoft Learn - Extend your agent with MCP](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp).
-
-**Step 2 (alternative, dev-ish) - build a declarative agent.** Use the Microsoft 365 Agents Toolkit in VS Code (**Add an Action → Start with an MCP Server**, point at the remote URL, configure OAuth), then provision / sideload - requires admin-enabled Custom App Upload + Copilot Access. Source: [Microsoft Learn - Build MCP plugins for Microsoft 365 Copilot](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/build-mcp-plugins).
+If your team works in Microsoft 365 Copilot, a [hosted gateway](/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list (Conduit documents Microsoft 365 Copilot, [getting started](https://conduit.wyre.ai/docs/getting-started/)). For MSP Skills inside a Microsoft tool today, [GitHub Copilot](#github-copilot-in-vs-code) (local, in the top 6) works.
 
 The **free / consumer Copilot** (copilot.microsoft.com, Windows Copilot) does not support user-supplied MCP servers at all.
 
@@ -486,9 +457,9 @@ A 30-second triage:
 | `codex` in a terminal | **Codex CLI** | Skill or MCP - see above |
 | `gemini` in a terminal | **Gemini CLI** | MCP - see above |
 | You downloaded Claude Desktop from claude.ai | **Claude Desktop** | MCP - see above |
-| You're chatting with ChatGPT in a desktop app or browser | **ChatGPT** | MCP (paid plan only) - see above |
+| You're chatting in the ChatGPT desktop app | **ChatGPT desktop app** | MCP (local) - see above |
 | You opened Cursor / Windsurf / Cline / VS Code with Copilot | The IDE name above | MCP - see above |
-| You only chat in `claude.ai` or `chatgpt.com` and don't use any of the above | Web-only chat | No install yet - web-only surfaces don't expose MCP. Claude Desktop or one of the paid ChatGPT plans is the closest. |
+| You only chat in `claude.ai` or `chatgpt.com` and don't use any of the above | Web-only chat | No install yet - web chat needs a remote server, and MSP Skills' HTTP mode is paused. Claude Desktop or the ChatGPT desktop app is the closest. |
 | You're not sure | - | Open whatever you call up to chat. Check the menu / settings for "MCP" or "Skills." That tells you which family. |
 
 If you're working with an MSP-internal team that set up your AI environment, ask them. If you set it up yourself and don't remember, search your applications folder for "Claude" or "Cursor" or "ChatGPT" - whichever has an app is what you have.

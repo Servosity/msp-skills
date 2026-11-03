@@ -145,6 +145,7 @@ jobs:
           # dates an undated heading, and touches nothing else in them.
           derived=(catalog.json README.md docs/_data/catalog.json docs/skills/
                    ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt
+                   docs/_markdown_copies/ docs/.well-known/
                    docs/_data/pending.json
                    tools/maintainer/skills.json ':(glob)skills/*/CHANGELOG.md'
                    .github/ISSUE_TEMPLATE/it-works.yml .github/ISSUE_TEMPLATE/bug-report.yml)

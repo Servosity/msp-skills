@@ -1,0 +1,150 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/hudu/
+
+# The Hudu MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Hudu Technologies, Inc..
+
+**✓ Live-verified by @Xenith-B (MSP)** against a production tenant · 2026-07-17 · [receipt →](https://github.com/Servosity/msp-skills/issues/183). Verified on v0.1.5; the current release has changed since.
+
+Yes - there is an MCP server for Hudu. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Hudu to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+Ask in plain English which clients have the worst documentation, which vault passwords are overdue for rotation, and what SSL certs, domains, or warranties expire next - across every company at once. Hudu plus your AI agent reads a local mirror of your whole instance, so the hygiene questions the portal makes you click through company by company become one instant, reproducible answer.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/hudu/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/hudu)
+
+## Instead of clicking through Hudu, just ask
+
+**Instead of** Open each client's asset layouts in the Hudu portal and eyeball which assets are missing required fields
+**just ask:** *"Which clients have the worst documentation completeness right now?"*
+Your agent runs: `hudu-cli audit completeness --agent`
+
+**Instead of** Click into every company's password vault to find credentials nobody has rotated in months
+**just ask:** *"Show me vault passwords that haven't been rotated in 180 days, grouped by company"*
+Your agent runs: `hudu-cli audit stale-passwords --older-than 180d --agent`
+
+**Instead of** Reconcile SSL, domain, and warranty expiry dates across tenants in a spreadsheet before they lapse
+**just ask:** *"What expires in the next 30 days across all my clients?"*
+Your agent runs: `hudu-cli audit expirations --within 30d --agent`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/hudu/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Which clients have the worst documentation completeness? | `hudu-cli audit completeness --agent` |
+| What's expiring in the next 30 days across every client? | `hudu-cli audit expirations --within 30d --agent` |
+| Which vault passwords are overdue for rotation? | `hudu-cli audit stale-passwords --older-than 180d --agent` |
+| Which knowledge-base articles are stale and probably out of date? | `hudu-cli audit stale-articles --older-than 365d --agent` |
+| Which assets have drifted from their layout's current schema? | `hudu-cli audit layout-drift --agent` |
+| Give me one worst-first hygiene scorecard across every company. | `hudu-cli audit summary --agent` |
+| Find everything matching a keyword across all synced docs. | `hudu-cli search "vpn gateway" --agent` |
+| Resolve this Hudu link to its asset, company, and relations. | `hudu-cli resolve "https://docs.example.huducloud.com/a/dc01-abc123" --agent` |
+| Which PSA/RMM records don't map to a live Hudu asset? | `hudu-cli reconcile --agent` |
+| Scaffold a new client's docs from our house template. | `hudu-cli onboard --company 42 --template msp-standard` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/hudu/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/hudu/guide.md).
+
+## What makes this one different
+
+Most Hudu integrations and MCP servers proxy each question into a live API call - fine for one lookup, useless when you ask about every client at once. This skill syncs your whole Hudu instance into a local SQLite mirror, so cross-tenant hygiene questions become one offline query: instant, fully paginated, and reproducible later as a snapshot you can diff against.
+
+The Hudu portal answers one company on one page at a time; this skill answers across every client at once and hands the result to the AI agent you already work in. It complements the web app you still use for editing and day-to-day documentation - it doesn't replace it.
+
+## The pain this closes
+
+- Documentation rots silently: assets get created with half their required fields blank, and nobody notices until a tech needs the missing detail mid-incident.
+- Hudu has no native password-expiration tracking, so stale vault credentials pile up unseen across dozens of client vaults.
+- Expiring SSL certificates, domains, and warranties hide one company at a time in the portal - you find the lapse when the client's site goes down, not before.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hudu/install.ps1 | iex
+```
+
+After install, authenticate once with your Hudu credentials, then verify with `hudu-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | audit completeness, audit stale-passwords, audit expirations, audit summary, search, resolve, reconcile, companies list, assets list-by-company, sync, doctor | Allow |
+| Write (routine) | assets create, assets update, articles create, articles update, companies create, companies update, asset-layouts create, onboard --apply | Preview with --dry-run, then a reviewed write |
+| Destructive / credential | assets delete, articles delete, companies delete, asset-passwords delete, asset-passwords get, asset-passwords list, auth set-token, auth logout | Human-in-the-loop only |
+
+The skill reads everything over a local mirror - audits, search, resolve, and reconcile are always safe to run and cannot change anything. Writes (creating or updating assets, articles, companies, and asset layouts, plus 'onboard --apply') send to your live Hudu instance, so the recommended agent policy is preview-then-approve. Reading or changing password-vault entries and managing the API credential are credential-tier; deletes and archives are destructive - keep both human-in-the-loop. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/hudu/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for Hudu?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Hudu, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Hudu MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUDU_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `HUDU_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hudu-mcp runs, and shares MCP configuration with Codex: add hudu-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+
+### Is my Hudu data safe?
+
+Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. Vault passwords and OTP secrets are never shown, stored or cached: the CLI keeps only each vault entry's metadata, and the password audit uses only its name, username, and last-updated date. Your Hudu API key is read from HUDU_API_KEY, or from an owner-only credentials file if you save it with auth set-token; it is never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### Will a company-scoped Hudu API key work?
+
+Mostly. Audits and search run over whatever you've synced, so they work with any key. The one limit: Hudu's global asset-list endpoint requires a global (not company-scoped) key - with a scoped key, use 'assets list-by-company <company_id>' instead. The 'onboard --apply' write path also needs a global key.
+
+## More Documentation connectors
+
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md) · [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md)
+
+## Status
+
+Live-verified. Confirmed by @Xenith-B (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/183)). Verified on v0.1.5; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

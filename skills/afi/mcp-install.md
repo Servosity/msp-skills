@@ -11,11 +11,11 @@ This page wires the Afi MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
 
-**Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
-launch `afi-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
-Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint, so they need HTTP mode, which is paused for this connector until
-it is reprinted (see the security note above).
+**Two install classes.** *Local* agents (Claude Desktop, the ChatGPT desktop app,
+GitHub Copilot, Gemini CLI) launch `afi-mcp` directly on your machine - no
+hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
+Studio, the Gemini app) need a remote server, which msp-skills does not support
+yet; see **Remote agents** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -54,6 +54,19 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+## ChatGPT desktop app (OpenAI)
+
+The ChatGPT desktop app runs MCP servers locally (STDIO) and shares MCP
+configuration with Codex on the same machine
+([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). Open **Settings**, select
+**MCP servers**, add a server, choose **STDIO**, and give `afi-mcp` as the command
+(its full path if the app can't find it). The server reads the same environment
+variables as the Claude Desktop block above. To keep them in a file, add the
+server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.afi]` table with
+`command = "afi-mcp"` and an `env` table); the desktop app reads that file too.
+
+ChatGPT on the web is a different case: see **Remote agents** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -108,11 +121,15 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (paused until this connector is reprinted)
 
-ChatGPT, Microsoft 365 Copilot / Copilot Studio and the Gemini app only connect
-to an MCP server over HTTPS, which means running `afi-mcp` in HTTP mode. Do not
-do that with this build (see the security note at the top of this page), and do
-not put this server behind a tunnel or reverse proxy. Use a local agent above,
-or the Claude Code / Codex Skill, until the fix release brings these steps back.
+**Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
+Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
+on your machine, so they would need `afi-mcp` running in HTTP mode. Do not run
+HTTP mode with this build (see the security note at the top of this page), and do
+not put this server behind a tunnel or reverse proxy. If your team works in one of
+those apps, a
+[hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
+is the better pick; check that your AI app is on the gateway's setup list. The
+ChatGPT desktop app is different: it runs `afi-mcp` locally (see above).
 
 The HTTP-mode launch command is kept below for reference. It is commented out on
 purpose, so pasting it does nothing:

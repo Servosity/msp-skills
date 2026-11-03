@@ -166,7 +166,7 @@ def start(run_dir: str, argv: list[str], session: str, wait: float = 30.0) -> in
         print("FAIL: opencli not installed; cannot navigate to consent", file=sys.stderr)
         return 3
     try:
-        nav = ct.run([*oc, "browser", session, "open", url], timeout=90)
+        nav = ct.run(ct.browser_argv(oc, session, "open", url), timeout=90)
     except Exception:
         # A raised subprocess error carries argv, and argv carries the URL.
         print("FAIL: could not navigate to the consent page", file=sys.stderr)

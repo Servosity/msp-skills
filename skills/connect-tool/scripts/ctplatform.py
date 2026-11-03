@@ -184,6 +184,48 @@ def opencli_cmd() -> list[str] | None:
     return [exe]
 
 
+_VERSION_CACHE: dict[tuple[str, ...], tuple[int, int, int] | None] = {}
+
+
+def opencli_version(oc: list[str]) -> tuple[int, int, int] | None:
+    """The installed OpenCLI version as (major, minor, patch), or None if unknown.
+
+    Cached per entry point. None (an old build, or a test stub that does not
+    answer --version) selects the legacy argv shape, which is what every
+    pre-2.0 release accepts."""
+    key = tuple(oc)
+    if key not in _VERSION_CACHE:
+        found = None
+        try:
+            out = run([*oc, "--version"], timeout=30).stdout or ""
+            m = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", out)
+            found = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+        except Exception:
+            found = None
+        _VERSION_CACHE[key] = found
+    return _VERSION_CACHE[key]
+
+
+def browser_argv(oc: list[str], session: str, cmd: str, *args: str,
+                 version: tuple[int, int, int] | None = None) -> list[str]:
+    """argv for one `opencli browser` page command, in the shape the installed
+    OpenCLI accepts.
+
+    OpenCLI 2.x takes the session as a flag (`browser eval --session S <js>`);
+    a positional session is rejected as an unknown command. Earlier releases
+    take it positionally (`browser S eval <js>`)."""
+    v = version if version is not None else opencli_version(oc)
+    if v and v >= (2, 0, 0):
+        return [*oc, "browser", cmd, "--session", session, *args]
+    return [*oc, "browser", session, cmd, *args]
+
+
+def find_css_flag(oc: list[str], version: tuple[int, int, int] | None = None) -> str:
+    """`browser find` selector flag: `--css` from OpenCLI 1.8, `--selector` before."""
+    v = version if version is not None else opencli_version(oc)
+    return "--css" if v and v >= (1, 8, 0) else "--selector"
+
+
 def which_opencli() -> str | None:
     """Back-compat: the entry point as a single string, or None."""
     cmd = opencli_cmd()
@@ -257,6 +299,13 @@ def _selfcheck() -> None:
     for s in ("token refresh scheduled", "acct_00000000", "user@example.com", "",
               "C:" + chr(92) + "temp" + chr(92) + "notes.txt", "consent_shown"):
         assert not looks_secret(s), f"false positive on: {s}"
+    oc = ["opencli"]
+    assert browser_argv(oc, "s", "eval", "1", version=(2, 0, 2)) == \
+        ["opencli", "browser", "eval", "--session", "s", "1"]
+    assert browser_argv(oc, "s", "eval", "1", version=(1, 8, 3)) == \
+        ["opencli", "browser", "s", "eval", "1"]
+    assert find_css_flag(oc, version=(2, 0, 2)) == "--css"
+    assert find_css_flag(oc, version=(1, 7, 0)) == "--selector"
     print("ctplatform.py selfcheck OK")
 
 

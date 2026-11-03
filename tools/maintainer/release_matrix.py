@@ -189,12 +189,15 @@ DERIVED_EXACT = (
     "README.md",
     "docs/llms.txt",
     "docs/llms-full.txt",
+    "docs/.well-known/agent-skills/index.json",
+    "docs/.well-known/ard.json",
+    "docs/.well-known/ai-catalog.json",
     "docs/_data/catalog.json",
     "docs/_data/pending.json",
     ".github/ISSUE_TEMPLATE/it-works.yml",
     ".github/ISSUE_TEMPLATE/bug-report.yml",
 )
-DERIVED_PREFIX = ("docs/skills/",)
+DERIVED_PREFIX = ("docs/skills/", "docs/_markdown_copies/")
 
 # The registry is an INPUT to the matrix, not machinery: a change to one
 # slug's entry (binary names, source_dir, markdown_only) re-builds THAT slug,

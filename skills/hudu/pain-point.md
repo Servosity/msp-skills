@@ -26,8 +26,8 @@ questions across every client at once:
 - `hudu-cli audit completeness --agent` - rank companies by how completely their
   assets fill the required fields their layouts define, worst-first.
 - `hudu-cli audit stale-passwords --older-than 180d --agent` - find vault entries
-  nobody has rotated, grouped by company (rotation age is computed locally; the
-  secret value is never read or stored).
+  nobody has rotated, grouped by company (rotation age is computed locally; vault
+  passwords and OTP secrets are never shown, stored or cached).
 - `hudu-cli audit expirations --within 30d --agent` - one typed, sorted list of
   SSL, domain, warranty, and password expirations coming due across all tenants.
 - `hudu-cli audit stale-articles --older-than 365d --agent` - surface knowledge-base

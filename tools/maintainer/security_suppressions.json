@@ -307,6 +307,11 @@
       "reason": "FLEET (generated, printing-press 4.30.3+). gosec G101 HIGH-severity / LOW-confidence false-positive on the identifier NAME in `credentialRemediation := \"run auth set-token or auth logout\"` inside collectCredentialsLocationReport: the literal is the doctor command's user-facing REMEDIATION HINT (it names two of the CLI's own subcommands), not credential material. Introduced by press 4.30.3 (#4198 'align auth set-token references with command surface'), so it will surface on every connector reprinted at 4.30.3 or later. Same name-based FP class as the existing auth.go / client.go `tokenURL` entries (#109) and internal/platform/gate.go GateInvalidCredentials. Confirmed with `gosec -fmt json -include=G101 ./...` in skills/servosity/cli: 2 issues, both HIGH/LOW, both name-based. Surfaced by the servosity 4.30.3 reprint."
     },
     {
+      "file": "skills/kaseya-vsa/cli/go.mod",
+      "rule": "GO-2026-5932",
+      "reason": "kaseya-vsa ONLY (deliberately NOT the fleet-wide `cli/go.mod` form, same posture as the riverside-fm entry): GO-2026-5932 is the never-fixed x/crypto/openpgp advisory: its OSV range is a single {\"introduced\": \"0\"} event with no `fixed` event, so no version bump clears it. It gates here only because kaseya-vsa is a brand-new connector, so every module in its go.mod is pr_new, and x/crypto had to move to v0.58.0: golang.org/x/net v0.62.0, the only release that fixes GO-2026-6860 and GO-2026-6866, requires golang.org/x/crypto v0.58.0, a version no shipped connector carries yet. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages; the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers. x/crypto arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. govulncheck: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" Vetted 2026-10-28."
+    },
+    {
       "file": "skills/riverside-fm/cli/go.mod",
       "rule": "GO-2026-5932",
       "reason": "riverside-fm ONLY (deliberately NOT the fleet-wide `cli/go.mod` form): the next connector that pulls github.com/enetx/surf must still get a human look. GO-2026-5932 is the one advisory on this module that no version bump can clear - its OSV affected range is a single {\"introduced\": \"0\"} event with NO `fixed` event, and govulncheck prints `Fixed in: N/A`. The two advisories that DID have a fix (GO-2026-6354 / GO-2026-6355, x/crypto/ssh DoS) were fixed, not suppressed, by raising the module to v0.56.0 in the riverside-fm PR. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its six subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages, and the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers - all TLS and hash primitives. x/crypto is indirect-only and arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/enetx/surf -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. govulncheck agrees it is unreachable: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" It gates only because riverside-fm is a brand-new connector, so every module in its go.mod is `pr_new` in check_security_gate.py. The same never-fixed advisory already rides two shipped connectors under the identical import chain and with zero openpgp packages - axcient and connectwise-control, both at x/crypto v0.53.0 - where it has never gated because their go.mod was not diff-introduced. Vetted 2026-09-06."
@@ -1443,50 +1448,65 @@
       "rule": "G115",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(len(buf)): buf starts at 4096 bytes and is only ever resized to need, which is rejected above maxAttrBuf (1 MiB), so the length fits uint32. int(need) widens a uint32 on 64-bit targets."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. uint32(len(buf)): buf starts at 4096 bytes and is only ever resized to need, which is rejected above maxAttrBuf (1 MiB), so the length fits uint32. int(need) widens a uint32 on 64-bit targets. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "G204",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. exec.Command runs the fixed absolute path /usr/bin/dsmemberutil with fixed arguments and a decimal uid from fstat (strconv.FormatUint). No shell, and no caller supplies the command or a flag."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. exec.Command runs the fixed absolute path /usr/bin/dsmemberutil with fixed arguments and a decimal uid from fstat (strconv.FormatUint). No shell, and no caller supplies the command or a flag. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "G304",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. openDarwinNoFollow opens a path read-only with O_NOFOLLOW to read its ACL. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. "
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. openDarwinNoFollow opens a path read-only with O_NOFOLLOW to read its ACL. The path is the CLI's own config or credentials file, from the operator's environment or --config; the MCP bridge refuses --config, --home and --profile (blockedRootFlags), and check_mcp_file_flags.py proves per connector that no MCP tool call can name a local path. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "msp-unsafe-import",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file: layout checks and two local pointers passed to the fgetattrlist syscall."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. Same import as the unsafe-import entry for this file: layout checks and two local pointers passed to the fgetattrlist syscall. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/darwin_acl_darwin.go",
       "rule": "unsafe-import",
       "bind": "file",
       "sha256": [
-        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602"
+        "sha256:bdebb0fc00907fadfe31b37d91eaadac43cd5d0bdf123ba21e6874c90ee8e602",
+        "sha256:a7c91f21f993beaec4bfa5ab536d39c1d48a6e3e5cfdcc031b4da64ca00a09fa",
+        "sha256:ed87fca44bdc46f31d153d8998338dc09da6025682c8ce381973bc8f377d063e"
       ],
+      "slug_neutral": true,
       "press": "4.34.0",
-      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe is used for compile-time layout checks on unix.Attrlist (Sizeof, Offsetof) and to hand fgetattrlist pointers to a local Attrlist and a local buffer with that buffer's own length. No pointer arithmetic, nothing escapes; x/sys has no wrapper for this syscall."
+      "reason": "press 4.34.0 template, reviewed 2026-10-23. darwin only. unsafe is used for compile-time layout checks on unix.Attrlist (Sizeof, Offsetof) and to hand fgetattrlist pointers to a local Attrlist and a local buffer with that buffer's own length. No pointer arithmetic, nothing escapes; x/sys has no wrapper for this syscall. Re-bound 2026-11-03 to the credential kit's routed form as well (vendor_credkit.py --slug rewrites the template so dsmemberutil starts through credkit.RunCommand, which passes the held set to the child; the command, its fixed path and arguments, and every conversion are unchanged). slug_neutral: the routed form imports <module>/internal/credkit; the second routed digest is servosity's module name (servosity-msp-pp-cli). vendor_credkit.py --self-test fails if a carrier's routed form is not bound here."
     },
     {
       "file": "cli/internal/cliutil/filelock_unix.go",
@@ -1661,9 +1681,31 @@
       "rule": "G304",
       "bind": "decl",
       "sha256": [
-        "sha256:15e384146b3451b58fee371a6da4f399755604c559a99f8c76812dc04b1d3ca4"
+        "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
       ],
-      "reason": "zammad only, reviewed 2026-10-28. Declaration AppendJournalEntry: the press template's journal append, with two hand-fixes (journal-credential-hardening and secret-echo-decoded-funnel in skills/zammad/handfixes.json) that check the whole marshalled record after TS and session_key are filled and drop it when it repeats a held credential. The OpenFile path is unchanged from the template: filepath.Join(JournalDir(), journalSegmentNameFor(time.Now())), the state directory plus a dated segment name, no operator input. Editing the declaration lost the fleet precedent for its G304; any further edit is scanned again."
+      "reason": "zammad only, reviewed 2026-11-03. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/zammad/handfixes.json)."
+    },
+    {
+      "file": "cli/internal/cliutil/filelock_unix.go",
+      "rule": "G703",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:cc95c014d95dbe4113143b055d3c510152d88872c0715ef9c0cef36cfa3c7712"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34 template, reviewed 2026-10-28. ReadConfigTrust opens the connector's own config file: the path comes from the operator's own environment or the default config directory, the same operator-controlled flow the fleet G703 entry for cli/internal/config/config.go already accepts. gosec's capped taint search reaches it only on some connectors (axcient). The verdict and the bytes share one descriptor. slug_neutral: one digest across every 4.34 render checked (axcient, ninjaone, cipp, hudu)."
+    },
+    {
+      "file": "cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G703",
+      "bind": "decl",
+      "slug_neutral": true,
+      "sha256": [
+        "sha256:8e8207b8d9f870bda70976b3af067c751ec96af9411df53e3a6efdb3dc393ab2"
+      ],
+      "press": "4.34.0",
+      "reason": "press 4.34 template, reviewed 2026-10-28. readGlobalCredentialBytes opens the connector's own credentials file in the operator's config directory with O_NOFOLLOW (a swapped-in symlink is refused) and verifies its permissions; the path is operator-controlled, the same flow the fleet config.go G703 entry accepts. gosec's capped taint search reaches it only on some connectors (axcient). slug_neutral digest."
     }
   ]
 }

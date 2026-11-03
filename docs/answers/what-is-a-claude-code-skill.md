@@ -41,4 +41,5 @@ Neither path requires code. After that you ask questions in plain English and th
 - How MSPs use it daily: [using Claude and ChatGPT with your PSA →](/answers/how-msps-use-claude-and-chatgpt-with-their-psa/)
 - Vendor AI vs this: [MCP server vs vendor built-in AI →](/answers/mcp-server-vs-vendor-built-in-ai/)
 - Is it safe? [are MCP servers safe for client data? →](/answers/are-mcp-servers-safe-for-msp-client-data/) · [the Trust Center →](/governance/)
+- Comparing your options? [MCP servers for MSPs in 2026, compared →](/answers/mcp-servers-for-msps-2026/)
 - See it on a real tool: [ConnectWise PSA →](/skills/connectwise-manage/) · [Autotask →](/skills/autotask/) · [HaloPSA →](/skills/halopsa/) · [NinjaOne →](/skills/ninjaone/) · [Datto RMM →](/skills/datto-rmm/)

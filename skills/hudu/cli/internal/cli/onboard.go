@@ -10,8 +10,10 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -59,7 +61,7 @@ func newNovelOnboardCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "onboard",
 		Short:       "Apply a saved bundle of asset layouts, folder tree, and procedures-from-template to a new company in one command.",
-		Annotations: map[string]string{"mcp:read-only": "false"},
+		Annotations: map[string]string{"mcp:read-only": "false", "mcp:read-flags": "template", "mcp:write-flags": "template,init"},
 		Long: `Scaffold a new client's documentation from a saved template so every onboarding
 produces the identical house-standard structure (no per-tech drift).
 
@@ -79,7 +81,17 @@ write an example template you can edit.`,
   # Execute the scaffold
   hudu-cli onboard --company 42 --template msp-standard --apply`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Hand-fix (codex r1, MCP host-file I/O): every onboard run reads a
+			// template file or, with --init, writes one. A process the MCP server
+			// spawned refuses them all, whichever tool argument reached here.
+			if cliutil.IsMCPChildEnv() {
+				return usageErr(fmt.Errorf("onboard reads and writes local template files, so it is not available over MCP; run 'hudu-cli onboard' from a terminal"))
+			}
 			if flagInit {
+				if dryRunOK(flags) {
+					fmt.Fprintf(cmd.OutOrStdout(), "would write an example template under %s (dry run: nothing written)\n", templatesDir())
+					return nil
+				}
 				return onboardInit(cmd, flags, flagTemplate)
 			}
 			if dryRunOK(flags) {
@@ -149,18 +161,16 @@ write an example template you can edit.`,
 				data, status, err := c.PostWithParams(cmd.Context(), "/asset_layouts", map[string]string{}, body)
 				results = append(results, applyResult("create-asset-layout", asString(l["name"]), status, err, data))
 				if err != nil {
-					return finishApply(cmd, flags, results, classifyAPIError(err, flags))
+					return finishApply(cmd, flags, results, classifyAPIErrorOnly(err))
 				}
 			}
 			for _, f := range tpl.Folders {
 				body := cloneMap(f)
-				if _, ok := body["company_id"]; !ok {
-					body["company_id"] = flagCompany
-				}
+				body["company_id"] = flagCompany // codex r1: --company is the only target; a template company_id never retargets
 				data, status, err := c.PostWithParams(cmd.Context(), "/folders", map[string]string{}, body)
 				results = append(results, applyResult("create-folder", asString(f["name"]), status, err, data))
 				if err != nil {
-					return finishApply(cmd, flags, results, classifyAPIError(err, flags))
+					return finishApply(cmd, flags, results, classifyAPIErrorOnly(err))
 				}
 			}
 			for _, pid := range tpl.ProcedureTemplates {
@@ -169,7 +179,7 @@ write an example template you can edit.`,
 				data, status, err := c.PostWithParams(cmd.Context(), path, map[string]string{}, body)
 				results = append(results, applyResult("create-procedure-from-template", fmt.Sprintf("template #%d", pid), status, err, data))
 				if err != nil {
-					return finishApply(cmd, flags, results, classifyAPIError(err, flags))
+					return finishApply(cmd, flags, results, classifyAPIErrorOnly(err))
 				}
 			}
 			return finishApply(cmd, flags, results, nil)
@@ -255,7 +265,25 @@ func onboardInit(cmd *cobra.Command, flags *rootFlags, name string) error {
 	}
 	path := filepath.Join(dir, name+".json")
 	buf, _ := json.MarshalIndent(example, "", "  ")
-	if err := os.WriteFile(path, buf, 0o600); err != nil {
+	// Hand-fix (codex r1): an existing template may hold the operator's edits,
+	// so --init replaces it only with --yes. O_EXCL makes the check and the
+	// create one step.
+	mode := os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	if flags.yes {
+		mode = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	}
+	f, err := os.OpenFile(path, mode, 0o600)
+	if errors.Is(err, fs.ErrExist) {
+		return usageErr(fmt.Errorf("template %s already exists; pass --yes to replace it with the example", path))
+	}
+	if err != nil {
+		return fmt.Errorf("writing template: %w", err)
+	}
+	if _, err := f.Write(buf); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("writing template: %w", err)
+	}
+	if err := f.Close(); err != nil {
 		return fmt.Errorf("writing template: %w", err)
 	}
 	return emitAudit(cmd, flags, map[string]any{"wrote": path}, func(w io.Writer) {

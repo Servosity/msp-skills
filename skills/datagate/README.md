@@ -11,7 +11,7 @@
 <!-- media:end -->
 
 Add **DataGate customer, agreement, and invoice lookups** to the AI you already use -
-**Claude Code**, **Claude Desktop**, **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Codex**, **Cursor**,
+**Claude Code**, **Claude Desktop**, **ChatGPT** (desktop app), **Codex**, **Cursor**,
 **Windsurf**, **Cline**, **Continue**, **Gemini**, or **GitHub Copilot**. Free, open
 source, runs on your laptop. A local SQLite mirror means repeated lookups don't have
 to page through the live API by hand, and don't eat into DataGate's per-account rate
@@ -29,11 +29,11 @@ required.
 | Your AI agent | How to install the DataGate skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `datagate-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `datagate-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Claude Code** | Paste the install prompt below. |
 | **Codex CLI** | Paste the install prompt below. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `datagate-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and
 > Gemini CLI - plus any MCP-speaking agent, via MCP and the pre-wired skill

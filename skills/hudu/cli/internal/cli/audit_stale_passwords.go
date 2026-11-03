@@ -62,8 +62,8 @@ never read or stored — only the entry name, username, and last-updated date.`,
 				return err
 			}
 			defer db.Close()
-			if !hintIfUnsynced(cmd, db, "asset_passwords") {
-				hintIfStale(cmd, db, "asset_passwords", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, "asset-passwords") {
+				hintIfStale(cmd, db, "asset-passwords", flags.maxAge)
 			}
 
 			companyNames := loadCompanyNames(cmd.Context(), db)

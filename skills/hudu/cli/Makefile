@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/hudu-cli ./cmd/hudu-cli
+	go build -trimpath -o bin/hudu-cli$(BIN_EXT) ./cmd/hudu-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/hudu-mcp ./cmd/hudu-mcp
+	go build -trimpath -o bin/hudu-mcp$(BIN_EXT) ./cmd/hudu-mcp
 
 install-mcp:
 	go install ./cmd/hudu-mcp

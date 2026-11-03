@@ -123,13 +123,31 @@ func (s *summary) size() int {
 }
 
 type engine struct {
-	prog    *ssa.Program
-	fset    *token.FileSet
-	inMod   map[*ssa.Package]bool
-	modPkgs map[string]bool
-	funcs   []*ssa.Function
-	sums    map[*ssa.Function]*summary
-	objTags map[objKey]*tagSet
+	// kitPath is the import path of the vendored credential kit when the
+	// caller proved it byte-identical to the reviewed kit; "" otherwise.
+	kitPath string
+	// kitFiles are the module functions stored into a kit Declarations'
+	// Files field; kitFilesOK is false when a Files value can come from
+	// anywhere else (kitFilesCallees).
+	kitFiles                 []*ssa.Function
+	kitFilesOK, kitFilesDone bool
+	// argvMemo and argvCalls back isArgv: whether a value is the process
+	// argv itself, and every argument list each module function is called
+	// with (nil once the function escapes as a value).
+	argvMemo    map[ssa.Value]bool
+	argvCalls   map[*ssa.Function][][]ssa.Value
+	argvEscaped map[*ssa.Function]bool
+	// argvWritten, once argvDone: some module code may write into argv
+	// (argvMayBeWritten).
+	argvWritten, argvDone bool
+	argvWhy               string
+	prog                  *ssa.Program
+	fset                  *token.FileSet
+	inMod                 map[*ssa.Package]bool
+	modPkgs               map[string]bool
+	funcs                 []*ssa.Function
+	sums                  map[*ssa.Function]*summary
+	objTags               map[objKey]*tagSet
 	// seeds are global tags a function's parameter or free variable carries
 	// on entry (a flag Value's Set method, a cobra RunE's positional args,
 	// an MCP tool handler's request).
@@ -1350,7 +1368,7 @@ func (st *fnState) call(instr ssa.CallInstruction, common *ssa.CallCommon) []tag
 	var args []ssa.Value
 	var bindings []ssa.Value
 	var callees []*ssa.Function
-	dynamic := false
+	dynamic, resolved := false, false
 	if common.IsInvoke() {
 		args = append([]ssa.Value{common.Value}, common.Args...)
 		callees = st.e.invokeCallees(common)
@@ -1368,12 +1386,20 @@ func (st *fnState) call(instr ssa.CallInstruction, common *ssa.CallCommon) []tag
 			}
 			bindings = v.Bindings
 		default:
-			callees = st.e.bySig[sigKey(common.Signature())]
-			dynamic = true
+			if fs, ok := st.e.kitFilesCallees(st, common); ok {
+				callees, resolved = fs, true
+			} else {
+				callees = st.e.bySig[sigKey(common.Signature())]
+				dynamic = true
+			}
 		}
 	}
 	external := dynamic
 	for _, callee := range callees {
+		if r, ok := st.e.kitFlagValues(st, callee, args, instr); ok {
+			addAll(r)
+			continue
+		}
 		if st.e.hasBody(callee) {
 			r := st.applySummary(callee, args, bindings, instr)
 			for i := range per {
@@ -1410,7 +1436,7 @@ func (st *fnState) call(instr ssa.CallInstruction, common *ssa.CallCommon) []tag
 			}
 		}
 	}
-	if len(callees) == 0 {
+	if len(callees) == 0 && !resolved {
 		external = true
 		if common.IsInvoke() && common.Method != nil {
 			if isSanitizer(common.Method) {

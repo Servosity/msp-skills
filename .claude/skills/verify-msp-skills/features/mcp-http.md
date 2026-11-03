@@ -3,13 +3,17 @@
 Remote agents need `<slug>-mcp --transport http`. Started without a bearer
 token, the server must refuse to start or listen on loopback only; started
 with `<PREFIX>_MCP_HTTP_TOKEN`, it must answer only requests carrying
-`Authorization: Bearer <token>`.
+`Authorization: Bearer <token>`. From press 4.34.2 on it also refuses a browser
+`Origin` that is not loopback or listed in `<PREFIX>_MCP_HTTP_ALLOWED_ORIGINS`.
 
 ## Sub-features
 
 - `http-no-token-default` is the documented launch with no token variable: refuse to start, or bind 127.0.0.1 only.
-- `http-bearer-required` answers 401 (or 403) to an MCP request without the token.
-- `http-bearer-works` answers `initialize` and `tools/list` with the token.
+- `http-bearer-required` answers 401 (or 403) to an MCP request without the token, and to one with a wrong token.
+- `http-bearer-works` answers `initialize` and `tools/list` with the token and no `Origin` header.
+- `http-origin-allowlist` answers 403 to a request with the token and a foreign `Origin`. Expected from press
+  4.34.2 on (the recorded press version, or a binary that reads `<PREFIX>_MCP_HTTP_ALLOWED_ORIGINS`); on an
+  older build that answers it, the check is SKIP, never FAIL.
 
 ## How to get to it (user POV)
 
@@ -35,10 +39,19 @@ Preconditions:
   the address.
 - **Bearer auth.** The harness starts the server again with a random 64-hex
   token and `--addr 127.0.0.1:<free port>`, POSTs `initialize` to `/mcp`
-  without and then with `Authorization: Bearer <token>`, then
-  `notifications/initialized` and `tools/list` with the `Mcp-Session-Id`.
-  `bearer-auth.json` records each HTTP status and the tool count.
-- **Proof.** PASS reads `no token: HTTP 401; Bearer $<PREFIX>_MCP_HTTP_TOKEN: HTTP 200 and <N> tools`.
+  with no `Authorization` header, with a different random token, with the
+  token and `Origin: https://verify-foreign-origin.invalid`, and with the token
+  and no `Origin`, then `notifications/initialized` and `tools/list` with the
+  `Mcp-Session-Id`. `bearer-auth.json` records each HTTP status, the tool
+  count, and why an Origin allowlist was or was not expected.
+- **Proof.** `bearer auth` PASS reads `no token: HTTP 401; wrong token: HTTP 401;
+  Bearer $<PREFIX>_MCP_HTTP_TOKEN: HTTP 200 and <N> tools`. `origin allowlist`
+  PASS reads `foreign Origin with the token: HTTP 403; no Origin with the
+  token: HTTP 200`; before press 4.34.2 it is SKIP with the status observed.
+- **Self-test.** `verify.py self-test` drives the same probe against stand-in
+  servers (one that enforces both, one with no allowlist, one that accepts any
+  bearer, one that ignores `Origin` although it should not, one that refuses a
+  request with no `Origin`, one with no auth) and checks every verdict.
 
 ## Gotchas
 
@@ -47,7 +60,7 @@ Preconditions:
   vendor) to observe it, then stops it within seconds.
 - The default port is shared by every run on the machine; a port already in
   use is ERROR, never a guess about the bind.
-- The token is redacted from every evidence file.
+- The token, and the wrong token, are redacted from every evidence file.
 - Older builds ignore the token variable, so the unauthenticated request gets
   HTTP 200: that is the recorded FAIL.
 - The static rule `mcp-http-no-bearer-auth` in `check_security_gate.py` reads

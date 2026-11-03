@@ -203,6 +203,10 @@ jobs:
           python3 tools/maintainer/check_press_metadata.py --self-test
           python3 tools/maintainer/check_registry_state.py --self-test
           python3 tools/maintainer/verify_live.py --self-test
+          # The credential-kit-aware gates: env reads the vendored kit makes for
+          # the connector, and doctor truth over a TLS stub.
+          python3 tools/maintainer/check_env_schema.py --self-test
+          python3 tools/maintainer/check_doctor_truth.py --self-test
 
       - name: Merge and release tool self-tests (#422)
         run: |
@@ -736,7 +740,10 @@ jobs:
         # 41 of 65 connectors never probed the credential at all.
         #
         # Needs no vendor credentials and no network: the stub binds 127.0.0.1
-        # and the fixture config carries a literal auth_header.
+        # and the fixture config carries a literal auth_header. The stub serves
+        # https with a certificate generated for the run, which the CLI trusts
+        # through SSL_CERT_FILE (a credential-kit adopter refuses to send a
+        # credential over plain http, as a real install would).
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
 
       - name: Recurring bug-class tests (this skill, black box)

@@ -12,11 +12,11 @@ faqs:
   - q: "Is the Hudu MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUDU_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `HUDU_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running hudu-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hudu-mcp runs, and shares MCP configuration with Codex: add hudu-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Hudu data safe?"
-    a: "Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The password audit never reads or stores secret values; it uses only each entry's name, username, and last-updated date. Credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. Vault passwords and OTP secrets are never shown, stored or cached: the CLI keeps only each vault entry's metadata, and the password audit uses only its name, username, and last-updated date. Your Hudu API key is read from HUDU_API_KEY, or from an owner-only credentials file if you save it with auth set-token; it is never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will a company-scoped Hudu API key work?"
@@ -103,7 +103,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -146,7 +146,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running hudu-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hudu-mcp runs, and shares MCP configuration with Codex: add hudu-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -154,7 +154,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Hudu data safe?
 
-Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. The password audit never reads or stores secret values; it uses only each entry's name, username, and last-updated date. Credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine - the CLI, MCP server, and the local mirror are all local. Vault passwords and OTP secrets are never shown, stored or cached: the CLI keeps only each vault entry's metadata, and the password audit uses only its name, username, and last-updated date. Your Hudu API key is read from HUDU_API_KEY, or from an owner-only credentials file if you save it with auth set-token; it is never bundled or transmitted by MSP Skills.
 
 ### What does it cost?
 

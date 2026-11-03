@@ -1,0 +1,161 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/sonicwall/
+
+# The SonicWall MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by SonicWall Inc.
+
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for SonicWall. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects SonicWall to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+Ask your AI which client SonicWall firewalls are behind on firmware, hit by an advisory with SSL-VPN on WAN, or have SSL-VPN users without one-time passwords, and get one pass, warn, fail or unknown row per firewall. It reads every firewall in your NSM tenant plus your MySonicWall registrations, read-only, and keeps a local history so you can see what got worse since last week.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/sonicwall/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/sonicwall)
+
+## Instead of clicking through SonicWall, just ask
+
+**Instead of** Logging into each client's firewall after SonicWall's SSL-VPN notice to check its firmware, whether SSL-VPN is on a WAN zone, and which local users still have no one-time password
+**just ask:** *"Which client firewalls does the CVE-2024-40766 advisory hit, and which of them have SSL-VPN on a WAN zone?"*
+Your agent runs: `sonicwall-cli exposure "SNWLID-2024-0015"`
+
+**Instead of** Opening the local user list on every firewall to find SSL-VPN accounts and admins without TOTP
+**just ask:** *"Which SSL-VPN users and admin logins across my clients have no MFA?"*
+Your agent runs: `sonicwall-cli mfa-audit`
+
+**Instead of** Filling in each client's cyber-insurance questionnaire from firewall screenshots and a renewals spreadsheet
+**just ask:** *"Give me the insurance posture for every client firewall: firmware, support, advisories, licences, MFA and SSL-VPN."*
+Your agent runs: `sonicwall-cli posture`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/sonicwall/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Give me one insurance-posture row per client firewall: firmware, end of support, advisories, licences, admin TOTP and SSL-VPN exposure. | `sonicwall-cli posture` |
+| Which firewalls does the CVE-2024-40766 advisory hit, and which have SSL-VPN on a WAN zone? | `sonicwall-cli exposure "SNWLID-2024-0015"` |
+| Which SonicWall advisories hit the most firewalls in my fleet right now? | `sonicwall-cli exposure` |
+| Which admins and local SSL-VPN users have no one-time password? | `sonicwall-cli mfa-audit` |
+| Which firewalls are behind the newest firmware, and which advisories does the upgrade clear? | `sonicwall-cli firmware drift --behind-only` |
+| Which licences and security services expire in the next 90 days, and which boxes should be replaced instead of renewed? | `sonicwall-cli licenses renewals --days 90` |
+| Which firewalls are registered in MySonicWall but invisible to NSM? | `sonicwall-cli blind-spots` |
+| What got worse since last week: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, a licence lapsed? | `sonicwall-cli posture changes --fleet --since 7d` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/sonicwall/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/sonicwall/guide.md).
+
+## What makes this one different
+
+[GTalksTech/sonicwall-mcp](https://github.com/GTalksTech/sonicwall-mcp) is a read-only Python MCP server for NSM SaaS with 46 tools for inventory, firmware, advisories, licence posture, per-site SSL-VPN configuration and config history. This one is a single binary that works as a CLI and an MCP server and is built around the insurance and advisory questions: one pass, warn, fail or unknown row per firewall, a per-account list of SSL-VPN users without a one-time password, MySonicWall registrations that NSM cannot see, and saved posture runs you can diff week to week. Anything it could not read is unknown, never pass.
+
+SonicWall's [SAMI](https://www.sonicwall.com/blog/the-firewall-is-not-dead-how-ai-gives-it-a-co-pilot) is an assistant inside SonicWall's Unified Management console that answers fleet questions and can run tasks such as firmware upgrades. This works from the AI agent you already use, never changes a firewall, and grades the posture an insurer asks about per firewall.
+
+## The pain this closes
+
+- Akira ransomware operators went after SonicWall SSL-VPN in 2024 and again from July 2025; SonicWall linked the 2025 wave to CVE-2024-40766 and told admins to update firmware, reset local SSL-VPN passwords and enforce MFA.
+- Firmware, SSL-VPN zones and per-user one-time-password settings live on each firewall. Checking them for every client means opening every box.
+- NSM SaaS shows the firewalls onboarded to it; a firewall registered in MySonicWall but never added to NSM drops out of every report.
+- Licence and security-service expiry dates sit per serial in MySonicWall, so the renewal list is a spreadsheet someone keeps by hand.
+- Cyber-insurance questionnaires ask the same things per client every year: patched, MFA on remote access, supported hardware, licensed security services.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.ps1 | iex
+```
+
+Create a MySonicWall API key (ideally for an account whose NSM role is read-only), set SONICWALL_MSW_API_KEY (and SONICWALL_REGION=eucentral for EU portals), then run `sonicwall-cli nsm-login` to mint and save the NSM token and `sonicwall-cli doctor`: it makes one authenticated NSM read to confirm the token works.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | posture, posture changes, exposure, mfa-audit, firmware drift, licenses renewals, blind-spots; every list, get and count under devices, device-groups, firmware, licenses, vulnerabilities, tenants, alerts and nsm-system; config-audit count; the firewall reads other than the four under Sensitive read; msw-products, msw-licenses, msw-system and the msw-tenants reads other than access-code; search over the local store, and export of any resource other than config_audit and msw_users. Local writes only: posture saves each run, responses are cached, and export --output overwrites the file you name | Allow |
+| Raw read (escape hatch) | nsm-get (vendor-documented NSM and SonicOS GET routes only; credential and state-changing routes refused by a keyword list; credential-shaped values redacted) | Allow, and review unfamiliar paths |
+| Sensitive read | config-audit list and diff (configuration text as NSM returns it, not redacted field by field); firewall local-users, firewall local-groups, firewall user-auth, firewall sslvpn-sessions, msw-users and msw-activity (account inventory, who is connected and account activity; schema-documented secrets blanked); export config_audit and export msw_users, which write the same data to a file; sync and workflow archive, which copy config-audit configuration text and firewall local users and groups into the local store, where search and the MCP sql and search tools read them; tail of config_audit or msw_users | Human-in-the-loop - keep the output and the local store private |
+| Credential | nsm-login (mints and saves the NSM token), nsm-session refresh and sso, msw-tenants access-code, import (its only targets are those token calls, and a refresh can invalidate the session token you are using), auth set-token, auth logout | Human-in-the-loop only |
+| Data egress | --deliver webhook:<url> on any command (POSTs that command's output to the URL you name), feedback --send, and feedback when SONICWALL_FEEDBACK_ENDPOINT is set with SONICWALL_FEEDBACK_AUTO_SEND=true | Human-in-the-loop - a webhook sink moves client data off your machine |
+| MCP execute | sonicwall_execute calls any curated endpoint by ID: each call follows the tiers above; its POSTs are the Credential-tier token exchanges plus four read-style MySonicWall queries, and every POST is refused while SONICWALL_MCP_READ_ONLY=1 | Human-in-the-loop unless SONICWALL_MCP_READ_ONLY=1 |
+
+This connector is read-only against SonicWall: no command changes a firewall, NSM or MySonicWall configuration, and secret fields the vendor's schema documents are blanked from every read. The strongest control is a MySonicWall account whose NSM role is read-only. The tiers that need a human handle tokens or move data: nsm-login and the other token exchanges, config-audit and sync (configuration text as NSM returns it, not redacted field by field, in output or the local store), and a webhook delivery that sends output off your machine. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/sonicwall/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for SonicWall?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for SonicWall, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the SonicWall MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `SONICWALL_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `SONICWALL_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way sonicwall-mcp runs, and shares MCP configuration with Codex: add sonicwall-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter a MySonicWall API key once and run `sonicwall-cli nsm-login`.
+
+### What credentials does it need?
+
+A MySonicWall API key (SONICWALL_MSW_API_KEY). `sonicwall-cli nsm-login` trades it for an NSM session token and saves it; the token lasts 8 hours with a 15-minute idle timeout, so run nsm-login again when NSM commands exit 4. EU portals also set SONICWALL_REGION=eucentral. Use a MySonicWall account whose NSM role is read-only.
+
+### Can it change my SonicWall firewalls?
+
+No. It reads NSM, the firewalls through NSM's SonicOS passthrough, and MySonicWall. The only POSTs are read-style MySonicWall queries and the token exchanges (nsm-login, nsm-session, msw-tenants access-code). Secret fields SonicWall's own API schemas document, such as local-user and device passwords, registration and authentication codes, SNMP community names and MySonicWall API keys, are blanked before anything is printed, cached or handed to an agent.
+
+### Will it see firewalls that are not in NSM?
+
+Not with posture, exposure, mfa-audit or firmware drift: those only see firewalls onboarded to NSM SaaS. Run `sonicwall-cli blind-spots` to list firewalls registered in MySonicWall that NSM cannot see, with the advisories for their registered firmware.
+
+### Is my SonicWall data safe?
+
+Your data stays on your machine. The CLI, MCP server and the local mirror are all local, and the MCP server runs over stdio unless you start it with --transport http. Credentials are never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+## More Security connectors
+
+Run more than one Security tool, or comparing options? These connectors work the same way: [Abnormal Security](https://msp-skills.compoundingteams.com/skills/abnormal.md) · [Avanan](https://msp-skills.compoundingteams.com/skills/avanan.md) · [Bitdefender GravityZone](https://msp-skills.compoundingteams.com/skills/bitdefender.md) · [Blumira](https://msp-skills.compoundingteams.com/skills/blumira.md) · [CIPP + Microsoft 365](https://msp-skills.compoundingteams.com/skills/cipp.md) · [Cisco Duo](https://msp-skills.compoundingteams.com/skills/cisco-duo.md) · [ConnectSecure](https://msp-skills.compoundingteams.com/skills/connectsecure.md) · [Cork](https://msp-skills.compoundingteams.com/skills/cork.md) · [CrowdStrike Falcon](https://msp-skills.compoundingteams.com/skills/crowdstrike.md) · [Fortinet](https://msp-skills.compoundingteams.com/skills/fortinet.md) · [Google Workspace](https://msp-skills.compoundingteams.com/skills/google-workspace.md) · [Huntress](https://msp-skills.compoundingteams.com/skills/huntress.md) · [KnowBe4](https://msp-skills.compoundingteams.com/skills/knowbe4.md) · [Microsoft Graph](https://msp-skills.compoundingteams.com/skills/microsoft-graph.md) · [Proofpoint TAP](https://msp-skills.compoundingteams.com/skills/proofpoint.md) · [RocketCyber](https://msp-skills.compoundingteams.com/skills/rocketcyber.md) · [runZero](https://msp-skills.compoundingteams.com/skills/runzero.md) · [SaaS Alerts](https://msp-skills.compoundingteams.com/skills/saas-alerts.md) · [SentinelOne](https://msp-skills.compoundingteams.com/skills/sentinelone.md) · [Sophos Central](https://msp-skills.compoundingteams.com/skills/sophos-central.md) · [ThreatDown](https://msp-skills.compoundingteams.com/skills/threatdown.md) · [ThreatLocker](https://msp-skills.compoundingteams.com/skills/threatlocker.md) · [WatchGuard Cloud](https://msp-skills.compoundingteams.com/skills/watchguard.md)
+
+## Status
+
+Beta. Validated against the SonicWall API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

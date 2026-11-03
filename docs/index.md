@@ -74,18 +74,18 @@ The six agents MSP owners actually use (self-serve, works today):
 | Your AI agent | Why MSPs use it | Install |
 | --- | --- | --- |
 | **Claude Desktop** | The most common MSP-owner choice - no terminal, just a chat window | [Setup →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | The brand most MSPs already pay for; pair with Developer Mode | [Setup →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | The brand most MSPs already pay for; runs the connector locally | [Setup →](/integrations/chatgpt/) |
 | **Codex CLI** (OpenAI) | Same audience as Claude Code, OpenAI side | [Setup →](/integrations/codex/) |
 | **Claude Code** (CLI) | For technical-leaning MSP owners or senior techs | [Setup →](/integrations/claude-code/) |
 | **Claude Cowork** | Anthropic's desktop agent - paste a prompt, it installs itself | [Setup →](/integrations/cowork/) |
 | **GitHub Copilot** (VS Code) | The Microsoft surface that runs the local binary today, in Agent mode | [Setup →](/integrations/github-copilot/) |
 
-**Microsoft & Google paths** - big install base, but the honest remote / enterprise route:
+**Microsoft & Google paths** - big install base, honest status:
 
 | Your AI agent | What it takes | Install |
 | --- | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Remote only: host over HTTPS + Copilot Studio license + tenant admin | [Setup →](/integrations/microsoft-365-copilot/) |
-| **Google Gemini** | Gemini CLI: local. Gemini app: remote (HTTPS). | [Setup →](/integrations/gemini/) |
+| **Microsoft 365 Copilot / Copilot Studio** | Remote only, so not supported by MSP Skills yet: a hosted gateway is the better pick | [Details →](/integrations/microsoft-365-copilot/) |
+| **Google Gemini** | Gemini CLI: local. Gemini app: needs a remote server, not supported yet. | [Setup →](/integrations/gemini/) |
 
 > **Skill-native agents (secondary):** [Hermes →](/integrations/hermes/) and [OpenClaw →](/integrations/openclaw/) read the skill directly and speak MCP. **Also works with** Cursor, Windsurf, Cline, Continue.dev, and Zed. Full per-tool deep-dive in [which agent →](/which-agent/).
 
@@ -129,11 +129,11 @@ You don't have to know JSON, regex, or what "stdio transport" means. Paste one s
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries. Most serve Streamable HTTP themselves (`--transport http`), so you run one on your machine and put its `/mcp` endpoint behind an HTTPS tunnel; the stdio-only ones take a `supergateway` bridge first. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
+In the **ChatGPT desktop app**, yes. It runs MCP servers locally (STDIO), the way these connectors run, so you add the connector's MCP binary under **Settings > MCP servers**, or once in Codex's config file, which the desktop app shares. **ChatGPT on the web** is not supported today: it needs a remote (HTTP) server, and [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to run a connector in HTTP mode until it is reprinted. If your team works there, a [hosted gateway or your vendor's own hosted server](/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
 
 ### Does this work with Claude?
 
-Yes - **Claude Code**, **Claude Desktop**, and the **Claude.ai** web (via Claude Desktop's MCP). Claude Code reads the Skill directly; Claude Desktop loads each connector as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
+Yes - **Claude Code** and **Claude Desktop**. **Claude.ai on the web** is not supported yet: it needs a remote (HTTP) server, which [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md) pauses. Claude Code reads the Skill directly; Claude Desktop loads each connector as an MCP server you add to `claude_desktop_config.json`. Both paths are first-class. Most MSP owners start with Claude Desktop because it's a Mac/Windows app - no terminal.
 
 ### Do I need to know how to code?
 

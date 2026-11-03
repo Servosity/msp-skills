@@ -70,7 +70,7 @@ func runTracedSync(t *testing.T, c *client.Client, db *store.Store, resources []
 			defer wg.Done()
 			for item := range work {
 				rctx, tr := newSyncPhaseTrace(ctx, item.resource, item.queuedAt)
-				res := syncResource(rctx, c, db, item.resource, "", true, 0, false, nil, nil)
+				res := syncResource(rctx, c, db, item.resource, "", true, 0, false, false, nil, nil)
 				if res.Err != nil {
 					t.Errorf("sync %s: %v", item.resource, res.Err)
 				}
@@ -222,7 +222,7 @@ func TestPhaseTrace_OffByDefault(t *testing.T) {
 	if tr := syncPhaseTraceFrom(ctx); tr != nil {
 		t.Fatal("a plain context must carry no phase trace")
 	}
-	res := syncResource(ctx, fixtureClient(t, srv.URL), db, "companies", "", true, 0, false, nil, &events)
+	res := syncResource(ctx, fixtureClient(t, srv.URL), db, "companies", "", true, 0, false, false, nil, &events)
 	if res.Err != nil {
 		t.Fatalf("sync: %v", res.Err)
 	}
@@ -247,7 +247,7 @@ func TestPhaseTrace_EventCarriesNoSecretsOrBodies(t *testing.T) {
 
 	ctx := withSyncPhaseTracing(context.Background())
 	rctx, tr := newSyncPhaseTrace(ctx, "companies", time.Now())
-	if res := syncResource(rctx, c, db, "companies", "", true, 0, false, nil, nil); res.Err != nil {
+	if res := syncResource(rctx, c, db, "companies", "", true, 0, false, false, nil, nil); res.Err != nil {
 		t.Fatalf("sync: %v", res.Err)
 	}
 	var events strings.Builder
