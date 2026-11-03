@@ -61,10 +61,10 @@ func newMswProductsFirmwareCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <serialnumber>"))
 			}
 			if !cmd.Flags().Changed("username") && flagUsername == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "username")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "username"))
 			}
 			if !cmd.Flags().Changed("sw-lang-code") && flagSwLangCode == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "sw-lang-code")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "sw-lang-code"))
 			}
 			path := "https://api.mysonicwall.com/api/downloads/{serialnumber}"
 			if len(args) < 1 || args[0] == "" {

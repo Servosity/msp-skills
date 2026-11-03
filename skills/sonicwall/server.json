@@ -61,6 +61,12 @@
           "default": "1"
         },
         {
+          "name": "SONICWALL_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "SONICWALL_MCP_HTTP_TOKEN",
           "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
           "isRequired": false,

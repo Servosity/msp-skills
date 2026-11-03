@@ -1,0 +1,1704 @@
+{
+  "api_name": "sonicwall",
+  "base_url": "https://nsm-{region}.sonicwall.com/api/manager",
+  "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "SONICWALL_NSM_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SONICWALL_NSM_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://www.mysonicwall.com/"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alerts_count",
+      "description": "Get alert count. Returns the AlertCount.",
+      "method": "GET",
+      "path": "/alert/count",
+      "params": []
+    },
+    {
+      "name": "alerts_list",
+      "description": "Get alerts log data. Returns the AlertsListResponse.",
+      "method": "GET",
+      "path": "/alert/data",
+      "params": []
+    },
+    {
+      "name": "config_audit_count",
+      "description": "To get config list count of device / devices for tenants. Optional: sn, timeLimit. Returns the ConfigInfoListCount.",
+      "method": "GET",
+      "path": "/configaudit/listconfigs/count",
+      "params": [
+        {
+          "name": "sn",
+          "type": "string",
+          "location": "query",
+          "description": "Serial number of the device"
+        },
+        {
+          "name": "timeLimit",
+          "type": "int",
+          "location": "query",
+          "description": "Time range in minutes. Example 1440 for '24Hrs'"
+        }
+      ]
+    },
+    {
+      "name": "config_audit_diff",
+      "description": "To get config diff. Required: sn1, h1, sn2, h2. Returns the ConfigDiff.",
+      "method": "GET",
+      "path": "/configaudit/diff",
+      "params": [
+        {
+          "name": "sn1",
+          "type": "string",
+          "location": "query",
+          "description": "SN of first Device",
+          "required": true
+        },
+        {
+          "name": "h1",
+          "type": "string",
+          "location": "query",
+          "description": "Hash of SN first Device config",
+          "required": true
+        },
+        {
+          "name": "sn2",
+          "type": "string",
+          "location": "query",
+          "description": "SN of second Device",
+          "required": true
+        },
+        {
+          "name": "h2",
+          "type": "string",
+          "location": "query",
+          "description": "Hash of SN second Device config",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "config_audit_list",
+      "description": "To get config list of device / devices for tenants. Optional: sn, timeLimit, page (plus 1 more). Returns array of ConfigInfo.",
+      "method": "GET",
+      "path": "/configaudit/listconfigs",
+      "params": [
+        {
+          "name": "sn",
+          "type": "string",
+          "location": "query",
+          "description": "Serial number of the device"
+        },
+        {
+          "name": "timeLimit",
+          "type": "int",
+          "location": "query",
+          "description": "Time range in minutes. Example 1440 for '24Hrs'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number of the results"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for results per page"
+        }
+      ]
+    },
+    {
+      "name": "device_groups_get",
+      "description": "Gets device group information by group ID. Required: groupId. Returns the DeviceGroupInfo.",
+      "method": "GET",
+      "path": "/deviceGroups/{groupId}",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "path",
+          "description": "Group id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_groups_list",
+      "description": "Retrieves list of device groups by tenant. Optional: page (default: 1), limit (default: 200), friendlyName (plus 2 more). Returns array of DeviceGroupInfo.",
+      "method": "GET",
+      "path": "/deviceGroups/tenant",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number of the results"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for results per page"
+        },
+        {
+          "name": "friendlyName",
+          "type": "string",
+          "location": "query",
+          "description": "Friendly Name of Device Group"
+        },
+        {
+          "name": "matchTagType",
+          "type": "string",
+          "location": "query",
+          "description": "Search by Match Tag Type: ['any', 'all', 'none']; default: 'any'"
+        },
+        {
+          "name": "matchTags",
+          "type": "array",
+          "location": "query",
+          "description": "Match tags"
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Gets device information by device serial number. Required: serialNumber. Optional: probe (default: false). Returns the DeviceInfo.",
+      "method": "GET",
+      "path": "/devices/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        },
+        {
+          "name": "probe",
+          "type": "bool",
+          "location": "query",
+          "description": "API probe is required or not"
+        }
+      ]
+    },
+    {
+      "name": "devices_inventory",
+      "description": "Retrieves inventory list of device by tenant. Optional: page (default: 1), limit (default: 10000), matchTagType (plus 4 more). Returns array of DevicesInventoryItem.",
+      "method": "GET",
+      "path": "/v2/devices/inventory/tenant",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number of the results"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for results per page"
+        },
+        {
+          "name": "matchTagType",
+          "type": "string",
+          "location": "query",
+          "description": "Search by Match Tag Type: ['any', 'all', 'none']; default: 'any'"
+        },
+        {
+          "name": "matchTags",
+          "type": "array",
+          "location": "query",
+          "description": "List of Tags to find Devices"
+        },
+        {
+          "name": "sortField",
+          "type": "string",
+          "location": "query",
+          "description": "Sorting field for results"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order for results"
+        },
+        {
+          "name": "isAssignedToGroup",
+          "type": "bool",
+          "location": "query",
+          "description": "Is assigned to group"
+        }
+      ]
+    },
+    {
+      "name": "devices_lifecycle",
+      "description": "Gets product life cycle information by device serial number. Life-cycle milestones for the device model (eos, lod, armb, lrmb, oneyldo). Required: serialNumber. Returns the ProductLifeCycle.",
+      "method": "GET",
+      "path": "/devices/productLifeCycle/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Retrieves list of device by tenant. Each device carries serialNumber, friendlyName, firmwareVersion, ipAddress, liveStatus, synchronized, fwUpgradeStatus and zeroTouchStatus. Optional: page (default: 1), limit (default: 10000), matchTagType (plus 7 more). Returns array of DevicesListItem.",
+      "method": "GET",
+      "path": "/devices/tenant",
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number of the results"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for results per page"
+        },
+        {
+          "name": "matchTagType",
+          "type": "string",
+          "location": "query",
+          "description": "Search by Match Tag Type: ['any', 'all', 'none']; default: 'any'"
+        },
+        {
+          "name": "matchTags",
+          "type": "array",
+          "location": "query",
+          "description": "List of Tags to find Devices"
+        },
+        {
+          "name": "sortField",
+          "type": "string",
+          "location": "query",
+          "description": "Sorting field for results"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order for results"
+        },
+        {
+          "name": "configModified",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter devices that have modified configuration or not"
+        },
+        {
+          "name": "deployPending",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter devices that have pending deploy or not"
+        },
+        {
+          "name": "isAssignedToGroup",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter devices that has been assigned to device groups or not"
+        },
+        {
+          "name": "expired",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter devices that has expired services"
+        }
+      ]
+    },
+    {
+      "name": "devices_locations",
+      "description": "Gets Devices info aggregated on location. Returns array of DevicesLocationsItem.",
+      "method": "GET",
+      "path": "/devices/locations/summary",
+      "params": []
+    },
+    {
+      "name": "devices_online-status",
+      "description": "Gets online status information by device serial number. Required: serialNumber. Returns the OnlineStatusInfo.",
+      "method": "GET",
+      "path": "/devices/online-status/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_summary",
+      "description": "Retrieves summary of device list by tenant id. Returns the DeviceSummary.",
+      "method": "GET",
+      "path": "/devices/summary",
+      "params": []
+    },
+    {
+      "name": "devices_trend",
+      "description": "Retrieves trend of device list. Optional: period (default: 7). Returns the DeviceTrend.",
+      "method": "GET",
+      "path": "/devices/trend",
+      "params": [
+        {
+          "name": "period",
+          "type": "int",
+          "location": "query",
+          "description": "Number of days for Trend aggregation"
+        }
+      ]
+    },
+    {
+      "name": "firewall_access-rules",
+      "description": "Retrieve an IPv4 access rule policy. IPv4 access rules (from/to zone, action, source/destination, service, enable). Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns array of AccessRuleIpv4.",
+      "method": "GET",
+      "path": "/firewall/access-rules/ipv4",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_address-objects",
+      "description": "Retrieve IPv4 address object configuration. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns array of AddressObjectIpv4.",
+      "method": "GET",
+      "path": "/firewall/address-objects/ipv4",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_administration",
+      "description": "Retrieve administration configuration. Includes admin TOTP, password constraints, user lockout, web management and SonicOS API settings. Admin TOTP is administration.admin.one_time_password.totp. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the Administration.",
+      "method": "GET",
+      "path": "/firewall/administration/global",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_license-report",
+      "description": "Retrieve License status. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the LicenseStatusReporting.",
+      "method": "GET",
+      "path": "/firewall/reporting/license",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_license-security-services",
+      "description": "Retrieve License status. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the LicenseStatusReporting.",
+      "method": "GET",
+      "path": "/firewall/reporting/license/security-services",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_local-groups",
+      "description": "Retrieve user local group configuration. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the UserLocalGroupCollection.",
+      "method": "GET",
+      "path": "/firewall/user/local/groups",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_local-users",
+      "description": "Retrieve local user configuration. Local users with their one-time-password method (none, OTP via e-mail, or TOTP). Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the UserLocalUserCollection.",
+      "method": "GET",
+      "path": "/firewall/user/local/users",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_security-services-status",
+      "description": "Retrieve security services status. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the ShowStatusSystemSecurityDetail.",
+      "method": "GET",
+      "path": "/firewall/reporting/status/security-services",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_sslvpn-access",
+      "description": "Retrieve SSL VPN server accesses configuration. Zones with SSL VPN access enabled; each access entry has a zone name and an enable flag. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the SslVpnServerAccessCollection.",
+      "method": "GET",
+      "path": "/firewall/ssl-vpn/server/accesses",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_sslvpn-portal",
+      "description": "Retrieve SSL VPN portal configuration. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the SslVpnPortal.",
+      "method": "GET",
+      "path": "/firewall/ssl-vpn/portal",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_sslvpn-server",
+      "description": "Retrieve SSL VPN server configuration. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the SslVpnServer.",
+      "method": "GET",
+      "path": "/firewall/ssl-vpn/server/base",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_sslvpn-sessions",
+      "description": "Retrieve SSL VPN sessions statistics. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns array of FirewallSslvpnSessionsItem.",
+      "method": "GET",
+      "path": "/firewall/reporting/ssl-vpn/sessions",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_system-status",
+      "description": "Retrieve system status. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the ShowStatusSystemDetail.",
+      "method": "GET",
+      "path": "/firewall/reporting/status/system",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firewall_user-auth",
+      "description": "Retrieve user authentication base settings. Optional: X-DEVICE-ID, X-TEMPLATE-ID, X-COMMIT-ID (plus 1 more). Returns the UserAuthBase.",
+      "method": "GET",
+      "path": "/firewall/user/authentication/base",
+      "params": [
+        {
+          "name": "X-DEVICE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "Serial number of the target firewall (NSM routes the SonicOS call to this device)."
+        },
+        {
+          "name": "X-TEMPLATE-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of the target template"
+        },
+        {
+          "name": "X-COMMIT-ID",
+          "type": "string",
+          "location": "header",
+          "description": "ID of target commit"
+        },
+        {
+          "name": "X-GMS-MODE",
+          "type": "bool",
+          "location": "header",
+          "description": "Switch between Device mode or GMS mode"
+        }
+      ]
+    },
+    {
+      "name": "firmware_available",
+      "description": "Gets new firmware information by device serial number. Newer firmware builds available for the device (availableVersions[] with version, releaseDate, releaseType). Required: serialNumber. Returns array of FirmwareAvailableItem.",
+      "method": "GET",
+      "path": "/devices/availableVersions/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "firmware_available-list",
+      "description": "get available firmware list for serialNumber. Required: serialNumber. Returns the FirmwareAvailableListResponse.",
+      "method": "GET",
+      "path": "/firmware/available_list/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "firmware_devices-on-version",
+      "description": "List the devices running a given firmware version. Lists the devices running the given firmware version (the vendor summary for this path is copied from another operation). Required: fwversion, readType (default: 1). Optional: releaseDate, releaseType. Returns the FirmwareDevicesOnVersionResponse.",
+      "method": "GET",
+      "path": "/firmware/version/{fwversion}/devices",
+      "params": [
+        {
+          "name": "fwversion",
+          "type": "string",
+          "location": "path",
+          "description": "Fwversion",
+          "required": true
+        },
+        {
+          "name": "readType",
+          "type": "int",
+          "location": "query",
+          "description": "Read type",
+          "required": true
+        },
+        {
+          "name": "releaseDate",
+          "type": "string",
+          "location": "query",
+          "description": "Release date"
+        },
+        {
+          "name": "releaseType",
+          "type": "string",
+          "location": "query",
+          "description": "Release type"
+        }
+      ]
+    },
+    {
+      "name": "firmware_upgrade-history",
+      "description": "get firmware upgrade status history. Returns array of FirmwareUpgradeHistory.",
+      "method": "GET",
+      "path": "/firmware/upgrade/history",
+      "params": []
+    },
+    {
+      "name": "firmware_upgrade-status",
+      "description": "get latest firmware-upgrade status for serialNumber. Required: serialNumber. Returns the FirmwareUpgradeStatus.",
+      "method": "GET",
+      "path": "/firmware/upgrade-status/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "firmware_version-list",
+      "description": "get firmware version list. Optional: applicableDevicesOnly (default: true). Returns array of FirmwareVersionListItem.",
+      "method": "GET",
+      "path": "/firmware/versionlist",
+      "params": [
+        {
+          "name": "applicableDevicesOnly",
+          "type": "bool",
+          "location": "query",
+          "description": "Applicable devices only"
+        }
+      ]
+    },
+    {
+      "name": "licenses_expired",
+      "description": "Retrieves list of device with expired licenses by tenant. Returns array of LicensesExpiredItem.",
+      "method": "GET",
+      "path": "/v2/devices/licenses/expired",
+      "params": []
+    },
+    {
+      "name": "licenses_expiring",
+      "description": "Gets License expiration summary. Count of expiring licences per service (serviceCode, serviceName, count) within the next N days. Required: numberOfDays. Optional: service. Returns array of LicensesExpiringItem.",
+      "method": "GET",
+      "path": "/devices/licenses/summary/expiration/{numberOfDays}",
+      "params": [
+        {
+          "name": "numberOfDays",
+          "type": "int",
+          "location": "path",
+          "description": "Number of days",
+          "required": true
+        },
+        {
+          "name": "service",
+          "type": "string",
+          "location": "query",
+          "description": "Service name for which license expiration summary info to be fetched"
+        }
+      ]
+    },
+    {
+      "name": "licenses_get",
+      "description": "Gets license information by device serial number. Required: serialNumber. Returns the DevLicenseInfo.",
+      "method": "GET",
+      "path": "/v2/devices/licenses/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "licenses_service-status",
+      "description": "Gets whether license in enabled for this service of this serial number. Required: serialNumber, serviceCode. Returns the IsLicensed.",
+      "method": "GET",
+      "path": "/devices/licenses/status/{serialNumber}/{serviceCode}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        },
+        {
+          "name": "serviceCode",
+          "type": "string",
+          "location": "path",
+          "description": "Service code",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "licenses_services",
+      "description": "Gets status of services for a serial number. Required: serialNumber. Returns array of LicensesServicesItem.",
+      "method": "GET",
+      "path": "/devices/licenses/status/services/{serialNumber}",
+      "params": [
+        {
+          "name": "serialNumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serial number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msw_activity_detail",
+      "description": "View user activity log details. Optional: activityId (default: 0). Returns the BulkActivityDetailResponse.",
+      "method": "GET",
+      "path": "/api/user/activity-complete-details",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "activityId",
+          "type": "int",
+          "location": "query",
+          "description": "Activity id"
+        }
+      ]
+    },
+    {
+      "name": "msw_activity_export",
+      "description": "View user activity logs for all the users from organization. Optional: fromdate, operationName, operationType (plus 3 more). Returns the new MswActivityExportResponse.",
+      "method": "POST",
+      "path": "/api/user/export-activity-log-details",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "fromdate",
+          "type": "string",
+          "location": "body",
+          "description": "Fromdate"
+        },
+        {
+          "name": "operationName",
+          "type": "string",
+          "location": "body",
+          "description": "Operation name"
+        },
+        {
+          "name": "operationType",
+          "type": "string",
+          "location": "body",
+          "description": "Operation type"
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "Page number"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        },
+        {
+          "name": "todate",
+          "type": "string",
+          "location": "body",
+          "description": "Todate"
+        }
+      ]
+    },
+    {
+      "name": "msw_licenses_usage-report",
+      "description": "License report. Optional: SKU, monthNumbers, msspids (plus 5 more). Returns the new MsspusageReportRes.",
+      "method": "POST",
+      "path": "/api/mssp/getmsspusageReport",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "SKU",
+          "type": "string",
+          "location": "body",
+          "description": "Sku"
+        },
+        {
+          "name": "monthNumbers",
+          "type": "string",
+          "location": "body",
+          "description": "Month numbers"
+        },
+        {
+          "name": "msspids",
+          "type": "string",
+          "location": "body",
+          "description": "Msspids"
+        },
+        {
+          "name": "pageno",
+          "type": "int",
+          "location": "body",
+          "description": "Pageno"
+        },
+        {
+          "name": "pagesize",
+          "type": "int",
+          "location": "body",
+          "description": "Pagesize"
+        },
+        {
+          "name": "productGroupIds",
+          "type": "string",
+          "location": "body",
+          "description": "Product group ids"
+        },
+        {
+          "name": "viewBy",
+          "type": "string",
+          "location": "body",
+          "description": "View by"
+        },
+        {
+          "name": "yearNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Year number"
+        }
+      ]
+    },
+    {
+      "name": "msw_products_applicable-services",
+      "description": "Gets List of Applicable Products, Services and DataCenter Details for Provisioning a Prodduct or Editing a Provision. Optional: TenantID (default: 0), serviceid (default: 0), serialnumber (plus 1 more). Returns the MsspapplicableProductServicesRes.",
+      "method": "GET",
+      "path": "/api/mssp/applicable-mssp-product-services",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "TenantID",
+          "type": "int",
+          "location": "query",
+          "description": "Tenant id"
+        },
+        {
+          "name": "serviceid",
+          "type": "int",
+          "location": "query",
+          "description": "Serviceid"
+        },
+        {
+          "name": "serialnumber",
+          "type": "string",
+          "location": "query",
+          "description": "Serialnumber"
+        },
+        {
+          "name": "Mode",
+          "type": "string",
+          "location": "query",
+          "description": "Mode"
+        }
+      ]
+    },
+    {
+      "name": "msw_products_firmware",
+      "description": "Get a product firmware versions, including latest available firmware. Required: serialnumber, username, swLangCode. Optional: appName, oemCode. Returns the GetProductDownloadResponse.",
+      "method": "GET",
+      "path": "/api/downloads/{serialnumber}",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "serialnumber",
+          "type": "string",
+          "location": "path",
+          "description": "Serialnumber",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "query",
+          "description": "Username",
+          "required": true
+        },
+        {
+          "name": "swLangCode",
+          "type": "string",
+          "location": "query",
+          "description": "Sw lang code",
+          "required": true
+        },
+        {
+          "name": "appName",
+          "type": "string",
+          "location": "query",
+          "description": "App name"
+        },
+        {
+          "name": "oemCode",
+          "type": "string",
+          "location": "query",
+          "description": "Oem code"
+        }
+      ]
+    },
+    {
+      "name": "msw_products_list",
+      "description": "Get a list of Products. Optional: endDate, filterByProductType, friendlyNameOrSerial (plus 10 more). Returns the new CustomerProductListResponse.",
+      "method": "POST",
+      "path": "/api/users/productlist-customer",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "filterByProductType",
+          "type": "string",
+          "location": "body",
+          "description": "Filter by product type"
+        },
+        {
+          "name": "friendlyNameOrSerial",
+          "type": "string",
+          "location": "body",
+          "description": "Friendly name or serial"
+        },
+        {
+          "name": "isForced",
+          "type": "bool",
+          "location": "body",
+          "description": "Is forced"
+        },
+        {
+          "name": "isPaged",
+          "type": "string",
+          "location": "body",
+          "description": "Is paged"
+        },
+        {
+          "name": "lastRegistered",
+          "type": "int",
+          "location": "body",
+          "description": "Last registered"
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "location": "body",
+          "description": "Mode"
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "body",
+          "description": "Page number"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Page size"
+        },
+        {
+          "name": "productGroupName",
+          "type": "string",
+          "location": "body",
+          "description": "Product group name"
+        },
+        {
+          "name": "showDownloadsAvailable",
+          "type": "bool",
+          "location": "body",
+          "description": "Show downloads available"
+        },
+        {
+          "name": "showExpiredProducts",
+          "type": "bool",
+          "location": "body",
+          "description": "Show expired products"
+        },
+        {
+          "name": "startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        }
+      ]
+    },
+    {
+      "name": "msw_products_services",
+      "description": "Get product details like license type, node counts and expiry date. Optional: serial, equoteid. Returns the LicensesResponse.",
+      "method": "GET",
+      "path": "/api/product/serviceInfo",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "serial",
+          "type": "string",
+          "location": "query",
+          "description": "Serial"
+        },
+        {
+          "name": "equoteid",
+          "type": "string",
+          "location": "query",
+          "description": "Equoteid"
+        }
+      ]
+    },
+    {
+      "name": "msw_system_version",
+      "description": "GET /api/version. Optional: appName. Returns the AppVersionResponse. (public)",
+      "method": "GET",
+      "path": "/api/version",
+      "base_url": "https://api.mysonicwall.com",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "appName",
+          "type": "string",
+          "location": "query",
+          "description": "App name"
+        }
+      ]
+    },
+    {
+      "name": "msw_tenants_access-code",
+      "description": "Get the access code to generate API keys from your cloud subscriptions. Step 2 of the NSM token exchange. Body fields: tenantId (the productGroupID) and tileName ISNSMSAFEENABLED; the code is returned in content.accessCode. Prefer the `nsm-login` command. Optional: mswUserName, tenantId, tileName.",
+      "method": "POST",
+      "path": "/api/generate-cscAccessCode",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "mswUserName",
+          "type": "string",
+          "location": "body",
+          "description": "Msw user name"
+        },
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant id"
+        },
+        {
+          "name": "tileName",
+          "type": "string",
+          "location": "body",
+          "description": "Tile name"
+        }
+      ]
+    },
+    {
+      "name": "msw_tenants_address",
+      "description": "Get tenant address information. Optional: productGroupId. Returns the GetTenantAddressInfoResponse.",
+      "method": "GET",
+      "path": "/api/products/get-tenant-address-info",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "productGroupId",
+          "type": "string",
+          "location": "query",
+          "description": "Product group id"
+        }
+      ]
+    },
+    {
+      "name": "msw_tenants_cloud",
+      "description": "Get the list of tenantIds for all active cloud subscriptions. Step 1 of the NSM token exchange. Each tenant carries productGroupID and cloudServices[].tenantSerial under content.arrTenants[]. Optional: username, isforced (default: false), bisfromCSC2 (default: false). Returns the GetTenantsResponse.",
+      "method": "GET",
+      "path": "/api/hgms/get-cloud-tenants",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "username",
+          "type": "string",
+          "location": "query",
+          "description": "Username"
+        },
+        {
+          "name": "isforced",
+          "type": "bool",
+          "location": "query",
+          "description": "Isforced"
+        },
+        {
+          "name": "bisfromCSC2",
+          "type": "bool",
+          "location": "query",
+          "description": "Bisfrom csc2"
+        }
+      ]
+    },
+    {
+      "name": "msw_tenants_firewalls",
+      "description": "Returns a list of eligible firewalls for a given tenantId (productgroupId). When called with callerService=CSE and a valid system API-key. Optional: userName, productgroupid (default: 0), callerService (default: SPOG).",
+      "method": "GET",
+      "path": "/api/hgms/get-firewalls",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "userName",
+          "type": "string",
+          "location": "query",
+          "description": "User name"
+        },
+        {
+          "name": "productgroupid",
+          "type": "string",
+          "location": "query",
+          "description": "Productgroupid"
+        },
+        {
+          "name": "callerService",
+          "type": "string",
+          "location": "query",
+          "description": "Caller service"
+        }
+      ]
+    },
+    {
+      "name": "msw_tenants_list",
+      "description": "Get a list of tenants. Optional: isforced (default: false), allMSSP (default: false), allTenant (default: false) (plus 2 more). Returns the MsspPrefilterRes.",
+      "method": "GET",
+      "path": "/api/mssp/get-mssp-prefilter",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "isforced",
+          "type": "bool",
+          "location": "query",
+          "description": "Isforced"
+        },
+        {
+          "name": "allMSSP",
+          "type": "bool",
+          "location": "query",
+          "description": "All mssp"
+        },
+        {
+          "name": "allTenant",
+          "type": "bool",
+          "location": "query",
+          "description": "All tenant"
+        },
+        {
+          "name": "nonMSSPTenant",
+          "type": "bool",
+          "location": "query",
+          "description": "Non mssptenant"
+        },
+        {
+          "name": "varsource",
+          "type": "string",
+          "location": "query",
+          "description": "Varsource"
+        }
+      ]
+    },
+    {
+      "name": "msw_users_groups",
+      "description": "Get a list of user groups. Optional: isForced, isfromMSSPPage, masterMSSPID (plus 2 more). Returns the new ListUserGroupForUserResponse.",
+      "method": "POST",
+      "path": "/api/users/get-usergroup-details-for-users",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "isForced",
+          "type": "bool",
+          "location": "body",
+          "description": "Is forced"
+        },
+        {
+          "name": "isfromMSSPPage",
+          "type": "string",
+          "location": "body",
+          "description": "Isfrom mssppage"
+        },
+        {
+          "name": "masterMSSPID",
+          "type": "string",
+          "location": "body",
+          "description": "Master msspid"
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "location": "body",
+          "description": "Mode"
+        },
+        {
+          "name": "skipUsers",
+          "type": "string",
+          "location": "body",
+          "description": "Skip users"
+        }
+      ]
+    },
+    {
+      "name": "msw_users_list",
+      "description": "Get a list of users and associated user groups. Optional: bRecAdded (default: NO), isFromMssp (default: NO). Returns the MswUsersListResponse.",
+      "method": "GET",
+      "path": "/api/users/get-user-list",
+      "base_url": "https://api.mysonicwall.com",
+      "params": [
+        {
+          "name": "bRecAdded",
+          "type": "string",
+          "location": "query",
+          "description": "B rec added"
+        },
+        {
+          "name": "isFromMssp",
+          "type": "string",
+          "location": "query",
+          "description": "Is from mssp"
+        }
+      ]
+    },
+    {
+      "name": "nsm_session_refresh",
+      "description": "Provides a new session token. Invalidates the old token. Returns a new NSM session token and invalidates the old one (a credential mutation).",
+      "method": "POST",
+      "path": "/auth/refreshSessionToken",
+      "params": []
+    },
+    {
+      "name": "nsm_session_sso",
+      "description": "GET SSO token from URL for user authentication. NSM will return Bearer Token after successful login. Step 3 of the documented MySonicWall-key to NSM-token exchange. Body fields: tenantserial, code, client. On success NSM returns the bearer token in status.info[0].message (FortiSOAR connector-sonicwall-nsm reads it there). Token lasts 8 hours with a 15-minute inactivity timeout (MySonicWall API guide, 'Generating NSM Token using MySonicWall API Key'). Prefer the `nsm-login` command, which runs all three steps. Required: code, tenantserial. Optional: client, devtest, tenantname. (public)",
+      "method": "POST",
+      "path": "/auth/sso",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "client",
+          "type": "string",
+          "location": "body",
+          "description": "Client of the API request"
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "location": "body",
+          "description": "SSO token from MSW",
+          "required": true
+        },
+        {
+          "name": "devtest",
+          "type": "bool",
+          "location": "body",
+          "description": "Devtest"
+        },
+        {
+          "name": "tenantname",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant Name"
+        },
+        {
+          "name": "tenantserial",
+          "type": "string",
+          "location": "body",
+          "description": "Serial number of MSW tenant",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "nsm_system_health",
+      "description": "GET /healthcheck. Unauthenticated; returns status.info[0].message HEALTH OK when NSM is up. (public)",
+      "method": "GET",
+      "path": "/healthcheck",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "nsm_system_status",
+      "description": "Show the system status. Returns the Status.",
+      "method": "GET",
+      "path": "/system/status",
+      "params": []
+    },
+    {
+      "name": "nsm_system_version",
+      "description": "Get version. Unauthenticated; returns productName, version and buildVersion of the NSM SaaS instance. (public)",
+      "method": "GET",
+      "path": "/appVersion",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "tenants_by-serial",
+      "description": "To get tenant by serial. Required: serial. Returns the NsmTenant.",
+      "method": "GET",
+      "path": "/tenants/serial/{serial}",
+      "params": [
+        {
+          "name": "serial",
+          "type": "string",
+          "location": "path",
+          "description": "serial of the tenant",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_count",
+      "description": "To get tenants count. Returns the TenantsCountResponse.",
+      "method": "GET",
+      "path": "/tenants/count",
+      "params": []
+    },
+    {
+      "name": "tenants_default",
+      "description": "To get defaut tenant. Returns the ActiveTenant.",
+      "method": "GET",
+      "path": "/tenants/getDefaultTenant",
+      "params": []
+    },
+    {
+      "name": "tenants_get",
+      "description": "To get tenant by id. Required: id. Returns the NsmTenant.",
+      "method": "GET",
+      "path": "/tenants/id/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "id of the tenant",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_list",
+      "description": "To get all tenants. Optional: query, page, size (default: 100) (plus 2 more). Returns array of NsmTenant.",
+      "method": "GET",
+      "path": "/tenants",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "Search query"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number of the results"
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Limit for results per page"
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Direction: `ASC` - Ascending order `DESC` - Descending order"
+        },
+        {
+          "name": "sortField",
+          "type": "string",
+          "location": "query",
+          "description": "Field: `name` - Tenant Name `serial` - MSW Tenant Serial"
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_by-firmware",
+      "description": "Get vulnerable devices by firmware version. Advisories that apply to one SonicOS firmware version string. Required: firmwareVersion. Returns array of VulnItem.",
+      "method": "GET",
+      "path": "/devices/vulnerableFirmware",
+      "params": [
+        {
+          "name": "firmwareVersion",
+          "type": "string",
+          "location": "query",
+          "description": "Firmware version",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_devices",
+      "description": "Get vulnerable devices by tenant IDs. Devices matched to published SonicWall PSIRT advisories; each entry lists vulnList[] with advisoryID, title, impact, haveWorkaroud (sic) and noticeLink. Returns array of VulnerabilitiesDevicesItem.",
+      "method": "GET",
+      "path": "/devices/vulnerable",
+      "params": []
+    },
+    {
+      "name": "vulnerabilities_serials",
+      "description": "Get device serialNumbers with vulnerable exp by tenant IDs. Serial numbers of firewalls with a vulnerable firmware exposure, by tenant. Returns array of string.",
+      "method": "GET",
+      "path": "/devices/vul-exp",
+      "params": []
+    }
+  ]
+}

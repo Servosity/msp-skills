@@ -43,16 +43,16 @@ func newConfigAuditDiffCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("sn1") && flagSn1 == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "sn1")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "sn1"))
 			}
 			if !cmd.Flags().Changed("h1") && flagH1 == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "h1")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "h1"))
 			}
 			if !cmd.Flags().Changed("sn2") && flagSn2 == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "sn2")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "sn2"))
 			}
 			if !cmd.Flags().Changed("h2") && flagH2 == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "h2")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "h2"))
 			}
 			path := "/configaudit/diff"
 			c, err := flags.newClient()
