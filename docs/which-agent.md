@@ -1,13 +1,13 @@
 ---
 layout: default
 title: "Which AI agent? Install MSP Skills in Claude, ChatGPT, Codex, or Copilot | MSP Skills"
-description: "Which AI tools speak MCP today and how to install MSP Skills connectors in each: Claude Desktop, Claude Code, ChatGPT, Codex CLI, GitHub Copilot, Microsoft 365 Copilot, and Google Gemini. Pick your agent, follow the steps, mind the gotchas."
+description: "Which AI tools speak MCP today and how to install MSP Skills connectors in the ones that run them locally: Claude Desktop, Claude Code, the ChatGPT desktop app, Codex CLI, GitHub Copilot, and Gemini CLI. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) are not supported yet."
 permalink: /which-agent/
 ---
 
-# Which AI agent? Install MSP Skills in any of them.
+# Which AI agent? Install MSP Skills in any local MCP client.
 
-MSP Skills works with **any AI tool that speaks MCP** (Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one, and the gotchas to watch for.
+MSP Skills works with **any AI tool that runs MCP servers on your machine** (MCP is the Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one that runs them locally, and the gotchas to watch for. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) need a remote server, which MSP Skills does not support yet.
 
 Pick the row for your agent and follow that section. If you're not sure what you have, jump to ["I don't know what I have"](#i-dont-know-what-i-have-yet) at the bottom.
 

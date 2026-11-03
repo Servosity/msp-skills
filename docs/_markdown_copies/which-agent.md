@@ -1,8 +1,8 @@
 > For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/which-agent/
 
-# Which AI agent? Install MSP Skills in any of them.
+# Which AI agent? Install MSP Skills in any local MCP client.
 
-MSP Skills works with **any AI tool that speaks MCP** (Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one, and the gotchas to watch for.
+MSP Skills works with **any AI tool that runs MCP servers on your machine** (MCP is the Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one that runs them locally, and the gotchas to watch for. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) need a remote server, which MSP Skills does not support yet.
 
 Pick the row for your agent and follow that section. If you're not sure what you have, jump to ["I don't know what I have"](https://msp-skills.compoundingteams.com/which-agent/#i-dont-know-what-i-have-yet) at the bottom.
 
