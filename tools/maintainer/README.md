@@ -224,8 +224,10 @@ back from the file what `sendfile`, `splice` and `copy_file_range` put there, re
 extension (`ftruncate`, `truncate`, `fallocate`, a positioned write past the end) materializes, and
 records every name put in the file system (a created file, directory or node, a rename's or link's
 new name, a symbolic link's target, an extended attribute's name and value, a UNIX socket's path).
-Every exec records the argv and environment the new program received, judged on the ledger of the
-process that started it (a process that only passes on what it was given is not a new unit).
+Every exec records the argv and environment the new program received, as the kernel installed them,
+judged on the ledger of the nearest process the list knows in the chain that started it (kept from each
+fork), and each new program gets its own ledger and acquisition (a process that only passes on what it
+was given adds only its `argv[0]`).
 The set is closed with a failing default: a call through another system-call ABI, a call newer than
 the recorder's table, and every call no record reads (io_uring, `process_vm_writev`, `ptrace`,
 seccomp, `bpf`, `userfaultfd`, `pidfd_getfd`, message queues, SysV memory, kernel keys, a shared
@@ -233,7 +235,7 @@ mapping with write access of a regular file, or write access added to one later 
 not a read) is recorded as a failure and the process is killed before the call runs. The one shared
 mapping with write access allowed is SQLite's `-shm` index (beside a file that starts with SQLite's
 magic): the whole file, whoever mapped it and whatever range, is recorded whenever it changed, at every
-`munmap`, `msync`, `exec` and exit of any traced process, when it is made and when the record ends. A write into the record itself is refused
+`munmap`, `msync`, `exec` and exit of any traced process, when it is made and when the record ends, and judged on every process's held set. A write into the record itself is refused
 the same way, no process writes a core file, and a record cut short (the recorder killed) fails the
 case; the harness's timeout stops the recorder with SIGTERM, which kills every traced process and
 still ends the record. Each process's kernel writes to each file are judged like the first layer's

@@ -88,6 +88,7 @@ import argparse
 import atexit
 import base64
 import codecs
+import fnmatch
 import functools
 import gzip
 import hashlib
@@ -2781,23 +2782,28 @@ __STDIN__exec __REAL__ "$@"
 """
 
 
+def _stdin_pats(flags: list[str], q=str) -> list[str]:
+    """Shell globs for an argument naming a declared stdin flag, in every
+    spelling the kit's `present` accepts (one dash or two, `=value`, a
+    one-letter flag inside a cluster: first, r5-5, or later)."""
+    pats = []
+    for fl in flags:
+        n = q(fl.lstrip("-"))
+        if not n or not fl.lstrip("-"):
+            continue
+        pats += [f"-{n}", f"--{n}", f"-{n}=*", f"--{n}=*"]
+        if len(fl) == 2 and fl[0] == "-" and fl[1] != "-":
+            pats += [f"-{n}?*", f"-[!-]*{n}*"]
+    return pats
+
+
 def _stdin_capture(flags: list[str]) -> str:
     """Wrapper lines that keep a child's stdin when its argv names a declared
     stdin flag, in every spelling the kit's `present` accepts (one dash or
     two, `=value`, a one-letter flag inside a cluster): the kit reads all of
     stdin at start then, so reading it first changes nothing the child sees
     (finding r4-4). The child gets the same bytes from the file."""
-    pats = []
-    for fl in flags:
-        n = fl.lstrip("-")
-        if not n:
-            continue
-        q = shlex.quote(n)
-        pats += [f"-{q}", f"--{q}", f"-{q}=*", f"--{q}=*"]
-        if len(fl) == 2 and fl[0] == "-" and fl[1] != "-":
-            # isCluster (len > 2, one dash) with the letter anywhere after
-            # the dash: first (r5-5) or later.
-            pats += [f"-{q}?*", f"-[!-]*{q}*"]
+    pats = _stdin_pats(flags, shlex.quote)
     if not pats:
         return ""
     return ('cap=\nfor a in "$@"; do case "$a" in ' + "|".join(pats) + ') cap=1;; esac; done\n'
@@ -3282,6 +3288,45 @@ class Engine:
                               "before": procs[parent]["before"] if parent is not None else zero,
                               "after": procs[parent]["after"] if parent is not None else ends})
             shutil.rmtree(child_acq, ignore_errors=True)
+            # Every other program a process started, from the kernel record
+            # (contract 1, 2 and 8): the argv and environment installed by
+            # its exec, its own ledger, on the ledger of the nearest process
+            # the list knows in the chain that started it (kept from each
+            # fork, never a parent id that changes when a parent exits). An
+            # exec that passes on what it was given gives nothing new: only
+            # its argv[0] is the program's choice. A wrapper's own two execs
+            # are its record above; what it runs before the second is the
+            # harness's. A declared stdin flag past the wrapper: that stdin
+            # is not seen, so the held set is unknown (fail closed).
+            wrappers = set(own.values())
+            first = {}
+            for k_, pr in enumerate(procs):
+                first.setdefault(pr["pid"], k_)
+            ran: dict[int, int] = {}
+            stdin_globs = _stdin_pats(self.kit_decl.get("StdinFlags") or [])
+            for i, pr in enumerate(procs[:top]):
+                for pid, kind, u in pr.get("krec") or []:
+                    if kind == K_EXEC:
+                        ran[pid] = ran.get(pid, 0) + 1
+                    if kind != K_ARGS:
+                        continue
+                    chain_, full, argc, vec = u.split(b"\n", 3)
+                    chain = [int(x) for x in chain_.split()]
+                    if (pid in wrappers and ran.get(pid, 0) <= 2) or \
+                            any(c in wrappers and ran.get(c, 0) < 2 for c in chain[1:]):
+                        continue
+                    items = vec.split(b"\0")
+                    argv, envb = items[:int(argc)], [kv for kv in items[int(argc):] if kv]
+                    parent = next((first[c] for c in chain if c in first), i)
+                    args = [_s(a) for a in argv[1:]]
+                    if any(fnmatch.fnmatchcase(a, g) for a in args for g in stdin_globs):
+                        res["where"].append("a process started past the CLI wrapper names a declared stdin flag: its "
+                                            "stdin is not seen, so its held set is unknown")
+                    first.setdefault(pid, len(procs))
+                    procs.append({"which": "child", "args": args, "env": dict(_s(kv).partition("=")[::2] for kv in envb),
+                                  "stdin": b"", "pid": pid, "parent": parent, "files": {}, "state": {}, "exec": True,
+                                  "envelope": b"\n".join(argv + envb) if full == b"1" else b"\n".join(argv[:1]),
+                                  "before": procs[parent]["before"], "after": procs[parent]["after"]})
             if case.get("drive") == "mcp-unknown-tool-split":   # sent in separate messages
                 needles = [[p] for p in contract_parts(payload, cred, halves=True)]
             elif case.get("drive") == "feedback-split":          # sent in separate runs (contract 6.5)
@@ -3322,8 +3367,14 @@ class Engine:
                 held_of.append(h)
             if any(public.values()) or any(a["recorded"] for a in acqs):
                 res["recorded"] = sum(public.values()) + max(a["recorded"] for a in acqs)
-            fam = {i: [i] + [j for j in range(top, len(procs)) if procs[j].get("parent") == i] for i in range(top)}
-            fam.update({j: [j] for j in range(top, len(procs))})
+            # A process with everything it started, through any depth, and
+            # every program its pid went on to run.
+            fam = {i: [i] for i in range(len(procs))}
+            for j in range(top, len(procs)):
+                up = procs[j]["parent"]
+                while up is not None:
+                    fam[up].append(j)
+                    up = procs[up].get("parent")
 
             def held_for(idx) -> list[str]:
                 """The held set of the processes `idx` names (each with the
@@ -3428,10 +3479,10 @@ class Engine:
                 # Every process of a binary that links the driver writes a
                 # start record: one that did not ran untraced (fail closed).
                 links = self.links["mcp" if pr["which"] == "mcp" else "cli"]
-                if links and pr["pid"] not in started:
+                if links and pr["pid"] not in started and not pr.get("exec"):
                     res["where"].append(f"SQLite statements: process {i + 1} ({pr['which']}) wrote no trace, so "
                                         "its statements cannot be read")
-            by_pid = {pr["pid"]: i for i, pr in enumerate(procs)}
+            by_pid = first
             # File writes (kind 2): each file a process wrote, its writes in
             # order, judged like stdout (whole and write by write) on that
             # process's ledger (contract 2: a file written as a stream of
@@ -3456,7 +3507,7 @@ class Engine:
                 if pr.get("krec") is None:
                     res["where"].append(f"kernel record of process {i + 1} ({pr['which']}): cut short or missing")
                 else:
-                    krecs += [(p_, k_, (f"{i}\n".encode() + u_) if k_ == K_ARGS else u_) for p_, k_, u_ in pr["krec"]]
+                    krecs += pr["krec"]
             # The harness's own instrumentation: a CLI child's wrapper (a
             # shell script, until it execs the real CLI under the same pid)
             # writes the child's argv, environment, pid and stdin to its
@@ -3466,7 +3517,6 @@ class Engine:
             # the CLI its second) are not the connector's; every write after
             # it is, whoever makes it.
             execs: dict[int, int] = {}
-            wrappers = set(own.values())
             kept = []
             for pid, kind, u in krecs:
                 if kind == K_EXEC:
@@ -3475,22 +3525,6 @@ class Engine:
                     w = own.get(u.partition(b"\0")[2].partition(b"\0")[0])
                     if w is not None and execs.get(w, 0) < 2:
                         continue
-                if kind == K_ARGS:
-                    # Contract 2: the argv and environment of one child
-                    # process, as it received them, on its parent's ledger
-                    # (the top-level process's when its starter is not one
-                    # the list knows). The commands a wrapper runs to write
-                    # its records, before it execs the CLI, are the harness's.
-                    i_, _n1, rest = u.partition(b"\n")
-                    ppid, _n2, unit_ = rest.partition(b"\n")
-                    if int(ppid) in wrappers and execs.get(int(ppid), 0) < 2:
-                        continue
-                    texts.append(_s(unit_))
-                    k_ = by_pid.get(int(ppid), int(i_))
-                    how = judge(_s(unit_), held_of[k_])
-                    if how:
-                        res["where"].append(f"argv and environment of a process {procs[k_]['which']} started: {how}")
-                    continue
                 kept.append((pid, kind, u))
             krecs = kept
             made = sorted({p for d in (home, mcp_home, self.tmp) for p in (d, os.path.realpath(d))}, key=len,
@@ -3514,7 +3548,9 @@ class Engine:
                 elif kind == K_IMAGE:
                     _ident, _n1, rest = u.partition(b"\0")
                     name, _n2, data = rest.partition(b"\0")
-                    how = judge_dead(_s(data), h_)
+                    # Any process may have put it there and the record point
+                    # is whichever came next: every process's held set.
+                    how = judge_dead(_s(data), held_for([]))
                     if how:
                         res["where"].append(f"shared mapping of {_s(name)}: {how}")
             kst = kernel_streams(krecs)
@@ -3534,6 +3570,24 @@ class Engine:
             tws = [w for (_p, key), (_n, ws) in kst.items() if key == tkey for w in ws]
             if tws and (sum(map(len, tws)) != len(tbytes) or any(w not in tbytes for w in tws)):
                 res["where"].append("SQLite statements: the trace was changed after it was written (kernel record)")
+            # Every field of the trace is judged or checked here: a record's
+            # pid is a process that wrote the trace, a file write's identity
+            # is device:inode and its name is a name.
+            twriters = {p_ for (p_, key) in kst if key == tkey}
+            for pid, kind, u in recs:
+                if pid not in twriters:
+                    res["where"].append("SQLite statements: a record names a process that did not write the trace")
+                    break
+                if kind == 2:
+                    ident, _n1, rest = u.partition(b"\0")
+                    nm = rest.partition(b"\0")[0]
+                    if not re.fullmatch(rb"(\d+:\d+)?", ident):
+                        res["where"].append("SQLite statements: a file write's identity is not one")
+                    nm = _s(nm)
+                    nm = next((nm[len(r) + 1:] for r in made if nm.startswith(r + "/")), nm)
+                    how = judge(nm, held_for([by_pid[pid]]) if pid in by_pid else held)
+                    if how:
+                        res["where"].append(f"a file name in the statement trace: {how}")
             for (pid, key), (name, ws) in kst.items():
                 if key == tkey or inproc.get((pid, key)) == b"".join(ws):
                     continue   # read above: the trace, or the writes the os.File record judged
@@ -3541,9 +3595,12 @@ class Engine:
                 if is_sqlite_file(name, ws, dbs):
                     # SQLite's own pages, written below os.File by the
                     # trusted C layer from statements judged above: the
-                    # stream read as the list reads those files at rest (the
-                    # magic never splits a stream into clean single writes).
-                    how = judge_dead(_s(b"".join(ws)), h_)
+                    # stream read as the list reads those files at rest, each
+                    # write and the writes joined (a whole short token in one
+                    # write is a leak, and the magic never splits a stream
+                    # into clean single writes).
+                    how = next(filter(None, (judge_dead(_s(w), h_) for w in dict.fromkeys(ws))), None) or \
+                        judge_dead(_s(b"".join(ws)), h_)
                 else:
                     st_ = _stream(ws)
                     texts.append(str(st_))
@@ -6482,6 +6539,15 @@ def _k_python() -> bool:
          "r, w = os.pipe()\nif os.fork() == 0:\n    os.close(w); os.read(r, 1)\n"
          "    m[:len(K)] = K.encode(); m.flush(); m.close(); os._exit(0)\nos._exit(0)",
          K_IMAGE, key, None),
+        # corpus7rv round 2: a new file at a registered -shm's old path is not
+        # registered; write access added to any shared file mapping fails.
+        ("write access added to a shared mapping of a new file at a recorded -shm's path",
+         "open(H + '/c.db', 'wb').write(b'SQLite format 3\\x00' + b'\\x00' * 84)\n"
+         "f = open(H + '/c.db-shm', 'w+b'); f.write(b'0' * 4096); f.flush()\nm = mmap.mmap(f.fileno(), 4096); m.close()\n"
+         "os.unlink(H + '/c.db-shm')\nfd = os.open(H + '/c.db-shm', os.O_CREAT | os.O_RDWR); os.write(fd, b'0' * 4096)\n"
+         "c = ctypes.CDLL(None); c.mmap.restype = ctypes.c_void_p\na = c.mmap(None, 4096, 1, 1, fd, ctypes.c_long(0))\n"
+         "if c.mprotect(ctypes.c_void_p(a), 4096, 3) == 0:\n    ctypes.memmove(a, K.encode(), len(K))",
+         K_FAIL, b"mprotect", None),
         ("io_uring", "ctypes.CDLL(None, use_errno=True).syscall(425, 8, ctypes.create_string_buffer(120))",
          K_FAIL, b"io_uring_setup", None),
         ("fallocate collapsing a range",
@@ -6626,7 +6692,38 @@ def _c11_round1() -> bool:
     gc = ('import subprocess\ncall("GET", "/v1/items")\nif os.environ.get("FROM_MCP"):\n'
           '    subprocess.run(["true", __ARG__], env={"PATH": os.environ["PATH"]})\nprint("ok")\n')
     two = {"fields": [], "secret_env": ["ACME_API_KEY", "ACME_OTHER_KEY"]}
-    return _probes("corpus7rv round 1", [
+    direct = fw.replace('"acme-cli"), "items", "list"]', '"acme-cli.real"), "items", "list"]')
+    assert direct != fw
+    orphan = ('import subprocess\ncall("GET", "/v1/items")\nif os.environ.get("FROM_MCP"):\n    k = __ARG__\n'
+              '    r, w = os.pipe()\n    if os.fork() == 0:\n        os.close(w); os.read(r, 1)\n'
+              '        os.execve("/usr/bin/true", ["true", k], {"PATH": os.environ["PATH"]})\n    os._exit(0)\nprint("ok")\n')
+    magic0 = fd + 'os.write(fd, b"SQLite format 3\\x00" + b"\\x00" * 64)\nos.write(fd, __TEXT__.encode())\nos.write(fd, b"7\\n")\n' \
+                  'os.close(fd)\nos.unlink(os.path.join(HOME, "m"))\nprint("ok")\n'
+    tr2 = ('import struct\ncall("GET", "/v1/items")\nt = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), '
+           '"corpus-sql.trace")\nk = __UNIT__\nf = open(t, "ab")\n'
+           'f.write(struct.pack(">QQB", len(k), __PID__, 2) + k)\nf.close()\nprint("ok")\n')
+    ok = _probes("corpus7rv round 2", [
+        ("3: the key as a new program's argv[0], environment unchanged", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nos.execve("/usr/bin/true", [' + _KEY + '], dict(kv.split(b"=", 1) for kv in open("/proc/self/environ", "rb").read().split(b"\\0") if kv))\n')),
+        ("3: the same exec with a clean argv[0]", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nos.execve("/usr/bin/true", ["true"], dict(kv.split(b"=", 1) for kv in open("/proc/self/environ", "rb").read().split(b"\\0") if kv))\n')),
+        ("4: a key only the CLI child holds, given by its orphaned child", "succ-raw", "FAIL",
+         dict(cli=orphan.replace("__ARG__", 'os.environ.get("ACME_OTHER_KEY", "")'), mcp=fw), two),
+        ("4: the same orphan given a clean argv", "succ-raw", "PASS",
+         dict(cli=orphan.replace("__ARG__", '"ok"'), mcp=fw), two),
+        ("5: the server runs the real CLI past its wrapper, the CLI prints a key only it was given", "succ-raw", "FAIL",
+         dict(cli='call("GET", "/v1/items")\nprint(os.environ.get("ACME_OTHER_KEY", "ok") if os.environ.get("FROM_MCP") else "ok")\n',
+              mcp=direct), two),
+        ("5: the same run printing nothing it was given", "succ-raw", "PASS",
+         dict(cli='call("GET", "/v1/items")\nprint("ok")\n', mcp=direct), two),
+        ("6: a whole short credential as one write after SQLite's magic", "short6-raw", "FAIL",
+         dict(cli=magic0.replace("__TEXT__", _KEY))),
+        ("7: the credential in a file-write record's name field in the statement trace", "succ-raw", "FAIL",
+         dict(cli=tr2.replace("__UNIT__", 'b"1:1\\0" + ' + _KEY + '.encode() + b"\\0ok"').replace("__PID__", "os.getpid()"))),
+        ("7: a record in the statement trace naming a process that did not write it", "succ-raw", "FAIL",
+         dict(cli=tr2.replace("__UNIT__", 'b"1:1\\0n\\0ok"').replace("__PID__", "1"))),
+    ])
+    return ok & _probes("corpus7rv round 1", [
         ("5: a CLI child gives its own child a key only the CLI child holds", "succ-raw", "FAIL",
          dict(cli=gc.replace("__ARG__", 'os.environ.get("ACME_OTHER_KEY", "")'), mcp=fw), two),
         ("5: the same grandchild given a clean argv", "succ-raw", "PASS",

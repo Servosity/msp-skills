@@ -223,20 +223,18 @@ type thread struct {
 
 // What a call's entry saw, for its exit.
 type pre struct {
-	skip              bool
-	fd                int
-	ident             string // "dev:ino" of the destination file
-	name              string
-	reg               bool
-	off               int64 // where the bytes go; -1 when appended
-	size              int64 // the file's size before the call
-	names             [][]byte
-	isShm             bool
-	creat             bool
-	isExec            bool
-	ppid              int
-	execArgv, execEnv [][]byte
-	shm               *os.File // the -shm file, opened through the process's descriptor
+	skip   bool
+	fd     int
+	ident  string // "dev:ino" of the destination file
+	name   string
+	reg    bool
+	off    int64 // where the bytes go; -1 when appended
+	size   int64 // the file's size before the call
+	names  [][]byte
+	isShm  bool
+	creat  bool
+	isExec bool
+	shm    *os.File // the -shm file, opened through the process's descriptor
 }
 
 type mapping struct {
@@ -398,48 +396,9 @@ type given struct{ argv, env [][]byte }
 
 var givens = map[int]*given{}
 
-const maxArgs = 8 << 20 // more than execve accepts
-
-// readVec reads a NULL-terminated array of strings (argv, envp).
-func readVec(tid int, p uint64) ([][]byte, error) {
-	var out [][]byte
-	total := 0
-	for p != 0 {
-		b, err := readMem(tid, p, 8)
-		if err != nil {
-			return nil, err
-		}
-		q := binary.LittleEndian.Uint64(b)
-		if q == 0 {
-			break
-		}
-		var str []byte
-		for {
-			n := 4096 - q%4096
-			c, err := readMem(tid, q, n)
-			if err != nil {
-				return nil, err
-			}
-			i := bytes.IndexByte(c, 0)
-			if i >= 0 {
-				str = append(str, c[:i]...)
-				break
-			}
-			str = append(str, c...)
-			q += n
-			if len(str) > maxArgs {
-				return nil, fmt.Errorf("a string longer than execve accepts")
-			}
-		}
-		total += len(str)
-		if total > maxArgs {
-			return nil, fmt.Errorf("more than execve accepts")
-		}
-		out = append(out, str)
-		p += 8
-	}
-	return out, nil
-}
+// starter: who started each process and thread, from the fork event (the
+// child's first stop when that comes first, when its parent id is still true).
+var starter = map[int]int{}
 
 // passedOn: the environment unchanged and the arguments a tail of what the
 // program was given.
@@ -779,18 +738,7 @@ func entry(tid int, t *thread) {
 		scanMaps(t.tgid)
 	case cExecve, cExecveat:
 		scanMaps(t.tgid)
-		ap, ep := a[1], a[2]
-		if c == cExecveat {
-			ap, ep = a[2], a[3]
-		}
-		argv, err1 := readVec(tid, ap)
-		env, err2 := readVec(tid, ep)
-		if err1 != nil || err2 != nil {
-			fail(t, tid, name+": its argv or environment cannot be read")
-			return
-		}
-		t.pre.execArgv, t.pre.execEnv, t.pre.isExec = argv, env, true
-		t.pre.ppid, _ = statusField(t.tgid, "PPid:")
+		t.pre.isExec = true
 	case cIoctl:
 		f, err := fdOf(tid, fdArg(a[0]))
 		if err != nil && !noFd(err) {
@@ -844,14 +792,31 @@ func exit(tid int, t *thread, rval int64) {
 		emit(t.tgid, kName, n)
 	}
 	if p.isExec && rval == 0 {
-		// A process that runs what it was given on (env to python, a shell
-		// script's exec "$@") gives no process anything new; every other
-		// exec is what a child receives (contract 2).
-		if g := givens[t.tgid]; g == nil || !passedOn(g, p.execArgv, p.execEnv) {
-			emit(t.tgid, kArgs, append([]byte(strconv.Itoa(p.ppid)+"\n"),
-				bytes.Join(append(append([][]byte{}, p.execArgv...), p.execEnv...), []byte("\n"))...))
+		// What the program received, installed by the kernel and not yet
+		// reachable by any code (every other thread is gone, the memory is
+		// new): the unit of contract 2, never a buffer read at the call's
+		// entry. An exec that passes on what it was given (env to python, a
+		// shell script's exec "$@") gives nothing new but its argv[0]. The
+		// chain is who started this process, nearest first, kept from each
+		// fork: a parent id changes when a parent exits.
+		cl, err1 := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", tid))
+		ev, err2 := os.ReadFile(fmt.Sprintf("/proc/%d/environ", tid))
+		if err1 != nil || err2 != nil {
+			fail(t, tid, "exec: the argv or environment the program received cannot be read")
+			return
 		}
-		givens[t.tgid] = &given{p.execArgv, p.execEnv}
+		argv, env := nulSplit(cl), nulSplit(ev)
+		full := 1
+		if g := givens[t.tgid]; g != nil && passedOn(g, argv, env) {
+			full = 0
+		}
+		chain := strconv.Itoa(t.tgid)
+		for q, n := starter[t.tgid], 0; q != 0 && n < 64; q, n = starter[q], n+1 {
+			chain += " " + strconv.Itoa(q)
+		}
+		emit(t.tgid, kArgs, append([]byte(fmt.Sprintf("%s\n%d\n%d\n", chain, full, len(argv))),
+			bytes.Join(append(append([][]byte{}, argv...), env...), []byte{0})...))
+		givens[t.tgid] = &given{argv, env}
 	}
 	switch c {
 	case cOpen, cOpenat, cOpenat2, cCreat:
@@ -988,8 +953,9 @@ func sqliteDB(name string) bool {
 const protWrite = 0x2
 
 // sharedFileIn: the file of a shared file mapping overlapping [addr,
-// addr+n) other than a recorded -shm ("" when none), from the kernel's own
-// list of the process's mappings. Unreadable is treated as one.
+// addr+n) ("" when none), from the kernel's own list of the process's
+// mappings. Unreadable is treated as one. SQLite maps its -shm writable at
+// once and never adds write access, so no file is excepted.
 func sharedFileIn(tgid int, addr, n uint64) string {
 	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/maps", tgid))
 	if err != nil {
@@ -1006,14 +972,7 @@ func sharedFileIn(tgid int, addr, n uint64) string {
 		if !ok || e1 != nil || e2 != nil || !(addr < h && l < addr+n) {
 			continue
 		}
-		name := strings.Join(f[5:], " ")
-		shm := false
-		for _, m := range shms {
-			shm = shm || m.name == name
-		}
-		if !shm {
-			return name
-		}
+		return strings.Join(f[5:], " ")
 	}
 	return ""
 }
@@ -1182,6 +1141,9 @@ func main() {
 		switch {
 		case !seen[tid]:
 			seen[tid] = true // an auto-attached process's or thread's first stop
+			if tid == t.tgid && starter[tid] == 0 && tid != rootPid {
+				starter[tid], _ = statusField(tid, "PPid:") // its parent is at its own event stop, so alive
+			}
 			if s == syscall.SIGSTOP {
 				s = 0
 			}
@@ -1214,7 +1176,7 @@ func main() {
 		case s == syscall.SIGTRAP && ws.TrapCause() > 0:
 			switch ws.TrapCause() {
 			case syscall.PTRACE_EVENT_FORK, syscall.PTRACE_EVENT_VFORK, syscall.PTRACE_EVENT_CLONE:
-				_ = eventMsg(tid)
+				starter[int(eventMsg(tid))] = t.tgid
 			case syscall.PTRACE_EVENT_EXEC:
 				old := int(eventMsg(tid))
 				if o := threads[old]; old != tid && o != nil {
