@@ -37,14 +37,24 @@ Add (or merge with your existing `mcpServers` block):
     "sonicwall": {
       "command": "sonicwall-mcp",
       "env": {
-        "SONICWALL_MSW_API_KEY": "<your-sonicwall_msw_api_key>",
-        "SONICWALL_NSM_TOKEN": "<your-sonicwall_nsm_token>",
-        "SONICWALL_REGION": "<your-sonicwall_region>"
+        "SONICWALL_MSW_API_KEY": "<your MySonicWall API key>",
+        "SONICWALL_NSM_TOKEN": "",
+        "SONICWALL_REGION": "uswest",
+        "SONICWALL_BASE_URL": "",
+        "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_MCP_HTTP_TOKEN": "",
+        "SONICWALL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
 }
 ```
+
+`SONICWALL_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove this
+line only when you want the agent to make changes.
+
+Leave `SONICWALL_NSM_TOKEN` empty: run `sonicwall-cli nsm-login` once (and again whenever NSM tools exit 4; the token lasts 8 hours, 15 minutes idle), which saves the token where the MCP server reads it. A pasted token expires and keeps overriding the saved one. Leave the other empty values empty unless you need them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -78,9 +88,14 @@ Configuration**) and add:
       "type": "stdio",
       "command": "sonicwall-mcp",
       "env": {
-        "SONICWALL_MSW_API_KEY": "<your-sonicwall_msw_api_key>",
-        "SONICWALL_NSM_TOKEN": "<your-sonicwall_nsm_token>",
-        "SONICWALL_REGION": "<your-sonicwall_region>"
+        "SONICWALL_MSW_API_KEY": "<your MySonicWall API key>",
+        "SONICWALL_NSM_TOKEN": "",
+        "SONICWALL_REGION": "uswest",
+        "SONICWALL_BASE_URL": "",
+        "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_MCP_HTTP_TOKEN": "",
+        "SONICWALL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -101,9 +116,14 @@ Claude Desktop:
     "sonicwall": {
       "command": "sonicwall-mcp",
       "env": {
-        "SONICWALL_MSW_API_KEY": "<your-sonicwall_msw_api_key>",
-        "SONICWALL_NSM_TOKEN": "<your-sonicwall_nsm_token>",
-        "SONICWALL_REGION": "<your-sonicwall_region>"
+        "SONICWALL_MSW_API_KEY": "<your MySonicWall API key>",
+        "SONICWALL_NSM_TOKEN": "",
+        "SONICWALL_REGION": "uswest",
+        "SONICWALL_BASE_URL": "",
+        "SONICWALL_MCP_READ_ONLY": "1",
+        "SONICWALL_MCP_HTTP_TOKEN": "",
+        "SONICWALL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -125,7 +145,7 @@ than loopback also needs TLS:
 
 ```bash
 export SONICWALL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-SONICWALL_MSW_API_KEY=<value> SONICWALL_NSM_TOKEN=<value> SONICWALL_REGION=<value> sonicwall-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+SONICWALL_MSW_API_KEY=<value> SONICWALL_REGION=uswest sonicwall-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at

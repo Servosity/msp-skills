@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Package posture holds the pure evaluation logic behind the SonicWall posture
 // commands: firmware version ordering, MFA coverage from SonicOS config, SSL-VPN
