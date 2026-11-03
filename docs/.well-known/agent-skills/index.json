@@ -62,7 +62,7 @@
       "type": "skill-md",
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you. Trigger phrases: `what is end of life across my clients`, `which devices have no config backup`, `what devices disappeared from auvik`, `reconcile auvik billable device counts`, `why can't auvik see this device`, `which client is generating the most alerts`, `use auvik`, `run auvik`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/SKILL.md",
-      "digest": "sha256:4fc7a237eb3c1517018eedb63e819b1738aa74569f3ea8bd253ac18b0fba0346"
+      "digest": "sha256:8250ae96171adb7872b2898d1855e7a496c1102f8d67d15f0d9a580d1bc04f52"
     },
     {
       "name": "avanan",

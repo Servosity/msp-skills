@@ -42,7 +42,10 @@ Add (or merge with your existing `mcpServers` block):
         "AUVIK_BASE_URL": "<your-auvik_base_url>",
         "AUVIK_TENANT": "<your-auvik_tenant>",
         "AUVIK_USER_AGENT": "<your-auvik_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "AUVIK_MCP_READ_ONLY": "",
+        "AUVIK_NO_LOCAL_DATA": "",
+        "AUVIK_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -72,7 +75,10 @@ Configuration**) and add:
         "AUVIK_BASE_URL": "<your-auvik_base_url>",
         "AUVIK_TENANT": "<your-auvik_tenant>",
         "AUVIK_USER_AGENT": "<your-auvik_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "AUVIK_MCP_READ_ONLY": "",
+        "AUVIK_NO_LOCAL_DATA": "",
+        "AUVIK_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -98,7 +104,10 @@ Claude Desktop:
         "AUVIK_BASE_URL": "<your-auvik_base_url>",
         "AUVIK_TENANT": "<your-auvik_tenant>",
         "AUVIK_USER_AGENT": "<your-auvik_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "AUVIK_MCP_READ_ONLY": "",
+        "AUVIK_NO_LOCAL_DATA": "",
+        "AUVIK_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -120,7 +129,7 @@ than loopback also needs TLS:
 
 ```bash
 export AUVIK_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-AUVIK_API_KEY=<value> AUVIK_USERNAME=<value> AUVIK_BASE_URL=<value> AUVIK_TENANT=<value> AUVIK_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> auvik-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+AUVIK_API_KEY=<value> AUVIK_USERNAME=<value> AUVIK_BASE_URL=<value> AUVIK_TENANT=<value> AUVIK_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> AUVIK_MCP_READ_ONLY=<value> AUVIK_NO_LOCAL_DATA=<value> auvik-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at

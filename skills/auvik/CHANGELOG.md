@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.9] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `AUVIK_MCP_HTTP_TOKEN` is set (32 characters or more), listens on `127.0.0.1:7777` by default, and needs `--tls-cert` and `--tls-key` on any other address. The code-orchestration execute tool previews every state-changing call until `confirm` is `true`. `AUVIK_MCP_HTTP_TOKEN`, `AUVIK_MCP_READ_ONLY` and `AUVIK_NO_LOCAL_DATA` are now declared on every install channel.
+
+### Added
+- `tenants scorecard`: one row per client with end-of-support exposure, configuration backup gaps, discovery blind spots and alert volume, worst first. Every column is computed by the same code as its single-purpose command.
+
+### Changed
+- Sync partitions follow the 4.35.1 names: `inventory-device-info` holds devices (`inventory` now holds components), `asm-app-info` holds ASM applications (`asm` now holds ASM clients), and `auvik-inventory` holds v2 discovery status. Rows an older version synced move to the new partition the next time the store is opened for writing (any `sync`), so a full sync keeps or retires them like any other row. Each command's `--help` prints the exact `sync --resources ...` line it needs.
+
+### Fixed
+- `eol`: a device whose lifecycle status is `unpublished` or `empty`, or that only reports sales availability, is bucketed `unknown`, not `supported`.
+- `device discovery-gaps` reads the discovery probes on a device's detail record, so a device whose SNMP credentials are rejected is a gap even with no v2 status row.
+- `asm shadow` counts a licence only against the application it was read for, and lists a licence read that failed (or returned no `data`) under `license_lookup_failed` instead of reporting no licences.
+- `usage reconcile` reads the documented daily server and workstation count arrays instead of reporting zero.
+- `inventory diff --snapshot` records an empty fleet as the newest baseline, so removals are not reported again on every run.
+
 ## [0.2.8] - 2026-10-23
 
 ### Changed
