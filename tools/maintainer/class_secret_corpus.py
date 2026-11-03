@@ -174,10 +174,11 @@ def make_cred(kind: str) -> str:
     if kind == "long-qp":   # two hex digits after the '=': quoted-printable reads them as one byte
         return f"clsK{_rand(8)}.{_rand(3)}+{_rand(3)}/{_rand(3)}=A{_choice(string.hexdigits)}{_rand(1)}"
     if kind == "long16":
-        # The 8th character differs from the 1st: two adjacent 7-character
-        # prefixes of the value then never hold an 8-character piece of it.
+        # The 8th character differs from the 1st, in any case (the matcher
+        # folds case): two adjacent 7-character prefixes of the value then
+        # never hold an 8-character piece of it.
         head = _rand(7)
-        return head + _choice(_ALNUM.replace(head[0], "")) + _rand(8)
+        return head + _choice(_ALNUM.replace(head[0].lower(), "").replace(head[0].upper(), "")) + _rand(8)
     if kind == "len8":
         return _rand(3) + "!" + _rand(4)
     return {"short7": "s3cr3t7", "short3": "q7Z", "digits": "48291375", "digits6": "482913",
@@ -6325,9 +6326,11 @@ def _c8_sink_capture() -> bool:
          dict(cli=big.replace("__GZ__", "").replace('b"\\x00" * (64 * 1024 * 1024 + 1) + __DOC__', 'b"ok"'))),
     ])
     named = ('if err := os.Chdir(os.Getenv("HOME")); err != nil {\n\t\tpanic(err)\n\t}\n'
-             '\tf, _ := os.Create("|cache")\n\tf.Write([]byte("' + _GO_VALUE + '-a"))\n\tf.Close()\n\tos.Remove("|cache")\n'
+             '\tf, _ := os.Create("|cache")\n\tf.Write([]byte("' + _GO_VALUE + '-a"))\n\tf.Close()\n'
              '\tg, _ := os.Create("plain")\n\th := os.NewFile(g.Fd(), "/dev/fd/3")\n\th.Write([]byte("' + _GO_VALUE + '-b"))\n'
-             '\tos.Stdout.Write([]byte("to-stdout"))\n\tg.Close()\n\tos.Remove("plain")')
+             # The first file stays until the second exists: ext4 reuses a freed
+             # inode, and writes are grouped by file identity (CI, corpus9rv).
+             '\tos.Stdout.Write([]byte("to-stdout"))\n\tg.Close()\n\tos.Remove("|cache")\n\tos.Remove("plain")')
     err, recs, _o = _c8_go(named)
     got = sorted(b"".join(r[2]) for r in recs)
     if err or got != [(_GO_VALUE + "-a").encode(), (_GO_VALUE + "-b").encode()]:
@@ -6863,7 +6866,7 @@ def _seed_probe() -> bool:
                      ("two variables drew the same value", draw(var="X") == draw(var="Y")),
                      ("a value drawn outside a case was seeded", make_cred("long") == make_cred("long")),
                      ("a value's 8th character repeats its 1st", any(
-                         (lambda v: v[7] == v[0])(make_cred("long16")) for _ in range(5000))),
+                         (lambda v: v[7].lower() == v[0].lower())(make_cred("long16")) for _ in range(5000))),
                      ("a long-qp value lacks two hex digits after '='", any(
                          not re.search(r"=[0-9A-Fa-f]{2}", make_cred("long-qp")) for _ in range(5000)))):
         if bad:
