@@ -321,6 +321,10 @@ A review may raise these as P2, never as P1:
    characters, so that character splits the document before the join reads it. Example: the hex of an ISO-2022-JP
    text that reads `%7B"あ":0,"a":"secr","b":"et!!"}` needs hex, ISO-2022-JP, percent-encoding and the join, four
    decodings in a row.
+11. A held credential that SQLite's `-shm` index holds only between two record points of the kernel record (the
+   mapping made, `munmap`, `msync`, `exec`, exit): a store to a shared mapping makes no system call, so bytes put
+   there and overwritten before the next record point are never read. Every other writable shared mapping of a file
+   fails the run (a platform residual, owner ruling 14b).
 
 ## 7. Per-connector declarations
 
