@@ -84,6 +84,60 @@
           "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "XERO_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available (writes still need confirm).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "XERO_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local data.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "XERO_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "XERO_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Xero requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "XERO_SCOPES",
+          "description": "Comma or space separated OAuth scopes requested by auth login, replacing the default set. Leave blank for the default scopes.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SPACEFAST_TOKEN",
+          "description": "Only for the CLI's --deliver spacefast option, which publishes a command's output as a Spacefast page in your account. MCP tools cannot use --deliver. Leave blank otherwise.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "SPACEFAST_TEAM",
+          "description": "Picks the Spacefast team for --deliver spacefast when the token belongs to several. Leave blank otherwise.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SPACEFAST_API_URL",
+          "description": "Overrides the Spacefast API address used by --deliver spacefast. Leave blank for the default.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

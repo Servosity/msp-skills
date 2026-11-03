@@ -18,7 +18,7 @@ import (
 
 func confirmTestServer(t *testing.T, calls *[]map[string]any) (*server.MCPServer, *cobra.Command) {
 	t.Helper()
-	root := &cobra.Command{Use: "xero-pp-cli"}
+	root := &cobra.Command{Use: "xero-cli"}
 	root.PersistentFlags().Bool("dry-run", false, "")
 	root.PersistentFlags().String("receipt-file", "", "")
 	root.Annotations = map[string]string{FlagWriteSinksAnnotation: "receipt-file"}

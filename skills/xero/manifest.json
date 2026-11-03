@@ -23,7 +23,16 @@
         "XERO_OAUTH2": "${user_config.xero_oauth2}",
         "XERO_TENANT_ID": "${user_config.xero_tenant_id}",
         "XERO_TOKEN_URL": "${user_config.xero_token_url}",
-        "XERO_NO_CONFIG_WRITE": "${user_config.xero_no_config_write}"
+        "XERO_NO_CONFIG_WRITE": "${user_config.xero_no_config_write}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "XERO_MCP_READ_ONLY": "${user_config.xero_mcp_read_only}",
+        "XERO_NO_LOCAL_DATA": "${user_config.xero_no_local_data}",
+        "XERO_MCP_HTTP_TOKEN": "${user_config.xero_mcp_http_token}",
+        "XERO_USER_AGENT": "${user_config.xero_user_agent}",
+        "XERO_SCOPES": "${user_config.xero_scopes}",
+        "SPACEFAST_TOKEN": "${user_config.spacefast_token}",
+        "SPACEFAST_TEAM": "${user_config.spacefast_team}",
+        "SPACEFAST_API_URL": "${user_config.spacefast_api_url}"
       }
     }
   },
@@ -88,6 +97,69 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "xero_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available (writes still need confirm).",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local data.",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "xero_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Xero requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "xero_scopes": {
+      "type": "string",
+      "title": "OAuth scopes (optional)",
+      "description": "Comma or space separated OAuth scopes requested by auth login, replacing the default set. Leave blank for the default scopes.",
+      "required": false,
+      "sensitive": false
+    },
+    "spacefast_token": {
+      "type": "string",
+      "title": "Spacefast token (optional)",
+      "description": "Only for the CLI's --deliver spacefast option, which publishes a command's output as a Spacefast page in your account. MCP tools cannot use --deliver. Leave blank otherwise.",
+      "required": false,
+      "sensitive": true
+    },
+    "spacefast_team": {
+      "type": "string",
+      "title": "Spacefast team (optional)",
+      "description": "Picks the Spacefast team for --deliver spacefast when the token belongs to several. Leave blank otherwise.",
+      "required": false,
+      "sensitive": false
+    },
+    "spacefast_api_url": {
+      "type": "string",
+      "title": "Spacefast API URL (optional)",
+      "description": "Overrides the Spacefast API address used by --deliver spacefast. Leave blank for the default.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
