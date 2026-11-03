@@ -131,16 +131,37 @@ program is given it: the token-error line, which unsets static tokens so the cli
 declared variable the token request carries, or does not apply. No piece is exempt, so a declared
 URL or host variable gets an address of its own: the fake's port by the name `localhost` (and a
 URL a path of its own), where every unheld variable spells it `127.0.0.1`, so no unheld value the
-harness gives the program shares an 8-character piece with a held one. Every token the fake vendor
-hands out, every `Set-Cookie` value and everything under a declared response field it sends
-(booleans and null included), in any line, is held for the rest of that run, minted or not, except
-a value that occurs as written in the kit's public text (`true`, `false`, `null`, a status code, a
-protocol word): the kit's own rule records it instead (the result's `recorded` count) and does not
-hold it. A mint that never happened leaves only that token unheld. Most cases inject one credential,
+harness gives the program shares an 8-character piece with a held one. The held set of a run is
+the kit's own (contract section 8; `credmatch`'s acquire request runs the kit's startup and
+transport code): what `Start` holds from the run's environment and the config file it was given
+(`auth_header`, every `[headers]` value, the base URL's user and password, a file that does not
+read the one canonical way held whole), then what the kit's transport holds from every request the
+fakes received (auth headers whole and their parts, Basic auth's user and password, cookie values,
+declared headers and fields) and every response they sent (`Set-Cookie` values, declared response
+fields in headers and bodies). Identifiers the connector declares are exempt, as in the kit. A
+value that arrives in a response is held only when it was delivered; such values, and the user of
+a base URL the harness writes, carry no fixed prefix, so one never delivered cannot be guessed.
+Every token the fake vendor hands out is held for the rest of that run, and so is every object key
+beneath a declared response field (a vendor that stores a credential as a key; the kit holds the
+values there, not the keys), except a value that occurs as written in the kit's public text
+(`true`, `false`, `null`, a status code, a protocol word): the kit's own rule records it instead
+(the result's `recorded` count) and does not hold it. A mint that never happened leaves only that
+token unheld. Most cases inject one credential,
 the first declared one the connector sends on the wire and already withholds when a vendor echoes it
 (else the first on the wire); `each-env-var` injects every declared variable on its own, a declared
 URL variable included. A vendor response field is held only when the connector declares it: the
-`ResponseFields` (and `SecretEnv`) of the one literal of the shared kit's own `Declarations` type.
+`ResponseFields` (and `SecretEnv`, `Identifiers` and every other list) of the one literal of the
+shared kit's own `Declarations` type, read from the packages the connector's two binaries link,
+under the build's own tags and target. That value may be used only as `credkit.Start`'s argument
+(the documented wiring: a literal in a wiring package, `credkit.Start(wiring.D)` in each `main`);
+its address taken, a copy kept in a field, a field set or read elsewhere, an element of another
+literal, a GOFLAGS overlay or a literal that does not type-check fails the connector's run.
+
+Stdout and stderr are captured byte for byte, and in the writes the kit's pump checks one by one:
+the bytes between two pauses of the pipe (5 ms here, 10 ms in the kit, so the list sees every
+boundary the kit would). A stream is judged whole and, through the kit's own stream check, write
+by write with the stream's context, so a short credential that ends one write is found even when
+the next write puts a digit after it.
 The reader type-checks the connector with `go/types` against the packages `go list -export`
 reports, under the environment the connector build uses (`GOFLAGS` build tags, `GOOS`, `GOARCH`),
 so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
@@ -229,9 +250,15 @@ so a connector that refuses the hop is not held in its own retry backoff.
   so a 3-character credential fails more often than a long one.
 - Files are read when the run ends, so a file written and then deleted (or overwritten) during the
   run is not seen; the shared kit's file layer covers that sink in process.
-- A SQLite database (with its `-wal`, `-shm` or `-journal`) is judged as its schema statements and
-  its live rows, one unit each (contract 3's SQLite unit), not as raw pages; a deleted or
-  overwritten row left in a free page is not seen. A database SQLite cannot open fails the case.
+- A SQLite database (with its `-wal`, `-shm` or `-journal`) is judged as its schema statements, its
+  live rows one unit each and each table's rows joined (one statement may write several rows,
+  contract 3's SQLite unit), plus every byte its rows do not show: bytes past the database's size,
+  freed pages and replaced WAL frames (read as the old records they hold, one unit each), the free
+  space inside each page, and the rollback journal whole, split at runs of 64 or more NUL bytes.
+  Not raw pages: the kit runs out of budget on ordinary caches read raw (auvik's index pages). A
+  piece of free space the kit cannot read whole (auvik keeps old index cells there) is read again
+  in 1 KB windows overlapping by half, so in such a piece a reading that needs more than 512 bytes
+  is not read whole. A database SQLite cannot open fails the case.
 - The child process sink is the argv the MCP server gives its own CLI (logged by a wrapper); other
   children and their environments are not observed.
 - A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
