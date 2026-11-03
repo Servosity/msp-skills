@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: clusters.toml is read and permission-checked through one file
 // descriptor, so the bytes parsed are the bytes whose owner and mode were
 // verified (no swap between the check and the read).

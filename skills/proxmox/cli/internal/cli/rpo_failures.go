@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: the only proof rpo accepts that a scheduled run left no
 // restore point: the log of a vzdump task that wrote to that run's
 // destination (an explicit --storage), recording the guest's backup failing

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Proxmox MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Read-only Proxmox VE and Backup Server CLI that tells you, across every client cluster, which guests have a good, verified, recent restore point and which do not."
+description: "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox."
 permalink: /skills/proxmox/
 skill_name: "Proxmox MCP"
 image: /assets/social/proxmox/wide-1200x630.png

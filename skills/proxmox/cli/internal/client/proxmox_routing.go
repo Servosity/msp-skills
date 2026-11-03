@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written (not generated): Proxmox Backup Server routing, PBS token prefix,
 // per-service TLS fingerprint pinning (applied by a cli-package client hook),
 // and the PBS display URL. Wired from client.go by one-line hooks.
@@ -243,9 +243,15 @@ func (c *Client) SetServicePins(pvePins, pbsPins []string) error {
 	default:
 		return errors.New("cannot pin TLS fingerprints: unexpected HTTP transport")
 	}
+	// Clone keeps the press's TLS trust (--ca-cert, --tls-server-name); a pin
+	// replaces it for that service only (unpinned-service-keeps-press-tls-trust).
 	pve, pbs := base.Clone(), base.Clone()
-	pve.TLSClientConfig = strictPinConfig("PVE", pvePins)
-	pbs.TLSClientConfig = strictPinConfig("PBS", pbsPins)
+	if cfg := strictPinConfig("PVE", pvePins); cfg != nil {
+		pve.TLSClientConfig = cfg
+	}
+	if cfg := strictPinConfig("PBS", pbsPins); cfg != nil {
+		pbs.TLSClientConfig = cfg
+	}
 	c.HTTPClient.Transport = &servicePinTransport{base: base, pve: pve, pbs: pbs, isPBS: c.isPBSHost}
 	return nil
 }

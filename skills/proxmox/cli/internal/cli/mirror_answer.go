@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: a per-endpoint read that answers from the local mirror because
 // Proxmox could not be reached says so on stderr, in every output form; the
 // JSON meta.source label alone is lost in --csv, --plain and --quiet.
