@@ -1255,7 +1255,7 @@
    "id": "unknown-never-pass-r1-2026-11-02",
    "status": "active",
    "summary": "SSL-VPN exposure is graded by each zone's SonicOS security type (untrusted, or a name containing WAN) and is unknown when a zone's type cannot be read; blind-spots refuses an empty registry; --tenant is refused when any NSM firewall reports no tenantId",
-   "why": "Codex review 2026-11-02 round 1 (three P1s): posture and exposure inferred WAN from the zone NAME, so an untrusted zone named Internet graded pass / not reachable (SonicOS documents zone.security_type, sonicos-api-swagger.json#/definitions/zone); blind-spots answered an empty MySonicWall registry with 'Every registered firewall ... is visible in NSM'; and the fleet reader dropped firewalls with no tenantId (optional in nsm-api-gateway.json device_list) from every --tenant report. TestExposureGradesZonesBySecurityType, TestBlindSpotsEmptyRegistryIsNotAllClear and TestTenantFilterRefusesUntenantedFirewalls failed on the published code and pass after.",
+   "why": "Codex review 2026-11-02 round 1 (three P1s): posture and exposure inferred WAN from the zone NAME, so an untrusted zone named Internet graded pass / not reachable (SonicOS documents zone.security_type, sonicos-api-swagger.json#/definitions/zone); blind-spots answered an empty MySonicWall registry with 'Every registered firewall ... is visible in NSM'; and the fleet reader dropped firewalls with no tenantId (optional in nsm-api-gateway.json device_list) from every --tenant report. TestExposureGradesZonesBySecurityType, TestBlindSpotsEmptyRegistryIsNotAllClear and TestTenantFilterRefusesUntenantedFirewalls failed on the published code and pass after. Codex round 2 (2026-11-02): the empty-registry guard counted every registered product while the comparison drops non-firewalls, so a registry of only access points and an empty NSM fleet still read as all-clear; the guard now counts the products the comparison actually covers (a serial, and a firewall or unclassified product unless --all-products) and exits 3 when that is zero.",
    "asserts": [
     {
      "file": "cli/internal/posture/posture.go",
@@ -1298,6 +1298,24 @@
      "contains": "func TestTenantFilterRefusesUntenantedFirewalls(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "compared := 0",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "if compared == 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "not_contains": "if len(products) == 0 {"
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_r2_blind_spots_test.go",
+     "contains": "func TestBlindSpotsNoComparedFirewallIsNotAllClear("
     }
    ]
   }
