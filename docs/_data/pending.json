@@ -364,11 +364,11 @@
     "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
   },
   "ninjaone": {
-    "state": "up-to-date",
-    "version": "0.1.21",
+    "state": "version-pending",
+    "version": "0.1.22",
     "latest_tag": "ninjaone-v0.1.21",
-    "current_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694",
-    "released_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694"
+    "current_hash": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014",
+    "released_hash": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014"
   },
   "pagerduty": {
     "state": "up-to-date",
