@@ -711,7 +711,10 @@ worktree with the branch checked out is dirty, mid-operation, in use by another 
 or holds unpushed commits (it never resets or cleans those; all its work happens in a private
 worktree it creates and removes); squashes the branch to one commit on its merge base,
 keeping every sign-off; rebases onto current `origin/main`, sending registry and derived-file
-conflicts to `resolve_registry.py` and stopping on anything else; regenerates the derived files;
+conflicts to `resolve_registry.py` and stopping on anything else; regenerates the derived files,
+and `.coderabbit.yaml` with `gen_coderabbit_config.py` when its `--check` fails (every connector
+merge can make another PR's copy stale; a conflict on it takes main's copy first; if the generator
+fails or touches any other file the run stops), all inside the rebased commit;
 pushes with `--force-with-lease` pinned to the head it started from; waits for every workflow
 run, check run and commit status on that exact commit, with the branch-protection contexts
 present and SUCCESS; and merges with `--match-head-commit` only when all of it is green,
