@@ -1898,6 +1898,11 @@ type ident struct {
 	Reason string `json:"reason"`
 }
 
+type origin struct {
+	Source  string   `json:"source"`
+	Allowed []string `json:"allowed"`
+}
+
 type result struct {
 	Fields      []string            `json:"fields"`
 	SecretEnv   []string            `json:"secret_env"`
@@ -1905,7 +1910,7 @@ type result struct {
 	Lists       map[string][]string `json:"lists"`
 	BaseURL     map[string]string   `json:"base_url"`
 	Files       bool                `json:"files"`
-	Pins        map[string][]string `json:"pins"`
+	Pins        []origin            `json:"pins"`
 	Errors      []string            `json:"errors"`
 }
 
@@ -2476,45 +2481,48 @@ func main() {
 							take(where, val, &l)
 							res.Lists[name] = l
 						case name == "Origins":
-							// Only where to send a request (pin_host), never a
-							// verdict: the list holds every host but the ones it
-							// plays as foreign. What is not a constant is not
-							// read, and at worst a row reaches no request (NOTE).
-							if res.Pins == nil {
-								res.Pins = map[string][]string{}
+							// In order, as the kit reads them: which host the list
+							// plays (pin_host), and the kit's origin rule on a
+							// request sent there. Anything else fails closed.
+							if info.Types[val].IsNil() {
+								break
 							}
-							ast.Inspect(val, func(n ast.Node) bool {
-								el, ok := n.(*ast.CompositeLit)
+							lit, ok := ast.Unparen(val).(*ast.CompositeLit)
+							if !ok {
+								fail("%s: Origins is not a literal", where)
+								break
+							}
+							for _, e := range lit.Elts {
+								el, ok := ast.Unparen(e).(*ast.CompositeLit)
 								if !ok {
-									return true
+									fail("%s: an origin that is not a literal", where)
+									continue
 								}
-								src, allowed := "", []string{}
-								for _, f := range el.Elts {
-									kv, ok := f.(*ast.KeyValueExpr)
-									if !ok {
-										continue
-									}
-									id, _ := kv.Key.(*ast.Ident)
-									if id == nil {
-										continue
-									}
-									if id.Name == "Source" {
-										if tv := info.Types[kv.Value]; tv.Value != nil && tv.Value.Kind() == constant.String {
-											src = constant.StringVal(tv.Value)
+								var src, allowed ast.Expr
+								for i, f := range el.Elts {
+									if kv, ok := f.(*ast.KeyValueExpr); ok {
+										if id, _ := kv.Key.(*ast.Ident); id != nil && id.Name == "Source" {
+											src = kv.Value
+										} else if id != nil && id.Name == "Allowed" {
+											allowed = kv.Value
 										}
-									} else if lit, ok := ast.Unparen(kv.Value).(*ast.CompositeLit); ok && id.Name == "Allowed" {
-										for _, a := range lit.Elts {
-											if tv := info.Types[a]; tv.Value != nil && tv.Value.Kind() == constant.String {
-												allowed = append(allowed, constant.StringVal(tv.Value))
-											}
-										}
+									} else if i == 0 {
+										src = f
+									} else if i == 1 {
+										allowed = f
 									}
 								}
-								if src != "" {
-									res.Pins[src] = allowed
+								tv := info.Types[src]
+								if src == nil || tv.Value == nil || tv.Value.Kind() != constant.String {
+									fail("%s: an origin whose source is not a constant string", where)
+									continue
 								}
-								return true
-							})
+								o := origin{Source: constant.StringVal(tv.Value), Allowed: []string{}}
+								if allowed != nil {
+									take(where, allowed, &o.Allowed)
+								}
+								res.Pins = append(res.Pins, o)
+							}
 						case name == "Files":
 							// A callback, so not read: every adopter declares one.
 							// The list hands the kit each file it seeded instead
@@ -2653,7 +2661,7 @@ def _declarations_for(cli: Path, targets: list[str], env: dict) -> dict:
     b = res.get("base_url") or {}
     out["base_url"] = {k: b.get(k, "") for k in ("ConfigKey", "Env", "Default")} if b else {}
     out["files"] = bool(res.get("files"))
-    out["pins"] = {k: list(v or []) for k, v in (res.get("pins") or {}).items()}
+    out["pins"] = [{"Source": o["source"], "Allowed": list(o["allowed"] or [])} for o in res.get("pins") or []]
     return out
 
 
@@ -2702,7 +2710,19 @@ def has_kit(slug: str) -> bool:
         return False
 
 
-def pin_host(pins: dict, seedable: list[str]) -> str | None:
+def allowed_of(pins: list[dict], source: str) -> list[str]:
+    """A source's allowed origins as the kit reads them (held.go allowedLocked):
+    the first entry naming it, else the last "*"."""
+    default: list[str] = []
+    for o in pins:
+        if o["Source"] == source:
+            return o["Allowed"]
+        if o["Source"] == "*":
+            default = o["Allowed"]
+    return default
+
+
+def pin_host(pins: list[dict], seedable: list[str]) -> str | None:
     """Where a credential pinned to literal hosts must be sent. Origins sends
     such a value to those hosts and no other (immybot: the client secret to
     Microsoft's sign-in hosts), so a fake on 127.0.0.1 is refused and the row
@@ -2711,7 +2731,7 @@ def pin_host(pins: dict, seedable: list[str]) -> str | None:
     which serves a certificate naming it. The binary under test is unchanged. An
     MCP server's own bearer is never sent, so its pin says nothing."""
     for v in seedable:
-        allowed = pins.get(f"env:{v}", pins.get("*") or [])
+        allowed = allowed_of(pins, f"env:{v}")
         if v.endswith("MCP_HTTP_TOKEN") or "base_url" in allowed:
             continue
         for a in allowed:
@@ -2720,13 +2740,13 @@ def pin_host(pins: dict, seedable: list[str]) -> str | None:
     return None
 
 
-def adopter_tls(slug: str, tmp: str, pins: dict | None = None) -> kit_tls.Served:
+def adopter_tls(slug: str, tmp: str, pins: list[dict] | None = None) -> kit_tls.Served:
     """The kit refuses to send a held credential over plain http (contract
     2(c)), so an adopter's fake vendors serve TLS or no row reaches a request.
     Declared URLs spell the host localhost (own_host), so the certificate names
     it, and every literal host an Origins entry names, which the list may play."""
     hosts = {a[len("https://"):].rpartition(":")[0] or a[len("https://"):]
-             for v in (pins or {}).values() for a in v if a.startswith("https://")}
+             for o in pins or [] for a in o["Allowed"] if a.startswith("https://")}
     cert = kit_tls.make_cert(tmp, "DNS:localhost", *sorted(f"DNS:{h}" for h in hosts))
     return kit_tls.Served(cert, kit_tls.trust_env(ch.registry.skill_path(slug), cert[0]))
 
@@ -3081,7 +3101,7 @@ class Engine:
     def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
                  secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None,
                  base_url: dict | None = None, files: bool = False, tls: kit_tls.Served | None = None,
-                 pins: dict | None = None):
+                 pins: list[dict] | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.files, self.tls = files, tls
         self.traced = str(ctx.cli_bin) in _TRACED and str(ctx.mcp_bin) in _TRACED
@@ -3101,7 +3121,7 @@ class Engine:
         env_ids = [i[len("env:"):] for i in ids if i.startswith("env:")]
         self.declared = [v for v in self.declared if v not in env_ids]
         self.seedable = [v for v in self.declared if v not in self.plumbing]
-        self.pins, self.pin = pins or {}, pin_host(pins or {}, self.seedable) if tls else None
+        self.pins, self.pin = pins or [], pin_host(pins or [], self.seedable) if tls else None
         self.identifiers = [k for k in self.env_keys if k not in self.declared and k not in self.plumbing
                             and w.env.get(k) and not k.endswith("_NO_CONFIG_WRITE")]
         self.identifiers += [k for k in env_ids if k not in self.identifiers]
@@ -3872,13 +3892,18 @@ class Engine:
                 m, path, hdrs, body = primary.requests[n]
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][0] <= n < procs[i]["after"][0]]
                 pr = procs[by[0]] if by else procs[0]
-                decl = {**self.kit_decl, "Origins": [{"Source": k, "Allowed": v} for k, v in self.pins.items()]}
-                v = kit_acquire(decl, replay_env(pr["env"]), pr["args"], written, exchanges(fakes, pr["before"], pr["after"]),
-                                pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"], list(written) if self.files else None,
-                                judge=[(f"https://{self.pin}{path}", request_unit(m, path, hdrs, body))])["judged"][0]
-                if v != "clean":
-                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: "
-                                        + (EXHAUSTED if v == "exhausted" else "a held credential (the kit's matcher, contract 2(c))"))
+                unit = request_unit(m, path, hdrs, body)
+                got = kit_acquire({**self.kit_decl, "Origins": self.pins}, replay_env(pr["env"]), pr["args"], written,
+                                  exchanges(fakes, pr["before"], pr["after"]), pr["stdin"] if pr["which"] == "mcp" else b"",
+                                  pr["stdin"], list(written) if self.files else None,
+                                  judge=[(f"https://{self.pin}{path}", unit)])
+                # What the list holds beyond that acquisition (issued tokens, a
+                # child's own values) has no origin that allows it.
+                how = judge(unit, [v for v in (held_for(by) if by else held) if v not in got["held"]], outbound=True)
+                if got["judged"][0] != "clean" or how:
+                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: " +
+                                        (EXHAUSTED if got["judged"][0] == "exhausted" else how if how else
+                                         "a held credential (the kit's matcher, contract 2(c))"))
             for n, (m, path, hdrs, body) in enumerate(second.requests):
                 # Contract 2(c): the second host is no held value's origin.
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][2] <= n < procs[i]["after"][2]]
@@ -4244,7 +4269,7 @@ def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: 
               server: dict | None = None, fields: list[str] | None = None,
               secret_env: list[str] | None = None, identifiers: list | None = None,
               lists: dict | None = None, base_url: dict | None = None, files: bool | None = None,
-              tls: kit_tls.Served | None = None, pins: dict | None = None) -> list[dict]:
+              tls: kit_tls.Served | None = None, pins: list[dict] | None = None) -> list[dict]:
     kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
     pins = pins if pins is not None else kit.get("pins")
     if tls is None and has_kit(ctx.slug):
@@ -6870,13 +6895,17 @@ def _c11_pinned() -> bool:
     (HTTPS_PROXY over TLS, as a connector's transport does) to the fake."""
     ok = True
     sec, mcp = "ACME_SECRET", "ACME_MCP_HTTP_TOKEN"
+    def org(*pairs) -> list[dict]:
+        return [{"Source": k, "Allowed": list(v)} for k, v in pairs]
     for why, pins, want in (
-            ("a pin to literal hosts is played", {f"env:{sec}": ["https://login.example"]}, "login.example"),
-            ("a default pin is played", {"*": ["https://login.example"]}, "login.example"),
-            ("a wildcard gets a name under it", {f"env:{sec}": ["https://*.example.com"]}, "cls-harness.example.com"),
-            ("base_url reaches the fake as it stands", {"*": ["base_url", "https://login.example"]}, None),
-            ("no pin", {}, None), ("an empty pin sends nowhere", {f"env:{sec}": []}, None),
-            ("an MCP server's own bearer is never sent", {f"env:{mcp}": ["https://x.invalid"]}, None)):
+            ("a pin to literal hosts is played", org((f"env:{sec}", ["https://login.example"])), "login.example"),
+            ("a default pin is played", org(("*", ["https://login.example"])), "login.example"),
+            ("a wildcard gets a name under it", org((f"env:{sec}", ["https://*.example.com"])), "cls-harness.example.com"),
+            ("base_url reaches the fake as it stands", org(("*", ["base_url", "https://login.example"])), None),
+            ("no pin", [], None), ("an empty pin sends nowhere", org((f"env:{sec}", [])), None),
+            ("an MCP server's own bearer is never sent", org((f"env:{mcp}", ["https://x.invalid"])), None),
+            ("the first entry naming a source wins, as the kit reads it",
+             org((f"env:{sec}", ["base_url"]), (f"env:{sec}", ["https://login.example"])), None)):
         if pin_host(pins, [mcp, sec]) != want:
             print(f"    corpus self-test: pin_host: {why}: {pin_host(pins, [mcp, sec])}")
             ok = False
@@ -6884,19 +6913,29 @@ def _c11_pinned() -> bool:
     pin_kit["internal/credkit/kit.go"] = pin_kit["internal/credkit/kit.go"].replace(
         "type Declarations struct {\n", "type Origin struct {\n\tSource string\n\tAllowed []string\n}\n\n"
         "type Declarations struct {\n\tOrigins []Origin\n")
-    pin_kit["main.go"] = _DECL_HDR + ('var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, Origins: []credkit.Origin{\n'
-                                      '\t{Source: "*", Allowed: []string{"base_url"}},\n'
-                                      '\t{Source: "env:ACME_X", Allowed: []string{"https://login.example"}},\n}}\n\n'
-                                      'func main() { credkit.Start(d) }\n')
-    read = _decl_read(pin_kit, full="all")
-    if read.get("pins") != {"*": ["base_url"], "env:ACME_X": ["https://login.example"]} or read.get("errors"):
-        print(f"    corpus self-test: Origins not read from a declaration: {read}")
-        ok = False
-    client = ('package main\n\nimport (\n\t"fmt"\n\t"io"\n\t"net/http"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n'
+    for why, body, want in (
+            ("keyed and positional, in order", '{Source: "*", Allowed: []string{"base_url"}},\n\t{"env:ACME_X", []string{"https://login.example"}},\n'
+             '\t{Source: "env:ACME_Y", Allowed: nil},\n\t{Source: "env:ACME_Z"},',
+             org(("*", ["base_url"]), ("env:ACME_X", ["https://login.example"]), ("env:ACME_Y", []), ("env:ACME_Z", []))),
+            ("an allowed list that is not a literal", '{Source: "*", Allowed: hosts},', None),
+            ("a source that is not a constant", '{Source: os.Args[0], Allowed: []string{"base_url"}},', None),
+            ("an element that is not a literal", 'one,', None)):
+        pin_kit["main.go"] = ('package main\n\nimport (\n\t"os"\n\n\t"acme/internal/credkit"\n)\n\nvar hosts = []string{"base_url"}\n'
+                              'var one = credkit.Origin{Source: "*"}\nvar _ = os.Args\n\n'
+                              'var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, Origins: []credkit.Origin{\n\t' + body + '\n}}\n\n'
+                              'func main() { credkit.Start(d) }\n')
+        read = _decl_read(pin_kit, full="all")
+        if (isinstance(read, str) or read.get("pins") != want) if want else not isinstance(read, str):
+            print(f"    corpus self-test: Origins: {why}: {read}")
+            ok = False
+    client = ('package main\n\nimport (\n\t"encoding/json"\n\t"fmt"\n\t"io"\n\t"net/http"\n\t"net/url"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n'
               '\tq, _ := http.NewRequest("POST", os.Args[1], strings.NewReader("grant_type=x"))\n'
               '\tif k, _ := io.ReadAll(os.Stdin); len(k) > 0 {\n\t\tq.Header.Set("Authorization", "Bearer "+string(k))\n\t}\n'
               '\tr, err := http.DefaultClient.Do(q)\n'
-              '\tif err != nil {\n\t\tfmt.Println(err)\n\t\tos.Exit(1)\n\t}\n\tr.Body.Close()\n\tfmt.Println(r.StatusCode)\n}\n')
+              '\tif err != nil {\n\t\tfmt.Println(err)\n\t\tos.Exit(1)\n\t}\n'
+              '\tvar t struct {\n\t\tAccessToken string `json:"access_token"`\n\t}\n\tjson.NewDecoder(r.Body).Decode(&t)\n\tr.Body.Close()\n'
+              '\tif len(os.Args) > 2 {\n\t\tu := os.Args[1] + "/debug"\n\t\tif os.Args[2] == "echo" {\n\t\t\tu += "?echo=" + url.QueryEscape(t.AccessToken)\n\t\t}\n'
+              '\t\tr2, err := http.Get(u)\n\t\tif err == nil {\n\t\t\tr2.Body.Close()\n\t\t}\n\t}\n\tfmt.Println(r.StatusCode)\n}\n')
     with tempfile.TemporaryDirectory(prefix="corpus-c11-") as d:
         cert = kit_tls.make_cert(d, "DNS:localhost", "DNS:login.example")
         tls = kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]})
@@ -6927,7 +6966,7 @@ def _c11_pinned() -> bool:
         cli = (STANDIN + 'import subprocess\nif not BASE.startswith("https://"):\n    sys.exit(1)\n'
                f'subprocess.run([{go!r}, os.environ["ACME_TOKEN_URL"]], capture_output=True__KEY__, env={{"SSL_CERT_FILE": os.environ["SSL_CERT_FILE"], "HTTPS_PROXY": os.environ["HTTPS_PROXY"]}})\n'
                'st, hd, b = api("GET", "/v1/items")\nprint("ok")\n')
-        to_login = {"*": ["base_url"], "env:ACME_CLIENT_SECRET": ["https://login.example"]}
+        to_login = org(("*", ["base_url"]), ("env:ACME_CLIENT_SECRET", ["https://login.example"]))
         base = dict(fields=[], secret_env=["ACME_API_KEY", "ACME_CLIENT_SECRET"], tls=tls)
         key = ', input=os.environ["ACME_API_KEY"].encode()'
         ok &= _probes("a request to the played host", [
@@ -6936,7 +6975,16 @@ def _c11_pinned() -> bool:
             ("the same token request without the key", "succ-raw", "PASS",
              dict(cli=cli.replace("__KEY__", ", input=b''")), {**base, "pins": to_login}),
             ("a key Origins sends to the sign-in host, carried there", "succ-raw", "PASS",
-             dict(cli=cli.replace("__KEY__", key)), {**base, "pins": {"*": ["base_url"], "env:ACME_API_KEY": ["https://login.example"]}}),
+             dict(cli=cli.replace("__KEY__", key)), {**base, "pins": org(("*", ["base_url"]), ("env:ACME_API_KEY", ["https://login.example"]))}),
+        ])
+        # r2: a token the fake issued, which no declared field holds, sent back to the played host.
+        minted_kw = {**base, "secret_env": ["ACME_CLIENT_SECRET"], "pins": to_login}
+        minted = cli.replace('os.environ["ACME_TOKEN_URL"]]', 'os.environ["ACME_TOKEN_URL"], "__ECHO__"]').replace("__KEY__", "")
+        ok &= _probes("an issued token on the played host", [
+            ("sent back to the sign-in host in a query", "minted-echo", "FAIL", dict(cli=minted.replace("__ECHO__", "echo"), env=_SECRET,
+                                                                                     sensitive={"client_secret": True}), minted_kw),
+            ("minted and not sent back", "minted-echo", "PASS", dict(cli=minted.replace("__ECHO__", "quiet"), env=_SECRET,
+                                                                     sensitive={"client_secret": True}), minted_kw),
         ])
     return ok
 
