@@ -3886,24 +3886,33 @@ class Engine:
                 how = judge(text, held_for([by_pid[pid]]) if pid in by_pid else held)
                 if how:
                     res["where"].append(f"SQLite statement {k}: {how}")
-            for n in primary.played:
-                # Contract 2(c): a request that went to the played host, judged by
-                # the kit's own origin rule on the held set of the process that sent it.
-                m, path, hdrs, body = primary.requests[n]
-                by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][0] <= n < procs[i]["after"][0]]
-                pr = procs[by[0]] if by else procs[0]
-                unit = request_unit(m, path, hdrs, body)
+            # Contract 2(c): every request the primary fake saw, by the kit's own
+            # origin rule at the host the program named, on the held set of the
+            # process that sent it. Origins is read for an adopter only; without it
+            # the fake is every value's origin, as it always was.
+            sent: dict[int, list] = {}
+            for n, (m, path, hdrs, body) in enumerate(primary.requests if self.pins else []):
+                if m != "?":
+                    by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][0] <= n < procs[i]["after"][0]]
+                    sent.setdefault(by[0] if by else 0, []).append((n, by, request_unit(m, path, hdrs, body), path))
+            for i, reqs in sent.items():
+                pr = procs[i]
+                hosts = [self.pin if n in primary.played else
+                         next((v for k, v in primary.requests[n][2] if k.lower() == "host"), primary.url.partition("://")[2])
+                         for n, _by, _unit, _path in reqs]
                 got = kit_acquire({**self.kit_decl, "Origins": self.pins}, replay_env(pr["env"]), pr["args"], written,
                                   exchanges(fakes, pr["before"], pr["after"]), pr["stdin"] if pr["which"] == "mcp" else b"",
                                   pr["stdin"], list(written) if self.files else None,
-                                  judge=[(f"https://{self.pin}{path}", unit)])
-                # What the list holds beyond that acquisition (issued tokens, a
-                # child's own values) has no origin that allows it.
-                how = judge(unit, [v for v in (held_for(by) if by else held) if v not in got["held"]], outbound=True)
-                if got["judged"][0] != "clean" or how:
-                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: " +
-                                        (EXHAUSTED if got["judged"][0] == "exhausted" else how if how else
-                                         "a held credential (the kit's matcher, contract 2(c))"))
+                                  judge=[(f"https://{h}{path}", unit) for h, (_n, _by, unit, path) in zip(hosts, reqs)])
+                for h, v, (n, by, unit, path) in zip(hosts, got["judged"], reqs):
+                    # On the played host, what the list holds beyond that
+                    # acquisition (issued tokens, a child's own values) has no
+                    # origin that allows it. The fake issued them, so it may see them.
+                    how = judge(unit, [x for x in (held_for(by) if by else held) if x not in got["held"]],
+                                outbound=True) if n in primary.played else None
+                    if v != "clean" or how:
+                        res["where"].append(f"request to {h} {path[:40]}: " + (EXHAUSTED if v == "exhausted" else how if how else
+                                                                                "a held credential (the kit's matcher, contract 2(c))"))
             for n, (m, path, hdrs, body) in enumerate(second.requests):
                 # Contract 2(c): the second host is no held value's origin.
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][2] <= n < procs[i]["after"][2]]
@@ -6965,9 +6974,11 @@ def _c11_pinned() -> bool:
         go = os.path.join(d, "c")
         cli = (STANDIN + 'import subprocess\nif not BASE.startswith("https://"):\n    sys.exit(1)\n'
                f'subprocess.run([{go!r}, os.environ["ACME_TOKEN_URL"]], capture_output=True__KEY__, env={{"SSL_CERT_FILE": os.environ["SSL_CERT_FILE"], "HTTPS_PROXY": os.environ["HTTPS_PROXY"]}})\n'
-               'st, hd, b = api("GET", "/v1/items")\nprint("ok")\n')
+               'st, hd, b = __READ__\nprint("ok")\n')
+        cli = cli.replace("__READ__", 'fetch("GET", BASE + "/v1/items")')
         to_login = org(("*", ["base_url"]), ("env:ACME_CLIENT_SECRET", ["https://login.example"]))
-        base = dict(fields=[], secret_env=["ACME_API_KEY", "ACME_CLIENT_SECRET"], tls=tls)
+        base = dict(fields=[], secret_env=["ACME_API_KEY", "ACME_CLIENT_SECRET"], tls=tls,
+                    base_url={"Env": "ACME_BASE_URL", "ConfigKey": "", "Default": ""})
         key = ', input=os.environ["ACME_API_KEY"].encode()'
         ok &= _probes("a request to the played host", [
             ("a key Origins sends to base_url only, carried to the sign-in host", "succ-raw", "FAIL",
@@ -6976,6 +6987,13 @@ def _c11_pinned() -> bool:
              dict(cli=cli.replace("__KEY__", ", input=b''")), {**base, "pins": to_login}),
             ("a key Origins sends to the sign-in host, carried there", "succ-raw", "PASS",
              dict(cli=cli.replace("__KEY__", key)), {**base, "pins": org(("*", ["base_url"]), ("env:ACME_API_KEY", ["https://login.example"]))}),
+            # r4: the other way, a key Origins sends to the sign-in host only, on a read to the API.
+            ("a key Origins sends to the sign-in host, on a read to the API", "succ-raw", "FAIL",
+             dict(cli=cli.replace("__KEY__", "").replace('fetch("GET", BASE + "/v1/items")', 'api("GET", "/v1/items")')),
+             {**base, "pins": org(("*", ["base_url"]), ("env:ACME_API_KEY", ["https://login.example"]))}),
+            ("a key Origins sends to the API, on a read to the API", "succ-raw", "PASS",
+             dict(cli=cli.replace("__KEY__", "").replace('fetch("GET", BASE + "/v1/items")', 'api("GET", "/v1/items")')),
+             {**base, "pins": to_login}),
         ])
         # r2: a token the fake issued, which no declared field holds, sent back to the played host.
         minted_kw = {**base, "secret_env": ["ACME_CLIENT_SECRET"], "pins": to_login}
