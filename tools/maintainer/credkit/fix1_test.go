@@ -284,12 +284,30 @@ func TestFix1CStillChecksWhatItWrites(t *testing.T) {
 	f, _ := os.OpenFile(p, os.O_WRONLY|os.O_APPEND, 0)
 	f.WriteString("X")
 	f.Close()
+	// Between the two calls no kit handle held the file, so the second reads it
+	// as it is: "secrX", which "et!!" does not complete.
 	if err := AppendFile(p, []byte("et!!"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(p)
-	if strings.Contains(string(b), "et!!") {
-		t.Errorf("the rest of a credential this process began writing landed: %q", b)
+	if strings.Contains(string(b), "secret!!") || string(b) != "secrXet!!" {
+		t.Errorf("the file is %q, want secrXet!!", b)
+	}
+	// A kit handle that stays open keeps its own context over another writer's
+	// append, and still withholds the rest of what it began.
+	q := filepath.Join(t.TempDir(), "g")
+	w, err := OpenFile(q, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	w.Write([]byte("secr"))
+	g, _ := os.OpenFile(q, os.O_WRONLY|os.O_APPEND, 0)
+	g.WriteString("X")
+	g.Close()
+	w.Write([]byte("et!!"))
+	if b, _ := os.ReadFile(q); strings.Contains(string(b), "et!!") {
+		t.Errorf("a held handle released the rest of a credential it began: %q", b)
 	}
 	if !strings.HasPrefix(string(b), "secrX") {
 		t.Errorf("another writer's byte was overwritten: %q", b)

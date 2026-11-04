@@ -210,13 +210,19 @@ func TestKit8EveryFaultMarksTheFileUnknown(t *testing.T) {
 	if b, _ := os.ReadFile(p); string(b) != "secrX" {
 		t.Errorf("writes after an outside change reached the file: %q", b)
 	}
-	// So does an append after the file shrank: what it was checked with is gone.
+	// So does an append after the file shrank under a kit handle that still
+	// holds it: what it was checked with is gone (TestAFileAKitHandleHoldsStaysFailClosed).
 	q := filepath.Join(t.TempDir(), "h")
-	AppendFile(q, []byte("0123456789"), 0o600)
+	qw, err := OpenFile(q, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qw.Close()
+	qw.Write([]byte("0123456789"))
 	if err := os.Truncate(q, 4); err != nil {
 		t.Fatal(err)
 	}
-	if err := AppendFile(q, []byte("x"), 0o600); err == nil {
+	if _, err := qw.Write([]byte("x")); err == nil {
 		t.Error("an append to a file that shrank went through")
 	}
 	if b, _ := os.ReadFile(q); string(b) != "0123" {

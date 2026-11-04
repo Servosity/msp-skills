@@ -979,8 +979,8 @@
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
       "cli_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:63bb5026bcecfbabfacbd404a7f235efaa28e88251779dfff9454d13d70bba65",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
