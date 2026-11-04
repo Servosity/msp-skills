@@ -1694,7 +1694,7 @@
       "rule": "exec-nonliteral-cmd",
       "bind": "file",
       "sha256": [
-        "sha256:49453f8188d78daa885a70b8e45a319f219000486d105bfe9ba2168e257b134c"
+        "sha256:491de3f8214ba7ec8c01a17435d4bd68c7cdb9b2d045b3de2092026c48fc088a"
       ],
       "press": "4.34.2",
       "reason": "zoom-phone (new connector, press 4.34.2 plus hand-written novel code), reviewed 2026-10-28. fleetExecChild runs exec.CommandContext(ctx, spec.Path, spec.Args...) where spec.Path is os.Executable() (this CLI re-running itself once per saved account) and spec.Args were resolved against the CLI's own Cobra tree by fleetResolveTarget, with per-account file flags refused; no shell, no user-chosen program."
@@ -1704,7 +1704,7 @@
       "rule": "msp-exec-nonliteral-command",
       "bind": "file",
       "sha256": [
-        "sha256:49453f8188d78daa885a70b8e45a319f219000486d105bfe9ba2168e257b134c"
+        "sha256:491de3f8214ba7ec8c01a17435d4bd68c7cdb9b2d045b3de2092026c48fc088a"
       ],
       "press": "4.34.2",
       "reason": "zoom-phone (new connector, press 4.34.2 plus hand-written novel code), reviewed 2026-10-28. semgrep twin of the zoom_fleet.go exec-nonliteral-cmd entry: same call site, the CLI's own executable with an argv slice resolved against its Cobra tree."
@@ -1714,7 +1714,7 @@
       "rule": "G204",
       "bind": "decl",
       "sha256": [
-        "sha256:084dbdec1334e58728aeae0b392733c3c05b9e9eb846f6eb003b650c639ee836"
+        "sha256:da5558fef31936b111396c0218ea42ffa7772614cc006059ab0882dd28116699"
       ],
       "press": "4.34.2",
       "reason": "zoom-phone (new connector, press 4.34.2 plus hand-written novel code), reviewed 2026-10-28. gosec twin of the zoom_fleet.go exec-nonliteral-cmd entry (fleetExecChild): the subprocess is os.Executable() with a Cobra-resolved argv slice, never a shell."
@@ -1754,7 +1754,7 @@
       "rule": "G117",
       "bind": "decl",
       "sha256": [
-        "sha256:438bcde4f3b8fef53f64649ca41ccd64fdccc915125ae7d2363921543dba71d7"
+        "sha256:1c69ddbf22600dbfdf141cb2160d1e84d3e61d8ca2773a2384ccfaea6ee38760"
       ],
       "press": "4.34.2",
       "reason": "zoom-phone (new connector, press 4.34.2 plus hand-written novel code), reviewed 2026-10-28. acctWriteConfig marshals the account profile, client secret included, into the per-account credential file that is written atomically at 0600 and proven private before success: this is the connector's credential store, the one file a credential may live in."
