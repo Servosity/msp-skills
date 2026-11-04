@@ -23,9 +23,15 @@ Go treats it as cross-host). The test asserts (a) at least one credential
 sentinel reached the primary host, and (b) no credential sentinel and no
 Authorization header reached the second host.
 
+A connector that adopted the credential kit is served over TLS (class_harness.
+start_server), because the kit refuses to send a credential over plain http and
+a plain server would see nothing. A doctor that still sends nothing has not been
+judged on either question, so that is reported as a NOTE, never read as a pass.
+
 Both directions (self_test): the off-host-leak detector fires on a captured
 request that carried a credential to the second host and is silent on one that
-did not; the on-wire detector fires when no request carried a credential.
+did not; the on-wire detector fires when no request carried a credential. Then
+the real run() against stand-in adopters that refuse plain http.
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from __future__ import annotations
 import base64
 import os
 import subprocess
+import tempfile
 
 import class_harness as ch
 
@@ -120,6 +127,10 @@ def run(ctx: ch.Ctx) -> list[str]:
             f"[{ctx.slug}] made {reached} request(s) to the configured host but none "
             f"carried a configured credential or an Authorization header "
             f"(blanked header / unsent scope)")
+    if not reached:
+        findings.append(
+            f"NOTE: [{ctx.slug}] doctor sent no request to the configured host, so this class "
+            f"did not judge whether a credential reaches the wire")
 
     # (B) cross-host redirect: a credential must not reach a second host.
     secondary = ch.start_server(mode="echo", status=200, sentinels=secrets)
@@ -130,6 +141,7 @@ def run(ctx: ch.Ctx) -> list[str]:
         _make_request(ctx, env2)
         off_host_creds = _requests_carrying(secondary.capture.requests, off_host_values)
         off_host_auth = _auth_header_present(secondary.capture.requests)
+        redirected = len(redirecting.capture.requests)
     finally:
         redirecting.stop()
         secondary.stop()
@@ -141,6 +153,10 @@ def run(ctx: ch.Ctx) -> list[str]:
         findings.append(
             f"[{ctx.slug}] an Authorization header followed a cross-host redirect to a "
             f"server the operator never configured")
+    elif reached and not redirected:
+        findings.append(
+            f"NOTE: [{ctx.slug}] doctor sent no request to the redirecting host, so this class "
+            f"did not judge whether a credential follows a cross-host redirect")
     return findings
 
 
@@ -178,6 +194,64 @@ def self_test() -> bool:
     if _requests_carrying(blanked, [secret]):
         print("    auth-wire self-test: saw a credential in a blanked request")
         ok = False
+    return _self_test_adopter(ok)
+
+
+# A stand-in CLI shaped like a credential-kit adopter: a held credential is never
+# sent over plain http, and only a certificate it was told to trust is accepted.
+_ADOPTER_CLI = """
+import ssl
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a):
+        return None
+def send(headers, *handlers):
+    ctx = ssl.create_default_context(cafile=os.environ.get("SSL_CERT_FILE"))
+    urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=ctx),
+                                *handlers).open(urllib.request.Request(BASE + "/v1/items", headers=headers), timeout=10)
+if BASE.startswith("https://"):
+    %s
+"""
+_KEY = 'headers = {"X-Api-Key": os.environ["ACME_API_KEY"]}; '
+_SEND_KEY_REFUSE_REDIRECT = _KEY + "send(headers, NoRedirect())"
+_SEND_KEY_FOLLOW_REDIRECT = _KEY + "send(headers)"
+_SEND_NO_KEY = "send({})"
+
+
+def _self_test_adopter(ok: bool) -> bool:
+    """run() itself, over the TLS server and over plain http, against adopters."""
+    def expect(label: str, cond: bool, got: list[str]) -> None:
+        nonlocal ok
+        if not cond:
+            print(f"    auth-wire self-test: {label}: {got}")
+            ok = False
+
+    with tempfile.TemporaryDirectory(prefix="class-auth-wire-") as tmp:
+        cert = ch.kit_tls.make_cert(tmp)
+        tls = ch.kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]})
+
+        def findings(send: str, served: ch.kit_tls.Served | None) -> list[str]:
+            sub = tempfile.mkdtemp(dir=tmp)
+            ctx = ch.fixture_ctx(sub, _ADOPTER_CLI % send, "pass")
+            ch.set_kit_tls(served)
+            try:
+                return run(ctx)
+            finally:
+                ch.set_kit_tls(None)
+
+        got = findings(_SEND_KEY_REFUSE_REDIRECT, None)
+        expect("plain http: an adopter that refuses it must read as not judged, not as clean",
+               len(got) == 1 and got[0].startswith("NOTE:") and "no request" in got[0], got)
+        got = findings(_SEND_KEY_REFUSE_REDIRECT, tls)
+        expect("TLS: an adopter that sends its key and stops at the redirect is clean", not got, got)
+        got = findings(_SEND_KEY_FOLLOW_REDIRECT, tls)
+        expect("TLS: an adopter carrying its key across the redirect must be caught off-host",
+               any("cross-host redirect" in f and not f.startswith("NOTE:") for f in got), got)
+        got = findings(_SEND_NO_KEY, tls)
+        expect("TLS: an adopter that sends no credential must fail the on-wire check",
+               any("none carried" in f and not f.startswith("NOTE:") for f in got), got)
+        got = findings("pass", tls)
+        expect("TLS: a doctor that sends nothing must read as not judged, not as clean",
+               len(got) == 1 and got[0].startswith("NOTE:") and "no request" in got[0], got)
     return ok
 
 

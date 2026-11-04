@@ -149,6 +149,8 @@ MACHINERY = (
     "tools/maintainer/check_mcp_file_flags.py",
     "tools/maintainer/mcp_file_flags/",
     "tools/maintainer/check_doctor_truth.py",
+    # How those harnesses serve a credential-kit adopter over TLS.
+    "tools/maintainer/kit_tls.py",
     # The black-box class harness and its three class tests run in each build
     # matrix row (class_harness.py --slug). A change to any of them changes what
     # "verified" means for every connector, so it re-tests the whole fleet. The
@@ -528,6 +530,7 @@ def _self_test() -> int:
         (".github/workflows/catalog.yml", False),
         (".github/workflows/live-verified.yml", False),
         ("tools/maintainer/check_doctor_truth.py", True),
+        ("tools/maintainer/kit_tls.py", True),
         ("tools/maintainer/check_handfixes.py", True),
         ("tools/maintainer/check_mcp_gate.py", True),
         ("tools/maintainer/check_mcp_file_flags.py", True),
