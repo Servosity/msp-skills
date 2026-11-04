@@ -4203,15 +4203,17 @@ func credentialFragments(values []string) []string {
 // held credential.
 var errSuccessBodyWithheld = errors.New("response " + cliutil.FunnelWithheldText)
 
-// successFunnelChunk and successFunnelOverlap bound one funnel pass over a
-// large successful body. The funnel withholds any input over its own 1 MiB
-// cap undecoded, so a body up to that size is checked whole. A larger one is
-// checked in overlapping raw windows (successBodyWindowsEcho) and, because
-// removable padding can split an echo across any fixed window, also token by
-// token (successBodyTokensEcho).
+// successFunnelChunk is the largest body that is not JSON checked at all: one
+// over it is refused, since the funnel withholds any input over its own 1 MiB
+// cap undecoded. successFunnelWindow bounds one funnel pass over a JSON body
+// (issue #495): the funnel's work per byte grows with the length of what it
+// reads, so a whole page of ordinary incident reports spent its budget and was
+// refused as an echo. A JSON body is checked in windows of about this size cut
+// only between tokens, so every key, string, number and literal is still
+// checked whole, and each window gets the funnel's full budget.
 const (
-	successFunnelChunk   = 1 << 20
-	successFunnelOverlap = 16 << 10
+	successFunnelChunk  = 1 << 20
+	successFunnelWindow = 4 << 10
 )
 
 // heldEcho reports whether text repeats any credential this process holds, in
@@ -4236,27 +4238,21 @@ func successBodyRefused(body []byte) bool {
 }
 
 // successBodyEchoes is heldEcho over a body of any size (hand-fix
-// handfixes.json secret-echo-decoded-funnel). Up to the funnel's whole-input
-// cap the body is checked whole. Over it, it fails closed: a body that is not
-// JSON (binary, text) is refused; a JSON body is checked in the overlapping
-// raw windows and in windows cut only between tokens, so every object key,
-// string, number and literal is checked whole (a token over the cap is
-// refused).
+// handfixes.json secret-echo-decoded-funnel). A JSON body is checked in
+// windows cut only between tokens (successBodyTokensEcho). Any other body is
+// checked whole up to the funnel's cap and refused over it.
 func successBodyEchoes(body []byte) bool {
-	if len(body) <= successFunnelChunk {
-		return heldEcho(string(body))
+	if json.Valid(body) {
+		return successBodyTokensEcho(body)
 	}
-	if !json.Valid(body) {
-		return true
-	}
-	return successBodyWindowsEcho(body) || successBodyTokensEcho(body)
+	return len(body) > successFunnelChunk || heldEcho(string(body))
 }
 
 // successBodyTokensEcho checks a body json.Valid accepted in consecutive
-// windows of at most successFunnelChunk bytes that are cut only between JSON
-// tokens, so no token is ever split across two funnel passes. A single token
-// longer than the cap is refused (hand-fix handfixes.json
-// secret-echo-decoded-funnel).
+// windows of about successFunnelWindow bytes that are cut only between JSON
+// tokens, so no token is ever split across two funnel passes. A token longer
+// than the window is checked alone, and heldEcho withholds one over the
+// funnel's own cap (hand-fix handfixes.json secret-echo-decoded-funnel).
 func successBodyTokensEcho(body []byte) bool {
 	winStart, winEnd := 0, 0
 	for pos := 0; ; {
@@ -4264,10 +4260,7 @@ func successBodyTokensEcho(body []byte) bool {
 		if start >= len(body) {
 			break
 		}
-		if end-start > successFunnelChunk {
-			return true
-		}
-		if end-winStart > successFunnelChunk {
+		if end-winStart > successFunnelWindow && winEnd > winStart {
 			if heldEcho(string(body[winStart:winEnd])) {
 				return true
 			}
@@ -4316,27 +4309,6 @@ func nextJSONToken(body []byte, pos int) (start, end int) {
 		}
 	}
 	return pos, len(body)
-}
-
-// successBodyWindowsEcho is heldEcho over a body in overlapping raw windows of
-// at most successFunnelChunk bytes (one window for a body up to the cap).
-func successBodyWindowsEcho(body []byte) bool {
-	if len(body) <= successFunnelChunk {
-		return heldEcho(string(body))
-	}
-	for start := 0; start < len(body); start += successFunnelChunk - successFunnelOverlap {
-		end := start + successFunnelChunk
-		if end > len(body) {
-			end = len(body)
-		}
-		if heldEcho(string(body[start:end])) {
-			return true
-		}
-		if end == len(body) {
-			break
-		}
-	}
-	return false
 }
 
 // funnelSuccessBody refuses a successful answer that repeats a credential this

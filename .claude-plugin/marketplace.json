@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "huntress",
@@ -689,7 +689,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "category": "rmm",
       "tags": [
         "ninjaone",

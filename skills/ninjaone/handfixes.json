@@ -1646,6 +1646,23 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "custom-fields-reports-sync-whole",
+   "summary": "syncResourceSinceParam returns \"\" for every resource, so the four /v2/queries/*custom-fields* reports (queries-custom-fields, queries-custom-fields-detailed, queries-scoped-custom-fields, queries-scoped-custom-fields-detailed) are walked whole on every sync instead of being sent the RFC3339 checkpoint as updatedAfter; the MCP query_tip that told agents to use updatedAfter for incremental fetches is removed.",
+   "why": "Issue #496 (reported by @Xenith-B). Press 4.34 (#5107, rank incremental sync date filters) picked the string-typed updatedAfter param as the sync watermark and sent the checkpoint as 2026-11-02T00:28:50Z. NinjaOne parses it as a number and answers HTTP 400 \"For input string\", so every incremental sync failed those four reports from ninjaone-v0.1.21 on, and their stored data stopped updating. v0.1.20 and 0.1.15 sent no watermark and worked. The accepted wire format is not confirmed (probably epoch seconds), so the fix restores whole walks rather than guessing a format; a whole walk also prunes deleted rows.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: a string-typed *After query param with no date-format evidence in its description or examples should not be assumed RFC3339 (or the spec should be able to opt an endpoint out of incremental sync). Once the press stops emitting these cases on a reprint, this entry can be retired; if NinjaOne's updatedAfter format is confirmed against a live tenant, encode it with syncResourceSinceParamFormat instead.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "return \"updatedAfter\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Use updatedAfter for incremental fetches"
+    }
+   ]
   }
  ],
  "retired": [
