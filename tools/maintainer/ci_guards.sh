@@ -166,11 +166,11 @@ if [ "${1:-}" = "--self-test" ]; then
   # base (origin/main here), except entries for a case the base's list does
   # not have; a kit connector lists nothing.
   CS_DIR="$(dirname "$SELF")"
-  for f in class_secret_corpus.py class_harness.py registry.py secret_corpus.jsonl; do
+  for f in class_secret_corpus.py class_harness.py kit_tls.py registry.py secret_corpus.jsonl; do
     [ -f "$CS_DIR/$f" ] || { echo "FAIL: ci_guards self-test needs $CS_DIR/$f" >&2; exit 1; }
   done
   cs_bl="tools/maintainer/corpus_baseline.json"
-  cs_case="cp \"$CS_DIR/class_secret_corpus.py\" \"$CS_DIR/class_harness.py\" \"$CS_DIR/registry.py\" \"$CS_DIR/secret_corpus.jsonl\" tools/maintainer/ \
+  cs_case="cp \"$CS_DIR/class_secret_corpus.py\" \"$CS_DIR/class_harness.py\" \"$CS_DIR/kit_tls.py\" \"$CS_DIR/registry.py\" \"$CS_DIR/secret_corpus.jsonl\" tools/maintainer/ \
     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\"]}}\n' > $cs_bl \
     && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm corpus && git update-ref refs/remotes/origin/main HEAD"
   st_case "a credential leak baseline that only shrank" pass \
