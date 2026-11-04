@@ -1125,6 +1125,27 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query."
     },
     {
+      "name": "nizlo",
+      "system": "Windows-first RMM for MSP and internal IT endpoint operations",
+      "status": "beta",
+      "skill_path": "skills/nizlo",
+      "cli_binary": null,
+      "mcp_binary": null,
+      "version": "0.1.0",
+      "printing_press_version": null,
+      "license": "Apache-2.0",
+      "vendor": "Nizlo",
+      "vendor_trademark_owner": "Cloud 84 Holdings LLC",
+      "first_party": false,
+      "install_skill_one_liner": "",
+      "install_mcp_doc": "",
+      "description": "Inspect Nizlo fleet health, endpoint inventory, customers, sites, and active alerts through a deliberately read-only helper.",
+      "verification": "n/a",
+      "category": "RMM",
+      "tagline": "Inspect Nizlo fleet health, endpoint inventory, customers, sites, and active alerts through a deliberately read-only helper.",
+      "markdown_only": true
+    },
+    {
       "name": "pagerduty",
       "system": "PagerDuty incident response and on-call management platform",
       "status": "beta",
