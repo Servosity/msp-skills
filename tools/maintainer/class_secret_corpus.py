@@ -2552,6 +2552,32 @@ def _declarations_for(cli: Path, targets: list[str], env: dict) -> dict:
     return out
 
 
+def prefix_in(source: str, slug: str) -> str:
+    """The prefix of a connector's own variables, from where its config package
+    reads the config path. A slug need not be it (servosity reads
+    SERVOSITY_MSP_CONFIG): a variable under the wrong prefix never reaches the
+    connector, so its row tests nothing."""
+    m = re.search(r'os\.Getenv\("([A-Z0-9_]+)_CONFIG"\)', source)
+    return m.group(1) if m else slug.upper().replace("-", "_")
+
+
+def env_prefix(slug: str) -> str:
+    """ponytail: kit adopters only. A connector without the kit keeps the slug's
+    prefix its baseline was measured under, until it adopts the kit."""
+    if not has_kit(slug):
+        return prefix_in("", slug)
+    path = ch.registry.skill_path(slug) / "cli" / "internal" / "config" / "config.go"
+    return prefix_in(path.read_text(encoding="utf-8") if path.is_file() else "", slug)
+
+
+def replay_env(env: dict) -> dict:
+    """A process's environment for the kit's reading of its held set. The kit's
+    handle to its parent's set names a descriptor only that process had, so the
+    reading would fail closed on every child. What it carried is the parent's
+    held set, which the list already gives a child (`up`, in the run's judge)."""
+    return {k: v for k, v in env.items() if k != "CREDKIT_HELD"}
+
+
 def has_kit(slug: str) -> bool:
     try:
         return (ch.registry.skill_path(slug) / "cli" / "internal" / "credkit").is_dir()
@@ -2569,9 +2595,9 @@ def adopter_tls(slug: str, tmp: str) -> kit_tls.Served:
 
 def received_keys(served: list, fields: list[str], exempt: list[str] | None = None) -> list[str]:
     """Object keys beneath a declared response field in a JSON body: a
-    credential a vendor stores as a key (halopsa custom fields). The kit's
-    acquisition holds the values beneath a declared field, not these keys
-    (a kit finding recorded in .review), so the list holds them itself."""
+    credential a vendor stores as a key (halopsa custom fields). The kit holds
+    those that do not read as field names (credkit.nameShaped); the list holds
+    every one, a second reading that never holds less."""
     out: list[str] = []
 
     def keys(x) -> None:
@@ -2919,7 +2945,7 @@ class Engine:
         self.links = {"cli": str(ctx.cli_bin) in _LINKS, "mcp": str(ctx.mcp_bin) in _LINKS}
         self.fields = list(fields or [])
         self.cli_bin, self.child_cli, self.mcp_bin = child_logging_bins(ctx, tmp)
-        self.prefix = ctx.slug.upper().replace("-", "_")
+        self.prefix = env_prefix(ctx.slug)
         w = ctx.wiring
         self.env_keys = ch._manifest_env_keys(ctx.manifest)
         self.plumbing = set(w.url_vars) | set(w.host_vars)
@@ -3171,7 +3197,7 @@ class Engine:
                 ex = exchanges(fakes, pr["before"], pr["after"])
                 got = {"held": [], "bare": [], "recorded": 0, "unknown": False}
                 for decl, no_ids in decls:
-                    a = kit_acquire(decl, pr["env"], pr["args"], written, ex,
+                    a = kit_acquire(decl, replay_env(pr["env"]), pr["args"], written, ex,
                                     pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"],
                                     list(written) if self.files else None)
                     if no_ids:
@@ -3602,7 +3628,8 @@ class Engine:
             for pid, kind, u in krecs:
                 h_ = held_for([by_pid[pid]]) if pid in by_pid else held
                 if kind == K_FAIL:
-                    res["where"].append(f"kernel record: {_s(u)}")
+                    if not stop_explains(u, outs):
+                        res["where"].append(f"kernel record: {_s(u)}")
                 elif kind == K_NAME:
                     # The name below the case's own directories (its HOMEs,
                     # its temporary tree), which the harness made: every
@@ -4023,6 +4050,14 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 # row would never be green. A held credential found is never retried: a whole
 # short one in one write, then a pause, is a leak a retry would hide by joining
 # the writes.
+def stop_explains(failure: bytes, outs: list) -> bool:
+    """The list's own stop at the timeout landed inside a write. The row already
+    ends NOTE, never a pass, for what the stopped process would have done next;
+    a program that dies in a write by itself in a run nothing stopped still fails."""
+    return failure.endswith(b": the process ended inside the call, so its bytes are not read") and \
+        any(t.endswith(TIMED_OUT) for _w, t in outs)
+
+
 def limit_only(r: dict) -> bool:
     """A FAIL whose every reason is the matcher reaching a limit: read from the
     end of each reason, where the verdict is, never from the sink's name before it."""
@@ -6566,6 +6601,26 @@ def _c10_adopters() -> bool:
         without = kit_acquire(decl, {}, [], body, [])["held"]
         if "syntheticFileKey271828" not in with_files or without:
             print(f"    corpus self-test: Files: handed the file {with_files}, not handed it {without}")
+            ok = False
+    # The list's stop landing inside a write is its stop, not the connector's failure.
+    inside = b"pwrite64: the process ended inside the call, so its bytes are not read"
+    stopped, ran = [("cli", "x" + TIMED_OUT)], [("cli", "x")]
+    if not stop_explains(inside, stopped) or stop_explains(inside, ran) or stop_explains(b"mmap: refused", stopped):
+        print("    corpus self-test: a stop inside a write, or a failure with no stop, read as the other")
+        ok = False
+    # A child the kit started: its handle to the parent's set means nothing here.
+    child = {"SECRET_K": "childHeldValue271828", "CREDKIT_HELD": "fd:9"}
+    bare = {"SecretEnv": ["SECRET_K"], "Identifiers": [], "ResponseFields": []}
+    if not kit_acquire(bare, child, [], {}, [])["unknown"]:
+        print("    corpus self-test: a handle the reading cannot open did not fail closed")
+        ok = False
+    got = kit_acquire(bare, replay_env(child), [], {}, [])
+    if got["unknown"] or "childHeldValue271828" not in got["held"]:
+        print(f"    corpus self-test: a child the kit started read as {got}")
+        ok = False
+    for src, want in (('if p := os.Getenv("ACME_MSP_CONFIG"); p != "" {', "ACME_MSP"), ('os.Getenv("ACME_MSP_TOKEN")', "ACME"), ("", "ACME")):
+        if prefix_in(src, "acme") != want:
+            print(f"    corpus self-test: variable prefix of {src!r}: {prefix_in(src, 'acme')}, wanted {want}")
             ok = False
     # A second process's update of a database never rewrites its first bytes.
     with tempfile.TemporaryDirectory(prefix="corpus-c10-db-") as d:

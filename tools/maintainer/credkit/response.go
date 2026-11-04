@@ -15,6 +15,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -307,7 +308,7 @@ func (s *fieldScan) emit(c byte) {
 		s.text = append(s.text, c)
 		return
 	}
-	if s.isKey && len(s.text) <= s.keyCap {
+	if s.isKey && (len(s.text) <= s.keyCap || s.beneath()) {
 		s.text = append(s.text, c)
 	}
 	s.out = append(s.out, c)
@@ -478,9 +479,28 @@ func (s *fieldScan) lenientByte(c byte) {
 	s.out = append(s.out, c)
 }
 
+var nameWordRE = regexp.MustCompile(`^(?:[A-Z]+|[A-Z]?[a-z]+)[0-9]*(?:[A-Z][a-z]{2,}[0-9]*)*(?:[A-Z]{1,3}|[A-Z][a-z])?$`)
+
+// nameShaped: a key that reads as a field name (ttl, expires_in, refreshToken,
+// userId), which holding would withhold from all ordinary output. Anything else
+// beneath a declared field is held as a credential. ponytail: a credential of 24
+// or fewer letters in one case reads as a name and is not held by this rule.
+func nameShaped(key string) bool {
+	words := strings.FieldsFunc(key, func(r rune) bool { return strings.ContainsRune("-_. ", r) })
+	for _, w := range words {
+		if len(w) > 24 || !nameWordRE.MatchString(w) {
+			return false
+		}
+	}
+	return len(words) > 0
+}
+
+// beneath: the token stands inside a declared field's object or array.
+func (s *fieldScan) beneath() bool { return s.match >= 0 && len(s.objs) > s.match }
+
 func (s *fieldScan) start(c byte) {
 	s.isKey = s.keyNext
-	s.keep = !s.isKey && ((s.sep && containsFold(s.names, s.key)) || (s.match >= 0 && len(s.objs) > s.match))
+	s.keep = !s.isKey && ((s.sep && containsFold(s.names, s.key)) || s.beneath())
 	s.tok, s.n, s.esc, s.text = 'b', 0, false, s.text[:0]
 	if c == '"' || c == '\'' {
 		s.tok = c
@@ -518,6 +538,9 @@ func (s *fieldScan) end() {
 		}
 	}
 	if s.isKey {
+		if s.beneath() && !nameShaped(value) {
+			Hold("response:"+s.matchKey, value) // a vendor may store the credential as a key (halopsa)
+		}
 		if len(text) > s.keyCap {
 			value = "" // longer than any declared name, written any way
 		}
