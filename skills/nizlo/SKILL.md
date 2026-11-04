@@ -2,10 +2,10 @@
 name: nizlo
 description: >
   Query a Nizlo RMM workspace through its permission-limited personal access
-  token API. Use for Nizlo fleet summaries, endpoint inventory, offline-device
-  checks, customer or site lookup, and active alert triage. This first-party
-  skill is intentionally read-only: it never creates jobs, changes policies,
-  acknowledges alerts, or mutates a tenant.
+  token API. Use for Nizlo fleet summaries, endpoint inventory, stale or
+  offline-device checks, customer or site lookup, and active alert triage. This
+  first-party skill is intentionally read-only: it never creates jobs, changes
+  policies, acknowledges alerts, or mutates a tenant.
 allowed-tools: "Read Bash PowerShell"
 author: "Nizlo"
 license: "Apache-2.0"
@@ -44,6 +44,7 @@ The helper is `scripts/nizlo_api.py` relative to this file. On Windows use
 python scripts/nizlo_api.py dashboard
 python scripts/nizlo_api.py devices --status offline --page-size 100
 python scripts/nizlo_api.py devices --attention alerts --sort lastSeen
+python scripts/nizlo_api.py stale-endpoints --days 7
 python scripts/nizlo_api.py customers --search "Acme"
 python scripts/nizlo_api.py sites --customer-id CUSTOMER_UUID
 python scripts/nizlo_api.py alerts --status active --severity critical
@@ -51,6 +52,15 @@ python scripts/nizlo_api.py alerts --status active --severity critical
 
 All successful commands print the API JSON response. Paginated commands accept
 `--page` and `--page-size`. Filters are sent only when explicitly provided.
+
+### Find endpoints not seen for seven days
+
+Use `stale-endpoints --days 7` for a complete, read-only stale-agent audit. The
+helper walks every active endpoint page, applies the UTC cutoff locally, and
+groups the result by customer. Each endpoint row includes its ID, display name
+or hostname, operating system, and exact `lastSeenAt` value. A null value is
+reported because it means the endpoint has never been seen. Increase `--days`
+to use a different stop gate; the default is seven.
 
 ## Safety boundary
 
@@ -71,5 +81,6 @@ Run the offline self-check before using a live credential:
 python scripts/nizlo_api.py --selfcheck
 ```
 
-The self-check validates URL construction, route allowlisting, and secret
-redaction. It performs no network request and reads no token.
+The self-check validates URL construction, route allowlisting, secret
+redaction, and stale-report grouping. It performs no network request and reads
+no token.

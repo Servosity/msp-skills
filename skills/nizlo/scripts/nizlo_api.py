@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -28,6 +29,7 @@ class ClientError(RuntimeError):
 
 
 def normalized_base_url(value: str) -> str:
+    """Return a validated API root without a trailing slash."""
     value = value.strip().rstrip("/")
     parts = urlsplit(value)
     if parts.scheme not in {"http", "https"} or not parts.netloc:
@@ -38,6 +40,7 @@ def normalized_base_url(value: str) -> str:
 
 
 def build_url(base_url: str, command: str, params: dict[str, Any]) -> str:
+    """Build a URL for one allowlisted read-only API route."""
     if command not in ALLOWED_PATHS:
         raise ClientError(f"Unsupported read-only command: {command}")
     query = urlencode(
@@ -48,11 +51,13 @@ def build_url(base_url: str, command: str, params: dict[str, Any]) -> str:
 
 
 def redact(text: str, token: str) -> str:
+    """Remove a bearer token and bound diagnostic response text."""
     safe = text.replace(token, "[REDACTED]") if token else text
     return safe[:1000]
 
 
 def request_json(url: str, token: str) -> Any:
+    """GET one API URL and return its decoded JSON response."""
     if not token:
         raise ClientError("NIZLO_API_TOKEN is required for live queries")
     request = Request(
@@ -78,12 +83,30 @@ def request_json(url: str, token: str) -> Any:
         raise ClientError("Nizlo API returned a non-JSON response") from None
 
 
+def page_size(value: str) -> int:
+    """Parse an API page size in Nizlo's supported 1-200 range."""
+    parsed = int(value)
+    if parsed < 1 or parsed > 200:
+        raise argparse.ArgumentTypeError("page size must be between 1 and 200")
+    return parsed
+
+
+def positive_days(value: str) -> int:
+    """Parse a positive whole-day stale threshold."""
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("days must be at least 1")
+    return parsed
+
+
 def add_paging(parser: argparse.ArgumentParser) -> None:
+    """Add the common pagination flags to a command parser."""
     parser.add_argument("--page", type=int, default=1)
-    parser.add_argument("--page-size", type=int, default=50)
+    parser.add_argument("--page-size", type=page_size, default=50)
 
 
 def parser() -> argparse.ArgumentParser:
+    """Build the command-line parser for supported read-only workflows."""
     root = argparse.ArgumentParser(description=__doc__)
     root.add_argument(
         "--base-url",
@@ -133,6 +156,13 @@ def parser() -> argparse.ArgumentParser:
     devices.add_argument("--sort", choices=("hostname", "customer", "lastSeen"))
     devices.add_argument("--lifecycle", choices=("active", "archived"))
 
+    stale = commands.add_parser(
+        "stale-endpoints",
+        help="group endpoints not seen for a number of days by customer",
+    )
+    stale.add_argument("--days", type=positive_days, default=7)
+    stale.add_argument("--page-size", type=page_size, default=100)
+
     alerts = commands.add_parser("alerts", help="list alerts")
     add_paging(alerts)
     alerts.add_argument(
@@ -149,6 +179,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 def command_params(args: argparse.Namespace) -> dict[str, Any]:
+    """Translate parsed CLI flags into Nizlo API query parameters."""
     ignored = {"base_url", "selfcheck", "command"}
     params = {
         key.replace("_", "-") if key == "page_size" else key: value
@@ -165,7 +196,114 @@ def command_params(args: argparse.Namespace) -> dict[str, Any]:
     return params
 
 
+def parse_timestamp(value: Any) -> datetime | None:
+    """Parse an API ISO-8601 timestamp as an aware UTC datetime."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ClientError("Nizlo API returned an invalid lastSeenAt timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise ClientError(
+            "Nizlo API returned an invalid lastSeenAt timestamp"
+        ) from None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def build_stale_report(
+    devices: list[dict[str, Any]], days: int, now: datetime | None = None
+) -> dict[str, Any]:
+    """Group endpoints at or beyond a last-seen cutoff by customer."""
+    generated_at = now or datetime.now(timezone.utc)
+    if generated_at.tzinfo is None:
+        generated_at = generated_at.replace(tzinfo=timezone.utc)
+    generated_at = generated_at.astimezone(timezone.utc)
+    cutoff = generated_at - timedelta(days=days)
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for device in devices:
+        last_seen_value = device.get("lastSeenAt")
+        last_seen = parse_timestamp(last_seen_value)
+        if last_seen is not None and last_seen > cutoff:
+            continue
+        customer = device.get("customer")
+        customer_name = (
+            customer.get("name")
+            if isinstance(customer, dict) and customer.get("name")
+            else "Unassigned"
+        )
+        inventory = device.get("inventory")
+        os_name = (
+            inventory.get("osName")
+            if isinstance(inventory, dict) and inventory.get("osName")
+            else device.get("agentPlatform") or "Unknown"
+        )
+        endpoint_name = (
+            device.get("displayName") or device.get("hostname") or device.get("id")
+        )
+        grouped.setdefault(str(customer_name), []).append(
+            {
+                "id": device.get("id"),
+                "name": endpoint_name,
+                "os": os_name,
+                "lastSeenAt": last_seen_value,
+            }
+        )
+    customers = []
+    for customer_name in sorted(grouped, key=str.casefold):
+        endpoints = sorted(
+            grouped[customer_name],
+            key=lambda item: str(item.get("name") or "").casefold(),
+        )
+        customers.append({"customer": customer_name, "endpoints": endpoints})
+    return {
+        "generatedAt": generated_at.isoformat().replace("+00:00", "Z"),
+        "cutoff": cutoff.isoformat().replace("+00:00", "Z"),
+        "days": days,
+        "total": sum(len(item["endpoints"]) for item in customers),
+        "customers": customers,
+    }
+
+
+def fetch_stale_endpoints(
+    base_url: str, token: str, days: int, requested_page_size: int
+) -> dict[str, Any]:
+    """Fetch every active endpoint page and build a grouped stale report."""
+    devices: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        url = build_url(
+            base_url,
+            "devices",
+            {
+                "page": page,
+                "pageSize": requested_page_size,
+                "sort": "lastSeen",
+                "lifecycle": "active",
+            },
+        )
+        payload = request_json(url, token)
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise ClientError("Nizlo API returned an invalid device-list response")
+        items = payload["items"]
+        if not all(isinstance(item, dict) for item in items):
+            raise ClientError("Nizlo API returned an invalid device-list item")
+        devices.extend(items)
+        total = payload.get("total")
+        if len(items) < requested_page_size:
+            break
+        if isinstance(total, int) and len(devices) >= total:
+            break
+        page += 1
+        if page > 1000:
+            raise ClientError("Nizlo API pagination exceeded the safety limit")
+    return build_stale_report(devices, days)
+
+
 def selfcheck() -> None:
+    """Validate routing, redaction, and stale-report logic without network I/O."""
     base = "https://example.invalid/api/v1/"
     assert build_url(base, "dashboard", {}) == (
         "https://example.invalid/api/v1/dashboard/summary"
@@ -181,10 +319,36 @@ def selfcheck() -> None:
         pass
     else:
         raise AssertionError("route allowlist accepted an unknown command")
-    print("nizlo_api.py selfcheck OK (offline, read-only routes + redaction)")
+    report = build_stale_report(
+        [
+            {
+                "id": "device-old",
+                "hostname": "ACME-OLD",
+                "lastSeenAt": "2026-01-01T00:00:00Z",
+                "customer": {"name": "Acme"},
+                "inventory": {"osName": "Windows 11"},
+            },
+            {
+                "id": "device-current",
+                "hostname": "ACME-CURRENT",
+                "lastSeenAt": "2026-01-10T11:00:00Z",
+                "customer": {"name": "Acme"},
+                "agentPlatform": "WINDOWS",
+            },
+        ],
+        7,
+        datetime(2026, 1, 10, 12, 0, tzinfo=timezone.utc),
+    )
+    assert report["total"] == 1
+    assert report["customers"][0]["endpoints"][0]["os"] == "Windows 11"
+    print(
+        "nizlo_api.py selfcheck OK "
+        "(offline, read-only routes + redaction + stale report)"
+    )
 
 
 def main() -> int:
+    """Run the requested CLI workflow and print its JSON result."""
     args = parser().parse_args()
     if args.selfcheck:
         selfcheck()
@@ -192,8 +356,11 @@ def main() -> int:
     if not args.command:
         parser().error("a command is required unless --selfcheck is used")
     token = os.environ.get("NIZLO_API_TOKEN", "")
-    url = build_url(args.base_url, args.command, command_params(args))
-    result = request_json(url, token)
+    if args.command == "stale-endpoints":
+        result = fetch_stale_endpoints(args.base_url, token, args.days, args.page_size)
+    else:
+        url = build_url(args.base_url, args.command, command_params(args))
+        result = request_json(url, token)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
