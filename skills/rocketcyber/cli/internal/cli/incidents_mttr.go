@@ -31,16 +31,22 @@ type mttrMonthly struct {
 	MeanHours     float64 `json:"mean_hours"`
 }
 
+// mttrView: every resolved incident counts as resolved; the MTTR covers the
+// ones with a usable resolvedAt (resolved_without_duration counts the rest)
+// and is null when none has one; undated_incidents have no createdAt to place
+// in the window (rocketcyber handfix novel-missing-input-is-an-error).
 type mttrView struct {
-	Since           string         `json:"since"`
-	TotalIncidents  int            `json:"total_incidents"`
-	ResolvedCount   int            `json:"resolved_count"`
-	OpenCount       int            `json:"open_count"`
-	MTTRHoursMean   float64        `json:"mttr_hours_mean"`
-	MTTRHoursMedian float64        `json:"mttr_hours_median"`
-	OpenAging       map[string]int `json:"open_aging"`
-	Monthly         []mttrMonthly  `json:"monthly"`
-	Note            string         `json:"note,omitempty"`
+	Since                   string         `json:"since"`
+	TotalIncidents          int            `json:"total_incidents"`
+	ResolvedCount           int            `json:"resolved_count"`
+	ResolvedWithoutDuration int            `json:"resolved_without_duration"`
+	OpenCount               int            `json:"open_count"`
+	UndatedIncidents        int            `json:"undated_incidents"`
+	MTTRHoursMean           *float64       `json:"mttr_hours_mean"`
+	MTTRHoursMedian         *float64       `json:"mttr_hours_median"`
+	OpenAging               map[string]int `json:"open_aging"`
+	Monthly                 []mttrMonthly  `json:"monthly"`
+	Note                    string         `json:"note,omitempty"`
 }
 
 func round1(f float64) float64 { return math.Round(f*10) / 10 }
@@ -58,16 +64,24 @@ func computeMTTR(incidents []mttrIncident, now time.Time, window time.Duration, 
 	var resolvedHours []float64
 	monthly := map[string][]float64{}
 	for _, inc := range incidents {
-		if inc.CreatedAt.IsZero() || inc.CreatedAt.Before(cutoff) {
+		if inc.CreatedAt.IsZero() {
+			view.UndatedIncidents++
+			continue
+		}
+		if inc.CreatedAt.Before(cutoff) {
 			continue
 		}
 		view.TotalIncidents++
-		if inc.Resolved && !inc.ResolvedAt.IsZero() && inc.ResolvedAt.After(inc.CreatedAt) {
+		if inc.Resolved {
+			view.ResolvedCount++
+			if inc.ResolvedAt.IsZero() || inc.ResolvedAt.Before(inc.CreatedAt) {
+				view.ResolvedWithoutDuration++
+				continue
+			}
 			hours := inc.ResolvedAt.Sub(inc.CreatedAt).Hours()
 			resolvedHours = append(resolvedHours, hours)
 			month := inc.ResolvedAt.UTC().Format("2006-01")
 			monthly[month] = append(monthly[month], hours)
-			view.ResolvedCount++
 			continue
 		}
 		view.OpenCount++
@@ -87,13 +101,13 @@ func computeMTTR(incidents []mttrIncident, now time.Time, window time.Duration, 
 		for _, h := range resolvedHours {
 			sum += h
 		}
-		view.MTTRHoursMean = round1(sum / float64(len(resolvedHours)))
+		mean := round1(sum / float64(len(resolvedHours)))
 		mid := len(resolvedHours) / 2
-		if len(resolvedHours)%2 == 1 {
-			view.MTTRHoursMedian = round1(resolvedHours[mid])
-		} else {
-			view.MTTRHoursMedian = round1((resolvedHours[mid-1] + resolvedHours[mid]) / 2)
+		median := round1(resolvedHours[mid])
+		if len(resolvedHours)%2 == 0 {
+			median = round1((resolvedHours[mid-1] + resolvedHours[mid]) / 2)
 		}
+		view.MTTRHoursMean, view.MTTRHoursMedian = &mean, &median
 	}
 	months := make([]string, 0, len(monthly))
 	for m := range monthly {
@@ -135,7 +149,7 @@ use 'incidents' instead.
   rocketcyber-cli incidents mttr --since 90d --json
   rocketcyber-cli incidents mttr --since 30d --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -166,7 +180,7 @@ use 'incidents' instead.
 			if !hintIfUnsynced(cmd, db, "incidents") {
 				hintIfStale(cmd, db, "incidents", flags.maxAge)
 			}
-			rows, err := db.List("incidents", 10000)
+			rows, err := db.List("incidents", 0) // every synced incident: a row cap would read as the whole history
 			if err != nil {
 				return fmt.Errorf("reading incidents from local store: %w", err)
 			}
@@ -180,7 +194,10 @@ use 'incidents' instead.
 					CreatedAt:  parseAPITime(extractString(probe, "createdAt")),
 					ResolvedAt: parseAPITime(extractString(probe, "resolvedAt")),
 				}
-				rec.Resolved = strings.EqualFold(extractString(probe, "status"), "resolved") || !rec.ResolvedAt.IsZero()
+				// The spec's status filter says resolved; the vendor's documented
+				// incident sample answers "closed".
+				status := extractString(probe, "status")
+				rec.Resolved = strings.EqualFold(status, "resolved") || strings.EqualFold(status, "closed") || !rec.ResolvedAt.IsZero()
 				incidents = append(incidents, rec)
 			}
 			view := computeMTTR(incidents, time.Now().UTC(), window, flagSince)

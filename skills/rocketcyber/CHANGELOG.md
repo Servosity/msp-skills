@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on CLI Printing Press 4.34.2** (the security update in [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). HTTP mode (`rocketcyber-mcp --transport http`) refuses to start until `ROCKETCYBER_MCP_HTTP_TOKEN` is set to at least 32 characters, every request must send it as `Authorization: Bearer <token>`, it serves `http://127.0.0.1:7777/mcp` by default, any other address also needs `--tls-cert` and `--tls-key`, and a request from a web page on another origin is refused. The "do not use HTTP mode" note is removed.
+- **Two new operator switches, declared on every install channel.** `ROCKETCYBER_MCP_READ_ONLY=1` (preset in the Claude Desktop bundle) keeps the MCP server to read-only tools; `ROCKETCYBER_NO_LOCAL_DATA=1` keeps no local copy of API responses.
+- **Credentials are held by the shared credential kit** (`docs/credential-leak-contract.md`) from the first instruction of each binary: the API token, the MCP HTTP token and every value in the config and credentials files never reach standard output or error, an MCP result, a file, the local store or a request to another host, in any of the encodings the kit reads: what would carry one is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. The token is sent only to the configured RocketCyber API host over HTTPS.
+- **New exit codes.** A command whose standard output was partly lost exits 74 instead of 0; a token that also occurs in ordinary text (for example one repeated letter) is refused at startup with exit 78. `rocketcyber-mcp` refuses `--config` and `--home`; set `ROCKETCYBER_CONFIG` or `ROCKETCYBER_HOME` in its environment instead.
+
+### Removed
+- **`import`.** The RocketCyber Customer API is read-only, so the command could only fail; no command writes to RocketCyber.
+
+### Fixed
+- **`export` writes every page**, to a file or to standard output. It wrote the first 100 agents, firewalls or incidents as if that were the complete backup.
+- **`reports` prints the CSV report RocketCyber returns** instead of refusing it as not JSON.
+- **A default `sync` no longer walks every detection app's event history.** It syncs agents, apps, firewalls and incidents; `sync --resources suppression` stores one row per suppression rule.
+- **`doctor` checks the real RocketCyber host and the token** instead of calling every default install an unconfigured placeholder.
+- **Novel commands never read a failed or missing answer as nothing found.** `triage` reports a failed source as a fetch failure and fails when every source fails; `defender riskiest`, `office trend` and `suppression audit` refuse an answer missing the data they rank; `triage` and `suppression audit` say when the API counted more rows than it answered; `agents stale` and `incidents mttr` read every synced row.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

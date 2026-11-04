@@ -43,15 +43,22 @@ type triageFailure struct {
 	Error  string `json:"error"`
 }
 
+// triageView: a total is null when its source failed or answered no list
+// (unknown, never zero); *_capped says the API answered more rows than the
+// one page shown (rocketcyber handfix novel-missing-input-is-an-error,
+// novel-scan-caps-said).
 type triageView struct {
-	Since              string           `json:"since"`
-	OpenIncidentsTotal int64            `json:"open_incidents_total"`
-	RecentOpenCount    int              `json:"recent_open_count"`
-	OpenIncidents      []triageIncident `json:"open_incidents"`
-	OfflineAgentsTotal int64            `json:"offline_agents_total"`
-	OfflineAgents      []triageAgent    `json:"offline_agents"`
-	EventSummary       json.RawMessage  `json:"event_summary,omitempty"`
-	FetchFailures      []triageFailure  `json:"fetch_failures,omitempty"`
+	Since                 string           `json:"since"`
+	OpenIncidentsTotal    *int64           `json:"open_incidents_total"`
+	OpenIncidentsCapped   bool             `json:"open_incidents_capped"`
+	RecentOpenCount       *int             `json:"recent_open_count"`
+	RecentOpenCountCapped bool             `json:"recent_open_count_capped"`
+	OpenIncidents         []triageIncident `json:"open_incidents"`
+	OfflineAgentsTotal    *int64           `json:"offline_agents_total"`
+	OfflineAgentsCapped   bool             `json:"offline_agents_capped"`
+	OfflineAgents         []triageAgent    `json:"offline_agents"`
+	EventSummary          json.RawMessage  `json:"event_summary,omitempty"`
+	FetchFailures         []triageFailure  `json:"fetch_failures,omitempty"`
 }
 
 // parseTriageIncidents converts raw incident items into triage rows sorted
@@ -145,7 +152,7 @@ agents joined). Do NOT use it to list a single entity type with filters; use
   rocketcyber-cli triage --since 24h --agent
   rocketcyber-cli triage --since 48h --account-id 2 --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -217,23 +224,49 @@ agents joined). Do NOT use it to list a single entity type with filters; use
 				OfflineAgents: []triageAgent{},
 				FetchFailures: []triageFailure{},
 			}
+			byName := map[string]fetchResult{}
 			for r := range results {
-				if r.err != nil {
-					view.FetchFailures = append(view.FetchFailures, triageFailure{Source: r.source, Error: r.err.Error()})
-					continue
+				byName[r.source] = r
+			}
+			var firstErr error
+			for _, src := range sources {
+				r := byName[src.name]
+				if r.err == nil && src.name != "events-summary" {
+					items, total, perr := parseEnvelope(r.data)
+					if perr == nil {
+						switch src.name {
+						case "incidents":
+							rows, recent := parseTriageIncidents(items, cutoff, now)
+							view.OpenIncidentsTotal, view.OpenIncidents, view.RecentOpenCount = &total, rows, &recent
+							// Sorted newest first: when more open incidents exist than
+							// the page shows and the oldest shown is still inside the
+							// window, the recent count is only a lower bound.
+							view.OpenIncidentsCapped = total > int64(len(items))
+							view.RecentOpenCountCapped = view.OpenIncidentsCapped && len(rows) > 0 && rows[len(rows)-1].createdTime.After(cutoff)
+						case "agents":
+							view.OfflineAgentsTotal, view.OfflineAgents = &total, parseTriageAgents(items)
+							view.OfflineAgentsCapped = total > int64(len(items))
+						}
+						continue
+					}
+					r.err = perr
 				}
-				switch r.source {
-				case "incidents":
-					items, total := parseEnvelope(r.data)
-					view.OpenIncidentsTotal = total
-					view.OpenIncidents, view.RecentOpenCount = parseTriageIncidents(items, cutoff, now)
-				case "events-summary":
-					view.EventSummary = r.data
-				case "agents":
-					items, total := parseEnvelope(r.data)
-					view.OfflineAgentsTotal = total
-					view.OfflineAgents = parseTriageAgents(items)
+				if r.err == nil && src.name == "events-summary" {
+					if !json.Valid(r.data) || len(r.data) == 0 || string(r.data) == "null" {
+						r.err = fmt.Errorf("the answer is not a RocketCyber event summary")
+					} else {
+						view.EventSummary = r.data
+						continue
+					}
 				}
+				if firstErr == nil {
+					firstErr = r.err
+				}
+				view.FetchFailures = append(view.FetchFailures, triageFailure{Source: src.name, Error: r.err.Error()})
+			}
+			if len(view.FetchFailures) == len(sources) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "every triage source failed; no board\n")
+				return classifyAPIError(cmd.OutOrStdout(), firstErr, flags)
 			}
 			if len(view.FetchFailures) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d triage sources failed; board built from the remaining sources\n", len(view.FetchFailures), len(sources))

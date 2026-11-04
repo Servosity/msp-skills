@@ -71,6 +71,44 @@ func computeScoreTrend(points []scorePoint) trendView {
 	return view
 }
 
+// secureScoreSeries reads the secure-score daily points from a /office answer
+// (secureScoreProgress {startDate, endDate, data}, or the series at the top
+// level). An answer without a series, or with no scored point, is an error:
+// a trend of nothing is not "flat at 0" (rocketcyber handfix
+// novel-missing-input-is-an-error).
+func secureScoreSeries(data json.RawMessage) (points []scorePoint, startDate, endDate string, err error) {
+	var probe map[string]json.RawMessage
+	var rawPoints []json.RawMessage
+	if json.Unmarshal(data, &rawPoints) != nil || rawPoints == nil { // a bare series is read as given
+		if err := json.Unmarshal(data, &probe); err != nil || probe == nil {
+			return nil, "", "", fmt.Errorf("the answer is not a secure-score report")
+		}
+		if nested, ok := probe["secureScoreProgress"]; ok {
+			if err := json.Unmarshal(nested, &probe); err != nil || probe == nil {
+				return nil, "", "", fmt.Errorf("the answer's secureScoreProgress member is not an object")
+			}
+		}
+		if d, ok := probe["data"]; !ok || json.Unmarshal(d, &rawPoints) != nil {
+			return nil, "", "", fmt.Errorf("the answer carries no secure-score series")
+		}
+	}
+	for _, rp := range rawPoints {
+		var pp map[string]json.RawMessage
+		if err := json.Unmarshal(rp, &pp); err != nil {
+			continue
+		}
+		score, ok := cliutil.ExtractNumber(pp, "secureScorePercentage")
+		if !ok {
+			continue
+		}
+		points = append(points, scorePoint{Date: extractString(pp, "detectionDate"), Score: score})
+	}
+	if len(points) == 0 {
+		return nil, "", "", fmt.Errorf("the secure-score series has no scored day for this scope")
+	}
+	return points, extractString(probe, "startDate"), extractString(probe, "endDate"), nil
+}
+
 func newNovelOfficeTrendCmd(flags *rootFlags) *cobra.Command {
 	var flagAccountID int
 
@@ -89,7 +127,7 @@ dump the raw daily series; use 'office' instead.
   rocketcyber-cli office trend --account-id 2 --json
   rocketcyber-cli office trend --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -111,46 +149,15 @@ dump the raw daily series; use 'office' instead.
 			}
 			data, err := c.Get(cmd.Context(), "/office", params)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			series := data
-			var probe map[string]json.RawMessage
-			startDate, endDate := "", ""
-			if err := json.Unmarshal(data, &probe); err == nil {
-				if nested, ok := probe["secureScoreProgress"]; ok {
-					series = nested
-					if err := json.Unmarshal(nested, &probe); err != nil {
-						probe = nil
-					}
-				}
-				if probe != nil {
-					startDate = extractString(probe, "startDate")
-					endDate = extractString(probe, "endDate")
-					if d, ok := probe["data"]; ok {
-						series = d
-					}
-				}
-			}
-			var rawPoints []json.RawMessage
-			_ = json.Unmarshal(series, &rawPoints)
-			points := make([]scorePoint, 0, len(rawPoints))
-			for _, rp := range rawPoints {
-				var pp map[string]json.RawMessage
-				if err := json.Unmarshal(rp, &pp); err != nil {
-					continue
-				}
-				score, ok := cliutil.ExtractNumber(pp, "secureScorePercentage")
-				if !ok {
-					continue
-				}
-				points = append(points, scorePoint{Date: extractString(pp, "detectionDate"), Score: score})
+			points, startDate, endDate, err := secureScoreSeries(data)
+			if err != nil {
+				return fmt.Errorf("/office: %w; no trend", err)
 			}
 			view := computeScoreTrend(points)
 			view.StartDate = startDate
 			view.EndDate = endDate
-			if view.DataPoints == 0 {
-				view.Note = "no secure-score data points returned by /office for this scope"
-			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},
 	}

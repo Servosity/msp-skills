@@ -1,7 +1,7 @@
 {
   "api_name": "rocketcyber",
   "base_url": "https://api-us.rocketcyber.com/v3",
-  "description": "RocketCyber Managed SOC CLI - incidents, agents, events, Defender and Microsoft 365 posture, suppression rules, and CSV report export via the Customer API v3",
+  "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "auth": {
@@ -451,7 +451,7 @@
           "name": "ruleId",
           "type": "int",
           "location": "path",
-          "description": "Suppression rule ID",
+          "description": "Suppression rule ID (e.g. 42)",
           "required": true
         },
         {
