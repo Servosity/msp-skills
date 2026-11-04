@@ -433,12 +433,34 @@ def untransfer(coding: str, body: bytes) -> bytes:
     raise ValueError(f"transfer coding {coding!r} cannot be decoded")
 
 
+def _tunnel_to(target: "Fake") -> socket.socket:
+    """A connection to the fake that the fake reads as the played host. Its
+    port is marked before it connects, so the fake cannot accept it unmarked,
+    and the fake takes the mark once, on accepting it: a later connection that
+    reuses the port (Linux reuses loopback ports) is read as itself."""
+    up = socket.socket()
+    try:
+        up.bind(("127.0.0.1", 0))
+        port = up.getsockname()[1]
+        with target.lock:
+            target.tunneled.add(port)
+        try:
+            up.connect(("127.0.0.1", target.srv.server_address[1]))
+        except OSError:
+            with target.lock:
+                target.tunneled.discard(port)
+            raise
+    except OSError:
+        up.close()
+        raise
+    return up
+
+
 def _relay(client, target: "Fake") -> None:
     """A CONNECT tunnel: bytes both ways between a client and a fake until
     either ends, the fake told this connection came through it. One thread,
     because an SSL socket cannot be read and written at once."""
-    up = socket.create_connection(("127.0.0.1", target.srv.server_address[1]))
-    target.tunneled.add(up.getsockname()[1])
+    up = _tunnel_to(target)
     client.setblocking(False)
     try:
         while True:
@@ -478,6 +500,9 @@ class Fake:
                 pass
 
             def handle(self):
+                with fake.lock:   # one connection takes its port's mark (_tunnel_to)
+                    self._tunnel = self.client_address[1] in fake.tunneled
+                    fake.tunneled.discard(self.client_address[1])
                 try:
                     super().handle()
                 except OSError:
@@ -533,7 +558,7 @@ class Fake:
                     body, fake.unreadable = b"", True   # judged as a leak: it could not be read
                 with fake.lock:
                     fake.requests.append((self.command, _utf8(self.path), hdrs, body))
-                    if self.client_address[1] in fake.tunneled:
+                    if getattr(self, "_tunnel", False):
                         fake.played.append(len(fake.requests) - 1)
                 if self.command == "CONNECT" and fake.pin and self.path in (fake.pin, fake.pin + ":443"):
                     # A host a credential is pinned to: the list plays it (pin_host).
@@ -6918,6 +6943,37 @@ def _c11_pinned() -> bool:
         if pin_host(pins, [mcp, sec]) != want:
             print(f"    corpus self-test: pin_host: {why}: {pin_host(pins, [mcp, sec])}")
             ok = False
+    # A tunnel's port, reused by a direct connection once the tunnel closed
+    # (Linux reuses loopback ports, tcp_tw_reuse=2), is not the played host:
+    # immybot each-identifier-var false-failed on an API read so marked.
+    f = Fake(lambda p: (200, {}, b"{}"), lambda: (200, {}, b"{}"))
+    try:
+        def get(conn, path):
+            conn.sendall(f"GET {path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n".encode())
+            while conn.recv(65536):
+                pass
+            conn.close()
+        up = _tunnel_to(f)
+        port = up.getsockname()[1]
+        get(up, "/through-the-tunnel")
+        direct = socket.socket()
+        direct.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        direct.bind(("127.0.0.1", port))
+        direct.connect(("127.0.0.1", f.srv.server_address[1]))
+        get(direct, "/direct")
+        for _ in range(100):
+            if len(f.requests) == 2:
+                break
+            time.sleep(0.02)
+        played = [f.requests[i][1] for i in f.played]
+        if played != ["/through-the-tunnel"]:
+            print(f"    corpus self-test: a direct connection on a tunnel's old port: played {played}")
+            ok = False
+    except OSError as e:
+        print(f"    corpus self-test: a direct connection on a tunnel's old port: could not run: {e}")
+        ok = False
+    finally:
+        f.stop()
     pin_kit = dict(_DECL_KIT)
     pin_kit["internal/credkit/kit.go"] = pin_kit["internal/credkit/kit.go"].replace(
         "type Declarations struct {\n", "type Origin struct {\n\tSource string\n\tAllowed []string\n}\n\n"
