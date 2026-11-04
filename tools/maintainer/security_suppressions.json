@@ -1330,6 +1330,11 @@
       "file": "skills/quickbooks/cli/internal/cli/auth_refresh.go",
       "rule": "G704",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The token refresh request goes to intuitTokenURL by default; the only override is the QUICKBOOKS_TOKEN_URL environment variable, an operator-set test hook, not tool-call or API input."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "exec-nonliteral-cmd",
+      "reason": "Builtin twin of the content-bound G204 and msp-exec-nonliteral-command entries for the same call site. prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell. Repo-relative (scoped to prtg only)."
     }
   ],
   "bound": [
@@ -1736,6 +1741,26 @@
       ],
       "press": "4.34.2",
       "reason": "apple-business's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04, byte-identical to eset-protect's. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:26dcd519dcddf07160b8115fa268649e707460891f6ae4122562d98408851651"
+      ],
+      "press": "4.34.2",
+      "reason": "prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:26dcd519dcddf07160b8115fa268649e707460891f6ae4122562d98408851651"
+      ],
+      "press": "4.34.2",
+      "reason": "prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell."
     },
     {
       "file": "skills/eset-protect/cli/internal/cli/policies_decode.go",
