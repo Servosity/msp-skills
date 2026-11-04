@@ -1,0 +1,1970 @@
+{
+  "api_name": "mimecast",
+  "base_url": "https://api.services.mimecast.com",
+  "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "MIMECAST_CLIENT_ID",
+      "MIMECAST_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "MIMECAST_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "MIMECAST_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://mimecastsupport.zendesk.com/hc/en-us/articles/34000360548755-API-Integrations-Managing-API-2-0-for-Email-Security-MX"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "archive_logs_search-logs",
+      "description": "Archive search log entries in a time range. Requires app role permission: Archive | Search Logs | Read. Optional: data. Returns array of ArchiveLogsSearchLogsItem.",
+      "method": "POST",
+      "path": "/api/archive/get-search-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "archive_logs_searches",
+      "description": "Log of archive searches run by admins and users. Requires app role permission: Archive | Search Logs | Read. Optional: data. Returns array of ArchiveLogsSearchesItem.",
+      "method": "POST",
+      "path": "/api/archive/get-archive-search-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "archive_logs_views",
+      "description": "Log of archived messages viewed by admins. Requires app role permission: Archive | View Logs | Read. Optional: data. Returns array of ArchiveLogsViewsItem.",
+      "method": "POST",
+      "path": "/api/archive/get-view-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "audit_categories",
+      "description": "List audit event categories (codes for audit events --data categories). Returns array of AuditCategoriesItem.",
+      "method": "POST",
+      "path": "/api/audit/get-categories",
+      "params": []
+    },
+    {
+      "name": "audit_events",
+      "description": "Admin console audit events by category and time range. Requires app role permission: Account | Logs | Read. Optional: data. Returns array of AuditEventsItem.",
+      "method": "POST",
+      "path": "/api/audit/get-audit-events",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "ci_onboarding_onboard",
+      "description": "Onboard a Cloud Integrated customer account. Requires app role permission: super-admin | full-admin | partner-admin. Required: protectionMode.",
+      "method": "POST",
+      "path": "/email/cloud-integrated/v1/onboarding",
+      "params": [
+        {
+          "name": "protectionMode",
+          "type": "string",
+          "location": "body",
+          "description": "The protection mode is to define whether detection action should take place (or) not in the...",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ci_policies_create",
+      "description": "Create a Cloud Integrated policy. Requires app role permission: super-admin | full-admin | partner-admin. Required: name, protectionMode, targets. Optional: actions, alerts, description (plus 1 more). Returns the new CiPoliciesCreateResponse.",
+      "method": "POST",
+      "path": "/email/cloud-integrated/v1/policies",
+      "params": [
+        {
+          "name": "actions-malware",
+          "wire_name": "actions.malware",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003eMalware\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-phishing",
+          "wire_name": "actions.phishing",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003ePhishing\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-spam",
+          "wire_name": "actions.spam",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when \u003cb\u003eSpam\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-untrustworthy",
+          "wire_name": "actions.untrustworthy",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003eUntrustworthy\u003c/b\u003e is detected."
+        },
+        {
+          "name": "alerts-malware",
+          "wire_name": "alerts.malware",
+          "type": "bool",
+          "location": "body",
+          "description": "Malware"
+        },
+        {
+          "name": "alerts-phishing",
+          "wire_name": "alerts.phishing",
+          "type": "bool",
+          "location": "body",
+          "description": "Phishing"
+        },
+        {
+          "name": "alerts-spam",
+          "wire_name": "alerts.spam",
+          "type": "bool",
+          "location": "body",
+          "description": "Spam"
+        },
+        {
+          "name": "alerts-untrustworthy",
+          "wire_name": "alerts.untrustworthy",
+          "type": "bool",
+          "location": "body",
+          "description": "Untrustworthy"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the security policy."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the security policy.",
+          "required": true
+        },
+        {
+          "name": "protectionMode",
+          "type": "string",
+          "location": "body",
+          "description": "The protection mode is to define whether detection action should take place (or) not in the...",
+          "required": true
+        },
+        {
+          "name": "security-engines-attachments-sandbox-enabled",
+          "wire_name": "securityEngines.attachments.sandboxEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Checks all vulnerable file types for threats in the sandbox if the boolean value is set to True."
+        },
+        {
+          "name": "security-engines-attachments-unreadable-archives",
+          "wire_name": "securityEngines.attachments.unreadableArchives",
+          "type": "string",
+          "location": "body",
+          "description": "Controls the handling of unencrypted archives that fail to extracted correctly. \u003cb\u003eAllow:\u003c/b\u003e Bypasses the attachment, without scanning their content. \u003cb\u003eQuarantine:\u003c/b\u003e Strips the attachment from the message"
+        },
+        {
+          "name": "security-engines-impersonation-code-breaker-status",
+          "wire_name": "securityEngines.impersonation.codeBreakerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Code breaker status"
+        },
+        {
+          "name": "security-engines-impersonation-reporting-status",
+          "wire_name": "securityEngines.impersonation.reportingStatus",
+          "type": "string",
+          "location": "body",
+          "description": "\u003cb\u003eEnabled:\u003c/b\u003e Allows end-users to Report or Mark as Safe from the Dynamic banners displayed on an email. \u003cb\u003eDisabled:\u003c/b\u003e Allows end-users to see banners but not Report or Mark as Safe. \u003cb\u003eLearning:\u003c/b\u003e A monitoring state where CyberGraph runs in the background, but banners are not displayed to end-users."
+        },
+        {
+          "name": "security-engines-impersonation-silencer-status",
+          "wire_name": "securityEngines.impersonation.silencerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Silencer status"
+        },
+        {
+          "name": "security-engines-phishing-scan-outbound-emails",
+          "wire_name": "securityEngines.phishing.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-phishing-high",
+          "wire_name": "securityEngines.phishing.sensitivityPhishingHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity phishing high"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-untrustworthy-high",
+          "wire_name": "securityEngines.phishing.sensitivityUntrustworthyHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity untrustworthy high"
+        },
+        {
+          "name": "security-engines-url-click-bi-admin-viewing",
+          "wire_name": "securityEngines.urlClick.biAdminViewing",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi admin viewing"
+        },
+        {
+          "name": "security-engines-url-click-bi-copy-text",
+          "wire_name": "securityEngines.urlClick.biCopyText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi copy text"
+        },
+        {
+          "name": "security-engines-url-click-bi-enter-text",
+          "wire_name": "securityEngines.urlClick.biEnterText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi enter text"
+        },
+        {
+          "name": "security-engines-url-click-bi-paste-text",
+          "wire_name": "securityEngines.urlClick.biPasteText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi paste text"
+        },
+        {
+          "name": "security-engines-url-click-bi-unclassified-urls",
+          "wire_name": "securityEngines.urlClick.biUnclassifiedUrls",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi unclassified urls"
+        },
+        {
+          "name": "security-engines-url-click-block-dangerous-extensions",
+          "wire_name": "securityEngines.urlClick.blockDangerousExtensions",
+          "type": "bool",
+          "location": "body",
+          "description": "Block dangerous extensions"
+        },
+        {
+          "name": "security-engines-url-click-force-secure-connection",
+          "wire_name": "securityEngines.urlClick.forceSecureConnection",
+          "type": "bool",
+          "location": "body",
+          "description": "Force secure connection"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-enabled",
+          "wire_name": "securityEngines.urlClick.rewriteEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Rewrite enabled"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-mode",
+          "wire_name": "securityEngines.urlClick.rewriteMode",
+          "type": "string",
+          "location": "body",
+          "description": "Rewrite mode"
+        },
+        {
+          "name": "security-engines-url-click-scan-outbound-emails",
+          "wire_name": "securityEngines.urlClick.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-url-click-scan-urls-in-attachment",
+          "wire_name": "securityEngines.urlClick.scanUrlsInAttachment",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan urls in attachment"
+        },
+        {
+          "name": "security-engines-url-click-sensitivity",
+          "wire_name": "securityEngines.urlClick.sensitivity",
+          "type": "string",
+          "location": "body",
+          "description": "Sensitivity"
+        },
+        {
+          "name": "security-engines-url-click-user-identification",
+          "wire_name": "securityEngines.urlClick.userIdentification",
+          "type": "string",
+          "location": "body",
+          "description": "User identification"
+        },
+        {
+          "name": "targets-address-match",
+          "wire_name": "targets.addressMatch",
+          "type": "string",
+          "location": "body",
+          "description": "Select the address type the policy should apply to. HEADER ENVELOPE BOTH"
+        },
+        {
+          "name": "targets-exceptions-domains",
+          "wire_name": "targets.exceptions.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) of users to exclude from the policy."
+        },
+        {
+          "name": "targets-exceptions-emails",
+          "wire_name": "targets.exceptions.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email address(es) to exclude from the policy."
+        },
+        {
+          "name": "targets-exceptions-groups",
+          "wire_name": "targets.exceptions.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) of users to exclude from the policy."
+        },
+        {
+          "name": "targets-recipients-domains",
+          "wire_name": "targets.recipients.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-recipients-emails",
+          "wire_name": "targets.recipients.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Email address(es) the security policy applied to."
+        },
+        {
+          "name": "targets-recipients-groups",
+          "wire_name": "targets.recipients.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-recipients-route",
+          "wire_name": "targets.recipients.route",
+          "type": "string",
+          "location": "body",
+          "description": "Select a target for the recipients the policy should apply to. ALL INTERNAL EXTERNAL \u003cb\u003eRecipient schema object restrictions:\u003c/b\u003e If the user selects target recipients route as \u003cb\u003eINTERNAL\u003c/b\u003e then \u003cb\u003edomains\u003c/b\u003e field is not allowed in the recipients schema object details. If the user selects target recipients route as \u003cb\u003eEXTERNAL\u003c/b\u003e then \u003cb\u003egroups\u003c/b\u003e field is not allowed in the recipients schema object details.",
+          "required": true
+        },
+        {
+          "name": "targets-senders-domains",
+          "wire_name": "targets.senders.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-senders-emails",
+          "wire_name": "targets.senders.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Email address(es) the security policy applied to."
+        },
+        {
+          "name": "targets-senders-groups",
+          "wire_name": "targets.senders.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-senders-route",
+          "wire_name": "targets.senders.route",
+          "type": "string",
+          "location": "body",
+          "description": "Select a Target scope for the senders the policy should apply to. ALL INTERNAL EXTERNAL \u003cb\u003eSender schema object restrictions:\u003c/b\u003e If the user selects target senders route as \u003cb\u003eINTERNAL\u003c/b\u003e then \u003cb\u003edomains\u003c/b\u003e field is not allowed in the sender schema object details and in the recipients schema object, the route should be set as \u003cb\u003eEXTERNAL\u003c/b\u003e If the user selects target senders route as \u003cb\u003eEXTERNAL\u003c/b\u003e then \u003cb\u003egroups\u003c/b\u003e field is not allowed in the sender schema object details and in the recipients schema object, the route should be chosen as \u003cb\u003eINTERNAL\u003c/b\u003e",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ci_policies_delete",
+      "description": "Delete a Cloud Integrated policy. Requires app role permission: super-admin | full-admin | partner-admin. Required: policyId. Destructive.",
+      "method": "DELETE",
+      "path": "/email/cloud-integrated/v1/policies/{policyId}",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a policy (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ci_policies_get",
+      "description": "Get a Cloud Integrated policy. Requires app role permission: super-admin | full-admin | partner-admin. Required: policyId. Returns the CiPoliciesGetResponse.",
+      "method": "GET",
+      "path": "/email/cloud-integrated/v1/policies/{policyId}",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a policy (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ci_policies_get-default",
+      "description": "Get the Cloud Integrated default policy. Requires app role permission: super-admin | full-admin | partner-admin. Returns the CiPoliciesGetDefaultResponse.",
+      "method": "GET",
+      "path": "/email/cloud-integrated/v1/policies/default-policy",
+      "params": []
+    },
+    {
+      "name": "ci_policies_update",
+      "description": "Update a Cloud Integrated policy. Requires app role permission: super-admin | full-admin | partner-admin. Required: policyId. Optional: actions, alerts, description (plus 4 more). Partial update.",
+      "method": "PATCH",
+      "path": "/email/cloud-integrated/v1/policies/{policyId}",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a policy (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6).",
+          "required": true
+        },
+        {
+          "name": "actions-malware",
+          "wire_name": "actions.malware",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003eMalware\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-phishing",
+          "wire_name": "actions.phishing",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003ePhishing\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-spam",
+          "wire_name": "actions.spam",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when \u003cb\u003eSpam\u003c/b\u003e is detected."
+        },
+        {
+          "name": "actions-untrustworthy",
+          "wire_name": "actions.untrustworthy",
+          "type": "string",
+          "location": "body",
+          "description": "Select what action should be taken when a \u003cb\u003eUntrustworthy\u003c/b\u003e is detected."
+        },
+        {
+          "name": "alerts-malware",
+          "wire_name": "alerts.malware",
+          "type": "bool",
+          "location": "body",
+          "description": "Malware"
+        },
+        {
+          "name": "alerts-phishing",
+          "wire_name": "alerts.phishing",
+          "type": "bool",
+          "location": "body",
+          "description": "Phishing"
+        },
+        {
+          "name": "alerts-spam",
+          "wire_name": "alerts.spam",
+          "type": "bool",
+          "location": "body",
+          "description": "Spam"
+        },
+        {
+          "name": "alerts-untrustworthy",
+          "wire_name": "alerts.untrustworthy",
+          "type": "bool",
+          "location": "body",
+          "description": "Untrustworthy"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the security policy."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the security policy."
+        },
+        {
+          "name": "protectionMode",
+          "type": "string",
+          "location": "body",
+          "description": "The protection mode is to define whether detection action should take place (or) not in the..."
+        },
+        {
+          "name": "security-engines-attachments-sandbox-enabled",
+          "wire_name": "securityEngines.attachments.sandboxEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Sandbox enabled"
+        },
+        {
+          "name": "security-engines-attachments-unreadable-archives",
+          "wire_name": "securityEngines.attachments.unreadableArchives",
+          "type": "string",
+          "location": "body",
+          "description": "Unreadable archives"
+        },
+        {
+          "name": "security-engines-impersonation-code-breaker-status",
+          "wire_name": "securityEngines.impersonation.codeBreakerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Code breaker status"
+        },
+        {
+          "name": "security-engines-impersonation-reporting-status",
+          "wire_name": "securityEngines.impersonation.reportingStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Reporting status"
+        },
+        {
+          "name": "security-engines-impersonation-silencer-status",
+          "wire_name": "securityEngines.impersonation.silencerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Silencer status"
+        },
+        {
+          "name": "security-engines-phishing-scan-outbound-emails",
+          "wire_name": "securityEngines.phishing.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-phishing-high",
+          "wire_name": "securityEngines.phishing.sensitivityPhishingHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity phishing high"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-untrustworthy-high",
+          "wire_name": "securityEngines.phishing.sensitivityUntrustworthyHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity untrustworthy high"
+        },
+        {
+          "name": "security-engines-url-click-bi-admin-viewing",
+          "wire_name": "securityEngines.urlClick.biAdminViewing",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi admin viewing"
+        },
+        {
+          "name": "security-engines-url-click-bi-copy-text",
+          "wire_name": "securityEngines.urlClick.biCopyText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi copy text"
+        },
+        {
+          "name": "security-engines-url-click-bi-enter-text",
+          "wire_name": "securityEngines.urlClick.biEnterText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi enter text"
+        },
+        {
+          "name": "security-engines-url-click-bi-paste-text",
+          "wire_name": "securityEngines.urlClick.biPasteText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi paste text"
+        },
+        {
+          "name": "security-engines-url-click-bi-unclassified-urls",
+          "wire_name": "securityEngines.urlClick.biUnclassifiedUrls",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi unclassified urls"
+        },
+        {
+          "name": "security-engines-url-click-block-dangerous-extensions",
+          "wire_name": "securityEngines.urlClick.blockDangerousExtensions",
+          "type": "bool",
+          "location": "body",
+          "description": "Block dangerous extensions"
+        },
+        {
+          "name": "security-engines-url-click-force-secure-connection",
+          "wire_name": "securityEngines.urlClick.forceSecureConnection",
+          "type": "bool",
+          "location": "body",
+          "description": "Force secure connection"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-enabled",
+          "wire_name": "securityEngines.urlClick.rewriteEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Rewrite enabled"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-mode",
+          "wire_name": "securityEngines.urlClick.rewriteMode",
+          "type": "string",
+          "location": "body",
+          "description": "Rewrite mode"
+        },
+        {
+          "name": "security-engines-url-click-scan-outbound-emails",
+          "wire_name": "securityEngines.urlClick.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-url-click-scan-urls-in-attachment",
+          "wire_name": "securityEngines.urlClick.scanUrlsInAttachment",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan urls in attachment"
+        },
+        {
+          "name": "security-engines-url-click-sensitivity",
+          "wire_name": "securityEngines.urlClick.sensitivity",
+          "type": "string",
+          "location": "body",
+          "description": "Sensitivity"
+        },
+        {
+          "name": "security-engines-url-click-user-identification",
+          "wire_name": "securityEngines.urlClick.userIdentification",
+          "type": "string",
+          "location": "body",
+          "description": "User identification"
+        },
+        {
+          "name": "targets-address-match",
+          "wire_name": "targets.addressMatch",
+          "type": "string",
+          "location": "body",
+          "description": "Select the address type the policy should apply to. HEADER ENVELOPE BOTH"
+        },
+        {
+          "name": "targets-exceptions-domains",
+          "wire_name": "targets.exceptions.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) of users to exclude from the policy."
+        },
+        {
+          "name": "targets-exceptions-emails",
+          "wire_name": "targets.exceptions.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email address(es) to exclude from the policy."
+        },
+        {
+          "name": "targets-exceptions-groups",
+          "wire_name": "targets.exceptions.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) of users to exclude from the policy."
+        },
+        {
+          "name": "targets-recipients-domains",
+          "wire_name": "targets.recipients.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-recipients-emails",
+          "wire_name": "targets.recipients.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Email address(es) the security policy applied to."
+        },
+        {
+          "name": "targets-recipients-groups",
+          "wire_name": "targets.recipients.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-recipients-route",
+          "wire_name": "targets.recipients.route",
+          "type": "string",
+          "location": "body",
+          "description": "Select a target for the recipients the policy should apply to. ALL INTERNAL EXTERNAL \u003cb\u003eRecipient schema object restrictions:\u003c/b\u003e If the user selects target recipients route as \u003cb\u003eINTERNAL\u003c/b\u003e then \u003cb\u003edomains\u003c/b\u003e field is not allowed in the recipients schema object details. If the user selects target recipients route as \u003cb\u003eEXTERNAL\u003c/b\u003e then \u003cb\u003egroups\u003c/b\u003e field is not allowed in the recipients schema object details.",
+          "required": true
+        },
+        {
+          "name": "targets-senders-domains",
+          "wire_name": "targets.senders.domains",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify the email domain(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-senders-emails",
+          "wire_name": "targets.senders.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Email address(es) the security policy applied to."
+        },
+        {
+          "name": "targets-senders-groups",
+          "wire_name": "targets.senders.groups",
+          "type": "array",
+          "location": "body",
+          "description": "Specify the group(s) the policy should be applied to."
+        },
+        {
+          "name": "targets-senders-route",
+          "wire_name": "targets.senders.route",
+          "type": "string",
+          "location": "body",
+          "description": "Select a Target scope for the senders the policy should apply to. ALL INTERNAL EXTERNAL \u003cb\u003eSender schema object restrictions:\u003c/b\u003e If the user selects target senders route as \u003cb\u003eINTERNAL\u003c/b\u003e then \u003cb\u003edomains\u003c/b\u003e field is not allowed in the sender schema object details and in the recipients schema object, the route should be set as \u003cb\u003eEXTERNAL\u003c/b\u003e If the user selects target senders route as \u003cb\u003eEXTERNAL\u003c/b\u003e then \u003cb\u003egroups\u003c/b\u003e field is not allowed in the sender schema object details and in the recipients schema object, the route should be chosen as \u003cb\u003eINTERNAL\u003c/b\u003e",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ci_policies_update-default",
+      "description": "Update the Cloud Integrated default policy. Requires app role permission: super-admin | full-admin | partner-admin. Optional: alerts, protectionMode, securityEngines. Partial update.",
+      "method": "PATCH",
+      "path": "/email/cloud-integrated/v1/policies/default-policy",
+      "params": [
+        {
+          "name": "alerts-malware",
+          "wire_name": "alerts.malware",
+          "type": "bool",
+          "location": "body",
+          "description": "Malware"
+        },
+        {
+          "name": "alerts-phishing",
+          "wire_name": "alerts.phishing",
+          "type": "bool",
+          "location": "body",
+          "description": "Phishing"
+        },
+        {
+          "name": "alerts-spam",
+          "wire_name": "alerts.spam",
+          "type": "bool",
+          "location": "body",
+          "description": "Spam"
+        },
+        {
+          "name": "alerts-untrustworthy",
+          "wire_name": "alerts.untrustworthy",
+          "type": "bool",
+          "location": "body",
+          "description": "Untrustworthy"
+        },
+        {
+          "name": "protectionMode",
+          "type": "string",
+          "location": "body",
+          "description": "The protection mode is to define whether detection action should take place (or) not in the..."
+        },
+        {
+          "name": "security-engines-attachments-sandbox-enabled",
+          "wire_name": "securityEngines.attachments.sandboxEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Sandbox enabled"
+        },
+        {
+          "name": "security-engines-attachments-unreadable-archives",
+          "wire_name": "securityEngines.attachments.unreadableArchives",
+          "type": "string",
+          "location": "body",
+          "description": "Unreadable archives"
+        },
+        {
+          "name": "security-engines-impersonation-code-breaker-status",
+          "wire_name": "securityEngines.impersonation.codeBreakerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Code breaker status"
+        },
+        {
+          "name": "security-engines-impersonation-reporting-status",
+          "wire_name": "securityEngines.impersonation.reportingStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Reporting status"
+        },
+        {
+          "name": "security-engines-impersonation-silencer-status",
+          "wire_name": "securityEngines.impersonation.silencerStatus",
+          "type": "string",
+          "location": "body",
+          "description": "Silencer status"
+        },
+        {
+          "name": "security-engines-phishing-scan-outbound-emails",
+          "wire_name": "securityEngines.phishing.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-phishing-high",
+          "wire_name": "securityEngines.phishing.sensitivityPhishingHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity phishing high"
+        },
+        {
+          "name": "security-engines-phishing-sensitivity-untrustworthy-high",
+          "wire_name": "securityEngines.phishing.sensitivityUntrustworthyHigh",
+          "type": "int",
+          "location": "body",
+          "description": "Sensitivity untrustworthy high"
+        },
+        {
+          "name": "security-engines-url-click-bi-admin-viewing",
+          "wire_name": "securityEngines.urlClick.biAdminViewing",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi admin viewing"
+        },
+        {
+          "name": "security-engines-url-click-bi-copy-text",
+          "wire_name": "securityEngines.urlClick.biCopyText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi copy text"
+        },
+        {
+          "name": "security-engines-url-click-bi-enter-text",
+          "wire_name": "securityEngines.urlClick.biEnterText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi enter text"
+        },
+        {
+          "name": "security-engines-url-click-bi-paste-text",
+          "wire_name": "securityEngines.urlClick.biPasteText",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi paste text"
+        },
+        {
+          "name": "security-engines-url-click-bi-unclassified-urls",
+          "wire_name": "securityEngines.urlClick.biUnclassifiedUrls",
+          "type": "bool",
+          "location": "body",
+          "description": "Bi unclassified urls"
+        },
+        {
+          "name": "security-engines-url-click-block-dangerous-extensions",
+          "wire_name": "securityEngines.urlClick.blockDangerousExtensions",
+          "type": "bool",
+          "location": "body",
+          "description": "Block dangerous extensions"
+        },
+        {
+          "name": "security-engines-url-click-force-secure-connection",
+          "wire_name": "securityEngines.urlClick.forceSecureConnection",
+          "type": "bool",
+          "location": "body",
+          "description": "Force secure connection"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-enabled",
+          "wire_name": "securityEngines.urlClick.rewriteEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Rewrite enabled"
+        },
+        {
+          "name": "security-engines-url-click-rewrite-mode",
+          "wire_name": "securityEngines.urlClick.rewriteMode",
+          "type": "string",
+          "location": "body",
+          "description": "Rewrite mode"
+        },
+        {
+          "name": "security-engines-url-click-scan-outbound-emails",
+          "wire_name": "securityEngines.urlClick.scanOutboundEmails",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan outbound emails"
+        },
+        {
+          "name": "security-engines-url-click-scan-urls-in-attachment",
+          "wire_name": "securityEngines.urlClick.scanUrlsInAttachment",
+          "type": "bool",
+          "location": "body",
+          "description": "Scan urls in attachment"
+        },
+        {
+          "name": "security-engines-url-click-sensitivity",
+          "wire_name": "securityEngines.urlClick.sensitivity",
+          "type": "string",
+          "location": "body",
+          "description": "Sensitivity"
+        },
+        {
+          "name": "security-engines-url-click-user-identification",
+          "wire_name": "securityEngines.urlClick.userIdentification",
+          "type": "string",
+          "location": "body",
+          "description": "User identification"
+        }
+      ]
+    },
+    {
+      "name": "dlp_logs",
+      "description": "Data Leak Prevention policy hit logs. MX-based (Cloud Gateway) deployments only. Requires app role permission: Monitoring | Data Leak Prevention | Read. Optional: data. Returns array of DlpLogsItem.",
+      "method": "POST",
+      "path": "/api/dlp/get-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "email_send",
+      "description": "Send an email through Mimecast. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Optional: data. Returns array of EmailSendItem.",
+      "method": "POST",
+      "path": "/api/email/send-email",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "files_upload",
+      "description": "Upload a file for use as an email attachment. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Optional: x-mc-arg. Returns array of FilesUploadItem.",
+      "method": "POST",
+      "path": "/api/file/file-upload",
+      "params": [
+        {
+          "name": "x-mc-arg",
+          "type": "string",
+          "location": "header",
+          "description": "A Header containing a JSON object. e.g. { 'data': [ { 'sha256':'String', 'fileSize':31232 } ] }"
+        }
+      ]
+    },
+    {
+      "name": "gateway_delete-outbound-ips",
+      "description": "Delete outbound IP addresses. Requires app role permission: Account | Settings | Edit. Destructive.",
+      "method": "DELETE",
+      "path": "/email/cloud-gateway/v1/outbound-ip-addresses",
+      "params": []
+    },
+    {
+      "name": "gateway_details",
+      "description": "Gateway details: MX records, SPF, outbound hostnames, mail platform. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Settings | Read. Returns the GatewayDetailsResponse.",
+      "method": "GET",
+      "path": "/email/cloud-gateway/v1/gateway-details",
+      "params": []
+    },
+    {
+      "name": "gateway_outbound-ips",
+      "description": "List outbound IP addresses. Requires app role permission: Account | Settings | Read. Returns array of string.",
+      "method": "GET",
+      "path": "/email/cloud-gateway/v1/outbound-ip-addresses",
+      "params": []
+    },
+    {
+      "name": "gateway_set-outbound-ips",
+      "description": "Replace outbound IP addresses. Requires app role permission: Account | Settings | Edit. Optional: outboundIpAddresses. Returns array of string.",
+      "method": "PUT",
+      "path": "/email/cloud-gateway/v1/outbound-ip-addresses",
+      "params": [
+        {
+          "name": "outboundIpAddresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Outbound ip addresses"
+        }
+      ]
+    },
+    {
+      "name": "gateway_set-protection-mode",
+      "description": "Set protection mode (gateway or gatewayless). Requires app role permission: Account | Settings | Edit. Required: mode. Partial update.",
+      "method": "PATCH",
+      "path": "/email/cloud-gateway/v1/protection-mode",
+      "params": [
+        {
+          "name": "mode",
+          "type": "string",
+          "location": "body",
+          "description": "The protection mode to set for the account.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "gateway_statistics",
+      "description": "Mail-flow statistics: first/last inbound, outbound, internal and queue sizes. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Returns the GatewayStatisticsResponse.",
+      "method": "GET",
+      "path": "/email/cloud-gateway/v1/statistics",
+      "params": []
+    },
+    {
+      "name": "gateway_update-details",
+      "description": "Update gateway details. Requires app role permission: Account | Settings | Edit. Optional: mailPlatform, outboundEnabled, outboundIpAddresses. Partial update.",
+      "method": "PATCH",
+      "path": "/email/cloud-gateway/v1/gateway-details",
+      "params": [
+        {
+          "name": "mail-platform-google",
+          "wire_name": "mailPlatform.google",
+          "type": "bool",
+          "location": "body",
+          "description": "Google"
+        },
+        {
+          "name": "mail-platform-m365",
+          "wire_name": "mailPlatform.m365",
+          "type": "bool",
+          "location": "body",
+          "description": "M365"
+        },
+        {
+          "name": "mail-platform-on-premises-exchange",
+          "wire_name": "mailPlatform.onPremisesExchange",
+          "type": "bool",
+          "location": "body",
+          "description": "On premises exchange"
+        },
+        {
+          "name": "mail-platform-other",
+          "wire_name": "mailPlatform.other",
+          "type": "bool",
+          "location": "body",
+          "description": "Other"
+        },
+        {
+          "name": "outboundEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "If outbound should be enabled for account."
+        },
+        {
+          "name": "outboundIpAddresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of outbound IP addresses to assign for account."
+        }
+      ]
+    },
+    {
+      "name": "held_find",
+      "description": "Find held messages with filters (reason, policy, route, held group, spam verdict). Requires app role permission: Account | Monitoring | Held | Read. Optional: data. Returns array of HeldFindItem.",
+      "method": "POST",
+      "path": "/api/gateway/find-held-messages",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "held_list",
+      "description": "List held messages with hold reason, reason code and policy. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Optional: data. Returns array of HeldListItem.",
+      "method": "POST",
+      "path": "/api/gateway/get-hold-message-list",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "held_reject",
+      "description": "Reject held messages, optionally notifying the sender. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Monitoring | Held | Edit. Optional: data. Returns array of HeldRejectItem.",
+      "method": "POST",
+      "path": "/api/gateway/hold-reject",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "held_release",
+      "description": "Release held messages to their recipients (up to 25 IDs). MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Monitoring | Held | Edit. Optional: data. Returns array of HeldReleaseItem.",
+      "method": "POST",
+      "path": "/api/gateway/hold-release",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "held_release-logs",
+      "description": "Held-message release and reject log: hold reason, policy, operator, spam and SPF/DKIM/DMARC detail. MX-based (Cloud Gateway) deployments only. Requires app role permission: Monitoring | Held | Read. Optional: data. Returns array of HeldReleaseLogsItem.",
+      "method": "POST",
+      "path": "/api/gateway/get-held-release-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "held_summary",
+      "description": "Count held messages per policy or definition. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Monitoring | Held Summary | Read. Returns array of HeldSummaryItem.",
+      "method": "POST",
+      "path": "/api/gateway/get-hold-summary-list",
+      "params": []
+    },
+    {
+      "name": "journaling_create",
+      "description": "Create a journaling service. Requires app role permission: Gateway | Policies | Edit. Required: description, pop3JournalingConnection, smtpJournalingConnection. Optional: enabled, journalNonInternalAddresses (default: false), journalUnknownInternalAddresses (default: false) (plus 2 more). Returns the new JournalingCreateResponse.",
+      "method": "POST",
+      "path": "/journaling/cloud-gateway/v1/services",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A description to identify the new journaling service.",
+          "required": true
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the new journaling service is to be enabled on creation."
+        },
+        {
+          "name": "journalNonInternalAddresses",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, items processed by the journal connector that do not hold an internal addresses will be archived nonetheless."
+        },
+        {
+          "name": "journalUnknownInternalAddresses",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, items processed by the journal connector that are sent from or to unknown internal addresses will be archived nonetheless."
+        },
+        {
+          "name": "messageFormat",
+          "type": "string",
+          "location": "body",
+          "description": "Format of the journal messages to be sent - standard_eml (standard EML), exchange_env (Exchange envelope)."
+        },
+        {
+          "name": "pop3-journaling-connection-detailed-logging-is-enabled",
+          "wire_name": "pop3JournalingConnection.detailedLoggingIsEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Enabling helps Mimecast Support to troubleshoot a failed journaling inbox."
+        },
+        {
+          "name": "pop3-journaling-connection-email-address",
+          "wire_name": "pop3JournalingConnection.emailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of the journal mailbox. This must be different for each journaling service.",
+          "required": true
+        },
+        {
+          "name": "pop3-journaling-connection-encryption-is-relaxed",
+          "wire_name": "pop3JournalingConnection.encryptionIsRelaxed",
+          "type": "bool",
+          "location": "body",
+          "description": "Relaxed encryption permits encryption self-signed certificates and other valid certificates that may not have a complete trust chain."
+        },
+        {
+          "name": "pop3-journaling-connection-host",
+          "wire_name": "pop3JournalingConnection.host",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname or IP address where the journaling mailbox is housed. Your firewall must be configured to allow inbound POP3/POP3S traffic from Mimecast to this address.",
+          "required": true
+        },
+        {
+          "name": "pop3-journaling-connection-mailbox",
+          "wire_name": "pop3JournalingConnection.mailbox",
+          "type": "string",
+          "location": "body",
+          "description": "The username to use when logging into the journaling mailbox.",
+          "required": true
+        },
+        {
+          "name": "pop3-journaling-connection-password",
+          "wire_name": "pop3JournalingConnection.password",
+          "type": "string",
+          "location": "body",
+          "description": "The password to use when logging into the journal mailbox.",
+          "required": true
+        },
+        {
+          "name": "pop3-journaling-connection-port",
+          "wire_name": "pop3JournalingConnection.port",
+          "type": "float",
+          "location": "body",
+          "description": "The TCP/IP port to use for journal message transfer. Standard value is 995 (POP3S) or 110 (POP3)."
+        },
+        {
+          "name": "pop3-journaling-connection-uses-pop3-s",
+          "wire_name": "pop3JournalingConnection.usesPOP3S",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the connection should be encrypted and journal messages pulled only using POP3S."
+        },
+        {
+          "name": "removeJournalHeaders",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, Mimecast will remove any X-MS-Exchange-Organization-BCC and X-MS-Exchange-CrossPremises-BCC headers that Microsoft Exchange has added."
+        },
+        {
+          "name": "smtp-journaling-connection-delivery-wait-attempts",
+          "wire_name": "smtpJournalingConnection.deliveryWaitAttempts",
+          "type": "float",
+          "location": "body",
+          "description": "The number of times the system attempts to match a message before it is archived."
+        },
+        {
+          "name": "smtp-journaling-connection-email-address",
+          "wire_name": "smtpJournalingConnection.emailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "The address of the email account created for SMTP journaling should be the same format for all journaling services example - journaling@journal.\u0026#60;your domain\u0026#62;.com. The domain varies according to the service used.",
+          "required": true
+        },
+        {
+          "name": "smtp-journaling-connection-extended-deduplication",
+          "wire_name": "smtpJournalingConnection.extendedDeduplication",
+          "type": "bool",
+          "location": "body",
+          "description": "Only set this to true if internal messages are to be journaled via remote/local infrastructure as well as delivered via the Mimecast Gateway. If true, Mimecast will wait 10 minutes for the Gateway item after having received the internal message via the journal connector before removing duplicate messages. Not required during a Continuity Event."
+        },
+        {
+          "name": "smtp-journaling-connection-inactivity-timeout",
+          "wire_name": "smtpJournalingConnection.inactivityTimeout",
+          "type": "float",
+          "location": "body",
+          "description": "If there is no journal activity for this many minutes, the service status changes to ERROR."
+        },
+        {
+          "name": "smtp-journaling-connection-ip-ranges",
+          "wire_name": "smtpJournalingConnection.ipRanges",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "IP address ranges that are allowed to submit messages to the new SMTP journal service. These are in addition to your customer account's authorized outbound IP addresses, which are allowed by default. Must be IPv4 in CIDR format."
+        },
+        {
+          "name": "smtp-journaling-connection-password",
+          "wire_name": "smtpJournalingConnection.password",
+          "type": "string",
+          "location": "body",
+          "description": "Password for SMTP journaling. This is required if SMTP authentication is to be enabled."
+        },
+        {
+          "name": "smtp-journaling-connection-prefers-clear-text",
+          "wire_name": "smtpJournalingConnection.prefersClearText",
+          "type": "bool",
+          "location": "body",
+          "description": "Set to true for Active Directory protected journal items."
+        },
+        {
+          "name": "smtp-journaling-connection-process-initial-delay",
+          "wire_name": "smtpJournalingConnection.processInitialDelay",
+          "type": "float",
+          "location": "body",
+          "description": "The duration in minutes to wait before attempting to match a message to the archive."
+        },
+        {
+          "name": "smtp-journaling-connection-uses-authentication",
+          "wire_name": "smtpJournalingConnection.usesAuthentication",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to require password authentication for the new SMTP connection. Authentication requires an SMTP/Send Connector on the Exchange server."
+        },
+        {
+          "name": "smtp-journaling-connection-uses-tls",
+          "wire_name": "smtpJournalingConnection.usesTls",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to encrypt the connection with Transport Layer Security (TLS)."
+        }
+      ]
+    },
+    {
+      "name": "journaling_delete",
+      "description": "Delete a journaling service. Requires app role permission: Services | Journaling | Edit. Required: journaling_id. Destructive.",
+      "method": "DELETE",
+      "path": "/journaling/cloud-gateway/v1/services/{journaling_id}",
+      "params": [
+        {
+          "name": "journaling_id",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the journaling service (e.g. eNo1jr0OgjAYRd-lExample).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "journaling_get",
+      "description": "Get a journaling service. Requires app role permission: Services | Journaling | Read. Required: journaling_id. Returns the JournalingGetResponse.",
+      "method": "GET",
+      "path": "/journaling/cloud-gateway/v1/services/{journaling_id}",
+      "params": [
+        {
+          "name": "journaling_id",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the journaling service (e.g. eNo1jr0OgjAYRd-lExample).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "journaling_get-service",
+      "description": "Get journaling connector configuration and status. Requires app role permission: Services | Journaling | Read. Optional: data. Returns array of JournalingGetServiceItem.",
+      "method": "POST",
+      "path": "/api/journaling/get-service",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "journaling_list",
+      "description": "List journaling services. Requires app role permission: Services | Journaling | Read. Returns array of JournalingListItem.",
+      "method": "GET",
+      "path": "/journaling/cloud-gateway/v1/services",
+      "params": []
+    },
+    {
+      "name": "journaling_update",
+      "description": "Update a journaling service. Requires app role permission: Services | Journaling | Edit. Required: journaling_id. Optional: description, enabled, journalNonInternalAddresses (default: false) (plus 6 more). Partial update.",
+      "method": "PATCH",
+      "path": "/journaling/cloud-gateway/v1/services/{journaling_id}",
+      "params": [
+        {
+          "name": "journaling_id",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the journaling service (e.g. eNo1jr0OgjAYRd-lExample).",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "A description to identify the new journaling service."
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the new journaling service is to be enabled on creation."
+        },
+        {
+          "name": "journalNonInternalAddresses",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, items processed by the journal connector that do not hold an internal addresses will be archived nonetheless."
+        },
+        {
+          "name": "journalUnknownInternalAddresses",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, items processed by the journal connector that are sent from or to unknown internal addresses will be archived nonetheless."
+        },
+        {
+          "name": "messageFormat",
+          "type": "string",
+          "location": "body",
+          "description": "Format of the journal messages to be sent - standard_eml (standard EML), exchange_env (Exchange envelope)."
+        },
+        {
+          "name": "pop3-journaling-connection-detailed-logging",
+          "wire_name": "pop3JournalingConnection.detailedLogging",
+          "type": "bool",
+          "location": "body",
+          "description": "Enabling helps Mimecast Support to troubleshoot a failed journaling inbox."
+        },
+        {
+          "name": "pop3-journaling-connection-email-address",
+          "wire_name": "pop3JournalingConnection.emailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Email address of the journal mailbox. This must be different for each journaling service."
+        },
+        {
+          "name": "pop3-journaling-connection-host",
+          "wire_name": "pop3JournalingConnection.host",
+          "type": "string",
+          "location": "body",
+          "description": "Hostname or IP address where the journaling mailbox is housed. Your firewall must be configured to allow inbound POP3/POP3S traffic from Mimecast to this address."
+        },
+        {
+          "name": "pop3-journaling-connection-mailbox",
+          "wire_name": "pop3JournalingConnection.mailbox",
+          "type": "string",
+          "location": "body",
+          "description": "The username to use when logging into the journaling mailbox."
+        },
+        {
+          "name": "pop3-journaling-connection-password",
+          "wire_name": "pop3JournalingConnection.password",
+          "type": "string",
+          "location": "body",
+          "description": "The password to use when logging into the journal mailbox."
+        },
+        {
+          "name": "pop3-journaling-connection-port",
+          "wire_name": "pop3JournalingConnection.port",
+          "type": "float",
+          "location": "body",
+          "description": "The TCP/IP port to use for journal message transfer. Standard value is 995 (POP3S) or 110 (POP3)."
+        },
+        {
+          "name": "pop3-journaling-connection-relaxed-encryption",
+          "wire_name": "pop3JournalingConnection.relaxedEncryption",
+          "type": "bool",
+          "location": "body",
+          "description": "If there is no journal activity for this many minutes, the service status changes to ERROR."
+        },
+        {
+          "name": "pop3-journaling-connection-use-pop3",
+          "wire_name": "pop3JournalingConnection.usePop3",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether the connection should be encrypted and journal messages pulled only using POP3S."
+        },
+        {
+          "name": "removeJournalHeaders",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, Mimecast will remove any X-MS-Exchange-Organization-BCC and X-MS-Exchange-CrossPremises-BCC headers that Microsoft Exchange has added."
+        },
+        {
+          "name": "smtp-journaling-connection-delivery-wait-attempts",
+          "wire_name": "smtpJournalingConnection.deliveryWaitAttempts",
+          "type": "float",
+          "location": "body",
+          "description": "The number of times the system attempts to match a message before it is archived."
+        },
+        {
+          "name": "smtp-journaling-connection-email-address",
+          "wire_name": "smtpJournalingConnection.emailAddress",
+          "type": "string",
+          "location": "body",
+          "description": "The address of the email account created for SMTP journaling. This must be different for each journaling service."
+        },
+        {
+          "name": "smtp-journaling-connection-extended-deduplication",
+          "wire_name": "smtpJournalingConnection.extendedDeduplication",
+          "type": "bool",
+          "location": "body",
+          "description": "Only set this to true if internal messages are to be journaled via remote/local infrastructure as well as delivered via the Mimecast Gateway. If true, Mimecast will wait 10 minutes for the Gateway item after having received the internal message via the journal connector before removing duplicate messages. Not required during a Continuity Event."
+        },
+        {
+          "name": "smtp-journaling-connection-inactivity-timeout",
+          "wire_name": "smtpJournalingConnection.inactivityTimeout",
+          "type": "float",
+          "location": "body",
+          "description": "If there is no journal activity for this many minutes, the service status changes to ERROR."
+        },
+        {
+          "name": "smtp-journaling-connection-ip-ranges",
+          "wire_name": "smtpJournalingConnection.ipRanges",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "IP address ranges that are allowed to submit messages to the new SMTP journal service. These are in addition to your customer account's authorized outbound IP addresses, which are allowed by default. Must be IPv4 in CIDR format."
+        },
+        {
+          "name": "smtp-journaling-connection-password",
+          "wire_name": "smtpJournalingConnection.password",
+          "type": "string",
+          "location": "body",
+          "description": "Password for SMTP journaling. This is required if SMTP authentication is to be enabled."
+        },
+        {
+          "name": "smtp-journaling-connection-prefer-clear-text",
+          "wire_name": "smtpJournalingConnection.preferClearText",
+          "type": "bool",
+          "location": "body",
+          "description": "Set to true for Active Directory protected journal items."
+        },
+        {
+          "name": "smtp-journaling-connection-process-initial-delay",
+          "wire_name": "smtpJournalingConnection.processInitialDelay",
+          "type": "float",
+          "location": "body",
+          "description": "The duration in minutes to wait before attempting to match a message to the archive."
+        },
+        {
+          "name": "smtp-journaling-connection-use-authentication",
+          "wire_name": "smtpJournalingConnection.useAuthentication",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to require password authentication for the new SMTP connection. Authentication requires an SMTP/Send Connector on the Exchange server."
+        },
+        {
+          "name": "smtp-journaling-connection-use-tls",
+          "wire_name": "smtpJournalingConnection.useTls",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to encrypt the connection with Transport Layer Security (TLS)."
+        },
+        {
+          "name": "transferProtocol",
+          "type": "string",
+          "location": "body",
+          "description": "The email transfer protocol for the journaling service - pop3 or smtp."
+        }
+      ]
+    },
+    {
+      "name": "messages_get",
+      "description": "Full message detail: delivery, retention, spam verdict, SPF/DKIM/DMARC checks. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Tracking | Read. Optional: data. Returns array of MessagesGetItem.",
+      "method": "POST",
+      "path": "/api/message-finder/get-message-info",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "messages_get-file",
+      "description": "Get a pre-signed download URL for a message file. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Optional: data. Returns array of MessagesGetFileItem.",
+      "method": "POST",
+      "path": "/api/gateway/message/get-file",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "messages_search",
+      "description": "Track and trace messages by sender, recipient, subject, IP, URL, route and status. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Tracking | Read. Optional: data. Returns array of MessagesSearchItem.",
+      "method": "POST",
+      "path": "/api/message-finder/search",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "processing_find",
+      "description": "Find messages stuck in the processing or bulk-processing queue. MX-based (Cloud Gateway) deployments only. Requires app role permission: Monitoring | Processing | Read. Optional: data. Returns array of ProcessingFindItem.",
+      "method": "POST",
+      "path": "/api/gateway/find-processing-messages",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "queues_get",
+      "description": "Inbound and outbound email queue counts over a time window. MX-based (Cloud Gateway) deployments only. Requires app role permission: Account | Dashboard | Read. Optional: data. Returns array of QueuesGetItem.",
+      "method": "POST",
+      "path": "/api/email/get-email-queues",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "rejections_list",
+      "description": "Messages rejected at the gateway (7-day lookback): reason, spam score, sending IP. MX-based (Cloud Gateway) deployments only. Requires app role permission: Monitoring | Rejections | Read. Optional: data. Returns array of RejectionsListItem.",
+      "method": "POST",
+      "path": "/api/gateway/get-rejections",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "remediation_bulk",
+      "description": "Remediate many security events in one batch. Requires app role permission: super-admin | full-admin | partner-admin. Required: actionType, processingIds, reason. Returns the new RemediationBulkResponse.",
+      "method": "POST",
+      "path": "/security/remediation/v1/bulk",
+      "params": [
+        {
+          "name": "actionType",
+          "type": "string",
+          "location": "body",
+          "description": "The remediation action type.",
+          "required": true
+        },
+        {
+          "name": "processingIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Specify a set of processing/eventIds of the security threats.",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "reason for the remediation action. For example - [Malicious Attachment', 'Malware'].",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "remediation_bulk-status",
+      "description": "Progress of a bulk remediation batch. Requires app role permission: super-admin | full-admin | partner-admin. Required: batchId. Returns the RemediationBulkStatusResponse.",
+      "method": "GET",
+      "path": "/security/remediation/v1/bulk/{batchId}",
+      "params": [
+        {
+          "name": "batchId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a bulk remediation batch, the batchId that remediation bulk returns (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "remediation_remediate",
+      "description": "Delete or release one security event (MANUAL_DELETE or RELEASE). Requires app role permission: super-admin | full-admin | partner-admin. Required: eventId, actionType, reason.",
+      "method": "POST",
+      "path": "/security/remediation/v1/events/{eventId}",
+      "params": [
+        {
+          "name": "eventId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a security event (e.g. eNo1jr0OgjAYRd-lEvent).",
+          "required": true
+        },
+        {
+          "name": "actionType",
+          "type": "string",
+          "location": "body",
+          "description": "The remediation action type.",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "Reason for the remediation action. For example - [Malicious Attachment', 'Malware'].",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "remediation_status",
+      "description": "Remediation status of one security event. Requires app role permission: super-admin | full-admin | partner-admin. Required: eventId. Returns the RemediationStatusResponse.",
+      "method": "GET",
+      "path": "/security/remediation/v1/events/{eventId}",
+      "params": [
+        {
+          "name": "eventId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of a security event (e.g. eNo1jr0OgjAYRd-lEvent).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "senders_bulk-delete",
+      "description": "Bulk delete managed sender entries by sender address or domain. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Managed Senders | Edit. Optional: action, ids, trusted (plus 1 more).",
+      "method": "POST",
+      "path": "/email/cloud-gateway/v1/managed-senders/senders/bulk-delete",
+      "params": [
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Filter on blocked or permitted Managed Senders entries. Can only be used if type is not specified."
+        },
+        {
+          "name": "ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Sender email addresses or sending domains. Also supports using \u003c\u003e for a sender email address."
+        },
+        {
+          "name": "trusted",
+          "type": "bool",
+          "location": "body",
+          "description": "Filter on trusted Managed Senders entries."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Filter on auto or manual Managed Senders entries. Can only be used if action is not specified."
+        }
+      ]
+    },
+    {
+      "name": "senders_bulk-delete-for-recipient",
+      "description": "Bulk delete managed sender entries for one recipient. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Managed Senders | Edit. Required: recipient_email. Optional: ids.",
+      "method": "POST",
+      "path": "/email/cloud-gateway/v1/managed-senders/recipients/{recipient_email}/bulk-delete",
+      "params": [
+        {
+          "name": "recipient_email",
+          "type": "string",
+          "location": "path",
+          "description": "Recipient Email (e.g. alice@example.com)",
+          "required": true
+        },
+        {
+          "name": "ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Sender email addresses or sending domains. Also supports using \u003c\u003e for a sender email address."
+        }
+      ]
+    },
+    {
+      "name": "senders_bulk-delete-internal",
+      "description": "Bulk delete managed sender entries for internal addresses. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Managed Senders | Edit.",
+      "method": "POST",
+      "path": "/email/cloud-gateway/v1/managed-senders/internal-addresses/bulk-delete",
+      "params": []
+    },
+    {
+      "name": "senders_permit-or-block",
+      "description": "Permit or block a sender for a recipient. MX-based (Cloud Gateway) deployments only. Requires app role permission: Gateway | Managed Senders | Edit. Optional: data. Returns array of SendersPermitOrBlockItem.",
+      "method": "POST",
+      "path": "/api/managedsender/permit-or-block-sender",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "ttp_attachment-logs",
+      "description": "Attachment Protect logs: file, hash, sandbox result, action. Requires app role permission: Monitoring | Attachment Protection | Read. Optional: data. Returns array of TtpAttachmentLogsItem.",
+      "method": "POST",
+      "path": "/api/ttp/attachment/get-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "ttp_impersonation-logs",
+      "description": "Impersonation Protect logs: identifiers hit, action, tagged malicious. Requires app role permission: Monitoring | Impersonation Protection | Read. Optional: data. Returns array of TtpImpersonationLogsItem.",
+      "method": "POST",
+      "path": "/api/ttp/impersonation/get-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "ttp_url-logs",
+      "description": "URL Protect click logs: scan result, category, action. Requires app role permission: Monitoring | URL Protection | Read. Optional: data. Returns array of TtpUrlLogsItem.",
+      "method": "POST",
+      "path": "/api/ttp/url/get-logs",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    },
+    {
+      "name": "urls_decode",
+      "description": "Decode Mimecast-rewritten URL Protect links (up to 25). Requires app role permission: Account | Dashboard | Read. Optional: data. Returns array of UrlsDecodeItem.",
+      "method": "POST",
+      "path": "/api/ttp/url/decode-url",
+      "params": [
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "Data"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Why was it blocked",
+      "command": "why",
+      "description": "Explain one message in a single verdict: its stage (held, rejected-at-gateway, released-from-hold, rejected-from-hold, the tracking status such as delivery or bounced, or not-found) and why, with policy, reason, spam score, SPF/DKIM/DMARC and who released or rejected it."
+    },
+    {
+      "name": "Hold-queue triage sheet",
+      "command": "held triage",
+      "description": "See the whole hold queue grouped by hold reason, policy or sender domain, with a release-risk class per group and ready-to-act ID batches."
+    },
+    {
+      "name": "Guarded release with ticket",
+      "command": "held release-safe",
+      "description": "Release held messages after a keyword-based hold-reason check (a heuristic, not verified against every Mimecast hold reason) that refuses impersonation, malware, sandbox and policy holds unless you give an override reason, and record the ticket in a local ledger."
+    },
+    {
+      "name": "Purge a flooding sender",
+      "command": "held purge-sender",
+      "description": "Plan, then with --yes reject, every held message from one sender address or domain, optionally blocking that sender for each recipient it targeted."
+    },
+    {
+      "name": "Release accountability audit",
+      "command": "held release-audit",
+      "description": "Review who released or rejected held messages over a period, flagging risky releases and marking those with no ticket in the local release-safe ledger."
+    },
+    {
+      "name": "Sender permit/block suggestions",
+      "command": "senders suggest",
+      "description": "Find senders that keep getting held then released (narrow permit candidates, excluding any with impersonation or malware holds or failed SPF/DKIM/DMARC) or keep getting rejected (block candidates), as a ready managed-sender payload."
+    },
+    {
+      "name": "Mail-flow health verdict",
+      "command": "mailflow",
+      "description": "One OK/WARN/FAIL verdict for tenant mail flow: queue backlog, no inbound mail within a window, and stuck deliveries grouped by destination, with a monitor-friendly exit code."
+    },
+    {
+      "name": "Who clicked this link",
+      "command": "ttp who-clicked",
+      "description": "Given a raw or Mimecast-rewritten URL, list who clicked it, when, whether it was blocked, and whether they clicked through a warning (delivery-time entry scans are not counted as clicks)."
+    },
+    {
+      "name": "Mailbox threat timeline",
+      "command": "threats mailbox",
+      "description": "Show every threat event that touched one mailbox over a window, newest first: URL Protect clicks, attachment sandbox verdicts, impersonation hits, gateway rejections and messages held for it, with a per-source fetch report so a failed source never reads as clean."
+    },
+    {
+      "name": "Campaign blast radius",
+      "command": "threats sender",
+      "description": "Given a sender address or @domain, list every recipient it reached or tried to reach across URL clicks, attachment verdicts, impersonation hits, rejections and holds, with per-recipient counts by kind, who clicked (clickers first) and the held message IDs."
+    }
+  ]
+}

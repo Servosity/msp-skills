@@ -104,6 +104,8 @@ Links ending in `.md` are clean Markdown copies; the HTML page is the same addre
   Install: `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)`
 - [Microsoft Graph](https://msp-skills.compoundingteams.com/skills/microsoft-graph.md): Security. Ask "Which SKUs are we paying for but not fully using, ranked by wasted seats?". Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking. Verification: Awaiting live verification.
   Install: `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/install.sh)`
+- [Mimecast](https://msp-skills.compoundingteams.com/skills/mimecast.md): Security. Ask "Why didn't this message arrive: held, rejected, released or delivered, and by which policy?".  Verification: Awaiting live verification.
+  Install: `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/install.sh)`
 - [Concierge](https://github.com/servosity/msp-skills/tree/main/skills/_meta): Meta. Tell it your stack - it recommends and installs the right connectors. Verification: Awaiting live verification.
 - [MSPbots](https://msp-skills.compoundingteams.com/skills/mspbots.md): Analytics. Ask "Is our open-ticket backlog up or down versus last week?". Pull datasets, snapshot KPIs, and track ticket backlog trends by asking. Verification: Awaiting live verification.
   Install: `bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/install.sh)`

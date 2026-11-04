@@ -210,6 +210,10 @@ microsoft-graph:
   vendor: "Microsoft Graph"
   example_command: "Which M365 licenses are we wasting?"
 
+mimecast:
+  vendor: "Mimecast"
+  example_command: "Why was this email held, and is it safe to release?"
+
 msp-skills-concierge:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "MSP Skills Concierge"

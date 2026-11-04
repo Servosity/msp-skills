@@ -1,0 +1,136 @@
+{
+  "outcome_intro": "Mimecast plus your AI answers the questions your service desk gets every day: why a message never arrived, what is in the hold queue and which of it is safe to release, who clicked a phishing link and who else that sender reached, and whether mail is flowing. Each answer is one command that joins message tracking, the hold queue, the release and rejection logs and the click logs.",
+  "instead_of_say": [
+    {
+      "instead": "A user says an invoice never arrived, so you open message tracking, then the hold queue, then the rejection log, then the held release log in the Administration Console to work out where it went",
+      "say": "Why didn't alice@example.com get the invoice from billing@vendor.example?",
+      "cli": "mimecast-cli why --from billing@vendor.example --to alice@example.com --since 3d --agent"
+    },
+    {
+      "instead": "Scrolling the admin hold queue one message at a time, reading each hold reason and guessing which ones are safe to release",
+      "say": "What is in the hold queue today, grouped by reason, and what is safe to release?",
+      "cli": "mimecast-cli held triage --since 24h --group-by reason --agent"
+    },
+    {
+      "instead": "After a phishing report, paging through URL Protect click logs by hand to find everyone else who clicked the same link",
+      "say": "Who clicked this phishing link this week?",
+      "cli": "mimecast-cli ttp who-clicked https://phish.example/login --since 7d --agent"
+    }
+  ],
+  "pain_points": [
+    "\"Release my email\" tickets are urgent and risky at the same time. Thread's public Mimecast runbook for MSP service desks tells techs to verify the requester, treat urgency as a caution flag, never release a malware verdict or a sandbox or impersonation hold on the requester's word alone, and, when in doubt, not release.",
+    "Answering \"why was this blocked\" means reading several Administration Console pages for one message: message tracking, the hold queue, the held release log and the rejection log, each with its own search.",
+    "A phishing report is never about one user. The same runbook says to treat an allowed click as an incident and to pull the click logs for sibling deliveries of the same URL, and the URL Protect log has no URL filter, so finding every clicker means paging the whole log."
+  ],
+  "outcomes": [
+    {
+      "question": "Why didn't this message arrive: held, rejected, released or delivered, and by which policy?",
+      "command": "mimecast-cli why --from billing@vendor.example --to alice@example.com --since 3d --agent"
+    },
+    {
+      "question": "What is in the hold queue, grouped by hold reason, with a release-risk class per group?",
+      "command": "mimecast-cli held triage --since 24h --group-by reason --agent"
+    },
+    {
+      "question": "What arrived in the hold queue since I last looked?",
+      "command": "mimecast-cli held triage --since 24h --new --agent"
+    },
+    {
+      "question": "Release this held message for ticket T-1042, but only if its hold reason is safe - show me the decision first",
+      "command": "mimecast-cli held release-safe eNo1jr0OgjAYRd-lExample --ticket T-1042 --plan"
+    },
+    {
+      "question": "Who clicked this phishing link, and did anyone click through a warning?",
+      "command": "mimecast-cli ttp who-clicked https://phish.example/login --since 7d --agent"
+    },
+    {
+      "question": "Which users did this phishing sender reach, which clicked, and which still have it in the hold queue?",
+      "command": "mimecast-cli threats sender @phish.example --since 3d --agent"
+    },
+    {
+      "question": "Every threat, rejection and hold for alice@example.com this week, newest first",
+      "command": "mimecast-cli threats mailbox alice@example.com --since 7d --agent"
+    },
+    {
+      "question": "Who released risky held messages this week, and which releases have no ticket?",
+      "command": "mimecast-cli held release-audit --since 7d --agent"
+    },
+    {
+      "question": "Is mail flowing: queue backlog, inbound gaps and stuck deliveries in one OK/WARN/FAIL verdict?",
+      "command": "mimecast-cli mailflow --max-queue 200 --stale-after 30m --agent"
+    },
+    {
+      "question": "Which senders keep getting held and then released, so a narrow permit would stop the tickets?",
+      "command": "mimecast-cli senders suggest --since 30d --min-holds 3 --agent"
+    }
+  ],
+  "different_vs_wrappers": "This connector answers whole service-desk questions in one command: why joins message tracking, the hold queue, the held release log and the rejection log into one verdict, held triage groups the hold queue with a release-risk class, and threats sender scopes a phishing campaign across the click, attachment and impersonation logs, rejections and holds. Most Mimecast integrations, such as the Cortex XSOAR Mimecast pack (https://github.com/demisto/content/tree/master/Packs/Mimecast), expose the API as one action per endpoint for a playbook to chain; this connector also ships every covered endpoint as a typed command.",
+  "different_vs_vendor": "The Mimecast Administration Console shows message tracking, the hold queue, the release log and the click logs on separate pages for a person to read; this connector gives your AI agent the joined answer as data, plus a hold-reason check before any release. It complements the console; it does not replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Mimecast MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Mimecast data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Which Mimecast deployments and API version does it work with?",
+      "a": "Mimecast API 2.0, with a client ID and secret from the Mimecast API 2.0 tile in the Administration Console (Administration > Services > API and Platform Integrations). API 1.0 access keys do not work. The hold queue, why, mailflow, message tracking and TTP log commands are for MX-based (Cloud Gateway) deployments; the remediation and ci-policies commands are for Cloud Integrated tenants."
+    },
+    {
+      "q": "Can an agent release a phishing email by accident?",
+      "a": "held release-safe refuses impersonation, malware, sandbox and policy holds unless --override gives a reason, and --plan shows the decision without releasing anything; held purge-sender only plans until you add --yes. Over MCP, every tool that changes Mimecast returns a preview until it is called again with confirm: true, and MIMECAST_MCP_READ_ONLY=1 makes the MCP server refuse every write. The raw held release and held reject commands send when you run them, so keep agents on held release-safe --plan and --dry-run previews."
+    },
+    {
+      "q": "Does it work across my clients' Mimecast accounts?",
+      "a": "With Mimecast delegate access, set MIMECAST_ACCOUNT_CODE (or pass --account-code on the workflow commands) to act on one customer account. It applies to the classic endpoints: hold queue, message tracking, logs and managed-sender permit or block. The REST endpoints (gateway, journaling, ci-policies, remediation, senders bulk-delete) have no account selector, so while an account code is set the CLI refuses their writes and warns on their reads. Delegation has not yet been verified against a live delegate tenant."
+    },
+    {
+      "q": "Will it hit my Mimecast API rate limits?",
+      "a": "Mimecast sets quotas per function and per API application. Read commands back off and retry on HTTP 429; writes (release, reject, permit or block) exit with code 7 instead of replaying, so rerun them after the wait. The workflow commands page the logs only up to --max-scan-pages pages (100 entries each) and say when a result was truncated."
+    }
+  ],
+  "governance_summary": "The connector reads Mimecast message tracking, the hold queue, the TTP, rejection, audit and DLP logs freely, and changes Mimecast only through write commands: releasing and rejecting held mail and permitting or blocking senders day to day; policy, gateway and journaling changes; and deletions and security-event remediation. Let an agent run reads, held release-safe --plan and --dry-run previews on its own, approve every real release and every MCP confirm, and keep deletions, remediation, mail-routing changes, sending email and anything that touches credentials behind a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "why, held triage, held list, held release-logs, held release-audit, senders suggest, mailflow, ttp who-clicked, threats mailbox, threats sender, messages search, rejections, audit events, archive-logs searches",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "held release-safe, held release, held reject, senders permit-or-block, ci-policies create, ci-policies update, ci-policies update-default, files, import",
+      "policy": "Preview first (held release-safe --plan; --dry-run elsewhere; MCP confirm), then a reviewed write"
+    },
+    {
+      "tier": "Mail flow and sending",
+      "examples": "email, gateway set-protection-mode, gateway set-outbound-ips, gateway update-details",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Credential / identity",
+      "examples": "any command that can emit a stored secret (journaling get returns journaling passwords, so its whole answer is withheld from output when it carries one; messages get-file returns a pre-signed download link), journaling create, journaling update, auth login, auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "held purge-sender, remediation remediate, remediation bulk, ci-policies delete, gateway delete-outbound-ips, journaling delete, senders bulk-delete, senders bulk-delete-for-recipient, senders bulk-delete-internal, local-data purge",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    },
+    {
+      "tier": "Admin",
+      "examples": "ci-onboarding (onboards a Cloud Integrated customer account)",
+      "policy": "Operator-only, not for agents"
+    }
+  ]
+}

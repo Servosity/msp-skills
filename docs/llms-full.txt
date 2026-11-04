@@ -1822,6 +1822,46 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
 
+### Mimecast (Security)
+
+Page: [Mimecast](https://msp-skills.compoundingteams.com/skills/mimecast.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/install.sh)
+
+Mimecast plus your AI answers the questions your service desk gets every day: why a message never arrived, what is in the hold queue and which of it is safe to release, who clicked a phishing link and who else that sender reached, and whether mail is flowing. Each answer is one command that joins message tracking, the hold queue, the release and rejection logs and the click logs.
+
+Outcomes (question -> command your AI agent runs):
+- Why didn't this message arrive: held, rejected, released or delivered, and by which policy? -> mimecast-cli why --from billing@vendor.example --to alice@example.com --since 3d --agent
+- What is in the hold queue, grouped by hold reason, with a release-risk class per group? -> mimecast-cli held triage --since 24h --group-by reason --agent
+- What arrived in the hold queue since I last looked? -> mimecast-cli held triage --since 24h --new --agent
+- Release this held message for ticket T-1042, but only if its hold reason is safe - show me the decision first -> mimecast-cli held release-safe eNo1jr0OgjAYRd-lExample --ticket T-1042 --plan
+- Who clicked this phishing link, and did anyone click through a warning? -> mimecast-cli ttp who-clicked https://phish.example/login --since 7d --agent
+- Which users did this phishing sender reach, which clicked, and which still have it in the hold queue? -> mimecast-cli threats sender @phish.example --since 3d --agent
+- Every threat, rejection and hold for alice@example.com this week, newest first -> mimecast-cli threats mailbox alice@example.com --since 7d --agent
+- Who released risky held messages this week, and which releases have no ticket? -> mimecast-cli held release-audit --since 7d --agent
+- Is mail flowing: queue backlog, inbound gaps and stuck deliveries in one OK/WARN/FAIL verdict? -> mimecast-cli mailflow --max-queue 200 --stale-after 30m --agent
+- Which senders keep getting held and then released, so a narrow permit would stop the tickets? -> mimecast-cli senders suggest --since 30d --min-holds 3 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Mimecast MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Mimecast data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which Mimecast deployments and API version does it work with?
+A: Mimecast API 2.0, with a client ID and secret from the Mimecast API 2.0 tile in the Administration Console (Administration > Services > API and Platform Integrations). API 1.0 access keys do not work. The hold queue, why, mailflow, message tracking and TTP log commands are for MX-based (Cloud Gateway) deployments; the remediation and ci-policies commands are for Cloud Integrated tenants.
+Q: Can an agent release a phishing email by accident?
+A: held release-safe refuses impersonation, malware, sandbox and policy holds unless --override gives a reason, and --plan shows the decision without releasing anything; held purge-sender only plans until you add --yes. Over MCP, every tool that changes Mimecast returns a preview until it is called again with confirm: true, and MIMECAST_MCP_READ_ONLY=1 makes the MCP server refuse every write. The raw held release and held reject commands send when you run them, so keep agents on held release-safe --plan and --dry-run previews.
+Q: Does it work across my clients' Mimecast accounts?
+A: With Mimecast delegate access, set MIMECAST_ACCOUNT_CODE (or pass --account-code on the workflow commands) to act on one customer account. It applies to the classic endpoints: hold queue, message tracking, logs and managed-sender permit or block. The REST endpoints (gateway, journaling, ci-policies, remediation, senders bulk-delete) have no account selector, so while an account code is set the CLI refuses their writes and warns on their reads. Delegation has not yet been verified against a live delegate tenant.
+Q: Will it hit my Mimecast API rate limits?
+A: Mimecast sets quotas per function and per API application. Read commands back off and retry on HTTP 429; writes (release, reject, permit or block) exit with code 7 instead of replaying, so rerun them after the wait. The workflow commands page the logs only up to --max-scan-pages pages (100 entries each) and say when a result was truncated.
+
+Governance: The connector reads Mimecast message tracking, the hold queue, the TTP, rejection, audit and DLP logs freely, and changes Mimecast only through write commands: releasing and rejecting held mail and permitting or blocking senders day to day; policy, gateway and journaling changes; and deletions and security-event remediation. Let an agent run reads, held release-safe --plan and --dry-run previews on its own, approve every real release and every MCP confirm, and keep deletions, remediation, mail-routing changes, sending email and anything that touches credentials behind a human.
+
 ### Concierge (Meta)
 
 Page: [Concierge](https://github.com/servosity/msp-skills/tree/main/skills/_meta)

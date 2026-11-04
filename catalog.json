@@ -1024,6 +1024,25 @@
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking."
     },
     {
+      "name": "mimecast",
+      "system": "Mimecast email security (API 2.0)",
+      "status": "beta",
+      "skill_path": "skills/mimecast",
+      "cli_binary": "mimecast-cli",
+      "mcp_binary": "mimecast-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Mimecast",
+      "vendor_trademark_owner": "Mimecast Services Limited",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/install.sh)",
+      "install_mcp_doc": "skills/mimecast/mcp-install.md",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+      "verification": "awaiting",
+      "category": "Security"
+    },
+    {
       "name": "mspbots",
       "system": "MSPbots BI: datasets, KPI snapshots, ticket analytics, exports",
       "status": "beta",

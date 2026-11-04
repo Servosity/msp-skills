@@ -345,6 +345,13 @@
       "digest": "sha256:9f8e697fb30431cc29283ecb9c04eb5eabd895f1a42a61d37468bedbddec44fd"
     },
     {
+      "name": "mimecast",
+      "type": "skill-md",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in. Trigger phrases: `why was this email blocked`, `release my held email`, `check the mimecast hold queue`, `who clicked this link`, `is mail flowing`, `use mimecast`, `run mimecast`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/SKILL.md",
+      "digest": "sha256:7bd2b1f63cda2e1511e2b417477622a67b3a934e9f6913fd52c0390cf75b19e1"
+    },
+    {
       "name": "msp-skills-concierge",
       "type": "skill-md",
       "description": "Use when the user has msp-skills installed and wants help choosing or installing connectors - it reads the live catalog, learns their PSA/RMM/backup/security/billing stack, recommends the connectors that fit, and installs only the ones they approve. Trigger phrases: `recommend which connectors I should install`, `which msp-skills connector for my stack`, `set up the right connectors for me`, `concierge`, `msp-skills concierge`, `what connectors should I install`, `pick connectors for my MSP`, `using everything you know about me, recommend connectors`.",
