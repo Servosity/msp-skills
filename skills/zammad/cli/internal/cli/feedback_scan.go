@@ -1,5 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel command scaffold. Implemented by hand for Zammad feedback mining.
+// pp:data-source local
+// The command reads only the local store that sync writes.
 
 package cli
 
@@ -44,8 +46,11 @@ func newNovelFeedbackScanCmd(flags *rootFlags) *cobra.Command {
 		Short: "Bucket ticket and article text into feature, pricing, compliance, and bug themes",
 		Example: `  zammad-cli feedback-scan --bucket pricing --json
   zammad-cli feedback-scan --limit 100 --json`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -59,6 +64,12 @@ func newNovelFeedbackScanCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "articles", flags.maxAge)
+			if err := novelRequireSynced(db, "tickets", false); err != nil {
+				return err
+			}
+			if err := novelRequireSynced(db, "articles", true); err != nil {
+				return err
+			}
 			empty, err := articlesTableEmpty(db)
 			if err != nil {
 				return err

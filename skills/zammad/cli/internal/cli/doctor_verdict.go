@@ -24,7 +24,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -83,13 +85,27 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	// Reserved example domains can never be a real instance (RFC 2606), so
 	// matching the host suffix here cannot hit an operator's own domain the way
 	// a bare "your-" substring could.
+	// Host parsing follows the press 4.34.0 check this function replaces:
+	// userinfo, a bracketed IPv6 literal, a port and a trailing dot are all
+	// stripped, so "https://u@api.example.com:8443" is still refused.
 	host := strings.ToLower(base)
 	if i := strings.Index(host, "://"); i >= 0 {
 		host = host[i+3:]
 	}
-	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
+	if i := strings.IndexAny(host, "/?#"); i >= 0 {
 		host = host[:i]
 	}
+	if i := strings.LastIndex(host, "@"); i >= 0 {
+		host = host[i+1:]
+	}
+	if strings.HasPrefix(host, "[") {
+		if j := strings.Index(host, "]"); j >= 0 {
+			host = host[1:j]
+		}
+	} else if i := strings.LastIndex(host, ":"); i >= 0 {
+		host = host[:i]
+	}
+	host = strings.TrimSuffix(host, ".")
 	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
 		if host == reserved || strings.HasSuffix(host, "."+reserved) {
 			return true
@@ -222,7 +238,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 	case status == 404:
 		doctorWrongBaseURL(apiPath, report)
 	case status >= 500:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was never checked.", status, apiPath)
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was not checked.", status, apiPath)
 	case status > 0:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `%s %s` to see the full response.", status, apiPath, bin, cmdPath)
 	default:
@@ -237,7 +253,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 // credential is not at fault and must not be blamed, and the api row must stop
 // claiming the connector is reachable in any useful sense.
 func doctorWrongBaseURL(apiPath string, report map[string]any) {
-	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", apiPath)
+	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was not checked.", apiPath)
 	report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not this vendor's API root. Point %s at the API root.", apiPath, doctorBaseURLEnv)
 }
 
@@ -252,4 +268,45 @@ func doctorUnexpectedStatus(status int, path string, report map[string]any) {
 		return
 	}
 	report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the endpoint did not confirm the credential.", status, path)
+}
+
+// doctorBodyIsJSON reports whether body is a JSON object or array, the only
+// 2xx answer that proves the probe reached this vendor's API. Codex round 1 on
+// the 4.34.0 reprint (2026-10-24): a 200 "Service temporarily unavailable" in
+// plain text from a proxy or maintenance page rendered "reachable" and
+// "valid", all green, for an install that never reached the API.
+func doctorBodyIsJSON(body []byte) bool {
+	t := bytes.TrimSpace(body)
+	if len(t) == 0 || (t[0] != '{' && t[0] != '[') {
+		return false
+	}
+	return json.Valid(t)
+}
+
+// doctorReachVerdict records the api row for a 2xx answer at path: reachable
+// only when the answer is JSON; an HTML page or any other body means base_url
+// points somewhere that is not this vendor's API root.
+func doctorReachVerdict(body []byte, path string, report map[string]any) {
+	if doctorBodyIsJSON(body) {
+		report["api"] = "reachable"
+		return
+	}
+	kind := "a body that is not JSON"
+	if doctorBodyLooksLikeHTML(body) {
+		kind = "an HTML page"
+	}
+	report["api"] = fmt.Sprintf("ERROR the host answered %s with %s, not the API's JSON - base_url is not this vendor's API root. Point %s at the API root.", path, kind, doctorBaseURLEnv)
+}
+
+// doctorCredentialVerdict records the credentials row for a 2xx answer to the
+// authenticated probe. Only a JSON answer is a verdict on the credential; any
+// other body never reached the API, so the credential was not checked and the
+// api row is corrected to say so (the two rows are one fact).
+func doctorCredentialVerdict(body []byte, path string, report map[string]any) {
+	if doctorBodyIsJSON(body) {
+		report["credentials"] = "valid"
+		return
+	}
+	report["credentials"] = fmt.Sprintf("ERROR not verified (the 2xx answer from %s was not JSON) - the probe never reached the API, so the credential was not checked.", path)
+	doctorReachVerdict(body, path, report)
 }

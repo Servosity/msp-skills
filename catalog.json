@@ -1778,7 +1778,7 @@
       "cli_binary": "zammad-cli",
       "mcp_binary": "zammad-mcp",
       "version": "0.1.10",
-      "printing_press_version": "4.32.5",
+      "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Zammad",
       "vendor_trademark_owner": "Zammad GmbH",

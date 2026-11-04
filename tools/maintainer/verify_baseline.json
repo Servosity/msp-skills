@@ -398,10 +398,6 @@
    "mcp-http",
    "read-only",
    "local-data"
-  ],
-  "zammad": [
-   "read-only",
-   "local-data"
   ]
  },
  "known_errors": {

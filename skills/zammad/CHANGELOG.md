@@ -4,6 +4,36 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.11] - unreleased
+
+Reprinted on cli-printing-press **4.34.0** (from 4.32.5). Every command, flag and MCP tool that shipped in 0.1.10 is still here; the list below is what changed for an operator or an agent.
+
+### Security
+- **HTTP mode for remote agents is available again.** `zammad-mcp --transport http` refuses to start until `ZAMMAD_MCP_HTTP_TOKEN` is set, answers 401 to any request without that token as a bearer header, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` for any address other than loopback. The install guide documents this mode for reference; msp-skills does not support a web-only AI app on it yet.
+- **Every output is checked for credentials.** Stdout, stderr, files the CLI writes, its local database, MCP tool results and child processes all pass one shared check: text that repeats a credential the program holds, whole, as a piece of 8 or more characters, or in a decoded form, is withheld whole and replaced by a notice that says so. The check can withhold ordinary text it cannot finish reading; it says so the same way, so rephrase and retry.
+- **Every Zammad write over MCP previews first.** `ticket note` is no longer an MCP tool; an agent adds a note through `zammad_execute`, which previews the call and sends it only with `confirm: true`. The CLI command is unchanged.
+- **A credential is withheld wherever it comes from and however the answer splits it.** Before the command line is parsed, the CLI and the MCP server read every credential source they can reach: `ZAMMAD_API_TOKEN` and `ZAMMAD_MCP_HTTP_TOKEN`, a user name or password written into `base_url` or `ZAMMAD_BASE_URL`, every config file `--config`, `--home` or `ZAMMAD_CONFIG` names (including its `[headers]` table, and a file the CLI refuses to trust), and the saved credentials. A value is withheld however short it is. Answers that split a token across several JSON values, encode it in groups separated by spaces, or put it after binary bytes are caught too.
+- **A configuration or credentials file that does not parse stops the program at startup.** The CLI and the MCP server exit before doing anything else, naming the file and never showing its content; fix or remove the file to continue. This includes `version` and `--help`.
+- **The learn journal and the local learn data keep no credential.** `ZAMMAD_LEARN_SESSION` is stored hashed, the journal records only flag names the command declares (anything else is a placeholder, and nothing after `--`), and a profile name or description, a recall or teach query, note or resource, an entity alias, a pattern or a feedback text that repeats a credential the program holds is refused instead of saved.
+- **A credential is only sent to your Zammad instance, over https.** A request that carries a credential is refused if it goes to any other host (a redirect off your instance included) or over plain `http://`. An instance reached only over plain `http://` needs https in front of it. A `ZAMMAD_FEEDBACK_ENDPOINT` with a password inside its URL is refused the same way.
+- **Errors printed before a command runs pass the check too,** such as a bad flag value or an unknown command.
+- **MCP tools cannot point a command at a host file.** Any flag whose help text names a file or directory is removed from the tool's schema and refused at request time, along with the press's fixed list of path flags.
+- Updated `golang.org/x/text` to v0.42.0 and `mark3labs/mcp-go` to v0.57.0.
+
+### Added
+- **Webhooks instead of polling.** `webhooks register` creates one Zammad webhook and one trigger per event (ticket created, ticket updated, article added), signed with a secret it stores beside the API token; `ZAMMAD_WEBHOOK_SECRET` overrides it, and nothing prints it. `webhooks listen` receives them on 127.0.0.1, port 8789, by default (any other address needs `--tls-cert` and `--tls-key`), refuses to start without the secret, checks `X-Hub-Signature` before reading a request, drops a delivery it has already seen, caps bodies at 1 MiB, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down; it refuses to run while `ZAMMAD_NO_LOCAL_DATA=1`. `events list --since <cursor>` and the read-only MCP tool `events_list` read the recorded events. `webhooks register` and `webhooks unregister` change Zammad only with `--yes` (CLI) or `confirm: true` (MCP), and `unregister` removes only what `register` created; `webhooks status` shows what is registered. `webhooks listen` is CLI-only.
+- `ZAMMAD_MCP_READ_ONLY=1` exposes only read-only MCP tools and refuses any state-changing call; `ZAMMAD_NO_LOCAL_DATA=1` keeps no local copy of API responses. Both are optional and declared in the Claude Desktop extension, the MCP Registry entry and the install guide.
+
+### Fixed
+- **Analytics no longer answer from a partial local copy.** `agent-load`, `overdue`, `stale` and the other local analytics commands refuse a store with no finished sync, even when a single `tickets get` cached a few rows, and say to run `zammad-cli sync`.
+- **Local analytics no longer answer from a partial store.** `agent-load`, `agent-trend`, `churn-risk`, `customer-health`, `escalate`, `feedback-scan`, `overdue` and the `load`, `orphans` and `stale` workflows refuse to answer when the last sync of the data they read did not finish or never ran, and name the sync command to run. `articles sync --limit N` no longer marks the article set complete.
+- **Removed articles leave the local store.** Refreshing a ticket's articles deletes stored articles Zammad no longer returns.
+- **`--data-source` is honored.** The store-only analytics commands refuse `--data-source live` instead of quietly answering from the local store; `kb browse`, `kb get`, `kb search` and `ticket note` are live-only.
+- **`doctor` reports reachable and authenticated only when Zammad answered with JSON**, and recognizes the shipped placeholder URL as not configured.
+- `load` and `orphans` with `--dry-run` work before the first sync.
+- `load`, `stale` and `orphans` are local-only and refuse `--data-source live`. `articles sync` always reads Zammad (never the response cache) and refuses to run while `ZAMMAD_NO_LOCAL_DATA=1`.
+- The guide's troubleshooting tip names `zammad-cli articles sync` (there is no `sync --articles` flag), and the read-only MCP mode is described as it behaves: the learn-store tools are dropped too.
+
 ## [0.1.10] - 2026-10-23
 
 ### Changed
