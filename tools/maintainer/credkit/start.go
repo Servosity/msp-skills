@@ -95,8 +95,12 @@ func gather(d Declarations, args []string) {
 	for _, f := range FlagValues(args, "--config") {
 		gatherFile(f)
 	}
-	if c := flagValues(beforeEnd(args), "--config"); len(c) > 0 {
-		base = gatherFile(c[len(c)-1])
+	if n := len(flagValues(beforeEnd(args), "--config")); n > 0 {
+		// What stands before the first "--" is a prefix of FlagValues, so this
+		// is the last of those. An empty value is the flag unset.
+		if f := FlagValues(args, "--config")[n-1]; f != "" {
+			base = gatherFile(f)
+		}
 	}
 	reg.Lock()
 	if d.BaseURL.Env != "" {
