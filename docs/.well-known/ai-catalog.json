@@ -286,6 +286,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:blackpoint",
+      "displayName": "Blackpoint Cyber",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blackpoint/SKILL.md",
+      "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps. Trigger phrases: `open blackpoint detections`, `compassone stale agents`, `which customers have open detections`, `blackpoint posture score`, `use blackpoint`, `run blackpoint-cli`.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which open detections are oldest across every client?",
+        "Which devices' agents stopped reporting?",
+        "Which customers have no recent scan, no escalation contacts or no posture rating?",
+        "Which exploited CVE affects the most customers?",
+        "Which tenants have the weakest posture score, and in which NIST function?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/blackpoint.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:blumira",
       "displayName": "Blumira",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

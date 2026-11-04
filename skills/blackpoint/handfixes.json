@@ -1,0 +1,795 @@
+{
+ "slug": "blackpoint",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "default-sync-unscoped-routes-only",
+   "class": "sync-scope",
+   "summary": "defaultSyncResources() keeps only accounts, countries, tenants and users; tenant-scoped resources are synced by fleet-sync.",
+   "why": "CompassOne tenant-scoped routes (alert groups, scans, vulnerabilities, darkweb exposures, reports, the detection rollups) need a per-tenant x-tenant-id header and answer 400 without it (spec.yaml TenantHeader). The generator puts them in default sync, so a bare `sync` fails on every one. fleet-sync fans out per tenant and owns them. No OpenAPI annotation excludes a resource from default sync (press 4.33.5 retro), so this is a hand edit a reprint clobbers. Re-apply: patch_sync.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func defaultSyncResources() []string {\n\t// Hand-fix (blackpoint): tenant-scoped resources",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\treturn []string{\n\t\t\"accounts\",\n\t\t\"countries\",\n\t\t\"tenants\",\n\t\t\"users\",\n\t}\n}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-project-management-boilerplate",
+   "class": "archetype-misclassification",
+   "summary": "The generator's project-management archetype commands (stale, orphans, load) are not registered; pm_*.go are deleted.",
+   "why": "The press keyword-scores the spec into the project-management archetype (it matches 'ticket' in detection fields) and emits assignee-workload commands. CompassOne has no assignees or work items, so the commands return nothing useful and advertise a capability the API lacks. A reprint re-emits pm_load.go, pm_orphans.go, pm_stale.go and their three root.go registrations.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "rootCmd.AddCommand(newStaleCmd(flags))"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "rootCmd.AddCommand(newOrphansCmd(flags))"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "rootCmd.AddCommand(newLoadCmd(flags))"
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-not-project-management",
+   "class": "archetype-misclassification",
+   "summary": "The MCP context tool reports archetype content and drops the three project-management insights.",
+   "why": "Same archetype misclassification as no-project-management-boilerplate: the context tool told agents to use stale/load commands that do not exist and that 'most PM APIs track history on updates'.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"archetype\":   \"content\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"topic\": \"Finding stale work\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"topic\": \"Load analysis\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"topic\": \"Bulk operations\""
+    }
+   ]
+  },
+  {
+   "id": "docs-template-corrections",
+   "class": "docs",
+   "summary": "guide.md/SKILL.md template corrections: config path, `auth status`, exit code 4 covers 401 and 403, teach needs --resource-type, `claude mcp add` passes the token.",
+   "why": "Template text the press renders wrong for this connector (patch_docs.py). Config path verified with `doctor --json` (platform-default ~/.config/<cli>/config.toml); 403 maps to authErr (exit 4) in helpers.go; teach refuses without --resource-type; the MCP server needs BLACKPOINT_API_TOKEN in its env.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "not_contains": "blackpoint-cyber-compassone-pp-cli"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "`auth-status`"
+    },
+    {
+     "file": "guide.md",
+     "contains": "`4` auth error or not entitled (401/403)"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "--resource-type <type> \\\n  --playbook-file"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "-e BLACKPOINT_API_TOKEN=<your-token> --"
+    }
+   ]
+  },
+  {
+   "id": "tenant-scoped-reads-live-only",
+   "class": "tenant-scope",
+   "summary": "A read that names x-tenant-id (header) or tenantId (Cloud Response query param), even with an empty value, always goes live: no local answer, no write-through into the untenanted store, no offline fallback; --data-source local is refused (internal/cli/tenant_scope.go, wired into both data_source.go resolvers).",
+   "why": "fleet-sync indexes every tenant's rows into the generated resource tables (tenant-qualified ids, so search spans the fleet), and the generated local store is keyed by resource type only. Without this guard, `detections list --x-tenant-id T2 --data-source local` (or an auto read that falls back offline) returned another tenant's detections. Codex r1 P1 'tenant scope crossed'; test internal/cli/tenant_scope_local_test.go. Codex r2 P1: an explicitly empty --x-tenant-id= bypassed a value-based check, so the guard keys on presence; test internal/cli/tenant_scope_empty_test.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if tenantScopedRequest(headers, params) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tenant_scope.go",
+     "contains": "func tenantScopedStrategy(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tenant_scope_local_test.go",
+     "contains": "func TestTenantScopedReadsNeverServeAnotherTenantsRows(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tenant_scope_empty_test.go",
+     "contains": "func TestEmptyTenantSelectorNeverServesTheFleet(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tenant_scope.go",
+     "not_contains": "strings.TrimSpace(params[\"tenantId\"]) != \"\""
+    }
+   ]
+  },
+  {
+   "id": "fleet-gaps-make-store-partial",
+   "class": "wrong-result",
+   "summary": "MCP store_status is partial, and CLI local reads warn, whenever fleet_sync_state records a failed or truncated fetch (store.FleetSyncGaps).",
+   "why": "fleet-sync indexes rows into the generated tables but records completeness only in fleet_sync_state; the generated store_status read sync_state alone, so a --max-pages truncation reported store_status ready with rows missing. Codex r1 P1 'incomplete fetch read as complete'; test internal/mcp/store_status_fleet_test.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db.FleetSyncGaps()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "emitFleetGapHint(w, db)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "func (s *Store) FleetSyncGaps() (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/store_status_fleet_test.go",
+     "contains": "func TestStoreStatusPartialWhileFleetSyncRecordsAGap(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-sync-honors-no-local-data",
+   "class": "no-local-data",
+   "summary": "BLACKPOINT_NO_LOCAL_DATA=1 refuses fleet-sync like sync (root.go localDataWriterCommands).",
+   "why": "fleet-sync is a hand-written writer the generated denylist does not know; without the entry it persisted API data despite the operator's no-copy setting. Codex r1 P2 (one-line fix).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\"fleet-sync\": true",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "secret-field-persistence",
+   "class": "secret-persistence",
+   "summary": "A response field named as a secret (password, secret, token, key, credential; one rule in cliutil.SecretFieldName) is never written to disk: one detector walks every key occurrence in the raw bytes (duplicate keys, every top-level value, every depth), the response cache writes a body only when that walk reads exactly one JSON value to its end with no secret (cliutil.MayHoldSecretFields), every store write is redacted in mergeIncomingResourceData and fleet_rows writes are redacted (a body that may hold a secret is persisted only re-encoded, never in its original bytes), and the guarded SQLite driver refuses any JSON value that still holds one.",
+   "why": "CompassOne dark-web exposures return each breached account's password (spec DarkwebExposure.password) and Cisco Duo onboarding bodies carry a secret key. A live darkweb-exposures read wrote the password into the 5-minute response cache under the user's cache dir, and the generated darkweb_exposures table has a password column. The client replaces the field by name on every read (credential-fields-withheld); nothing persists it. A reprint regenerates client.go, cache.go and store.go and drops these calls. encoding/json keeps the last of a duplicate key and reads only the first top-level value, so a body like {\"password\":\"x\",\"password\":null} decoded clean while its original bytes, password included, were cached; the check must read the raw bytes.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func RedactSecretFields(data []byte) []byte {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func scanSecretFields(data []byte) secretScan {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func MayHoldSecretFields(data []byte) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.MayHoldSecretFields(data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "if cliutil.HasSecretFields(data) {"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "if cliutil.MayHoldSecretFields(value) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "not_contains": "if cliutil.HasSecretFields(value) {"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\tincoming = json.RawMessage(cliutil.RedactSecretFields(incoming))\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\treturn json.RawMessage(cliutil.RedactSecretFields(merged))\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "string(cliutil.RedactSecretFields(r.Data)), stamp); err != nil {",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/store/secret_fields_store_test.go",
+     "contains": "func TestStoreNeverPersistsAResponseSecretField(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/secret_fields_cache_test.go",
+     "contains": "func TestResponseCacheNeverWritesASecretField(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/secret_fields_cache_test.go",
+     "contains": "func TestResponseCacheSeesEveryKeyOccurrence(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/secret_fields_store_test.go",
+     "contains": "func TestStoreSeesEveryKeyOccurrence(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/secret_field_driver.go",
+     "contains": "cliutil.HasSecretFields([]byte(v))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "summary": "doctor probes an argument-free GET endpoint with the real credential (valid / 401 rejected / 403 scope-limited / 404 wrong base_url) instead of printing 'present, not verified', and names an absent credential as an error.",
+   "why": "`doctor` is the command every guide tells an operator to run, and the 4.34.2 render never checked the credential: a working token, an expired one and a base_url aimed at the wrong host all read the same. Gated by tools/maintainer/check_doctor_truth.py (issue #282). Ported from skills/huntress. doctorShippedBaseURL is empty because https://api.blackpointcyber.com/v1 is the real, only API root. A reprint regenerates doctor.go and drops the probe call.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"blackpoint-cli\", report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint and funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API, feedback, deliver and probe clients go through credkit.Transport (client.OutboundGuard); every file write outside the 0600 credential store and config goes through the kit, and the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. This closes holder-coverage (no flag arity is guessed, a file that does not parse is read by the kit) and output-context (the kit judges decoded text, so filler does not split an echo). Tests: internal/credwire/leak_test.go, on the built binaries, seen failing on the pre-kit build.",
+   "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal.",
+   "asserts": [
+    {
+     "file": "cli/cmd/blackpoint-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:            credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestShortHeldValueNeverPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDiscoveryCoversEveryFileLoadReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestWholeRunNeverEmitsAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestArgvScanGuessesNoArity(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFillerDoesNotSplitAnEcho(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestOrdinaryFilesDoNotStopTheProgram(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func credentialNamed(source string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestChildGetsTheToken(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "k = strings.ToLower(k)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "key, rhs := strings.ToLower(strings.Trim(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialKeySpellingIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEveryCredentialFileKeyIsClassified(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "Hold(\"minted:tls-key\", hex.EncodeToString(block.Bytes))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTLSKeyServesAndItsTextIsHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens. openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(guardDriver{cappedSQLite()}))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "func TestMCPSQLOversizedValueIsRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-fields-withheld",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The spec's skey response field is declared to the kit, which holds it as a response passes its transport, and the client replaces skey and a dark-web exposure's password by name at its one success return, in every mode and for every sink. The rest of the row stays usable. password is declared an identifier and not held: a breached password is a value about someone else's account, and holding it would withhold later results for the life of an MCP server. A --dry-run preview masks the same fields in the body it prints, so an import line or any other body source cannot show them.",
+   "why": "A declared field's value is held, so without the replacement every sink would withhold the whole answer.",
+   "spec_encode_followup": "Press-side: generate a declared-field replacement at the client's success return from the spec's credential members.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/credential_fields.go",
+     "contains": "func maskCredentialFields(body []byte) json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "maskCredentialFields(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var CredentialResponseFields = []string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var MaskedResponseFields = []string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialFieldsReplacedByName(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "truncateBody(maskCredentialFields(respBody))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "maskCredentialFields(bodyBytes), headerOverrides, authHeader)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "profiles.json is a credential source read at startup by cliutil.HoldProfileStoreFile, for each path a run could use: every value under a credential flag's name at profiles.<name>.values.<flag>, each duplicate key included, and the credentials of a base-url value, are held. A profile's name, description and other values are data. loadProfileStore keeps only values under a flag some command declares and that is not credential-like. It is not in the kit's Files list, because the kit holds every string of nested JSON and a profile named p would then refuse every later start.",
+   "why": "A hand-edited store is not bound by what profile save refuses, and contract section 1 names a saved value under a credential flag's name as a source. Free text in a profile is not on that list.",
+   "spec_encode_followup": "Press-side: generate the run profile allow-list and the startup hold.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "runProfileValueAllowed(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileStoreFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStoreFile(path string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRunProfileCarriesOnlyTheAllowList(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRunProfileDuplicateKeysAreHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStore(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileNameIsData(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileHoldsOnlyWhatContractNames(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "used-config-decides-origin",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credentialFiles returns the config the program really uses first, because the kit takes the base URL and every allowed origin from the first file naming one: an explicit --config or BLACKPOINT_CONFIG wins, the last --home decides the default paths, and every other file any flag could mean is only held. Header x-tenant-id is declared an identifier, not a credential. The credential stores are only held too: config.Load takes no base URL from a store. Startup reads --config and --home by their last occurrence; the root pre-run refuses a run whose parsed values differ (another flag swallowed one), so a file the run does not use never names the allowed origin. blackpoint-mcp, which has no such flags, refuses to start when startup read one.",
+   "why": "A discovered default's base_url must not become an allowed origin for a credential from another file.",
+   "spec_encode_followup": "Press-side: generate the file discovery in the wiring file.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdOnly(runFiles(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestUsedConfigDecidesTheAllowedOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialStoreNamesNoOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.CheckStartupFlags(flags.configPath, flags.homePath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.StartupConfigFlag, cliutil.StartupHomeFlag = explicit, \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CheckStartupFlags(config, home string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStartupFlagTheParserDidNotUseIsRefused(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blackpoint-mcp/main.go",
+     "contains": "if cliutil.StartupConfigFlag != \"\" || cliutil.StartupHomeFlag != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPRefusesAConfigFlagItDoesNotHave(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The learn journal minimizes what it keeps: an override session id is stored hashed (o:<hash>), argv_shape keeps only flag names the invoked command declares, and failed_flag is kept only when it is a near miss of a declared flag. Everything else that reaches a journal line passes the kit's file sink.",
+   "why": "A credential typed where a flag goes, or set as a session label, is not a value the kit has held, so the structural rules must keep it out on their own.",
+   "spec_encode_followup": "Press-side: generate the hashed session key and the declared-only argv shape.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalFailedFlag(failed, suggested string, declared []string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\"o:\" + hashHarnessSession(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "HeldOutputEchoes"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalFailedFlag(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalLineThatEchoesAHeldValueIsNotWritten(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "missing --query (%d args, %d resources)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "missing --query (%d args)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-declared",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "--stdin is a declared StdinFlag, so the kit holds a body whole and line by line before anything prints. cliutil.CompactStdinBody puts a JSON body on one line first, because a line of { alone collides with public text and refuses the start. feedback --stdin refuses instead of reporting a record the kit would withhold.",
+   "why": "A hand-written body parser was a second reader of what the kit already holds, and it had no end of shapes to chase. The cost is recorded in the docs: a preview of a --stdin body, and a vendor answer repeating part of it, are withheld, and the write still happens.",
+   "spec_encode_followup": "Press-side: generate StdinFlags and the compaction with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:       []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CompactStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CompactStdinBody(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "feedback --stdin cannot record a note",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyPrettyAndEchoed(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

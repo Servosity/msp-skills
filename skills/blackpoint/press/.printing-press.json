@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T18:48:29.578808Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "blackpoint",
+  "display_name": "Blackpoint Cyber CompassOne",
+  "cli_name": "blackpoint-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:da26697f92221c286e0990b4061e51b51dbfda183fadc8783a04b07a81425355",
+  "run_id": "20261027-131250-dfc05e59",
+  "category": "monitoring",
+  "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
+  "mcp_binary": "blackpoint-pp-mcp",
+  "mcp_tool_count": 62,
+  "mcp_ready": "full",
+  "api_version": "1.7.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "BLACKPOINT_API_TOKEN"
+  ],
+  "auth_key_url": "https://docs.blackpointcyber.com",
+  "novel_features": [
+    {
+      "name": "Cross-tenant detection queue",
+      "command": "triage",
+      "description": "One oldest-first queue of open detections across every customer tenant, with tenant name, age, alert count and ticket status. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Client report bundle",
+      "command": "client-report",
+      "description": "Live: build one client's reporting-window summary from six CompassOne endpoints (posture, detection count and weekly trend, top entities and threats, latest report run per type). Needs BLACKPOINT_API_TOKEN; failed sections are listed under fetch_failures."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "gaps",
+      "description": "Find tenants with no recent completed scan, no or empty escalation contact group, or no posture rating; scans_unknown, contacts_unknown or posture_unknown means that data could not be fetched. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Stale agents",
+      "command": "stale-agents",
+      "description": "List devices across every tenant whose agent has not reported in N days or never checked in, with Defender status; decommissioned devices are skipped unless --include-decommissioned. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "CVE spread",
+      "command": "cve-spread",
+      "description": "Rank unresolved CVEs by how many tenants and assets they affect; --exploited or --prioritized narrows the list. Needs the vulnerability-management entitlement: when every tenant's fetch was refused (403) it fails instead of returning an empty list. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Tenant overview",
+      "command": "overview",
+      "description": "One offline current-state view of a tenant: open detections, stale devices, exploited or prioritized CVEs, last scans, posture, dark-web exposure counts, cloud connection state and escalation contacts. Reads the local store, so run fleet-sync first; an unknown tenant or a store with no fleet data exits 3 (not found)."
+    },
+    {
+      "name": "Posture leaderboard",
+      "command": "leaderboard",
+      "description": "Rank tenants by security posture score as a share of their maximum, with maturity level and weakest NIST function. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Geo policy audit",
+      "command": "geo-audit",
+      "description": "Audit Cloud Response approved countries per connection and per user; flag expired or expiring travel exceptions and broad allow-lists. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Pull every tenant's detections, devices, vulnerabilities, scans, exposures, posture, contact groups and approved countries into the local store; failed or incomplete fetches are kept, reported under fetch_failures, and flagged by the readers."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-tenant detection queue",
+      "command": "triage",
+      "description": "One oldest-first queue of open detections across every customer tenant, with tenant name, age, alert count and ticket status. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Client report bundle",
+      "command": "client-report",
+      "description": "Live: build one client's reporting-window summary from six CompassOne endpoints (posture, detection count and weekly trend, top entities and threats, latest report run per type). Needs BLACKPOINT_API_TOKEN; failed sections are listed under fetch_failures."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "gaps",
+      "description": "Find tenants with no recent completed scan, no or empty escalation contact group, or no posture rating; scans_unknown, contacts_unknown or posture_unknown means that data could not be fetched. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Stale agents",
+      "command": "stale-agents",
+      "description": "List devices across every tenant whose agent has not reported in N days or never checked in, with Defender status; decommissioned devices are skipped unless --include-decommissioned. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "CVE spread",
+      "command": "cve-spread",
+      "description": "Rank unresolved CVEs by how many tenants and assets they affect; --exploited or --prioritized narrows the list. Needs the vulnerability-management entitlement: when every tenant's fetch was refused (403) it fails instead of returning an empty list. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Tenant overview",
+      "command": "overview",
+      "description": "One offline current-state view of a tenant: open detections, stale devices, exploited or prioritized CVEs, last scans, posture, dark-web exposure counts, cloud connection state and escalation contacts. Reads the local store, so run fleet-sync first; an unknown tenant or a store with no fleet data exits 3 (not found)."
+    },
+    {
+      "name": "Posture leaderboard",
+      "command": "leaderboard",
+      "description": "Rank tenants by security posture score as a share of their maximum, with maturity level and weakest NIST function. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Geo policy audit",
+      "command": "geo-audit",
+      "description": "Audit Cloud Response approved countries per connection and per user; flag expired or expiring travel exceptions and broad allow-lists. Reads the local store, so run fleet-sync first; before that it returns an empty list with a stderr hint."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Pull every tenant's detections, devices, vulnerabilities, scans, exposures, posture, contact groups and approved countries into the local store; failed or incomplete fetches are kept, reported under fetch_failures, and flagged by the readers."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 100,
+    "total": 100,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

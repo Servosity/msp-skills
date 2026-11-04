@@ -573,6 +573,42 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill authenticates with a GravityZone Control Center API key you create, and its reach is exactly the API areas you enable on that key. Every fleet report (health, incident queue, threats, locate, RMM gap, changes, billing) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. GravityZone is also an endpoint security console, so isolating machines, killing processes, running remote commands, scans and quarantine tasks reach real customer machines; those, plus policy, blocklist and exclusion changes, need a human to approve the exact command. Reads that return or take a credential (push settings, license keys, policy, package and integration settings, install links, user password checks) are human-only. Generated commands run immediately, and the MCP server's generic execute tool can call any method, so set BITDEFENDER_MCP_READ_ONLY=1 for an agent that should only read.
 
+### Blackpoint Cyber (Security)
+
+Page: [Blackpoint Cyber](https://msp-skills.compoundingteams.com/skills/blackpoint.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blackpoint/install.sh)
+
+Ask "which open Blackpoint detections are oldest across all my clients?" and get one queue spanning every CompassOne tenant. fleet-sync pulls each tenant's detections, devices, vulnerabilities, scans, posture and Cloud Response settings into a local mirror, so your AI can rank stale agents, coverage gaps, CVE spread and posture across the whole book of customers in plain English.
+
+Outcomes (question -> command your AI agent runs):
+- Which open detections are oldest across every client? -> blackpoint-cli triage --older-than 24h
+- Which devices' agents stopped reporting? -> blackpoint-cli stale-agents --days 14
+- Which customers have no recent scan, no escalation contacts or no posture rating? -> blackpoint-cli gaps --scan-days 30
+- Which exploited CVE affects the most customers? -> blackpoint-cli cve-spread --exploited
+- Which tenants have the weakest posture score, and in which NIST function? -> blackpoint-cli leaderboard
+- Which travel exceptions have expired or end this week? -> blackpoint-cli geo-audit --expiring 7d
+- What does one client look like right now? -> blackpoint-cli overview "Acme Dental"
+- What are this client's numbers for the monthly report? -> blackpoint-cli client-report "Acme Dental" --since 30d
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Blackpoint Cyber MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Blackpoint Cyber data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Blackpoint access do I need?
+A: A CompassOne API token, created in the CompassOne portal under API tokens. A partner token reaches every customer tenant; a tenant token sees one customer. A read-only partner token is enough for every read and rollup command. Some routes need entitlements: a 403 on vulnerabilities or users means the account is not entitled, and fleet-sync records that tenant's slice as failed instead of empty.
+Q: Will this hit my Blackpoint API rate limits?
+A: The key quota is 2000 requests per 15 minutes. fleet-sync makes one or more calls per tenant and data kind, so on a large fleet limit it with --tenant and --kinds. After a sync, triage, gaps, stale-agents, cve-spread, leaderboard, geo-audit and overview read the local mirror and make no API calls; client-report and the endpoint commands call the API live.
+Q: Will this replace the CompassOne portal?
+A: No. The portal stays your console for investigations, Cloud Response configuration and reports. This connector answers the questions that span customers, and gives your AI agent a safe, previewable path to the few changes the API allows.
+
+Governance: The connector authenticates with your CompassOne API token and is read-first: every rollup, report and list command changes nothing. Writes (contact groups, Cloud Response approved countries, Cisco Duo onboardings) send as soon as you run them from the CLI unless you pass --dry-run to preview; over MCP every write only previews until the call sets confirm to true, and read-only mode (preset on in the Claude Desktop bundle) hides them. Keep autonomous agents to reads and previews, and require a human for any write, any approved-country change and any delete.
+
 ### Blumira (Security)
 
 Page: [Blumira](https://msp-skills.compoundingteams.com/skills/blumira.md)

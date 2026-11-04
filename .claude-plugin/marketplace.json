@@ -1356,6 +1356,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "blackpoint",
+      "source": "./skills/blackpoint",
+      "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "blackpoint",
+        "blackpoint cyber",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
