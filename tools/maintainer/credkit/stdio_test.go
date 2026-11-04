@@ -31,6 +31,66 @@ func TestMain(m *testing.M) {
 	case "held-parent":
 		heldParent()
 		os.Exit(0)
+	case "fix1-parent":
+		fix1ParentMain()
+		os.Exit(0)
+	case "fix1-appender":
+		fix1Appender(os.Getenv("FIX1_FILE"), os.Getenv("FIX1_TAG"))
+		os.Exit(0)
+	case "fix1-print":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		Exit(0)
+	case "fix1-print-3":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		Exit(3)
+	case "fix1-stderr":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		fmt.Fprintln(os.Stderr, "a hint nobody sees")
+		time.Sleep(50 * time.Millisecond)
+		Exit(0)
+	case "fix1-mcp-out":
+		// A response through MCPOut, which writes to the stream itself.
+		Start(Declarations{})
+		_, _ = MCPOut().Write([]byte("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n"))
+		Exit(0)
+	case "fix1-quiet":
+		Start(Declarations{})
+		Exit(0)
+	case "fix1-withheld":
+		Start(Declarations{})
+		Hold("minted:x", "secret!!")
+		fmt.Println("the answer is secret!!")
+		Exit(0)
+	case "fix1-dropped":
+		// A held value with a piece the notice contains: the notice is
+		// dropped too.
+		Start(Declarations{})
+		Hold("minted:x", "zz-withheld-zz")
+		fmt.Println("the answer is zz-withheld-zz")
+		Exit(0)
+	case "fix1-child":
+		fix1ChildMain()
+		os.Exit(0)
+	case "fix1-keeps-stream":
+		// A grandchild that outlives this program, its stdout inherited.
+		exitWait = 500 * time.Millisecond
+		Start(Declarations{})
+		fmt.Println("the answer")
+		exe, _ := os.Executable()
+		cmd := exec.Command(exe, "-test.run=^$")
+		cmd.Env = append(os.Environ(), childModeEnv+"=fix1-sleeper")
+		cmd.Stdout = os.Stdout
+		if err := StartCommand(cmd); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			Exit(1)
+		}
+		Exit(0)
+	case "fix1-sleeper":
+		fix1Sleeper()
+		os.Exit(0)
 	case "echo":
 		// A grandchild that writes to the stdout it inherited.
 		fmt.Println(os.Args[len(os.Args)-1])

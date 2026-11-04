@@ -93,6 +93,8 @@ The Afi portal answers one tenant at a time and has no cross-tenant rollup or co
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=afi&utm_content=docs)
+
 ## The pain this closes
 
 - A new mailbox or site gets created in Microsoft 365 or Google Workspace but never gets a backup policy attached - and nobody notices until a restore request arrives and the data was never being protected.

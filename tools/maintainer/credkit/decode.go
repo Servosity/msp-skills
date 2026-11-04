@@ -231,6 +231,16 @@ func (d *decoding) runs(p []byte, fn func([]byte)) {
 	})
 }
 
+// allNUL reports whether every byte of b is NUL.
+func allNUL(b []byte) bool {
+	for _, c := range b {
+		if c != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // a85Group reports whether t is one Ascii85 group character (z, or btoa's
 // y), which decodes to four bytes alone (kit14rv: the one-character
 // shortcuts dropped it).
@@ -303,6 +313,11 @@ func (d *decoding) out(b []byte) {
 // here, as every view is (after NFKC and case folding), and not decoded
 // further (limits.go, tinyView). anywhere is hitIn's.
 func (d *decoding) tiny(b []byte, anywhere bool) bool {
+	// exact: no decoder reads anything out of NUL bytes (TestFix1BNULRunsDecodeToNothing)
+	// and no held value matches them unless it has one.
+	if len(b) >= tinyView && !d.s.m.heldNUL && allNUL(b) {
+		return true
+	}
 	if len(b) >= tinyView && !d.final {
 		return false
 	}
@@ -1349,9 +1364,13 @@ func (d *decoding) compressed(p []byte) {
 
 // headed reads every gzip and zlib stream in p, at every offset a header
 // starts.
-func (d *decoding) headed(p []byte) {
+func (d *decoding) headed(p []byte) { d.headedTo(p, len(p)) }
+
+// headedTo is headed for the headers that start before limit. Each stream
+// is read as far as p goes.
+func (d *decoding) headedTo(p []byte, limit int) {
 	s := d.s
-	for i := 0; i+2 < len(p) && s.ok(); i++ {
+	for i := 0; i < limit && i+2 < len(p) && s.ok(); i++ {
 		switch {
 		case p[i] == 0x1f && p[i+1] == 0x8b && p[i+2] == 8:
 			if s.gz == nil {
@@ -1409,6 +1428,9 @@ func (d *decoding) rawStreams(p []byte) {
 				}
 				continue
 			}
+			if d.sharedTail(p, pre, o, ja, i) {
+				continue
+			}
 			fallthrough
 		case inflateBroken:
 			if m.n == 0 && cur < 0 {
@@ -1446,16 +1468,20 @@ func (d *decoding) rawStreams(p []byte) {
 					if o != nil && ja <= len(o) && jb <= ja && jb <= len(out) && ja-jb+len(out) <= len(o) &&
 						bytes.Equal(out, o[ja-jb:ja-jb+len(out)]) {
 						if cur = m.id; cur >= 0 {
-							m.outs[cur] = o[ja-jb : ja-jb+len(out)]
+							m.outs[cur], m.done[cur] = o[ja-jb:ja-jb+len(out)], true
 						}
 						break
 					}
 				}
 				if cur = m.id; cur >= 0 {
-					m.outs[cur] = bytes.Clone(out)
+					m.outs[cur], m.done[cur] = bytes.Clone(out), true
 				}
 				d.whole(out)
 				after(i + used)
+			case inflateBroken:
+				// It joined one that ended, but a copy past its own output
+				// stopped it first: what it decoded is a view all the same.
+				d.broken(out)
 			case inflateOther:
 				if n := d.flate(p, i); n >= 0 {
 					after(n)
@@ -1520,9 +1546,85 @@ func (d *decoding) flate(p []byte, i int) int {
 }
 
 // broken adds the bytes a broken raw deflate stream yields: a final view
-// (limits.go, brokenText).
+// (limits.go, brokenText), cut short where it only repeats the end of one
+// already added (limits.go, brokenSuffix).
 func (d *decoding) broken(b []byte) {
+	if n := d.s.defl.trimmed(b); n < len(b) {
+		if readsAcross(b[:n], n-brokenWindow) {
+			d.acrossCut(b, n-brokenWindow)
+		}
+		b = b[:n]
+	}
 	d.finalOut(b)
+}
+
+// sharedTail adds the output of an attempt that joined an earlier one, when
+// that is what the memo proves it to be: pre, what it decoded before the join,
+// then o from ja, the rest of what the earlier one decoded (limits.go,
+// brokenSuffix, and fixedCopies for the proof). It reports false if not, and
+// the caller decodes the attempt.
+func (d *decoding) sharedTail(p, pre, o []byte, ja, at int) bool {
+	s, m := d.s, d.s.defl
+	if trimOff || o == nil || ja > len(o) {
+		return false
+	}
+	if low := m.lowestRead(p, m.from, ja); low < ja { // exact: see fixedCopies
+		same := 0
+		for same < min(len(pre), ja) && pre[len(pre)-1-same] == o[ja-1-same] {
+			same++
+		}
+		if ja-low > same { // exact: a copy reads what differs
+			return false
+		}
+	}
+	rest := o[ja:]
+	if len(rest) < 2*brokenWindow { // exact: nothing to cut
+		return false
+	}
+	kept := append(append(s.kept[:0], pre...), rest[:brokenWindow]...)
+	s.kept = kept
+	if !cutAllowed(kept) { // exact: see brokenSuffix
+		return false
+	}
+	if sharedTailHook != nil {
+		sharedTailHook(p[at:], pre, rest)
+	}
+	if readsAcross(kept, len(pre)) {
+		d.acrossCut(append(slices.Clip(kept[:len(pre)]), rest...), len(pre))
+	}
+	d.finalOut(kept)
+	return true
+}
+
+// readsAcross reports whether a final view b cut past limit has a reading of
+// acrossCut's that starts before limit: past it, b is another output's bytes
+// to their end, so a reading that starts there is that output's.
+func readsAcross(b []byte, limit int) bool {
+	for i := 0; i < limit; i++ {
+		switch c := b[i]; {
+		case c == '{' || c == '[':
+			if jsonStart(b[i:]) {
+				return true
+			}
+		case i+2 < len(b) && (c == 0x1f && b[i+1] == 0x8b && b[i+2] == 8 || c&0x0f == 8 && c>>4 <= 7 && (uint16(c)<<8|uint16(b[i+1]))%31 == 0):
+			return true
+		}
+	}
+	return false
+}
+
+// acrossCut does for a final view b, cut past n, the readings that are not of
+// a window: a compressed stream that starts before n and a JSON document open
+// across the cut. They read b itself, as the view would have, and what they
+// decode is matched and not decoded further, as a final view's decodings are.
+func (d *decoding) acrossCut(b []byte, n int) {
+	s, final := d.s, d.final
+	inf := s.inf // b is in it, and the streams read into it
+	s.inf = nil
+	d.final = true
+	d.headedTo(b, n)
+	d.joined(b, false)
+	d.final, s.inf = final, inf
 }
 
 // finalOut adds a final view (limits.go, brokenText): read as a text view

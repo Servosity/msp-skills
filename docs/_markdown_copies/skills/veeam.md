@@ -58,6 +58,8 @@ VSPC's console and reports are built for per-tenant administration. This complem
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](https://msp-skills.compoundingteams.com/skills/servosity.md) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=veeam&utm_content=docs)
+
 ## The pain this closes
 
 - VSPC is organized per-tenant, so "which customers have a failed backup right now?" means clicking into each company - exactly the question that matters most at 8am.

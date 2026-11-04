@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import backup_vendor_note  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
 
@@ -335,6 +336,10 @@ def render_page(slug: str) -> Path:
             "this same fleet-wide, local-mirror approach (fleet attention, stale "
             "backups, restores, QBR reporting) to Servosity Backup and DR.\n"
         )
+    # "Comparing backup vendors?" - one source (backup_vendor_note.json), also
+    # written into the README by backup_vendor_note.py. Sits right after the
+    # first-party callout; "" for every connector the note does not apply to.
+    vendor_note = backup_vendor_note.docs_block(slug, entry)
     pains = "\n".join(f"- {p}" for p in page.get("pain_points", []))
     faq_md = "\n".join(f"### {f['q']}\n\n{f['a']}\n" for f in faqs)
     tiers = "\n".join(
@@ -386,7 +391,7 @@ Full command reference at [github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/gui
 {page.get('different_vs_wrappers', '')}
 
 {page.get('different_vs_vendor', '')}
-{first_party_note}
+{first_party_note}{vendor_note}
 ## The pain this closes
 
 {pains}

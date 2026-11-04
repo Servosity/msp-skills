@@ -329,6 +329,7 @@ done
 gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
 gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
 gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
+gate "self-test credkit_verify (both directions)" repo "" 0 sh -c 'cd tools/maintainer/credkit_verify && go vet ./... && go test -race -count=1 ./...'
 matrix_sane() {
   python3 tools/maintainer/release_matrix.py \
     | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]'
