@@ -97,6 +97,13 @@
     "current_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146",
     "released_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146"
   },
+  "blackpoint": {
+    "state": "version-pending",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
+    "released_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f"
+  },
   "blumira": {
     "state": "up-to-date",
     "version": "0.1.6",
