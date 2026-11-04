@@ -28,7 +28,10 @@ What it does, in order
  4. Rebases onto current origin/main. Registry and derived-file conflicts go
     through resolve_registry.py; any other conflict stops the run (no
     --ours/--theirs, ever). Registries git merged cleanly are still verified per
-    entry, and the derived files are regenerated and re-checked.
+    entry, and the derived files are regenerated and re-checked. .coderabbit.yaml,
+    which gen_coderabbit_config.py writes whole from the tree, is regenerated
+    when its --check fails (a conflict on it takes main's copy first); if that
+    generator fails or touches any other file, the run stops.
  5. Pushes with --force-with-lease pinned to the head it started from.
  6. Waits for EVERY check on that exact commit: every workflow run for the SHA,
     every check run, every commit status (CodeRabbit posts one), and the
@@ -72,8 +75,8 @@ current across a rebase only when both hold:
     hand-written parts only (generator-owned regions masked with the
     generator's own patterns). Only files a generator writes WHOLE from
     sources (catalog.json, docs/_data/catalog.json, docs/llms*.txt, each
-    connector's docs/skills/<slug>.md) are left out, because this tool
-    regenerates and re-checks them on the commit it merges;
+    connector's docs/skills/<slug>.md, .coderabbit.yaml) are left out, because
+    this tool regenerates and re-checks them on the commit it merges;
   * main's new commits since the approval's base touch nothing under the
     connector's directory, nothing in release_matrix.py's shared machinery list,
     no directory the branch's other files live in, no hand-written part of a
@@ -133,6 +136,14 @@ TOOL_FILES = ("merge_when_green.py", "resolve_registry.py", "release_matrix.py",
               "build-catalog.py")  # build-catalog.py: its patterns define what the review masks hide
 TOOLS_DIR = Path(__file__).resolve().parent
 
+# .coderabbit.yaml is written whole from the tree by gen_coderabbit_config.py
+# (ci_guards check 7 fails a stale one). Every connector merge can change it, so
+# a rebased commit regenerates it, like the catalog files, and it is left out of
+# the review fingerprint: what lands is always the generator's output for that
+# exact tree, re-checked before the push.
+CODERABBIT_GEN = "tools/maintainer/gen_coderabbit_config.py"
+CODERABBIT_CONFIG = ".coderabbit.yaml"
+
 
 def _read_tool(f: str) -> str | None:
     p = TOOLS_DIR / f
@@ -145,7 +156,7 @@ def _read_tool(f: str) -> str | None:
 LOADED_TOOLS = {f: _read_tool(f) for f in TOOL_FILES}
 rr._form_options_re()  # build-catalog.py's masks, loaded together with that snapshot
 
-FINGERPRINT_VERSION = "msp-skills-change-fingerprint/2"
+FINGERPRINT_VERSION = "msp-skills-change-fingerprint/3"  # 3: .coderabbit.yaml left out (regenerated)
 FLAKE_RERUNS = 2
 PUSH_LAG_READS, PUSH_LAG_SLEEP_S = 30, 2  # GitHub's PR API trails a branch push by seconds
 UNKNOWN_RERUNS = 1
@@ -249,6 +260,10 @@ def _pages(git: Git, *revs: str) -> set[str]:
     return out
 
 
+def _has_coderabbit_gen(git: Git, rev: str) -> bool:
+    return git.run("cat-file", "-e", f"{rev}:{CODERABBIT_GEN}", check=False).returncode == 0
+
+
 def fingerprint(git: Git, base: str, head: str) -> str:
     """sha256 over the change `git diff base...head`, byte-exact for every byte
     a person wrote:
@@ -258,10 +273,11 @@ def fingerprint(git: Git, base: str, head: str) -> str:
       * README.md and the issue forms: a diff of their HAND-WRITTEN parts (the
         generator-owned regions masked out with the generator's own patterns);
       * left out entirely only what a generator writes whole from sources:
-        catalog.json, docs/_data/catalog.json, docs/llms*.txt and each
-        registered connector's docs/skills/<slug>.md. This tool regenerates
-        and re-checks those on the commit it merges, so no hand edit to them
-        can land. Any other file under docs/skills/ (including the page of a
+        catalog.json, docs/_data/catalog.json, docs/llms*.txt, each
+        registered connector's docs/skills/<slug>.md, and .coderabbit.yaml
+        (when the tree carries its generator). This tool regenerates and
+        re-checks those on the commit it merges, so no hand edit to them can
+        land. Any other file under docs/skills/ (including the page of a
         connector the change removes or makes markdown-only, which nothing
         regenerates any more) is an ordinary file."""
     mb = git.out("merge-base", base, head)
@@ -273,6 +289,8 @@ def fingerprint(git: Git, base: str, head: str) -> str:
     for p in paths:
         if p in rr.REGISTRY_FILES or p in rr.PARTIAL_DERIVED or rr.is_full_derived(p, pages):
             continue
+        if p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, head):
+            continue  # regenerated from the tree and --check'ed on the commit this tool merges
         literal.append(p)
     for reg in rr.REGISTRY_FILES:
         if reg not in paths:
@@ -332,6 +350,8 @@ def footprint(git: Git, base: str, head: str) -> Footprint:
                 fp.authored_partial.add(p)
         elif rr.is_full_derived(p, pages) or p in rr.RELEASE_DERIVED:
             continue
+        elif p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, head):
+            continue
         elif len(parts) > 1:
             fp.dep_prefixes.add("/".join(parts[:-1]) + "/")
         else:
@@ -374,6 +394,8 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
                                              != rr.mask_generated(p, git.show(new_base, p))):
                 hits.append(f"main changed hand-written parts of {p}, which this change also edits")
         elif rr.is_full_derived(p, pages) or p in rr.RELEASE_DERIVED:
+            continue
+        elif p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, new_base):
             continue
         elif p in fp.dep_files or any(p.startswith(x) for x in fp.dep_prefixes):
             hits.append(f"main changed {p} (beside a file this change edits)")
@@ -1223,6 +1245,8 @@ class Merger:
             changed = rr.regenerate_and_stage(wt, self.say, self.o.generators, trusted_rev=base)
         except RuntimeError as exc:
             raise Stop(EXIT_CONFLICT, f"regenerating derived files failed: {exc}")
+        if self._regenerate_coderabbit(wt):
+            changed = [*changed, CODERABBIT_CONFIG]
         if changed:
             g.run("commit", "-q", "--amend", "--no-edit", cwd=wt)
             self.say(f"==> regenerated derived files into the commit: {', '.join(changed)}")
@@ -1236,6 +1260,36 @@ class Merger:
         if g.out("merge-base", new, base) != base:
             raise Stop(EXIT_ERROR, "the prepared commit is not on current origin/main")
         return new
+
+    def _regenerate_coderabbit(self, wt: Path) -> bool:
+        """Rewrite .coderabbit.yaml with the tree's own generator when its
+        --check says it is stale (after a rebase, main's connectors change
+        it), and stage it. Only that one file: if the generator fails, or
+        changes or creates anything else, the run stops as on any conflict
+        it will not resolve. True when the file was rewritten."""
+        if not (wt / CODERABBIT_GEN).is_file():
+            return False
+
+        def gen(*args: str) -> subprocess.CompletedProcess:
+            return rr.run_bounded([sys.executable, "-I", CODERABBIT_GEN, *args], cwd=str(wt), capture_output=True,
+                                  text=True, timeout=_bound(self.git.remaining))
+        if gen("--check").returncode == 0:
+            return False
+        before = {(xy, path) for xy, path in rr._porcelain(wt)}
+        p = gen()
+        if p.returncode != 0:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_GEN} failed while regenerating a stale {CODERABBIT_CONFIG}: "
+                                      + _printable((p.stdout + p.stderr).strip())[-400:])
+        touched = sorted({path for xy, path in rr._porcelain(wt) if (xy, path) not in before
+                          and (xy == "??" or xy[1] != " ")} - {CODERABBIT_CONFIG})
+        if touched:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_GEN} changed more than {CODERABBIT_CONFIG} ("
+                                      + ", ".join(touched[:10]) + "); nothing was pushed")
+        self.git.run("add", "--", CODERABBIT_CONFIG, cwd=wt)
+        if gen("--check").returncode != 0:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_CONFIG} is still stale after regenerating it")
+        self.say(f"==> {CODERABBIT_CONFIG} was stale on the rebased tree; regenerated with {CODERABBIT_GEN}")
+        return True
 
     def _squash(self, head: str, mb: str, title: str, commits: list[str]) -> str:
         g = self.git
@@ -1272,6 +1326,19 @@ class Merger:
         if not rr.unmerged(wt):
             g.run("rebase", "--abort", cwd=wt, check=False)
             raise Stop(EXIT_CONFLICT, f"the rebase stopped without a conflict: {p.stdout.strip()[-400:]} {p.stderr.strip()[-400:]}")
+        conflicts = rr.unmerged(wt)
+        if CODERABBIT_CONFIG in conflicts and (wt / CODERABBIT_GEN).is_file() and 2 in conflicts[CODERABBIT_CONFIG]:
+            # Generated whole from the tree: take main's copy (ours, in a rebase); _prepare regenerates it.
+            g.run("checkout", "--ours", "--", CODERABBIT_CONFIG, cwd=wt)
+            g.run("add", "--", CODERABBIT_CONFIG, cwd=wt)
+            self.say(f"==> {CODERABBIT_CONFIG} conflicted: took main's copy; it is regenerated below")
+            if not rr.unmerged(wt):
+                c = g.run("rebase", "--continue", cwd=wt, check=False, env_extra=env)
+                if c.returncode != 0:
+                    g.run("rebase", "--abort", cwd=wt, check=False)
+                    raise Stop(EXIT_CONFLICT, f"the rebase did not continue after taking main's {CODERABBIT_CONFIG}: "
+                                              f"{c.stdout.strip()[-300:]} {c.stderr.strip()[-300:]}")
+                return
         self.say("==> the rebase conflicted; handing it to resolve_registry.py")
         rc = rr.resolve(wt, main_side="ours", regen=True, out=lambda s: self.say("    " + s),
                         generators=self.o.generators)
@@ -2605,6 +2672,82 @@ def _self_test() -> int:
         rc, logs = merger(work, fake)
         expect(rc == EXIT_CONFLICT and outside.read_text() == "someone's file\n" and fake.merged is None,
                "a catalog.json turned into a symlink after approval is refused; its target is never written")
+
+        # T8b1c: .coderabbit.yaml is regenerated on the rebased tree, and only it.
+        print(".coderabbit.yaml regenerated after the rebase:")
+        cr_gen = ("import pathlib, sys\nroot = pathlib.Path(__file__).resolve().parents[2]\n"
+                  "gens = sorted(root.glob('skills/*/GEN.go'))\n"
+                  "want = ''.join(f'- {p.relative_to(root).as_posix()}\\n' for p in gens)\n"
+                  "cfg = root / '.coderabbit.yaml'\n"
+                  "if '--check' in sys.argv:\n    sys.exit(0 if cfg.is_file() and cfg.read_text() == want else 1)\n"
+                  "if (root / 'cr-fail').exists():\n    sys.exit(2)\n"
+                  "if (root / 'cr-touch').exists():\n    (root / 'docs/guide.md').write_text('touched\\n')\n"
+                  "cfg.write_text(want)\n")
+
+        def cr_world() -> tuple[Path, Path]:
+            origin, work, _b = world()
+
+            def setup(x: Path) -> None:
+                (x / CODERABBIT_GEN).write_text(cr_gen)
+                subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+            main_commit(work, setup, "coderabbit generator")
+            return origin, work
+
+        def gen_go(x: Path, slug: str, regen: bool = True) -> None:
+            (x / f"skills/{slug}/GEN.go").write_text("package main\n")
+            if regen:
+                subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+
+        def cr_pr(work: Path, edit: Callable[[Path], None]) -> str:
+            sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+            edit(work)
+            sh("git", "add", "-A", cwd=work)
+            sh("git", "commit", "-q", "-s", "-m", "alpha change", cwd=work)
+            sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+            sh("git", "checkout", "-q", "main", cwd=work)
+            return sh("git", "rev-parse", "fix/alpha", cwd=work)
+
+        def main_cr(origin: Path) -> str:
+            return sh("git", "--git-dir", str(origin), "show", f"main:{CODERABBIT_CONFIG}", cwd=tmp)
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: gen_go(x, "alpha"))
+        fake = FakeGitHub(origin, env, 33, "fix/alpha", "alpha change", green)
+        approve(work, fake, head)
+        main_commit(work, lambda x: gen_go(x, "delta"), "delta: a generated file")
+        rc, logs = merger(work, fake)
+        expect(rc == 0 and main_cr(origin) == "- skills/alpha/GEN.go\n- skills/delta/GEN.go"
+               and any("took main's copy" in s for s in logs) and any("regenerated with" in s for s in logs)
+               and any("carried" in s for s in logs),
+               f"both sides regenerated it (a conflict): main's copy, regenerated, approval carried, merged (rc={rc})")
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: (x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"))
+        fake = FakeGitHub(origin, env, 34, "fix/alpha", "alpha change", green)
+        approve(work, fake, head)
+        main_commit(work, lambda x: gen_go(x, "delta", regen=False), "delta: generated file, config stale")
+        rc, logs = merger(work, fake)
+        expect(rc == 0 and main_cr(origin) == "- skills/delta/GEN.go" and any("regenerated with" in s for s in logs),
+               f"stale on the rebased tree with no conflict: regenerated into the commit, merged (rc={rc})")
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: ((x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"),
+                                      (x / CODERABBIT_CONFIG).write_text("- skills/alpha/SKILL.md\n")))
+        fake = FakeGitHub(origin, env, 35, "fix/alpha", "alpha change", green)
+        rc, logs = merger(work, fake, require=())
+        expect(rc == 0 and "SKILL.md" not in main_cr(origin) and any("regenerated with" in s for s in logs),
+               f"a hand edit to .coderabbit.yaml never reaches main: the generator's output does (rc={rc})")
+
+        for label, marker in (("the generator also changes another file: stops, nothing pushed (exit 3)", "cr-touch"),
+                              ("the generator fails: stops, nothing pushed (exit 3)", "cr-fail")):
+            origin, work = cr_world()
+            head = cr_pr(work, lambda x: (x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"))
+            fake = FakeGitHub(origin, env, 36, "fix/alpha", "alpha change", green)
+            main_commit(work, lambda x, mk=marker: ((x / mk).write_text("x\n"), gen_go(x, "delta", regen=False)),
+                        "delta: stale config and a marker")
+            rc, logs = merger(work, fake, require=())
+            expect(rc == EXIT_CONFLICT and fake.merged is None and origin_rev(origin, "refs/heads/fix/alpha") == head
+                   and any(CODERABBIT_GEN in s for s in logs), f"{label} (rc={rc})")
 
         # T8b2: a page nothing regenerates any more is reviewed content.
         origin, work, _b = world()
