@@ -196,8 +196,15 @@ jobs:
           if [ -f "skills/$slug/cli/go.mod" ]; then
             echo "::group::pre-warm $slug"
             (cd "skills/$slug/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $slug reported issues (non-fatal)"
-            targets="$(python3 -I -c 'import sys; sys.path.insert(0, "tools/maintainer"); import check_security_gate as g; print(" ".join(f"{t[0]}/{t[1]}" for t in g.GOSEC_TARGETS if t))')" \
-              || { targets=""; echo "pre-warm could not read GOSEC_TARGETS (non-fatal)"; }
+            # GOSEC_TARGETS is read as DATA (ast.literal_eval of the assignment), never
+            # imported: the checkout is PR-controlled, and putting it on sys.path would let a
+            # PR-added module shadow the standard library. -I keeps the working directory off
+            # sys.path, and only stdlib modules are imported. Each target must match
+            # [a-z0-9]+/[a-z0-9]+. If the read fails, the fixed list is used: a stale list
+            # only costs pre-warm speed (gosec still scans every target, cold) and can never
+            # weaken the gate.
+            targets="$(python3 -I -c 'import ast, re; m = ast.parse(open("tools/maintainer/check_security_gate.py", encoding="utf-8").read()); v = [n.value for n in m.body if isinstance(n, (ast.Assign, ast.AnnAssign)) and "GOSEC_TARGETS" in [t.id for t in (n.targets if isinstance(n, ast.Assign) else [n.target]) if isinstance(t, ast.Name)]]; out = [f"{t[0]}/{t[1]}" for t in ast.literal_eval(v[-1]) if t]; assert out and all(re.fullmatch(r"[a-z0-9]+/[a-z0-9]+", x) for x in out); print(" ".join(out))')" \
+              || { targets="windows/amd64 darwin/arm64"; echo "pre-warm could not read GOSEC_TARGETS; using the fixed list (non-fatal)"; }
             for tgt in $targets; do
               (cd "skills/$slug/cli" && GOOS="${tgt%/*}" GOARCH="${tgt#*/}" CGO_ENABLED=0 go list -export -deps ./...) >/dev/null 2>&1 \
                 || echo "pre-warm $tgt for $slug reported issues (non-fatal)"
