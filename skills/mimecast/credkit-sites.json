@@ -1,0 +1,92 @@
+{
+ "sites": [
+  {
+   "file": "cmd/mimecast-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the handler is wrapped at once by requireBearerAuthWithLimits, whose outer handler is credkit.MCPHTTP, so every response passes the kit"
+  },
+  {
+   "file": "internal/cli/mimecast_envelope.go",
+   "func": "accountScopeTransport.RoundTrip",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "accountScopeTransport wraps the transport the client already has, which is client.OutboundGuard (credkit.Transport); it refuses a write or warns on stderr after Start, and every request it passes still goes through the kit"
+  },
+  {
+   "file": "internal/cli/mimecast_envelope.go",
+   "func": "accountScopeTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "accountScopeTransport wraps the transport the client already has, which is client.OutboundGuard (credkit.Transport); it refuses a write or warns on stderr after Start, and every request it passes still goes through the kit"
+  },
+  {
+   "file": "internal/cli/mimecast_envelope.go",
+   "func": "init",
+   "what": "convert:mimecast-pp-cli/internal/cli.accountScopeTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "accountScopeTransport wraps the transport the client already has, which is client.OutboundGuard (credkit.Transport); it refuses a write or warns on stderr after Start, and every request it passes still goes through the kit"
+  },
+  {
+   "file": "internal/cli/mimecast_envelope.go",
+   "func": "init",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "accountScopeTransport wraps the transport the client already has, which is client.OutboundGuard (credkit.Transport); it refuses a write or warns on stderr after Start, and every request it passes still goes through the kit"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the function value is client.OutboundGuard, which is credkit.Transport; tests swap the variable for identity because they never run Start"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the transport is client.OutboundGuard, which is credkit.Transport; tests swap the variable for identity because they never run Start"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the function value is client.OutboundGuard, which is credkit.Transport; tests swap the variable for identity because they never run Start"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the transport is client.OutboundGuard, which is credkit.Transport; tests swap the variable for identity because they never run Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  }
+ ]
+}

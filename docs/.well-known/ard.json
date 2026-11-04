@@ -966,6 +966,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:mimecast",
+      "displayName": "Mimecast",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/SKILL.md",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in. Trigger phrases: `why was this email blocked`, `release my held email`, `check the mimecast hold queue`, `who clicked this link`, `is mail flowing`, `use mimecast`, `run mimecast`.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Why didn't this message arrive: held, rejected, released or delivered, and by which policy?",
+        "What is in the hold queue, grouped by hold reason, with a release-risk class per group?",
+        "What arrived in the hold queue since I last looked?",
+        "Release this held message for ticket T-1042, but only if its hold reason is safe - show me the decision first",
+        "Who clicked this phishing link, and did anyone click through a warning?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/mimecast.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:msp-skills-concierge",
       "displayName": "Concierge",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

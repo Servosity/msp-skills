@@ -1,0 +1,100 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/mimecast-mcp",
+  "title": "Mimecast MCP",
+  "description": "Explain a held or blocked Mimecast message in one verdict, triage the hold queue, trace phish clicks",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/mimecast/mimecast-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/mimecast"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/mimecast-v0.1.0/mimecast-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIMECAST_CLIENT_ID",
+          "description": "Client ID of your Mimecast API 2.0 application.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MIMECAST_CLIENT_SECRET",
+          "description": "Client secret of your Mimecast API 2.0 application.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MIMECAST_ACCOUNT_CODE",
+          "description": "Optional. Delegate access account code for the classic endpoints.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_BASE_URL",
+          "description": "Optional. Regional API gateway, for example https://uk-api.services.mimecast.com.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_TOKEN_URL",
+          "description": "Optional. Regional OAuth token endpoint; set it with MIMECAST_BASE_URL.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_OAUTH_SCOPE",
+          "description": "Optional. OAuth scope for the token request; leave blank for none.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to Mimecast.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional. Binds the MCP server to one saved client profile.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MIMECAST_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

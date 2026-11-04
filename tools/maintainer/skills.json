@@ -1240,6 +1240,28 @@
         "issue_url": null
       }
     },
+    "mimecast": {
+      "system": "Mimecast email security (API 2.0)",
+      "status": "beta",
+      "cli_binary": "mimecast-cli",
+      "mcp_binary": "mimecast-mcp",
+      "vendor": "Mimecast",
+      "vendor_trademark_owner": "Mimecast Services Limited",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Mimecast",
+      "has_video": true,
+      "cli_hash": "sha256:74bdfbb7f7212d294450450e25afbaaf743d56010dd5f81bf7f658ad7c8023bd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
