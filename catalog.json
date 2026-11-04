@@ -1777,7 +1777,7 @@
       "skill_path": "skills/zammad",
       "cli_binary": "zammad-cli",
       "mcp_binary": "zammad-mcp",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Zammad",
