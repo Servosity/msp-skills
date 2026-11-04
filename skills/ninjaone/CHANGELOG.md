@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.22] - unreleased
+
+### Fixed
+- **The custom-fields reports sync again after the first run.** Since 0.1.21, an incremental `sync` sent its checkpoint as `updatedAfter=<date>` to `queries-custom-fields`, `queries-custom-fields-detailed`, `queries-scoped-custom-fields` and `queries-scoped-custom-fields-detailed`, and NinjaOne answered HTTP 400, so every sync after the first one failed those reports and their stored data stopped updating. These four reports are now read whole on every sync (a `sync_warning` event with reason `resource_not_incremental`), as in 0.1.20. The MCP server's query tips no longer suggest `updatedAfter` for incremental fetches (reported by @Xenith-B, #496).
+
 ## [0.1.21] - 2026-10-27
 
 Rebuilt on CLI Printing Press 4.34.0 (the press upgrade that carries the fix for [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)).

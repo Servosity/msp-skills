@@ -1639,16 +1639,10 @@ func resourceSupportsPagination(resource string) bool {
 // lower bound was detected. Skipping the param for "" resources avoids
 // validation-error 400s on APIs that reject unknown query keys.
 func syncResourceSinceParam(resource string) string {
-	switch resource {
-	case "queries-custom-fields":
-		return "updatedAfter"
-	case "queries-custom-fields-detailed":
-		return "updatedAfter"
-	case "queries-scoped-custom-fields":
-		return "updatedAfter"
-	case "queries-scoped-custom-fields-detailed":
-		return "updatedAfter"
-	}
+	// Hand-fix (#496): no NinjaOne list endpoint has a usable watermark. The
+	// custom-fields reports declare updatedAfter as a string, but NinjaOne
+	// answers an RFC3339 value with HTTP 400 ("For input string"), so those
+	// four reports sync whole, as they did before the 4.34 reprint.
 	return ""
 }
 
