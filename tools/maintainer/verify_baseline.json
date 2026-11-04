@@ -141,12 +141,6 @@
    "read-only",
    "local-data"
   ],
-  "kaseya-bms": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "knowbe4": [
    "mcp-http",
    "read-only",

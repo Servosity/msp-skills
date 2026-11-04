@@ -349,7 +349,7 @@
       "type": "skill-md",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute. Trigger phrases: `check the BMS queue`, `stale tickets in Kaseya BMS`, `how many contract hours are left`, `unbilled time in BMS`, `BMS sales pipeline`, `use kaseya-bms`, `run kaseya-bms`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/SKILL.md",
-      "digest": "sha256:03f47661cd1d4c451a1d2e6411fcff9635302554ef38418727439b972c092922"
+      "digest": "sha256:7ad3b1c1795c945953d354269f4ede5818777854b37969f17c402843946ab647"
     },
     {
       "name": "kaseya-vsa",

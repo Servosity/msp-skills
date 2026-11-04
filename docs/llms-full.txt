@@ -1856,7 +1856,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Kaseya BMS API rate limits?
-A: Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
+A: Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
 Q: Do I need to be a Kaseya customer, and how do I authenticate?
 A: Yes - you need a Kaseya BMS tenant and an API user. The skill authenticates as that user with 'kaseya-bms-cli auth login' (your BMS username, password, and tenant name), and can only do what that user is permitted to do. You can also paste a pre-minted JWT via KASEYA_BMS_TOKEN.
 Q: Will this replace my Kaseya BMS portal?

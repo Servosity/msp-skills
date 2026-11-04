@@ -1032,7 +1032,7 @@
       "cli_binary": "kaseya-bms-cli",
       "mcp_binary": "kaseya-bms-mcp",
       "version": "0.1.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Kaseya BMS",
       "vendor_trademark_owner": "Kaseya US LLC",
