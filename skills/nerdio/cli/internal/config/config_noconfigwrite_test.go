@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"nerdio-pp-cli/internal/cliutil"
+	"nerdio-pp-cli/internal/cliutil/testenv"
 )
 
 // Issue #270: a supported way to run this connector with no credential
@@ -63,12 +66,20 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 	return hits
 }
 
+// ncwIsolate gives the test a throwaway home that every user-directory lookup
+// resolves into. Setting HOME alone is not enough on Windows, where
+// os.UserHomeDir reads USERPROFILE: the credentials file then landed in the
+// runner's real profile, outside the snapshot (Windows CI, PR #577).
+func ncwIsolate(t *testing.T) string {
+	t.Helper()
+	return testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
+}
+
 // ncwMint runs one "an ordinary command minted a token" cycle under a
 // throwaway HOME and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := ncwIsolate(t)
 	t.Setenv("NERDIO_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +139,8 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	home := ncwIsolate(t)
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("NERDIO_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is

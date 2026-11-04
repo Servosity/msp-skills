@@ -150,12 +150,6 @@
    "read-only",
    "local-data"
   ],
-  "nerdio": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "pagerduty": [
    "mcp-http",
    "write-gating",

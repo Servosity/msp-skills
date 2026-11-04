@@ -64,7 +64,8 @@ fetch_failures - a 401'd account is never a silent "all good".
   nerdio-cli fleet autoscale-audit --agent
   nerdio-cli fleet autoscale-audit --accounts 101,102 --baseline baseline.json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// --baseline names a local JSON file: mcp:read-flags keeps it out of every MCP tool schema and refuses it.
+		Annotations: map[string]string{"mcp:read-only": "true", "mcp:read-flags": "baseline"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// No required inputs: bare invocation runs the fleet sweep, matching
 			// the generated list-command convention. --dry-run short-circuits.
@@ -91,7 +92,7 @@ fetch_failures - a 401'd account is never a silent "all good".
 			}
 			accounts, err := resolveFleetAccounts(cmd.Context(), cmd, flags, c, flagAccounts)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.ErrOrStderr(), err, flags)
 			}
 			accounts, truncated := capFleetAccounts(accounts, flagMaxAccounts)
 

@@ -447,7 +447,7 @@
       "type": "skill-md",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has. Trigger phrases: `list nerdio accounts`, `audit autoscale across customers`, `which AVD hosts are running`, `nerdio billing rollup`, `wait for nerdio job`, `use nerdio`, `run nerdio-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/SKILL.md",
-      "digest": "sha256:bb9c3cf04db8e5d709a15f47b939c8b71eff7909447d62a9ce0e9ebe7a419ff5"
+      "digest": "sha256:56c4fc124da8b753d0992c91792773d9e248604b3604032845c85c8e751577df"
     },
     {
       "name": "netsapiens",
