@@ -1,0 +1,120 @@
+{
+  "outcome_intro": "Ask which clients are over their seat limit, which phones went offline, which numbers route nowhere and where E911 data is missing, and get one answer across every client domain on your NetSapiens platform. The reseller portal shows one domain at a time; this skill syncs your whole reseller into a local mirror, so each fleet-wide audit is one command.",
+  "instead_of_say": [
+    {
+      "instead": "Open each client domain in the reseller portal, count users, call queues and auto attendants, and compare them to the limits by hand before you invoice.",
+      "say": "Which clients are over or near their seat limits this month?",
+      "cli": "netsapiens-cli fleet seats --flagged --agent"
+    },
+    {
+      "instead": "Find out a desk phone is offline when the client calls to say it stopped ringing.",
+      "say": "Which phones across all my clients are unregistered or have not pulled their config in two weeks?",
+      "cli": "netsapiens-cli fleet offline --agent"
+    },
+    {
+      "instead": "Click through every domain's numbers and dial rules to find the DID still pointing at a user who left or a queue that was deleted.",
+      "say": "Which of my phone numbers route nowhere?",
+      "cli": "netsapiens-cli fleet dids --problems-only --agent"
+    }
+  ],
+  "pain_points": [
+    "A NetSapiens reseller runs dozens of client domains, and the portal answers one domain at a time: seat true-ups, offline phones and dead-end numbers all mean opening every client.",
+    "E911 gaps cost real money: IPComms, a SIP trunking carrier, bills a $250 unregistered-911 fee per call placed from a number with no registered address, and Kari's Law and RAY BAUM's Act put the dispatchable-location duty on whoever runs the phone system.",
+    "Unanswered calls and abandoned queues only surface when the client complains, because nobody reads every domain's CDRs and queue stats each week."
+  ],
+  "outcomes": [
+    {
+      "question": "Which clients are over or near a user, call queue, auto attendant or conference limit?",
+      "command": "netsapiens-cli fleet seats --flagged --json"
+    },
+    {
+      "question": "Which phones are unregistered, high-latency or never provisioned?",
+      "command": "netsapiens-cli fleet offline --json"
+    },
+    {
+      "question": "Which phone numbers route to a missing or unreachable user, queue or attendant?",
+      "command": "netsapiens-cli fleet dids --problems-only --json"
+    },
+    {
+      "question": "Which domains, users and devices are missing an emergency caller ID or point at an unknown emergency address?",
+      "command": "netsapiens-cli fleet e911 --json"
+    },
+    {
+      "question": "Which users had unanswered inbound calls in the last 7 days, and is their phone registered now?",
+      "command": "netsapiens-cli fleet missed --window 7d --json"
+    },
+    {
+      "question": "Which call queues are dropping callers, and are their agents' phones registered?",
+      "command": "netsapiens-cli fleet queues --window 7d --json"
+    },
+    {
+      "question": "What users, devices, numbers and domains were added, removed or re-pointed since my last check?",
+      "command": "netsapiens-cli fleet changes --json"
+    },
+    {
+      "question": "Which client, user and phones does this number belong to?",
+      "command": "netsapiens-cli trace 6025550142 --json"
+    }
+  ],
+  "different_vs_wrappers": "The NetSapiens MCP servers that exist today answer one live API call at a time: [phoneware/netsapiens-mcp](https://github.com/phoneware/netsapiens-mcp) is a hosted OAuth proxy over the full v1 and v2 API, and [MSPbots' oitvoip-mcp](https://github.com/MSPbotsAI/oitvoip-mcp) exposes five domain, reseller, device, subscriber and CDR methods. This skill runs on your machine and keeps a local SQLite mirror of every client domain, so a cross-client audit such as seat overages, unrouted DIDs or E911 gaps is one local query instead of hundreds of calls, and it can tell you what changed since last week.",
+  "different_vs_vendor": "The NetSapiens reseller portal is where you configure domains and routing, one client at a time. This skill adds the reseller-wide audits and change history the portal does not show, on the same v2 API and the same API key; configuration changes still belong in the portal or a reviewed write.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the NetSapiens MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my NetSapiens data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "Does it work with Crexendo, OITVOIP and other white-label NetSapiens platforms?",
+      "a": "Yes. Set NETSAPIENS_SERVER to your provider's platform host and use an API key or OAuth2 access token from that platform. Without NETSAPIENS_SERVER the CLI talks to ns-api.com, which is only the NetSapiens public sandbox."
+    },
+    {
+      "q": "Do I need a reseller-level API key?",
+      "a": "For the fleet audits, yes: a reseller-scoped key sees every client domain. An office-manager key sees one domain, so the fleet commands then cover only that client. A read-only key is enough for every audit."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "Most of what an MSP asks is read-only: the fleet audits, trace and search read the local mirror, and sync reads the API. The CLI also carries every NetSapiens v2 write, from user and number changes to live call control, API keys and domain restores. Over MCP every write previews first and sends only with confirm: true; on the CLI, preview with --dry-run. Allow reads; keep writes, credential commands and restores with a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet seats, fleet offline, fleet dids, fleet e911, fleet missed, fleet queues, fleet changes, trace, search, and the list, get and count commands",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local-only writes",
+      "examples": "sync, fleet changes --rebaseline, auth set-token, auth logout - they write only to your machine's mirror and credential store",
+      "policy": "Allow (no tenant change)"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "domains users create, domains users update, domains phonenumbers update, domains callqueues agents-create, phones create",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Live calls and voicemail",
+      "examples": "domains users calls-create, calls-transfer, calls-delete, voicemails-delete - they act on a client's live calls and mailboxes",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Credentials and security",
+      "examples": "apikeys, jwt, tokens, auth-code, sso-enroll, certificates, firebase, subscriptions",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "every delete command, domains delete, restore update, backup, domains backup create",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

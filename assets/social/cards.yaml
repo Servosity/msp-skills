@@ -231,6 +231,10 @@ nerdio:
   vendor: "Nerdio Manager"
   example_command: "Which customer has autoscale turned off?"
 
+netsapiens:
+  vendor: "NetSapiens"
+  example_command: "Which clients are over their seat limits?"
+
 ninjaone:
   vendor: "NinjaOne"
   example_command: "Which clients are below 95% patched?"

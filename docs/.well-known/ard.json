@@ -1059,6 +1059,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:netsapiens",
+      "displayName": "NetSapiens",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/SKILL.md",
+      "description": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "tags": [
+        "Telephony"
+      ],
+      "representativeQueries": [
+        "Which clients are over or near a user, call queue, auto attendant or conference limit?",
+        "Which phones are unregistered, high-latency or never provisioned?",
+        "Which phone numbers route to a missing or unreachable user, queue or attendant?",
+        "Which domains, users and devices are missing an emergency caller ID or point at an unknown emergency address?",
+        "Which users had unanswered inbound calls in the last 7 days, and is their phone registered now?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/netsapiens.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:ninjaone",
       "displayName": "NinjaOne",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

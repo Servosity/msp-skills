@@ -1,5 +1,5 @@
 {
-  "count": 86,
+  "count": 87,
   "connectors": [
     {
       "slug": "abnormal",
@@ -663,6 +663,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/nerdio/"
+    },
+    {
+      "slug": "netsapiens",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "category": "Telephony",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/netsapiens/"
     },
     {
       "slug": "ninjaone",

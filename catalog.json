@@ -1103,6 +1103,26 @@
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal."
     },
     {
+      "name": "netsapiens",
+      "system": "White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain",
+      "status": "beta",
+      "skill_path": "skills/netsapiens",
+      "cli_binary": "netsapiens-cli",
+      "mcp_binary": "netsapiens-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "NetSapiens",
+      "vendor_trademark_owner": "Crexendo, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/install.sh)",
+      "install_mcp_doc": "skills/netsapiens/mcp-install.md",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
+      "verification": "awaiting",
+      "category": "Telephony",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform."
+    },
+    {
       "name": "ninjaone",
       "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
       "status": "live-verified",

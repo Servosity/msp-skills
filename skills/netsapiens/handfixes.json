@@ -1,0 +1,920 @@
+{
+ "slug": "netsapiens",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "netsapiens-pages-on-zero-based-start-offset",
+   "status": "active",
+   "summary": "sync and list --all advance NetSapiens' 0-based start offset (limit default 100, max 1000); export does too, and a resource with no offset parameter (/phones) takes one request and fails on a full page",
+   "why": "NetSapiens v2 lists page with start + limit; the press does not recognize start as an offset parameter, so sync stored one page and every tenant past row 1000 (or 100 for list commands) disappeared from domains, users, phonenumbers and CDRs. Test: TestSyncPagesOnStart. Press 4.34.2 reprint (2026-10-27, run 20261027-145311-2d37b028): carried by 3-way merge; x-pp-pagination supports only \"none\", so the spec cannot express it. Publish review: export re-read page one, so export domains --limit 150 exited 0 with duplicates and missing tenants. Test: TestClassExportWalksEveryRow, seen failing first.",
+   "spec_encode_followup": "press: an x-pp-pagination offset form naming the offset param (start)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam:    \"start\",",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/domains_list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/domains_users_list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phonenumbers_list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cdrs_list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/domains_cdrs_list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/domains_users_cdrs-list.go",
+     "contains": "nil, flagAll, \"start\", \"offset\", \"limit\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"domains\":            {responsePath: \"\", paginationType: \"offset\", cursorParam: \"start\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"cdrs\":               {responsePath: \"\", paginationType: \"offset\", cursorParam: \"start\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"phonenumbers\":       {responsePath: \"\", paginationType: \"offset\", cursorParam: \"start\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if config.paginationType == \"offset\" && config.cursorParam == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "return incomplete",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "class": "pagination"
+  },
+  {
+   "id": "netsapiens-single-object-dependents-store-one-row",
+   "status": "active",
+   "summary": "a per-parent endpoint that answers one object (/domains/{domain}/billing) stores one row per parent",
+   "why": "The dependent sync loop extracts only arrays or wrapped collections, so billing synced zero rows and fleet seats silently fell back to local counts with no limits. Test: TestSyncStoresSingleObjectBilling. Press 4.34.2 reprint (2026-10-27, run 20261027-145311-2d37b028): carried.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "singleObjectDependentItem(data, dep.Name)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_sync_single.go",
+     "contains": "func singleObjectDependentItem(",
+     "code_only": true
+    }
+   ],
+   "class": "sync-shape"
+  },
+  {
+   "id": "netsapiens-explicit-resources-are-exact",
+   "status": "active",
+   "summary": "sync --resources runs exactly the named resources; a listed parent does not pull in its dependents",
+   "why": "Resellers have thousands of users; parent-cascade made --resources domains,users also fetch per-user addresses, message sessions and messages, so the documented fleet sync could not be narrowed. Test: TestSyncExplicitResourcesAreExact. Press 4.34.2 reprint (2026-10-27, run 20261027-145311-2d37b028): carried.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if len(allow) > 0 && !allow[dep.Name] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "!allow[dep.ParentTable] && !allow[dep.Name]"
+    }
+   ],
+   "class": "sync-scope"
+  },
+  {
+   "id": "netsapiens-stable-table-column-order",
+   "status": "active",
+   "summary": "human tables break column-priority ties by field name, not Go map order",
+   "why": "prioritizeFields broke ties with a map-range index, which Go randomizes, so fleet tables printed a different column order (and kept different columns under the 6-column cap) each run. Test: TestPrioritizeFieldsIsDeterministic. Press 4.34.2 reprint (2026-10-27, run 20261027-145311-2d37b028): carried.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return all[i].name < all[j].name",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "return all[i].index < all[j].index"
+    }
+   ],
+   "class": "output-stability"
+  },
+  {
+   "id": "netsapiens-examples-for-body-and-positional-commands",
+   "status": "upstreamed",
+   "summary": "17 positional-ID and body commands carry a runnable --help Example, now from spec x-pp-example",
+   "why": "The press emits no Example when a path param or body field has no spec example. The 4.33.5 print hand-added 17 Examples to generated files. Press 4.34.2 reprint (2026-10-27, run 20261027-145311-2d37b028): moved into spec.json as operation-level x-pp-example, so every render emits them (byte-identical to the hand edits); no generated file carries a hand edit. The vendored tree carries no spec.json (onboard withholds it from press/), so the asserts check two of the generated Examples; the spec copy lives in the library.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/domains_phonenumbers_get.go",
+     "contains": "domains phonenumbers get 16025550100 --domain example.com\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/routes_routecon_update.go",
+     "contains": "routes routecon update c2lwOnRlc3QxQCo 1",
+     "code_only": true
+    }
+   ],
+   "class": "help-examples"
+  },
+  {
+   "id": "netsapiens-store-redacts-secrets-and-sync-replaces",
+   "class": "credential-persistence",
+   "status": "active",
+   "summary": "every store write redacts credential fields; a sync walk replaces the stored document instead of merging",
+   "why": "Press 4.34.2 reprint (2026-10-27): NetSapiens answers carry SMTP, SIP, voicemail and conference credentials in ordinary fields (spec.json Domain email-send-smtp-password, Billing smtp_pwd, Device device-sip-registration-password). The store is readable through the MCP sql and search tools. mergeIncomingResourceData redacts before the blob, FTS and typed columns derive from it; a walk replaces so a field the API now returns empty does not keep its old value. Tests: TestReview* store tests (review-fix-r1/proof-summary.txt). Fix round 1 (2026-10-28, .review/codex-r1.md): a binary answer whose body was the API key was cached as a base64 envelope (binary bodies skip IngestAnswer), export -o wrote it, and teach-playbook --notes-file stored the key raw in learning_playbooks. Fixed at the sinks, not the callers: every read-write store opens through heldSQLiteDriver (hand file netsapiens_held_driver.go, a database/sql driver wrapper that refuses any statement whose SQL text or string/blob argument passes cliutil.FunnelFile, so the learn packages writing through s.DB() are covered), writeCacheWithHeaders refuses the cache write, and export -o writes through cliutil.FunnelWriter. Tests: TestClassNoFileEverHoldsACredential (built binary, every file under HOME, raw and base64), TestClassNoStoreWriteCarriesAHeldCredential, seen failing first (.review/fix-r1-failfirst-credential-persistence.log). Credential kit adoption: the refusal at each disk sink moved to the kit (credkit-wiring, credkit-sqlite-every-handle); this entry keeps the redaction and the replace.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "incoming = RedactStoredSecrets(incoming)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if SyncReplaceActive() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return RedactStoredSecrets(merged)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "enc := json.NewEncoder(out)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "fmt.Fprintln(out, string(",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "not_contains": "fmt.Fprintln(writer, string("
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-store-refuses-unredacted-stores",
+   "class": "credential-migration-fail-open",
+   "status": "active",
+   "summary": "every store open checks an unmarked store once: one holding a credential is refused with the way out, never migrated",
+   "why": "Press 4.34.2 reprint (2026-10-27): The round-1 fix scrubbed legacy stores in place; Codex round 2 found it rewrote the CLI's own key columns (baseline-identity-corruption) and could leave a store half-scrubbed. Replaced: OpenWithContext and OpenReadOnlyContext call requireCredentialFree, which accepts a store marked credential_free_v2, marks one whose resources documents hold no credential, and refuses any other (`local-data purge --only store --yes`). Nothing is rewritten. Tests: TestClassLegacyStoreIsRefusedNotMigrated, TestClassFreshStoreOpens, TestClassBaselineIdentitySurvivesTheStoreGate, TestReviewLegacyStoreIsRefused.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "s.requireCredentialFree(true)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "s.requireCredentialFree(false)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/netsapiens_secrets.go",
+     "contains": "func (s *Store) requireCredentialFree(readOnly bool) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_sync_provenance.go",
+     "not_contains": "ScrubStoredSecrets"
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-only-a-walk-observes-a-row",
+   "class": "mirror-reconciliation",
+   "status": "active",
+   "summary": "resources.synced_at moves only inside a sync walk; a write outside one keeps it, or inserts the row as never walked",
+   "why": "Press 4.34.2 reprint (2026-10-27): Fleet audits read a row only when the covering walk returned it (synced_at at or after the walk's start). Write-through of a list served from the 5-minute HTTP cache (data_source.go) stamped now, so a domain the last walk no longer returned (spec.json GET /domains) read as present, and one no walk ever returned read as added. Test: TestClassWriteThroughDoesNotRejoinAWalk (both halves seen failing).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "synced_at = CASE WHEN ? THEN excluded.synced_at ELSE resources.synced_at END",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "id, resourceType, string(data), walkObservedAt(), time.Now().UTC().Format(time.RFC3339), SyncReplaceActive(),",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-credential-migration-fails-closed",
+   "class": "credential-migration-fail-open",
+   "status": "active",
+   "summary": "relocating a legacy config refuses and explains when its plaintext credential cannot be removed from the old file",
+   "why": "Press 4.34.2 reprint (2026-10-27): save() moved the config, then scrubbed the legacy copy and only warned on failure, so the command succeeded with a plaintext credential left in the old file. Now save returns the error with the path to clean. Test: TestClassLegacyCredentialMigrationFailsClosed.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := c.scrubLegacyCredentials(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "warning: cannot write scrubbed legacy config"
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-client-masks-every-error",
+   "class": "credential-output",
+   "status": "active",
+   "summary": "every client entry point returns through maskedResult, so a response-derived error is masked",
+   "why": "Press 4.34.2 reprint (2026-10-27): Codex round 1: errors built from response text in the generated client skipped the credential mask. Tests: TestReviewResponseDerivedErrorsAreMasked.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.maskedResult(c.doInternal(",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) maskedResult(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-audits-judge-every-dependency",
+   "class": "mirror-freshness",
+   "status": "active",
+   "summary": "every fleet command judges every table it joined, and the parent it was walked over, for age before a count reads as complete (hand-written files)",
+   "why": "Press 4.34.2 reprint (2026-10-27): fleet dids checks route targets (Phonenumber.dial-rule-translation-destination-user) against User.user; users synced days ago could not prove a target gone, yet the audit read as complete. Test: TestClassDidsJudgeEveryDependencyForAge. Fix round 1 (2026-10-28, .review/codex-r1.md): fleet missed joined users and devices synced 48 hours earlier and reported registered_devices:0 with complete:true under --max-age 1m; trace judged a fixed attachment list, so a stale NDP table behind a matched number went unjudged. fleetStale now also judges each dependent's parent (a fresh dependent walked over a stale domain list misses new domains), fleet missed judges its joins (complete:false, stale_resources, a note), and trace judges every table it read once something matched. Test: TestClassEveryJoinedDependencyIsJudgedForAge, seen failing first (.review/fix-r1-failfirst-mirror-freshness.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "contains": "ac.Stale = fleetStale(cmd, flags, db, append(all, read...)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "contains": "types = append(types, parent)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_missed.go",
+     "contains": "return users, reg, haveUsers, haveDevices, fleetStale(cmd, flags, db, cov.tables()...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_missed.go",
+     "contains": "rep.Complete = !rep.Truncated && len(rep.Stale) == 0",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/trace.go",
+     "contains": "used = append(used, cov.tables()...)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-select-keeps-incompleteness",
+   "class": "incomplete-audit-output",
+   "status": "active",
+   "summary": "--select, --csv, --plain and --quiet refuse any incomplete audit, missing or stale (hand-written file)",
+   "why": "Press 4.34.2 reprint (2026-10-27): printFleetAudit refused those shapes only for missing sources, so a stale audit printed with --select read as a clean answer. Test: TestClassSelectNeverDropsIncompleteness.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "contains": "if !ac.Complete && (fleetRowOutput(flags) || flags.selectFields != \"\") {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-fanout-enumerates-live-domains",
+   "class": "fanout-scope",
+   "status": "active",
+   "summary": "fleet queues enumerates the live domain list, never the 5-minute HTTP cache (hand-written file)",
+   "why": "Press 4.34.2 reprint (2026-10-27): A complete fan-out over a cached GET /domains missed a domain added upstream within the cache window. Test: TestClassQueueFanoutEnumeratesLiveDomains.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_queues.go",
+     "contains": "raw, err := c.GetNoCache(ctx, \"/domains\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-trace-number-needs-phone-syntax",
+   "class": "identifier-disambiguation",
+   "status": "active",
+   "summary": "trace searches phone numbers only for input in phone syntax (hand-written file); numbers compare as E.164 (country code kept) and an input that could be more than one stored number fails closed with the candidates",
+   "why": "Press 4.34.2 reprint (2026-10-27): AC:60:25:55:01:42 (Device.device-provisioning-mac-address) has 10 digits and matched another tenant's Phonenumber.phonenumber 16025550142. Test: TestClassMACIsNotSearchedAsAPhoneNumber. Fix round 1 (2026-10-28, .review/codex-r1.md): normDigits dropped a leading 1 from 11 digits, so trace +6495550142 matched 16495550142 (+1 649, another tenant). Phonenumber.phonenumber is documented E.164 with its country code. normDigits now keeps every digit; phoneIdentity reads a stored value as +digits; phoneCandidates lists what an input can mean (an explicit + is exactly one; otherwise as written, +1 for 10 digits, and after a 00 or 011 prefix); more than one distinct stored match returns no match, complete:false and ambiguous_candidates. Test: TestClassPhoneNumbersKeepTheirCountryCode, seen failing first (.review/fix-r1-failfirst-identifier-disambiguation.log). Fix round 2 (2026-10-29, .review/codex-r2.md): an international marker was read only as a first-character '+', so (+64) 9 555 0142 fell through to the +1 649 reading. phoneCandidates now treats a '+' anywhere before the first digit, or a leading 00 or 011, as one international number with no NANP candidate. Test: TestClassPhoneNumbersKeepTheirCountryCode, seen failing first (.review/fix-r3-failfirst-identifier-disambiguation.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/trace.go",
+     "contains": "if len(normDigits(q)) >= 7 && strings.Trim(strings.TrimPrefix(strings.ToLower(q), \"tel:\"), \"0123456789+-(). \") == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "contains": "func phoneCandidates(q string) map[string]bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "not_contains": "if len(d) == 11 && d[0] == '1' {"
+    },
+    {
+     "file": "cli/internal/cli/trace.go",
+     "contains": "if id := phoneIdentity(n.fstr(\"phonenumber\")); want[id] && inScope(n.domainOf()) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/trace.go",
+     "contains": "res.Ambiguous = hits",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "contains": "if i := strings.IndexAny(q, \"0123456789\"); strings.Contains(q[:i], \"+\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_fleet.go",
+     "not_contains": "if strings.HasPrefix(strings.TrimSpace(q), \"+\") {"
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-mcp-takes-no-file",
+   "class": "mcp-host-file",
+   "summary": "The five multipart upload endpoints (domain and user hold messages, images.update) are left out of the MCP endpoint table, so no MCP tool takes a file; the CLI keeps them for an operator's own local path.",
+   "why": "Press 4.34.2 emits MCP file parameters for multipart endpoints (base64 by default, a confined path when NETSAPIENS_MCP_UPLOAD_ROOT is set). The fleet work order holds any connector whose MCP surface takes a file; no connector on main does. A reprint re-emits the five entries, which TestNoEndpointToolTakesAFile and these asserts catch.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "Multipart:      true"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "FileParams:     []string{\""
+    },
+    {
+     "file": "cli/internal/mcp/netsapiens_no_file_tools_test.go",
+     "contains": "func TestNoEndpointToolTakesAFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-credential-goes-only-to-the-configured-server",
+   "class": "credential-routing",
+   "status": "active",
+   "summary": "a client is pinned to the scheme, host and port it was configured for; every request and redirect hop off it is refused, and --path-context can never set a server-shaped template var",
+   "why": "Fix round 1 (2026-10-28, .review/codex-r1.md): sync --path-context server=<another host> rewrote the {server} template var after configuration and sent the API key, the config headers and the body to that host; a redirect could do the same. The client now records its origin when built (hand file netsapiens_origin_pin.go: pinnedOrigin, refuseOffServer, doPinned wraps whichever http.Client is used with a CheckRedirect that refuses any off-origin hop), doInternal refuses an off-origin URL before a connection, ErrOffServerRequest is terminal (no retry), and sync refuses a server-shaped --path-context key (hand file netsapiens_path_context.go). Tests: TestClassCredentialNeverLeavesTheConfiguredServer, TestClassArgumentsNeverMoveTheCredentialedServer, TestClassMCPPathContextNeverMovesTheServer, seen failing first (.review/fix-r1-failfirst-credential-routing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.serverOrigin = pinnedOrigin(c.BaseURL, cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := c.refuseOffServer(targetURL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "resp, err := c.doPinned(httpClient, req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "case errors.Is(err, ErrOffServerRequest):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/netsapiens_origin_pin.go",
+     "contains": "func (c *Client) doPinned(hc *http.Client, req *http.Request) (*http.Response, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := refuseServerPathContext(pathContext, c.Config.BaseURL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_path_context.go",
+     "contains": "func refuseServerPathContext(pathContext map[string]string, baseURL string) error {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor probes the credential with an authenticated argument-free GET (GET /apikeys/~) and calls the shipped sandbox default and a non-API base URL what they are (hand-written doctor_verdict.go, fleet pattern from ninjaone)",
+   "why": "Fix round 1 (2026-10-28, .review/codex-r1.md): check_doctor_truth failed all four states: a healthy credential read 'present, not verified', a wrong base URL and the placeholder read reachable, and the placeholder remedy never named NETSAPIENS_BASE_URL. Every NetSapiens provider runs its own host; the shipped {server} default ns-api.com is only the public sandbox, so an install that never set NETSAPIENS_SERVER is reported not configured (config.go records serverDefaulted). Test: python3 tools/maintainer/check_doctor_truth.py --slug netsapiens, seen failing first (.review/fix-r1-failfirst-doctor-truth.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if doctorBaseURLIsPlaceholder(doctorBase) || doctorServerIsShippedDefault(cfg) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = doctorPlaceholderVerdict(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"netsapiens-cli\", report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.serverDefaulted = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "serverDefaulted bool `toml:\"-\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorProbeEndpoint = \"apikeys.my\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-firebase-json-field-flag",
+   "class": "local-flag-shadows-global-switch",
+   "status": "active",
+   "summary": "firebase create's body field json is the local flag --json-field, never a local --json over the root's --json switch",
+   "why": "Fix round 1 (2026-10-28, .review/codex-r1.md): firebase create declared a local --json string flag over the persistent bool --json, so the documented bare --json swallowed the next argument there (check_command_tree.py). The flag is renamed; the request body still sends json. Test: TestClassNoLocalValueFlagShadowsAPersistentSwitch (walks every command), seen failing first (.review/fix-r1-failfirst-local-flag-shadows-global-switch.log).",
+   "spec_encode_followup": "press: a body property named like a persistent switch (json, agent, quiet, ...) should get a distinct flag name at generation",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/firebase_create.go",
+     "contains": "cmd.Flags().StringVar(&bodyJson, \"json-field\", \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/firebase_create.go",
+     "not_contains": "cmd.Flags().StringVar(&bodyJson, \"json\","
+    },
+    {
+     "file": "cli/internal/cli/firebase_create.go",
+     "contains": "\"pp:happy-args\": \"--filename=greeting.wav;--json-field=example\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-apikey-examples-are-placeholders",
+   "class": "secret-in-source",
+   "status": "active",
+   "summary": "the apikeys get/delete examples use the placeholder nsr_KEY_ID, not a key-shaped spec example",
+   "why": "Fix round 1 (2026-10-28, .review/codex-r1.md): gitleaks generic-api-key flagged the spec's key_id examples nsr_XDS9kzKV and nsr_hTd6kA9I in the generated apikeys_get.go and apikeys_delete.go Example and pp:happy-args. Check: gitleaks detect --no-git --source skills/netsapiens --config .gitleaks.toml --redact --no-banner exits 0 (.review/fix-r1-failfirst-gitleaks.log).",
+   "spec_encode_followup": "library spec ~/printing-press/library/netsapiens/spec.json: the key_id examples at lines 809 (nsr_XDS9kzKV) and 1467 (nsr_hTd6kA9I) must become nsr_KEY_ID before the next reprint, or the reprint restores them",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/apikeys_get.go",
+     "contains": "\"pp:happy-args\": \"key_id=nsr_KEY_ID\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apikeys_delete.go",
+     "contains": "\"pp:happy-args\": \"key_id=nsr_KEY_ID\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apikeys_get.go",
+     "not_contains": "nsr_XDS9kzKV"
+    },
+    {
+     "file": "cli/internal/cli/apikeys_delete.go",
+     "not_contains": "nsr_hTd6kA9I"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint and funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every client, feedback, deliver and probe request goes through credkit.Transport; every file write except the 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption).",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. The two review inputs the earlier layer missed (an inline headers table in the config, and a key assembled across two SQL statements) are closed by it. Tests: internal/credwire/kit_test.go on the built binaries, seen failing on a pre-kit build (.review/kit-failfirst-prekit.log). Replaces netsapiens-one-credential-holder-one-output-chokepoint and secret-echo-decoded-funnel.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Start and Exit in each main, credkit.Transport on every client, kit file writes, the kit SQLite driver, the MCP layers, RunCommand) from a per-connector declarations file.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/netsapiens_origin_pin.go",
+     "contains": "pinned.Transport = OutboundGuard(hc.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_test.go",
+     "contains": "func TestKitRefusesAKeyAssembledAcrossStatements(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_test.go",
+     "contains": "func TestKitHoldsInlineAndNestedConfigTables(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a value set when the connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, and checking each one is what refuses a key assembled across statements.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included: requireBearerAuthWithLimits runs a preflight that writes nothing, then answers the Origin, bearer and body-limit verdicts inside the kit.",
+   "why": "With the kit around only the inner handler, a refusal answers outside it and can carry a piece of a held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/netsapiens-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-config-and-origin-from-the-run",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Declarations.Files reads the command line as the program does (the CLI's own command tree and pflag) and names the config this run really reads, so an explicit --config or NETSAPIENS_CONFIG decides the base URL the kit allows. The {server} template base URL is shown to the kit through a temporary NETSAPIENS_BASE_URL that AfterStart restores. The kit reads Files once, in Start; every later read of a config or credentials file (the MCP server reloads per tool call) hands the bytes to the kit's HoldBody before the parse, and the [headers] values and the base_url password and query values to Hold and HoldURL. AfterStart holds a --body-json request body and the run profile stores with HoldBody.",
+   "why": "The kit takes every credential's allowed origin from the base URL it sees, and a template it cannot resolve allows nothing. A discovered default's address must not become the allowed origin when --config names another server. The kit's file reader runs only in Start, so a config written after Start is held only when the program reads it. Tests: TestKitCredentialStaysOnTheConfiguredOrigin, TestAfterStartRestoresTheBaseURL, TestKitHoldsInlineAndNestedConfigTables, TestKitProfileStore, TestKitBodyJSONIsHeldBeforeThePreview.",
+   "spec_encode_followup": "Press-side: generate this file order and base URL resolution with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "configPath, home, parsed := cobraPathFlags(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func AfterStart() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdProfileStores(home string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "HoldBody(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "HoldURL(\"userinfo\", base)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldBody([]byte(body))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-client-redacts-every-answer",
+   "class": "credential-output",
+   "status": "active",
+   "summary": "The client redacts every credential field in an answer, live and from the HTTP cache, and holds each value through the kit, so a list with SIP passwords still prints with <redacted> and a repeat of the value anywhere is withheld. A PIN or passcode field is redacted but declared an Identifier: holding four digits would withhold every unit with those digits. meeting-registration-id (a webinar guest's token) and refresh (a refresh JWT) are credentials by the vendor's own spec under names the word rule cannot read, and a JWT is one under any name.",
+   "why": "The kit withholds a whole unit on a match, which would turn every domain or device list into a refusal because the vendor returns credentials in ordinary fields. Redacting named fields first keeps those lists usable. A PIN an operator types as a flag is still held. Tests: TestKitDeclaredResponseFields, TestKitPinIsRedactedAndNotHeld, TestPinFieldsAreTheOnlyResponseExemptions. Test: TestKitDocumentedAndShapedCredentials, seen failing first (.review/fix-kit-r1-failfirst.log).",
+   "spec_encode_followup": "Press-side: a declared response-field redaction step ahead of the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "respBody, _ = cliutil.RedactCredentials(respBody)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "out, _ := cliutil.RedactCredentials(cached)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/netsapiens_credentials.go",
+     "contains": "func RedactCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/netsapiens_credentials.go",
+     "contains": "func IsPinField(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/netsapiens_credentials.go",
+     "contains": "\"refresh\":                 true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/netsapiens_credentials.go",
+     "contains": "if LooksLikeJWT(t) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-persistence",
+   "status": "active",
+   "summary": "A run profile saves and applies only allow-listed flag values: a credential-named flag is never written to profiles.json or loaded from it.",
+   "why": "profiles.json is a plain store the MCP surface can read, so a value there outlives the command that typed it. Test: TestKitProfileStore.",
+   "spec_encode_followup": "Press-side: generate the allow-list with the profile commands.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func runProfileValueAllowed(flag string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if !runProfileValueAllowed(flag) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-cached-read-never-overwrites-a-walk",
+   "class": "mirror-reconciliation",
+   "status": "active",
+   "summary": "A read answered from the HTTP cache is not written through to the mirror.",
+   "why": "A cached answer can be five minutes old, so it could overwrite what a later sync walk stored while the row kept the walk's timestamp, and fleet changes then missed a documented field change. Test: TestClassCachedReadNeverOverwritesAWalk, seen failing first (.review/fix-kit-r1-failfirst.log).",
+   "spec_encode_followup": "Press-side: the write-through path should skip cache hits.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "reportCacheHit(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/netsapiens_cache_hit.go",
+     "contains": "func WithCacheHitReport(ctx context.Context) (context.Context, *atomic.Bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if !cacheHit.Load() {",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-walk-starts-on-a-whole-second",
+   "class": "mirror-reconciliation",
+   "status": "active",
+   "summary": "A sync walk starts on the next whole second, so no row an earlier walk wrote carries this walk's start.",
+   "why": "synced_at has one-second resolution and audits keep rows at or after the walk start, so a row from a walk in the same second survived a later walk that no longer returned it. The wait is under one second. Test: TestReviewCompletedWalkDropsRowsTheAPINoLongerReturns, with its wait removed, seen failing first.",
+   "spec_encode_followup": "None: connector-owned provenance.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/netsapiens_sync_provenance.go",
+     "contains": "started := time.Now().UTC().Truncate(time.Second).Add(time.Second)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_sync_provenance.go",
+     "contains": "time.Sleep(time.Until(started))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-mcp-cannot-move-the-baseline",
+   "class": "mcp-write-confirm",
+   "status": "active",
+   "summary": "fleet changes --rebaseline is CLI only: the read-only MCP tool refuses it. fleet changes --domain X --rebaseline is refused: the baseline moves for every client, so a report scoped to one would erase the others' changes unseen.",
+   "why": "The tool has no confirm step and advertises read-only, and moving the baseline erases what the next comparison would report. Test: TestMCPCannotMoveTheBaseline, seen failing first. Test: TestClassScopedRebaselineIsRefused, seen failing first.",
+   "spec_encode_followup": "Press-side: a command annotated mcp:read-only-unless-flags should drop those flags in every mode.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "if rebaseline && cliutil.IsMCPChildEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "if rebaseline && domain != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "netsapiens-limit-only-all-is-not-silent",
+   "class": "incomplete-audit-output",
+   "status": "active",
+   "summary": "list --all on an endpoint with a limit and no offset parameter (/phones, /domains/{domain}/phones) fails on a full page instead of reporting complete",
+   "why": "NetSapiens /phones takes only limit, so --all asked once and returned the first 100 of 1000 rows with a complete event and exit 0. paginatedGet now fails on a full page for every such endpoint. Test: TestLimitOnlyAllFailsOnAFullPage, seen failing first.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cursorParam == \"\" && limitParam != \"\" && nextCursorPath == \"\" && hasMoreField == \"\" && pageSize > 0 && len(allItems) >= pageSize",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "offers no way to page past it; rerun with a larger --limit",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/netsapiens_limit_only_all_test.go",
+     "contains": "func TestLimitOnlyAllFailsOnAFullPage",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
