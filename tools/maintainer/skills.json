@@ -876,6 +876,28 @@
         "issue_url": null
       }
     },
+    "dropsuite": {
+      "system": "Dropsuite (NinjaOne SaaS Backup): fleet backup health, coverage gaps, seat and billing reconciliation, restore-test evidence across every client organization",
+      "status": "beta",
+      "cli_binary": "dropsuite-cli",
+      "mcp_binary": "dropsuite-mcp",
+      "vendor": "Dropsuite (NinjaOne)",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Dropsuite",
+      "has_video": true,
+      "cli_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "exchange-online": {
       "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
       "status": "beta",

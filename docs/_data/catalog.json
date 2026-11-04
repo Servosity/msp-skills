@@ -1,5 +1,5 @@
 {
-  "count": 95,
+  "count": 96,
   "connectors": [
     {
       "slug": "abnormal",
@@ -442,6 +442,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/domotz/"
+    },
+    {
+      "slug": "dropsuite",
+      "display_name": "Dropsuite",
+      "tagline": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/dropsuite/"
     },
     {
       "slug": "exchange-online",

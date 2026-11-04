@@ -1,0 +1,661 @@
+{
+ "slug": "dropsuite",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "org-token-routing",
+   "class": "auth-wire",
+   "summary": "Dropsuite takes the reseller Authentication Token (X-Access-Token) plus X-Reseller-Token on GET /users, GET /users/{id} and /users/generate_support_sso_link, and ONE organization's authentication_token (returned by GET /users) on every other route. --org <id|owner email|external_id> resolves that token for organization-scoped commands; DROPSUITE_ORG routes requests that still carry the reseller token (MCP typed tools) through orgRoutingTransport; the fleet commands build one client per organization. Organization tokens stay in memory, are held by the shared credential kit as a declared response field (credkit-wiring), and never reach the local store (an organization-scoped read never writes through to it).",
+   "why": "Vendor REST reference (NinjaOne SaaS Backup REST API, sources/dropsuite-rest-api-subreseller-v1.00.pdf): 'User's Authentication token' vs 'Admin Token'. Without the routing every backup-data command 401s with the reseller token. Hand files internal/cli/dropsuite_org.go and dropsuite_routing.go (carried from the 4.33.5 print); the two transports are installed by the one ordered client hook in ds_guard.go, above the origin pin. Tests: internal/cli/dropsuite_fleet_test.go, TestOriginPinUnderEveryDropsuiteTransport, the dsblackbox battery (accounts/onedrives/sharepoint with --org, MCP with DROPSUITE_ORG).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/dropsuite_routing.go",
+     "contains": "type orgRoutingTransport struct {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_routing.go",
+     "contains": "req.Header.Set(\"X-Access-Token\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_org.go",
+     "contains": "func applyOrgOverride(c *client.Client) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_org.go",
+     "contains": "c.Config.AccessToken = orgTokenOverride",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_org.go",
+     "contains": "type redactingTransport struct {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "applyOrgOverride(c)\n\t\tinstallRedaction(c)\n\t\tinstallOrgRouting(c)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-novel-commands",
+   "class": "feature",
+   "summary": "The eight fleet commands (health, coverage, billing, evidence, hygiene, locate, drift, restore-test) are hand-written over the generated client; health snapshots and the restore-test ledger live in the local store's ds_* tables.",
+   "why": "Novel features of the first print (research 20261015-014520-278ea5bd), carried unchanged into the 4.34.2 render. A reprint that re-stubs a novel file shows here.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/health.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/coverage.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/billing.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/evidence.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/hygiene.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/locate.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/drift.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/restore_test_cmd.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_store.go",
+     "contains": "ds_health_snapshots",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-two-header-org-scoped",
+   "class": "docs",
+   "summary": "README/SKILL/AGENTS name both auth env vars, use --org in organization-scoped examples, drop write/stdin/cookie/job boilerplate, state the read-only surface with the four sign-in link exceptions, and describe the credential rules (no response cache, origin pin, withheld notice).",
+   "why": "Press template text does not fit a two-header, organization-scoped, read-only API. Re-applied by tools/fix_docs.py after every generate, dogfood and shipcheck; the auth narrative is fixed at its source (research.json).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "`DROPSUITE_RESELLER_TOKEN` | per_call"
+    },
+    {
+     "file": "guide.md",
+     "contains": "The response cache is off"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a redirect to any other host is refused"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "GET responses are cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request and redirect hop goes only to the scheme, host and port of the configured partner API base URL (https://<DROPSUITE_HOST>/api, default dropsuite.us, or DROPSUITE_BASE_URL), resolved from the {host} template when the client is built; anything else is refused before it is resolved, dialled or given a token. An unresolved template pins nothing (every request refused).",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/ds_guard.go), installed directly above the credential kit's transport (client.OutboundGuard) by the ONE client hook, so the organization routing, the redaction transport and the routing's organization-list loads all send through it (init order across files is not relied on). Tests: TestOriginPinRefusesRedirectToAnotherHost (reseller and routed organization token), TestOriginPinUnderEveryDropsuiteTransport, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origins: origins, base: basePathOfURL(resolved), next: next}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "resolved := client.ResolvedBaseURL(c.BaseURL, vars)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "origins := pinnedOrigins(resolved)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_routing.go",
+     "not_contains": "registerClientHook("
+    },
+    {
+     "file": "cli/internal/cli/dropsuite_org.go",
+     "not_contains": "registerClientHook("
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: GET /users bodies carry every organization's authentication_token and never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (ds_guard.go); TestOriginPinUnderEveryDropsuiteTransport asserts it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-write-confirm",
+   "class": "write-safety",
+   "summary": "Every MCP tool that can change Dropsuite state previews and sends only with confirm: true (boolean). Dropsuite's only state changes reachable here are the portal sign-in link calls (each invalidates the previous link): the endpoint tools portal_get-login-link and organizations_get-support-sso-link preview their request; locate and evidence run as reads and preview without --sso-link / --with-sso-link unless confirmed. Fail closed: any other tool that is neither read-only nor a reviewed local-only command is gated too.",
+   "why": "Work order: every MCP write previews and sends only with confirm: true. Press 4.34.2 registers both sign-in link endpoint tools with no confirm. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/ds_confirm.go), called from RegisterTools after RegisterAll; only boolean true sends and confirm is never forwarded. Tests: TestRegisteredMirroredWritesNeedConfirm (also fails on any ungated non-read-only tool outside the reviewed local list), TestEndpointWriteToolPreviewsWithoutConfirm, TestMCPWritesNeedConfirm and TestMCPPreviewCannotBeTurnedOffByAnArgument (black-box: no link minted before confirm). Codex review round 1 class read-call-reaches-a-mint-route: a read-only tool whose path argument names a sign-in link route (organizations_get id generate_redirect_link, with DROPSUITE_ORG) minted a link; the client now marks a call it issues as a mutation (client.go doInternal: cliutil.MarkMutation) and the innermost API transport (ds_guard.go checkRoute) lets only a marked request reach any generate_* route in any spelling (format suffix, case, redirect hop) and refuses any path segment the API could route elsewhere (slash, backslash, percent, semicolon, dot or empty segment); the refusal is terminal (client.go terminalTransportRefusal), never retried. TestReadsNeverReachASignInLinkRoute and TestNoReadReachesASignInLinkRoute (black-box, CLI and MCP), seen failing first: r1-read-call-reaches-a-mint-route-seen-failing.log.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/ds_confirm.go",
+     "contains": "s.AddTool(tool, mirrorConfirmGate(name, name, nil, entry.Handler, nil))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/ds_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/locate.go",
+     "contains": "\"mcp:read-only-unless-flags\": \"sso-link\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/ds_confirm_registered_test.go",
+     "contains": "func TestEndpointWriteToolPreviewsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsblackbox/blackbox_test.go",
+     "contains": "func TestMCPWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ctx = cliutil.MarkMutation(ctx, mutationIntent)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return errors.Is(err, cliutil.ErrRequestRefused) ||",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "case errors.Is(err, cliutil.ErrRequestRefused):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "err = checkRoute(t.base, req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_guard.go",
+     "contains": "if mintRoute(segs) && !cliutil.MutationIntent(req.Context()) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ds_route_test.go",
+     "contains": "func TestReadsNeverReachASignInLinkRoute(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsblackbox/routes_test.go",
+     "contains": "func TestNoReadReachesASignInLinkRoute(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-host-path-flags-blocked",
+   "class": "mcp-file-flags",
+   "summary": "billing --invoice (a local PSA CSV the operator names) is never an MCP argument: the billing command carries mcp:read-flags invoice, so the mirror drops it from the tool schema and refuses a call that supplies it by name before the companion CLI runs. The CLI opens it with os.Open(filepath.Clean(path)), no inline suppression.",
+   "why": "msp-skills check_mcp_file_flags.py (taint analysis over the connector) found the --invoice value reaching the companion CLI from a tools/call (work order P1 class: host file read from an MCP tool argument); check_security_gate.py then blocked the inline #nosec G304 on the open (no fleet precedent for hand code). Test TestBillingInvoicePathIsNotAnMCPArgument (seen failing first: r0-host-file-read-seen-failing.log); the fleet gate check_mcp_file_flags passes on the stage.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/billing.go",
+     "contains": "\"mcp:read-flags\": \"invoice\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/billing.go",
+     "contains": "f, err := os.Open(filepath.Clean(invoicePath))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/billing.go",
+     "not_contains": "#nosec G304"
+    },
+    {
+     "file": "cli/internal/mcp/ds_confirm_registered_test.go",
+     "contains": "func TestBillingInvoicePathIsNotAnMCPArgument(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint, secret funnel and store scrub. internal/credwire/declarations.go holds the one Declarations literal (DROPSUITE_ACCESS_TOKEN and DROPSUITE_RESELLER_TOKEN sent as X-Access-Token and X-Reseller-Token, DROPSUITE_MCP_HTTP_TOKEN sent nowhere, GET /users authentication_token a response field bound to the API origin) and Files, which names config.toml, the legacy config, each explicit config with its 0600 credentials.toml and the global store under every --home, --config, DROPSUITE_HOME and DROPSUITE_CONFIG, and shows the kit the resolved https://{host}/api base through DROPSUITE_BASE_URL until AfterStart restores it (an unresolved template allows no origin). Each main starts with credkit.Start and credwire.AfterStart and ends with credkit.Exit; the MCP server runs credkit.MCPTools outermost and serves stdio through credkit.MCPIn and credkit.MCPOut. The API, streaming, probe, feedback and --deliver webhook clients go through credkit.Transport (client.OutboundGuard, below the origin pin); every SQLite handle opens through internal/credsql (credkit.SQLDriver, the MCP sql value cap as a DSN setting); every file write goes through the kit except the 0600 credential store and the config file (cliutil.AtomicWriteCredentialFile, the declared exemption); children start through credkit.RunCommand and StartCommand; terminal checks use credkit.Terminal; auth set-token holds its stdin token with credkit.Hold.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. Closes the three classes the factory print left open, each proven on the built binaries and seen failing on the pre-kit tree: credential-source-not-held (a DROPSUITE_CONFIG file with a multi-line literal before a broken line, and one with the token after its first MiB), secret-in-startup-diagnostics (the store refusal warning naming a home path that holds the token, CLI and MCP) and held-value-in-an-undecoded-encoding (quoted-printable over base64 over quoted-printable). Retired, reason replaced by the shared credential kit: secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, network-sinks-withheld.",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal, the templated-base hand-off and the kit-wrapped SQLite driver.",
+   "asserts": [
+    {
+     "file": "cli/cmd/dropsuite-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-cli/main.go",
+     "contains": "credwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "credwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "baseURLShown = os.Setenv(\"DROPSUITE_BASE_URL\", base) == nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"response:authentication_token\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "bufio.NewWriter(credkit.NewWriter(f, credkit.SinkFile))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsblackbox/classes_test.go",
+     "contains": "func TestCredentialSourceNotHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsblackbox/classes_test.go",
+     "contains": "func TestSecretInStartupDiagnostics(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsblackbox/classes_test.go",
+     "contains": "func TestHeldValueInAnUndecodedEncoding(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor probes GET /users with the reseller pair (X-Access-Token and X-Reseller-Token) and reads the answer by status, calls a 404 a wrong base URL naming DROPSUITE_HOST and DROPSUITE_BASE_URL, names DROPSUITE_BASE_URL on a placeholder base URL, and, when the default host dropsuite.us is in force and the probe does not verify there (401, 404, no answer), keeps the api row negative and names DROPSUITE_HOST and DROPSUITE_BASE_URL, instead of calling any HTTP response reachable and printing 'present, not verified'.",
+   "why": "check_doctor_truth.py failed every state on the 4.34.2 print (issue #282): a working credential read 'present, not verified', a base URL at a web UI read 'reachable (HTML body at /)', expired, healthy and wrong-base gave one identical credentials verdict, and the harness's placeholder state (no base URL set, so https://{host}/api with the default host dropsuite.us) read 'reachable (HTTP 404 at /)' without naming DROPSUITE_BASE_URL. Ported from the fleet form (prtg, cisco-umbrella) and adapted: GET /users is the one argument-free read that takes the reseller credential (every other one takes an organization token, and the generate* routes mint sign-in links), its body carries organization tokens so the probe discards it, and dropsuite.us is a real partner API host, so it is probed, never refused; only its remedy changes, because a partner on another Dropsuite API host gets a 401 or no answer there. doctor_verdict.go carries the replay recipe's helper signatures and no doctorBaseURLIsShippedPlaceholder, so replay_handfixes.py wires the probe, the no-credential row and the placeholder row but not the shipped-template refusal; doctorNameDefaultHost is wired by hand. Tests: doctor_verdict_test.go (seen failing first) and check_doctor_truth.py --slug dropsuite.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorBaseURLEnv = \"DROPSUITE_BASE_URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorProbePath = \"/users\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorNameDefaultHost(cfg *config.Config, report map[string]any) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorNameDefaultHost(c.Config, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "not_contains": "func doctorBaseURLIsShippedPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"dropsuite-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorNameDefaultHost(cfg, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorVerdictTracksReality(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorDefaultHostIsProbedAndNamesTheFix(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a bearer holding the refusal's text would get a piece of itself back.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-transport",
+   "class": "mcp-transport",
+   "status": "active",
+   "summary": "dropsuite-mcp carries the press 4.34.2 token-protected streamable HTTP mode (--transport http, --addr, --tls-cert, --tls-key): DROPSUITE_MCP_HTTP_TOKEN of at least 32 characters required, Authorization: Bearer checked on every request, a non-loopback Origin refused unless DROPSUITE_MCP_HTTP_ALLOWED_ORIGINS lists it, TLS required for any non-loopback bind, every response through credkit.MCPHTTP. stdio stays the default.",
+   "why": "The 4.34.2 render of this spec emitted a stdio-only main, so remote agents had no supported path and the runtime proof (verify-msp-skills feature 3) had nothing to drive. main.go and http_auth_test.go are the press 4.34.2 template as the other kit adopters carry it (mimecast's copy, slug names substituted), so the reviewed template shape is unchanged.",
+   "spec_encode_followup": "Declare the http transport in the spec's MCP config so the press emits this main natively.",
+   "asserts": [
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "transport := flag.String(\"transport\", defaultTransport(), \"MCP transport: stdio | http\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuthWithOrigins(token, allowedOrigins, inner))",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/dropsuite-mcp/main.go",
+     "contains": "httpTokenEnvVar = \"DROPSUITE_MCP_HTTP_TOKEN\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:DROPSUITE_MCP_HTTP_ALLOWED_ORIGINS\"",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
