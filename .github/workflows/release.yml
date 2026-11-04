@@ -187,10 +187,21 @@ jobs:
           # go/packages export data - which is the actual cold cost, why an earlier
           # build-based pre-warm did not help.) vet runs no connector code, so it cannot
           # weaken the gate. Mirrors security-gate.yml for the release path.
+          # vet warms only the runner's own target; gosec also loads every extra target in
+          # GOSEC_TARGETS with -concurrency=NumCPU, and on a cold cache those concurrent
+          # loads each compile the whole dependency tree (axcient: about 15 compiles of
+          # 1.2 GB at once, which exhausts a 16 GB runner). One `go list -export -deps` per
+          # extra target warms that export data first. Same as security-gate.yml.
           slug="${TAG%-v*}"
           if [ -f "skills/$slug/cli/go.mod" ]; then
             echo "::group::pre-warm $slug"
             (cd "skills/$slug/cli" && go vet ./...) >/dev/null 2>&1 || echo "pre-warm vet for $slug reported issues (non-fatal)"
+            targets="$(python3 -I -c 'import sys; sys.path.insert(0, "tools/maintainer"); import check_security_gate as g; print(" ".join(f"{t[0]}/{t[1]}" for t in g.GOSEC_TARGETS if t))')" \
+              || { targets=""; echo "pre-warm could not read GOSEC_TARGETS (non-fatal)"; }
+            for tgt in $targets; do
+              (cd "skills/$slug/cli" && GOOS="${tgt%/*}" GOARCH="${tgt#*/}" CGO_ENABLED=0 go list -export -deps ./...) >/dev/null 2>&1 \
+                || echo "pre-warm $tgt for $slug reported issues (non-fatal)"
+            done
             echo "::endgroup::"
           fi
       - name: Gate the tagged connector (P1 blocks the release)
