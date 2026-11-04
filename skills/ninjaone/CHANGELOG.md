@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.22] - unreleased
+## [0.1.22] - 2026-11-04
 
 ### Fixed
 - **The custom-fields reports sync again after the first run.** Since 0.1.21, an incremental `sync` sent its checkpoint as `updatedAfter=<date>` to `queries-custom-fields`, `queries-custom-fields-detailed`, `queries-scoped-custom-fields` and `queries-scoped-custom-fields-detailed`, and NinjaOne answered HTTP 400, so every sync after the first one failed those reports and their stored data stopped updating. These four reports are now read whole on every sync (a `sync_warning` event with reason `resource_not_incremental`), as in 0.1.20. The MCP server's query tips no longer suggest `updatedAfter` for incremental fetches (reported by @Xenith-B, #496).
