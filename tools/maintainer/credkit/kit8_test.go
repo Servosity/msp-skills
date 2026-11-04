@@ -187,22 +187,40 @@ func TestKit8EveryFaultMarksTheFileUnknown(t *testing.T) {
 			}
 		})
 	}
-	// A change the kit did not make (another writer) is uncertainty too.
+	// A change the kit did not make is uncertainty too, for a write that
+	// depends on what it last read: this one lands at an offset it chose.
 	resetForTest(Declarations{})
 	Hold("minted:t", "secret!!")
 	p := filepath.Join(t.TempDir(), "g")
-	AppendFile(p, []byte("secr"), 0o600)
+	w, err := OpenFile(p, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	w.Write([]byte("secr"))
 	f, _ := os.OpenFile(p, os.O_WRONLY|os.O_APPEND, 0)
 	f.Write([]byte("X"))
 	f.Close()
-	if err := AppendFile(p, []byte("et!!"), 0o600); err == nil {
+	if _, err := w.Write([]byte("et!!")); err == nil {
 		t.Error("a write after an outside change went through")
 	}
-	if err := AppendFile(p, []byte("et!!"), 0o600); !errors.Is(err, ErrWithheld) {
+	if _, err := w.Write([]byte("et!!")); !errors.Is(err, ErrWithheld) {
 		t.Errorf("the next write: %v, want withheld", err)
 	}
 	if b, _ := os.ReadFile(p); string(b) != "secrX" {
 		t.Errorf("writes after an outside change reached the file: %q", b)
+	}
+	// So does an append after the file shrank: what it was checked with is gone.
+	q := filepath.Join(t.TempDir(), "h")
+	AppendFile(q, []byte("0123456789"), 0o600)
+	if err := os.Truncate(q, 4); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendFile(q, []byte("x"), 0o600); err == nil {
+		t.Error("an append to a file that shrank went through")
+	}
+	if b, _ := os.ReadFile(q); string(b) != "0123" {
+		t.Errorf("an append to a file that shrank reached it: %q", b)
 	}
 }
 

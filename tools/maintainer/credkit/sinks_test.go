@@ -285,7 +285,9 @@ func TestContract5ChildArgvAndEnv(t *testing.T) {
 	if err := StartCommand(exec.Command(os.Args[0], cred)); !errors.Is(err, ErrWithheld) {
 		t.Errorf("a child whose argv carries a credential was started: %v", err)
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=^$")
+	// A program that is not the connector's own (its own binary takes an
+	// environment by hand-over: TestFix1ACompanionGetsTheKeyByHandOver).
+	cmd := exec.Command(fix1Copy(t, t.TempDir(), "not-ours"), "-test.run=^$")
 	cmd.Env = []string{"X=" + cred}
 	if err := StartCommand(cmd); !errors.Is(err, ErrWithheld) {
 		t.Errorf("a child whose environment carries a credential was started: %v", err)

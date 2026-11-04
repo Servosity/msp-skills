@@ -23,13 +23,23 @@ package credkit
 //     names of one file share it) across the open, the truncate, the check,
 //     the write and the stream update.
 //  2. A write lands at the offset it was checked for: WriteAt there, or an
-//     append at the end it checked. The handle's position is read under the
+//     append at the file's end. The handle's position is read under the
 //     locks, and a write before or past the end is checked as the whole file
 //     it leaves (a gap as zero bytes).
 //  3. Any error, short write, failed read-back or change the kit did not
 //     make leaves the file's stream unknown (fileState.fail): every later
 //     write is withheld, the notice included, until the file is truncated
-//     or recreated under the locks, or found empty.
+//     or recreated under the locks, or found empty. The one change that does
+//     not: a file this write appends to has grown. Many processes share an
+//     append-only file (an MCP server and its CLI children, the learn
+//     journal and the logs), so that is the file working, not a surprise.
+//     The write is still checked with everything this process wrote to it,
+//     and lands after what the others wrote. What the kit gives up is only
+//     the proof that the bytes around it are its own: a credential completed
+//     by joining this write to another process's bytes is contract 6, item 5,
+//     two runs of the program. A file that shrank, or grew under a write that
+//     does not append, still fails closed: that write depends on what it
+//     last read.
 //  4. The context keeps a JSON document open in any reading, or the stream
 //     is lost (window.add), and a notice is checked with that context.
 
@@ -423,12 +433,6 @@ func (w *Writer) Write(p []byte) (int, error) {
 		return fs.fail(err)
 	}
 	size := fi.Size()
-	if size != fs.end {
-		if size != 0 {
-			return fs.fail(errChanged)
-		}
-		fs.restart(0) // found empty: nothing in it to join
-	}
 	// Where a write lands is read again for each write (kit15rv: a
 	// program can clear or set the descriptor's O_APPEND after the open).
 	// An os.File opened for append refuses WriteAt; if its descriptor no
@@ -441,6 +445,15 @@ func (w *Writer) Write(p []byte) (int, error) {
 			return fs.fail(errChanged)
 		}
 		appends = app
+	}
+	switch {
+	case size == fs.end:
+	case size == 0:
+		fs.restart(0) // found empty: nothing in it to join
+	case appends && size > fs.end:
+		fs.end = size // rule 3: another writer appended
+	default:
+		return fs.fail(errChanged)
 	}
 	off := size
 	if !appends {
@@ -546,8 +559,8 @@ func (w *Writer) put(out []byte, off, size int64, appends bool) error {
 	var n int
 	var err error
 	if appends {
-		// At size by offset, not by the descriptor's flag, which the
-		// program can clear while the write runs (kit15rv round 2).
+		// At the end as the kernel finds it (appendAt), which another
+		// process may have moved since size was read.
 		if n, err = appendAt(w.f, out, size); err == nil {
 			_, err = w.f.Seek(size+int64(n), io.SeekStart)
 		}
@@ -564,7 +577,7 @@ func (w *Writer) put(out []byte, off, size int64, appends bool) error {
 	if err = faultAt("verify", err); err != nil {
 		return err
 	}
-	if fi.Size() != max(size, off+int64(len(out))) {
+	if want := max(size, off+int64(len(out))); fi.Size() != want && (!appends || fi.Size() < want) {
 		return errChanged
 	}
 	return nil

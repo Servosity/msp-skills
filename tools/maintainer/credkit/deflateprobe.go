@@ -3,9 +3,12 @@
 package credkit
 
 import (
+	"bytes"
 	"encoding/binary"
+	"hash/maphash"
 	"math"
 	mbits "math/bits"
+	"slices"
 )
 
 // deflateCanStart reports whether a raw deflate stream starting at b[0] can
@@ -297,6 +300,9 @@ const (
 // sooner, so only a long stream (a real one, or one repeated through a
 // part, read from each of its offsets) pays for it.
 type deflateMemo struct {
+	tails map[uint64][]byte // brokenSuffix: broken outputs added whole, by their last bytes
+	base  []int             // per numbered attempt: where in the part it starts
+	reads []copyReads       // per numbered attempt: fixedCopies, once asked for
 	cache [1 << 16]memoEntry
 	gen   uint32
 	done  []bool   // per numbered attempt: its stream ended
@@ -321,6 +327,168 @@ const memoAfter = 64
 func (m *deflateMemo) reset() {
 	m.gen++
 	m.done, m.outs = m.done[:0], m.outs[:0]
+	m.base, m.reads = m.base[:0], m.reads[:0]
+	clear(m.tails)
+}
+
+// copyReads is the output position of each copy of one attempt, and the
+// lowest position it or any later copy reads.
+type copyReads struct {
+	pos, low []int32
+	done     bool
+}
+
+// lowestRead is the lowest output position any copy of attempt id reads, of
+// those at output position ja or later; ja when none reads before it.
+func (m *deflateMemo) lowestRead(p []byte, id int32, ja int) int {
+	r := &m.reads[id]
+	if !r.done {
+		r.pos, r.low = fixedCopies(p[m.base[id]:])
+		r.done = true
+	}
+	i, _ := slices.BinarySearch(r.pos, i32(ja))
+	if i == len(r.low) {
+		return ja
+	}
+	return min(ja, int(r.low[i]))
+}
+
+// fixedCopies walks a raw deflate stream while its blocks use the fixed
+// Huffman code, as fixedEnds does, and lists its copies.
+//
+// It is what makes sharing an attempt's tail exact. Two attempts at one symbol
+// boundary decode the same symbols from there on. A literal is the same byte
+// in both, and a copy is the same bytes when it reads the same bytes: when it
+// reads only what they decoded since the boundary, or the stretch before the
+// boundary where their outputs end alike. A copy that stays in that stretch
+// is also valid in both, so the later attempt ends where the earlier one did.
+func fixedCopies(b []byte) (pos, low []int32) {
+	br := bitReader{b: b}
+	out := 0
+walk:
+	for {
+		_, ok := br.bits(1)
+		if !ok {
+			break
+		}
+		btype, ok := br.bits(2)
+		if !ok || btype != 1 {
+			break
+		}
+		for {
+			sym, ok := br.fixedSym()
+			if !ok || sym > 285 {
+				break walk
+			}
+			if sym < 256 {
+				out++
+				continue
+			}
+			if sym == 256 {
+				break
+			}
+			length, ok := br.lengthOf(sym)
+			if !ok {
+				break walk
+			}
+			c, ok := br.huff(5)
+			if !ok || c > 29 {
+				break walk
+			}
+			dist, ok := br.distOf(int(c))
+			if !ok || dist > out {
+				break walk
+			}
+			pos, low = append(pos, i32(out)), append(low, i32(out-dist))
+			out += length
+		}
+	}
+	for i := len(low) - 2; i >= 0; i-- {
+		low[i] = min(low[i], low[i+1])
+	}
+	return pos, low
+}
+
+// trimOff turns brokenSuffix off, for a test to compare verdicts;
+// sharedTailHook, when set, sees each attempt sharedTail adds without decoding.
+var (
+	trimOff        bool
+	sharedTailHook func(stream, pre, rest []byte)
+)
+
+// trimmed is how much of b, the bytes a broken stream yielded, to add
+// (limits.go, brokenSuffix): all of it, or up to brokenWindow bytes into the
+// stretch that ends an output already added. An output with no such stretch
+// is remembered for the next.
+func (m *deflateMemo) trimmed(b []byte) int {
+	if trimOff || len(b) < 2*brokenWindow { // exact: nothing to cut
+		return len(b)
+	}
+	k := maphash.Bytes(seeds[0], b[len(b)-brokenWindow:])
+	o := m.tails[k]
+	if o == nil {
+		if m.tails == nil {
+			m.tails = map[uint64][]byte{}
+		}
+		m.tails[k] = bytes.Clone(b)
+		return len(b)
+	}
+	same := 0
+	for same < min(len(b), len(o)) && b[len(b)-1-same] == o[len(o)-1-same] {
+		same++
+	}
+	n := len(b) - same + brokenWindow
+	if same < 2*brokenWindow || !cutAllowed(b[:n]) { // exact: see brokenSuffix
+		return len(b)
+	}
+	return n
+}
+
+// cutAllowed reports whether a final view can be cut after kept: no reading
+// that a window does not hold stands open across the end of kept. A MIME
+// encoded word has no bound on its length; nor has a numeric character
+// reference, whose digits html.UnescapeString reads to any length; and a
+// window of filler lets any other spelling run past it (noSpanAcross).
+func cutAllowed(kept []byte) bool {
+	if bytes.Contains(kept, []byte("=?")) || !noSpanAcross(kept[len(kept)-brokenWindow:]) {
+		return false
+	}
+	if j := bytes.LastIndexByte(kept, '&'); j >= 0 && j+1 < len(kept) && kept[j+1] == '#' {
+		for _, c := range kept[j+2:] {
+			if !isHexDigit(c) && c != 'x' && c != 'X' {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
+// brokenFiller is every byte a decoder lets stand between two characters of
+// what it decodes, as many as there are: the line breaks base-N and Ascii85
+// ignore, hex's and a code list's separators, padding, quoted-printable's
+// soft breaks, the zeros in front of a number.
+var brokenFiller = func() (f [256]bool) {
+	for _, c := range []byte(" \t\r\n\f\v,:-=0") {
+		f[c] = true
+	}
+	return f
+}()
+
+// noSpanAcross reports whether no credential's spelling can stand on both
+// sides of w, one window of brokenWindow bytes. The longest spelling of 8
+// characters a final view's decoders read is 384 bytes without filler: 8
+// characters of 12 bytes each (a decomposed form), each byte a hex pair with a
+// prefix. The longest named character reference is 33 bytes, so 8 are 264. A
+// window with more than that that is not filler cannot lie inside one.
+func noSpanAcross(w []byte) bool {
+	n := 0
+	for _, c := range w {
+		if !brokenFiller[c] {
+			n++
+		}
+	}
+	return n > 384 // exact: the bound above
 }
 
 // fixedEnds decodes, without producing output, the raw deflate stream at
@@ -348,6 +516,7 @@ func (m *deflateMemo) fixedEnds(p []byte, base int) inflateEnd {
 				if m.id < 0 {
 					m.id = i32(len(m.done))
 					m.done, m.outs = append(m.done, false), append(m.outs, nil)
+					m.base, m.reads = append(m.base, base), append(m.reads, copyReads{})
 				}
 				key := u64(base*8+br.pos)*2 + uint64(final)
 				e := &m.cache[key*0x9E3779B97F4A7C15>>48]
