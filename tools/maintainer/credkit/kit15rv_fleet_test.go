@@ -16,12 +16,17 @@ import (
 	"testing"
 )
 
+// vendoredKit reports whether p is a connector's copy of this package.
+func vendoredKit(p string) bool {
+	return strings.Contains(filepath.ToSlash(p), "/cli/internal/credkit/")
+}
+
 // fleetTexts is every Go string literal (unquoted) and every testdata or
 // golden file under skills/*/cli, with whether it comes from a test file.
 func fleetTexts(t *testing.T) (texts []string, files []string, tests []bool) {
 	t.Helper()
 	filepath.WalkDir("../../../skills", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.Contains(p, "/cli/") {
+		if err != nil || d.IsDir() || !strings.Contains(p, "/cli/") || vendoredKit(p) {
 			return nil
 		}
 		isTest := strings.HasSuffix(p, "_test.go")
@@ -92,7 +97,7 @@ func TestKit15FleetRequestsAreWhole(t *testing.T) {
 	}
 	t.Logf("queries checked: %d (%d logged as test fixtures or templates)", queries, logged)
 	filepath.WalkDir("../../../skills", func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".go") && !strings.HasSuffix(p, "_test.go") && strings.Contains(p, "/cli/") {
+		if err == nil && !d.IsDir() && !vendoredKit(p) && strings.HasSuffix(p, ".go") && !strings.HasSuffix(p, "_test.go") && strings.Contains(p, "/cli/") {
 			b, _ := os.ReadFile(p)
 			for _, line := range strings.Split(string(b), "\n") {
 				if fleetHeader.MatchString(line) && !strings.Contains(line, "resp.") && !strings.Contains(line, "view.") && !strings.Contains(line, "preview.") {
@@ -116,7 +121,7 @@ func TestKit15FleetRequestsAreWhole(t *testing.T) {
 // never fires on what connectors and their docs write. The docs and
 // READMEs carry no config file example (they name the file's path only).
 func TestKit15FleetConfigsArePrecise(t *testing.T) {
-	texts, files, _ := fleetTexts(t)
+	texts, files, tests := fleetTexts(t)
 	n := 0
 outer:
 	for i, s := range texts {
@@ -130,6 +135,13 @@ outer:
 		}
 		n++
 		if !preciseConfig([]byte(s)) {
+			if tests[i] {
+				// A connector's own test of the kit writes a broken config on
+				// purpose (axcient kit_classes_test.go, zammad
+				// credential_sources_nb_test.go). No user's file looks like it.
+				t.Logf("a test fixture outside the canonical subset: %s: %q", files[i], s)
+				continue
+			}
 			t.Errorf("%s: a fleet config text outside the canonical subset: %q", files[i], s)
 		}
 	}
