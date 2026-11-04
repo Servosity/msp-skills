@@ -1330,6 +1330,11 @@
       "file": "skills/quickbooks/cli/internal/cli/auth_refresh.go",
       "rule": "G704",
       "reason": "Annotation-hidden finding, vetted 2026-10-22 when the gate stopped honoring inline #nosec (connector-specific code, no fleet precedent). The token refresh request goes to intuitTokenURL by default; the only override is the QUICKBOOKS_TOKEN_URL environment variable, an operator-set test hook, not tool-call or API input."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "exec-nonliteral-cmd",
+      "reason": "Builtin twin of the content-bound G204 and msp-exec-nonliteral-command entries for the same call site. prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell. Repo-relative (scoped to prtg only)."
     }
   ],
   "bound": [
@@ -1708,6 +1713,26 @@
       ],
       "press": "4.34.2",
       "reason": "dnsfilter only (press 4.34.2 template, reviewed 2026-11-03). claimLegacyUnscopedDB is the bound 4.34.0 template declaration with two hand-fix edits: the marker write goes through credkit.WriteFile (handfixes.json credkit-wiring), and its stderr note goes through stderrW() (the connector's terminal-escaping writer, handfixes.json stderr boundary) instead of os.Stderr, so its digest differs from the fleet binding. Both flagged reads open markerPath (<data.db>.owner) next to the CLI's own store in its resolved data directory, derived from defaultDBPathInDir; no MCP, API or tenant input reaches the path."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:26dcd519dcddf07160b8115fa268649e707460891f6ae4122562d98408851651"
+      ],
+      "press": "4.34.2",
+      "reason": "prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell."
+    },
+    {
+      "file": "skills/prtg/cli/internal/fleet/runner.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:26dcd519dcddf07160b8115fa268649e707460891f6ae4122562d98408851651"
+      ],
+      "press": "4.34.2",
+      "reason": "prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell."
     }
   ]
 }
