@@ -66,6 +66,9 @@ type pump struct {
 // pumpReadHook, when set (by a test), runs after each chunk is read and queued.
 var pumpReadHook func()
 
+// redirectHook, when set (by a test), runs before each stream is redirected.
+var redirectHook func(fd int)
+
 var stdio struct {
 	sync.Mutex
 	pumps []*pump
@@ -78,6 +81,8 @@ func installStdio() error {
 	if len(stdio.pumps) > 0 {
 		return nil
 	}
+	resume := quietRuntime()
+	var pumps []*pump
 	for _, s := range []struct {
 		fd   int
 		sink string
@@ -87,12 +92,26 @@ func installStdio() error {
 		if fi, err := s.f.Stat(); err == nil {
 			tty = fi.Mode()&os.ModeCharDevice != 0
 		}
+		if redirectHook != nil {
+			redirectHook(s.fd)
+		}
 		orig, r, err := redirectStd(s.fd)
 		if err != nil {
+			resume()
 			return err
 		}
-		p := &pump{fd: s.fd, sink: s.sink, in: r, out: orig, tty: tty, done: make(chan struct{})}
-		stdio.pumps = append(stdio.pumps, p)
+		pumps = append(pumps, &pump{fd: s.fd, sink: s.sink, in: r, out: orig, tty: tty, done: make(chan struct{})})
+	}
+	resume()
+	// No pump runs until both streams are redirected. A pump's goroutines make
+	// the runtime start threads, each with handles of its own, and on Windows
+	// one could land on the number redirectStd has just closed for the other
+	// stream, which ends the program (quietRuntime). Nothing is lost by waiting:
+	// the pipes hold what is written meanwhile, and a writer that fills one waits
+	// for its pump, as long as redirecting the other stream does not wait on that
+	// writer (Start's retargetLog).
+	stdio.pumps = pumps
+	for _, p := range pumps {
 		go p.run()
 	}
 	return nil

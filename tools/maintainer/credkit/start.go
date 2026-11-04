@@ -64,6 +64,7 @@ func Start(d Declarations) {
 	reg.Unlock()
 	currentMatcher() // built here, so the first unit is not held up building it
 	startedOnce.Do(func() { close(started) })
+	retargetLog()
 	if refused {
 		refuse(src)
 	}

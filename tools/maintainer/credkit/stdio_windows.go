@@ -6,7 +6,9 @@ import (
 	"errors"
 	"log"
 	"os"
+	"runtime"
 	"syscall"
+	"time"
 )
 
 var (
@@ -24,10 +26,10 @@ var (
 )
 
 // redirectStd points the process's standard output (fd 1) or error (fd 2)
-// at a new pipe: the standard handle, os.Stdout or os.Stderr, the standard
-// logger, and the original handle number itself, which is closed and taken
-// over by a duplicate of the pipe, so a stream captured before Start writes
-// into the pipe too. It returns the original stream, on a duplicate handle,
+// at a new pipe: the standard handle, os.Stdout or os.Stderr, and the original
+// handle number itself, which is closed and taken over by a duplicate of the
+// pipe, so a stream captured before Start writes into the pipe too (the standard
+// logger follows in retargetLog). It returns the original stream, on a duplicate handle,
 // and the pipe's read end. If the number cannot be taken over, the error
 // makes Start exit before anything is written.
 // openNonblock: opening a file does not block on Windows.
@@ -98,18 +100,51 @@ func redirectStd(fd int) (orig, r *os.File, err error) {
 		os.Stdout = w
 	} else {
 		os.Stderr = w
-		log.SetOutput(w)
 	}
 	return os.NewFile(uintptr(o), "original"), r, nil
 }
+
+// quietRuntime keeps the runtime from making handles while Start takes over the
+// standard handles' numbers, and returns the function that lets it go on. Any
+// handle made in that moment can land on a number just closed and stay there for
+// good, which ends the program (redirectStd): the handles of a thread the runtime
+// is starting (Thread, IRTimer, WaitCompletionPacket, Event), and the I/O
+// completion port its first timer creates. With one P no new thread is started
+// for the work at hand. The sleep is the first timer, made here, and it gives a
+// thread already on its way time to finish. On a real connector on native Windows
+// this took refused starts from 118 of 34615 to 0 of 33537.
+//
+// Not with GODEBUG set at all: more than one setting turns async preemption off,
+// and changing GOMAXPROCS stops the world, which a goroutine in a tight loop would
+// then never let finish. So there Start only sleeps, and a rare start is refused
+// rather than hanging.
+func quietRuntime() (resume func()) {
+	if os.Getenv("GODEBUG") != "" {
+		time.Sleep(time.Millisecond)
+		return func() {}
+	}
+	procs := runtime.GOMAXPROCS(1)
+	time.Sleep(time.Millisecond)
+	return func() { runtime.GOMAXPROCS(procs) }
+}
+
+// retargetLog points the standard logger at the new stderr. Start calls it once
+// the pumps are checking output: a logger a package's init set up can be blocked
+// in a write to a full pipe, holding the lock SetOutput needs, until a pump
+// drains that pipe, and a pump holds what it reads until Start lets it check.
+func retargetLog() { log.SetOutput(os.Stderr) }
 
 // pending is unknown on Windows: a synchronous pipe serializes its I/O, so
 // asking (PeekNamedPipe) would wait behind the read it asks about.
 func pending(*os.File) int { return -1 }
 
 // squat duplicates src until the duplicate's handle number is want, which
-// was just closed (Windows hands out the lowest free number), then closes
-// the misses.
+// was just closed, then closes the misses. The number usually comes straight
+// back, but a thread that moved to another processor since the close draws
+// other free numbers first, so the walk has to be able to outlast them: on
+// native Windows it took up to about one try per number below want, and
+// squatTries allows for that. A number another thread now holds never comes
+// back, and the walk ends in the error, which stops the program.
 func squat(dup func(syscall.Handle) (syscall.Handle, error), src, want syscall.Handle) error {
 	var misses []syscall.Handle
 	defer func() {
@@ -117,7 +152,7 @@ func squat(dup func(syscall.Handle) (syscall.Handle, error), src, want syscall.H
 			_ = syscall.CloseHandle(m)
 		}
 	}()
-	for range 256 {
+	for range squatTries(want) {
 		d, err := dup(src)
 		if err != nil {
 			return err
@@ -128,6 +163,13 @@ func squat(dup func(syscall.Handle) (syscall.Handle, error), src, want syscall.H
 		misses = append(misses, d)
 	}
 	return errors.New("credkit: the standard handle could not be taken over")
+}
+
+// squatTries bounds the walk: more than every number below want (handle
+// numbers are multiples of 4), up to a limit that keeps a walk to a fraction of
+// a second and at a modest number of handles.
+func squatTries(want syscall.Handle) int {
+	return min(4096+int(want/4), 1<<16)
 }
 
 // releaseStd closes the pipe's write ends (the new stream and the handle
