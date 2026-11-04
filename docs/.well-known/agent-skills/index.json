@@ -100,6 +100,13 @@
       "digest": "sha256:5bb4dedcfe042f9669d3ef7e3c89bb3c2d9f771fe8096aadb52905e8246bd823"
     },
     {
+      "name": "blackpoint",
+      "type": "skill-md",
+      "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps. Trigger phrases: `open blackpoint detections`, `compassone stale agents`, `which customers have open detections`, `blackpoint posture score`, `use blackpoint`, `run blackpoint-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blackpoint/SKILL.md",
+      "digest": "sha256:93b1cd283e3ffaf9ee9973fc1fd6a6a4c323f435ba2f275686a5965db75ca365"
+    },
+    {
       "name": "blumira",
       "type": "skill-md",
       "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Trigger phrases: `blumira findings`, `triage blumira across accounts`, `what changed in blumira since yesterday`, `blumira detection coverage`, `blumira domain controller exposure`, `blumira MTTR report`, `use blumira`, `run blumira`.",

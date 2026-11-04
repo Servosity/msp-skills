@@ -39,11 +39,19 @@ package credkit
 //     by joining this write to another process's bytes is contract 6, item 5,
 //     two runs of the program. A file that shrank, or grew under a write that
 //     does not append, still fails closed: that write depends on what it
-//     last read.
+//     last read. All of this is while a kit handle holds the file. When none
+//     does (between two AppendFile calls, or before the first), the next open
+//     reads the file as it finds it: its context is the file's own tail, not
+//     what the kit remembers (fileState.reconcile). A file deleted and another
+//     given its inode number (Linux hands one out again at once), a rotated or
+//     replaced file, and an outside rewrite are each the file now. An unknown
+//     stream stays unknown while any name the kit opened it by still names it.
 //  4. The context keeps a JSON document open in any reading, or the stream
 //     is lost (window.add), and a notice is checked with that context.
 
 import (
+	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -58,10 +66,11 @@ import (
 
 // Test hooks: writeFileHook runs between WriteFile's write and its stream's
 // update, openHook after OpenFile's open, placeHook after a write's offset
-// is read, fileFault (when it returns an error) fails the named step.
+// is read, stateHook between finding a file's stream and locking it,
+// fileFault (when it returns an error) fails the named step.
 var (
-	writeFileHook, openHook, placeHook func()
-	fileFault                          func(step string) error
+	writeFileHook, openHook, placeHook, stateHook func()
+	fileFault                                     func(step string) error
 )
 
 // faultAt is err, or the test fault for step.
@@ -116,42 +125,198 @@ func pathLock(key string) *sync.Mutex {
 // fileState is one file's stream, by file (os.SameFile): every kit call
 // that writes the file (AppendFile again and again, two Writers, a whole
 // write and then appends, two names of it) continues it (contract 2, 3
-// Streams and 5). A file written by an earlier run is not context
-// (contract 6, item 5).
+// Streams and 5). A file the kit first meets, or meets changed while no kit
+// handle held it, is read as it is (reconcile).
 type fileState struct {
 	mu      sync.Mutex
 	fi      os.FileInfo
-	ctx     window // the file's bytes before end, as far as they are context
-	end     int64  // the file's size after the kit's last write to it
-	unknown bool   // rule 3: every write is withheld until a truncate under the locks
+	keys    []string   // the names kit calls opened it by (fileKey), at most maxStateKeys
+	holders []*os.File // the kit handles open on it
+	used    uint64     // when a kit call last opened it, for eviction
+	fresh   bool       // no kit write or read of it yet in this process
+	ctx     window     // the file's bytes before end, as far as they are context
+	end     int64      // the file's size after the kit's last write to it
+	unknown bool       // rule 3: every write is withheld until a truncate under the locks
 }
 
-// fileStates is every file the kit writes in this process.
-// ponytail: scanned in turn; a program that writes thousands of files
-// wants an inode-keyed map.
+// maxFileStates bounds the table. A state past it that no kit handle holds
+// and that is not unknown is dropped, oldest first: the next open of its file
+// reads the file as it finds it, so nothing it held is lost.
+const (
+	maxFileStates = 1024
+	maxStateKeys  = 8
+)
+
+// fileStates is every file the kit writes in this process, bounded.
 var fileStates struct {
 	sync.Mutex
 	list []*fileState
+	tick uint64
 }
 
-func stateOf(fi os.FileInfo) *fileState {
+// stateFor is the stream of the file fi, opened by name key, with the kit
+// handle f registered on it; held reports whether another kit handle was
+// already open on it. A state whose file is gone (none of its names still
+// names it and no kit handle holds it) is not that file's: another file given
+// the same identity starts a stream of its own.
+func stateFor(fi os.FileInfo, key string, f *os.File) (fs *fileState, held bool) {
 	fileStates.Lock()
 	defer fileStates.Unlock()
-	for _, fs := range fileStates.list {
-		if os.SameFile(fs.fi, fi) {
-			return fs
+	fileStates.tick++
+	for i, x := range fileStates.list {
+		if !os.SameFile(x.fi, fi) {
+			continue
+		}
+		if x.liveHolders() == 0 && !x.named() {
+			fileStates.list = slices.Delete(fileStates.list, i, i+1) // the identity of a file that is gone
+			break
+		}
+		fs = x
+		break
+	}
+	added := fs == nil
+	if added {
+		fs = &fileState{fi: fi, end: fi.Size(), fresh: true}
+		fileStates.list = append(fileStates.list, fs)
+	}
+	held = fs.liveHolders() > 0
+	if key != "" && !slices.Contains(fs.keys, key) && len(fs.keys) < maxStateKeys {
+		fs.keys = append(fs.keys, key)
+	}
+	fs.holders = append(fs.holders, f)
+	fs.used = fileStates.tick
+	if added {
+		pruneStatesLocked() // after f holds it, so it is never the one dropped
+	}
+	return fs, held
+}
+
+// liveHolders drops the kit handles on fs that are closed and counts the rest.
+func (fs *fileState) liveHolders() int {
+	fs.holders = slices.DeleteFunc(fs.holders, func(h *os.File) bool {
+		_, err := h.Stat()
+		return err != nil
+	})
+	return len(fs.holders)
+}
+
+// named reports whether a name the kit opened fs's file by still names it.
+func (fs *fileState) named() bool {
+	for _, k := range fs.keys {
+		if fi, err := os.Stat(k); err == nil && os.SameFile(fi, fs.fi) {
+			return true
 		}
 	}
-	fs := &fileState{fi: fi, end: fi.Size()}
-	fileStates.list = append(fileStates.list, fs)
-	return fs
+	return false
+}
+
+// pruneStatesLocked keeps the table within maxFileStates: first the states of
+// files that are gone, then the least recently opened that no kit handle holds
+// and that are not unknown (rule 3 keeps those).
+func pruneStatesLocked() {
+	if len(fileStates.list) <= maxFileStates {
+		return
+	}
+	fileStates.list = slices.DeleteFunc(fileStates.list, func(x *fileState) bool {
+		return x.liveHolders() == 0 && !x.named()
+	})
+	if over := len(fileStates.list) - maxFileStates; over > 0 {
+		idle := slices.DeleteFunc(slices.Clone(fileStates.list), func(x *fileState) bool {
+			if x.liveHolders() > 0 || !x.mu.TryLock() {
+				return true // in use
+			}
+			defer x.mu.Unlock()
+			return x.unknown
+		})
+		slices.SortFunc(idle, func(a, b *fileState) int { return cmp.Compare(a.used, b.used) })
+		drop := map[*fileState]bool{}
+		for _, x := range idle[:min(over, len(idle))] {
+			drop[x] = true
+		}
+		fileStates.list = slices.DeleteFunc(fileStates.list, func(x *fileState) bool { return drop[x] })
+	}
+}
+
+// reconcile brings fs, which no other kit handle holds, to the file f as it
+// is: the kit's context stands when the file is as the kit left it (its size,
+// and its tail byte for byte), and is read from the file otherwise. An unknown
+// stream stays unknown (rule 3).
+func (fs *fileState) reconcile(f *os.File) {
+	if fs.unknown {
+		return
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		fs.unknown = true
+		return
+	}
+	size := fi.Size()
+	if !fs.fresh && size == fs.end {
+		if n := int64(len(fs.ctx.b)); n == 0 {
+			return
+		} else if b, err := readTail(f, size, n); err == nil && bytes.Equal(b, fs.ctx.b) {
+			return
+		}
+	}
+	fs.readFound(f, size)
+}
+
+// readFound sets fs's context from the file's own tail, as much of it as a
+// stream keeps (streamTailMax): the part of it that holds no credential the
+// kit holds, which is what the next write joins. A tail it cannot read leaves
+// the stream unknown.
+func (fs *fileState) readFound(f *os.File, size int64) {
+	fs.fresh = false
+	n := min(size, int64(streamTailMax))
+	b, err := readTail(f, size, n)
+	if err != nil {
+		fs.unknown = true
+		return
+	}
+	c := window{cut: size > n}
+	m, unknown := currentMatcher()
+	open := false
+	if !unknown {
+		if m.check(b) != clean {
+			b = cleanSuffix(b)
+			c.cut = c.cut || int64(len(b)) < n
+		}
+		_, open = m.checkOpen(b)
+	}
+	c.add(b, open)
+	fs.ctx, fs.end, fs.unknown = c, size, c.lost
+}
+
+// readTail is the last n bytes of f, whose size is size: read through f, or,
+// when f was opened for writing only, through the same file opened again.
+func readTail(f *os.File, size, n int64) ([]byte, error) {
+	b := make([]byte, n)
+	if k, err := f.ReadAt(b, size-n); int64(k) == n && (err == nil || err == io.EOF) {
+		return b, nil
+	}
+	r, err := os.Open(f.Name())
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if ri, err := r.Stat(); err != nil || !os.SameFile(fi, ri) {
+		return nil, os.ErrInvalid
+	}
+	if k, _ := r.ReadAt(b, size-n); int64(k) != n {
+		return nil, io.ErrUnexpectedEOF
+	}
+	return b, nil
 }
 
 // restart starts the stream over at the file's end, size: after a
 // truncate, or for a file the kit first writes. It is the only way out of
 // unknown.
 func (fs *fileState) restart(size int64) {
-	fs.ctx, fs.end, fs.unknown = window{}, size, false
+	fs.ctx, fs.end, fs.unknown, fs.fresh = window{}, size, false, false
 }
 
 // fail marks the stream unknown (rule 3) and returns err.
@@ -171,7 +336,8 @@ func WriteFile(name string, data []byte, perm os.FileMode) error {
 	if v != clean {
 		return withheldError{SinkFile}
 	}
-	pl := pathLock(fileKey(name))
+	key := fileKey(name)
+	pl := pathLock(key)
 	pl.Lock()
 	defer pl.Unlock()
 	f, err := openPath(name, os.O_WRONLY|os.O_CREATE, perm)
@@ -179,7 +345,7 @@ func WriteFile(name string, data []byte, perm os.FileMode) error {
 		return err // nothing opened, nothing truncated
 	}
 	defer f.Close()
-	fs, err := lockedState(f)
+	fs, _, err := lockedState(f, key)
 	if err != nil {
 		return err // not truncated: a stream it cannot name is not touched
 	}
@@ -223,15 +389,19 @@ func WriteFile(name string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-// lockedState is f's stream, locked.
-func lockedState(f *os.File) (*fileState, error) {
+// lockedState is f's stream, opened by name key, locked; held reports
+// whether another kit handle is open on it.
+func lockedState(f *os.File, key string) (*fileState, bool, error) {
 	fi, err := f.Stat()
 	if err = faultAt("open-stat", err); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	fs := stateOf(fi)
+	fs, held := stateFor(fi, key, f)
+	if stateHook != nil {
+		stateHook()
+	}
 	fs.mu.Lock()
-	return fs, nil
+	return fs, held, nil
 }
 
 // AppendFile appends one record to name, creating it with perm.
@@ -276,21 +446,24 @@ func OpenFile(name string, flag int, perm os.FileMode) (*Writer, error) {
 		mu, st := streamOfFile(fi, streamID(streamGOOS, key, nil))
 		return &Writer{w: f, sink: SinkFile, mu: mu, st: st}, nil // a pipe or a device: a stream
 	}
-	fs, err := lockedState(f)
+	fs, held, err := lockedState(f, key)
 	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
 	defer fs.mu.Unlock()
-	if flag&os.O_TRUNC != 0 {
+	switch {
+	case flag&os.O_TRUNC != 0:
 		if err := faultAt("truncate", f.Truncate(0)); err != nil {
 			_, _ = fs.fail(err)
 			_ = f.Close()
 			return nil, err
 		}
 		fs.restart(0)
-	} else if os.IsNotExist(statErr) {
+	case os.IsNotExist(statErr):
 		fs.restart(fi.Size()) // created by this open: a stream of its own
+	case !held || fs.fresh: // fresh: no opener has read it yet, whichever locked first
+		fs.reconcile(f)
 	}
 	return &Writer{w: f, sink: SinkFile, fs: fs, key: key, f: f, appends: flag&os.O_APPEND != 0, osAppend: flag&os.O_APPEND != 0}, nil
 }
@@ -393,7 +566,16 @@ func NewWriter(w io.Writer, sink string) *Writer {
 		return &Writer{w: w, sink: sink, mu: mu, st: st}
 	}
 	key := fileKey(f.Name())
-	return &Writer{w: w, sink: sink, fs: stateOf(fi), key: key, f: f, appends: appendMode(f), osAppend: osAppends(f)}
+	pl := pathLock(key)
+	pl.Lock()
+	defer pl.Unlock()
+	fs, held := stateFor(fi, key, f)
+	fs.mu.Lock()
+	if !held || fs.fresh {
+		fs.reconcile(f)
+	}
+	fs.mu.Unlock()
+	return &Writer{w: w, sink: sink, fs: fs, key: key, f: f, appends: appendMode(f), osAppend: osAppends(f)}
 }
 
 // appendMode reports whether every write to f lands at its end: opened

@@ -37,6 +37,12 @@ var kit8ErrorExits = map[string]string{
 	"fileKey: err == nil":                                       "path resolution, before any write",
 	"fileKey: err == nil#2":                                     "path resolution, before any write",
 	"NewWriter: err != nil":                                     "a stream that cannot be identified starts lost (st.lost)",
+	"named: err == nil && os.SameFile(fi, fs.fi)":               "a stat of a name, before any write: a name that does not resolve does not name the file",
+	"reconcile: err == nil && bytes.Equal(b, fs.ctx.b)":         "the tail read back matches: anything else reads the file again (readFound), which marks the stream unknown on its own error",
+	"readTail: int64(k) == n && (err == nil || err == io.EOF)":  "the read succeeded",
+	"readTail: err != nil":                                      "a read: readFound marks the stream unknown on its error",
+	"readTail: err != nil#2":                                    "a read: readFound marks the stream unknown on its error",
+	"readTail: err != nil || !os.SameFile(fi, ri)":              "a read: readFound marks the stream unknown on its error",
 }
 
 func TestKit8EveryErrorBranchMarksTheStream(t *testing.T) {

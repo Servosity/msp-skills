@@ -97,6 +97,13 @@
     "current_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146",
     "released_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146"
   },
+  "blackpoint": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "blackpoint-v0.1.0",
+    "current_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
+    "released_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f"
+  },
   "blumira": {
     "state": "up-to-date",
     "version": "0.1.6",
@@ -267,10 +274,10 @@
   },
   "huntress": {
     "state": "up-to-date",
-    "version": "0.1.11",
-    "latest_tag": "huntress-v0.1.11",
-    "current_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
-    "released_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd"
+    "version": "0.1.12",
+    "latest_tag": "huntress-v0.1.12",
+    "current_hash": "sha256:63bb5026bcecfbabfacbd404a7f235efaa28e88251779dfff9454d13d70bba65",
+    "released_hash": "sha256:63bb5026bcecfbabfacbd404a7f235efaa28e88251779dfff9454d13d70bba65"
   },
   "immybot": {
     "state": "up-to-date",
@@ -365,10 +372,10 @@
   },
   "ninjaone": {
     "state": "up-to-date",
-    "version": "0.1.21",
-    "latest_tag": "ninjaone-v0.1.21",
-    "current_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694",
-    "released_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694"
+    "version": "0.1.22",
+    "latest_tag": "ninjaone-v0.1.22",
+    "current_hash": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014",
+    "released_hash": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014"
   },
   "pagerduty": {
     "state": "up-to-date",

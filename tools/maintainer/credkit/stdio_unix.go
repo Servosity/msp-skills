@@ -120,3 +120,10 @@ func appendAt(f *os.File, b []byte, off int64) (n int, err error) {
 	}
 	return max(n, 0), err
 }
+
+// retargetLog: the standard logger writes to fd 2 or to nothing here, and the
+// redirect does not move it.
+func retargetLog() {}
+
+// quietRuntime has nothing to do: dup2 replaces a descriptor in one step.
+func quietRuntime() (resume func()) { return func() {} }

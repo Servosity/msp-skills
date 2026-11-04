@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27",
+  "generated_at": "2026-11-04",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -306,6 +306,25 @@
       "verification": "awaiting",
       "category": "Security",
       "tagline": "Endpoint health, threats, incidents and license usage across every GravityZone child company."
+    },
+    {
+      "name": "blackpoint",
+      "system": "Blackpoint Cyber CompassOne MDR: tenants, detections, assets, vulnerabilities, posture and Cloud Response, plus a cross-tenant fleet view",
+      "status": "beta",
+      "skill_path": "skills/blackpoint",
+      "cli_binary": "blackpoint-cli",
+      "mcp_binary": "blackpoint-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Blackpoint Cyber",
+      "vendor_trademark_owner": "Blackpoint Cyber",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blackpoint/install.sh)",
+      "install_mcp_doc": "skills/blackpoint/mcp-install.md",
+      "description": "Blackpoint Cyber CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant view of open detections, stale agents and coverage gaps.",
+      "verification": "awaiting",
+      "category": "Security"
     },
     {
       "name": "blumira",
@@ -808,7 +827,7 @@
       "skill_path": "skills/huntress",
       "cli_binary": "huntress-cli",
       "mcp_binary": "huntress-mcp",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Huntress",
@@ -1071,7 +1090,7 @@
       "skill_path": "skills/ninjaone",
       "cli_binary": "ninjaone-cli",
       "mcp_binary": "ninjaone-mcp",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "NinjaOne",

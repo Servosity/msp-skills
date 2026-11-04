@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -636,6 +637,67 @@ func holdFieldsLocked(b []byte, names []string, prefix string, extra []string) {
 	for k, vs := range formPairs(string(b)) {
 		if containsFold(names, strings.ToLower(k)) {
 			holdAllowedLocked(prefix+strings.ToLower(k), extra, vs...)
+		}
+	}
+	holdJSONFieldsLocked(b, names, prefix, extra)
+}
+
+// holdJSONFieldsLocked holds every string and number beneath a key named in
+// names, reading b as JSON documents until one does not parse: what a JSON
+// parser reads as a member's value whatever whitespace stands before it, which
+// the token reader above takes for a new line of text. Numbers stay as written.
+func holdJSONFieldsLocked(b []byte, names []string, prefix string, extra []string) {
+	type frame struct {
+		obj, wantKey bool
+		under        string // the named key above this level, or ""
+		key          string
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	var stack []frame
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return
+		}
+		top := func() *frame {
+			if len(stack) == 0 {
+				return nil
+			}
+			return &stack[len(stack)-1]
+		}
+		under := ""
+		f := top()
+		if f != nil {
+			if under = f.under; f.obj && !f.wantKey && under == "" && containsFold(names, f.key) {
+				under = f.key
+			}
+		}
+		switch t := tok.(type) {
+		case json.Delim:
+			if t == '{' || t == '[' {
+				stack = append(stack, frame{obj: t == '{', wantKey: t == '{', under: under})
+				continue
+			}
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+			f = top()
+		case string:
+			if f != nil && f.obj && f.wantKey {
+				f.key, f.wantKey = t, false
+				continue
+			}
+			if under != "" {
+				holdAllowedLocked(prefix+under, extra, t)
+			}
+		case json.Number:
+			if under != "" {
+				holdAllowedLocked(prefix+under, extra, t.String())
+			}
+		}
+		if f != nil && f.obj {
+			f.wantKey = true
 		}
 	}
 }
