@@ -34,3 +34,10 @@ func fdAppendFlag(*os.File) (app, known bool) { return false, false }
 // appendAt writes b at f's end, off: a descriptor's flags do not change
 // after the open on this platform.
 func appendAt(f *os.File, b []byte, _ int64) (int, error) { return f.Write(b) }
+
+// retargetLog: the standard logger writes to fd 2 or to nothing here, and the
+// redirect does not move it.
+func retargetLog() {}
+
+// quietRuntime has nothing to do: the output layer is not built here.
+func quietRuntime() (resume func()) { return func() {} }
