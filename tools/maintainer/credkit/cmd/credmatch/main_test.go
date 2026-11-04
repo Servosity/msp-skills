@@ -150,8 +150,10 @@ func TestStreamLimitIsNotALeak(t *testing.T) {
 		t.Errorf("a clean write after a limit: want exhausted, got %+v", got[1])
 	}
 	// The whole stream exhausting the budget does not end it either.
-	zeros := strings.Repeat("\x00", 1<<16)
-	got, err = ask(t, short(zeros), short(zeros, "482913", "7\n"))
+	// The kit's one named residual (fix1b_test.go, contract 6 item 7): since #515 a
+	// run of zeros no longer exhausts anything, at any size up to the unit cap.
+	spent := "/var/folders/3c/v7xfshz979z_pkc18bwn767c0000gn/T/TestLearningsStats_PrunesBeforeReporting384837501/001/data.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate"
+	got, err = ask(t, short(spent), short(spent, "482913", "7\n"))
 	if err != nil || len(got) != 2 {
 		t.Fatalf("got %v, %v", got, err)
 	}

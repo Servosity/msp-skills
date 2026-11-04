@@ -81,9 +81,9 @@ type exchange struct {
 // Files function has no JSON form).
 type decl struct {
 	SecretEnv, URLEnv, ConfigFields, StoredRecords, CredentialFlags, StdinFlags []string
-	CredentialHeaders, CredentialFields, ResponseFields, MCPArguments   []string
-	Identifiers                                                         []credkit.Identifier
-	BaseURL                                                             credkit.BaseURL
+	CredentialHeaders, CredentialFields, ResponseFields, MCPArguments           []string
+	Identifiers                                                                 []credkit.Identifier
+	BaseURL                                                                     credkit.BaseURL
 }
 
 func (d decl) kit() credkit.Declarations {
