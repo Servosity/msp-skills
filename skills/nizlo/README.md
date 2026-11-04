@@ -47,12 +47,14 @@ python skills/nizlo/scripts/nizlo_api.py alerts --status active --severity criti
 ```
 
 The `stale-endpoints` workflow retrieves all active endpoint pages, applies the
-requested UTC cutoff locally, and groups matching endpoints by customer. Its
-JSON includes each endpoint's ID, display name or hostname, OS, and exact
-`lastSeenAt` value; endpoints never seen are included with a null timestamp.
+requested UTC cutoff locally, and groups matching endpoints by customer ID and
+name so same-named customers remain separate. Its JSON includes each endpoint's
+ID, display name or hostname, OS, and exact `lastSeenAt` value; endpoints never
+seen are included with a null timestamp.
 
 Nizlo Cloud uses `https://app.nizlo.com/api/v1` by default. An authorized
-self-hosted or alternate deployment can set `NIZLO_BASE_URL` to its API root.
+self-hosted or alternate deployment can set `NIZLO_BASE_URL` to its HTTPS API
+root.
 
 ## Authentication model
 
