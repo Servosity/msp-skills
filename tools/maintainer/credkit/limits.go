@@ -18,9 +18,9 @@ package credkit
 var (
 	maxDepth       = 32       // decodings deep
 	budgetPerByte  = 256      // decoded bytes per unit byte,
-	budgetBase     = 16 << 20 // plus this
+	budgetBase     = 24 << 20 // plus this (first adopters: ordinary connection names spent up to 17 MiB),
 	deflPerByte    = 64       // broken or retried fixed-Huffman output per unit byte,
-	deflBase       = 16 << 20 // plus this (kit11rv: 4 MiB left ordinary units 10 to 20% headroom),
+	deflBase       = 32 << 20 // plus this (the same units drew up to 28 MiB, one in 6,000 far more),
 	deflMax        = 48 << 20 // at most this
 	maxUnit        = 64 << 20 // one unit
 	maxEncodedBody = 64 << 20 // a response body read whole to hold its declared fields
@@ -74,6 +74,26 @@ const rawSuffix = true
 // repeat one character shorter, one level at a time. Read by every decoder
 // (measured), the same document exhausts the budget.
 const brokenText = true
+
+// brokenWindow and brokenSuffix (first adopters, 2026-11-03) are an exact
+// shortcut, not a reading bound. Fixed-Huffman symbols resynchronize, so the
+// attempts at many offsets of a stretch of binary all end in the same bytes:
+// one unit's 11 MB of final views from 20 KB was 100 KB repeated. Of a broken
+// stream's output that ends in a stretch another output added to the same view
+// also ends in, only the first brokenWindow bytes of the stretch are added:
+// nearly every decoder of a final view reads a window of at most that many
+// bytes, and each window past them is in the other output. The readings that
+// are not of such a window keep their input whole: a compressed stream that
+// starts before the cut and a JSON document open across it read the whole
+// output (decode.go acrossCut), and a MIME encoded word, a numeric character
+// reference or a window stretched by filler leave the output uncut
+// (deflateprobe.go cutAllowed).
+// The cut's end only adds a place a short value can end, so it can only
+// withhold more.
+const (
+	brokenWindow = 512
+	brokenSuffix = true
+)
 
 // textViews: a charset reading, the ROT13 view, and the NFKC view of
 // either, are text views (decode.go textOut). A charset reading of a charset reading is a new view at every

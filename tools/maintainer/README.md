@@ -295,6 +295,20 @@ What it does, by contract section:
   has no exemption), SQLite (`SQLDriver`), MCP (`MCPIn`, `MCPOut`, `MCPHTTP`, `MCPTools`) and child processes
   (`StartCommand`, `RunCommand`) each check one unit at a time. If the output layer cannot be installed, the program
   exits with status 70 before writing anything.
+  A program about to exit 0 whose stdout did not all reach its reader (a refused write, or a unit dropped along with its
+  notice) exits 74 instead (`ExitOutputLost`); a withheld unit whose notice arrived keeps the program's own status.
+- **Child processes (1, 5).** A child's argv and environment are one unit, and a child that would carry a held value is
+  refused. The connector's own program is not refused for its environment: its own binary, or its `<x>-mcp` / `<x>-cli`
+  companion in the same directory (each name judged by the file it resolves to). A variable that would carry a held value
+  goes down the inherited pipe with the held set, and `Start` in the child sets it again before `main` goes on, so a shell-out
+  tool authenticates with a key the user set in the environment, with no wiring, and the child's environment stays clean.
+  Any other program, a same-named one found through `PATH` or `<SLUG>_CLI_PATH` in another directory included, is refused,
+  and a credential in argv is refused for every program.
+- **A file other programs append to (5).** Several processes share the learn journal and the logs. A write that appends
+  tolerates growth it did not make: it is still checked with everything this process wrote to the file, and the kernel lands
+  it after what the others wrote. The kit no longer proves those bytes are its own, so a credential completed only by joining
+  this process's bytes to another's is contract 6 item 5, two runs. A file that shrank, or grew under a write at an offset,
+  still fails closed.
 - **Declarations (7).** A connector fills in one `credkit.Declarations` literal in one hand-written wiring file: its
   secret environment variables, credential files and fields, credential flags and headers, response fields, MCP
   arguments, each credential's allowed origins, and each exempt identifier with its reason. Every entry point is a plain
@@ -334,6 +348,16 @@ vets it for Linux, macOS and Windows on amd64 and arm64, and vets it against eve
 
 Not yet: no connector uses the kit in this change. The checker that proves a connector's wiring is complete is
 `credkit_verify` (next section); the leak test list that drives every connector against the contract is a separate change.
+
+Base URLs and other URLs held from startup: an explicit `--config` chooses the base URL over a discovered default (the
+environment still overrides, and every file is still held), so a default's host never stays an allowed origin when the program
+reads another file. `Declarations.URLEnv` (optional) names other variables that hold a URL, such as a token URL or a feedback
+endpoint; the password and query values of each are held, and they leave a third-party child's environment. A proxy variable's
+user and password (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, either case, the schemeless `ops:secret@proxy.example:3128` Go
+accepts included) are held unconditionally, bound to that proxy's origin.
+
+An MCPB host leaves `${user_config.<key>}` in a variable the user left empty. That text is no value anyone gave the
+program, so the kit does not hold it, as `cliutil.EnvOverride` does not read it; any other value in that variable is held.
 
 Known limits (accepted): a single write over 4 MiB to stdout or stderr is checked in 4 MiB units; an encoded
 response body over 64 MiB, or one in an encoding other than gzip or deflate, withholds everything from then on; a

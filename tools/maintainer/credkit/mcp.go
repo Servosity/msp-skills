@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -166,6 +167,7 @@ func (f *frameWriter) emit(frame, msg []byte) error {
 	if withheld(frame) {
 		if frame = lineFrame(mcpReplacement(msg)); withheld(frame) {
 			f.dead = true
+			mcpLost.Store(true)
 			if c, ok := f.w.(io.Closer); ok {
 				_ = c.Close()
 			}
@@ -173,8 +175,15 @@ func (f *frameWriter) emit(frame, msg []byte) error {
 		}
 	}
 	_, err := f.w.Write(frame)
+	if err != nil {
+		mcpLost.Store(true)
+	}
 	return err
 }
+
+// mcpLost: a frame for the original stdout did not reach it, past the pump
+// that Exit otherwise asks (stdio.go Exit).
+var mcpLost atomic.Bool
 
 func lineFrame(msg []byte) []byte { return append(slices.Clip(msg), '\n') }
 

@@ -527,8 +527,7 @@ var _ = url.Parse
 // one fails the test until it is reviewed and named here; one named here
 // that is gone fails it too, so the list stays the code.
 var kitExits = map[string]string{
-	"stdio.go pump.flush p.out.Write":                  "stdout and stderr: the unit, or its notice, after the check",
-	"stdio.go pump.flushOver p.out.Write":              "stdout and stderr: the notice for a unit too large to check",
+	"stdio.go pump.write p.out.Write":                  "stdout and stderr: the unit, or its notice, after the check",
 	"mcp.go frameWriter.emit f.w.Write":                "MCP stdio: the frame, or its replacement, after the check",
 	"mcp.go mcpResponse.out m.bw.Write":                "MCP HTTP, connection taken over: the checked unit",
 	"mcp.go mcpResponse.out m.bw.Flush":                "MCP HTTP, connection taken over: the checked unit",
@@ -543,6 +542,7 @@ var kitExits = map[string]string{
 	"mcp.go mcpResponse.frame f.h[]=":                  "MCP HTTP: builds a unit's header, checked in send before out",
 	"files.go WriteFile f.Write":                       "files: the record after the check, under the file's locks",
 	"stdio_unix.go appendAt c.Write":                   "files: Writer.put's append, or its notice, by offset at the end it was checked for",
+	"stdio_unix.go appendAt f.Write":                   "files: Writer.put's append, or its notice, at the file's end, by the kernel",
 	"stdio_windows.go appendAt f.Write":                "files: Writer.put's append, or its notice, at the end it was checked for",
 	"stdio_other.go appendAt f.Write":                  "files: Writer.put's append, or its notice, at the end it was checked for",
 	"files.go Writer.put w.f.WriteAt":                  "files: a write, or its notice, at the offset it was checked for",

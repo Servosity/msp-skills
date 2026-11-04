@@ -59,6 +59,7 @@ type matcher struct {
 	numWin   map[string]struct{} // 8-digit windows of those forms
 	maxLen   int                 // the longest normalized value, in bytes
 	short    bool                // a value shorter than pieceLen is held
+	heldNUL  bool                // a held value has a NUL byte
 	norms    [][]byte
 	binary   bool // a held value is not UTF-8 (decoding.part reads non-text parts whole too)
 
@@ -126,6 +127,7 @@ func buildMatcher(vals []string, anywhere, whole bool) *matcher {
 	m := &matcher{numWhole: map[string]struct{}{}, numWin: map[string]struct{}{}}
 	pats := map[string]bool{} // normalized pattern -> short (whole token only)
 	for _, v := range vals {
+		m.heldNUL = m.heldNUL || strings.IndexByte(v, 0) >= 0
 		n := normalize([]byte(v))
 		cs := charStarts(n)
 		if !utf8.ValidString(v) {
@@ -382,6 +384,7 @@ type scan struct {
 	norm   []byte
 	dst    []byte
 	inf    []byte
+	kept   []byte // sharedTail's scratch
 	rbuf   []byte // readAll's read buffer
 	gz     *gzip.Reader
 	zl, fl io.ReadCloser

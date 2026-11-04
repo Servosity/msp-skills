@@ -9,12 +9,21 @@ package credkit
 // held value is not started. The held set reaches the child through an
 // inherited pipe named by CREDKIT_HELD, never through argv or environment,
 // and a child built on the kit holds it in Start.
+//
+// The connector's own program is the one exception to "not started": its own
+// binary, or its companion beside it (ownProgram). A variable that would
+// carry a held value goes down that same pipe instead of into the child's
+// environment, and Start in the child sets it again before the program reads
+// it. So a credential the user set in the environment still reaches the CLI
+// an MCP server shells out to, with no wiring, and the unit the child gets
+// is still clean. Any other program is refused as before.
 
 import (
 	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -31,14 +40,22 @@ type heldRecord struct {
 	V       string   `json:"v,omitempty"`
 	A       []string `json:"a,omitempty"`
 	Unknown bool     `json:"unknown,omitempty"`
+	// E: not a held value, but the environment variable E the parent handed
+	// over with this value (handOver). The values that make it one to hand
+	// over come down as held records of their own.
+	E string `json:"e,omitempty"`
 }
 
 // StartCommand starts cmd under the rules above. Use it (or RunCommand) in
 // place of cmd.Start, cmd.Run, cmd.Output and cmd.CombinedOutput.
 func StartCommand(cmd *exec.Cmd) error {
+	own := ownProgram(cmd)
 	env := cmd.Env
 	if env == nil {
 		env = childEnv()
+		if own {
+			env = slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, heldEnv+"=") })
+		}
 	}
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -50,12 +67,19 @@ func StartCommand(cmd *exec.Cmd) error {
 	// check, so os/exec adds nothing after it.
 	env = append(slices.Clip(env), heldEnv+"="+attachHeld(cmd, r))
 	argv, env := childEnvelope(cmd, env, runtime.GOOS)
-	cmd.Env = env
 	if runtime.GOOS == "windows" {
 		setCmdLine(cmd, argv[1])
 	}
 	e := emitBegin() // the barrier, to the start of the child (held.go heldMu)
-	if withheld([]byte(strings.Join(argv, "\n") + "\n" + strings.Join(env, "\n"))) {
+	var moved []heldRecord
+	unit := func() []byte { return []byte(strings.Join(argv, "\n") + "\n" + strings.Join(env, "\n")) }
+	refuse := withheld(unit())
+	if refuse && own {
+		env, moved = handOver(env)
+		refuse = withheld(unit())
+	}
+	cmd.Env = env
+	if refuse {
 		emitEnd(e)
 		_ = r.Close()
 		_ = w.Close()
@@ -69,12 +93,100 @@ func StartCommand(cmd *exec.Cmd) error {
 		return err
 	}
 	_ = r.Close()
-	recs := heldRecords()
+	recs := append(heldRecords(), moved...)
 	go func() {
 		_ = json.NewEncoder(w).Encode(recs)
 		_ = w.Close()
 	}()
 	return nil
+}
+
+// handOver takes out of env each variable that would be withheld on its own
+// and returns what is left and a record for each one taken. CREDKIT_HELD
+// stays, since it is how the child finds the records, and so does SYSTEMROOT,
+// which a Windows child needs before any of its code runs.
+func handOver(env []string) ([]string, []heldRecord) {
+	var left []string
+	var moved []heldRecord
+	for _, kv := range env {
+		name, v, ok := strings.Cut(kv, "=")
+		if !ok || name == "" || name == heldEnv || strings.EqualFold(name, "SYSTEMROOT") || !withheld([]byte(kv)) {
+			left = append(left, kv)
+			continue
+		}
+		rec := heldRecord{B: []byte(v), E: name}
+		if utf8.ValidString(v) {
+			rec.V = v
+		}
+		moved = append(moved, rec)
+	}
+	return left, moved
+}
+
+// ownProgram reports whether cmd runs this connector's own program: this
+// very binary, or the companion a connector's MCP server and CLI each are to
+// the other, beside it. Only an absolute path counts: a relative one means
+// whatever the working directory holds, and exec.Command leaves one only for
+// a PATH that names a relative directory.
+func ownProgram(cmd *exec.Cmd) bool {
+	if cmd.Err != nil || !filepath.IsAbs(cmd.Path) {
+		return false
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	return sameProgram(exe, cmd.Path, runtime.GOOS, runtime.GOARCH)
+}
+
+// sameProgram is ownProgram's test, every name judged by the file it
+// resolves to, so a symbolic link is what it runs. A companion is in the same
+// directory as exe, and only the -mcp and -cli of one name differ: the
+// fleet's two programs are <x>-mcp and <x>-cli, the release lays them out
+// side by side, and cli_path.go looks for the CLI there first
+// (tools/maintainer/mcpb_bundle.py). A file of that name anywhere else, a
+// PATH entry included, could be anything, so it is a different program.
+func sameProgram(exe, path, goos, goarch string) bool {
+	re, err1 := filepath.EvalSymlinks(exe)
+	rp, err2 := filepath.EvalSymlinks(path)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	fe, err1 := os.Stat(re)
+	fp, err2 := os.Stat(rp)
+	if err1 != nil || err2 != nil || !fp.Mode().IsRegular() {
+		return false
+	}
+	if os.SameFile(fe, fp) {
+		return true
+	}
+	de, err1 := os.Stat(filepath.Dir(re))
+	dp, err2 := os.Stat(filepath.Dir(rp))
+	if err1 != nil || err2 != nil || !os.SameFile(de, dp) {
+		return false
+	}
+	se, roleE := programName(filepath.Base(re), goos, goarch)
+	sp, roleP := programName(filepath.Base(rp), goos, goarch)
+	return se != "" && se == sp && roleE != roleP
+}
+
+// programName splits a file name into a connector's name and its role, mcp
+// or cli; both are "" for any other name. It takes off what a release adds:
+// .exe on Windows, and the -<goos> or -<goos>-<goarch> of a bundle's thin
+// binaries (cli_path.go siblingCLICandidates). Windows names ignore case.
+func programName(name, goos, goarch string) (stem, role string) {
+	if goos == "windows" {
+		name = strings.ToLower(name)
+		name = strings.TrimSuffix(name, ".exe")
+	}
+	name = strings.TrimSuffix(name, "-"+goos+"-"+goarch)
+	name = strings.TrimSuffix(name, "-"+goos)
+	for _, r := range []string{"mcp", "cli"} {
+		if s, ok := strings.CutSuffix(name, "-"+r); ok && s != "" {
+			return s, r
+		}
+	}
+	return "", ""
 }
 
 // childEnvelope is the argv and environment the child gets on goos, from
@@ -204,16 +316,17 @@ func RunCommand(cmd *exec.Cmd) error {
 	return cmd.Wait()
 }
 
-// childEnv is the environment without the declared secret variables and
-// without this process's own CREDKIT_HELD.
+// childEnv is the environment without the declared secret and URL variables,
+// a proxy variable that names a user or password, and this process's own
+// CREDKIT_HELD.
 func childEnv() []string {
 	reg.Lock()
-	secret := reg.decl.SecretEnv
+	secret := slices.Concat(reg.decl.SecretEnv, reg.decl.URLEnv)
 	reg.Unlock()
 	var out []string
 	for _, kv := range os.Environ() {
-		name, _, _ := strings.Cut(kv, "=")
-		drop := name == heldEnv
+		name, v, _ := strings.Cut(kv, "=")
+		drop := name == heldEnv || isProxyEnv(name) && proxyHasUserinfo(v)
 		for _, s := range secret {
 			if name == s || runtime.GOOS == "windows" && strings.EqualFold(name, s) {
 				drop = true
@@ -273,6 +386,10 @@ func holdInherited(r io.Reader) {
 		v := r.V
 		if r.B != nil {
 			v = string(r.B)
+		}
+		if r.E != "" {
+			_ = os.Setenv(r.E, v) // handOver: a name it refuses never reached the program either
+			continue
 		}
 		if r.Unknown || v == "" {
 			reg.unknown = true
