@@ -36,39 +36,31 @@ func TestCorpus10BaseURLPasswordWithSlash(t *testing.T) {
 }
 
 // A credential a vendor stores as an object key beneath a declared response
-// field (halopsa's custom fields): row vendor-key-as-name. A key that reads as a
-// field name stays free, or every ordinary "ttl" would be withheld.
+// field (halopsa's custom fields): row vendor-key-as-name. Every such key, spelled
+// any way; a key outside a declared field is not held.
 func TestCorpus10KeyBeneathDeclaredField(t *testing.T) {
 	long := strings.Repeat("k3y", 40)
-	for _, tc := range []struct{ body, want string }{
-		{`{"customfields":[{"access_token":{"cvAbCdEfGhIjKl":true}}]}`, "cvAbCdEfGhIjKl"},
-		{`{"access_token":{"a":{"cv9aBcDeFgH2jKlM":1}}}`, "cv9aBcDeFgH2jKlM"},
-		{`{"access_token":{"` + long + `":true}}`, long},
-		{`{"access_token":{"clsKwWx09J91.JVD+qQh/g1R=wZQ":true}}`, "clsKwWx09J91.JVD+qQh/g1R=wZQ"},
-		{`{"access_token":{"a3f9c2d1e8b7":true}}`, "a3f9c2d1e8b7"},
-		{`{"access_token":{"thispassphraseislongerthanany":true}}`, "thispassphraseislongerthanany"},
-		{`{"access_token":{"deadbeef271828":true}}`, "deadbeef271828"},
-		{`{"access_token":{"correcthorse":true}}`, "correcthorse"},
-		{`{"access_token":{"token_correcthorse":true}}`, "token_correcthorse"},
-		{`{"access_token":{"sha256":true}}`, "sha256"},
-	} {
-		resetForTest(Declarations{ResponseFields: []string{"access_token"}})
-		scanAll(strings.NewReader(tc.body), []string{"access_token"}, asJSON)
-		if !isHeld(tc.want) {
-			t.Errorf("%s: key %q not held", tc.body, tc.want)
+	for _, key := range []string{"cvAbCdEfGhIjKl", "clsKwWx09J91.JVD+qQh/g1R=wZQ", "deadbeef271828", "correcthorse", "secret-secret-secret-secret", "ttl", long} {
+		for _, body := range []string{`{"customfields":[{"access_token":{"` + key + `":true}}]}`, `{"access_token":{"a":{"` + key + `":1}}}`, `{"access_token":{"` + key + `":true}}`} {
+			resetForTest(Declarations{ResponseFields: []string{"access_token"}})
+			scanAll(strings.NewReader(body), []string{"access_token"}, asJSON)
+			if !isHeld(key) {
+				t.Errorf("%s: key %q not held", body, key)
+			}
 		}
 	}
-	for _, name := range []string{"ttl", "value", "expires_in", "expiresAt", "userId", "token_type", "refreshToken", "client-id", "ID", "accessTokenExpiresAt", "created_at", "user.name"} {
-		resetForTest(Declarations{ResponseFields: []string{"access_token"}})
-		scanAll(strings.NewReader(`{"access_token":{"`+name+`":1}}`), []string{"access_token"}, asJSON)
-		if isHeld(name) {
-			t.Errorf("a field name %q held", name)
-		}
-	}
-	// A key outside any declared field is not held, whatever it reads as.
 	resetForTest(Declarations{ResponseFields: []string{"access_token"}})
 	scanAll(strings.NewReader(`{"data":{"cv9OutsideKeyValue":1},"access_token":"tokValue12345"}`), []string{"access_token"}, asJSON)
 	if isHeld("cv9OutsideKeyValue") || !isHeld("tokValue12345") {
 		t.Errorf("held %v", heldValues())
+	}
+}
+
+// The kit's identifier exemption reaches a key beneath the field it names.
+func TestCorpus10KeyBeneathIdentifierField(t *testing.T) {
+	resetForTest(Declarations{ResponseFields: []string{"label"}, Identifiers: []Identifier{{Source: "response:label", Reason: "public"}}})
+	scanAll(strings.NewReader(`{"label":{"cvAbCdEfGhIjKl":1}}`), []string{"label"}, asJSON)
+	if isHeld("cvAbCdEfGhIjKl") {
+		t.Errorf("an identifier's key held: %v", heldValues())
 	}
 }

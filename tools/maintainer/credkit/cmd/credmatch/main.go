@@ -80,14 +80,14 @@ type exchange struct {
 // decl is the part of credkit.Declarations the list reads and sends (its
 // Files function has no JSON form).
 type decl struct {
-	SecretEnv, ConfigFields, StoredRecords, CredentialFlags, StdinFlags []string
+	SecretEnv, URLEnv, ConfigFields, StoredRecords, CredentialFlags, StdinFlags []string
 	CredentialHeaders, CredentialFields, ResponseFields, MCPArguments   []string
 	Identifiers                                                         []credkit.Identifier
 	BaseURL                                                             credkit.BaseURL
 }
 
 func (d decl) kit() credkit.Declarations {
-	return credkit.Declarations{SecretEnv: d.SecretEnv, ConfigFields: d.ConfigFields, StoredRecords: d.StoredRecords,
+	return credkit.Declarations{SecretEnv: d.SecretEnv, URLEnv: d.URLEnv, ConfigFields: d.ConfigFields, StoredRecords: d.StoredRecords,
 		CredentialFlags: d.CredentialFlags, StdinFlags: d.StdinFlags, CredentialHeaders: d.CredentialHeaders,
 		CredentialFields: d.CredentialFields, ResponseFields: d.ResponseFields, MCPArguments: d.MCPArguments,
 		Identifiers: d.Identifiers, BaseURL: d.BaseURL}

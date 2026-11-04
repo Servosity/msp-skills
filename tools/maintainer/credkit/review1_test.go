@@ -282,7 +282,7 @@ func TestContract1ResponseFieldShapes(t *testing.T) {
 	}{
 		{`{"access_token":"json-tok-11111","token_type":"bearer"}`, []string{"json-tok-11111"}, []string{"bearer", "token_type"}},
 		{`{"data":{"access_token":"nested-tok-2222"}}`, []string{"nested-tok-2222"}, []string{"data"}},
-		{`{"access_token":{"value":"obj-tok-3333","ttl":60},"after":"plain-77"}`, []string{"obj-tok-3333", "60"}, []string{"value", "ttl", "plain-77"}},
+		{`{"access_token":{"value":"obj-tok-3333","ttl":60},"after":"plain-77"}`, []string{"obj-tok-3333", "60", "ttl"}, []string{"plain-77"}},
 		{`[{"access_token":"arr-tok-4444"},{"access_token": ["a-55555555", 9876543210]}]`, []string{"arr-tok-4444", "a-55555555", "9876543210"}, nil},
 		{`{"Access_Token" : "case-tok-6666" , "n": 1}`, []string{"case-tok-6666"}, []string{"1"}},
 		{`{"access_token":"esc-tok\"7777"}`, []string{`esc-tok"7777`, `esc-tok\"7777`}, nil},

@@ -1847,7 +1847,8 @@ type result struct {
 // Identifiers (each element's Source). Every one of them, set anywhere but
 // in the one literal, fails closed.
 var lists = map[string]bool{"ResponseFields": true, "SecretEnv": true, "ConfigFields": true, "CredentialFlags": true,
-	"StdinFlags": true, "CredentialHeaders": true, "CredentialFields": true, "MCPArguments": true, "StoredRecords": true}
+	"StdinFlags": true, "CredentialHeaders": true, "CredentialFields": true, "MCPArguments": true, "StoredRecords": true,
+	"URLEnv": true}
 
 var watched = func() map[string]bool {
 	w := map[string]bool{"Identifiers": true, "BaseURL": true}
@@ -2608,8 +2609,7 @@ def adopter_tls(slug: str, tmp: str) -> kit_tls.Served:
 def received_keys(served: list, fields: list[str], exempt: list[str] | None = None) -> list[str]:
     """Object keys beneath a declared response field in a JSON body: a
     credential a vendor stores as a key (halopsa custom fields). The kit holds
-    those not built from its closed word list (credkit.nameShaped); the list
-    holds every one, a second reading that never holds less."""
+    them too; this is a second reading, on JSON bodies, that never holds less."""
     out: list[str] = []
 
     def keys(x) -> None:
@@ -6635,6 +6635,22 @@ def _c10_adopters() -> bool:
         ("the same child, not handed the parent's set", "vendor-field-echo", "PASS",
          dict(cli=inherit_cli, mcp=inherit_mcp.replace("__HANDLE__", "")), inherit_kw),
     ])
+    # #515: a URL variable other than the base URL, read from the declaration, held.
+    url_kit = dict(_DECL_KIT)
+    url_kit["internal/credkit/kit.go"] = url_kit["internal/credkit/kit.go"].replace(
+        "type Declarations struct {\n", "type Declarations struct {\n\tURLEnv []string\n")
+    url_kit["main.go"] = _DECL_HDR + ('var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, URLEnv: []string{"ACME_TOKEN_URL"}}\n\n'
+                                      'func main() { credkit.Start(d) }\n')
+    read = _decl_read(url_kit, full="all")
+    if read.get("lists", {}).get("URLEnv") != ["ACME_TOKEN_URL"] or read.get("errors"):
+        print(f"    corpus self-test: URLEnv not read from a declaration: {read}")
+        ok = False
+    urls = {"X_TOKEN_URL": "https://u:urlEnvPass271828@h.example/"}
+    plain = {"SecretEnv": [], "Identifiers": [], "ResponseFields": []}
+    if "urlEnvPass271828" not in kit_acquire({**plain, "URLEnv": ["X_TOKEN_URL"]}, urls, [], {}, [])["held"] or \
+            kit_acquire(plain, urls, [], {}, [])["held"]:
+        print("    corpus self-test: URLEnv not given to the kit's reading, or held without it")
+        ok = False
     chain = [{"env": {}}, {"env": {}, "parent": 0}, {"env": {}, "parent": 1}]
     sets = [["p"], ["c"], []]
     inherit_held(chain, sets, False)

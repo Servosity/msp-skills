@@ -15,7 +15,6 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -479,37 +478,6 @@ func (s *fieldScan) lenientByte(c byte) {
 	s.out = append(s.out, c)
 }
 
-var (
-	nameWordRE = regexp.MustCompile(`[A-Z]?[a-z]+|[A-Z]+`)
-	nameSeps   = strings.NewReplacer("-", "", "_", "", ".", "", " ", "")
-	// fieldWords is closed: a word outside it makes a key a credential.
-	fieldWords = func() map[string]bool {
-		m := map[string]bool{}
-		for _, w := range strings.Fields(`access active alg algorithm at by client created data date enabled exp expiration
-			expires expiry format from hash hint id in issued issuer key kind last length masked max min name on refresh salt
-			scope scopes seconds secret source status time to token tokens ttl type until updated url used user valid value
-			values version`) {
-			m[w] = true
-		}
-		return m
-	}()
-)
-
-// nameShaped: a key built only from the closed list of words that describe a
-// token or secret (ttl, expires_in, refreshToken), which holding would withhold
-// from all ordinary output. Every other key beneath a declared field is held as
-// a credential, however it is spelled.
-func nameShaped(key string) bool {
-	bare, n := nameSeps.Replace(key), 0
-	for _, w := range nameWordRE.FindAllString(key, -1) {
-		if !fieldWords[strings.ToLower(w)] {
-			return false
-		}
-		n += len(w)
-	}
-	return n > 0 && n == len(bare)
-}
-
 // beneath: the token stands inside a declared field's object or array.
 func (s *fieldScan) beneath() bool { return s.match >= 0 && len(s.objs) > s.match }
 
@@ -553,8 +521,12 @@ func (s *fieldScan) end() {
 		}
 	}
 	if s.isKey {
-		if s.beneath() && !nameShaped(value) {
-			Hold("response:"+s.matchKey, value) // a vendor may store the credential as a key (halopsa)
+		if s.beneath() {
+			// A vendor may store the credential as a key (halopsa). Every key: two
+			// rules that told a name from a credential by its spelling both let one
+			// through. A connector whose field carries metadata pays a withheld unit
+			// (no connector's API measured does; kaseya-vsa's Headers are custom).
+			Hold("response:"+s.matchKey, value)
 		}
 		if len(text) > s.keyCap {
 			value = "" // longer than any declared name, written any way
