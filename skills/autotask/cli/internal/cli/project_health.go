@@ -44,15 +44,18 @@ func newNovelProjectHealthCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return apiErr(err)
 			}
-			tasks, _ := listEntity(db, "tasks")
+			tasks, err := listEntity(db, "tasks")
+			if err != nil {
+				return apiErr(err)
+			}
 			now := time.Now()
 
 			overdueTasksByProject := map[string]int{}
 			for _, tk := range tasks {
-				if pct, ok := numAt(tk, "percentComplete"); ok && pct >= 100 {
+				if isTaskDone(tk) {
 					continue
 				}
-				due, ok := timeAt(tk, "endDateTime", "dueDate")
+				due, ok := timeAt(tk, "endDateTime")
 				if !ok || !due.Before(now) {
 					continue
 				}
@@ -72,7 +75,7 @@ func newNovelProjectHealthCmd(flags *rootFlags) *cobra.Command {
 					continue
 				}
 				var risks []string
-				if end, ok := timeAt(p, "endDate", "endDateTime"); ok && end.Before(now) {
+				if end, ok := timeAt(p, "endDateTime"); ok && end.Before(now) {
 					risks = append(risks, "past end date")
 				}
 				id, _ := intAt(p, "id")
@@ -85,8 +88,8 @@ func newNovelProjectHealthCmd(flags *rootFlags) *cobra.Command {
 				}
 				rows = append(rows, row{
 					ID:           id,
-					Name:         strAt(p, "projectName", "title"),
-					EndDate:      strAt(p, "endDate", "endDateTime"),
+					Name:         strAt(p, "projectName"),
+					EndDate:      strAt(p, "endDateTime"),
 					OverdueTasks: ot,
 					Risks:        risks,
 				})

@@ -55,7 +55,7 @@
       "type": "skill-md",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
-      "digest": "sha256:ab556f8770af8630eb6d98c7ef4465b05402482bee27030ed9336a64d66c1558"
+      "digest": "sha256:98c274b12e78499eea8e23afde81cb78280f4ef261c6566f87c9eaadc8e804a9"
     },
     {
       "name": "auvik",

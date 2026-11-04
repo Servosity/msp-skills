@@ -26,3 +26,28 @@ func TestNormalizeZoneBaseURL(t *testing.T) {
 		})
 	}
 }
+
+// zone-discovery-pinned: only an https webservicesN.autotask.net zone on the
+// default port with the /atservicesrest path is accepted from discovery.
+func TestValidateZoneURL(t *testing.T) {
+	for raw, ok := range map[string]bool{
+		"https://webservices14.autotask.net/atservicesrest/":              true,
+		"https://webservices1.autotask.net/atservicesrest":                true,
+		"https://WEBSERVICES5.Autotask.net/atservicesrest/V1.0/":          true,
+		"https://webservices24.autotask.net:443/atservicesrest/":          true,
+		"https://webservices.autotask.net/atservicesrest/":                false, // the discovery host
+		"http://webservices14.autotask.net/atservicesrest/":               false,
+		"https://webservices14.autotask.net.evil.example/atservicesrest/": false,
+		"https://evil.example/atservicesrest/":                            false,
+		"https://u:p@webservices14.autotask.net/atservicesrest/":          false,
+		"https://webservices14.autotask.net:8443/atservicesrest/":         false,
+		"https://webservices14.autotask.net/other/":                       false,
+		"https://webservices14.autotask.net/atservicesrest/?next=x":       false,
+		"https://webservices14.autotаsk.net/atservicesrest/":              false, // Cyrillic a
+		"": false,
+	} {
+		if err := ValidateZoneURL(raw); (err == nil) != ok {
+			t.Errorf("%q: accepted=%v, want %v (%v)", raw, err == nil, ok, err)
+		}
+	}
+}
