@@ -740,10 +740,12 @@ def judge(text, held: list[str], outbound: bool = False) -> str | None:
     if v == "leak":
         return f"a held credential (the kit's matcher, contract {clause})"
     if v == "exhausted":
-        return "the kit's matcher ran out of budget (contract 3: exhausted, a failure)"
+        return EXHAUSTED
     return None
 
 
+EXHAUSTED = "the kit's matcher ran out of budget (contract 3: exhausted, a failure)"
+WINDOWS = " (read in windows)"
 DEAD = "bytes its rows do not show"   # sqlite_dead's pieces
 WINDOW = 1024
 
@@ -759,7 +761,7 @@ def judge_windows(text, held: list[str]) -> str | None:
     for i in range(0, max(1, len(b) - WINDOW // 2), WINDOW // 2):
         how = judge(b[i:i + WINDOW], held)
         if how:
-            return how + " (read in windows)"
+            return how + WINDOWS
     return None
 
 
@@ -1014,7 +1016,7 @@ def judge_dead(text: str, held: list[str]) -> str | None:
     parts = [b] if any("\x00" in h for h in held) else [x for x in re.split(rb"\x00{64,}", b) if x.strip(b"\x00")]
     for part in parts:
         how = judge(part.decode("utf-8", "surrogateescape"), held)
-        if how and "ran out of budget" in how:
+        if how == EXHAUSTED:
             how = judge_windows(part, held)
         if how:
             return how
@@ -3989,8 +3991,10 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 # short one in one write, then a pause, is a leak a retry would hide by joining
 # the writes.
 def limit_only(r: dict) -> bool:
-    """A FAIL whose every reason is the matcher reaching a limit."""
-    return r["verdict"] == "FAIL" and bool(r["where"]) and all("ran out of budget" in w for w in r["where"])
+    """A FAIL whose every reason is the matcher reaching a limit: read from the
+    end of each reason, where the verdict is, never from the sink's name before it."""
+    return r["verdict"] == "FAIL" and bool(r["where"]) and all(
+        w.endswith((": " + EXHAUSTED, ": " + EXHAUSTED + WINDOWS)) for w in r["where"])
 
 
 def settle(r: dict, again) -> dict:
@@ -6837,14 +6841,14 @@ def _c11_round1() -> bool:
 
 def _settle_probe() -> bool:
     """A reason that depends on the run gets two more attempts; nothing else does."""
-    budget, stream = "x: the kit's matcher ran out of budget", "y: a held credential (Streams: write 2 of 2 withheld)"
+    budget, stream = "x: " + EXHAUSTED, "y: a held credential (Streams: write 2 of 2 withheld)"
     leak, ok = "z: a held credential", True
 
     def fails(*why):
         return {"verdict": "FAIL", "where": list(why)}
     for why, seq, want_v, want_n in (
             ("budget, then clean", [fails(budget), {"verdict": "PASS", "where": []}], "PASS", 2),
-            ("the kit's stream limit, then clean", [fails("x: the kit's matcher ran out of budget (Streams: write 2 of 2 withheld at a limit)"), {"verdict": "PASS", "where": []}], "PASS", 2),
+            ("a limit read in windows, then clean", [fails("x: " + EXHAUSTED + WINDOWS), {"verdict": "PASS", "where": []}], "PASS", 2),
             # corpus8rv rounds 4 and 5: a held credential found is never retried,
             # on any row: a whole short one in one write, then a pause, is a leak
             # a retry would hide by joining the writes.
@@ -6872,7 +6876,8 @@ def _settle_probe() -> bool:
 def _limit_entry_probe() -> bool:
     """corpus9rv round 2: an entry marked @limit excuses a FAIL whose every
     reason is a limit, and nothing else; it cannot be widened."""
-    budget, leak = "x: the kit's matcher ran out of budget", "y: a held credential"
+    budget, leak = "x: " + EXHAUSTED + WINDOWS, "y: a held credential (the kit's matcher, contract 2(b))"
+    named = "file write /tmp/ran out of budget/z: a held credential (the kit's matcher, contract 2(b))"
 
     def fails(*why):
         return {"id": "c", "verdict": "FAIL", "where": list(why), "form": "raw", "shape": "row", "source": "env",
@@ -6884,6 +6889,8 @@ def _limit_entry_probe() -> bool:
     for why, bad in (("a limit alone is not excused", gated(fails(budget), {"c@limit"})),
                      ("a leak is excused", not gated(fails(leak), {"c@limit"})),
                      ("a leak beside a limit is excused", not gated(fails(budget, leak), {"c@limit"})),
+                     ("a leak in a path naming the limit is excused", not gated(fails(named), {"c@limit"})),
+                     ("a leak in a path naming the limit is retried", limit_only(fails(named))),
                      ("a FAIL with no reason is excused", not gated(fails(), {"c@limit"})),
                      ("a plain entry stopped excusing a leak", gated(fails(leak), {"c"})),
                      ("a connector on the kit is excused", not gated(fails(budget), {"c@limit"}, kit=True)),
