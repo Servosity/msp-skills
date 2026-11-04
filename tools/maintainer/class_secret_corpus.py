@@ -101,9 +101,12 @@ import queue
 import random
 import re
 import secrets as _secrets
+import select
 import shlex
 import signal
 import shutil
+import socket
+import ssl
 import stat
 import struct
 import string
@@ -430,8 +433,38 @@ def untransfer(coding: str, body: bytes) -> bytes:
     raise ValueError(f"transfer coding {coding!r} cannot be decoded")
 
 
+def _relay(client, port: int) -> None:
+    """A CONNECT tunnel: bytes both ways between a client and a local listener
+    until either ends. One thread, because an SSL socket cannot be read and
+    written at once."""
+    up = socket.create_connection(("127.0.0.1", port))
+    client.setblocking(False)
+    try:
+        while True:
+            pending = getattr(client, "pending", lambda: 0)()
+            for s in [client] if pending else select.select([client, up], [], [], 5)[0]:
+                try:
+                    data = s.recv(65536)
+                except (ssl.SSLWantReadError, ssl.SSLWantWriteError, BlockingIOError):
+                    continue
+                if not data:
+                    return
+                if s is up:
+                    while data:
+                        try:
+                            data = data[client.send(data):]
+                        except (ssl.SSLWantReadError, ssl.SSLWantWriteError, BlockingIOError):
+                            select.select([client], [client], [], 1)
+                else:
+                    up.sendall(data)
+    except OSError:
+        pass
+    finally:
+        up.close()
+
+
 class Fake:
-    def __init__(self, respond, token, tls: kit_tls.Served | None = None):
+    def __init__(self, respond, token, tls: kit_tls.Served | None = None, pin: str | None = None):
         self.requests: list = []
         self.served: list = []   # every response as sent: (method, status, [(header, value)], delivered body)
         self.lock = threading.Lock()
@@ -499,6 +532,17 @@ class Fake:
                     body, fake.unreadable = b"", True   # judged as a leak: it could not be read
                 with fake.lock:
                     fake.requests.append((self.command, _utf8(self.path), hdrs, body))
+                if self.command == "CONNECT" and fake.pin and self.path in (fake.pin, fake.pin + ":443"):
+                    # A host a credential is pinned to: the list plays it (pin_host).
+                    self._sent = []
+                    self.send_response(200)
+                    self.end_headers()
+                    with fake.lock:
+                        fake.served.append((self.command, 200, list(self._sent), b""))
+                    self.close_connection = True
+                    fake.tunnels += 1
+                    _relay(self.connection, fake.pin_port)
+                    return
                 st, hd, bd = token() if _is_token_request(self.command, self.path, body) else respond(self.path)
                 if self.command == "CONNECT":
                     # What follows is a TLS tunnel, not a request: the CONNECT
@@ -534,6 +578,8 @@ class Fake:
             kit_tls.serve_tls(self.srv, tls.cert)
         threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.url = f"{'https' if tls else 'http'}://127.0.0.1:{self.srv.server_address[1]}"
+        self.pin, self.pin_port = pin, self.srv.server_address[1]   # a tunnel to the pinned host ends here by default
+        self.tunnels = 0
 
     def data_requests(self):
         return [r for r in self.requests if not _is_token_request(r[0], r[1], r[3])]
@@ -750,6 +796,7 @@ def judge(text, held: list[str], outbound: bool = False) -> str | None:
 EXHAUSTED = "the kit's matcher ran out of budget (contract 3: exhausted, a failure)"
 WINDOWS = " (read in windows)"
 DEAD = "bytes its rows do not show"   # sqlite_dead's pieces
+DEAD_MIN = 4   # judge_dead: shorter values are read there as written only
 WINDOW = 1024
 
 
@@ -1016,6 +1063,21 @@ def judge_dead(text: str, held: list[str]) -> str | None:
     NUL byte (finding r2-4: then the piece is read whole); a piece the kit
     cannot read whole is read in windows (judge_windows)."""
     b = _raw(text)
+    # Measured (corpus11rv, one halopsa run, 385 KB of these bytes): 15 of 20
+    # random 3-character values match through some decoding, 4 of 150 of 4
+    # characters, none of 150 of 7 or 40 of 6 digits. A reading that matches most values says
+    # nothing, and it failed short3-raw one run in six. So a value under
+    # DEAD_MIN characters counts here only where it stands as written; the
+    # kit still judges those bytes. Every statement that wrote these bytes is
+    # judged with every decoding (read_trace), and the kit has no reading of
+    # a page at all.
+    short = [h for h in held if len(h) < DEAD_MIN]
+    held = [h for h in held if len(h) >= DEAD_MIN]
+    for h in short:
+        for m in re.finditer(rb"(?<![A-Za-z0-9])" + re.escape(_raw(h)) + rb"(?![A-Za-z0-9])", b, re.I):
+            how = judge(b[max(0, m.start() - 32):m.end() + 32].decode("utf-8", "surrogateescape"), [h])
+            if how:
+                return how
     parts = [b] if any("\x00" in h for h in held) else [x for x in re.split(rb"\x00{64,}", b) if x.strip(b"\x00")]
     for part in parts:
         how = judge(part.decode("utf-8", "surrogateescape"), held)
@@ -1840,6 +1902,7 @@ type result struct {
 	Lists       map[string][]string `json:"lists"`
 	BaseURL     map[string]string   `json:"base_url"`
 	Files       bool                `json:"files"`
+	Pins        map[string][]string `json:"pins"`
 	Errors      []string            `json:"errors"`
 }
 
@@ -2410,8 +2473,45 @@ func main() {
 							take(where, val, &l)
 							res.Lists[name] = l
 						case name == "Origins":
-							// Not read: an origin only allows a host, and the
-							// list holds every host but the fake's as foreign.
+							// Only where to send a request (pin_host), never a
+							// verdict: the list holds every host but the ones it
+							// plays as foreign. What is not a constant is not
+							// read, and at worst a row reaches no request (NOTE).
+							if res.Pins == nil {
+								res.Pins = map[string][]string{}
+							}
+							ast.Inspect(val, func(n ast.Node) bool {
+								el, ok := n.(*ast.CompositeLit)
+								if !ok {
+									return true
+								}
+								src, allowed := "", []string{}
+								for _, f := range el.Elts {
+									kv, ok := f.(*ast.KeyValueExpr)
+									if !ok {
+										continue
+									}
+									id, _ := kv.Key.(*ast.Ident)
+									if id == nil {
+										continue
+									}
+									if id.Name == "Source" {
+										if tv := info.Types[kv.Value]; tv.Value != nil && tv.Value.Kind() == constant.String {
+											src = constant.StringVal(tv.Value)
+										}
+									} else if lit, ok := ast.Unparen(kv.Value).(*ast.CompositeLit); ok && id.Name == "Allowed" {
+										for _, a := range lit.Elts {
+											if tv := info.Types[a]; tv.Value != nil && tv.Value.Kind() == constant.String {
+												allowed = append(allowed, constant.StringVal(tv.Value))
+											}
+										}
+									}
+								}
+								if src != "" {
+									res.Pins[src] = allowed
+								}
+								return true
+							})
 						case name == "Files":
 							// A callback, so not read: every adopter declares one.
 							// The list hands the kit each file it seeded instead
@@ -2550,6 +2650,7 @@ def _declarations_for(cli: Path, targets: list[str], env: dict) -> dict:
     b = res.get("base_url") or {}
     out["base_url"] = {k: b.get(k, "") for k in ("ConfigKey", "Env", "Default")} if b else {}
     out["files"] = bool(res.get("files"))
+    out["pins"] = {k: list(v or []) for k, v in (res.get("pins") or {}).items()}
     return out
 
 
@@ -2598,11 +2699,32 @@ def has_kit(slug: str) -> bool:
         return False
 
 
-def adopter_tls(slug: str, tmp: str) -> kit_tls.Served:
+def pin_host(pins: dict, seedable: list[str]) -> str | None:
+    """Where a credential pinned to literal hosts must be sent. Origins sends
+    such a value to those hosts and no other (immybot: the client secret to
+    Microsoft's sign-in hosts), so a fake on 127.0.0.1 is refused and the row
+    reaches nothing. The list plays the first such host: its URL is spelled with
+    that name, and HTTPS_PROXY carries the connection to the fake (Fake.pin),
+    which serves a certificate naming it. The binary under test is unchanged. An
+    MCP server's own bearer is never sent, so its pin says nothing."""
+    for v in seedable:
+        allowed = pins.get(f"env:{v}", pins.get("*") or [])
+        if v.endswith("MCP_HTTP_TOKEN") or "base_url" in allowed:
+            continue
+        for a in allowed:
+            if a.startswith("https://"):
+                return a[len("https://"):].replace("*.", "cls-harness.", 1)
+    return None
+
+
+def adopter_tls(slug: str, tmp: str, pins: dict | None = None) -> kit_tls.Served:
     """The kit refuses to send a held credential over plain http (contract
     2(c)), so an adopter's fake vendors serve TLS or no row reaches a request.
-    Declared URLs spell the host localhost (own_host), so the certificate names it."""
-    cert = kit_tls.make_cert(tmp, "DNS:localhost")
+    Declared URLs spell the host localhost (own_host), so the certificate names
+    it, and every literal host an Origins entry names, which the list may play."""
+    hosts = {a[len("https://"):].rpartition(":")[0] or a[len("https://"):]
+             for v in (pins or {}).values() for a in v if a.startswith("https://")}
+    cert = kit_tls.make_cert(tmp, "DNS:localhost", *sorted(f"DNS:{h}" for h in hosts))
     return kit_tls.Served(cert, kit_tls.trust_env(ch.registry.skill_path(slug), cert[0]))
 
 
@@ -2950,7 +3072,8 @@ def own_host(host: str) -> str:
 class Engine:
     def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
                  secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None,
-                 base_url: dict | None = None, files: bool = False, tls: kit_tls.Served | None = None):
+                 base_url: dict | None = None, files: bool = False, tls: kit_tls.Served | None = None,
+                 pins: dict | None = None):
         self.ctx, self.tmp = ctx, tmp
         self.files, self.tls = files, tls
         self.traced = str(ctx.cli_bin) in _TRACED and str(ctx.mcp_bin) in _TRACED
@@ -2970,6 +3093,7 @@ class Engine:
         env_ids = [i[len("env:"):] for i in ids if i.startswith("env:")]
         self.declared = [v for v in self.declared if v not in env_ids]
         self.seedable = [v for v in self.declared if v not in self.plumbing]
+        self.pin = pin_host(pins or {}, self.seedable) if tls else None
         self.identifiers = [k for k in self.env_keys if k not in self.declared and k not in self.plumbing
                             and w.env.get(k) and not k.endswith("_NO_CONFIG_WRITE")]
         self.identifiers += [k for k in env_ids if k not in self.identifiers]
@@ -2997,7 +3121,7 @@ class Engine:
         if not self.seedable:
             return None, set()
         marks = {v: "clsP" + _rand(16) for v in self.seedable}
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls, self.pin)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="primary-", dir=self.tmp))
             env.update(marks)
@@ -3032,7 +3156,7 @@ class Engine:
         marks = {v: "clsM" + _rand(16) for v in self.seedable if v not in self.static_vars}
         if not (self.has_token_url and marks):
             return []
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls, self.pin)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="mint-", dir=self.tmp))
             for v in self.static_vars:
@@ -3050,7 +3174,7 @@ class Engine:
     def _withheld(self, marks: dict[str, str], var: str) -> bool:
         if not self.api_first:
             return False
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named(marks[var]))), _token_ok, self.tls)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named(marks[var]))), _token_ok, self.tls, self.pin)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="held-", dir=self.tmp))
             env.update(marks)
@@ -3063,7 +3187,7 @@ class Engine:
         """Once per connector: an MCP read call that reaches the API. Prefer the
         code-orchestration `<slug>_read` tool with the first read leaf's endpoint
         id, else the first argument-free read tool."""
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls, self.pin)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="probe-", dir=self.tmp))
             tools = ch.mcp_list_tools(self.mcp_bin, env)
@@ -3109,6 +3233,11 @@ class Engine:
                 # Held, so random end to end: the harness sentinels share a
                 # suffix, and a piece of it would match any other sentinel.
                 e[k] = make_cred("long")
+        if self.pin:
+            for k in self.ctx.wiring.url_vars:
+                if not self.has_token_url or k.upper().endswith("_TOKEN_URL"):
+                    e[k] = re.sub(r"^https://[^/]+", f"https://{self.pin}", e[k])
+            e.update({k: primary_url for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")})
         return e
 
     # ---- seeding --------------------------------------------------------------
@@ -3307,12 +3436,13 @@ class Engine:
                     st, hd, bd, needles = shape_response(case, payload, creds)
                     rsp = (st, hd, bd)
                 respond = lambda p, rsp=rsp: rsp
-            primary = Fake(respond, token, self.tls)
+            primary = Fake(respond, token, self.tls, self.pin)
             primary.rearm = lambda: hops.update(n=REDIRECT_HOPS)
             env = self.base_env(primary.url, home)
             # Every host but loopback goes through the second fake, so a
             # request to any foreign host is recorded (and fails fast).
             env.update({k: second.url for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")})
+            second.pin, second.pin_port = self.pin, primary.pin_port
             written: dict[str, bytes] = {}
             extra: list[str] = []
             if var:
@@ -3439,7 +3569,8 @@ class Engine:
                 needles = [[p] for p in contract_parts(payload, cred, halves=True)]
             elif case.get("drive") == "feedback-split":          # sent in separate runs (contract 6.5)
                 needles = [_halves(payload)]
-            reached = len(primary.data_requests()) + len(second.requests)
+            # A tunnel to a played host is no request: what it carries lands on primary.
+            reached = len(primary.data_requests()) + len(second.requests) - second.tunnels
             if shape.startswith("token-error"):
                 reached += minted["n"]
             adv = res["advisory"]
@@ -4095,14 +4226,14 @@ def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: 
               tls: kit_tls.Served | None = None) -> list[dict]:
     kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
     if tls is None and has_kit(ctx.slug):
-        tls = adopter_tls(ctx.slug, tmp)
+        tls = adopter_tls(ctx.slug, tmp, kit.get("pins"))
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
                  fields if fields is not None else kit["fields"],
                  secret_env if secret_env is not None else kit["secret_env"],
                  identifiers if identifiers is not None else kit["identifiers"],
                  lists if lists is not None else kit.get("lists"),
                  base_url if base_url is not None else kit.get("base_url"),
-                 files if files is not None else kit.get("files", False), tls)
+                 files if files is not None else kit.get("files", False), tls, kit.get("pins"))
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -6710,7 +6841,90 @@ def _c10_adopters() -> bool:
     return ok
 
 
-ADOPTER_PROBES = {"adopter-never-judged": _c10_adopters}
+def _c11_pinned() -> bool:
+    """corpus11rv: a credential Origins pins to literal hosts is refused on the
+    way to a fake on 127.0.0.1, so its rows judged nothing (immybot, 111 of 163).
+    The list plays the host: read the pin, name it, and carry a real Go client
+    (HTTPS_PROXY over TLS, as a connector's transport does) to the fake."""
+    ok = True
+    sec, mcp = "ACME_SECRET", "ACME_MCP_HTTP_TOKEN"
+    for why, pins, want in (
+            ("a pin to literal hosts is played", {f"env:{sec}": ["https://login.example"]}, "login.example"),
+            ("a default pin is played", {"*": ["https://login.example"]}, "login.example"),
+            ("a wildcard gets a name under it", {f"env:{sec}": ["https://*.example.com"]}, "cls-harness.example.com"),
+            ("base_url reaches the fake as it stands", {"*": ["base_url", "https://login.example"]}, None),
+            ("no pin", {}, None), ("an empty pin sends nowhere", {f"env:{sec}": []}, None),
+            ("an MCP server's own bearer is never sent", {f"env:{mcp}": ["https://x.invalid"]}, None)):
+        if pin_host(pins, [mcp, sec]) != want:
+            print(f"    corpus self-test: pin_host: {why}: {pin_host(pins, [mcp, sec])}")
+            ok = False
+    pin_kit = dict(_DECL_KIT)
+    pin_kit["internal/credkit/kit.go"] = pin_kit["internal/credkit/kit.go"].replace(
+        "type Declarations struct {\n", "type Origin struct {\n\tSource string\n\tAllowed []string\n}\n\n"
+        "type Declarations struct {\n\tOrigins []Origin\n")
+    pin_kit["main.go"] = _DECL_HDR + ('var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, Origins: []credkit.Origin{\n'
+                                      '\t{Source: "*", Allowed: []string{"base_url"}},\n'
+                                      '\t{Source: "env:ACME_X", Allowed: []string{"https://login.example"}},\n}}\n\n'
+                                      'func main() { credkit.Start(d) }\n')
+    read = _decl_read(pin_kit, full="all")
+    if read.get("pins") != {"*": ["base_url"], "env:ACME_X": ["https://login.example"]} or read.get("errors"):
+        print(f"    corpus self-test: Origins not read from a declaration: {read}")
+        ok = False
+    client = ('package main\n\nimport (\n\t"fmt"\n\t"net/http"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n'
+              '\tr, err := http.Post(os.Args[1], "application/x-www-form-urlencoded", strings.NewReader("grant_type=x"))\n'
+              '\tif err != nil {\n\t\tfmt.Println(err)\n\t\tos.Exit(1)\n\t}\n\tr.Body.Close()\n\tfmt.Println(r.StatusCode)\n}\n')
+    with tempfile.TemporaryDirectory(prefix="corpus-c11-") as d:
+        cert = kit_tls.make_cert(d, "DNS:localhost", "DNS:login.example")
+        tls = kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]})
+        Path(d, "main.go").write_text(client, encoding="utf-8")
+        b = subprocess.run(["go", "build", "-o", "c", "main.go"], cwd=d, env={**go_env(), "GO111MODULE": "off", "GOTOOLCHAIN": "local"},
+                           capture_output=True, text=True, timeout=300)
+        if b.returncode != 0:
+            print(f"    corpus self-test: the pin probe's client did not build: {b.stderr[:300]}")
+            return False
+        for why, pin, want_rc, want_on_target, want_tunnels in (
+                ("the played host is carried to the fake", "login.example", 0, 1, 1),
+                ("any other host stays a request to the second host, carried nowhere", None, 1, 0, 0)):
+            target = Fake(lambda p: (200, {}, b"{}"), _token_ok, tls)
+            proxy = Fake(lambda p: (200, {}, b""), _token_ok, tls)
+            proxy.pin, proxy.pin_port = pin, target.pin_port
+            try:
+                r = subprocess.run([os.path.join(d, "c"), "https://login.example/cls-harness/oauth/token"], capture_output=True, text=True, timeout=60,
+                                   env={"SSL_CERT_FILE": cert[0], "HTTPS_PROXY": proxy.url, "PATH": os.environ.get("PATH", "")})
+                got = (r.returncode, len(target.requests), proxy.tunnels, len(proxy.requests))
+            finally:
+                target.stop()
+                proxy.stop()
+            if got != (want_rc, want_on_target, want_tunnels, 1):
+                print(f"    corpus self-test: pin tunnel: {why}: {got} {r.stdout[:200]} {r.stderr[:200]}")
+                ok = False
+    return ok
+
+
+def _c11_dead_short() -> bool:
+    """corpus11rv: a 3-character value in a page's bytes through a decoding is
+    chance (judge_dead), and it failed short3-raw one run in six. As written it
+    still counts, a long value still counts through any decoding, and a
+    statement or a row is still read whole."""
+    enc = base64.b64encode(b"q7Z").decode()
+    long_v = "syntheticDead271828"
+    ok = True
+    for why, got, want in (
+            ("a 3-character value as written", judge_dead("\x01\x02 q7Z \x03", ["q7Z"]), True),
+            ("a 3-character value as written, another case", judge_dead("\x01 Q7z \x03", ["q7Z"]), True),
+            ("a 3-character value inside a word is no token", judge_dead("\x01 aq7Zb \x03", ["q7Z"]), False),
+            ("a 3-character value through a decoding", judge_dead(f"\x01 {enc} \x03", ["q7Z"]), False),
+            ("a long value through a decoding", judge_dead("\x01 " + base64.b64encode(long_v.encode()).decode() + " \x03", [long_v]), True),
+            ("a long value beside a short one", judge_dead(f"\x01 {long_v} \x03", ["q7Z", long_v]), True),
+            ("nothing held", judge_dead("\x01 q7Z \x03", []), False),
+            ("a statement through a decoding", judge(f"INSERT {enc}", ["q7Z"]), True)):
+        if bool(got) != want:
+            print(f"    corpus self-test: dead bytes: {why}: {got}")
+            ok = False
+    return ok
+
+
+ADOPTER_PROBES = {"adopter-never-judged": _c10_adopters, "pinned-origin": _c11_pinned, "dead-short": _c11_dead_short}
 
 
 # --------------------------------------------------------------------------- #

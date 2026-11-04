@@ -129,7 +129,12 @@ trusted through `SSL_CERT_FILE` and its `<PREFIX>_CA_CERT`, since the kit refuse
 credential over plain http, and every row would otherwise end "no request" having judged nothing.
 Its `Declarations.Files` callback is not run: the kit's reading of the held set is handed every file
 the run seeded, the only credential files the run has. The vendored kit's own raw writes are not
-checked as connector code; the kernel record sees them like any other.
+checked as connector code; the kernel record sees them like any other. A secret whose `Origins`
+entry names literal hosts and not `base_url` (immybot's client secret goes only to Microsoft's sign-in
+hosts) would be refused on its way to a fake on `127.0.0.1`, so the list plays the first such host: the
+token URL is spelled with that name, `HTTPS_PROXY` carries the connection to the fake, and the
+certificate names the host. The binary is unchanged. The list reads `Origins` only for this, never for
+a verdict.
 
 The credentials it holds come only from what the connector declares: each variable whose
 `user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
@@ -366,7 +371,9 @@ so a connector that refuses the hop is not held in its own retry backoff.
   too, split at runs of 64 or more NUL bytes unless a held value has a NUL byte. The kit runs out of
   budget on some ordinary pages read whole (auvik's index pages), so a piece the kit cannot read
   whole is read again in 1 KB windows overlapping by half: in such a piece a reading that needs more
-  than 512 bytes is not read whole. A database SQLite cannot open fails the case.
+  than 512 bytes is not read whole. A database SQLite cannot open fails the case. In these bytes a value
+  under 4 characters counts only where it stands as written: through a decoding, 15 of 20 random
+  3-character values matched one run's pages by chance. Statements and rows are still read in full.
 - The child process sink is the argv and environment the MCP server gives its own CLI, one unit
   judged on the server's held set (recorded by a wrapper, with its stdin when a declared stdin flag
   is given); other children are not observed. A child's exchanges with the fakes cannot be told from its MCP
