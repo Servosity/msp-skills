@@ -62,6 +62,7 @@ type acquire struct {
 	Args      []string   `json:"args"`
 	MCPIn     string     `json:"mcp_in"` // what the MCP server read on stdin
 	Stdin     string     `json:"stdin"`  // what the process was given on stdin
+	Files     []string   `json:"files"`  // what its Files callback would name
 	Exchanges []exchange `json:"exchanges"`
 }
 
@@ -158,7 +159,15 @@ func acquired(a *acquire) (answer, error) {
 	if err != nil {
 		return answer{}, err
 	}
-	held, rec, unknown, err := credkit.Acquire(a.Decl.kit(), env, args, mcpIn, stdin, ex)
+	files, err := unb64(a.Files)
+	if err != nil {
+		return answer{}, err
+	}
+	d := a.Decl.kit()
+	if len(files) > 0 {
+		d.Files = func([]string) []string { return files }
+	}
+	held, rec, unknown, err := credkit.Acquire(d, env, args, mcpIn, stdin, ex)
 	if err != nil {
 		return answer{}, err
 	}

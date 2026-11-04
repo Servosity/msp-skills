@@ -123,13 +123,13 @@ type Exchange struct {
 // --config, credential flags), then what the kit's transport holds from each
 // request sent and each response received, in order. unknown: a declared
 // credential source could not be read, so the kit withholds every unit.
-// Files is not read (the caller names the config file with --config). stdin
+// d.Files, when the caller sets it, names the files as a program's callback
+// would. stdin
 // is what the process was given on stdin: Start reads it for a declared
 // stdin flag from a file standing in for os.Stdin (this command's own stdin
 // is its request pipe, and is put back). mcpIn is what an MCP server read on
 // stdin: its declared arguments are held frame by frame, as MCPIn holds them.
 func Acquire(d Declarations, env, args []string, mcpIn, stdin []byte, ex []Exchange) (held []string, recorded int, unknown bool, err error) {
-	d.Files = nil
 	if err := d.validate(); err != nil {
 		return nil, 0, false, err
 	}

@@ -120,6 +120,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import class_harness as ch  # noqa: E402
+import kit_tls  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 CORPUS = HERE / "secret_corpus.jsonl"
@@ -430,7 +431,7 @@ def untransfer(coding: str, body: bytes) -> bytes:
 
 
 class Fake:
-    def __init__(self, respond, token):
+    def __init__(self, respond, token, tls: kit_tls.Served | None = None):
         self.requests: list = []
         self.served: list = []   # every response as sent: (method, status, [(header, value)], delivered body)
         self.lock = threading.Lock()
@@ -529,8 +530,10 @@ class Fake:
         self.rearm = lambda: None   # a redirecting case re-arms its hops per process
         self.unreadable = False
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        if tls:
+            kit_tls.serve_tls(self.srv, tls.cert)
         threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
-        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
+        self.url = f"{'https' if tls else 'http'}://127.0.0.1:{self.srv.server_address[1]}"
 
     def data_requests(self):
         return [r for r in self.requests if not _is_token_request(r[0], r[1], r[3])]
@@ -1087,14 +1090,18 @@ def in_linux(argv: list[str], out: str | None = None) -> int:
     untracked files, docs/assets left out), as an unprivileged user, with a
     module cache and a build cache volume per architecture. `out`: a host
     directory mounted at the same path, for --json-out. The image is the
-    host's Go release on bookworm, native to the host's CPU so ptrace sees
-    the native ABI (CORPUS_LINUX_IMAGE overrides)."""
+    newest Go release among the host and the connectors on bookworm, native to
+    the host's CPU so ptrace sees the native ABI (CORPUS_LINUX_IMAGE overrides)."""
     if out and os.path.realpath(out) in ("/tmp", "/private/tmp"):
         raise SystemExit("class_secret_corpus: --json-out directly under /tmp would mount the host's /tmp over the "
                          "container's, where the tree is unpacked: use a directory outside it")
     root = str(ch.ROOT)
     arch = "arm64" if os.uname().machine in ("arm64", "aarch64") else "amd64"
-    ver = subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True).stdout.strip()[2:]
+    # The newest Go any connector asks for: the build runs with GOTOOLCHAIN=local.
+    vers = [subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True).stdout.strip()[2:]]
+    for q in ch.ROOT.glob("skills/*/cli/go.mod"):
+        vers += re.findall(r"(?m)^go (\d+\.\d+\.\d+)\s*$", q.read_text(encoding="utf-8", errors="replace"))
+    ver = max(vers, key=lambda v: tuple(int(x) for x in v.split(".")))
     image = os.environ.get("CORPUS_LINUX_IMAGE") or f"{'arm64v8/' if arch == 'arm64' else ''}golang:{ver}-bookworm"
     vols = {f"corpus-gomod-{arch}": "/gomod", f"corpus-gocache-{arch}": "/gocache"}
     for v in vols:
@@ -1149,8 +1156,8 @@ def kernel_streams(recs: list[tuple[int, int, bytes]]) -> dict[tuple[int, bytes]
 def is_sqlite_file(name: bytes, ws: list[bytes], dbs: set[bytes]) -> bool:
     """A SQLite database (its first bytes are the magic) or one of its side
     files (-wal, -journal, -shm beside such a database)."""
-    if any(w.startswith(SQLITE_MAGIC) for w in ws):
-        return True
+    if any(w.startswith(SQLITE_MAGIC) for w in ws) or _magic(_s(name)) == SQLITE_MAGIC:
+        return True   # the file too: a later process's update never rewrites page 1's first bytes
     side = next((name[:-len(x)] for x in SQLITE_SIDE if name.endswith(x.encode())), None)
     return side is not None and (side in dbs or _magic(_s(side)) == SQLITE_MAGIC)
 
@@ -1832,6 +1839,7 @@ type result struct {
 	Identifiers []ident             `json:"identifiers"`
 	Lists       map[string][]string `json:"lists"`
 	BaseURL     map[string]string   `json:"base_url"`
+	Files       bool                `json:"files"`
 	Errors      []string            `json:"errors"`
 }
 
@@ -1927,6 +1935,13 @@ func clayer(root string, targets []string) (errs []string) {
 	for _, p := range pkgs {
 		if p.Module == nil || (trusted[p.Module.Path] && p.Module.Replace == nil && !p.Module.Main) {
 			continue // the standard library, or a trusted dependency (never the connector itself: r6-2)
+		}
+		// The vendored kit writes below os.File by design (its stream pump, a held
+		// pipe), and guard 11 keeps it byte-identical to the kit. This check is a
+		// fast first layer on connector code (ruling 15b); the kernel record sees
+		// the kit's writes like any other.
+		if kit := p.Module.Path + "/internal/credkit"; p.Module.Main && (p.ImportPath == kit || strings.HasPrefix(p.ImportPath, kit+"/")) {
+			continue
 		}
 		for _, f := range p.SFiles {
 			b, err := os.ReadFile(filepath.Join(p.Dir, f))
@@ -2396,10 +2411,15 @@ func main() {
 						case name == "Origins":
 							// Not read: an origin only allows a host, and the
 							// list holds every host but the fake's as foreign.
+						case name == "Files":
+							// A callback, so not read: every adopter declares one.
+							// The list hands the kit each file it seeded instead
+							// (Engine.acquire): the only credential files a run has.
+							res.Files = true
 						default:
-							// Files (a callback) or any field the list cannot
-							// read as data: contract 7, a declaration the
-							// reader cannot interpret is a failure (r5-6).
+							// Any field the list cannot read as data: contract 7,
+							// a declaration the reader cannot interpret is a
+							// failure (r5-6).
 							fail("%s: Declarations.%s cannot be read without running the program", where, name)
 						}
 					}
@@ -2525,9 +2545,10 @@ def _declarations_for(cli: Path, targets: list[str], env: dict) -> dict:
                          f"{'; '.join(res.get('errors') or [p.stderr.strip()])[:400]}")
     out = {k: list(dict.fromkeys(res[k])) for k in ("fields", "secret_env")}
     out["identifiers"] = list({i["source"]: i for i in res["identifiers"]}.values())
-    out["lists"] = {k: list(dict.fromkeys(v)) for k, v in (res.get("lists") or {}).items()}
+    out["lists"] = {k: list(dict.fromkeys(v or [])) for k, v in (res.get("lists") or {}).items()}   # nil: an empty list
     b = res.get("base_url") or {}
     out["base_url"] = {k: b.get(k, "") for k in ("ConfigKey", "Env", "Default")} if b else {}
+    out["files"] = bool(res.get("files"))
     return out
 
 
@@ -2536,6 +2557,14 @@ def has_kit(slug: str) -> bool:
         return (ch.registry.skill_path(slug) / "cli" / "internal" / "credkit").is_dir()
     except (KeyError, SystemExit):
         return False
+
+
+def adopter_tls(slug: str, tmp: str) -> kit_tls.Served:
+    """The kit refuses to send a held credential over plain http (contract
+    2(c)), so an adopter's fake vendors serve TLS or no row reaches a request.
+    Declared URLs spell the host localhost (own_host), so the certificate names it."""
+    cert = kit_tls.make_cert(tmp, "DNS:localhost")
+    return kit_tls.Served(cert, kit_tls.trust_env(ch.registry.skill_path(slug), cert[0]))
 
 
 def received_keys(served: list, fields: list[str], exempt: list[str] | None = None) -> list[str]:
@@ -2590,7 +2619,7 @@ def exchanges(fakes: list, before: tuple, after: tuple) -> list[dict]:
 
 
 def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], ex: list[dict],
-                mcp_in: bytes = b"", stdin: bytes = b"") -> dict:
+                mcp_in: bytes = b"", stdin: bytes = b"", files: list[str] | None = None) -> dict:
     """The kit's own held set for one process (contract 1, contract 8: one
     implementation): what Start holds from its environment and argv, exactly
     as given, and the config file it names as the run was given it (written
@@ -2615,7 +2644,7 @@ def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes
                 fh.write(body)
         got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items()],
                                 "args": [_b64(a) for a in args], "mcp_in": _b64(mcp_in), "stdin": _b64(stdin),
-                                "exchanges": ex}})
+                                "files": [_b64(f) for f in files or []], "exchanges": ex}})
     finally:
         for path, body in saved.items():
             if body is None:
@@ -2883,8 +2912,9 @@ def own_host(host: str) -> str:
 class Engine:
     def __init__(self, ctx: ch.Ctx, tmp: str, server: dict | None = None, fields: list[str] | None = None,
                  secret_env: list[str] | None = None, identifiers: list | None = None, lists: dict | None = None,
-                 base_url: dict | None = None):
+                 base_url: dict | None = None, files: bool = False, tls: kit_tls.Served | None = None):
         self.ctx, self.tmp = ctx, tmp
+        self.files, self.tls = files, tls
         self.traced = str(ctx.cli_bin) in _TRACED and str(ctx.mcp_bin) in _TRACED
         self.links = {"cli": str(ctx.cli_bin) in _LINKS, "mcp": str(ctx.mcp_bin) in _LINKS}
         self.fields = list(fields or [])
@@ -2929,7 +2959,7 @@ class Engine:
         if not self.seedable:
             return None, set()
         marks = {v: "clsP" + _rand(16) for v in self.seedable}
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="primary-", dir=self.tmp))
             env.update(marks)
@@ -2964,7 +2994,7 @@ class Engine:
         marks = {v: "clsM" + _rand(16) for v in self.seedable if v not in self.static_vars}
         if not (self.has_token_url and marks):
             return []
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="mint-", dir=self.tmp))
             for v in self.static_vars:
@@ -2982,7 +3012,7 @@ class Engine:
     def _withheld(self, marks: dict[str, str], var: str) -> bool:
         if not self.api_first:
             return False
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named(marks[var]))), _token_ok)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named(marks[var]))), _token_ok, self.tls)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="held-", dir=self.tmp))
             env.update(marks)
@@ -2995,7 +3025,7 @@ class Engine:
         """Once per connector: an MCP read call that reaches the API. Prefer the
         code-orchestration `<slug>_read` tool with the first read leaf's endpoint
         id, else the first argument-free read tool."""
-        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok)
+        srv = Fake(lambda p: (200, {"Content-Type": "application/json"}, _rows(_named("x"))), _token_ok, self.tls)
         try:
             env = self.base_env(srv.url, tempfile.mkdtemp(prefix="probe-", dir=self.tmp))
             tools = ch.mcp_list_tools(self.mcp_bin, env)
@@ -3017,6 +3047,8 @@ class Engine:
 
     def base_env(self, primary_url: str, home: str) -> dict:
         e = ch.apply_urls(self.ctx.wiring, primary_url)
+        if self.tls:
+            e.update(self.tls.trust)
         # Temp files land under HOME too, so every file the run writes is scanned.
         tmpdir = os.path.join(home, ".tmp")
         os.makedirs(tmpdir, exist_ok=True)
@@ -3070,14 +3102,14 @@ class Engine:
         if src.startswith("config-"):
             for v in self.seedable:
                 env.pop(v, None)
-            hostport = url.split("://")[1]
+            scheme, hostport = url.split("://")
             user = "cu" + _rand(10)   # held as Basic auth's user part (contract 1): random, never a common token
             body = {
                 "config-auth-header": f'auth_header = "Bearer {cred}"\n',
                 "config-headers-auth": f'[headers]\nAuthorization = "Bearer {cred}"\n',
                 "config-headers-cookie": f'[headers]\nCookie = "session={cred}"\n',
-                "config-url-userinfo": f'base_url = "http://{user}:{urllib.parse.quote(cred, safe="")}@{hostport}"\n',
-                "config-url-userinfo-raw": f'base_url = "http://{user}:{cred}@{hostport}"\n',
+                "config-url-userinfo": f'base_url = "{scheme}://{user}:{urllib.parse.quote(cred, safe="")}@{hostport}"\n',
+                "config-url-userinfo-raw": f'base_url = "{scheme}://{user}:{cred}@{hostport}"\n',
                 "config-malformed": f'auth_header = "Bearer {cred}"\nbroken = [\n',
                 "config-multiline": f'auth_header = """Bearer {cred}"""\n',
                 "config-headers-cookie-escaped": 'headers = { Cookie = "session=' + "".join(f"\\U{ord(c):08X}" for c in cred) + '" }\n',
@@ -3140,7 +3172,8 @@ class Engine:
                 got = {"held": [], "bare": [], "recorded": 0, "unknown": False}
                 for decl, no_ids in decls:
                     a = kit_acquire(decl, pr["env"], pr["args"], written, ex,
-                                    pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"])
+                                    pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"],
+                                    list(written) if self.files else None)
                     if no_ids:
                         got["bare"] = a["held"]
                     else:
@@ -3168,7 +3201,7 @@ class Engine:
         home = tempfile.mkdtemp(prefix="c-", dir=self.tmp)
         mcp_home = tempfile.mkdtemp(prefix="m-", dir=self.tmp)
         src, shape, form = res["source"], res["shape"], res["form"]
-        second = Fake(lambda p: (200, {"Content-Type": "application/json"}, b"{}"), lambda: (200, {}, b"{}"))
+        second = Fake(lambda p: (200, {"Content-Type": "application/json"}, b"{}"), lambda: (200, {}, b"{}"), self.tls)
         minted = {"n": 0}
         issued: list[str] = []
         hops = {"n": REDIRECT_HOPS}
@@ -3210,7 +3243,7 @@ class Engine:
 
             if shape in ("redirect-userinfo", "redirect-query"):
                 needles = [[cred]]
-                loc = (second.url.replace("http://", f"http://u:{cred}@") + "/collect" if shape == "redirect-userinfo"
+                loc = (second.url.replace("://", f"://u:{cred}@", 1) + "/collect" if shape == "redirect-userinfo"
                        else f"{second.url}/collect?k={urllib.parse.quote(cred)}")
                 respond = _redirecting(loc, hops)
             else:
@@ -3236,7 +3269,7 @@ class Engine:
                     st, hd, bd, needles = shape_response(case, payload, creds)
                     rsp = (st, hd, bd)
                 respond = lambda p, rsp=rsp: rsp
-            primary = Fake(respond, token)
+            primary = Fake(respond, token, self.tls)
             primary.rearm = lambda: hops.update(n=REDIRECT_HOPS)
             env = self.base_env(primary.url, home)
             # Every host but loopback goes through the second fake, so a
@@ -4010,14 +4043,18 @@ def settle(r: dict, again) -> dict:
 def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: str | None = None,
               server: dict | None = None, fields: list[str] | None = None,
               secret_env: list[str] | None = None, identifiers: list | None = None,
-              lists: dict | None = None, base_url: dict | None = None) -> list[dict]:
+              lists: dict | None = None, base_url: dict | None = None, files: bool | None = None,
+              tls: kit_tls.Served | None = None) -> list[dict]:
     kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
+    if tls is None and has_kit(ctx.slug):
+        tls = adopter_tls(ctx.slug, tmp)
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
                  fields if fields is not None else kit["fields"],
                  secret_env if secret_env is not None else kit["secret_env"],
                  identifiers if identifiers is not None else kit["identifiers"],
                  lists if lists is not None else kit.get("lists"),
-                 base_url if base_url is not None else kit.get("base_url"))
+                 base_url if base_url is not None else kit.get("base_url"),
+                 files if files is not None else kit.get("files", False), tls)
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -6390,9 +6427,10 @@ def _c8_sink_capture() -> bool:
 
 
 def _c8_held_and_declarations() -> bool:
-    """Round 5 findings 5 and 6: a declared short stdin flag first in a
-    cluster captures stdin; a Files callback is a declaration the reader
-    cannot interpret, so it fails closed."""
+    """Round 5 finding 5: a declared short stdin flag first in a cluster
+    captures stdin. A declaration the reader cannot interpret fails closed
+    (finding 6); a Files callback, which every adopter declares, is read as
+    declared (_c10_adopters proves the held set)."""
     ok = True
     child = ('import subprocess\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
              '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
@@ -6413,8 +6451,13 @@ def _c8_held_and_declarations() -> bool:
         "type Declarations struct {\n", "type Declarations struct {\n\tFiles func(args []string) []string\n")
     files = {**kit, "main.go": _DECL_HDR + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}, '
              'Files: func(a []string) []string { return []string{"/etc/acme.toml"} }}\n\nfunc main() { credkit.Start(d) }\n'}
-    if _decl_read(files) != "error":
-        print(f"    corpus self-test: declarations (corpus4rv r5): 6: a Files callback read as nothing: {_decl_read(files)}")
+    if _decl_read(files, full="all")["files"] is not True:
+        print(f"    corpus self-test: declarations (corpus4rv r5): 6: a Files callback not read: {_decl_read(files)}")
+        ok = False
+    unread = {**kit, "main.go": files["main.go"].replace("Files: func", "Mystery: func")}
+    unread["internal/credkit/kit.go"] = kit["internal/credkit/kit.go"].replace("\tFiles func", "\tMystery func")
+    if _decl_read(unread) != "error":
+        print(f"    corpus self-test: declarations (corpus4rv r5): 6: an unreadable field read as nothing: {_decl_read(unread)}")
         ok = False
     plain = {**kit, "main.go": _DECL_HDR + 'var d = credkit.Declarations{SecretEnv: []string{"ACME_X"}}\n\n'
              'func main() { credkit.Start(d) }\n'}
@@ -6492,6 +6535,69 @@ def _c9_sink_capture() -> bool:
 
 
 C9_PROBES = {"sink-capture": _c9_sink_capture}
+
+
+def _c10_adopters() -> bool:
+    """corpus10rv: a real kit adopter. It sends nothing over plain http, so its
+    fake vendors serve TLS, or every row ends "no request" and judges nothing. It
+    declares a Files callback, so the files the list seeded are given to the kit's
+    reading of the process's held set. Its vendored kit's own raw writes are not
+    connector code; the same call outside the kit still fails the build closed."""
+    ok = True
+    with tempfile.TemporaryDirectory(prefix="corpus-c10-") as d:
+        cert = kit_tls.make_cert(d, "DNS:localhost")
+        tls = kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]})
+        only_tls = 'if not BASE.startswith("https://"):\n    sys.exit(1)\nst, hd, body = api("GET", "/v1/items")\nprint(__OUT__)\n'
+        ok &= _probes("adopter over TLS", [
+            ("a TLS-only client printing what the vendor sent, served TLS", "succ-raw", "FAIL",
+             dict(cli=only_tls.replace("__OUT__", "body")), {"fields": [], "secret_env": [], "tls": tls}),
+            ("a TLS-only client printing nothing, served TLS", "succ-raw", "PASS",
+             dict(cli=only_tls.replace("__OUT__", '"ok"')), {"fields": [], "secret_env": [], "tls": tls}),
+            ("a TLS-only client served plain http is never judged clean", "succ-raw", "NOTE",
+             dict(cli=only_tls.replace("__OUT__", "body")), {"fields": [], "secret_env": []}),
+        ])
+        # The MCP server gets no --config: only a declared Files tells the kit
+        # to read the file, and the generated user part is what it then holds.
+        user = ('if "serve" in dir():\n    pass\nst, hd, body = api("GET", "/v1/items")\n'
+                'print(_up.urlsplit(CFG.get("base_url", "")).username or "none")\n')
+        kw = {"fields": [], "secret_env": [], "lists": {"ConfigFields": ["api_key"]}}
+        ok &= _probes("Files callback", [
+            ("a config's URL user printed, its file declared through Files", "cfg-url-userinfo", "FAIL",
+             dict(cli=user), {**kw, "files": True}),
+            ("the same process printing nothing from the file", "cfg-url-userinfo", "PASS",
+             dict(cli=user.replace('_up.urlsplit(CFG.get("base_url", "")).username or "none"', '"ok"')),
+             {**kw, "files": True}),
+        ])
+    # A second process's update of a database never rewrites its first bytes.
+    with tempfile.TemporaryDirectory(prefix="corpus-c10-db-") as d:
+        db, txt = os.path.join(d, "a.db"), os.path.join(d, "a.txt")
+        Path(db).write_bytes(SQLITE_MAGIC + b"\0" * 100)
+        Path(txt).write_bytes(b"plain text\n")
+        if not is_sqlite_file(db.encode(), [b"\0page 2"], set()) or is_sqlite_file(txt.encode(), [b"\0page 2"], set()):
+            print("    corpus self-test: a database's later update, or a plain file, read as the other")
+            ok = False
+    kit = {"go.mod": "module acme\n\ngo 1.21\n",
+           "main.go": 'package main\n\nimport (\n\t_ "acme/internal/credkit"\n\t_ "acme/internal/other"\n)\n\nfunc main() {}\n',
+           "internal/other/o.go": "package other\n"}
+    raw = 'package __P__\n\nimport "syscall"\n\nvar _ = syscall.Write\n'
+    def clayer_of(files: dict[str, str]) -> list[str]:
+        with tempfile.TemporaryDirectory(prefix="corpus-c10-go-") as tmp:
+            for rel, body in files.items():
+                q = Path(tmp) / rel
+                q.parent.mkdir(parents=True, exist_ok=True)
+                q.write_text(body, encoding="utf-8")
+            p = subprocess.run([_fields_helper(), "-clayer", tmp, "."], capture_output=True, text=True, timeout=300,
+                               env=go_env())
+            return json.loads(p.stdout)["errors"]
+    inside = clayer_of({**kit, "internal/credkit/k.go": raw.replace("__P__", "credkit")})
+    outside = clayer_of({**kit, "internal/credkit/k.go": "package credkit\n", "internal/other/o.go": raw.replace("__P__", "other")})
+    if inside or not any("syscall.Write" in e for e in outside):
+        print(f"    corpus self-test: adopter build check: inside the kit {inside}, outside it {outside}")
+        ok = False
+    return ok
+
+
+C10_PROBES = {"adopter-never-judged": _c10_adopters}
 
 
 # --------------------------------------------------------------------------- #
@@ -7134,7 +7240,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(), *C10_PROBES.items(),
                      *C10_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()

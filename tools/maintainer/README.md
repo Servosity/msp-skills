@@ -123,6 +123,14 @@ undone) fail the case. A file that two runs of one case wrote (the 6.5 split acr
 as each run's own writes. The test knows what it injected only to name an advisory line's own
 exception; a new form needs an encoder, and a reading section 3 lacks is a kit change.
 
+A connector that adopted the shared kit (it has `cli/internal/credkit/`) is judged like any other
+and lists nothing in the baseline. Its fake vendors serve TLS on a certificate made for the run and
+trusted through `SSL_CERT_FILE` and its `<PREFIX>_CA_CERT`, since the kit refuses to send a held
+credential over plain http, and every row would otherwise end "no request" having judged nothing.
+Its `Declarations.Files` callback is not run: the kit's reading of the held set is handed every file
+the run seeded, the only credential files the run has. The vendored kit's own raw writes are not
+checked as connector code; the kernel record sees them like any other.
+
 The credentials it holds come only from what the connector declares: each variable whose
 `user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
 `isSecret`, plus each one the shared kit's `SecretEnv` names. A variable's name means nothing.

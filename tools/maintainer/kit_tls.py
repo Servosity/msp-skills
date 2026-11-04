@@ -79,13 +79,14 @@ def windows_hold_digit_and_letter(value: str) -> bool:
     return bool(wins) and all(any(c.isdigit() for c in w) and any(c.isalpha() for c in w) for w in wins)
 
 
-def make_cert(out_dir: str) -> tuple[str, str]:
-    """A self-signed certificate for 127.0.0.1, generated for this run only.
-    Returns (certificate path, key path). The certificate is also the trust
-    anchor the connector is given, so nothing else is ever trusted."""
+def make_cert(out_dir: str, *also: str) -> tuple[str, str]:
+    """A self-signed certificate for 127.0.0.1 (and any `also` subject names),
+    generated for this run only. Returns (certificate path, key path). The
+    certificate is also the trust anchor the connector is given, so nothing else
+    is ever trusted."""
     cert, key = os.path.join(out_dir, "stub-cert.pem"), os.path.join(out_dir, "stub-key.pem")
     r = subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
-                        "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1",
+                        "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=" + ",".join(("IP:127.0.0.1", *also)),
                         "-keyout", key, "-out", cert], capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"could not generate the stub's TLS certificate with openssl: {r.stderr.strip()[-400:]}")
