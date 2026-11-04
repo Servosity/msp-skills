@@ -808,7 +808,7 @@
       "skill_path": "skills/huntress",
       "cli_binary": "huntress-cli",
       "mcp_binary": "huntress-mcp",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Huntress",
