@@ -1726,6 +1726,16 @@
       ],
       "press": "4.34.2",
       "reason": "dnsfilter only (press 4.34.2 template, reviewed 2026-11-03). claimLegacyUnscopedDB is the bound 4.34.0 template declaration with two hand-fix edits: the marker write goes through credkit.WriteFile (handfixes.json credkit-wiring), and its stderr note goes through stderrW() (the connector's terminal-escaping writer, handfixes.json stderr boundary) instead of os.Stderr, so its digest differs from the fleet binding. Both flagged reads open markerPath (<data.db>.owner) next to the CLI's own store in its resolved data directory, derived from defaultDBPathInDir; no MCP, API or tenant input reaches the path."
+    },
+    {
+      "file": "skills/apple-business/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "apple-business's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04, byte-identical to eset-protect's. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     }
   ]
 }
