@@ -19,8 +19,12 @@
     "CURSOR_TRACE_ID",
     "HTTP_PROXY",
     "HTTPS_PROXY",
-    "ALL_PROXY"
+    "ALL_PROXY",
+    "SPACEFAST_API_URL",
+    "SPACEFAST_TEAM",
+    "SPACEFAST_TOKEN"
   ],
+  "_internal_press4351_comment": "Press 4.35.1 deliver sink, classified 2026-11-04 on the google-workspace reprint. SPACEFAST_API_URL, SPACEFAST_TEAM and SPACEFAST_TOKEN are read only by internal/cli/deliver_spacefast.go, on the CLI's --deliver spacefast:<name> path. The MCP server refuses --deliver (cobratree blocked flags, proved per connector by check_mcp_file_flags.py), so the .mcpb bundle never uses them and an install prompt would only collect a token nothing in the MCP server reads. SPACEFAST_TOKEN is a credential: a connector that adopts the credential kit declares it in SecretEnv, bound to https://api.spacefast.com.",
   "_internal_exact_harness_comment": "CODEX_* / CLAUDE_* / CURSOR_* session identifiers are set by the AI harness that launched the CLI, never by an operator: printing-press 4.32.5+ internal/learn/journal.go (JournalHarnessSessionEnvVars) reads the first non-empty one and persists only a bounded hash so sibling tool calls share a journal session key. Prompting an operator for them in a bundle install would be nonsense.",
 
   "internal_prefixes": [
