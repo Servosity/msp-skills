@@ -50,6 +50,31 @@ func MatchUnit(held []string, unit []byte, request bool) (verdict, clause string
 	return "clean", ""
 }
 
+// MatchAt is the kit's verdict on one outbound request to rawURL for the held
+// set Acquire left, by each value's allowed origins (contract 2(c)). A URL it
+// cannot read, or a held set it does not know, is exhausted, never clean.
+func MatchAt(rawURL string, unit []byte) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "exhausted"
+	}
+	o, ok := originOf(u)
+	if !ok {
+		return "exhausted"
+	}
+	m, unknown := originMatcher(o, o.scheme != "https" && o.scheme != "wss")
+	if unknown {
+		return "exhausted"
+	}
+	switch m.check(unit) {
+	case leak:
+		return "leak"
+	case exhausted:
+		return "exhausted"
+	}
+	return "clean"
+}
+
 // PublicAsWritten is the kit's public-text rule for a value acquired while
 // running (contract 2, Public text): true when the value, as written, occurs
 // in one public-text entry, so it is recorded, not held.

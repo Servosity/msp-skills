@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"credkit"
 	"encoding/base64"
 	"encoding/json"
 	"slices"
@@ -188,6 +189,34 @@ func TestAcquireStdin(t *testing.T) {
 		}
 		if slices.Contains(held, "stdin-secret-271828") != c.held {
 			t.Errorf("args %q: held %q", c.args, held)
+		}
+	}
+}
+
+func TestAcquireJudgesByOrigin(t *testing.T) {
+	// The kit's origin rule on the acquired held set: a value goes where
+	// Origins sends it and nowhere else, its "Bearer x" form with it.
+	req := func(key string) string { return "POST /t\r\nAuthorization: Bearer " + key + "\r\n\r\n" }
+	q := acquire{Env: []string{b64("ACME_API_KEY=clsKapiValue123456"), b64("ACME_SECRET=zqKsecretWord98765")},
+		Decl: decl{SecretEnv: []string{"ACME_API_KEY", "ACME_SECRET"},
+			Origins: []credkit.Origin{{Source: "*", Allowed: []string{"https://api.example"}},
+				{Source: "env:ACME_SECRET", Allowed: []string{"https://login.example"}}}}}
+	for _, c := range []struct{ url, unit, want string }{
+		{"https://login.example/t", req("zqKsecretWord98765"), "clean"},
+		{"https://login.example/t", req("clsKapiValue123456"), "leak"},
+		{"https://api.example/t", req("clsKapiValue123456"), "clean"},
+		{"http://login.example/t", req("zqKsecretWord98765"), "leak"},
+		{"://nothing", "x", "exhausted"},
+	} {
+		q.Judge = q.Judge[:0]
+		q.Judge = append(q.Judge, struct {
+			URL  string `json:"url"`
+			Unit string `json:"unit"`
+		}{b64(c.url), b64(c.unit)})
+		b, _ := json.Marshal(request{Acquire: &q})
+		got, err := ask(t, string(b))
+		if err != nil || len(got) != 1 || len(got[0].Judged) != 1 || got[0].Judged[0] != c.want {
+			t.Errorf("%s: want %s, got %v, %v", c.url, c.want, got, err)
 		}
 	}
 }

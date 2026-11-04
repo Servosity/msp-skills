@@ -2720,12 +2720,6 @@ def pin_host(pins: dict, seedable: list[str]) -> str | None:
     return None
 
 
-def pin_allowed(pins: dict, pin: str, env: dict) -> set[str]:
-    """The values of the variables Origins sends to the host the list plays."""
-    return {x for v, x in env.items() if any(a.startswith("https://") and a[len("https://"):].replace("*.", "cls-harness.", 1) == pin
-                                             for a in pins.get(f"env:{v}", pins.get("*") or []))}
-
-
 def adopter_tls(slug: str, tmp: str, pins: dict | None = None) -> kit_tls.Served:
     """The kit refuses to send a held credential over plain http (contract
     2(c)), so an adopter's fake vendors serve TLS or no row reaches a request.
@@ -2788,13 +2782,16 @@ def exchanges(fakes: list, before: tuple, after: tuple) -> list[dict]:
 
 
 def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes], ex: list[dict],
-                mcp_in: bytes = b"", stdin: bytes = b"", files: list[str] | None = None) -> dict:
+                mcp_in: bytes = b"", stdin: bytes = b"", files: list[str] | None = None,
+                judge: list[tuple[str, bytes]] | None = None) -> dict:
     """The kit's own held set for one process (contract 1, contract 8: one
     implementation): what Start holds from its environment and argv, exactly
     as given, and the config file it names as the run was given it (written
     back at its own path for the reading, then restored: finding r3-8), and
     what the kit's transport holds from the exchanges (`exchanges`).
-    Returns {held: [...], recorded: n, unknown: bool}."""
+    `judge`: (url, unit) outbound requests, each judged for that held set by the
+    kit's origin rule; give decl its Origins. Returns {held: [...], recorded: n,
+    unknown: bool, judged: [verdict, ...]}."""
     saved: dict[str, bytes | None] = {}
     for path in written:
         if os.path.lexists(path) and not stat.S_ISREG(os.lstat(path).st_mode):
@@ -2813,7 +2810,8 @@ def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes
                 fh.write(body)
         got = _ask({"acquire": {"decl": decl, "env": [_b64(f"{k}={v}") for k, v in env.items()],
                                 "args": [_b64(a) for a in args], "mcp_in": _b64(mcp_in), "stdin": _b64(stdin),
-                                "files": [_b64(f) for f in files or []], "exchanges": ex}})
+                                "files": [_b64(f) for f in files or []], "exchanges": ex,
+                                "judge": [{"url": _b64(u), "unit": _b64(b)} for u, b in judge or []]}})
     finally:
         for path, body in saved.items():
             if body is None:
@@ -2827,7 +2825,8 @@ def kit_acquire(decl: dict, env: dict, args: list[str], written: dict[str, bytes
     if got.get("verdict") != "held" or not isinstance(got.get("held", []), list):
         raise RuntimeError(f"the kit's matcher command gave no held set ({got!r})")
     return {"held": [base64.b64decode(h).decode("utf-8", "surrogateescape") for h in got.get("held") or []],
-            "recorded": int(got.get("recorded") or 0), "unknown": bool(got.get("unknown"))}
+            "recorded": int(got.get("recorded") or 0), "unknown": bool(got.get("unknown")),
+            "judged": list(got.get("judged") or [])}
 
 
 def _read_tools(ctx: ch.Ctx, tools: list[dict]) -> list[dict]:
@@ -3868,16 +3867,18 @@ class Engine:
                 if how:
                     res["where"].append(f"SQLite statement {k}: {how}")
             for n in primary.played:
-                # Contract 2(c): a request that went to the played host, judged on
-                # every held value but the ones Origins sends there.
+                # Contract 2(c): a request that went to the played host, judged by
+                # the kit's own origin rule on the held set of the process that sent it.
                 m, path, hdrs, body = primary.requests[n]
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][0] <= n < procs[i]["after"][0]]
-                sent = pin_allowed(self.pins, self.pin, env)
-                # A value that holds an allowed one is that one as the request carried it ("Bearer <it>").
-                how = judge(request_unit(m, path, hdrs, body),
-                            [v for v in (held_for(by) if by else held) if not any(x and x in v for x in sent)], outbound=True)
-                if how:
-                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: {how}")
+                pr = procs[by[0]] if by else procs[0]
+                decl = {**self.kit_decl, "Origins": [{"Source": k, "Allowed": v} for k, v in self.pins.items()]}
+                v = kit_acquire(decl, replay_env(pr["env"]), pr["args"], written, exchanges(fakes, pr["before"], pr["after"]),
+                                pr["stdin"] if pr["which"] == "mcp" else b"", pr["stdin"], list(written) if self.files else None,
+                                judge=[(f"https://{self.pin}{path}", request_unit(m, path, hdrs, body))])["judged"][0]
+                if v != "clean":
+                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: "
+                                        + (EXHAUSTED if v == "exhausted" else "a held credential (the kit's matcher, contract 2(c))"))
             for n, (m, path, hdrs, body) in enumerate(second.requests):
                 # Contract 2(c): the second host is no held value's origin.
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][2] <= n < procs[i]["after"][2]]

@@ -27,7 +27,9 @@
 // A request {"acquire": {"decl": {...}, "env": [...], "args": [...],
 // "mcp_in": ..., "stdin": ..., "exchanges": [...]}} asks for the kit's held set of one run
 // (credkit.Acquire), answered {"verdict": "held", "held": [...],
-// "recorded": n, "unknown": bool}.
+// "recorded": n, "unknown": bool}. Its "judge" list, each {"url", "unit"},
+// asks the kit's origin rule for that held set (decl.Origins given), one
+// verdict per request in "judged".
 //
 // A line it cannot read ends the command with status 2, so the caller fails
 // the run rather than taking a missing verdict as clean.
@@ -64,6 +66,10 @@ type acquire struct {
 	Stdin     string     `json:"stdin"`  // what the process was given on stdin
 	Files     []string   `json:"files"`  // what its Files callback would name
 	Exchanges []exchange `json:"exchanges"`
+	Judge     []struct {
+		URL  string `json:"url"`
+		Unit string `json:"unit"`
+	} `json:"judge"`
 }
 
 // exchange is one request sent or one response delivered, as sent.
@@ -84,13 +90,14 @@ type decl struct {
 	CredentialHeaders, CredentialFields, ResponseFields, MCPArguments           []string
 	Identifiers                                                                 []credkit.Identifier
 	BaseURL                                                                     credkit.BaseURL
+	Origins                                                                     []credkit.Origin
 }
 
 func (d decl) kit() credkit.Declarations {
 	return credkit.Declarations{SecretEnv: d.SecretEnv, URLEnv: d.URLEnv, ConfigFields: d.ConfigFields, StoredRecords: d.StoredRecords,
 		CredentialFlags: d.CredentialFlags, StdinFlags: d.StdinFlags, CredentialHeaders: d.CredentialHeaders,
 		CredentialFields: d.CredentialFields, ResponseFields: d.ResponseFields, MCPArguments: d.MCPArguments,
-		Identifiers: d.Identifiers, BaseURL: d.BaseURL}
+		Identifiers: d.Identifiers, BaseURL: d.BaseURL, Origins: d.Origins}
 }
 
 type answer struct {
@@ -100,6 +107,7 @@ type answer struct {
 	Held     []string `json:"held,omitempty"`
 	Recorded int      `json:"recorded,omitempty"`
 	Unknown  bool     `json:"unknown,omitempty"`
+	Judged   []string `json:"judged,omitempty"`
 }
 
 func unb64(vs []string) ([]string, error) {
@@ -174,6 +182,13 @@ func acquired(a *acquire) (answer, error) {
 	out := answer{Verdict: "held", Held: []string{}, Recorded: rec, Unknown: unknown}
 	for _, v := range held {
 		out.Held = append(out.Held, base64.StdEncoding.EncodeToString([]byte(v)))
+	}
+	for _, j := range a.Judge {
+		v, err := unb64([]string{j.URL, j.Unit})
+		if err != nil {
+			return answer{}, err
+		}
+		out.Judged = append(out.Judged, credkit.MatchAt(v[0], []byte(v[1])))
 	}
 	return out, nil
 }
