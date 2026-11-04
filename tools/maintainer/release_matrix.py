@@ -148,6 +148,7 @@ MACHINERY = (
     "tools/maintainer/check_mcp_gate.py",
     "tools/maintainer/check_mcp_file_flags.py",
     "tools/maintainer/mcp_file_flags/",
+    "tools/maintainer/credkit_verify/",
     "tools/maintainer/check_doctor_truth.py",
     # How those harnesses serve a credential-kit adopter over TLS.
     "tools/maintainer/kit_tls.py",
@@ -536,6 +537,8 @@ def _self_test() -> int:
         ("tools/maintainer/check_mcp_file_flags.py", True),
         ("tools/maintainer/mcp_file_flags/engine.go", True),
         ("tools/maintainer/mcp_file_flags/testdata/fixture/cli/cli.go", True),
+        ("tools/maintainer/credkit_verify/check.go", True),
+        ("tools/maintainer/credkit_verify/testdata/base/cli/internal/cli/cli.go", True),
         ("tools/maintainer/check_cli_claims.py", True),
         ("tools/maintainer/verify_gate.py", True),
         (".claude/skills/verify-msp-skills/scripts/verify.py", True),

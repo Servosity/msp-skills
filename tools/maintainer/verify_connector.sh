@@ -236,6 +236,8 @@ check "linux cross-compile"    linux_cross
 check "linux cli claims"       linux_py check_cli_claims.py
 check "linux hand-fix ledger"  linux_py check_handfixes.py
 check "linux mcp gate"         linux_py check_mcp_gate.py
+# ponytail: credkit_verify is advisory in CI (loop ruling 17), and this script
+# holds only what CI's rows block on, so it joins here when CI's step goes hard.
 check "linux doctor truth"     linux_py check_doctor_truth.py
 check "linux go test"          linux_test
 check "windows vet"            windows_vet
