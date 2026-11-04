@@ -14,6 +14,7 @@ the statusline, you do not need anything in this folder - see the root
 | `check_no_pp_leak.py` | No connector's own `-pp-` name in a user-facing file, a Go string or a hand-fix `contains` marker (a `not_contains` marker is honored). Reads `cli/NOTICE` too. `--base` makes it a ratchet: lines already present at the base are listed, not blocking; CI runs the full audit (`--all`, no base) since the fleet went clean. |
 | `check_unix_test_asserts.py` | Lints connector tests for assertions that only hold on Unix (POSIX errno text, mode bits, `#!` stubs, files left open, GOOS-blind literals, a `time.Now()` key on `INSERT OR IGNORE`), the classes the Windows CI job used to find only after a PR. Ledgered known Windows failures are reported, not blocking. |
 | `build-catalog.py` | Regenerates `catalog.json`, the README catalog table and generated blocks, the docs site pages, the issue-form connector dropdowns, and each skill README's `.mcpb` pin. `--released-tags FILE` (catalog.yml passes the complete-published release list) keeps a pin from ever naming a tag whose release is a stranded draft or is missing an asset. |
+| `backup_vendor_note.py` | The "Comparing backup vendors?" note on backup-vendor connector pages. Text and the list of connectors it applies to live in `backup_vendor_note.json` (one source); `render_docs_page.py` puts it on the docs page, `--write` puts it in a marker block in each README, `--check` fails on drift, `--list` names the connectors. `--self-test`. |
 | `release_matrix.py` | Prints the GitHub Actions build matrix (skills x os/arch). `--changed-only <base>` (merge-base; ci.yml PRs) and `--changed-since <sha>` (two-point diff; ci.yml pushes, from `github.event.before`) scope it to the skills a change-set touched, so a docs-only or catalog-bot commit builds nothing and a build-machinery edit builds the fleet. `--self-test` proves the classifier both ways. |
 | `release_state.py` | Reports each skill's release state (up-to-date, version-pending, binary-pending, never-released) and writes `docs/_data/pending.json`. `--released-tags FILE` replaces "the tag exists" with "the tag names a published release". |
 | `check_skill_contract.py` | Asserts every skill has the required frontmatter and files. |
@@ -22,8 +23,10 @@ the statusline, you do not need anything in this folder - see the root
 | `check_dco.sh` | Verifies every commit carries a DCO `Signed-off-by` line. |
 | `check_mcp_gate.py` | Boots a skill's MCP server over stdio and asserts the tenant gate does not default-deny. Probes the read-only tools the gate wraps in-process; skips Cobra mirrors (the child CLI gates those) and destructive tools. Needs no credentials. |
 | `check_mcp_file_flags.py` | Proves an MCP tool call cannot name a file or directory on the MCP host. The Go analyzer in `mcp_file_flags/` derives, from data flow in the connector's code (not from flag names), every flag whose value can start a filesystem path; the script then boots the real MCP server beside a recording stand-in for the CLI and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, that an ordinary flag still reaches the CLI, and that no in-process tool hands request data to a filesystem call. A name resolved inside an `os.Root` (press 4.34.0's opt-in MCP upload root) counts as naming a path only where a caller-chosen value reached the root's own location; `os.OpenRoot` of such a value, and a plain `os.Open` of the name, stay sinks. `--slug`, `--all`, `--jobs N`. The analyzer's own both-directions proof is `go test ./...` in `mcp_file_flags/`. |
+| `credkit_verify/` | The shared credential kit's wiring checker (Go, `go/types`). For a connector that carries `cli/internal/credkit/`, it verifies the hand-written wiring and names every site it cannot classify; a connector without the kit is skipped. Run `go -C tools/maintainer/credkit_verify run . --slug <slug>`. See "The kit's wiring checker" below. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also fails a command-local flag that takes a value and shadows a persistent bare switch such as `--agent` or `--json` (the documented bare switch would swallow the next argument), and reports, without failing, every other local flag that shadows a global one. `--self-test` proves the classifier both ways. |
 | `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one, and that the baseline guard fails closed; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
+| `kit_tls.py` | How a local fake vendor is served to a connector that adopted the credential kit: https with a certificate made for the run, trusted through `<PREFIX>_CA_CERT` and `SSL_CERT_FILE`. Used by `check_doctor_truth.py`, `class_harness.py` and the verify skill. A connector without the kit stays on plain http with no new variable. |
 | `verify_gate.py` | CI gate over `.claude/skills/verify-msp-skills`: `--slug X` runs its `verify.py run` (Linux: `--egress-guard proxy-env`) and compares the six feature verdicts with `verify_baseline.json`. An unlisted FAIL blocks; a listed feature that now passes blocks until its entry is removed; an ERROR blocks as a harness error, not a connector defect. `--policy-base REF` reads the baseline from the trusted base. `--assert-baseline-shrinks REF` (guards job), `--seed-from DIR` (first seed from CI verdict artifacts), `--self-test`. See [Verify gate](#verify-gate). |
 | `verify_baseline.json` | `connectors`: the verify features each connector FAILS on main today (3 to 6 by design before press 4.34.0). `known_errors`: the harness ERRORs the fleet had when it was seeded (reported, not gating). Both shrink-only, like `class_baseline.json`; a reprint PR removes its own entries. |
 | `class_baseline.json` | Connectors that FAIL a class today, per class. Same burn-down model as `security_gate_baseline.json` (#429): a listed connector reports, an unlisted one fails CI, the list only shrinks. |
@@ -76,7 +79,7 @@ exercise gets an advisory `NOTE:` - reported, never baselined, never counted as 
 | Class (rule) | What enforces it | Fires on / silent on (measured) |
 | --- | --- | --- |
 | **Secret echo** - a credential value never reaches CLI output, errors or MCP results, in any encoding a server can reflect (URL, double-URL, HTML entities, JSON `\u`, base64/base64url, `Location`, `X-Request-Id`, truncated title), on error and success responses. | `class_secret_echo.py` (runtime): read commands and MCP read tools against a fake 403 that reflects each credential in body and headers; a 200 that reflects it in headers only (credential-free body); `--dry-run`, whose preview must mask the Authorization value. The MCP probe scans the session's raw stdout, stderr and whole result. Sentinels carry `.+/=` so each encoding is distinct. | Fires on 72 connectors (raw and URL forms masked; HTML, double-URL, JSON `\u` or base64 forms survive). Silent on the decoded-backstop connectors (cisco-duo, connectsecure, n-central, saas-alerts, watchguard) and riverside-fm (no credential). |
-| **Auth on the wire** - a configured credential is actually transmitted, and none follows a redirect to another host. | `class_auth_wire.py` (runtime): `doctor` against a fake server, then against one that 307s to a SECOND loopback server (different host:port); the second may receive no configured credential, no token the fake server minted, and no Authorization header. | Fires on 5 (connectwise-automate, connectwise-manage, cove, n-central, sherweb: each forwards a credential to the second host). Silent on the rest, which strip or refuse the hop. |
+| **Auth on the wire** - a configured credential is actually transmitted, and none follows a redirect to another host. | `class_auth_wire.py` (runtime): `doctor` against a fake server, then against one that 307s to a SECOND loopback server (different host:port); the second may receive no configured credential, no token the fake server minted, and no Authorization header. A doctor that sends nothing is reported as a NOTE (not judged), never read as a pass. | Fires on 5 (connectwise-automate, connectwise-manage, cove, n-central, sherweb: each forwards a credential to the second host). Silent on the rest, which strip or refuse the hop. |
 | **Write safety** - every non-read MCP tool is refused under the read-only switch, and `--dry-run` sends nothing. | `class_write_safety.py` (runtime): with `<PREFIX>_MCP_READ_ONLY`, every write tool is called with real-shaped arguments (an `_execute` tool gets a genuine write endpoint id) in a CONTROL session with the switch off and again with it on; a write request reaching the fake API in the read-only session is a finding (a token mint, or a POST search agent-context marks read-only, is not a write). A write command (positional ids filled with a placeholder) run with `--dry-run` must put zero requests on the wire; any request it sends is a finding, and a clean dry run counts as proven only when the same command run for real reaches the API. **Complemented** by the static `mcp-read-only-switch-skips-typed-tools` rule in `check_security_gate.py` (#429), which reads `tools.go` for the drop pattern. | Fires on 10 OAuth client-credentials connectors whose dry run mints a token (appdirect, crowdstrike, halopsa, immybot, nerdio, ninjaone, pax8, sherweb, skykick, threatdown). Silent on connectwise-rmm, sophos-central and watchguard (same auth, `dry-run-never-mints` fix). Read-only: 9 of the 17 switched connectors proven to stop every write, 8 advisory, 0 violations. |
 | MCP local-file flags | Owned by the fleet gate `check_mcp_file_flags.py` (#431), not duplicated here. | - |
 
@@ -292,6 +295,20 @@ What it does, by contract section:
   has no exemption), SQLite (`SQLDriver`), MCP (`MCPIn`, `MCPOut`, `MCPHTTP`, `MCPTools`) and child processes
   (`StartCommand`, `RunCommand`) each check one unit at a time. If the output layer cannot be installed, the program
   exits with status 70 before writing anything.
+  A program about to exit 0 whose stdout did not all reach its reader (a refused write, or a unit dropped along with its
+  notice) exits 74 instead (`ExitOutputLost`); a withheld unit whose notice arrived keeps the program's own status.
+- **Child processes (1, 5).** A child's argv and environment are one unit, and a child that would carry a held value is
+  refused. The connector's own program is not refused for its environment: its own binary, or its `<x>-mcp` / `<x>-cli`
+  companion in the same directory (each name judged by the file it resolves to). A variable that would carry a held value
+  goes down the inherited pipe with the held set, and `Start` in the child sets it again before `main` goes on, so a shell-out
+  tool authenticates with a key the user set in the environment, with no wiring, and the child's environment stays clean.
+  Any other program, a same-named one found through `PATH` or `<SLUG>_CLI_PATH` in another directory included, is refused,
+  and a credential in argv is refused for every program.
+- **A file other programs append to (5).** Several processes share the learn journal and the logs. A write that appends
+  tolerates growth it did not make: it is still checked with everything this process wrote to the file, and the kernel lands
+  it after what the others wrote. The kit no longer proves those bytes are its own, so a credential completed only by joining
+  this process's bytes to another's is contract 6 item 5, two runs. A file that shrank, or grew under a write at an offset,
+  still fails closed.
 - **Declarations (7).** A connector fills in one `credkit.Declarations` literal in one hand-written wiring file: its
   secret environment variables, credential files and fields, credential flags and headers, response fields, MCP
   arguments, each credential's allowed origins, and each exempt identifier with its reason. Every entry point is a plain
@@ -318,16 +335,29 @@ The fleet gates read the vendored kit only while `vendor_credkit.carrier_drift` 
 `check_env_schema.py` then takes the names the kit reads for the connector (`SecretEnv`, `BaseURL.Env`) from its
 `Declarations` literal and requires them in the manifest; `check_mcp_file_flags.py` ties the kit's `--config` read
 to the `--config` flag. The kit itself carries no `unsafe` import and no scanner finding, so the security gate scans
-it like connector code with no suppression. `check_doctor_truth.py` serves its stub over https (a certificate made for
-the run, trusted through `SSL_CERT_FILE`), because the kit refuses to send a credential over plain http.
+it like connector code with no suppression. `check_doctor_truth.py`, `class_harness.py` and the verify skill serve
+their fake vendor over https to an adopter (`kit_tls.py`: a certificate made for the run, trusted through
+`<PREFIX>_CA_CERT` and `SSL_CERT_FILE`), because the kit refuses to send a credential over plain http. Fixture
+credentials are written so that no 8-character piece occurs in ordinary output: the kit holds them and withholds any
+output sharing a piece (`check_doctor_truth.py --self-test` scans every connector's doctor source for its probe).
 
 How drift is caught: `vendor_credkit.py --check` (ci_guards guard 11) fails when any connector's copy differs from
 the kit by one byte, misses a file, or carries a file the kit does not have, and names the file. Change the kit here,
 then re-run `--slug` for each connector. The `credkit` workflow (`.github/workflows/credkit.yml`) runs the kit's contract tests under the race detector,
 vets it for Linux, macOS and Windows on amd64 and arm64, and vets it against every `mcp-go` version the fleet requires.
 
-Not yet: no connector uses the kit in this change. The verifier that proves a connector's wiring is complete and the
-leak test list that drives every connector against the contract are separate changes.
+Not yet: no connector uses the kit in this change. The checker that proves a connector's wiring is complete is
+`credkit_verify` (next section); the leak test list that drives every connector against the contract is a separate change.
+
+Base URLs and other URLs held from startup: an explicit `--config` chooses the base URL over a discovered default (the
+environment still overrides, and every file is still held), so a default's host never stays an allowed origin when the program
+reads another file. `Declarations.URLEnv` (optional) names other variables that hold a URL, such as a token URL or a feedback
+endpoint; the password and query values of each are held, and they leave a third-party child's environment. A proxy variable's
+user and password (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, either case, the schemeless `ops:secret@proxy.example:3128` Go
+accepts included) are held unconditionally, bound to that proxy's origin.
+
+An MCPB host leaves `${user_config.<key>}` in a variable the user left empty. That text is no value anyone gave the
+program, so the kit does not hold it, as `cliutil.EnvOverride` does not read it; any other value in that variable is held.
 
 Known limits (accepted): a single write over 4 MiB to stdout or stderr is checked in 4 MiB units; an encoded
 response body over 64 MiB, or one in an encoding other than gzip or deflate, withholds everything from then on; a
@@ -337,6 +367,208 @@ long one. Checking every decoding recursively costs time: about 0.1 s for 15 KB 
 that runs out of budget is withheld, which a credential with non-ASCII characters makes far more likely. On Windows, a
 stream the program captured before `Start` (a package-level logger) writes into the kit's pipe; if that stream was a
 console, its writes fail rather than reach the console.
+
+## The kit's wiring checker: `credkit_verify`
+
+A connector wires the [shared credential kit](#the-shared-credential-kit-credkit) by hand. The checker does not wire
+anything and does not guess: it reads the connector the way the Go compiler does (`go/packages` and `go/types`, so an
+aliased import, a dot import, a function used as a value, a method promoted from an embedded field, a generic type
+argument and a file that only one operating system or architecture compiles all resolve to what they are) and checks the wiring is complete. Anything it cannot
+classify fails with its file and line, what it is, and what would satisfy it. That is a to-do for the connector, never
+a guess.
+
+```bash
+go -C tools/maintainer/credkit_verify run . --slug <slug>      # or --dir skills/<slug>/cli
+```
+
+It loads the connector six times, as the release builds it (linux, darwin and windows, each on amd64 and arm64, cgo
+off), and checks five rules. Exit 0 means nothing is unclassified; exit 1 lists the findings; a connector without
+`cli/internal/credkit/` is skipped with a note and exits 0.
+
+It checks each load twice and reports the union. The first pass walks the syntax tree with `go/types` (the rules
+below). The second builds the program in SSA form (`golang.org/x/tools/go/ssa`, every generic instantiation with its
+own body) and runs one switch over every SSA instruction and operand kind, each modeled or failing; a test fails the
+build when a new `x/tools` adds a kind the switch lacks. In SSA a value that holds a command, client or transport
+(anywhere in its type, a fixed point over fields, elements, type arguments and method signatures, and any interface a
+command, client or transport satisfies by running or sending) flows only through the uses rule 2 allows; no generic, the connector's or another package's, may be instantiated with such a type. A call
+through such an interface passes only when every method VTA finds for it is the connector's, and an assertion to such
+an interface fails, the connector's own included. When such a value becomes an interface, the interface value is followed through connector code
+(calls into connector functions, returns, locals, closures, unexported fields of connector structs, and calls of its
+own type's methods) and fails where it leaves: another package's call, an exported field, an address taken, a call
+the checker cannot resolve, or a return from a function another package might call (one whose value goes anywhere but
+a direct call, a method whose bound value does, or a method of any type inside a type converted to an interface or
+given as a type argument to another package's generic function or type, used or called: its elements, fields and type
+arguments, which reflection reaches), whose callers the call
+graph does not all hold. Before `Start` is computed on the SSA call graph (static callees plus VTA for function
+values and interface calls); there a dynamic call with no resolved callee fails, unless it calls a function field of a
+connector struct nothing ever sets, or a function value whose type names a connector type (only connector code, which
+VTA sees, can make one). Any use of `reflect` or `unsafe`, any call into `syscall` or `golang.org/x/sys` (a constant
+such as a signal number is not a call), cgo, a `//go:linkname` line, an assembly file, and a binary in the connector's
+tree (git-ignored build output aside) fail unless the ledger lists them with a reason. These markers are the whole
+defense against code written to defeat the check: such code is out of the checker's threat model, because its author
+already holds the credential. A package outside the connector that imports a connector package fails too: it could build the
+connector's types, which the checker otherwise trusts as built by connector code.
+
+1. **The prologue.** The first statement of every `main` is `credkit.Start(...)`, given the connector's one
+   `credkit.Declarations` literal (directly, or the package-level variable it initializes). The literal must be plain
+   data the checker can read: constant strings, keyed fields, and `Files` as a function literal or a package-level
+   function. The variable is used nowhere else, so nothing changes it after the checker read it. The site ledger cannot
+   waive this rule.
+2. **Every sink routed.** File writes (`os.WriteFile`, `os.Create`, `os.CreateTemp`, `os.OpenFile` with write flags or
+   flags that are not a constant, `os.NewFile`, `os.CopyFS`, `ioutil`, `os.Root`) go through `credkit.WriteFile`,
+   `Create`, `OpenFile` or `AppendFile`; a helper such as `AtomicWritePrivateFile` is caught at the primitive inside it.
+   Every `http.Client` literal sets `Transport: credkit.Transport(...)`; an `http.Client` held by value anywhere else (a
+   variable, `new`, `make`, an array, a struct field, or another package's type that holds one), `http.DefaultClient`, `http.Get`/`Head`/`Post`/`PostForm`, a client or round tripper
+   built by another package (and anything from `golang.org/x/oauth2`), `http.DefaultTransport` outside
+   `credkit.Transport(...)`, a direct `RoundTrip`, and a replaced `Client.Transport` all fail. `http.NewRequest*` is
+   listed in the ledger with which routed client sends it. `sql.Open` names a constant driver registered as
+   `sql.Register(name, credkit.SQLDriver(driver))` among the leading statements of an `init` function (only other such
+   registrations may come before it, so no early return or branch can skip it) in the opening package or a package it
+   imports; `sql.OpenDB` fails. A child process starts only through
+   `credkit.StartCommand` or `RunCommand` (`Cmd.Start`, `Run`, `Output`, `CombinedOutput` and `os.StartProcess`
+   fail). An MCP server gets `server.WithToolHandlerMiddleware(credkit.MCPTools)`, its stdio server listens on
+   `credkit.MCPIn(os.Stdin)` and `credkit.MCPOut()`, and its HTTP server is served only inside `credkit.MCPHTTP(...)`
+   (`ServeStdio` and `Start` fail).
+
+   **Sink types are an allow-list.** For `*exec.Cmd`, `*http.Client` and `*http.Transport` the checker does not name
+   unsafe shapes; it walks every typed expression and accepts only the uses it lists. A value of one of those types,
+   or of a slice, map, channel, pointer, function or tuple holding one (or of a named type over one of those; a named
+   struct is checked field by field where its fields are read), is checked for every one of the three it holds, and is made only by `exec.Command` or
+   `exec.CommandContext` (a command), a checked `&http.Client{...}` literal (a client), a `&http.Transport{...}`
+   literal, `new(http.Transport)` or `Clone()` (a transport, which must then be wrapped), or a connector function whose
+   declared result is that type; it moves only to a place of exactly its own type (a variable, a field, an element, an
+   argument of a connector function, a result); and its methods are only `Wait`, `String`, `Environ` and the output
+   pipes (a command, which runs only through `credkit.StartCommand` or `RunCommand`), `Do`, `Get`, `Head`, `Post`,
+   `PostForm` (a client) and `Clone` (a transport, which sends only inside `credkit.Transport`). Every other expression
+   of those types fails: a conversion, a type assertion or type switch, an interface (including a tuple element
+   assigned or passed to one), another package's function, field or variable, an `exec.Cmd` literal, `new` of a
+   command or client, a method called through an interface. No generic function or type may be instantiated with a
+   type that holds a command, client, transport, round tripper, `*os.File`, database handle, SQL driver, `slog` handler
+   or `log.Logger`, or a type that holds a command, client or transport anywhere in its structure (a named struct's
+   fields included): the checker does not follow a sink through a type parameter, so the instantiation fails outright.
+   A conversion `T(x)` of a value that holds a command, client or transport anywhere in its structure to another type
+   fails: the new type's fields would read as the connector's own while the sink inside came from elsewhere.
+   Reflection and `unsafe` reach inside named structs, so a value holding a command, client or transport anywhere in its
+   structure is never handed to a `reflect` function or converted to `unsafe.Pointer`, and no connector code writes or
+   calls through `reflect` (a `reflect.Value` `Set` method, `Call`, `Method`, `Addr`, `Send`, `Clear`, `reflect.Copy`,
+   `Swapper`, `NewAt`, `MakeFunc`); reading through `reflect` (`ValueOf`, `Kind`, `IsNil`, `Field`) is allowed only as
+   a listed site, as every use of `reflect` and `unsafe` is.
+   `unsafe` may only turn a pointer into a `uintptr` for a system call (`unsafe.Pointer(&x)`, then `uintptr(p)`) and
+   measure (`Sizeof`, `Offsetof`, `Alignof`): an `unsafe.Pointer` made from a non-pointer, converted to anything but
+   `uintptr`, or moved with `unsafe.Add`, `Slice`, `String`, `SliceData` or `StringData` fails. An `exec.Cmd` held by
+   value (a field, variable, array or `new` of the struct type, not a pointer) fails as an `http.Client` by value does.
+   A type assertion to an interface that a command, client or transport satisfies with a method that runs or sends
+   (anything but a command's `String` and `Environ`, a client's `CloseIdleConnections`, a transport's `Clone`) fails:
+   a value recovered from `any` (through `reflect`'s `Interface`, say) may be one the checker never saw built. A
+   generic instantiated with such an interface fails too, since an assertion to its type parameter does the same, and
+   so does an assertion or instantiation with a type that carries one (a pointer, container, function or unnamed
+   struct holding it). Such an interface (one a client or command satisfies by sending or running) may not come from
+   another package's function, method, variable or field, nor reach the connector as a parameter another package
+   fills: a function, or a value with a method, whose parameter carries one may not be handed to another package
+   (an argument, its variable or field, its composite literal), whether it names a function or a function variable.
+   A value that holds a command, client or transport anywhere in its structure (a named struct's fields included) may
+   not be handed to another package either: a decoder handed `&envelope` fills the client inside it. A range clause
+   is a write: `for _, c.Transport = range ...` fails as an assignment does. A call of a function value is checked as its value is,
+   so another package's function variable cannot produce a client; and a method or field reached by promotion
+   through another package's embedded field that holds a command, client or transport fails as reading that field
+   would.
+
+   A value whose method would start one of these (a `*exec.Cmd`, a transport, an MCP
+   server, or a type embedding one) may not become an interface outside the kit's own call (a generic type argument
+   meeting its constraint counts, as do a range clause assigning to an interface and an interface map key), and a type assertion to an interface with such a method fails, so none can run out
+   of sight. `os.Stdin`, the one open file the kit neither redirects nor opened, may only be read: a read method, the
+   kit, or a parameter or variable of an interface type with no write method; asserting such a reader back to a type
+   that can write fails. Standard output and error are redirected by the
+   kit from `Start` on, so output is routed by construction; what the checker flags is output that runs before `Start`:
+   `fmt`, `log`, `slog`, `print`, file writes, any call handed a writer, and any method of a value that writes (an
+   `io.Writer` or a `slog` handler, whatever the method's name: `Handle`, `Flush`, `Write`, called as a method value or
+   a method expression), in an `init` function, a
+   package-level initializer, or any function or method one of those references or converts to an interface. Only
+   `strings.Builder` and `bytes.Buffer`, by exact type, count as memory; `log.New`, `SetOutput` and `slog`'s handler
+   constructors only capture a writer; a writer among a call's results handed straight on (`f(g())`) counts too. A request, `sql.Open` or a database call there fails too. A system call (`syscall`, `golang.org/x/sys`) is not classified and fails.
+3. **Every field and variable classified.** Each environment variable the code reads (`os.Getenv`, `os.LookupEnv`,
+   `os.ExpandEnv` of a constant, an `env:"NAME"` struct tag, and wrappers, followed through their call sites to a
+   constant name) is in `SecretEnv`, is the base URL's `Env`, or is an identifier `env:NAME` with a reason. A name that
+   is not a constant (`os.Getenv(prefix + s)`, `os.Environ`, a wrapper used as a value) fails until the ledger lists
+   the site with every name it may read, each then classified. A wrapper that changes its parameter, or a wrapper
+   method an interface can reach (through a tuple too), is not followed and fails the same way. Each field of the type
+   every `source` read actually decodes into (wherever it is declared, a function-local type included), of every type
+   named `Config`, and of any type the ledger names, that can hold a string or a number (numbers count; a bool holds one bit; an exported field of a type that decodes itself, such as `time.Time` or `big.Int`, or a struct that embeds one, counts too), nested and embedded structs included, is classified under each key it is
+   written as (its `toml`, `json`, `yaml` and `mapstructure` tag names, or its Go name, which is also its `json` key when
+   `encoding/json` rejects the tag's name (a tab in it, say) and its key `-` for a `json:"-,"` tag; and, for a type a `source`
+   read decodes, the key that decoder reads, which is its Go name when only another format's tag is present: a
+   `toml:"token"` field decoded by `encoding/json` is the key `Shadow`; every decode counts, `DecodeFile` included): a credential field, a stored
+   record, the base URL key, `auth_header`, a `headers` table (a map or a struct: the kit holds what is beneath it), or
+   an identifier `config:KEY` with a reason. A `Config` that is not a struct (or a pointer to one, a cycle of pointers
+   reported, not followed) fails. A `source` read's content may only be decoded straight into a struct in the same
+   function (`Unmarshal(b, &cfg)`, `NewDecoder(f).Decode(&cfg)`, through `io.ReadAll` too, or a `DecodeFile`); its bytes
+   or file going anywhere else, or a target that is a map or an interface, fails, as does a yaml `,inline` or a
+   mapstructure `,remain` map (it takes every key no other field takes, so no declaration can classify them), as does a target that holds,
+   anywhere in its structure, a type outside the standard library (a package with no module) with its own decoding method (`UnmarshalJSON`,
+   `UnmarshalText`, `UnmarshalTOML`, a `Decode` method, one promoted from an embedded interface included), or any
+   interface (a decoder fills whatever value it holds): what either does with the file is not followed. A field a
+   reprint adds fails until classified. A key declared both a credential and an identifier fails.
+4. **Every file read listed.** The kit holds a credential file only when `Declarations.Files` names it, and the checker
+   cannot tell from code which read is a config, credential store or token cache. So every read (`os.ReadFile`,
+   `os.Open`, a read-only `os.OpenFile`, `os.DirFS`, `ioutil.ReadFile`, `os.Root`) is listed in the ledger: kind
+   `source` (a file `Files` names) or `exempt` (not a credential file), with the reason. A `source` entry names `via`,
+   a package-level function, and the checker proves the claim by shape, never by equal-looking values: `via` is
+   `func() string` or `func(args []string) string` and pure (it reads no package-level variable, writes only its own
+   locals, takes no address, and calls only builtins, conversions, `strings`, `strconv`, the `path` and `filepath` path
+   functions, `os.Getenv`, `os.LookupEnv`, `os.UserConfigDir`, `os.UserHomeDir`, `os.TempDir`, `credkit.FlagValues`
+   (how a path function reads `--config`, as `check_mcp_file_flags.py` also expects) and connector functions
+   pure the same way, each proved again for each set of parameters given the command line; it passes no named
+   function or method as a value, ranges over no map; and reads the command line only by `len`, `range` or an index, parentheses
+   included); `Files` is pure too and returns a
+   `[]string` literal holding `via()` (or `via(args)`, its own parameter) on every return; and the read's path is
+   `via()` (or `via(os.Args[1:])`), directly or through parameters every caller fills with one. When a path reads the
+   environment, an environment write anywhere (`os`, `syscall`, `golang.org/x/sys`) fails; when it reads the command line, a use of `os.Args` other than
+   `len`, an index or `os.Args[1:]` handed to a declared `via` fails. While any `source` is declared, a change of the
+   working directory (`os.Chdir`, `syscall.Chdir`, `Fchdir`, `(*os.File).Chdir`, Windows' `SetCurrentDirectory`) fails: a relative path Start held
+   would then name another file. While any `source` is declared, a variable of `strings`, `strconv`, `unicode`,
+   `unicode/utf8`, `path` or `path/filepath` (other than an error value) may only be an argument of its package's
+   functions: `unicode.CaseRanges = nil` changes what `unicode.ToUpper` returns. A file moved or linked into place
+   (`os.Rename`, `os.Link`, `os.Symlink`, and `os.Root`'s) writes its destination without the kit and fails like any
+   other file write, so a file Start held cannot be swapped.
+5. **Every credential has an origin.** Each declared credential (secret variables, credential and stored fields,
+   credential flags, stdin, headers, request fields, response fields, MCP arguments) has an `Origins` entry with at
+   least one allowed origin, each written as `scheme://host[:port]` or `base_url`. As in the kit, a credential's own
+   entry decides when it has one; only without one does the `*` default apply.
+
+**The site ledger**, `skills/<slug>/credkit-sites.json` (beside `handfixes.json`, outside `cli/`, so a reprint never
+rewrites it), lists each site the checker cannot see routed, by file, enclosing function and primitive, with how many
+such references that function holds:
+
+```json
+{
+  "config_types": ["internal/config.Config"],
+  "sites": [
+    {"file": "internal/config/config.go", "func": "Load", "what": "os.ReadFile", "count": 1,
+     "kind": "source", "via": "internal/config.Path", "reason": "the config file, which Declarations.Files names"},
+    {"file": "internal/client/client.go", "func": "Client.do", "what": "net/http.NewRequestWithContext", "count": 1,
+     "kind": "exempt", "reason": "sent only by c.http, built with credkit.Transport"}
+  ]
+}
+```
+
+Each finding prints the exact `file`, `func` and `what` to copy. An entry whose count no longer matches (a reprint
+added a site), or that matches nothing (stale), fails, and so does one without a reason. Field and variable
+classifications live in the `Declarations`, not the ledger.
+
+How it is proved: `testdata/base` is a connector wired completely, and each case in `verify_test.go` changes one shape
+and must yield exactly the findings it names (its routed or classified twin yields none), including an aliased import,
+a dot import, a method value, an environment wrapper and a wrapper of it, a method promoted from an embedded field,
+an embedded `Config` struct, a generic type argument, and files only the windows or the arm64 build compiles. Removing
+any rule from a copy of the checker makes at least one case fail. The `credkit-verify` CI job runs them under the race
+detector, and that job blocks. The build row also runs the checker for each connector, but that step is advisory for
+now: findings show on the row without failing it, and `verify_connector.sh` does not run it. Real adopters measured 248
+to 1652 unclassified sites, most of them press-template code, so the step goes hard, in both places, once a fleet sweep
+has classified those sites centrally and comes back clean.
+
+Known limits (accepted): a call through an interface into another package's code is not followed (a connector type
+converted to an interface is: its methods join the before-`Start` closure); a third-party package that sends its own requests without returning a client is not seen, except
+`golang.org/x/oauth2`, which is flagged whole; reflection that only reads is not followed; a file that only a cgo build compiles is not
+checked.
 
 ## Security gate: `mcp-http-no-bearer-auth`
 

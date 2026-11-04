@@ -8,7 +8,8 @@ package credkit
 // startup before any output is checked: the held set a parent passed down,
 // the declared secret environment variables, every credential file
 // (Declarations.Files and a --config path on the command line), the base
-// URL's secrets, the values of declared credential flags (pre-scanned from
+// URL's secrets and those of Declarations.URLEnv, a proxy variable's user and
+// password, the values of declared credential flags (pre-scanned from
 // argv, so a flag-parse error that echoes one is withheld), and stdin when
 // a declared stdin flag is present and stdin is not a terminal. Then it
 // returns and the program parses its flags as before.
@@ -24,8 +25,11 @@ package credkit
 
 import (
 	"bytes"
+	"errors"
 	"io"
+	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -60,6 +64,7 @@ func Start(d Declarations) {
 	reg.Unlock()
 	currentMatcher() // built here, so the first unit is not held up building it
 	startedOnce.Do(func() { close(started) })
+	retargetLog()
 	if refused {
 		refuse(src)
 	}
@@ -69,7 +74,7 @@ func Start(d Declarations) {
 func gather(d Declarations, args []string) {
 	readInherited()
 	for _, name := range d.SecretEnv {
-		if v, ok := os.LookupEnv(name); ok {
+		if v, ok := os.LookupEnv(name); ok && !unfilledPlaceholder(v) {
 			Hold("env:"+name, v)
 		}
 	}
@@ -77,16 +82,30 @@ func gather(d Declarations, args []string) {
 	if d.Files != nil {
 		files = d.Files(args)
 	}
-	files = append(files, FlagValues(args, "--config")...)
 	base := ""
 	for _, f := range files {
 		if b := gatherFile(f); base == "" {
 			base = b
 		}
 	}
+	// An explicit --config is the file the program reads, the last of several
+	// as a flag parser takes them: its base URL, or none, decides, so a
+	// discovered default's host does not stay an allowed origin. Every file is
+	// held, FlagValues' wider reading included; the choice stops at the first
+	// "--", since a wrong choice here refuses the program's real sends.
+	for _, f := range FlagValues(args, "--config") {
+		gatherFile(f)
+	}
+	if n := len(flagValues(beforeEnd(args), "--config")); n > 0 {
+		// What stands before the first "--" is a prefix of FlagValues, so this
+		// is the last of those. An empty value is the flag unset.
+		if f := FlagValues(args, "--config")[n-1]; f != "" {
+			base = gatherFile(f)
+		}
+	}
 	reg.Lock()
 	if d.BaseURL.Env != "" {
-		if v := os.Getenv(d.BaseURL.Env); v != "" {
+		if v := os.Getenv(d.BaseURL.Env); v != "" && !unfilledPlaceholder(v) {
 			holdBaseURLLocked(v)
 			base = v
 		}
@@ -101,13 +120,109 @@ func gather(d Declarations, args []string) {
 	for _, f := range d.CredentialFlags {
 		holdLocked("flag:"+f, flagValues(args, f)...)
 	}
+	for _, name := range d.URLEnv {
+		if v := os.Getenv(name); v != "" && !unfilledPlaceholder(v) {
+			holdBaseURLLocked(v)
+		}
+	}
 	reg.Unlock()
+	holdProxyEnv()
 	for _, f := range d.StdinFlags {
 		if present(args, f) {
 			readStdin()
 			break
 		}
 	}
+}
+
+// proxyEnv is every variable a proxy with a password can be set in. Go's
+// transport reads the first four; curl and others read the last two.
+var proxyEnv = []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"}
+
+func isProxyEnv(name string) bool {
+	return slices.ContainsFunc(proxyEnv, func(p string) bool { return strings.EqualFold(p, name) })
+}
+
+// parseProxyEnv reads v as Go's proxy lookup does (golang.org/x/net/http/httpproxy):
+// a URL, or, when that gives no scheme and host, the same text after "http://",
+// so ops:secret@proxy.example:3128 is a user and password, not a scheme. It is
+// an error when that second reading loses a user or password v has.
+func parseProxyEnv(v string) (*url.URL, error) {
+	if u, err := url.Parse(v); err == nil && u.Scheme != "" && u.Host != "" {
+		return u, nil
+	}
+	u, err := url.Parse("http://" + v)
+	if err == nil && u.User == nil && strings.Contains(v, "@") {
+		return nil, errors.New("credkit: a proxy setting that does not parse")
+	}
+	return u, err
+}
+
+// rawUserinfo is the user and password written in a proxy setting no parser
+// reads, which still gives them up.
+func rawUserinfo(v string) (user, pass string, ok bool) {
+	if _, rest, found := strings.Cut(v, "://"); found {
+		v = rest
+	}
+	v = strings.TrimLeft(v, "/") // a scheme-relative //user:pass@host
+	i := strings.LastIndexByte(v, '@')
+	if i < 0 {
+		return "", "", false
+	}
+	user, pass, _ = strings.Cut(v[:i], ":")
+	return user, pass, true
+}
+
+// proxyHasUserinfo reports whether a proxy setting names a user or password.
+func proxyHasUserinfo(v string) bool {
+	if unfilledPlaceholder(v) {
+		return false
+	}
+	if u, err := parseProxyEnv(v); err == nil {
+		return u.User != nil
+	}
+	_, _, ok := rawUserinfo(v)
+	return ok
+}
+
+// holdProxyEnv holds the user and password of each proxy variable from
+// startup, whether or not a request ever uses the proxy: they are bound to that
+// proxy's origin, as the transport binds them (holdProxyCreds).
+func holdProxyEnv() {
+	for _, name := range proxyEnv {
+		v := os.Getenv(name)
+		if v == "" || unfilledPlaceholder(v) {
+			continue
+		}
+		if u, err := parseProxyEnv(v); err == nil {
+			if u.User != nil {
+				holdProxyCreds(u, nil)
+			}
+			continue
+		}
+		if user, pass, ok := rawUserinfo(v); ok {
+			reg.Lock()
+			holdAllowedLocked("proxy-user", nil, user)
+			holdAllowedLocked("proxy-userinfo", nil, pass)
+			if u, err := url.PathUnescape(user); err == nil {
+				holdAllowedLocked("proxy-user", nil, u)
+			}
+			if p, err := url.PathUnescape(pass); err == nil {
+				holdAllowedLocked("proxy-userinfo", nil, p)
+			}
+			reg.Unlock()
+		}
+	}
+}
+
+// unfilledPlaceholder reports whether v is the text an MCPB host leaves in an
+// environment variable when the user left that optional setting empty. It is
+// no value anyone gave the program, and the connector reads it as unset
+// (cliutil.EnvOverride). Held, its pieces (the variable's own name, so the
+// connector's) would withhold nearly everything the program says.
+func unfilledPlaceholder(v string) bool {
+	rest, ok := strings.CutPrefix(v, "${user_config.")
+	return ok && strings.IndexByte(rest, '}') == len(rest)-1 && len(rest) > 1
 }
 
 // flagValues is every value given to flag on the command line, in each
@@ -173,6 +288,14 @@ func flagArgs(args []string) []string {
 // does not end the scan, which then reads more, never less.
 func mayTakeValue(a string) bool {
 	return len(a) > 1 && a[0] == '-' && a != "--" && !strings.Contains(a, "=")
+}
+
+// beforeEnd is args up to the first "--".
+func beforeEnd(args []string) []string {
+	if i := slices.Index(args, "--"); i >= 0 {
+		return args[:i]
+	}
+	return args
 }
 
 // isFlag reports whether a names flag, with one dash or two.

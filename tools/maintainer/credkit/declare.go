@@ -72,6 +72,11 @@ type BaseURL struct {
 type Declarations struct {
 	// SecretEnv: every environment variable whose value is a credential.
 	SecretEnv []string
+	// URLEnv: other environment variables that hold a URL (a token URL, a
+	// feedback endpoint). The password and query values of each are held from
+	// startup, as BaseURL.Env's are. A request that carries one needs an
+	// allowed origin like any other (Origins: "userinfo", "query:NAME").
+	URLEnv []string
 	// Files returns every file a credential may be read from, given the
 	// command line (os.Args[1:]): the config file the program will read,
 	// its legacy paths, and each credential store file. It runs once, in

@@ -97,6 +97,8 @@ The Datto Partner Portal answers backup-health questions one appliance at a time
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=datto-bcdr&utm_content=docs)
+
 ## The pain this closes
 
 - A backup that fails screenshot verification is silently unbootable - you find out at restore time, when the client is already down, because the Partner Portal makes you check bootability one appliance at a time.

@@ -96,6 +96,8 @@ Backup Radar's portal and email digests already flag failures and no-results. Th
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=backup-radar&utm_content=docs)
+
 ## The pain this closes
 
 - A backup that never reports sends no failure email. ScalePad's Gflex partner story describes backups that went unnoticed for weeks or months before no-result monitoring, and a technician spending about four hours a day sorting backup mail to find them.

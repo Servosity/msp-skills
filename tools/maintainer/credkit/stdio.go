@@ -26,14 +26,25 @@ package credkit
 
 import (
 	"os"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+// ExitOutputLost is the exit status of a program that would have reported
+// success when part of its standard output did not reach its reader. A
+// command whose result was dropped has not succeeded.
+const ExitOutputLost = 74
+
 const (
 	unitIdle = 10 * time.Millisecond // a pause this long ends a unit
-	exitWait = 10 * time.Second      // how long Exit waits for the pumps to drain
+	exitPoll = 50 * time.Millisecond
 )
+
+// exitWait is how long Exit waits for a stream that is not being checked
+// (drainPumps). A variable, so a test can lower it.
+var exitWait = 10 * time.Second
 
 type pump struct {
 	fd   int // 1 or 2
@@ -44,10 +55,19 @@ type pump struct {
 	done chan struct{}
 	st   streamCtx
 	dead bool // the original stream refused a write: drain, write nothing
+	// lost: bytes of this stream never reached its reader, and no notice
+	// said so (the stream refused them, or a withheld unit's notice was
+	// dropped too).
+	lost     atomic.Bool
+	writing  atomic.Bool // inside a write to the original stream
+	checking atomic.Bool // inside the check of a unit
 }
 
 // pumpReadHook, when set (by a test), runs after each chunk is read and queued.
 var pumpReadHook func()
+
+// redirectHook, when set (by a test), runs before each stream is redirected.
+var redirectHook func(fd int)
 
 var stdio struct {
 	sync.Mutex
@@ -61,6 +81,8 @@ func installStdio() error {
 	if len(stdio.pumps) > 0 {
 		return nil
 	}
+	resume := quietRuntime()
+	var pumps []*pump
 	for _, s := range []struct {
 		fd   int
 		sink string
@@ -70,12 +92,26 @@ func installStdio() error {
 		if fi, err := s.f.Stat(); err == nil {
 			tty = fi.Mode()&os.ModeCharDevice != 0
 		}
+		if redirectHook != nil {
+			redirectHook(s.fd)
+		}
 		orig, r, err := redirectStd(s.fd)
 		if err != nil {
+			resume()
 			return err
 		}
-		p := &pump{fd: s.fd, sink: s.sink, in: r, out: orig, tty: tty, done: make(chan struct{})}
-		stdio.pumps = append(stdio.pumps, p)
+		pumps = append(pumps, &pump{fd: s.fd, sink: s.sink, in: r, out: orig, tty: tty, done: make(chan struct{})})
+	}
+	resume()
+	// No pump runs until both streams are redirected. A pump's goroutines make
+	// the runtime start threads, each with handles of its own, and on Windows
+	// one could land on the number redirectStd has just closed for the other
+	// stream, which ends the program (quietRuntime). Nothing is lost by waiting:
+	// the pipes hold what is written meanwhile, and a writer that fills one waits
+	// for its pump, as long as redirecting the other stream does not wait on that
+	// writer (Start's retargetLog).
+	stdio.pumps = pumps
+	for _, p := range pumps {
 		go p.run()
 	}
 	return nil
@@ -156,18 +192,33 @@ func (p *pump) run() {
 // flushOver withholds a unit too large to check: its notice, and no tail.
 func (p *pump) flushOver(last byte) {
 	if p.dead {
-		return
+		return // lost when it went dead
 	}
 	<-started
 	e := emitBegin() // the barrier, to the end of the write (held.go heldMu)
 	n, open := noticeIn(&p.st, p.sink, []byte{last})
-	if len(n) > 0 {
-		if _, err := p.out.Write(n); err != nil {
-			p.dead = true
-		}
-	}
+	p.write(n)
 	emitEnd(e)
 	p.st.over(n, open)
+}
+
+// write passes out on, and a unit that leaves nothing behind (out empty: its
+// notice was dropped too) is lost output.
+func (p *pump) write(out []byte) {
+	if len(out) == 0 {
+		p.lost.Store(true)
+		return
+	}
+	p.writing.Store(true)
+	_, err := p.out.Write(out)
+	p.writing.Store(false)
+	if err != nil {
+		// ponytail: a closed reader (| head) no longer ends the program
+		// by SIGPIPE; the pump drains and drops the rest, and Exit reports
+		// it as the shell would have seen it: not a success.
+		p.dead = true
+		p.lost.Store(true)
+	}
 }
 
 // flush checks one unit and writes it, or its notice.
@@ -177,14 +228,10 @@ func (p *pump) flush(unit []byte) {
 	}
 	<-started        // every startup credential is held before any unit is checked
 	e := emitBegin() // the barrier, to the end of the write (held.go heldMu)
+	p.checking.Store(true)
 	out, held := p.st.decide(unit, p.sink)
-	if len(out) > 0 {
-		if _, err := p.out.Write(out); err != nil {
-			// ponytail: a closed reader (| head) no longer ends the program
-			// by SIGPIPE; the pump drains and drops the rest.
-			p.dead = true
-		}
-	}
+	p.checking.Store(false)
+	p.write(out)
 	emitEnd(e)
 	p.st.done(unit, out, held)
 }
@@ -192,7 +239,10 @@ func (p *pump) flush(unit []byte) {
 // Exit ends the program with code after every byte already written to
 // stdout and stderr has been checked and passed on. A program whose output
 // layer is installed ends through Exit, never by returning from main or by
-// os.Exit, which would drop output still in the pipes.
+// os.Exit, which would drop output still in the pipes. A program about to
+// report success whose stdout did not all arrive exits ExitOutputLost
+// instead. A withheld unit whose notice arrived did arrive: the reader was
+// told, and the program's own status stands.
 func Exit(code int) {
 	records.Wait()
 	stdio.Lock()
@@ -201,15 +251,46 @@ func Exit(code int) {
 		releaseStd(p.fd)
 	}
 	stdio.Unlock()
-	deadline := time.After(exitWait)
+	drainPumps(pumps)
+	if code == 0 && mcpLost.Load() {
+		code = ExitOutputLost
+	}
 	for _, p := range pumps {
-		select {
-		case <-p.done:
-		case <-deadline:
+		if p.lostOutput() && p.fd == 1 && code == 0 {
+			code = ExitOutputLost
 		}
 	}
 	os.Exit(code)
 }
+
+// drainPumps waits for the pumps to pass on what they have. It waits as long
+// as a check is running, since that output is on its way and a program that
+// left then would lose it, and exitWait for anything else: a reader that takes
+// nothing, or a child that kept the stream open and may never close it.
+func drainPumps(pumps []*pump) {
+	t := time.NewTicker(exitPoll)
+	defer t.Stop()
+	var idle time.Duration
+	for _, p := range pumps {
+		for waiting := true; waiting; {
+			select {
+			case <-p.done:
+				waiting = false
+			case <-t.C:
+				if slices.ContainsFunc(pumps, func(q *pump) bool { return q.checking.Load() }) {
+					idle = 0
+				} else if idle += exitPoll; idle >= exitWait {
+					return
+				}
+			}
+		}
+	}
+}
+
+// lostOutput reports whether bytes of the stream did not reach its reader, as
+// of drainPumps: a pump still inside a write has a reader that took nothing,
+// and one that is only waiting has passed on what it could.
+func (p *pump) lostOutput() bool { return p.lost.Load() || p.writing.Load() }
 
 // Terminal reports whether f (os.Stdout or os.Stderr) was a terminal before
 // the output layer replaced it with a pipe. Use it wherever the program

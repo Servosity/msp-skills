@@ -822,6 +822,32 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-unbacked-only-claim",
+   "summary": "The narrative says \"an open-source CLI that works post-migration\", not \"the only CLI that works post-migration\"",
+   "why": "The press narrative claimed an exclusivity ('the only CLI that works post-migration') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "an open-source CLI that works post-migration",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "the only CLI that works post-migration"
+    },
+    {
+     "file": "guide.md",
+     "contains": "an open-source CLI that works post-migration",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "the only CLI that works post-migration"
+    }
+   ]
   }
  ]
 }

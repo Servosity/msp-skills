@@ -58,6 +58,8 @@ Cove's backup.management console has no AI and answers one customer at a time wi
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](https://msp-skills.compoundingteams.com/skills/servosity.md) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=cove&utm_content=docs)
+
 ## The pain this closes
 
 - Cove's dashboard scopes to one customer at a time. To answer "what failed last night across all 40 clients" you open each customer separately, every morning. The N-able/Cove community on r/msp and MSPGeek repeatedly asks for a single cross-tenant failure list the console does not provide.

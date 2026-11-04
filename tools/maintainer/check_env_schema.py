@@ -1181,12 +1181,15 @@ def explain_unresolved(expr: str, pkg: GoPackage, env_prefix: str,
 # read fails here until this model is updated):
 #
 #   CREDKIT_HELD   the held set a parent passes to a child process it starts
+#   GODEBUG        Go's own; Start leaves GOMAXPROCS alone on Windows when it is set
 #   SYSTEMROOT     passed to a Windows child so it can load system DLLs
+#   HTTP_PROXY, HTTPS_PROXY, ALL_PROXY  (either case) a proxy's user and password,
+#                  held at startup; the host's setting, not the connector's
 #   d.SecretEnv    every name the connector's Declarations literal lists
 #   d.BaseURL.Env  the base-URL variable the connector's Declarations name
 #
-# The first two are the kit's own plumbing, never operator input. The last two
-# are the connector's names: this gate reads them out of the connector's own
+# Those are the kit's own plumbing or the host's, never connector input. The
+# last two are the connector's names: this gate reads them out of the connector's own
 # credkit.Declarations / credkit.BaseURL literals and requires them in the
 # manifest exactly like any read the connector makes itself.
 #
@@ -1195,7 +1198,7 @@ def explain_unresolved(expr: str, pkg: GoPackage, env_prefix: str,
 # same proof as ci_guards guard 11). A copy that drifted by one byte is scanned
 # like any other connector package, so an edited kit cannot hide a read.
 KIT_VENDOR_REL = Path("internal") / "credkit"
-KIT_OWN_READS = frozenset({"CREDKIT_HELD", "SYSTEMROOT"})
+KIT_OWN_READS = frozenset({"CREDKIT_HELD", "GODEBUG", "SYSTEMROOT", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"})
 # Every read the canonical kit makes whose name is not a literal, as the scan
 # reports it: (expression, explanation). Pinned by the self-test.
 KIT_PARAM_READS = frozenset({("d", "helper-definition"), ("name", "helper-definition"),

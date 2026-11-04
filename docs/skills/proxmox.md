@@ -95,6 +95,8 @@ Proxmox has no built-in AI assistant. The Proxmox VE and Backup Server web inter
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=proxmox&utm_content=docs)
+
 ## The pain this closes
 
 - A Proxmox shop with many clients runs one cluster and often one Backup Server per client, so "are all my clients' backups good?" means a login per site and a scroll through task lists.

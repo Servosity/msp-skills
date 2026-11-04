@@ -98,6 +98,8 @@ Most NinjaOne integrations and MCP servers proxy each question into a live API c
 
 It complements NinjaOne rather than replacing it: the console stays best for real-time monitoring, remote control, and remediation, while this skill brings your estate to whichever AI agent you already use and answers the cross-fleet rollups - joined across every organization - that NinjaOne's per-org reporting does not compose in a single view today.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=ninjaone&utm_content=docs)
+
 ## The pain this closes
 
 - NinjaOne is strong at real-time per-device monitoring, but its built-in reporting is not consistently executive-ready and client-facing rollups often need effort or a third-party BI overlay (Flamingo, NinjaOne Review, 2026) - so "which clients are behind on patches" still means running a per-org report and re-totaling it by hand.

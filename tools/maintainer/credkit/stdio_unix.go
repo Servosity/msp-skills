@@ -102,10 +102,15 @@ func fdAppendFlag(f *os.File) (app, known bool) {
 	return fl&syscall.O_APPEND != 0, true
 }
 
-// appendAt writes b at off, f's end, by offset (pwrite): where it lands
-// does not depend on the descriptor's O_APPEND, which may change while the
-// write runs. An appending descriptor lands it at the end, off itself.
+// appendAt writes b at f's end. A descriptor that appends does it with a
+// plain write, which the kernel lands at the end however far another process
+// has moved it, where pwrite on macOS would overwrite what that process just
+// appended. One that no longer appends (a program can clear the flag at any
+// time: kit15rv round 2) writes at off, the end the kit read, by offset.
 func appendAt(f *os.File, b []byte, off int64) (n int, err error) {
+	if app, known := fdAppendFlag(f); app && known {
+		return f.Write(b)
+	}
 	c, err := f.SyscallConn()
 	if err != nil {
 		return 0, err
@@ -115,3 +120,10 @@ func appendAt(f *os.File, b []byte, off int64) (n int, err error) {
 	}
 	return max(n, 0), err
 }
+
+// retargetLog: the standard logger writes to fd 2 or to nothing here, and the
+// redirect does not move it.
+func retargetLog() {}
+
+// quietRuntime has nothing to do: dup2 replaces a descriptor in one step.
+func quietRuntime() (resume func()) { return func() {} }

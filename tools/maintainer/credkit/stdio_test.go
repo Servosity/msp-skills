@@ -31,6 +31,66 @@ func TestMain(m *testing.M) {
 	case "held-parent":
 		heldParent()
 		os.Exit(0)
+	case "fix1-parent":
+		fix1ParentMain()
+		os.Exit(0)
+	case "fix1-appender":
+		fix1Appender(os.Getenv("FIX1_FILE"), os.Getenv("FIX1_TAG"))
+		os.Exit(0)
+	case "fix1-print":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		Exit(0)
+	case "fix1-print-3":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		Exit(3)
+	case "fix1-stderr":
+		Start(Declarations{})
+		fmt.Println("the answer")
+		fmt.Fprintln(os.Stderr, "a hint nobody sees")
+		time.Sleep(50 * time.Millisecond)
+		Exit(0)
+	case "fix1-mcp-out":
+		// A response through MCPOut, which writes to the stream itself.
+		Start(Declarations{})
+		_, _ = MCPOut().Write([]byte("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n"))
+		Exit(0)
+	case "fix1-quiet":
+		Start(Declarations{})
+		Exit(0)
+	case "fix1-withheld":
+		Start(Declarations{})
+		Hold("minted:x", "secret!!")
+		fmt.Println("the answer is secret!!")
+		Exit(0)
+	case "fix1-dropped":
+		// A held value with a piece the notice contains: the notice is
+		// dropped too.
+		Start(Declarations{})
+		Hold("minted:x", "zz-withheld-zz")
+		fmt.Println("the answer is zz-withheld-zz")
+		Exit(0)
+	case "fix1-child":
+		fix1ChildMain()
+		os.Exit(0)
+	case "fix1-keeps-stream":
+		// A grandchild that outlives this program, its stdout inherited.
+		exitWait = 500 * time.Millisecond
+		Start(Declarations{})
+		fmt.Println("the answer")
+		exe, _ := os.Executable()
+		cmd := exec.Command(exe, "-test.run=^$")
+		cmd.Env = append(os.Environ(), childModeEnv+"=fix1-sleeper")
+		cmd.Stdout = os.Stdout
+		if err := StartCommand(cmd); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			Exit(1)
+		}
+		Exit(0)
+	case "fix1-sleeper":
+		fix1Sleeper()
+		os.Exit(0)
 	case "echo":
 		// A grandchild that writes to the stdout it inherited.
 		fmt.Println(os.Args[len(os.Args)-1])
@@ -48,6 +108,44 @@ func TestMain(m *testing.M) {
 		fmt.Printf("read %d bytes\n", len(b))
 		time.Sleep(50 * time.Millisecond)
 		fmt.Printf("token is %s", b)
+		Exit(0)
+	case "redirect-order":
+		// Each stream's hook sees whether a pump has been made yet.
+		early := false
+		redirectHook = func(int) { early = early || len(stdio.pumps) > 0 }
+		Start(Declarations{})
+		if early {
+			fmt.Println("a pump existed before both streams were redirected")
+			Exit(1)
+		}
+		fmt.Println("in order")
+		Exit(0)
+	case "log-during-redirect", "log-paused-during-redirect":
+		// A logger a package's init set up, stuck in a write to a full stdout
+		// pipe with the logger's lock held while stderr is redirected. Only a
+		// pump can free it, so Start must not need that lock until pumps
+		// check output. In the paused case the writer pauses first, which
+		// sends the pump to wait for Start before it reads the rest.
+		time.AfterFunc(30*time.Second, func() { os.Exit(9) })
+		logged := make(chan struct{})
+		redirectHook = func(fd int) {
+			if fd != 2 {
+				return
+			}
+			var w io.Writer = os.Stdout
+			if os.Getenv(childModeEnv) == "log-paused-during-redirect" {
+				w = pausingWriter{os.Stdout}
+			}
+			log.SetOutput(w)
+			go func() {
+				defer close(logged)
+				log.Print(strings.Repeat("x", 3<<20))
+			}()
+			time.Sleep(100 * time.Millisecond)
+		}
+		Start(Declarations{})
+		<-logged
+		fmt.Fprintln(os.Stderr, "started")
 		Exit(0)
 	case "install-fail":
 		Start(Declarations{Identifiers: []Identifier{{Source: "config:user"}}})
@@ -174,6 +272,41 @@ func TestContract4InstallFailureExitsBeforeWriting(t *testing.T) {
 	if code != ExitInstallFailed || out != "" || errOut != "" {
 		t.Errorf("exit %d stdout %q stderr %q; want exit %d and nothing written", code, out, errOut, ExitInstallFailed)
 	}
+}
+
+// A pump's goroutines start runtime threads, and each thread makes handles. On
+// native Windows one of those, or the I/O completion port a pump's first timer
+// creates, took the number the other stream's takeover had just closed. So no
+// pump runs until both streams are redirected.
+func TestNoPumpRunsBeforeBothStreamsAreRedirected(t *testing.T) {
+	out, errOut, code := runChild(t, "redirect-order", "")
+	if code != 0 || !strings.Contains(out, "in order") {
+		t.Errorf("exit %d stdout %q stderr %q", code, out, errOut)
+	}
+}
+
+func TestRedirectDoesNotWaitOnALoggerStuckInAFullPipe(t *testing.T) {
+	for _, mode := range []string{"log-during-redirect", "log-paused-during-redirect"} {
+		_, errOut, code := runChild(t, mode, "")
+		if code != 0 || !strings.Contains(errOut, "started") {
+			t.Errorf("%s: exit %d stderr %q", mode, code, errOut)
+		}
+	}
+}
+
+// pausingWriter writes one byte, pauses until the pumps are running and have seen
+// the pause (the redirect hook waits 100 ms), then writes the rest, all inside
+// one call, as a logger's lock would hold it.
+type pausingWriter struct{ w io.Writer }
+
+func (p pausingWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b[:1])
+	if err != nil {
+		return n, err
+	}
+	time.Sleep(300 * time.Millisecond)
+	m, err := p.w.Write(b[1:])
+	return n + m, err
 }
 
 func TestExitDrainsEveryByte(t *testing.T) {
