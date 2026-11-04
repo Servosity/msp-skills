@@ -1,0 +1,78 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/blackpoint-mcp",
+  "title": "Blackpoint Cyber CompassOne MCP",
+  "description": "Blackpoint Cyber CompassOne: tenants, detections, assets, vulnerabilities and a cross-tenant view.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/blackpoint/blackpoint-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/blackpoint"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/blackpoint-v0.1.0/blackpoint-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BLACKPOINT_API_TOKEN",
+          "description": "CompassOne API token (Bearer). Create one in the CompassOne portal.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "BLACKPOINT_BASE_URL",
+          "description": "Base URL for the CompassOne API. Leave the prefilled default unless Blackpoint gave your account a different host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.blackpointcyber.com/v1"
+        },
+        {
+          "name": "BLACKPOINT_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "BLACKPOINT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BLACKPOINT_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Blackpoint Cyber requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BLACKPOINT_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

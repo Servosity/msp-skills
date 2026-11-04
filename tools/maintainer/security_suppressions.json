@@ -1793,6 +1793,37 @@
       "reason": "eset-protect's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     },
     {
+      "file": "cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:d3a21c1f9c0ada678696c04812ec793267b21f6a270c050084563a81468952cd"
+      ],
+      "slug_neutral": true,
+      "press": "4.34.2",
+      "reason": "the lock file beside this CLI's own state-directory log; the path is not an input"
+    },
+    {
+      "file": "cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:eac833b64b84bd133169908bd77f51d700a0d52b5d55ae79062a7a68747aca06"
+      ],
+      "slug_neutral": true,
+      "press": "4.34.2",
+      "reason": "the journal in this CLI's own state directory; the path is not an input"
+    },
+    {
+      "file": "cli/internal/client/apple_assertion.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:9f355f1b0e7e4caee8acaded3caa43e4f0533d6e4747b8c9006a5cce84075249"
+      ],
+      "reason": "applePEM reads the Apple private key file the operator names in WARRANTY_APPLE_PRIVATE_KEY (an environment variable, never an MCP argument: the MCP shell-out drops --config and --home and no tool takes a key path). The bytes go only to the key parser and the credential kit's hold; the program never prints them."
+    },
+    {
       "file": "skills/zoom-phone/cli/internal/cli/zoom_fleet.go",
       "rule": "exec-nonliteral-cmd",
       "bind": "file",
