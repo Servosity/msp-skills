@@ -64,6 +64,7 @@ func Start(d Declarations) {
 	reg.Unlock()
 	currentMatcher() // built here, so the first unit is not held up building it
 	startedOnce.Do(func() { close(started) })
+	retargetLog()
 	if refused {
 		refuse(src)
 	}
@@ -95,8 +96,12 @@ func gather(d Declarations, args []string) {
 	for _, f := range FlagValues(args, "--config") {
 		gatherFile(f)
 	}
-	if c := flagValues(beforeEnd(args), "--config"); len(c) > 0 {
-		base = gatherFile(c[len(c)-1])
+	if n := len(flagValues(beforeEnd(args), "--config")); n > 0 {
+		// What stands before the first "--" is a prefix of FlagValues, so this
+		// is the last of those. An empty value is the flag unset.
+		if f := FlagValues(args, "--config")[n-1]; f != "" {
+			base = gatherFile(f)
+		}
 	}
 	reg.Lock()
 	if d.BaseURL.Env != "" {
@@ -156,8 +161,8 @@ func parseProxyEnv(v string) (*url.URL, error) {
 // rawUserinfo is the user and password written in a proxy setting no parser
 // reads, which still gives them up.
 func rawUserinfo(v string) (user, pass string, ok bool) {
-	if _, rest, found := strings.Cut(v, "://"); found {
-		v = rest
+	if scheme, rest, found := strings.Cut(v, "://"); found && isURLScheme(scheme) {
+		v = rest // and not a password that holds "://"
 	}
 	v = strings.TrimLeft(v, "/") // a scheme-relative //user:pass@host
 	i := strings.LastIndexByte(v, '@')
@@ -166,6 +171,17 @@ func rawUserinfo(v string) (user, pass string, ok bool) {
 	}
 	user, pass, _ = strings.Cut(v[:i], ":")
 	return user, pass, true
+}
+
+// isURLScheme reports whether s reads as a URL's scheme (RFC 3986).
+func isURLScheme(s string) bool {
+	for i, c := range []byte(s) {
+		letter := c|0x20 >= 'a' && c|0x20 <= 'z'
+		if !letter && (i == 0 || !(c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.')) {
+			return false
+		}
+	}
+	return s != ""
 }
 
 // proxyHasUserinfo reports whether a proxy setting names a user or password.
