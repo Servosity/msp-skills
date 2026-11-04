@@ -62,7 +62,7 @@ func newEventsListCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,7 @@ func newEventsGetCmd(flags *rootFlags) *cobra.Command {
 			if len(args) != 1 {
 				return fmt.Errorf("exactly one event id is required: events get <event-id>")
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ func newEventsTypesCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -143,7 +143,7 @@ func newEventsStatusesCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -172,7 +172,7 @@ func newEventsStatusCmd(flags *rootFlags) *cobra.Command {
 			if len(args) != 1 {
 				return fmt.Errorf("exactly one request id is required: events status <request-id>")
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -213,7 +213,7 @@ This is a write operation. Use --dry-run to preview the payload without sending.
 			if strings.TrimSpace(in.TargetUser) == "" || strings.TrimSpace(in.EventType) == "" {
 				return fmt.Errorf("--target-user and --event-type are required")
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}
@@ -256,7 +256,7 @@ Remove a user event from a user's timeline. This is a write operation; use
 			if len(args) != 1 {
 				return fmt.Errorf("exactly one event id is required: events delete <event-id>")
 			}
-			c, err := userevents.New(flags.timeout)
+			c, err := newUserEventsClient(flags)
 			if err != nil {
 				return err
 			}

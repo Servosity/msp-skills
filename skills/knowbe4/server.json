@@ -42,16 +42,53 @@
         },
         {
           "name": "KNOWBE4_REGION",
-          "description": "Set the KNOWBE4_REGION credential for the KnowBe4 MCP server.",
-          "isRequired": true,
-          "isSecret": true,
+          "description": "Your tenant's KnowBe4 server: us, eu, ca, uk or de. Builds the API base URL; default us.",
+          "isRequired": false,
+          "isSecret": false,
           "default": "us"
         },
         {
           "name": "KNOWBE4_USER_EVENT_API_KEY",
-          "description": "Separate bearer key for the KnowBe4 User Events API, which has its own host and key. Needed only for the `events` commands; leave blank otherwise.",
+          "description": "Optional. The separate User Event API key (KnowBe4 User Event API Management Console > API key), used only by the events commands to push custom risk events. Sent only to the User Event API host for your region.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "KNOWBE4_USER_EVENT_BASE_URL",
+          "description": "Optional. Overrides the User Event API host the events commands use. Leave blank to use the host for your KNOWBE4_REGION.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KNOWBE4_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "KNOWBE4_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KNOWBE4_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KNOWBE4_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on KnowBe4 requests.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

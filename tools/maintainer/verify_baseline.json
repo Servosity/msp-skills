@@ -124,11 +124,6 @@
    "read-only",
    "local-data"
   ],
-  "knowbe4": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "levelio": [
    "mcp-http",
    "read-only",

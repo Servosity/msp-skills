@@ -391,7 +391,7 @@
       "type": "skill-md",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/SKILL.md",
-      "digest": "sha256:a52339febf17162331e5e8ea59c146924bf8fd8bcdb67036f08fd1fc38752280"
+      "digest": "sha256:4d744ecd6922bf86ddb5ea2bbfec50250f312e1b151b540f5583fb40145b53c3"
     },
     {
       "name": "levelio",
