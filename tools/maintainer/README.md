@@ -722,6 +722,41 @@ main has not moved since the rebase, and the required approvals are current. It 
 CodeRabbit reviewed that exact commit. A refused merge is re-validated from the top, never retried
 blindly.
 
+**One exception: main moved only in other connectors' files.** Rebasing and re-running CI every
+time `main` moves costs a full CI run per merge. So when the PR head is already a single green
+commit on an older `main` commit B, the tool merges that head onto the current `main` M without a
+rebase or a new CI run, but only when all of this holds, and anything it cannot classify means the
+usual rebase and re-run:
+- every commit in B..M is an ordinary (non-merge) commit, and every path it touches is either
+  under `skills/<slug>/` of a connector the PR does not touch, or a file the catalog bot rewrites
+  whole: `catalog.json`, `docs/_data/catalog.json`, `docs/_data/pending.json`, `docs/llms*.txt`,
+  `docs/.well-known/*`, `docs/_markdown_copies/**`, a registered connector's `docs/skills/<slug>.md`
+  (not the PR's own connector's), `README.md` only when its hand-written parts did not change, and
+  `.coderabbit.yaml` (every connector merge rewrites it; `gen_coderabbit_config.py --check` must pass
+  on the merged tree, below).
+  These are the files `catalog.yml` commits to `main` after each merge (its `derived=` list). The
+  other files on that list, `tools/maintainer/skills.json` and the issue forms, stay excluded
+  because they sit under `tools/` and `.github/`. So a release commit (which bumps the registries)
+  still means a re-run;
+- none of those paths is one the PR itself changes, and no rename lands in the PR's paths (renames
+  are read as a delete plus an add);
+- the PR itself changes only its own connector directories, generated files (the issue forms only
+  in their generated dropdown), its own connectors' registry entries (never a registry-wide field),
+  its own `docs/assets/social/<slug>/` and `docs/assets/video/<slug>/` media, and `.coderabbit.yaml`.
+  A PR that changes shared code was never tested against `main`'s newer connector files;
+- the head's checks are all green right now, and the approvals are current for M;
+- the merged tree, rebuilt in the private worktree as M plus exactly the head's change, is left
+  unchanged by the generators, passes the same re-check as a rebase, and passes
+  `gen_coderabbit_config.py --check`. A generated file is not trusted by its name.
+
+After the merge it proves the merge commit sits on M with exactly that rebuilt tree, and prints
+`MERGED #N as <sha>: merged on M without re-run: B..M touched only <slugs>`. This is a deliberate,
+narrowly gated exception to "the merged tree is identical to the green head". Accepted residual:
+a repository-wide check that relates two connectors' files (a link from one connector's docs into
+another connector's directory, for example) is not re-run on the combination; `main`'s own push CI
+on the merge commit still runs it, and the PR's connector tree, which is what a release builds, is
+byte-identical to the one CI validated.
+
 **CodeRabbit: a review of the exact head, not a green status.** CodeRabbit's commit status is
 `success` whether it reviewed the commit, skipped it ("Review skipped: 336 files exceed the limit
 of 100") or was rate-limited ("Review rate limited"). So the final gate reads what the CodeRabbit
