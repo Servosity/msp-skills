@@ -433,11 +433,12 @@ def untransfer(coding: str, body: bytes) -> bytes:
     raise ValueError(f"transfer coding {coding!r} cannot be decoded")
 
 
-def _relay(client, port: int) -> None:
-    """A CONNECT tunnel: bytes both ways between a client and a local listener
-    until either ends. One thread, because an SSL socket cannot be read and
-    written at once."""
-    up = socket.create_connection(("127.0.0.1", port))
+def _relay(client, target: "Fake") -> None:
+    """A CONNECT tunnel: bytes both ways between a client and a fake until
+    either ends, the fake told this connection came through it. One thread,
+    because an SSL socket cannot be read and written at once."""
+    up = socket.create_connection(("127.0.0.1", target.srv.server_address[1]))
+    target.tunneled.add(up.getsockname()[1])
     client.setblocking(False)
     try:
         while True:
@@ -532,6 +533,8 @@ class Fake:
                     body, fake.unreadable = b"", True   # judged as a leak: it could not be read
                 with fake.lock:
                     fake.requests.append((self.command, _utf8(self.path), hdrs, body))
+                    if self.client_address[1] in fake.tunneled:
+                        fake.played.append(len(fake.requests) - 1)
                 if self.command == "CONNECT" and fake.pin and self.path in (fake.pin, fake.pin + ":443"):
                     # A host a credential is pinned to: the list plays it (pin_host).
                     self._sent = []
@@ -541,7 +544,7 @@ class Fake:
                         fake.served.append((self.command, 200, list(self._sent), b""))
                     self.close_connection = True
                     fake.tunnels += 1
-                    _relay(self.connection, fake.pin_port)
+                    _relay(self.connection, fake.pin_target)
                     return
                 st, hd, bd = token() if _is_token_request(self.command, self.path, body) else respond(self.path)
                 if self.command == "CONNECT":
@@ -578,8 +581,8 @@ class Fake:
             kit_tls.serve_tls(self.srv, tls.cert)
         threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.url = f"{'https' if tls else 'http'}://127.0.0.1:{self.srv.server_address[1]}"
-        self.pin, self.pin_port = pin, self.srv.server_address[1]   # a tunnel to the pinned host ends here by default
-        self.tunnels = 0
+        self.pin, self.pin_target = pin, self   # a tunnel to the pinned host ends here by default
+        self.tunnels, self.tunneled, self.played = 0, set(), []
 
     def data_requests(self):
         return [r for r in self.requests if not _is_token_request(r[0], r[1], r[3])]
@@ -2717,6 +2720,12 @@ def pin_host(pins: dict, seedable: list[str]) -> str | None:
     return None
 
 
+def pin_allowed(pins: dict, pin: str, env: dict) -> set[str]:
+    """The values of the variables Origins sends to the host the list plays."""
+    return {x for v, x in env.items() if any(a.startswith("https://") and a[len("https://"):].replace("*.", "cls-harness.", 1) == pin
+                                             for a in pins.get(f"env:{v}", pins.get("*") or []))}
+
+
 def adopter_tls(slug: str, tmp: str, pins: dict | None = None) -> kit_tls.Served:
     """The kit refuses to send a held credential over plain http (contract
     2(c)), so an adopter's fake vendors serve TLS or no row reaches a request.
@@ -3093,7 +3102,7 @@ class Engine:
         env_ids = [i[len("env:"):] for i in ids if i.startswith("env:")]
         self.declared = [v for v in self.declared if v not in env_ids]
         self.seedable = [v for v in self.declared if v not in self.plumbing]
-        self.pin = pin_host(pins or {}, self.seedable) if tls else None
+        self.pins, self.pin = pins or {}, pin_host(pins or {}, self.seedable) if tls else None
         self.identifiers = [k for k in self.env_keys if k not in self.declared and k not in self.plumbing
                             and w.env.get(k) and not k.endswith("_NO_CONFIG_WRITE")]
         self.identifiers += [k for k in env_ids if k not in self.identifiers]
@@ -3442,7 +3451,7 @@ class Engine:
             # Every host but loopback goes through the second fake, so a
             # request to any foreign host is recorded (and fails fast).
             env.update({k: second.url for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")})
-            second.pin, second.pin_port = self.pin, primary.pin_port
+            second.pin, second.pin_target = self.pin, primary
             written: dict[str, bytes] = {}
             extra: list[str] = []
             if var:
@@ -3858,6 +3867,17 @@ class Engine:
                 how = judge(text, held_for([by_pid[pid]]) if pid in by_pid else held)
                 if how:
                     res["where"].append(f"SQLite statement {k}: {how}")
+            for n in primary.played:
+                # Contract 2(c): a request that went to the played host, judged on
+                # every held value but the ones Origins sends there.
+                m, path, hdrs, body = primary.requests[n]
+                by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][0] <= n < procs[i]["after"][0]]
+                sent = pin_allowed(self.pins, self.pin, env)
+                # A value that holds an allowed one is that one as the request carried it ("Bearer <it>").
+                how = judge(request_unit(m, path, hdrs, body),
+                            [v for v in (held_for(by) if by else held) if not any(x and x in v for x in sent)], outbound=True)
+                if how:
+                    res["where"].append(f"request to the pinned host {self.pin} {path[:40]}: {how}")
             for n, (m, path, hdrs, body) in enumerate(second.requests):
                 # Contract 2(c): the second host is no held value's origin.
                 by = [i for i in range(top) if procs[i]["before"] and procs[i]["before"][2] <= n < procs[i]["after"][2]]
@@ -4223,17 +4243,18 @@ def run_cases(ctx: ch.Ctx, tmp: str, only=None, workers: int = WORKERS, covers: 
               server: dict | None = None, fields: list[str] | None = None,
               secret_env: list[str] | None = None, identifiers: list | None = None,
               lists: dict | None = None, base_url: dict | None = None, files: bool | None = None,
-              tls: kit_tls.Served | None = None) -> list[dict]:
+              tls: kit_tls.Served | None = None, pins: dict | None = None) -> list[dict]:
     kit = kit_declarations(ctx.slug) if fields is None or secret_env is None else dict(NO_KIT)
+    pins = pins if pins is not None else kit.get("pins")
     if tls is None and has_kit(ctx.slug):
-        tls = adopter_tls(ctx.slug, tmp, kit.get("pins"))
+        tls = adopter_tls(ctx.slug, tmp, pins)
     eng = Engine(ctx, tmp, server if server is not None else read_server_json(ctx.slug),
                  fields if fields is not None else kit["fields"],
                  secret_env if secret_env is not None else kit["secret_env"],
                  identifiers if identifiers is not None else kit["identifiers"],
                  lists if lists is not None else kit.get("lists"),
                  base_url if base_url is not None else kit.get("base_url"),
-                 files if files is not None else kit.get("files", False), tls, kit.get("pins"))
+                 files if files is not None else kit.get("files", False), tls, pins)
     jobs = []
     for c in load_corpus(only, covers):
         if c.get("source") == "each-env":
@@ -6870,8 +6891,10 @@ def _c11_pinned() -> bool:
     if read.get("pins") != {"*": ["base_url"], "env:ACME_X": ["https://login.example"]} or read.get("errors"):
         print(f"    corpus self-test: Origins not read from a declaration: {read}")
         ok = False
-    client = ('package main\n\nimport (\n\t"fmt"\n\t"net/http"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n'
-              '\tr, err := http.Post(os.Args[1], "application/x-www-form-urlencoded", strings.NewReader("grant_type=x"))\n'
+    client = ('package main\n\nimport (\n\t"fmt"\n\t"io"\n\t"net/http"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n'
+              '\tq, _ := http.NewRequest("POST", os.Args[1], strings.NewReader("grant_type=x"))\n'
+              '\tif k, _ := io.ReadAll(os.Stdin); len(k) > 0 {\n\t\tq.Header.Set("Authorization", "Bearer "+string(k))\n\t}\n'
+              '\tr, err := http.DefaultClient.Do(q)\n'
               '\tif err != nil {\n\t\tfmt.Println(err)\n\t\tos.Exit(1)\n\t}\n\tr.Body.Close()\n\tfmt.Println(r.StatusCode)\n}\n')
     with tempfile.TemporaryDirectory(prefix="corpus-c11-") as d:
         cert = kit_tls.make_cert(d, "DNS:localhost", "DNS:login.example")
@@ -6887,9 +6910,9 @@ def _c11_pinned() -> bool:
                 ("any other host stays a request to the second host, carried nowhere", None, 1, 0, 0)):
             target = Fake(lambda p: (200, {}, b"{}"), _token_ok, tls)
             proxy = Fake(lambda p: (200, {}, b""), _token_ok, tls)
-            proxy.pin, proxy.pin_port = pin, target.pin_port
+            proxy.pin, proxy.pin_target = pin, target
             try:
-                r = subprocess.run([os.path.join(d, "c"), "https://login.example/cls-harness/oauth/token"], capture_output=True, text=True, timeout=60,
+                r = subprocess.run([os.path.join(d, "c"), "https://login.example/cls-harness/oauth/token"], capture_output=True, text=True, timeout=60, input="",
                                    env={"SSL_CERT_FILE": cert[0], "HTTPS_PROXY": proxy.url, "PATH": os.environ.get("PATH", "")})
                 got = (r.returncode, len(target.requests), proxy.tunnels, len(proxy.requests))
             finally:
@@ -6898,6 +6921,22 @@ def _c11_pinned() -> bool:
             if got != (want_rc, want_on_target, want_tunnels, 1):
                 print(f"    corpus self-test: pin tunnel: {why}: {got} {r.stdout[:200]} {r.stderr[:200]}")
                 ok = False
+        # The whole row: a program with its own client, not the kit's (corpus11rv r1).
+        go = os.path.join(d, "c")
+        cli = (STANDIN + 'import subprocess\nif not BASE.startswith("https://"):\n    sys.exit(1)\n'
+               f'subprocess.run([{go!r}, os.environ["ACME_TOKEN_URL"]], capture_output=True__KEY__, env={{"SSL_CERT_FILE": os.environ["SSL_CERT_FILE"], "HTTPS_PROXY": os.environ["HTTPS_PROXY"]}})\n'
+               'st, hd, b = api("GET", "/v1/items")\nprint("ok")\n')
+        to_login = {"*": ["base_url"], "env:ACME_CLIENT_SECRET": ["https://login.example"]}
+        base = dict(fields=[], secret_env=["ACME_API_KEY", "ACME_CLIENT_SECRET"], tls=tls)
+        key = ', input=os.environ["ACME_API_KEY"].encode()'
+        ok &= _probes("a request to the played host", [
+            ("a key Origins sends to base_url only, carried to the sign-in host", "succ-raw", "FAIL",
+             dict(cli=cli.replace("__KEY__", key)), {**base, "pins": to_login}),
+            ("the same token request without the key", "succ-raw", "PASS",
+             dict(cli=cli.replace("__KEY__", ", input=b''")), {**base, "pins": to_login}),
+            ("a key Origins sends to the sign-in host, carried there", "succ-raw", "PASS",
+             dict(cli=cli.replace("__KEY__", key)), {**base, "pins": {"*": ["base_url"], "env:ACME_API_KEY": ["https://login.example"]}}),
+        ])
     return ok
 
 
