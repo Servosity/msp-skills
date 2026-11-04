@@ -50,21 +50,24 @@ python scripts/nizlo_api.py sites --customer-id CUSTOMER_UUID
 python scripts/nizlo_api.py alerts --status active --severity critical
 ```
 
-All successful commands print the API JSON response. Paginated commands accept
-`--page` and `--page-size`. Filters are sent only when explicitly provided.
+Every command except `stale-endpoints` prints the API JSON response.
+`stale-endpoints` prints a grouped report that the helper builds locally.
+Paginated commands accept `--page` and `--page-size`. Filters are sent only when
+explicitly provided.
 
 ### Find endpoints not seen for seven days
 
 Use `stale-endpoints --days 7` for a complete, read-only stale-agent audit. The
 helper walks every active endpoint page, applies the UTC cutoff locally, and
-groups the result by customer. Each endpoint row includes its ID, display name
-or hostname, operating system, and exact `lastSeenAt` value. A null value is
-reported because it means the endpoint has never been seen. Increase `--days`
-to use a different stop gate; the default is seven.
+groups the result by customer ID and name so same-named customers remain
+separate. Each endpoint row includes its ID, display name or hostname, operating
+system, and exact `lastSeenAt` value. A null value is reported because it means
+the endpoint has never been seen. Increase `--days` to use a different stop
+gate; the default is seven.
 
 ## Safety boundary
 
-- Every permitted route is a GET under `/api/v1`.
+- Every permitted route is an HTTPS GET under `/api/v1`.
 - The helper rejects unknown routes and does not expose a generic request mode.
 - The Authorization header and token value are never printed.
 - HTTP errors include the status and a bounded response excerpt after token
@@ -81,6 +84,6 @@ Run the offline self-check before using a live credential:
 python scripts/nizlo_api.py --selfcheck
 ```
 
-The self-check validates URL construction, route allowlisting, secret
-redaction, and stale-report grouping. It performs no network request and reads
-no token.
+The self-check validates HTTPS URL construction, route allowlisting, bearer
+header construction, secret redaction, and stale-report grouping. It replaces
+network I/O with an in-process stub and reads no live token.

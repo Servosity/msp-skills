@@ -32,8 +32,8 @@ def normalized_base_url(value: str) -> str:
     """Return a validated API root without a trailing slash."""
     value = value.strip().rstrip("/")
     parts = urlsplit(value)
-    if parts.scheme not in {"http", "https"} or not parts.netloc:
-        raise ClientError("NIZLO_BASE_URL must be an absolute HTTP(S) URL")
+    if parts.scheme != "https" or not parts.netloc:
+        raise ClientError("NIZLO_BASE_URL must be an absolute HTTPS URL")
     if parts.query or parts.fragment:
         raise ClientError("NIZLO_BASE_URL must not contain a query or fragment")
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
@@ -79,7 +79,7 @@ def request_json(url: str, token: str) -> Any:
         ) from None
     except URLError as exc:
         raise ClientError(f"Unable to reach the Nizlo API: {exc.reason}") from None
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         raise ClientError("Nizlo API returned a non-JSON response") from None
 
 
@@ -94,14 +94,22 @@ def page_size(value: str) -> int:
 def positive_days(value: str) -> int:
     """Parse a positive whole-day stale threshold."""
     parsed = int(value)
+    if parsed < 1 or parsed > 100000:
+        raise argparse.ArgumentTypeError("days must be between 1 and 100000")
+    return parsed
+
+
+def positive_page(value: str) -> int:
+    """Parse a positive API page number."""
+    parsed = int(value)
     if parsed < 1:
-        raise argparse.ArgumentTypeError("days must be at least 1")
+        raise argparse.ArgumentTypeError("page must be at least 1")
     return parsed
 
 
 def add_paging(parser: argparse.ArgumentParser) -> None:
     """Add the common pagination flags to a command parser."""
-    parser.add_argument("--page", type=int, default=1)
+    parser.add_argument("--page", type=positive_page, default=1)
     parser.add_argument("--page-size", type=page_size, default=50)
 
 
@@ -222,7 +230,7 @@ def build_stale_report(
         generated_at = generated_at.replace(tzinfo=timezone.utc)
     generated_at = generated_at.astimezone(timezone.utc)
     cutoff = generated_at - timedelta(days=days)
-    grouped: dict[str, list[dict[str, Any]]] = {}
+    grouped: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
     for device in devices:
         last_seen_value = device.get("lastSeenAt")
         last_seen = parse_timestamp(last_seen_value)
@@ -234,6 +242,11 @@ def build_stale_report(
             if isinstance(customer, dict) and customer.get("name")
             else "Unassigned"
         )
+        customer_id = (
+            str(customer.get("id"))
+            if isinstance(customer, dict) and customer.get("id")
+            else None
+        )
         inventory = device.get("inventory")
         os_name = (
             inventory.get("osName")
@@ -243,7 +256,7 @@ def build_stale_report(
         endpoint_name = (
             device.get("displayName") or device.get("hostname") or device.get("id")
         )
-        grouped.setdefault(str(customer_name), []).append(
+        grouped.setdefault((customer_id, str(customer_name)), []).append(
             {
                 "id": device.get("id"),
                 "name": endpoint_name,
@@ -252,12 +265,20 @@ def build_stale_report(
             }
         )
     customers = []
-    for customer_name in sorted(grouped, key=str.casefold):
+    for customer_id, customer_name in sorted(
+        grouped, key=lambda item: (item[1].casefold(), item[0] or "")
+    ):
         endpoints = sorted(
-            grouped[customer_name],
+            grouped[(customer_id, customer_name)],
             key=lambda item: str(item.get("name") or "").casefold(),
         )
-        customers.append({"customer": customer_name, "endpoints": endpoints})
+        customers.append(
+            {
+                "customerId": customer_id,
+                "customer": customer_name,
+                "endpoints": endpoints,
+            }
+        )
     return {
         "generatedAt": generated_at.isoformat().replace("+00:00", "Z"),
         "cutoff": cutoff.isoformat().replace("+00:00", "Z"),
@@ -271,7 +292,8 @@ def fetch_stale_endpoints(
     base_url: str, token: str, days: int, requested_page_size: int
 ) -> dict[str, Any]:
     """Fetch every active endpoint page and build a grouped stale report."""
-    devices: list[dict[str, Any]] = []
+    devices_by_id: dict[str, dict[str, Any]] = {}
+    expected_total: int | None = None
     page = 1
     while True:
         url = build_url(
@@ -290,16 +312,33 @@ def fetch_stale_endpoints(
         items = payload["items"]
         if not all(isinstance(item, dict) for item in items):
             raise ClientError("Nizlo API returned an invalid device-list item")
-        devices.extend(items)
         total = payload.get("total")
+        if isinstance(total, int):
+            if expected_total is None:
+                expected_total = total
+            elif total != expected_total:
+                raise ClientError(
+                    "Nizlo device inventory changed during pagination; retry"
+                )
+        for item in items:
+            device_id = item.get("id")
+            if not isinstance(device_id, str) or not device_id:
+                raise ClientError("Nizlo API returned a device without an ID")
+            if device_id in devices_by_id:
+                raise ClientError(
+                    "Nizlo device inventory changed during pagination; retry"
+                )
+            devices_by_id[device_id] = item
         if len(items) < requested_page_size:
             break
-        if isinstance(total, int) and len(devices) >= total:
+        if expected_total is not None and len(devices_by_id) >= expected_total:
             break
         page += 1
         if page > 1000:
             raise ClientError("Nizlo API pagination exceeded the safety limit")
-    return build_stale_report(devices, days)
+    if expected_total is not None and len(devices_by_id) != expected_total:
+        raise ClientError("Nizlo device inventory changed during pagination; retry")
+    return build_stale_report(list(devices_by_id.values()), days)
 
 
 def selfcheck() -> None:
@@ -325,25 +364,61 @@ def selfcheck() -> None:
                 "id": "device-old",
                 "hostname": "ACME-OLD",
                 "lastSeenAt": "2026-01-01T00:00:00Z",
-                "customer": {"name": "Acme"},
+                "customer": {"id": "customer-one", "name": "Acme"},
                 "inventory": {"osName": "Windows 11"},
             },
             {
                 "id": "device-current",
                 "hostname": "ACME-CURRENT",
                 "lastSeenAt": "2026-01-10T11:00:00Z",
-                "customer": {"name": "Acme"},
+                "customer": {"id": "customer-one", "name": "Acme"},
                 "agentPlatform": "WINDOWS",
+            },
+            {
+                "id": "device-other-acme",
+                "hostname": "OTHER-ACME-OLD",
+                "lastSeenAt": None,
+                "customer": {"id": "customer-two", "name": "Acme"},
+                "agentPlatform": "MACOS",
             },
         ],
         7,
         datetime(2026, 1, 10, 12, 0, tzinfo=timezone.utc),
     )
-    assert report["total"] == 1
+    assert report["total"] == 2
+    assert len(report["customers"]) == 2
+    assert report["customers"][0]["customerId"] == "customer-one"
     assert report["customers"][0]["endpoints"][0]["os"] == "Windows 11"
+    seen: dict[str, str | None] = {}
+
+    class Response:
+        """Minimal context-managed response for an offline request check."""
+
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"{}"
+
+    def fake_urlopen(request: Request, timeout: int) -> Response:
+        seen["authorization"] = request.get_header("Authorization")
+        seen["timeout"] = str(timeout)
+        return Response()
+
+    original_urlopen = globals()["urlopen"]
+    globals()["urlopen"] = fake_urlopen
+    try:
+        assert request_json(base + "dashboard/summary", secret) == {}
+    finally:
+        globals()["urlopen"] = original_urlopen
+    assert seen["authorization"] == f"Bearer {secret}"
+    assert seen["timeout"] == "30"
     print(
         "nizlo_api.py selfcheck OK "
-        "(offline, read-only routes + redaction + stale report)"
+        "(offline, HTTPS routes + bearer header + redaction + stale report)"
     )
 
 
