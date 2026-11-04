@@ -3988,11 +3988,16 @@ def load_corpus(only: list[str] | None = None, covers: str | None = None) -> lis
 # row would never be green. A held credential found is never retried: a whole
 # short one in one write, then a pause, is a leak a retry would hide by joining
 # the writes.
+def limit_only(r: dict) -> bool:
+    """A FAIL whose every reason is the matcher reaching a limit."""
+    return r["verdict"] == "FAIL" and bool(r["where"]) and all("ran out of budget" in w for w in r["where"])
+
+
 def settle(r: dict, again) -> dict:
     """A FAIL whose every reason is a limit gets two more attempts; the first
     attempt that fails for another reason, or does not fail, stands."""
     for _ in range(2):
-        if r["verdict"] != "FAIL" or not r["where"] or not all("ran out of budget" in w for w in r["where"]):
+        if not limit_only(r):
             break
         r = again()
     return r
@@ -4049,9 +4054,21 @@ BASELINE_COMMENT = (
 )
 
 
+# An entry `case@limit` excuses only a FAIL whose every reason is a limit, for a
+# connector whose ordinary bytes exhaust the matcher on a row it otherwise passes
+# (cork's seeded lookup table): a leak on that row still fails. It may flip, so
+# it is removed by hand, never by --update-baseline.
+LIMIT_ONLY = "@limit"
+
+
 def case_of(entry: str) -> str:
-    """The list id of a baseline entry: `each-env-var[X_TOKEN]` is `each-env-var`."""
-    return entry.split("[", 1)[0]
+    """The list id of a baseline entry: `each-env-var[X_TOKEN]` and `err-url@limit`
+    are `each-env-var` and `err-url`."""
+    return entry.split("[", 1)[0].removesuffix(LIMIT_ONLY)
+
+
+def excused(r: dict, listed: set[str]) -> bool:
+    return r["id"] in listed or (r["id"] + LIMIT_ONLY in listed and limit_only(r))
 
 
 def parse_baseline(text: str) -> dict[str, set[str]]:
@@ -4222,7 +4239,7 @@ def still_failing(listed: set[str], verdict: dict[str, str]) -> set[str]:
     """The baseline entries --update-baseline keeps: those whose case still
     did not pass this run. An advisory row back to its own exception
     (ADVISORY) passes."""
-    return {e for e in listed if verdict.get(e) not in RETIRES}
+    return {e for e in listed if e.endswith(LIMIT_ONLY) or verdict.get(e) not in RETIRES}
 
 
 def label(r: dict) -> str:
@@ -4236,7 +4253,7 @@ def findings(slug: str, results: list[dict], listed: set[str], kit: bool) -> lis
     for r in sorted(results, key=lambda r: r["id"]):
         sinks = "; ".join(r["where"])
         if r["verdict"] == "FAIL":
-            if r["id"] in excuse:
+            if excused(r, excuse):
                 out.append(f"NOTE: [{slug}] known failure (corpus_baseline.json) {label(r)}: {sinks}")
             else:
                 out.append(f"[{slug}] credential leak case {label(r)} failed: {sinks}")
@@ -4247,7 +4264,7 @@ def findings(slug: str, results: list[dict], listed: set[str], kit: bool) -> lis
         if r["id"] in listed and r["verdict"] in RETIRES:
             out.append(f"NOTE: [{slug}] case {r['id']} now passes; retire it from corpus_baseline.json "
                        f"(class_secret_corpus.py --update-baseline --slug {slug})")
-    for e in sorted(listed - ran):
+    for e in sorted(e for e in listed if e.removesuffix(LIMIT_ONLY) not in ran):
         out.append(f"NOTE: [{slug}] corpus_baseline.json lists {e}, which did not run; retire it")
     if kit and listed:
         out.append(f"[{slug}] has adopted the shared credential kit but corpus_baseline.json lists "
@@ -6852,6 +6869,35 @@ def _settle_probe() -> bool:
     return ok
 
 
+def _limit_entry_probe() -> bool:
+    """corpus9rv round 2: an entry marked @limit excuses a FAIL whose every
+    reason is a limit, and nothing else; it cannot be widened."""
+    budget, leak = "x: the kit's matcher ran out of budget", "y: a held credential"
+
+    def fails(*why):
+        return {"id": "c", "verdict": "FAIL", "where": list(why), "form": "raw", "shape": "row", "source": "env",
+                "drive": "reads", "advisory": ""}
+
+    def gated(r, listed, kit=False):
+        return [f for f in findings("x", [r], listed, kit) if not f.startswith("NOTE")]
+    ok = True
+    for why, bad in (("a limit alone is not excused", gated(fails(budget), {"c@limit"})),
+                     ("a leak is excused", not gated(fails(leak), {"c@limit"})),
+                     ("a leak beside a limit is excused", not gated(fails(budget, leak), {"c@limit"})),
+                     ("a FAIL with no reason is excused", not gated(fails(), {"c@limit"})),
+                     ("a plain entry stopped excusing a leak", gated(fails(leak), {"c"})),
+                     ("a connector on the kit is excused", not gated(fails(budget), {"c@limit"}, kit=True)),
+                     ("a flipping entry reads as not run", any("did not run" in f for f in findings(
+                         "x", [fails(budget)], {"c@limit"}, False))),
+                     ("an entry names no case", case_of("c@limit") != "c" or case_of("each-env-var[X]@limit") != "each-env-var"),
+                     ("--update-baseline retires a flipping row that passed", not still_failing(
+                         {"c@limit"}, {"c": "PASS"}))):
+        if bad:
+            print(f"    corpus self-test: @limit entries: {why}")
+            ok = False
+    return ok
+
+
 def _seed_probe() -> bool:
     """corpus9rv: one connector and case draw the same values on every run, the
     next attempt other values; the value shapes two rows depend on always hold."""
@@ -6879,7 +6925,7 @@ def _seed_probe() -> bool:
 
 
 C10_PROBES = {"kernel record": _k_python, "kernel record (Go)": _k_go, "round 1": _c11_round1, "settle": _settle_probe,
-              "seeded values": _seed_probe}
+              "seeded values": _seed_probe, "@limit entries": _limit_entry_probe}
 
 
 C7_PROBES = {"held-set-and-sinks": _c7_held_and_sinks, "response-field-declarations": _c7_declarations,
@@ -7221,11 +7267,11 @@ def main(argv: list[str]) -> int:
         counts: dict[str, int] = {}
         for r in sorted(results, key=lambda r: (r["verdict"] != "FAIL", r["id"])):
             counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1
-            if a.verbose or (r["verdict"] == "FAIL" and r["id"] not in listed):
-                tag = "known" if r["verdict"] == "FAIL" and r["id"] in listed else r["verdict"]
+            if a.verbose or (r["verdict"] == "FAIL" and not excused(r, listed)):
+                tag = "known" if r["verdict"] == "FAIL" and excused(r, listed) else r["verdict"]
                 detail = "; ".join(r["where"]) or r["note"]
                 print(f"  {tag:8} {slug} {label(r)}  {detail[:400]}")
-        new_fail = [r for r in results if r["verdict"] == "FAIL" and r["id"] not in listed]
+        new_fail = [r for r in results if r["verdict"] == "FAIL" and not excused(r, listed)]
         print(f"== {slug}: {counts} primary={results[0]['primary'] if results else None} "
               f"build {run_['build_s']}s, list {run_['corpus_s']}s; {len(new_fail)} unlisted failure(s)")
         if a.covers == "secret-echo":

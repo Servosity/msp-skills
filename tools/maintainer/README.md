@@ -304,7 +304,9 @@ credential in one write, then a pause, is a leak.
 **The baseline only shrinks.** `corpus_baseline.json` lists, per connector, the gated cases it
 fails on main today. In the CI row a listed failure is reported as a known failure; any other gated
 failure fails the row and names the case, its form, shape, source and drive, and every place the
-credential surfaced. `ci_guards.sh` guard 12 runs `class_secret_corpus.py --check-baseline --base
+credential surfaced. An entry `case@limit` excuses only a failure whose every reason is the matcher
+reaching a limit, so a leak on that row still fails: cork's seeded lookup table holds bytes that exhaust the
+matcher whatever is held, reaching a different row on each run. `ci_guards.sh` guard 12 runs `class_secret_corpus.py --check-baseline --base
 <merge base>` with no build: an entry may be removed at any time, and added only for a case id the
 merge base's list does not have, and never in a change that also drops or rewords a case of the
 base or changes any file other than the list and the baseline (the kit's matcher, the `credmatch`
