@@ -6547,7 +6547,8 @@ def _c10_adopters() -> bool:
     with tempfile.TemporaryDirectory(prefix="corpus-c10-") as d:
         cert = kit_tls.make_cert(d, "DNS:localhost")
         tls = kit_tls.Served(cert, {"SSL_CERT_FILE": cert[0]})
-        only_tls = 'if not BASE.startswith("https://"):\n    sys.exit(1)\nst, hd, body = api("GET", "/v1/items")\nprint(__OUT__)\n'
+        only_tls = (STANDIN + 'if not BASE.startswith("https://"):\n    sys.exit(1)\n'
+                    'st, hd, body = api("GET", "/v1/items")\nprint(__OUT__)\n')
         ok &= _probes("adopter over TLS", [
             ("a TLS-only client printing what the vendor sent, served TLS", "succ-raw", "FAIL",
              dict(cli=only_tls.replace("__OUT__", "body")), {"fields": [], "secret_env": [], "tls": tls}),
@@ -6556,18 +6557,16 @@ def _c10_adopters() -> bool:
             ("a TLS-only client served plain http is never judged clean", "succ-raw", "NOTE",
              dict(cli=only_tls.replace("__OUT__", "body")), {"fields": [], "secret_env": []}),
         ])
-        # The MCP server gets no --config: only a declared Files tells the kit
-        # to read the file, and the generated user part is what it then holds.
-        user = ('if "serve" in dir():\n    pass\nst, hd, body = api("GET", "/v1/items")\n'
-                'print(_up.urlsplit(CFG.get("base_url", "")).username or "none")\n')
-        kw = {"fields": [], "secret_env": [], "lists": {"ConfigFields": ["api_key"]}}
-        ok &= _probes("Files callback", [
-            ("a config's URL user printed, its file declared through Files", "cfg-url-userinfo", "FAIL",
-             dict(cli=user), {**kw, "files": True}),
-            ("the same process printing nothing from the file", "cfg-url-userinfo", "PASS",
-             dict(cli=user.replace('_up.urlsplit(CFG.get("base_url", "")).username or "none"', '"ok"')),
-             {**kw, "files": True}),
-        ])
+        # An MCP server gets no --config: only the files handed in as its Files
+        # callback tell the kit's reading to open the seeded file (r5-6).
+        cfg = os.path.join(d, "config.toml")
+        body = {cfg: b'api_key = "syntheticFileKey271828"\n'}
+        decl = {"ConfigFields": ["api_key"], "SecretEnv": [], "Identifiers": [], "ResponseFields": []}
+        with_files = kit_acquire(decl, {}, [], body, [], files=[cfg])["held"]
+        without = kit_acquire(decl, {}, [], body, [])["held"]
+        if "syntheticFileKey271828" not in with_files or without:
+            print(f"    corpus self-test: Files: handed the file {with_files}, not handed it {without}")
+            ok = False
     # A second process's update of a database never rewrites its first bytes.
     with tempfile.TemporaryDirectory(prefix="corpus-c10-db-") as d:
         db, txt = os.path.join(d, "a.db"), os.path.join(d, "a.txt")
@@ -6597,7 +6596,7 @@ def _c10_adopters() -> bool:
     return ok
 
 
-C10_PROBES = {"adopter-never-judged": _c10_adopters}
+ADOPTER_PROBES = {"adopter-never-judged": _c10_adopters}
 
 
 # --------------------------------------------------------------------------- #
@@ -7240,7 +7239,7 @@ def self_test() -> bool:
                      ("redirect retry", _self_test_redirect_retry), ("sinks", _self_test_sinks),
                      ("child argv and foreign hosts", _self_test_child_and_foreign),
                      *R2_PROBES.items(), *R3_PROBES.items(), *C3_PROBES.items(), *C4_PROBES.items(),
-                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(), *C10_PROBES.items(),
+                     *C5_PROBES.items(), *C6_PROBES.items(), *C7_PROBES.items(), *C8_PROBES.items(), *C9_PROBES.items(), *ADOPTER_PROBES.items(),
                      *C10_PROBES.items(),
                      ("stand-ins", _self_test_standins)):
         passed = fn()

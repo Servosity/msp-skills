@@ -17,8 +17,15 @@ func TestCorpus10BaseURLPasswordWithSlash(t *testing.T) {
 			t.Errorf("%s: password %q not held", tc.url, tc.pw)
 		}
 	}
+	// Through the declared variable, with a line feed in the password (Codex round 5).
+	d := Declarations{BaseURL: BaseURL{Env: "ACME_BASE_URL"}}
+	resetForTest(d)
+	atStartup(func() { holdBaseURLLocked("https://u:syntheticFirst4829\nsyntheticSecond1375@api.example.invalid") })
+	if !isHeld("syntheticFirst4829\nsyntheticSecond1375") {
+		t.Error("a line feed in a raw password ended the reading")
+	}
 	// An ordinary base URL holds nothing new.
-	d := Declarations{BaseURL: BaseURL{ConfigKey: "base_url"}}
+	d = Declarations{BaseURL: BaseURL{ConfigKey: "base_url"}}
 	gatherString(t, d, "config.toml", `base_url = "https://api.example.com:8443/v1/items"`+"\n")
 	if isHeld("8443/v1/items") || isHeld("api.example.com") {
 		t.Error("an ordinary base URL held a piece of itself")
