@@ -479,20 +479,35 @@ func (s *fieldScan) lenientByte(c byte) {
 	s.out = append(s.out, c)
 }
 
-var nameWordRE = regexp.MustCompile(`^(?:[A-Z]+|[A-Z]?[a-z]+)[0-9]*(?:[A-Z][a-z]{2,}[0-9]*)*(?:[A-Z]{1,3}|[A-Z][a-z])?$`)
+var (
+	nameWordRE = regexp.MustCompile(`[A-Z]?[a-z]+|[A-Z]+`)
+	nameSeps   = strings.NewReplacer("-", "", "_", "", ".", "", " ", "")
+	// fieldWords is closed: a word outside it makes a key a credential.
+	fieldWords = func() map[string]bool {
+		m := map[string]bool{}
+		for _, w := range strings.Fields(`access active alg algorithm at by client created data date enabled exp expiration
+			expires expiry format from hash hint id in issued issuer key kind last length masked max min name on refresh salt
+			scope scopes seconds secret source status time to token tokens ttl type until updated url used user valid value
+			values version`) {
+			m[w] = true
+		}
+		return m
+	}()
+)
 
-// nameShaped: a key that reads as a field name (ttl, expires_in, refreshToken,
-// userId), which holding would withhold from all ordinary output. Anything else
-// beneath a declared field is held as a credential. ponytail: a credential of 24
-// or fewer letters in one case reads as a name and is not held by this rule.
+// nameShaped: a key built only from the closed list of words that describe a
+// token or secret (ttl, expires_in, refreshToken), which holding would withhold
+// from all ordinary output. Every other key beneath a declared field is held as
+// a credential, however it is spelled.
 func nameShaped(key string) bool {
-	words := strings.FieldsFunc(key, func(r rune) bool { return strings.ContainsRune("-_. ", r) })
-	for _, w := range words {
-		if len(w) > 24 || !nameWordRE.MatchString(w) {
+	bare, n := nameSeps.Replace(key), 0
+	for _, w := range nameWordRE.FindAllString(key, -1) {
+		if !fieldWords[strings.ToLower(w)] {
 			return false
 		}
+		n += len(w)
 	}
-	return len(words) > 0
+	return n > 0 && n == len(bare)
 }
 
 // beneath: the token stands inside a declared field's object or array.

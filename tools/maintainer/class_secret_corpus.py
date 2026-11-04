@@ -2574,8 +2574,20 @@ def replay_env(env: dict) -> dict:
     """A process's environment for the kit's reading of its held set. The kit's
     handle to its parent's set names a descriptor only that process had, so the
     reading would fail closed on every child. What it carried is the parent's
-    held set, which the list already gives a child (`up`, in the run's judge)."""
+    held set: inherit_held."""
     return {k: v for k, v in env.items() if k != "CREDKIT_HELD"}
+
+
+def inherit_held(procs: list, held_of: list, adopter: bool) -> None:
+    """A child the kit started holds what its parent holds (contract 1). An
+    adopter's child started outside the kit is judged the same: its writes are
+    still the connector's, and the wiring checker is advisory (ruling 17). A
+    connector without the kit keeps the sets its baseline was measured under.
+    Parents come first in `procs`, so this reaches any depth."""
+    for k, pr in enumerate(procs):
+        up = pr.get("parent")
+        if up is not None and (adopter or "CREDKIT_HELD" in pr["env"]):
+            held_of[k] += [v for v in held_of[up] if v not in held_of[k]]
 
 
 def has_kit(slug: str) -> bool:
@@ -2596,8 +2608,8 @@ def adopter_tls(slug: str, tmp: str) -> kit_tls.Served:
 def received_keys(served: list, fields: list[str], exempt: list[str] | None = None) -> list[str]:
     """Object keys beneath a declared response field in a JSON body: a
     credential a vendor stores as a key (halopsa custom fields). The kit holds
-    those that do not read as field names (credkit.nameShaped); the list holds
-    every one, a second reading that never holds less."""
+    those not built from its closed word list (credkit.nameShaped); the list
+    holds every one, a second reading that never holds less."""
     out: list[str] = []
 
     def keys(x) -> None:
@@ -3461,6 +3473,7 @@ class Engine:
                 h += [v for v in a["held"] if v not in h]
                 h += [t for t in fr if t not in h and t not in a["exempt"] and not public[t]]
                 held_of.append(h)
+            inherit_held(procs, held_of, has_kit(self.ctx.slug))
             if any(public.values()) or any(a["recorded"] for a in acqs):
                 res["recorded"] = sum(public.values()) + max(a["recorded"] for a in acqs)
             # A process with everything it started, through any depth, and
@@ -6602,6 +6615,36 @@ def _c10_adopters() -> bool:
         if "syntheticFileKey271828" not in with_files or without:
             print(f"    corpus self-test: Files: handed the file {with_files}, not handed it {without}")
             ok = False
+    # corpus10rv round 8: what a parent on the kit holds, its child holds. A variable
+    # only the parent was given (a child shares its parent's exchanges, so a response
+    # would not show it), handed down on stdin, written by the child and gone.
+    inherit_mcp = ('import subprocess\nTOOLS = [{"name": "items_list", "annotations": {"readOnlyHint": True}, '
+                   '"inputSchema": {"type": "object", "properties": {}}}]\ndef on_call(params):\n'
+                   '    call("GET", "/v1/items")\n'
+                   '    e = {k: v for k, v in os.environ.items() if not k.startswith("CLS_") and k != "ACME_API_KEY"}\n'
+                   '    e.update(FROM_MCP="1"__HANDLE__)\n'
+                   '    argv = [os.path.join(os.path.dirname(sys.argv[0]), "acme-cli"), "items", "list"]\n'
+                   '    subprocess.run(argv, input=os.environ["ACME_API_KEY"].encode(), capture_output=True, env=e)\n'
+                   '    return {"content": [{"type": "text", "text": "ok"}]}\nserve(TOOLS, on_call)\n')
+    inherit_cli = ('if os.environ.get("FROM_MCP"):\n    v = sys.stdin.buffer.read()\n    p = os.path.join(os.environ["HOME"], "s")\n'
+                   '    open(p, "wb").write(v)\n    os.remove(p)\nprint("ok")\n')
+    inherit_kw = {"fields": ["password"], "secret_env": ["ACME_API_KEY"]}
+    ok &= _probes("a child the kit started inherits its parent's set", [
+        ("a variable only the parent was given, written by a child the kit started", "vendor-field-echo", "FAIL",
+         dict(cli=inherit_cli, mcp=inherit_mcp.replace("__HANDLE__", ', CREDKIT_HELD="fd:9"')), inherit_kw),
+        ("the same child, not handed the parent's set", "vendor-field-echo", "PASS",
+         dict(cli=inherit_cli, mcp=inherit_mcp.replace("__HANDLE__", "")), inherit_kw),
+    ])
+    chain = [{"env": {}}, {"env": {}, "parent": 0}, {"env": {}, "parent": 1}]
+    sets = [["p"], ["c"], []]
+    inherit_held(chain, sets, False)
+    if sets != [["p"], ["c"], []]:
+        print(f"    corpus self-test: a child started outside the kit, no adopter: {sets}")
+        ok = False
+    inherit_held(chain, sets, True)
+    if sets != [["p"], ["c", "p"], ["c", "p"]]:
+        print(f"    corpus self-test: an adopter's child started outside the kit: {sets}")
+        ok = False
     # The list's stop landing inside a write is its stop, not the connector's failure.
     inside = b"pwrite64: the process ended inside the call, so its bytes are not read"
     stopped, ran = [("cli", "x" + TIMED_OUT)], [("cli", "x")]

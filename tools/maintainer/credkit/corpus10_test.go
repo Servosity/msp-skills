@@ -47,6 +47,10 @@ func TestCorpus10KeyBeneathDeclaredField(t *testing.T) {
 		{`{"access_token":{"clsKwWx09J91.JVD+qQh/g1R=wZQ":true}}`, "clsKwWx09J91.JVD+qQh/g1R=wZQ"},
 		{`{"access_token":{"a3f9c2d1e8b7":true}}`, "a3f9c2d1e8b7"},
 		{`{"access_token":{"thispassphraseislongerthanany":true}}`, "thispassphraseislongerthanany"},
+		{`{"access_token":{"deadbeef271828":true}}`, "deadbeef271828"},
+		{`{"access_token":{"correcthorse":true}}`, "correcthorse"},
+		{`{"access_token":{"token_correcthorse":true}}`, "token_correcthorse"},
+		{`{"access_token":{"sha256":true}}`, "sha256"},
 	} {
 		resetForTest(Declarations{ResponseFields: []string{"access_token"}})
 		scanAll(strings.NewReader(tc.body), []string{"access_token"}, asJSON)
@@ -54,7 +58,7 @@ func TestCorpus10KeyBeneathDeclaredField(t *testing.T) {
 			t.Errorf("%s: key %q not held", tc.body, tc.want)
 		}
 	}
-	for _, name := range []string{"ttl", "value", "expires_in", "expiresAt", "userId", "token_type", "refreshToken", "client-id", "ID", "sha256", "accessTokenExpiresAt", "X-Request-Id"} {
+	for _, name := range []string{"ttl", "value", "expires_in", "expiresAt", "userId", "token_type", "refreshToken", "client-id", "ID", "accessTokenExpiresAt", "created_at", "user.name"} {
 		resetForTest(Declarations{ResponseFields: []string{"access_token"}})
 		scanAll(strings.NewReader(`{"access_token":{"`+name+`":1}}`), []string{"access_token"}, asJSON)
 		if isHeld(name) {
