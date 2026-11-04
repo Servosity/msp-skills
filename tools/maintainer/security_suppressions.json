@@ -1763,6 +1763,36 @@
       "reason": "prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell."
     },
     {
+      "file": "skills/eset-protect/cli/internal/cli/policies_decode.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:148e2606c9984b722b1e6eaacb91e01559609b6ab4b6b34a6c65b20b3a68e8a4"
+      ],
+      "press": "4.34.2",
+      "reason": "eset-protect hand-written code (policies decode), reviewed 2026-10-28. readPolicyFile opens the saved policy JSON file the operator names with --file on their own command line and reads at most 64 MiB of it. The MCP server refuses --file (and every other host-path flag) in every mode (internal/mcp/cobratree/eset_local_read.go, handfixes.json mcp-refuses-local-file-reads), so no tool-call, API or tenant value reaches the path."
+    },
+    {
+      "file": "skills/eset-protect/cli/internal/cliutil/credkit_hold.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:bb7de54687e8369c05f399cd777bb036c61db39d89bf337b0b221c922fabd1ed"
+      ],
+      "press": "4.34.2",
+      "reason": "eset-protect hand-written code (credential kit wiring), reviewed 2026-11-03. readRegularFile reads the operator's own config file, credential store or TLS key path, only when it is a regular file, so the values in it are held before anything can print. The paths come from the operator's environment and config, never from an MCP tool argument."
+    },
+    {
+      "file": "skills/eset-protect/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "eset-protect's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
+    },
+    {
       "file": "skills/zoom-phone/cli/internal/cli/zoom_fleet.go",
       "rule": "exec-nonliteral-cmd",
       "bind": "file",
