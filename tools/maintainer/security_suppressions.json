@@ -1688,6 +1688,16 @@
       ],
       "press": "4.34.0",
       "reason": "press 4.34 template, reviewed 2026-10-28. readGlobalCredentialBytes opens the connector's own credentials file in the operator's config directory with O_NOFOLLOW (a swapped-in symlink is refused) and verifies its permissions; the path is operator-controlled, the same flow the fleet config.go G703 entry accepts. gosec's capped taint search reaches it only on some connectors (axcient). slug_neutral digest."
+    },
+    {
+      "file": "skills/apple-business/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "apple-business's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04, byte-identical to eset-protect's. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     }
   ]
 }
