@@ -100,6 +100,8 @@ It complements the Acronis console rather than replacing it: the portal stays be
 
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](/skills/servosity/) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=acronis&utm_content=docs)
+
 ## The pain this closes
 
 - Acronis's own Management Portal Administrator Guide states that partner-level dashboards and reports work only inside one partner tenant - so the question every MSP asks each morning, "whose backups failed," has no single cross-customer view. You drill into each tenant, or you export and stitch in Excel.
