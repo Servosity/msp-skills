@@ -1924,6 +1924,159 @@
       "reason": "zoom-phone (new connector, press 4.34.2 plus hand-written novel code), reviewed 2026-10-28. Chmods the local sync-scope lock DIRECTORY to 0700 (owner-only rwx) after MkdirAll; G302 expects file modes of 0600 or less."
     },
     {
+      "file": "skills/synology/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:70e141efaeeb6b2f34cc07be6f8d7cd4b3ee24e43855ea451e6cc8e720117755"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. claimLegacyUnscopedDB reads the data.db owner marker in this CLI's own store directory; the path is derived from the state directory, never from a request or MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/cli/nas_process.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/cli/nas_process.go",
+      "rule": "G702",
+      "bind": "decl",
+      "sha256": [
+        "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/cli/nas_process.go",
+      "rule": "exec-nonliteral-cmd",
+      "bind": "file",
+      "sha256": [
+        "sha256:365140537d617e7fe7e1f2eb458cec5cfca7ad823076f1e693665ed2328c9a75"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/cli/nas_process.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/client/session.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:d17aaf705b4624339e317ecd280f63758584fb7fd4d086a6454fd444057dc535"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. sessionTokenURL is the DSM login endpoint path on the placeholder host nas.example.com (api=SYNO.API.Auth). It carries no account, password or token; gosec matched the word Token."
+    },
+    {
+      "file": "skills/synology/cli/internal/client/session.go",
+      "rule": "G124",
+      "bind": "decl",
+      "sha256": [
+        "sha256:9b641ac6d640307647a2aa137e32c3061327695c5b28ef31587d14eeb254e8bd"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. This http.Cookie is rebuilt from the local 0600 session cache to seed the client's own cookie jar; it is never sent to a browser as a Set-Cookie. The record is refused unless its account and origin match, and the jar keeps only cookies of the configured origin."
+    },
+    {
+      "file": "skills/synology/cli/internal/cliutil/credkit_wiring.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:4d49bed40be86f899f8ef4c113ae6e9831ed7951bbbe95647f184330574eb336"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. ReadRegularFile reads the operator's own config, store or TLS key path at startup so its values are held before anything can print; refuses anything but a regular file. Never reached from an MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/credwire/declarations.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:4195c93ab82e4961decf9135f9adfdcf982a323788f343d745c7b2646cc3d1b1"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. Reads this CLI's own fleet.json under its config directories so every registered NAS's credential variables are held before anything can print. Read only, never echoed."
+    },
+    {
+      "file": "skills/synology/cli/internal/dsm/tls.go",
+      "rule": "G123",
+      "bind": "decl",
+      "sha256": [
+        "sha256:40fc6370cd16e8fcd319b90dc19062d6e6da395e7ad0cfa0a6192033451d1e4e",
+        "sha256:373b31dcac5a8341adb75bb7bcefcb8dd1355ffe1a2d0d3aee87d78b700fa37c"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+    },
+    {
+      "file": "skills/synology/cli/internal/dsm/tls.go",
+      "rule": "G402",
+      "bind": "decl",
+      "sha256": [
+        "sha256:373b31dcac5a8341adb75bb7bcefcb8dd1355ffe1a2d0d3aee87d78b700fa37c",
+        "sha256:3d0ca907fd7d08c1323c7f557414967c89fc3ac3071fa6117440a470ac449d62"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+    },
+    {
+      "file": "skills/synology/cli/internal/dsm/tls.go",
+      "rule": "disabled-tls-verify",
+      "bind": "file",
+      "sha256": [
+        "sha256:a28ad6f6ad1f6a62fe29acc7a02daaefee29dc1bd005b42f91449ec985dcac7c"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+    },
+    {
+      "file": "skills/synology/cli/internal/dsm/tls.go",
+      "rule": "msp-insecure-skip-verify",
+      "bind": "decl",
+      "sha256": [
+        "sha256:373b31dcac5a8341adb75bb7bcefcb8dd1355ffe1a2d0d3aee87d78b700fa37c",
+        "sha256:3d0ca907fd7d08c1323c7f557414967c89fc3ac3071fa6117440a470ac449d62"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+    },
+    {
+      "file": "skills/synology/cli/internal/fleet/registry.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:251c372d8999051cb20edc6bbb2a1e70d7ddd8b7a851981af2703b9a310b5686"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. LoadRegistry reads this CLI's own fleet.json from its config directory (RegistryPath; tests pass a temp path), never from a request or MCP tool argument."
+    },
+    {
+      "file": "skills/synology/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:7c14f96d6d0d3de623d8c8edaa8ebdb6e7e9695812cbd6956a6173d1e51f807c"
+      ],
+      "press": "4.34.2",
+      "reason": "synology, reviewed 2026-11-03. repairJournalSegmentTail opens a segment of this CLI's own learn journal; the path is built from its state directory, never from a request or MCP tool argument."
+    },
+    {
       "file": "skills/google-workspace/cli/internal/cliutil/creds_perms_unix.go",
       "rule": "G115",
       "bind": "file",
