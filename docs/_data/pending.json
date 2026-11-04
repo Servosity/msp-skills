@@ -377,6 +377,13 @@
     "current_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911",
     "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
   },
+  "netsapiens": {
+    "state": "version-pending",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+    "released_hash": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee"
+  },
   "ninjaone": {
     "state": "up-to-date",
     "version": "0.1.22",
