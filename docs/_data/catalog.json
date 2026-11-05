@@ -279,12 +279,12 @@
       "display_name": "CloudAlly",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
       "category": "Backup/DR",
-      "verification": "awaiting",
-      "verified_by": null,
-      "source": null,
-      "issue_url": null,
-      "verified_version": null,
-      "verified_code": null,
+      "verification": "live-verified",
+      "verified_by": "@sonofskywalker3 (Servosity)",
+      "source": "github",
+      "issue_url": "https://github.com/Servosity/msp-skills/pull/400",
+      "verified_version": "0.1.0",
+      "verified_code": "current",
       "url": "/skills/cloudally/"
     },
     {

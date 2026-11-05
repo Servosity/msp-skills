@@ -233,7 +233,7 @@ The strongest control is the **company login** (`auth login`), which cannot reac
 
 ## Status
 
-Beta, awaiting live verification. Servosity built this connector for its own CloudAlly partner tenant and has run it there against live data. That first-party run is not yet recorded as a badge, and a report from an MSP outside this project is still the most valuable receipt. The command surface is CloudAlly's published Management API v2, covered by unit and integration tests against simulated CloudAlly responses. If you run it against your own tenant, the it-works form is how that becomes a badge. MSPs put connectors like this through their paces in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by @sonofskywalker3 (Servosity) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/400)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
