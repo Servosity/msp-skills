@@ -1148,7 +1148,7 @@
       "skill_path": "skills/mspbots",
       "cli_binary": "mspbots-cli",
       "mcp_binary": "mspbots-mcp",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "MSPbots",
