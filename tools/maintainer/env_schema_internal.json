@@ -143,6 +143,12 @@
         "reason": "The webhook signature secret, read by `webhooks register` (to set the Zammad webhook's signature token) and `webhooks listen` (to verify X-Hub-Signature), and held by the credential holder so it never prints. It is deliberately not an install prompt: `webhooks register` generates it and stores it 0600 beside credentials.toml (`webhook_secret`), where the listener reads it, so no install channel needs to carry it. A prompt would put a <your-...> placeholder into every copy-paste config (mcp-install.md) and an unresolved ${user_config.*} into hosts that skip optional keys, and either text would become a guessable signing secret. The env var stays an optional override for operators who manage the secret themselves."
       }
     ],
+    "pax8": [
+      {
+        "var": "PAX8_COOKIE",
+        "reason": "Declared in SecretEnv only so the credential kit holds every piece of a session cookie an operator may have set. No code reads or sends it and Origins binds it nowhere, so an install prompt would ask for a value nothing uses."
+      }
+    ],
     "threecx": [
       {
         "var": "PRINTING_PRESS_CLIENT_PROFILE",
