@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"pax8-pp-cli/internal/credkit"
 	"strings"
 	"time"
 
 	"pax8-pp-cli/internal/cliutil"
-	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // teachLogStateDirName is the per-user state directory name.
@@ -109,17 +109,14 @@ func appendTeachLogEntry(entry TeachLogEntry) error {
 	if err != nil {
 		return fmt.Errorf("teach log: marshal: %w", err)
 	}
-	if err := heldguard.Refuse(string(line)); err != nil { // pax8 handfix (journal-credential-hardening): refused, never written
-		return fmt.Errorf("teach log: %w", err)
-	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateTeachLogIfNeeded(p)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return fmt.Errorf("teach log: open %s: %w", p, err)
 		}
 		defer f.Close()
-		if _, err := f.Write(cliutil.WithholdBytes(append(line, '\n'))); err != nil { // pax8 handfix: output-chokepoint (file sink)
+		if _, err := f.Write(append(line, '\n')); err != nil {
 			return fmt.Errorf("teach log: write: %w", err)
 		}
 		return nil

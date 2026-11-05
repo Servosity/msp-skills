@@ -4,18 +4,28 @@
 // Pax8 fake that echoes every credential it knows back in every
 // encoding it can, whole and split across lines and adjacent values, and
 // checks what a reviewer cannot read off the code (pax8 handfixes
-// output-chokepoint, store-never-keeps-secrets, no-response-cache,
-// no-credential-in-files, response-credentials-held, api-origin-pinned):
+// credkit-wiring, no-response-cache, api-origin-pinned):
 //
 //   - nothing the program prints (stdout, stderr, MCP results and errors)
-//     holds a credential: the bearer token from the environment or the
+//     holds a credential: the client pair in the environment, the token in the
 //     credential store, the MCP HTTP token, a credential-named flag value,
-//     and the credentials a response carries;
+//     and the credentials a response carries under a declared field;
 //   - no file the program writes, except the 0600 credential store, holds
 //     one either;
-//   - no credential leaves for a host other than the configured one, by
-//     redirect or by @odata.nextLink;
+//   - no credential leaves for a host other than the one it is bound to, by
+//     redirect or by a configured token URL;
 //   - the MCP server sends nothing but reads.
+//
+// The client ID and secret are bound to Pax8's token manager, so no fake can
+// receive them: every run that reaches the API authenticates with a token
+// stored by auth set-token. The minted token's hold is proven in process
+// (internal/cli TestAuthLoginMintIsPinnedAndHeld).
+//
+// The kit withholds a unit whole (credential leak contract section 4, no
+// partial redaction), so an answer that echoes the held token prints none of
+// its data: the echoing fake proves the withholding, and the quiet fake (the
+// same records, repeating nothing a request carried) proves each sink really
+// writes.
 //
 // The oracle is the exact set of strings the server sent, so a pass does not
 // depend on the program's own decoder.
@@ -48,15 +58,15 @@ import (
 )
 
 const (
-	bbToken     = "pax8SECRET7fb3189bQ6u3sZxW4o1n7R8v52" // PAX8_CLIENT_SECRET (the env client secret)
-	bbClientID  = "pax8ClientId-3e9a7c1d5b2f8a46"        // PAX8_CLIENT_ID
-	bbMinted    = "mintedAccess-9d2b6f4a1c8e7305ab"      // the access token the fake token endpoint mints
-	bbStored    = "storedToken-71c3e9b05d2a4f68e1"       // auth set-token (stdin), the credential store
-	bbArgvSec   = "-argvSecret-91c3e7a5"                 // --client-secret on the command line (starts with "-")
-	bbShortResp = "Sh0rtPw"                              // a 7-character credential a response carries
-	bbBOMResp   = "BomRespSecret-6a1c"                   // a credential in a BOM-prefixed response
-	bbGzipResp  = "GzipRespToken-4f2a9c1e"               // a credential in a gzip-encoded response
-	bbHTTPToken = "mcpHttpToken-0123456789abcdefABCDEF"  // PAX8_MCP_HTTP_TOKEN
+	bbToken     = "qzSECRET7fb3189bQ6u3sZxW4o1n7R8v52" // PAX8_CLIENT_SECRET (the env client secret)
+	bbClientID  = "qzCliRef-3e9a7c1d5b2f8a46"          // PAX8_CLIENT_ID
+	bbMinted    = "qzMntAcc-9d2b6f4a1c8e7305ab"        // what the fake token endpoint would mint; the kit never lets the pair reach it
+	bbStored    = "qzStTkn-71c3e9b05d2a4f68e1"         // auth set-token (stdin), the credential store
+	bbArgvSec   = "-argvSecret-91c3e7a5"               // --client-secret on the command line (starts with "-")
+	bbShortResp = "Sh0rtPw"                            // a 7-character credential a response carries (refresh_token)
+	bbBOMResp   = "BomRespSecret-6a1c"                 // a credential in a BOM-prefixed response (access_token)
+	bbGzipResp  = "GzipRespToken-4f2a9c1e"             // a credential in a gzip-encoded response (access_token)
+	bbHTTPToken = "qzMhTkn-0123456789abcdefABCDEF0123" // PAX8_MCP_HTTP_TOKEN
 )
 
 func secrets() []string {
@@ -64,6 +74,17 @@ func secrets() []string {
 }
 
 var bbCLI, bbMCP string
+
+// kitNotice is the fixed notice the kit writes in place of a unit it withheld
+// from sink (credkit.Notice).
+func kitNotice(sink string) string {
+	return "[credkit: withheld from " + sink + ": it carried a credential this program holds]"
+}
+
+// kitClosedMCP is what the MCP server logs when the kit withholds a JSON-RPC
+// message the tool layer did not answer: the kit fails the session's output
+// closed, so that request and every later one get no reply.
+const kitClosedMCP = "credkit: the MCP response failed closed"
 
 func TestMain(m *testing.M) {
 	flag.Parse()
@@ -191,7 +212,20 @@ func pageOf(rows string) string {
 	return `{"content":[` + rows + `],"page":{"size":200,"totalElements":1,"totalPages":1,"number":0}}`
 }
 
+// echoServer is the fake echoing every credential a request carried.
 func echoServer(t *testing.T) *server {
+	t.Helper()
+	return fakeServer(t, false)
+}
+
+// quietServer is the fake answering as Pax8 does: the same records, repeating
+// nothing a request carried and no credential.
+func quietServer(t *testing.T) *server {
+	t.Helper()
+	return fakeServer(t, true)
+}
+
+func fakeServer(t *testing.T, quiet bool) *server {
 	t.Helper()
 	sv := &server{}
 	// A second host the API and the token endpoint redirect to: a credential must never reach it.
@@ -234,6 +268,17 @@ func echoServer(t *testing.T) *server {
 		sv.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		p := strings.TrimPrefix(r.URL.Path, "/v1")
+		if quiet {
+			switch {
+			case strings.HasPrefix(p, "/invoices/draftItems"):
+				http.Redirect(w, r, other.URL+r.URL.Path, http.StatusTemporaryRedirect)
+			case r.Method != http.MethodGet, len(strings.Split(strings.Trim(p, "/"), "/")) == 2:
+				fmt.Fprintf(w, `{%s}`, pax8Record)
+			default:
+				fmt.Fprint(w, pageOf(`{`+pax8Record+`}`))
+			}
+			return
+		}
 		switch {
 		case strings.HasPrefix(p, "/orders"):
 			w.WriteHeader(http.StatusUnauthorized)
@@ -243,13 +288,13 @@ func echoServer(t *testing.T) *server {
 		case p == "/products":
 			fmt.Fprint(w, pageOf(fmt.Sprintf(`{%s,"split":%s}`, pax8Record, splitObject(sent))))
 		case p == "/subscriptions":
-			fmt.Fprint(w, "\xef\xbb\xbf"+pageOf(fmt.Sprintf(`{%s,"note":%q,"password":%q}`, pax8Record, bbBOMResp, bbBOMResp)))
+			fmt.Fprint(w, "\xef\xbb\xbf"+pageOf(fmt.Sprintf(`{%s,"note":%q,"access_token":%q}`, pax8Record, bbBOMResp, bbBOMResp)))
 		case strings.HasSuffix(p, "/contacts"):
-			fmt.Fprint(w, pageOf(fmt.Sprintf(`{%s,"note":%q,"password":%q}`, pax8Record, bbShortResp, bbShortResp)))
+			fmt.Fprint(w, pageOf(fmt.Sprintf(`{%s,"note":%q,"refresh_token":%q}`, pax8Record, bbShortResp, bbShortResp)))
 		case p == "/invoices":
 			var z bytes.Buffer
 			zw := gzip.NewWriter(&z)
-			fmt.Fprint(zw, pageOf(fmt.Sprintf(`{%s,"accessToken":%q,"echo":%s}`, pax8Record, bbGzipResp, echoObject(append(sent, bbGzipResp)))))
+			fmt.Fprint(zw, pageOf(fmt.Sprintf(`{%s,"access_token":%q,"echo":%s}`, pax8Record, bbGzipResp, echoObject(append(sent, bbGzipResp)))))
 			_ = zw.Close()
 			w.Header().Set("Content-Encoding", "gzip")
 			_, _ = w.Write(z.Bytes())
@@ -309,6 +354,38 @@ func newEnv(t *testing.T, sv *server, withEnvCreds bool) *bbEnv {
 		env = append(env, "PAX8_CLIENT_ID="+bbClientID, "PAX8_CLIENT_SECRET="+bbToken)
 	}
 	return &bbEnv{home: home, env: env}
+}
+
+// store saves the bearer token the run authenticates with, with a far expiry:
+// a token with no recorded expiry is minted over once per process when a client
+// pair is present, and no fake can mint (the kit binds the pair to Pax8).
+func (e *bbEnv) store(t *testing.T) *bbEnv {
+	t.Helper()
+	e.runIn(t, bbStored+"\n", "auth", "set-token")
+	var stored bool
+	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() != "credentials.toml" {
+			return nil
+		}
+		data, rerr := os.ReadFile(path)
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		stored = bytes.Contains(data, []byte(bbStored))
+		if werr := os.WriteFile(path, append([]byte("token_expiry = 2099-01-01T00:00:00Z\n"), data...), 0o600); werr != nil {
+			t.Fatal(werr)
+		}
+		return nil
+	})
+	if !stored {
+		t.Fatal("auth set-token wrote no credential store")
+	}
+	return e
+}
+
+// useServer points the environment at another fake, the store kept.
+func (e *bbEnv) useServer(sv *server) {
+	e.env = append(withoutEnv(withoutEnv(e.env, "PAX8_BASE_URL"), "PAX8_CA_CERT"), "PAX8_BASE_URL="+sv.url, "PAX8_CA_CERT="+sv.caFile)
 }
 
 func (e *bbEnv) run(t *testing.T, args ...string) string {
@@ -488,15 +565,27 @@ func mcpBattery() []map[string]any {
 // Class credential-persisted-in-files.
 func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 	sv := echoServer(t)
-	e := newEnv(t, sv, false)
-	e.runIn(t, bbStored+"\n", "auth", "set-token")
+	e := newEnv(t, sv, false).store(t)
 	deliverFile := filepath.Join(e.home, "deliver.json")
 	for _, args := range battery(e, deliverFile, bbStored) {
 		e.run(t, args...)
 	}
 	e.mcpCalls(t, mcpBattery())
+	// Controls without a credential: every answer above echoes the held token,
+	// so the kit withheld each of its store, export and delivery writes whole.
+	// The same sinks write what the quiet fake answers, into the same home, so
+	// the scan below is not vacuous.
+	echoEnv := e.env
+	e.useServer(quietServer(t))
+	e.run(t, "sync", "--json")
+	e.run(t, "export", "companies", "--format", "jsonl", "--output", filepath.Join(e.home, "export.jsonl"))
+	e.run(t, "companies", "find", "--json", "--deliver", "file:"+deliverFile)
+	e.env = echoEnv
+	e.run(t, "feedback", "control note HQ-Feedback")
+	e.run(t, "teach", "--query", "find companies control", "--resource", "123", "--resource-type", "companies", "--notes", "rotated control", "--no-validate")
+	e.run(t, "profile", "save", "control", "--description", "HQ-Profile control", "--select", "id")
 	var scanned int
-	var sawCreds bool
+	var sawCreds, sawStore, sawLearning, sawFeedback, sawFeedbackWithheld, sawProfile bool
 	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
@@ -516,6 +605,15 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			return nil
 		}
 		assertNoEcho(t, "file "+rel, string(data))
+		if strings.Contains(d.Name(), ".db") {
+			sawStore = sawStore || bytes.Contains(data, []byte("HQ-Record"))
+			sawLearning = sawLearning || bytes.Contains(data, []byte("rotated control"))
+		}
+		if d.Name() == "feedback.jsonl" {
+			sawFeedback = sawFeedback || bytes.Contains(data, []byte("HQ-Feedback"))
+			sawFeedbackWithheld = sawFeedbackWithheld || bytes.Contains(data, []byte(kitNotice("file")))
+		}
+		sawProfile = sawProfile || bytes.Contains(data, []byte("HQ-Profile control"))
 		return nil
 	})
 	if scanned < 5 {
@@ -524,39 +622,48 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 	if !sawCreds {
 		t.Errorf("auth set-token wrote no credential store")
 	}
-	// The battery really wrote data, so the scan above is not vacuous.
 	if b, err := os.ReadFile(deliverFile); err != nil || !bytes.Contains(b, []byte("HQ-Record")) {
 		t.Errorf("%s: want the delivered record (err %v)", filepath.Base(deliverFile), err)
 	}
-	var sawStore, sawLearning bool
-	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".db") {
-			if b, rerr := os.ReadFile(path); rerr == nil {
-				sawStore = sawStore || bytes.Contains(b, []byte("HQ-Record"))
-				// The teach run's learning row was written, its secret withheld in place.
-				sawLearning = sawLearning || bytes.Contains(b, []byte("rotated"))
-			}
-		}
-		return nil
-	})
-	if !sawStore {
-		t.Errorf("no local store holds a fetched record")
+	if b, err := os.ReadFile(filepath.Join(e.home, "export.jsonl")); err != nil || !bytes.Contains(b, []byte("HQ-Record")) {
+		t.Errorf("export.jsonl: want the exported record (err %v)", err)
 	}
-	if !sawLearning {
-		t.Errorf("no local store holds the taught learning; the teach run wrote nothing")
+	for what, ok := range map[string]bool{
+		"no local store holds a fetched record":                                    sawStore,
+		"no local store holds the taught learning":                                 sawLearning,
+		"no feedback.jsonl holds the control entry":                                sawFeedback,
+		"no feedback.jsonl holds a withheld entry; the credential never got there": sawFeedbackWithheld,
+		"no profile file holds the control profile":                                sawProfile,
+	} {
+		if !ok {
+			t.Error(what)
+		}
 	}
 }
 
 // Class secret-in-output.
 func TestNoCredentialInAnyOutput(t *testing.T) {
 	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	e := newEnv(t, sv, true).store(t)
 	deliverFile := filepath.Join(e.home, "deliver.json")
 	for _, args := range battery(e, deliverFile, bbToken) {
 		assertNoEcho(t, fmt.Sprintf("output of %v", args), e.run(t, args...))
 	}
-	// The data still prints, the echo is withheld in place, and JSON output
-	// stays valid JSON.
+	// Every answer here echoes the held token, so the kit withholds it whole
+	// and says so: the scans above were not vacuous.
+	if out := e.run(t, "companies", "find", "--json"); !strings.Contains(out, kitNotice("stdout")) {
+		t.Fatalf("want the kit's stdout notice for the echoed token, got:\n%.1500s", out)
+	}
+	out := e.mcpCalls(t, mcpBattery())
+	if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(mcpBattery()))) {
+		t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
+	}
+	assertNoEcho(t, "MCP session", out)
+	if !strings.Contains(out, kitNotice("mcp")) {
+		t.Fatalf("the MCP session withheld nothing; the echoes did not reach it:\n%.2000s", out)
+	}
+	// The same reads print their data from the quiet fake, as valid JSON.
+	e.useServer(quietServer(t))
 	cmd := exec.Command(bbCLI, "companies", "find", "--json")
 	cmd.Env, cmd.Dir = e.env, e.home
 	stdout, err := cmd.Output()
@@ -564,16 +671,29 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 		t.Fatalf("companies find --json: %v", err)
 	}
 	var doc any
-	if json.Unmarshal(stdout, &doc) != nil || !bytes.Contains(stdout, []byte("HQ-Record")) || !bytes.Contains(stdout, []byte("text withheld")) {
-		t.Fatalf("want valid JSON with the record and the withheld notice, got:\n%.1500s", stdout)
+	if json.Unmarshal(stdout, &doc) != nil || !bytes.Contains(stdout, []byte("HQ-Record")) {
+		t.Fatalf("want valid JSON with the record, got:\n%.1500s", stdout)
 	}
-	out := e.mcpCalls(t, mcpBattery())
-	if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(mcpBattery()))) {
-		t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
-	}
-	assertNoEcho(t, "MCP session", out)
-	if !strings.Contains(out, "HQ-Record") {
+	if out := e.mcpCalls(t, mcpBattery()); !strings.Contains(out, "HQ-Record") {
 		t.Fatalf("MCP results lost the record itself:\n%.2000s", out)
+	}
+}
+
+// The client pair is bound to Pax8's token manager (Declarations.Origins), so a
+// token URL naming anything else is refused before anything is sent: an
+// environment or a file cannot move the secret to another host.
+func TestClientPairNeverLeavesForAnotherTokenHost(t *testing.T) {
+	sv := echoServer(t)
+	e := newEnv(t, sv, true)
+	out := e.run(t, "companies", "find", "--json")
+	assertNoEcho(t, "output", out)
+	if !strings.Contains(out, kitNotice("outbound request")) {
+		t.Fatalf("want the kit's outbound notice, got:\n%.1500s", out)
+	}
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+	if sv.mints != 0 {
+		t.Fatalf("the fake token host received %d request(s) carrying the client pair", sv.mints)
 	}
 }
 
@@ -581,7 +701,7 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 // host is refused before it is followed, from the CLI, sync and MCP alike.
 func TestRedirectNeverReachesAnotherHost(t *testing.T) {
 	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	e := newEnv(t, sv, true).store(t)
 	redirect := e.run(t, "invoices", "find-partner-draft-items", "--json")
 	e.run(t, "sync", "--resources", "invoices-draft-items", "--json")
 	e.mcpCalls(t, []map[string]any{
@@ -603,8 +723,8 @@ func TestRedirectNeverReachesAnotherHost(t *testing.T) {
 // call sets confirm, though the battery asks for a company to be created and
 // a subscription to be cancelled.
 func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {
-	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	sv := quietServer(t)
+	e := newEnv(t, sv, true).store(t)
 	out := e.mcpCalls(t, mcpBattery())
 	if !strings.Contains(out, "HQ-Record") {
 		t.Fatalf("the MCP battery fetched nothing:\n%.2000s", out)
@@ -628,8 +748,8 @@ func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {
 // reaches the API, so the gate previews rather than drops; the string "true"
 // still previews.
 func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {
-	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	sv := quietServer(t)
+	e := newEnv(t, sv, true).store(t)
 	const id = "5c802b19-3600-83f1-1767-7b9edc7f38ab"
 	e.mcpPhases(t, []map[string]any{{"name": "subscriptions_delete", "arguments": map[string]any{"subscriptionId": id, "confirm": "true"}}})
 	sv.mu.Lock()

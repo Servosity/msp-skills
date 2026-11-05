@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credkit"
 	"regexp"
 	"sort"
 	"strings"
@@ -297,7 +298,6 @@ func DeleteProfile(name string) error {
 }
 
 func writePrivateFile(path string, data []byte) error {
-	data = cliutil.WithholdBytes(data) // pax8 handfix: output-chokepoint (file sink)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -315,15 +315,11 @@ func writePrivateFile(path string, data []byte) error {
 		_ = tmp.Close()
 		return err
 	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// Hand-fix (handfixes.json credkit-wiring): the data is written through the credential kit.
+	if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)
@@ -470,6 +466,7 @@ func resolveCredentials(ctx context.Context, resolver CredentialResolver, source
 			return nil, fmt.Errorf("resolve %s reference: %w", key, err)
 		}
 		resolved[key] = value
+		cliutil.Hold("minted:client-profile", string(value)) // Hand-fix (handfixes.json credkit-wiring): a resolved credential is held where it enters
 	}
 	return resolved, nil
 }
@@ -510,6 +507,7 @@ func loadOrCreateFingerprintKey() ([]byte, error) {
 	if _, err := rand.Read(key); err != nil {
 		return nil, err
 	}
+	// Outside the kit (handfixes.json credkit-wiring): 32 random bytes this process made, no program data.
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if errors.Is(err, os.ErrExist) {
 		return readFingerprintKey(path)

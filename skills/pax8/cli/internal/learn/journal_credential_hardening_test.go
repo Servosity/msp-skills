@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credkit"
 	"pax8-pp-cli/internal/learn"
 	"pax8-pp-cli/internal/learn/entities"
 	"pax8-pp-cli/internal/learn/lookups"
@@ -24,8 +24,8 @@ import (
 )
 
 // jhSecret stands in for a credential an operator put where a session label
-// or a flag name goes. Its own text names no credential, so no holder
-// registers it unless the test holds it.
+// or a flag name goes. The held pass holds it through the shared credential
+// kit (handfixes.json credkit-wiring).
 const jhSecret = "Zq7f3a9c0e5b1d42xJhW"
 
 // jhName stands in for a credential put where the learn loop stores a name
@@ -36,9 +36,7 @@ const jhName = "zq7f3a9c0e5b1d42xjhw"
 // jhProbe is never held: a sink that stores it proves the sink was reached.
 const jhProbe = "jhprobe7kq2xwzm"
 
-// jhModeEnv selects the pass a child of this test binary runs. It is not a
-// PAX8_* name: the environment holder reads every credential-named PAX8_*
-// variable and would hold the mode itself.
+// jhModeEnv selects the pass a child of this test binary runs.
 const jhModeEnv = "JOURNAL_HARDENING_MODE"
 
 // jhRunChild runs one test of this binary again in a child process with
@@ -99,7 +97,7 @@ func TestJournalCredentialHardening(t *testing.T) {
 		return
 	}
 	if mode == "held" {
-		cliutil.FunnelHold(jhSecret)
+		credkit.Hold("test:journal", jhSecret)
 	}
 	cases := []struct {
 		name     string
@@ -117,16 +115,10 @@ func TestJournalCredentialHardening(t *testing.T) {
 		// typed name is still never kept.
 		{name: "credential one typo from a declared flag", args: []string{"version", "--compactQ7x"}, needle: "compactQ7x"},
 		{name: "declared flag name after the end of flags", args: []string{"version", "--", "--json"}, noShape: true},
-		// Last: the environment holder holds a credential-named PAX8_* value
-		// (LEARN_SESSION reads as one) for the rest of the process, so every
-		// case above runs before the credential is held in the unheld pass.
 		{name: "learn session override", override: true, args: []string{"version"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name+" ("+mode+")", func(t *testing.T) {
-			if mode == "unheld" && cliutil.HeldEchoes("x "+jhSecret) {
-				t.Fatalf("the credential is already held, so this case is not an unheld run")
-			}
 			home := withJournalHome(t)
 			if tc.override {
 				t.Setenv("PAX8_LEARN_SESSION", jhSecret)
@@ -321,13 +313,13 @@ func jhSinks() []jhSink {
 // TestLearnSinksRefuseHeldCredential drives every writer under internal/learn
 // that stores operator-supplied text: a probe that is not held must be stored
 // (the sink was reached), then a held credential in the same place must be
-// refused, not stored in any form, and reach no file under the test home.
+// withheld by the kit, not stored in any form, and reach no file under the test home.
 func TestLearnSinksRefuseHeldCredential(t *testing.T) {
 	if os.Getenv(jhModeEnv) != "held" {
 		jhRunChild(t, "TestLearnSinksRefuseHeldCredential", "held")
 		return
 	}
-	cliutil.FunnelHold(jhName)
+	credkit.Hold("test:journal", jhName)
 	for _, sink := range jhSinks() {
 		t.Run(sink.name, func(t *testing.T) {
 			home := withJournalHome(t)

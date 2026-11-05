@@ -5,11 +5,11 @@ package pax8blackbox
 // Credential-rule classes the fleet Codex reviews found, each proven on the built
 // binaries:
 //   - output-before-chokepoint: the configuration and the credential store
-//     print warnings while they load, so the chokepoint is installed first
+//     print warnings while they load, so the kit is installed first (credkit.Start)
 //     and delivers nothing until every startup source is held (CLI and MCP);
 //   - held-value-crosses-process-boundary: a mirrored MCP tool runs the CLI
-//     as a child process, which holds only what it loads itself, so a value
-//     only the MCP server holds never reaches a child through an argument.
+//     as a child process, which gets the held set (credkit.RunCommand) or is not
+//     started, so a value only the MCP server holds never reaches a child's output.
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -36,6 +37,9 @@ func withoutEnv(env []string, key string) []string {
 // The URL's path repeats the environment token and its userinfo carries a
 // password nothing else holds.
 func TestNothingPrintsBeforeTheChokepoint(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("loose config permissions are POSIX mode bits; Windows has no group or other bits")
+	}
 	sv := echoServer(t)
 	e := newEnv(t, sv, true)
 	cfg := filepath.Join(e.home, "loose.toml")
@@ -49,10 +53,14 @@ func TestNothingPrintsBeforeTheChokepoint(t *testing.T) {
 	e.env = append(withoutEnv(e.env, "PAX8_BASE_URL"), "PAX8_CONFIG="+cfg)
 	cli := e.run(t, "version")
 	mcp := e.mcpCalls(t, nil)
+	// The refusal repeats the held values, so the kit withholds that line whole:
+	// the CLI writes the kit's stderr notice in its place; the MCP server, the
+	// same config load, may drop the line with no notice. The CLI is the proof
+	// the case ran, and both are scanned.
+	if !strings.Contains(cli, "refused") && !strings.Contains(cli, "not applied") && !strings.Contains(cli, kitNotice("stderr")) {
+		t.Fatalf("CLI startup printed no refusal for the loose config; the test did not run:\n%.1500s", cli)
+	}
 	for where, out := range map[string]string{"CLI startup": cli, "MCP startup": mcp} {
-		if !strings.Contains(out, "refused") {
-			t.Fatalf("%s printed no refusal for the loose config; the test did not run:\n%.1500s", where, out)
-		}
 		assertNoEcho(t, where, out)
 	}
 }
@@ -63,7 +71,7 @@ func TestNothingPrintsBeforeTheChokepoint(t *testing.T) {
 // control call proves the child really writes.
 func TestMCPChildNeverReceivesAHeldValue(t *testing.T) {
 	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	e := newEnv(t, sv, true).store(t)
 	teach := func(notes string) map[string]any {
 		return map[string]any{"name": "teach", "arguments": map[string]any{
 			"query": "find company", "resource-type": "companies", "resource": []any{"5c802b19-3600-83f1-1767-7b9edc7f38ab"},
@@ -78,12 +86,15 @@ func TestMCPChildNeverReceivesAHeldValue(t *testing.T) {
 		{"name": "subscriptions_find", "arguments": none},                                                                    // a BOM-prefixed response credential
 	}
 	calls := []map[string]any{teach("control learning note")}
-	for _, v := range []string{bbGzipResp, bbShortResp, bbBOMResp} {
+	for _, v := range []string{bbGzipResp, bbBOMResp} {
 		a, b := halves(v)
-		// Whole, and split the ways the chokepoint rejoins (across a space
-		// and across a line), as splitObject sends them.
+		// Whole, and split across a space and across a line, as splitObject
+		// sends them.
 		calls = append(calls, teach("rotated "+v), teach(a+" "+b), teach(a+"\n"+b))
 	}
+	// A value shorter than the kit's 8-character pieces counts as a whole token
+	// only (credential leak contract 2(a)): its halves are ordinary words.
+	calls = append(calls, teach("rotated "+bbShortResp))
 	out := e.mcpPhases(t, fetches, calls)
 	if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(fetches)+len(calls))) {
 		t.Fatalf("MCP session did not answer every call:\n%.2000s", out)

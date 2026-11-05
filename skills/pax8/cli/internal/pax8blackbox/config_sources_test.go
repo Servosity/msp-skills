@@ -5,14 +5,14 @@ package pax8blackbox
 // Class output-before-chokepoint (Codex r2, fixed after the stop rule): a
 // configuration or credential file's values reach diagnostics whether the file
 // is used or refused, and a URL that does not parse is printed as written. A
-// password inside any of them must never print: every file value is held when
-// its bytes are read, and the chokepoint redacts the password of any URL it
-// sees, held or not.
+// password inside any of them must never print: the kit reads every file the
+// run could mean at startup, token by token when it does not parse.
 
 import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -44,6 +44,9 @@ func runWithIn(t *testing.T, env []string, stdin string, args ...string) string 
 }
 
 func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("loose config permissions are POSIX mode bits; Windows has no group or other bits")
+	}
 	const storePw, loosePw, slashPw = "StorePassw0rd1x", "OnlyUrlPw-Q7r9x", "Sl4sh/Passw0rd"
 	var out strings.Builder
 	// A global credential store recorded for one Pax8 host (its base_url
@@ -54,7 +57,7 @@ func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {
 	_ = os.MkdirAll(other, 0o700)
 	_ = os.WriteFile(filepath.Join(other, "config.toml"), []byte("base_url = \"https://other.example.com\"\n"), 0o600)
 	refused := runWith(t, cleanEnv(h1, "PAX8_CONFIG="+filepath.Join(other, "config.toml")), "version")
-	if !strings.Contains(refused, "not applied") {
+	if !strings.Contains(refused, "not applied") && !strings.Contains(refused, kitNotice("stderr")) {
 		t.Fatalf("the refused-store case did not run (no refusal printed):\n%s", refused)
 	}
 	out.WriteString(refused)
@@ -66,7 +69,7 @@ func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {
 		_ = os.WriteFile(p, []byte("base_url = \""+u+"\"\n"), 0o644)
 		_ = os.Chmod(p, 0o644)
 		got := runWith(t, cleanEnv(h, "PAX8_CONFIG="+p, "PAX8_CLIENT_ID=EnvClientId-5c3a", "PAX8_CLIENT_SECRET=EnvPassw0rd2x"), "version")
-		if i == 0 && !strings.Contains(got, "refused") {
+		if i == 0 && !strings.Contains(got, "refused") && !strings.Contains(got, kitNotice("stderr")) {
 			t.Fatalf("the loose-config case did not run (no refusal printed):\n%s", got)
 		}
 		out.WriteString(got)

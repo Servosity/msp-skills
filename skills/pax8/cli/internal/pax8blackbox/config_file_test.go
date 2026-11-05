@@ -5,9 +5,10 @@ package pax8blackbox
 // Codex r1 (4.34.2 reprint) class credential-persisted-outside-the-store:
 // saving the configuration (auth set-token, auth login, a minted token) wrote
 // the base URL and token URL as configured, so a credential they carry (a
-// userinfo password, a credential-named query value, a held value under any
-// query name) landed in config.toml. Nothing but the 0600 credential store may
-// hold a credential: every other file the program writes is scanned.
+// userinfo password, a query value) landed in config.toml. config.toml is
+// written outside the kit (a credential source, a declared exemption), so its
+// URLs are kept without userinfo and query (internal/config/pax8_persist.go).
+// Every other file the program writes is scanned.
 
 import (
 	"io/fs"

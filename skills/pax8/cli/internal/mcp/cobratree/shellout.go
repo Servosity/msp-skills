@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"pax8-pp-cli/internal/credkit"
 	"regexp"
 	"sort"
 	"strconv"
@@ -486,9 +487,6 @@ func ToolResultFromCLIFailure(result CLICommandResult, err error) *mcplib.CallTo
 // machine-readable channel. Hint and warning stderr lines are returned
 // separately on success so they cannot corrupt JSON results.
 func RunCLICommand(ctx context.Context, binPath string, args []string) (CLICommandResult, error) {
-	if cliutil.HeldEchoes(strings.Join(args, "\n")) { // pax8 handfix: mcp-held-arguments-refused (the exact child argv)
-		return CLICommandResult{}, fmt.Errorf("refused: an argument repeats a credential this MCP server holds; credentials are never passed to the CLI")
-	}
 	cmd := exec.CommandContext(ctx, binPath, args...) // #nosec G204 -- trusted companion CLI path, args pre-tokenized.
 	// os.Getenv returns the first duplicate, so an inherited marker has to
 	// be replaced. A nil Env would inherit the parent and could not force it.
@@ -497,7 +495,7 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	stderr := newCappedCapture()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 	stdoutText := stdout.String()
 	result := CLICommandResult{
 		Stdout:      stdoutText,

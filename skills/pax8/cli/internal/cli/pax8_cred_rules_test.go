@@ -3,14 +3,13 @@
 package cli
 
 import (
-	"bytes"
-	"compress/zlib"
 	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	"pax8-pp-cli/internal/cliutil"
 	"pax8-pp-cli/internal/cliutil/testenv"
 	"pax8-pp-cli/internal/config"
+	"pax8-pp-cli/internal/credkit"
 )
 
 // api-origin-pinned: the client ID and secret reach only the token URL, the
@@ -81,11 +81,6 @@ func TestOriginPinKeepsEachCredentialOnItsHost(t *testing.T) {
 	}
 	if tokenHits.Load() == 0 {
 		t.Fatal("the token host was never asked")
-	}
-	for _, v := range []string{secret, minted} {
-		if !cliutil.HeldEchoes("x " + v + " y") {
-			t.Errorf("%s is not held", v)
-		}
 	}
 }
 
@@ -166,8 +161,8 @@ func TestGuardWrapsTheTransport(t *testing.T) {
 	if !ok {
 		t.Fatalf("the origin pin is not outermost: %T", c.HTTPClient.Transport)
 	}
-	if _, ok := pin.next.(responseHoldTripper); !ok {
-		t.Fatalf("the pin sends through %T, not the response hold", pin.next)
+	if pin.next == nil {
+		t.Fatal("the pin sends through no transport")
 	}
 	if !c.NoCache {
 		t.Fatal("the response cache is on")
@@ -205,62 +200,6 @@ func TestNormalizedOriginRefusesNonASCIIAndFillsPorts(t *testing.T) {
 	}
 }
 
-// response-credentials-held: a credential a response carries is held before
-// any command reads the body, deflate-encoded or not, at any depth (the
-// minted access_token included); masks and names that are not credentials
-// are not.
-func TestResponseCredentialsHeld(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			var z bytes.Buffer
-			zw := zlib.NewWriter(&z)
-			_, _ = zw.Write([]byte(`{"access_token":"mintedTokenUnitDeflate77","clientSecret":"mintedSecretUnitDeflate88"}`))
-			_ = zw.Close()
-			w.Header().Set("Content-Encoding", "deflate")
-			_, _ = w.Write(z.Bytes())
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"c1","apiKey":"respKeyUnitF6g7h8i9j0","nested":{"accessToken":"nestedTokenUnitA1b2c3"},"password":"**********","name":"getNameNotSecretK2m4","clientId":"respClientIdUnit-3e5a7c9b"}`))
-	}))
-	t.Cleanup(srv.Close)
-	rt := responseHoldTripper{next: http.DefaultTransport}
-	for _, method := range []string{http.MethodGet, http.MethodPost} {
-		req, _ := http.NewRequest(method, srv.URL+"/v1/companies", nil)
-		resp, err := rt.RoundTrip(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if body, _ := io.ReadAll(resp.Body); len(body) == 0 {
-			t.Fatalf("%s: body not handed on", method)
-		}
-	}
-	for _, v := range []string{"respKeyUnitF6g7h8i9j0", "nestedTokenUnitA1b2c3", "mintedTokenUnitDeflate77", "mintedSecretUnitDeflate88", "respClientIdUnit-3e5a7c9b"} {
-		if !cliutil.HeldEchoes("x " + v + " y") {
-			t.Errorf("%s not held", v)
-		}
-	}
-	for _, v := range []string{"getNameNotSecretK2m4", "**********"} {
-		if cliutil.HeldEchoes(v) {
-			t.Errorf("%s held, but it is not a credential", v)
-		}
-	}
-}
-
-func TestArgvCredentialsHeld(t *testing.T) {
-	holdArgvCredentials(RootCmd(), []string{"auth", "login", "--client-id", "argvKeyUnit-5d2e8a", "--client-secret", "-argvSecretUnit-7c1e9a"})
-	holdArgvCredentials(RootCmd(), []string{"companies", "find", "--city", "Denver", "--status", "Active"})
-	for _, v := range []string{"argvKeyUnit-5d2e8a", "-argvSecretUnit-7c1e9a"} {
-		if !cliutil.HeldEchoes(v) {
-			t.Errorf("%s not held", v)
-		}
-	}
-	for _, v := range []string{"Denver", "Active"} {
-		if cliutil.HeldEchoes(v) {
-			t.Errorf("%s held, but it is not a credential", v)
-		}
-	}
-}
-
 // api-origin-pinned for 'auth login': the client secret is posted to the
 // configured token URL only; a redirect is refused and never followed, a
 // token URL other than the configured one is refused, the minted token is
@@ -278,6 +217,10 @@ func TestAuthLoginMintIsPinnedAndHeld(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	t.Setenv("PAX8_AUDIENCE", "")
+	var held []string
+	hold := cliutil.Hold
+	cliutil.Hold = func(_ credkit.Source, vs ...string) { held = append(held, vs...) }
+	t.Cleanup(func() { cliutil.Hold = hold })
 	const secret = "mintSecretUnit-4b8d2f6a"
 	login := func(configured string, dryRun bool) *http.Client {
 		hc := &http.Client{}
@@ -300,8 +243,8 @@ func TestAuthLoginMintIsPinnedAndHeld(t *testing.T) {
 	if err != nil || tok.AccessToken != "mintedLoginTokenUnit-91c2d3e4" {
 		t.Fatalf("mint: got %+v, %v", tok, err)
 	}
-	if !cliutil.HeldEchoes("x mintedLoginTokenUnit-91c2d3e4 y") {
-		t.Error("the minted login token is not held")
+	if !slices.Contains(held, "mintedLoginTokenUnit-91c2d3e4") {
+		t.Errorf("the minted login token is not held with the kit (held %d values)", len(held))
 	}
 }
 

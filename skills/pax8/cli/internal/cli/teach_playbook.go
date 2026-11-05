@@ -215,7 +215,7 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				return writeDryRun(cmd.OutOrStdout(), flags, "playbook amend")
 			}
 			if strings.TrimSpace(query) == "" {
-				writeTeachErrLog(fmt.Sprintf("playbook amend: missing --query (args=%v)", args))
+				writeTeachErrLog(fmt.Sprintf("playbook amend: missing --query (%d args)", len(args))) // Hand-fix (handfixes.json journal-credential-hardening): no raw argument reaches teach.log
 				return silentCodeErr(2)
 			}
 			if strings.TrimSpace(addNote) == "" {

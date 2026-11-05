@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credkit"
 	"pax8-pp-cli/internal/learn"
 	"pax8-pp-cli/internal/learn/entities"
 	"pax8-pp-cli/internal/learn/lookups"
@@ -125,13 +126,13 @@ func writeTeachErrLog(line string) {
 	}
 	_ = cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 		ts := time.Now().UTC().Format(time.RFC3339)
-		_, err = fmt.Fprintf(cliutil.WithheldWriter(f), "%s %s\n", ts, line) // pax8 handfix: output-chokepoint (file sink)
+		_, err = fmt.Fprintf(f, "%s %s\n", ts, line)
 		return err
 	})
 }
@@ -148,13 +149,13 @@ func appendLearningsAudit(entry map[string]any) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 		entry["ts"] = time.Now().UTC().Format(time.RFC3339)
-		return json.NewEncoder(cliutil.WithheldWriter(f)).Encode(entry) // pax8 handfix: output-chokepoint (file sink)
+		return json.NewEncoder(f).Encode(entry)
 	})
 }
 
@@ -206,9 +207,9 @@ func scrubLogFile(path, rawQuery, queryHash string) error {
 		return nil
 	}
 	if len(kept) == 0 {
-		return os.WriteFile(path, nil, 0o600)
+		return credkit.WriteFile(path, nil, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	return os.WriteFile(path, cliutil.WithholdBytes([]byte(strings.Join(kept, "\n")+"\n")), 0o600) // pax8 handfix: output-chokepoint (file sink)
+	return credkit.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func logLineMatchesQuery(line, rawQuery, queryHash string) bool {
@@ -370,7 +371,7 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				return writeDryRun(cmd.OutOrStdout(), flags, "teach")
 			}
 			if strings.TrimSpace(query) == "" {
-				writeTeachErrLog(fmt.Sprintf("teach: missing --query (args=%v resources=%v)", args, resources))
+				writeTeachErrLog(fmt.Sprintf("teach: missing --query (%d args, %d resources)", len(args), len(resources))) // Hand-fix (handfixes.json journal-credential-hardening): no raw argument reaches teach.log
 				return silentCodeErr(2)
 			}
 			if len(resources) == 0 {
@@ -703,7 +704,7 @@ when learnings exist.`,
 			// post-run journal entry: flag derivation anchors candidates
 			// on this family, and teach-time synthesis locates the
 			// recall->teach episode by it.
-			learn.SetJournalLearnContext(cliutil.WithholdText(result.Family), withheldStrings(result.UnresolvedEntities)) // pax8 handfix: output-chokepoint (file sink)
+			learn.SetJournalLearnContext(result.Family, result.UnresolvedEntities)
 			// Measurement: record hit/miss (+ playbook hit) AFTER the
 			// match completed, so the event write never holds the store
 			// lock across the recall scan. Telemetry-class: failures go

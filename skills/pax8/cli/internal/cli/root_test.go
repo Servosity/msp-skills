@@ -6,10 +6,13 @@ package cli
 
 import (
 	"bytes"
+	"pax8-pp-cli/internal/client"
+	"pax8-pp-cli/internal/credkit"
 
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -21,6 +24,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// Hand-fix (handfixes.json credkit-wiring): see client.OutboundGuard; no test here runs credkit.Start.
+	client.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }
+	cliutil.Hold = func(credkit.Source, ...string) {}
 	os.Exit(testenv.RunSandboxed(m))
 }
 

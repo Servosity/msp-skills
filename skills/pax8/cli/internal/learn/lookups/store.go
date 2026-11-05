@@ -14,7 +14,6 @@ import (
 	"unicode"
 
 	"pax8-pp-cli/internal/cliutil"
-	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // LookupRow is the canonical seed-row shape used by both the seeds
@@ -215,9 +214,6 @@ func Upsert(db *sql.DB, kind, canonical, value, source string) error {
 	if source == "" {
 		source = SourceTaught
 	}
-	if err := heldguard.Refuse(kind, canonical, value, source); err != nil {
-		return fmt.Errorf("lookups.Upsert: %w", err) // pax8 handfix (journal-credential-hardening): refused, never written
-	}
 	_, err := db.Exec(`
 		INSERT OR IGNORE INTO entity_lookups (kind, canonical, value, source)
 		VALUES (?, ?, ?, ?)
@@ -249,9 +245,6 @@ func SeedBatch(tx *sql.Tx, seeds []LookupRow) (int, error) {
 		source := r.Source
 		if source == "" {
 			source = SourceSeeded
-		}
-		if heldguard.Held(r.Kind, r.Canonical, r.Value, source) {
-			continue // pax8 handfix (journal-credential-hardening): a held row is skipped, never written
 		}
 		res, err := stmt.Exec(r.Kind, r.Canonical, r.Value, source)
 		if err != nil {
@@ -303,9 +296,6 @@ func RecordMisses(ctx context.Context, db *sql.DB, entities []string) error {
 		key := strings.ToLower(strings.TrimSpace(e))
 		if key == "" {
 			continue
-		}
-		if heldguard.Held(e, key) {
-			continue // pax8 handfix (journal-credential-hardening): a held entity is skipped, never written
 		}
 		if _, err := db.ExecContext(ctx, `INSERT INTO `+recallMissesTable+` (entity) VALUES (?)
 			ON CONFLICT(entity) DO UPDATE SET miss_count = miss_count + 1, last_seen_at = CURRENT_TIMESTAMP`,
@@ -399,9 +389,6 @@ func RefreshFromSynced(ctx context.Context, db *sql.DB, opts RefreshOpts) (Refre
 	// Phase 2: insert. INSERT OR IGNORE makes a lost race with another
 	// process a silent no-op rather than an error.
 	for _, c := range candidates {
-		if heldguard.Held(c.Kind, c.Canonical, c.Value) {
-			continue // pax8 handfix (journal-credential-hardening): a held row is skipped, never written
-		}
 		r, err := db.ExecContext(ctx,
 			`INSERT OR IGNORE INTO entity_lookups (kind, canonical, value, source) VALUES (?, ?, ?, ?)`,
 			c.Kind, c.Canonical, c.Value, SourceSynced)

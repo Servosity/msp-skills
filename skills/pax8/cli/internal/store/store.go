@@ -27,8 +27,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	_ "modernc.org/sqlite"
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credsql"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -143,7 +143,23 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring):
+// the MCP sql tool's value cap, set when the connection opens because
+// sqlite.Limit cannot reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 
 	// Writable directories stay on the first open so committed WAL frames
@@ -165,11 +181,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping runs; the
+	// kit's connection does not forward Ping, so PingContext alone would open the
+	// file without reading it.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -217,7 +236,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open(WithholdingSQLiteDriver, dsn) // pax8 handfix: store-never-keeps-secrets (every SQL write)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -248,7 +267,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
 	if err != nil {
 		return nil
 	}
@@ -340,7 +359,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -1718,10 +1737,6 @@ func isSQLiteBusy(err error) bool {
 // write is incoming as-is. Callers apply the result to both the generic
 // resources blob and the typed-table projection.
 func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
-	return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming)) // pax8 handfix: store-never-keeps-secrets
-}
-
-func (s *Store) mergeIncomingResourceDataRaw(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
 	var existing string
 	err := tx.QueryRow(
 		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`,
@@ -1738,7 +1753,6 @@ func (s *Store) mergeIncomingResourceDataRaw(tx *sql.Tx, resourceType, id string
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
-	id = storedID(id) // pax8 handfix: store-never-keeps-secrets
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -4411,10 +4425,6 @@ func scalarIDString(value any) string {
 }
 
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
-	return storedID(resourceStorageIDRaw(resourceType, id, obj)) // pax8 handfix: store-never-keeps-secrets
-}
-
-func resourceStorageIDRaw(resourceType, id string, obj map[string]any) string {
 	for _, parentKey := range resourceParentKeyColumns[resourceType] {
 		parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
 		if parentValue != "" && parentValue != "<nil>" {

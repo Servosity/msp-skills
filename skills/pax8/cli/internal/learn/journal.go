@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"pax8-pp-cli/internal/cliutil"
-	"pax8-pp-cli/internal/learn/heldguard"
+	"pax8-pp-cli/internal/credkit"
 )
 
 // The invocation journal records one entry per CLI invocation in dated
@@ -270,23 +270,13 @@ func AppendJournalEntry(entry JournalEntry) error {
 	if err != nil {
 		return fmt.Errorf("journal: marshal: %w", err)
 	}
-	if err := heldguard.Refuse(string(line)); err != nil { // pax8 handfix (journal-credential-hardening): refused whole, never written
-		return fmt.Errorf("journal: entry %w", err)
-	}
 	p := filepath.Join(dir, journalSegmentNameFor(time.Now()))
 	if err := repairJournalSegmentTail(p); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- path derived from state dir
-	if err != nil {
-		return fmt.Errorf("journal: open %s: %w", p, err)
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
-		return fmt.Errorf("journal: write: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("journal: close: %w", err)
+	// Hand-fix (handfixes.json credkit-wiring): one entry, one record, through the credential kit.
+	if err := credkit.AppendFile(p, append(line, '\n'), 0o600); err != nil {
+		return fmt.Errorf("journal: write %s: %w", p, err)
 	}
 	// Best-effort: retention failures never fail the append (the
 	// entry is already durable).

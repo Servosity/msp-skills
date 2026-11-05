@@ -227,7 +227,6 @@ func deriveFlagCorrectionsLocked(openStore func() (CandidateStore, error), flagE
 		// a complete line arrived after the window just read.
 		return journalNewlinePast(next)
 	}
-	pairs = withoutHeldCorrections(pairs) // pax8 handfix (journal-credential-hardening)
 	if len(pairs) == 0 {
 		if err := StoreJournalOffset(next); err != nil {
 			return false, err

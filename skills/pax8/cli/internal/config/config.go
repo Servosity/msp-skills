@@ -169,7 +169,6 @@ func Load(configPath string) (*Config, error) {
 	if v := cliutil.EnvOverride("PAX8_TOKEN_URL"); v != "" {
 		cfg.TokenURL = v
 	}
-	holdConfigCredentials(cfg) // pax8 handfix: output-chokepoint
 	return cfg, nil
 }
 
@@ -204,7 +203,6 @@ func readConfigFile(path string, cfg *Config, owner string) error {
 }
 
 func parseConfigData(data []byte, cfg *Config, path string, owner string) error {
-	cliutil.HoldTOMLCredentials(data) // pax8 handfix: output-chokepoint (every file value, used or refused)
 	if err := toml.Unmarshal(data, cfg); err != nil {
 		return fmt.Errorf("parsing %s %s: %w", owner, path, err)
 	}
@@ -552,7 +550,6 @@ func builtinBaseURL() string {
 }
 
 func baseURLFromConfigBytes(data []byte) string {
-	cliutil.HoldTOMLCredentials(data) // pax8 handfix: output-chokepoint (every file value, used or refused)
 	var parsed struct {
 		BaseURL string `toml:"base_url"`
 	}
@@ -920,7 +917,7 @@ func restoreCredentialsFile(snap credentialsSnapshot) error {
 	if mode == 0 {
 		mode = 0o600
 	}
-	if err := cliutil.AtomicWritePrivateFile(snap.path, snap.data, mode, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(snap.path, snap.data, mode, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the credential store, a declared exemption
 		return err
 	}
 	return os.Chmod(snap.path, mode)
@@ -1133,16 +1130,13 @@ func (c *Config) save() error {
 	persisted := c.configForSave()
 	var persist any = persisted
 	if !c.AgentcookieManagedByExternalStore() {
-		persist = persistedWithoutCredentials(persisted.persisted(), c) // pax8 handfix: config-file-holds-no-credential
+		persist = persistedWithoutCredentials(persisted.persisted()) // pax8 handfix: config-file-holds-no-credential
 	}
 	data, err := toml.Marshal(persist)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := refuseCredentialInConfigFile(persist, data); err != nil { // pax8 handfix: config-file-holds-no-credential
-		return err
-	}
-	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): config.toml, a declared exemption
 		return err
 	}
 	c.scrubLegacyCredentials()
@@ -1178,13 +1172,13 @@ func (c *Config) scrubLegacyCredentials() {
 		return
 	}
 	legacy.clearCredentialFields()
-	scrubbed := persistedWithoutCredentials(legacy.persisted(), c) // pax8 handfix: config-file-holds-no-credential
+	scrubbed := persistedWithoutCredentials(legacy.persisted()) // pax8 handfix: config-file-holds-no-credential
 	scrubbedData, err := toml.Marshal(scrubbed)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
 		return
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the legacy config, a declared exemption
 		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)
 	}
 }

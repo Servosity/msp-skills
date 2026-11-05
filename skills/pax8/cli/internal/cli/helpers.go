@@ -32,6 +32,7 @@ import (
 	"pax8-pp-cli/internal/client"
 	"pax8-pp-cli/internal/cliutil"
 	"pax8-pp-cli/internal/config"
+	"pax8-pp-cli/internal/credkit"
 	"pax8-pp-cli/internal/platform"
 )
 
@@ -77,6 +78,7 @@ func readSecretFromStdin(r io.Reader) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("empty token on stdin")
 	}
+	cliutil.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring): a token read from a pipe is held before anything can print it
 	return token, nil
 }
 
@@ -111,11 +113,8 @@ func isTerminal(w io.Writer) bool {
 		}
 	}
 	if f, ok := w.(*os.File); ok {
-		fi, err := f.Stat()
-		if err != nil {
-			return true
-		}
-		return (fi.Mode() & os.ModeCharDevice) != 0
+		// Hand-fix (handfixes.json credkit-wiring): stdout and stderr are the kit's pipes; it knows what they were.
+		return credkit.Terminal(f)
 	}
 	return false
 }
@@ -570,7 +569,7 @@ func endpointArgsUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error
 			printFlags = &copied
 		}
 		if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-			"error": funnelShownError(err),
+			"error": err.Error(),
 			"usage": endpointUsageLine(cmd),
 		}, printFlags); printErr != nil {
 			return printErr
@@ -1100,7 +1099,7 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = writeEncodedJSON(w, map[string]any{
-		"error": funnelShownError(err),
+		"error": err.Error(),
 		"code":  code,
 	}, "", "")
 }

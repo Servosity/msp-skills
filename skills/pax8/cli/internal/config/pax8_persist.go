@@ -2,55 +2,39 @@
 
 package config
 
-// pax8 handfix (config-file-holds-no-credential, Codex r1 4.34.2 class
-// credential-persisted-outside-the-store): config.toml is not the credential
-// store, so it never holds a credential. Saving the configuration (auth
-// set-token, auth login, a minted or refreshed token) wrote base_url and
-// token_url as configured, environment values included, so the userinfo
-// password or a credential query value they carried landed in config.toml.
-// Every value config.toml keeps passes persistedWithoutCredentials (URLs lose
-// their userinfo and credential or held query values; a credential-named or
-// held header is left out), and refuseCredentialInConfigFile refuses the
-// write when the bytes still repeat any held value in any form. The credential
-// store (0600) keeps the base URL it was issued for, as before.
+// pax8 handfix (config-file-holds-no-credential, Codex r1 and r2 4.34.2 class
+// credential-persisted-outside-the-store), hand-written: config.toml is written
+// outside the shared credential kit (a credential source, a declared exemption,
+// credkit-wiring), so the kit cannot withhold it there. Saving the configuration
+// (auth set-token, auth login, a minted or refreshed token) wrote base_url and
+// token_url as configured, PAX8_BASE_URL and PAX8_TOKEN_URL included, so a
+// userinfo password or a query value they carried (whole, or split across two
+// query values) landed in config.toml: both are kept without userinfo, query and
+// fragment. A [headers] value is a credential of config.toml itself, which the
+// kit holds and lets go to the API origin only; a header the kit would refuse to
+// send there carries a credential that may not go there (the client secret in
+// any encoding the kit reads, ROT13 included), so config.toml leaves it out.
+// ponytail: the whole query goes, not only credential-named values; keep a named
+// parameter when a real Pax8 URL needs one.
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-
-	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credkit"
 )
 
-// ErrConfigHoldsCredential marks a config.toml write refused because it would
-// hold a credential.
-var ErrConfigHoldsCredential = errors.New("refusing to write config.toml: it would hold a credential (keep credentials in the environment or the credential store)")
-
-// persistedWithoutCredentials is what config.toml may keep of p. Header
-// values are held for output whatever their name (pax8_hold.go), so a header
-// is left out by its name or when its value repeats one of the credentials
-// this configuration or the environment carries; URLs and the TLS settings
-// are checked against every held value.
-func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {
-	if clean, changed := cliutil.URLWithoutCredentials(p.BaseURL); changed {
-		if clean == "" {
-			clean = builtinBaseURL()
-		}
-		warnLeftOut("base_url")
-		p.BaseURL = clean
-	}
-	if clean, changed := cliutil.URLWithoutCredentials(p.TokenURL); changed {
-		warnLeftOut("token_url")
-		p.TokenURL = clean
-	}
+// persistedWithoutCredentials is what config.toml may keep of p.
+func persistedWithoutCredentials(p persistedConfig) persistedConfig {
+	p.BaseURL = urlWithoutCredentials("base_url", p.BaseURL, builtinBaseURL())
+	p.TokenURL = urlWithoutCredentials("token_url", p.TokenURL, "")
 	if len(p.Headers) > 0 {
-		creds := configCredentialValues(c)
 		kept := make(map[string]string, len(p.Headers))
 		for k, v := range p.Headers {
-			if cliutil.SecretFieldName(k) || (len(creds) > 0 && cliutil.FunnelEchoes(v, creds)) {
+			if !headerMayGoToAPI(p.BaseURL, k, v) {
 				warnLeftOut("headers." + k)
 				continue
 			}
@@ -58,66 +42,54 @@ func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {
 		}
 		p.Headers = kept
 	}
-	for _, f := range []*string{&p.CACert, &p.TLSServerName} {
-		if *f != "" && cliutil.HeldEchoes(*f) {
-			*f = ""
-		}
-	}
 	return p
 }
 
-// configCredentialValues is every credential c (and the file layer under it)
-// and the environment carry: the client ID and secret, the tokens, the
-// Authorization header (whole and without its scheme), and the value of every
-// credential-named PAX8_* variable.
-func configCredentialValues(c *Config) []string {
-	var out []string
-	add := func(vs ...string) {
-		for _, v := range vs {
-			if v = strings.TrimSpace(v); v != "" {
-				out = append(out, v)
-			}
-		}
+// urlWithoutCredentials is raw without its userinfo, query and fragment. A URL
+// that does not parse and could hide one (an "@", "?" or "#" in it) is replaced
+// by fallback; one that cannot (an unresolved {placeholder} host) is kept.
+func urlWithoutCredentials(field, raw, fallback string) string {
+	if raw == "" {
+		return raw
 	}
-	for cfg := c; cfg != nil; cfg = cfg.fileConfig {
-		add(cfg.ClientID, cfg.ClientSecret, cfg.AccessToken, cfg.RefreshToken, cfg.AuthHeaderVal)
-		if _, rest, ok := strings.Cut(cfg.AuthHeaderVal, " "); ok {
-			add(rest)
+	u, err := url.Parse(raw)
+	if err != nil {
+		if !strings.ContainsAny(raw, "@?#") {
+			return raw
 		}
-		if cfg.fileConfig == cfg {
-			break
-		}
+		warnLeftOut(field)
+		return fallback
 	}
-	for _, kv := range os.Environ() {
-		name, v, ok := strings.Cut(kv, "=")
-		if ok && strings.HasPrefix(name, "PAX8_") && !strings.HasSuffix(name, "_URL") && cliutil.SecretFieldName(strings.TrimPrefix(name, "PAX8_")) {
-			add(v)
-		}
+	if u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" {
+		return raw
 	}
-	return out
+	u.User, u.RawQuery, u.ForceQuery, u.Fragment, u.RawFragment = nil, "", false, "", ""
+	warnLeftOut(field)
+	return u.String()
 }
 
-// refuseCredentialInConfigFile is the last check before config.toml is
-// written: the file, with the header values judged above left out, must not
-// repeat any held value in any form. An agentcookie-managed configuration is
-// the external store's own file and is written as that store expects.
-func refuseCredentialInConfigFile(persist any, data []byte) error {
-	p, ok := persist.(persistedConfig)
-	if !ok {
-		return nil
-	}
-	p.Headers = nil
-	check, err := toml.Marshal(p)
+// headerMayGoToAPI asks the kit's outbound guard whether a request to the API
+// base URL carrying this header would be sent. Nothing is sent: the inner
+// transport answers without a network.
+func headerMayGoToAPI(baseURL, name, value string) bool {
+	req, err := http.NewRequest(http.MethodGet, baseURL, nil)
 	if err != nil {
-		return err
+		return false
 	}
-	if cliutil.HeldEchoes(string(check)) {
-		return ErrConfigHoldsCredential
+	req.Header.Set(name, value)
+	resp, err := credkit.Transport(noSend{}).RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
 	}
-	_ = data // the bytes written differ only by the header values checked in persistedWithoutCredentials
-	return nil
+	return err == nil
+}
+
+type noSend struct{}
+
+func (noSend) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody, Header: http.Header{}, Request: req}, nil
 }
 
 func warnLeftOut(field string) {
-	fmt.Fprintf(os.Stderr, "warning: config.toml does not keep the credential in %s; it stays in the environment or the credential store\n", field)
+	fmt.Fprintf(os.Stderr, "warning: config.toml does not keep %s: it carries a credential, which stays in the environment or the file it came from\n", field)
 }

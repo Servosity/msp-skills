@@ -234,7 +234,6 @@ func loadCredentialsWithStatus(path string, explicit bool) (*Credentials, Creden
 		}
 		return nil, status, nil
 	}
-	HoldTOMLCredentials(data) // pax8 handfix: output-chokepoint (every file value, used or refused)
 	var creds Credentials
 	if err := toml.Unmarshal(data, &creds); err != nil {
 		warnCredentialsIssue(path, "parse", err)
@@ -357,7 +356,7 @@ func SaveCredentials(creds *Credentials) error {
 	if err != nil {
 		return fmt.Errorf("marshaling credentials: %w", err)
 	}
-	if err := AtomicWritePrivateFile(path, data, 0o600, 0o700); err != nil {
+	if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the 0600 credential store, a declared exemption
 		return err
 	}
 	real, err := filepath.EvalSymlinks(path)

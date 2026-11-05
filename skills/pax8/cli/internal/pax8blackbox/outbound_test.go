@@ -3,12 +3,11 @@
 package pax8blackbox
 
 // Codex review r2 (class outbound-sink-bypasses-chokepoint, repeated): the
-// round-1 fix withheld the request BODY of every non-API sender, but the URL
-// (query, path, userinfo) went out as configured. Fixed after the stop rule
-// (no further Codex round): every non-API request goes through
-// cliutil.SendOutbound, which refuses a URL or header that repeats a held
-// value. The sink must see no request at all for those three sends, and a
-// clean one must still arrive.
+// request BODY of a non-API sender was withheld, but the URL (query, path,
+// userinfo) went out as configured. Every non-API request now goes through
+// credkit.Transport, which checks its URL, headers and body as one unit. The
+// sink must see no request at all for those sends, and a clean one must still
+// arrive.
 
 import (
 	"net/http"
@@ -32,7 +31,7 @@ func TestNonAPISendersNeverCarryAHeldValue(t *testing.T) {
 	}))
 	t.Cleanup(sink.Close)
 	sv := echoServer(t)
-	e := newEnv(t, sv, true)
+	e := newEnv(t, sv, true).store(t)
 	base := e.env
 	for _, ep := range []string{sink.URL + "/collect?token=" + bbToken, sink.URL + "/hooks/" + bbToken} {
 		e.env = append(append([]string{}, base...), "PAX8_FEEDBACK_ENDPOINT="+ep)

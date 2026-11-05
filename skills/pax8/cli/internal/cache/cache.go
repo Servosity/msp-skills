@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"pax8-pp-cli/internal/credkit"
 	"time"
 )
 
@@ -46,7 +47,7 @@ func (s *Store) Get(key string) (json.RawMessage, bool) {
 // Set stores a value in the cache.
 func (s *Store) Set(key string, value json.RawMessage) {
 	_ = os.MkdirAll(s.Dir, 0o700)
-	_ = os.WriteFile(s.path(key), []byte(value), 0o600)
+	_ = credkit.WriteFile(s.path(key), []byte(value), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 // Clear removes all cached entries.

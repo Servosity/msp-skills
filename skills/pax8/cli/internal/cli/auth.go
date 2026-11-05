@@ -172,7 +172,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret})))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
@@ -181,6 +181,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	cliutil.Hold("minted:access_token", tok.AccessToken) // Hand-fix (handfixes.json credkit-wiring): a minted token is held where it is minted
 	return &tok, nil
 }
 
@@ -268,7 +269,6 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
 			}
 			token, err := readSecretFromStdin(cmd.InOrStdin())
-			cliutil.FunnelHold(token) // pax8 handfix: output-chokepoint
 			if err != nil {
 				return authErr(err)
 			}

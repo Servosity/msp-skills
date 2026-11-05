@@ -15,12 +15,11 @@ package learn
 //     stops at "--";
 //   - JournalInvocation never keeps a failed flag as typed
 //     (journalOpaqueFailedFlag);
-//   - AppendJournalEntry, the teach log, the playbook rekey, playbook synthesis,
-//     flag-correction derivation, preseed, and the lookups and patterns stores
-//     refuse operator-supplied text that repeats a held credential
-//     (heldguard.Held / heldguard.Refuse, which is cliutil.HeldEchoes).
-
-import "pax8-pp-cli/internal/learn/heldguard"
+//
+// Operator-named text that repeats a credential the program holds (the
+// journal, teach.log, playbooks, the learn tables) is withheld by the shared
+// credential kit at the sink (handfixes.json credkit-wiring): AppendJournalEntry
+// appends one complete entry through credkit.AppendFile.
 
 // journalUndeclaredFlag is the argv_shape key for every flag name the invoked
 // command is not shown to declare: a name typed in a flag's place may be a
@@ -58,19 +57,4 @@ func journalOpaqueFailedFlag(failed, suggested string) string {
 		return ""
 	}
 	return "--" + journalUndeclaredFlag + ":" + hashHarnessSession(failed)
-}
-
-// withoutHeldCorrections drops every paired flag correction that repeats a
-// credential this process holds (a journal an older build wrote may still
-// carry a typed flag name as written). A dropped pair is consumed like an
-// unpaired one and never stored.
-func withoutHeldCorrections(pairs []flagCorrection) []flagCorrection {
-	kept := pairs[:0]
-	for _, p := range pairs {
-		if heldguard.Held(p.CommandPath, p.FailedFlag, p.CorrectedFlag, p.Example, p.QueryFamily) {
-			continue
-		}
-		kept = append(kept, p)
-	}
-	return kept
 }

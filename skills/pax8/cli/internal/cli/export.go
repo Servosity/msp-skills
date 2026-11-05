@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/credkit"
 )
 
 func newExportCmd(flags *rootFlags) *cobra.Command {
@@ -80,30 +82,45 @@ large datasets as it has no memory pressure.`,
 
 			var writer *bufio.Writer
 			var outFile *os.File
+			var outBuf bytes.Buffer
 			if outputFile != "" {
-				f, err := cliutil.WithholdingFile(openExportOutput(outputFile)) // pax8 handfix: output-chokepoint (file sink)
+				f, err := openExportOutput(outputFile)
 				if err != nil {
 					return err
 				}
 				outFile = f
-				writer = bufio.NewWriter(f)
+				// Hand-fix (handfixes.json credkit-wiring): the export is written
+				// through the credential kit as one unit, credkit.WriteFile, when
+				// it is complete. ponytail: held in memory; the kit's file stream
+				// withholds a unit that a pause between page fetches splits, so
+				// stream again once the kit fixes that.
+				writer = bufio.NewWriter(&outBuf)
 				defer func() {
 					if err != nil && outFile != nil {
 						_ = outFile.Close()
 					}
 				}()
 			} else {
-				writer = bufio.NewWriter(cmd.OutOrStdout())
+				// Hand-fix (handfixes.json credkit-wiring): stdout gets the same
+				// single write as --output, for the same reason.
+				writer = bufio.NewWriter(&outBuf)
 			}
 			finishExport := func() error {
 				if err := writer.Flush(); err != nil {
 					return fmt.Errorf("flushing export: %w", err)
 				}
-				if outFile != nil {
-					if err := outFile.Close(); err != nil {
-						return fmt.Errorf("closing export file: %w", err)
+				if outFile == nil {
+					if _, err := cmd.OutOrStdout().Write(outBuf.Bytes()); err != nil {
+						return fmt.Errorf("writing export: %w", err)
 					}
-					outFile = nil
+					return nil
+				}
+				if err := outFile.Close(); err != nil {
+					return fmt.Errorf("closing export file: %w", err)
+				}
+				outFile = nil
+				if err := credkit.WriteFile(outputFile, outBuf.Bytes(), 0o600); err != nil {
+					return fmt.Errorf("writing export: %w", err)
 				}
 				return nil
 			}
