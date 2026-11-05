@@ -363,3 +363,23 @@ func TestMRRSingleCurrencyKeepsItsShape(t *testing.T) {
 		t.Errorf("mrr text changed:\n%s", text)
 	}
 }
+
+// A product average never mixes currencies: USD 100 next to JPY 15000 is no
+// overage for either, and a real one inside one currency is still flagged.
+func TestOverageNeverAveragesAcrossCurrencies(t *testing.T) {
+	row := func(id, product string, charges float64, currency string) string {
+		return fmt.Sprintf(`{"id":%q,"productId":%q,"companyId":"c","currentCharges":%v,"currencyCode":%q}`, id, product, charges, currency)
+	}
+	path, db := novelStore(t)
+	seedAsSync(t, db, "subscriptions_usage_summaries", "subscriptions", moneyID(90),
+		row(moneyID(1), "same-product", 100, "USD"),
+		row(moneyID(2), "same-product", 15000, "JPY"),
+		row(moneyID(3), "other-product", 10, "USD"),
+		row(moneyID(4), "other-product", 10, "USD"),
+		row(moneyID(5), "other-product", 40, "USD"))
+	var flagged []overageRow
+	runNovelJSON(t, path, &flagged, "overage")
+	if len(flagged) != 1 || flagged[0].UsageSummaryID != moneyID(5) {
+		t.Fatalf("overage = %+v, want only the USD 40 row", flagged)
+	}
+}

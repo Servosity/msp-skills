@@ -73,9 +73,9 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 				sum float64
 				n   int
 			}
-			perProduct := map[string]*acc{}
+			perProduct := map[string]*acc{} // pax8 handfix: novel-money-shapes (one average per product and currency)
 			for _, s := range summaries {
-				pid := pax8FieldStr(s, "productId", "product_id")
+				pid := pax8UsageAverageKey(s)
 				charge, ok := pax8FieldNum(s, "currentCharges", "current_charges")
 				if !ok {
 					continue
@@ -103,7 +103,7 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 				if !ok {
 					continue
 				}
-				a := avg[pid]
+				a := avg[pax8UsageAverageKey(s)]
 				if a <= 0 {
 					continue
 				}
@@ -145,4 +145,9 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	cmd.Flags().Float64Var(&threshold, "threshold", 1.5, "Flag usage charges exceeding this multiple of the product average")
 	return cmd
+}
+
+// pax8UsageAverageKey is what one product average covers: charges in one currency.
+func pax8UsageAverageKey(s map[string]any) string {
+	return pax8FieldStr(s, "productId", "product_id") + "\x00" + pax8Currency(s)
 }
