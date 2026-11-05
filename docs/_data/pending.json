@@ -686,9 +686,9 @@
     "released_hash": "sha256:0b4e049d840c594ca1b104a70e4487dba643aeaf968057e4925d7eafc17231d5"
   },
   "zammad": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "zammad-v0.1.11",
+    "latest_tag": "zammad-v0.1.12",
     "current_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057",
     "released_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057"
   }
