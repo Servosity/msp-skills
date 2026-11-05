@@ -77,7 +77,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/crowdstrike/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +93,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`crowdstrike-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `CROWDSTRIKE_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `CROWDSTRIKE_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export CROWDSTRIKE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+crowdstrike-mcp --transport http
+```
+
+Set `CROWDSTRIKE_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -114,13 +125,11 @@ crowdstrike-cli fleet sync --all-cids
 crowdstrike-cli fleet scorecard --json
 
 # Instant offline search across every tenant's synced data
-crowdstrike-cli fleet search <term> --json
+crowdstrike-cli fleet search ransomware --json
 
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Cross-tenant fleet intelligence
 - **`fleet sync`**  -  Pull hosts, alerts, vulnerabilities, policies, and the Flight Control fabric from every child tenant into one local store keyed by CID. Requires a parent-CID API client with Flight Control (MSSP) scope; without it, sync degrades to the single authenticated CID.
@@ -193,11 +202,10 @@ These capabilities aren't available in any other tool for this API.
   _Use for instant lookups without burning live API quota or waiting on pagination._
 
   ```bash
-  crowdstrike-cli fleet search <term> --json --select cid,kind,name
+  crowdstrike-cli fleet search ransomware --json --select cid,kind,name
   ```
 
 ## Recipes
-
 
 ### Whole-fleet critical exposure
 
@@ -242,6 +250,81 @@ Narrows the per-tenant posture board to the fields an agent needs to triage the 
 ## Usage
 
 Run `crowdstrike-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `CROWDSTRIKE_CONFIG_DIR`, `CROWDSTRIKE_DATA_DIR`, `CROWDSTRIKE_STATE_DIR`, or `CROWDSTRIKE_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `CROWDSTRIKE_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export CROWDSTRIKE_HOME=/srv/crowdstrike
+crowdstrike-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:CROWDSTRIKE_HOME = "C:\ProgramData\crowdstrike"
+crowdstrike-cli doctor
+```
+
+Under `CROWDSTRIKE_HOME=/srv/crowdstrike`, the four dirs resolve to `/srv/crowdstrike/config`, `/srv/crowdstrike/data`, `/srv/crowdstrike/state`, and `/srv/crowdstrike/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:CROWDSTRIKE_HOME = "C:\srv\crowdstrike"
+crowdstrike-cli doctor
+```
+
+Under `$env:CROWDSTRIKE_HOME = "C:\srv\crowdstrike"`, the four dirs resolve to `C:\srv\crowdstrike\config`, `C:\srv\crowdstrike\data`, `C:\srv\crowdstrike\state`, and `C:\srv\crowdstrike\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "crowdstrike": {
+      "command": "crowdstrike-mcp",
+      "env": {
+        "CROWDSTRIKE_HOME": "/srv/crowdstrike"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `CROWDSTRIKE_DATA_DIR` overrides an explicit `--home` for that kind. Use `CROWDSTRIKE_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `CROWDSTRIKE_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `crowdstrike-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `crowdstrike-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `crowdstrike-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `CROWDSTRIKE_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `CROWDSTRIKE_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -349,6 +432,49 @@ Manage spotlight
 - **`crowdstrike-cli spotlight query-vulnerabilities`** - Search for Vulnerabilities in your environment by providing an FQL filter and paging details. Returns a set of Vulnerability IDs which match the filter criteria
 
 
+### fleet
+
+
+- **`crowdstrike-cli fleet sync`** - Pull hosts, alerts, vulnerabilities, policies, and the Flight Control fabric from every child tenant into one local store keyed by CID. Requires a parent-CID API client with Flight Control (MSSP) scope; without it, sync degrades to the single authenticated CID.
+
+- **`crowdstrike-cli fleet scorecard`** - One posture board across all tenants: host count, sensor coverage, open critical alerts, critical vulns, and policy posture per CID.
+
+- **`crowdstrike-cli fleet vulns`** - Rank and filter Spotlight vulnerabilities across every tenant at once, by severity or CVE.
+
+- **`crowdstrike-cli fleet stale`** - Find hosts across all tenants whose sensor has not checked in within N days.
+
+- **`crowdstrike-cli fleet policy-drift`** - Diff each tenant's prevention policy settings against a baseline CID to surface under-protected tenants.
+
+- **`crowdstrike-cli fleet alerts`** - One severity-sorted new-alert queue spanning all tenants, from the local store.
+
+- **`crowdstrike-cli fleet search`** - Full-text search across synced hosts, alerts, vulnerabilities, and policies across all tenants, instantly and offline.
+
+- **`crowdstrike-cli fleet tenants`** - See the whole Flight Control fabric - every child CID, its CID groups, user groups, and role grants - as one offline roster.
+
+- **`crowdstrike-cli fleet remediate`** - Group fleet-wide exposure by remediation action - which single fix clears the most hosts and tenants.
+
+- **`crowdstrike-cli fleet trend`** - See which tenants got worse since the last sync - week-over-week deltas in open critical alerts and critical vulnerabilities.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`crowdstrike-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`crowdstrike-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`crowdstrike-cli learnings list`** - Inspect taught rows
+- **`crowdstrike-cli learnings forget <query>`** - Undo a teach
+- **`crowdstrike-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`crowdstrike-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`crowdstrike-cli teach-pattern`** - Install a query/resource template up front
+- **`crowdstrike-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `CROWDSTRIKE_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `crowdstrike-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -357,9 +483,8 @@ crowdstrike-cli incidents get
 
 # JSON for scripting and agents
 crowdstrike-cli incidents get --json
-
-# Filter to specific fields
-crowdstrike-cli incidents get --json --select id,name,status
+# Filter to specific fields by name
+crowdstrike-cli incidents get --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
 crowdstrike-cli incidents get --dry-run
@@ -368,21 +493,23 @@ crowdstrike-cli incidents get --dry-run
 crowdstrike-cli incidents get --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -394,16 +521,18 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/crowdstrike-cli/config.toml`
+Run `crowdstrike-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/crowdstrike-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\crowdstrike-cli\config.toml` on Windows; `--home`, `CROWDSTRIKE_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `CROWDSTRIKE_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `CROWDSTRIKE_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `FALCON_CLIENT_ID` | auth_flow_input | Yes | CrowdStrike API client ID (Falcon console > API Clients & Keys). |
-| `FALCON_CLIENT_SECRET` | auth_flow_input | Yes | Set during initial auth setup. |
+| `FALCON_CLIENT_SECRET` | auth_flow_input | Yes | CrowdStrike API client secret. Shown once at client creation. |
 
 ### agentcookie (optional)
 
@@ -411,23 +540,30 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### Keeping credentials off disk (optional)
 
-By default the connector caches the token it mints in the config file so the next
-command does not have to mint another one. Set `CROWDSTRIKE_NO_CONFIG_WRITE=1` to turn that
-off: nothing is written, and each run mints a fresh token instead. Use it when
-your secrets live in Keychain, Windows Credential Manager, or any launcher that
-injects them as environment variables at process start, and you do not want a
-plaintext copy on disk.
+By default the connector caches the token it mints in `credentials.toml` (mode 0600, in the
+data directory) when the client pair is stored there, so the next command does not have to
+mint another one. Set `CROWDSTRIKE_NO_CONFIG_WRITE=1` to turn that off: nothing is written,
+and each run mints a fresh token instead. Use it when your secrets live in Keychain, Windows
+Credential Manager, or any launcher that injects them as environment variables at process
+start, and you do not want a plaintext copy on disk.
 
 | What changes | With `CROWDSTRIKE_NO_CONFIG_WRITE=1` |
 | --- | --- |
 | Token cache | Not written. A fresh token is minted per invocation. |
 | `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
-| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
+| `auth logout` | Still clears existing stored credentials. The erase is not a credential write. |
 | MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
 
 Set it in the shell for CLI use, or through the install prompt of the same name
 for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
 turns it on. See issue #270.
+
+## Credential safety
+
+- Every API request and the bearer token go only to the scheme, host and port of `CROWDSTRIKE_BASE_URL` (default `https://api.crowdstrike.com`, US-1; set it to `https://api.us-2.crowdstrike.com`, `https://api.eu-1.crowdstrike.com` or `https://api.laggar.gcw.crowdstrike.com` for another cloud). The client ID and secret go only to the token URL: `CROWDSTRIKE_TOKEN_URL`, else `/oauth2/token` on that same cloud host, so an EU-1 or GovCloud client never posts its secret to US-1. A redirect to any other host is refused, so a credential never reaches it.
+- Any output, file, request, SQL statement, child process or MCP message that would repeat `FALCON_CLIENT_ID`, `FALCON_CLIENT_SECRET`, a minted token (Flight Control member_cid tokens included), `CROWDSTRIKE_MCP_HTTP_TOKEN` or a credential-named value from a response is withheld whole and replaced by a notice such as "[credkit: withheld from stdout: it carried a credential this program holds]". The same goes for 8 or more characters in a row of any of them, in the encodings the check knows, and for the password or query values of a URL setting (`CROWDSTRIKE_BASE_URL`, `CROWDSTRIKE_TOKEN_URL`, `CROWDSTRIKE_FEEDBACK_ENDPOINT`, `base_url` and `token_url` in the config file). Input read with `--stdin` is held as a whole, so a `--dry-run` preview of it prints the notice instead of the body. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential. A client ID and secret supplied by the environment are never written to disk, and nor is the token minted for them: the process keeps it in memory (the MCP server reuses it until it expires). A token is cached in `credentials.toml` only beside the client pair stored there (not at all under `CROWDSTRIKE_NO_CONFIG_WRITE=1`), and a token is only ever sent for the client and cloud it was minted for. `fleet sync` keeps each child CID's member_cid token in memory and sends it only for that CID.
+- `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes CrowdStrike (containing a host, deleting a policy or host group) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
