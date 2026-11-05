@@ -140,9 +140,9 @@
     "released_hash": "sha256:17a5bcfa43f8a3e01413ae6c92a295f09577106b0b78bd57556d5e2c1a78132b"
   },
   "cisco-umbrella": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "cisco-umbrella-v0.1.0",
     "current_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
     "released_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a"
   },
