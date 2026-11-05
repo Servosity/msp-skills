@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/rocketcyber-cli ./cmd/rocketcyber-cli
+	go build -trimpath -o bin/rocketcyber-cli$(BIN_EXT) ./cmd/rocketcyber-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/rocketcyber-mcp ./cmd/rocketcyber-mcp
+	go build -trimpath -o bin/rocketcyber-mcp$(BIN_EXT) ./cmd/rocketcyber-mcp
 
 install-mcp:
 	go install ./cmd/rocketcyber-mcp

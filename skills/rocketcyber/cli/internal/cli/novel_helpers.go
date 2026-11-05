@@ -5,6 +5,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"rocketcyber-pp-cli/internal/cliutil"
@@ -13,24 +14,30 @@ import (
 // parseEnvelope extracts the item array from a RocketCyber API response.
 // v3 list endpoints wrap results as {totalCount,currentPage,totalPages,data:[...]};
 // some surfaces return a bare array. total falls back to len(items) when the
-// envelope carries no totalCount.
-func parseEnvelope(data json.RawMessage) (items []json.RawMessage, total int64) {
-	if err := json.Unmarshal(data, &items); err == nil {
-		return items, int64(len(items))
+// envelope carries no totalCount. An answer that is neither (an error or
+// maintenance body, a missing or non-array data member, null) is an error,
+// never an empty list (rocketcyber handfix novel-missing-input-is-an-error).
+func parseEnvelope(data json.RawMessage) (items []json.RawMessage, total int64, err error) {
+	if err := json.Unmarshal(data, &items); err == nil && items != nil {
+		return items, int64(len(items)), nil
 	}
 	var probe map[string]json.RawMessage
-	if err := json.Unmarshal(data, &probe); err != nil {
-		return nil, 0
+	if err := json.Unmarshal(data, &probe); err != nil || probe == nil {
+		return nil, 0, fmt.Errorf("the answer is not a RocketCyber list")
 	}
-	if d, ok := probe["data"]; ok {
-		_ = json.Unmarshal(d, &items)
+	d, ok := probe["data"]
+	if !ok {
+		return nil, 0, fmt.Errorf("the answer carries no data list")
+	}
+	if err := json.Unmarshal(d, &items); err != nil || items == nil {
+		return nil, 0, fmt.Errorf("the answer's data member is not a list")
 	}
 	if t, ok := cliutil.ExtractInt(probe, "totalCount"); ok {
 		total = t
 	} else {
 		total = int64(len(items))
 	}
-	return items, total
+	return items, total, nil
 }
 
 // extractString returns the string value for key from a JSON probe map,

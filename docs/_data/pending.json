@@ -85,10 +85,10 @@
   },
   "backup-radar": {
     "state": "up-to-date",
-    "version": "0.1.2",
-    "latest_tag": "backup-radar-v0.1.2",
-    "current_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0",
-    "released_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0"
+    "version": "0.1.3",
+    "latest_tag": "backup-radar-v0.1.3",
+    "current_hash": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce",
+    "released_hash": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce"
   },
   "betterstack": {
     "state": "up-to-date",
@@ -392,11 +392,11 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "up-to-date",
-    "version": "0.1.6",
+    "state": "version-pending",
+    "version": "0.1.7",
     "latest_tag": "mspbots-v0.1.6",
-    "current_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557",
-    "released_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557"
+    "current_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
+    "released_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3"
   },
   "n-central": {
     "state": "up-to-date",
@@ -512,10 +512,10 @@
   },
   "rocketcyber": {
     "state": "up-to-date",
-    "version": "0.1.7",
-    "latest_tag": "rocketcyber-v0.1.7",
-    "current_hash": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068",
-    "released_hash": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068"
+    "version": "0.1.8",
+    "latest_tag": "rocketcyber-v0.1.8",
+    "current_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
+    "released_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6"
   },
   "rootly": {
     "state": "up-to-date",
@@ -589,10 +589,10 @@
   },
   "superops": {
     "state": "up-to-date",
-    "version": "0.1.13",
-    "latest_tag": "superops-v0.1.13",
-    "current_hash": "sha256:7d1c02548ab77e9fcf56466d446db77ff32c4abbbc8f95c9b920799b32fbfeb7",
-    "released_hash": "sha256:7d1c02548ab77e9fcf56466d446db77ff32c4abbbc8f95c9b920799b32fbfeb7"
+    "version": "0.1.14",
+    "latest_tag": "superops-v0.1.14",
+    "current_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e",
+    "released_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e"
   },
   "syncro": {
     "state": "up-to-date",

@@ -17,11 +17,15 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
 	"superops-pp-cli/internal/store"
 )
 
@@ -29,7 +33,9 @@ import (
 type rec map[string]any
 
 // queryRecs returns the decoded `data` objects for a resource type from the
-// local store's generic resources table.
+// local store's generic resources table. A row that cannot be read or decoded
+// fails the whole read: a silently skipped row would undercount every total
+// built on top of it.
 func queryRecs(db *store.Store, resourceType string) ([]rec, error) {
 	rows, err := db.Query(`SELECT data FROM resources WHERE resource_type = ?`, resourceType)
 	if err != nil {
@@ -40,28 +46,89 @@ func queryRecs(db *store.Store, resourceType string) ([]rec, error) {
 	for rows.Next() {
 		var data []byte
 		if err := rows.Scan(&data); err != nil {
-			continue
+			return nil, fmt.Errorf("reading %s row: %w", resourceType, err)
 		}
 		var r rec
-		if json.Unmarshal(data, &r) != nil {
-			continue
+		if err := json.Unmarshal(data, &r); err != nil {
+			return nil, fmt.Errorf("decoding %s row: %w", resourceType, err)
 		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
 }
 
-// openStoreForNovel opens the local store, returning a friendly error that
-// points at `sync` when the database is missing.
+// novelHinted records the commands that already printed a sync hint.
+var novelHinted sync.Map
+
+// loadRecs is queryRecs for a command: it also prints the sync hint for a
+// resource that was never synced or is stale, so an empty result is never
+// mistaken for "nothing to report". One hint per command is enough: a command
+// reading several resources would otherwise repeat the same line.
+func loadRecs(cmd *cobra.Command, db *store.Store, resourceType string) ([]rec, error) {
+	if _, done := novelHinted.Load(cmd); !done {
+		if hintIfUnsynced(cmd, db, resourceType) || hintIfStale(cmd, db, resourceType, 24*time.Hour) {
+			novelHinted.Store(cmd, true)
+		}
+	}
+	return queryRecs(db, resourceType)
+}
+
+// openStoreForNovel opens the local mirror for the read-only novel commands:
+// read-only when the schema exists (no write lock, so parallel reads never
+// fail SQLITE_BUSY), else read-write-migrate with a short retry for the
+// first-run create race. Under SUPEROPS_NO_LOCAL_DATA=1 it never creates or
+// migrates a store.
 func openStoreForNovel(ctx context.Context, dbPath string) (*store.Store, error) {
 	if dbPath == "" {
 		dbPath = defaultDBPath("superops-cli")
 	}
-	db, err := store.OpenWithContext(ctx, dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("opening local database: %w\nRun 'superops-cli sync' first.", err)
+	if st, ok := novelTryReadOnly(ctx, dbPath); ok {
+		return st, nil
 	}
-	return db, nil
+	if localDataDisabled() {
+		return nil, fmt.Errorf("no readable local store at %s, and %s=1 forbids creating one", dbPath, noLocalDataEnvVar)
+	}
+	var lastErr error
+	for attempt := 0; attempt < 8; attempt++ {
+		if st, ok := novelTryReadOnly(ctx, dbPath); ok {
+			return st, nil
+		}
+		st, err := store.OpenWithContext(ctx, dbPath)
+		if err == nil {
+			return st, nil
+		}
+		// A store of another tenant is refused for good; retrying only
+		// delays the refusal (superops-tenant-scope).
+		if errors.Is(err, store.ErrStoreTenant) {
+			return nil, err
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		time.Sleep(time.Duration(20*(attempt+1)) * time.Millisecond)
+	}
+	return nil, fmt.Errorf("opening local database: %w\nRun 'superops-cli sync' first.", lastErr)
+}
+
+// novelTryReadOnly opens a store read-only when it is this tenant's. A store
+// that records no tenant is refused read-only (superops-tenant-scope); the
+// read-write open in openStoreForNovel then claims it for this tenant when it
+// holds no rows, so a fresh --db or default store still reads as empty.
+func novelTryReadOnly(ctx context.Context, path string) (*store.Store, bool) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false
+	}
+	st, err := store.OpenReadOnlyContext(ctx, path)
+	if err != nil {
+		return nil, false
+	}
+	var one int
+	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+		_ = st.Close()
+		return nil, false
+	}
+	return st, true
 }
 
 // --- scalar / nested accessors -------------------------------------------
@@ -86,10 +153,19 @@ func recStr(r rec, key string) string {
 
 // nestedField returns the string value of sub inside a nested object field.
 // e.g. nestedField(ticket, "client", "name") -> ticket.client.name.
+// SuperOps types its association fields as JSON/String scalars (issue #114),
+// so the object may arrive decoded or as a JSON-encoded string; both resolve.
 func nestedField(r rec, key, sub string) string {
 	v, ok := r[key]
 	if !ok || v == nil {
 		return ""
+	}
+	if s, isStr := v.(string); isStr {
+		var decoded map[string]any
+		if json.Unmarshal([]byte(s), &decoded) != nil {
+			return ""
+		}
+		v = decoded
 	}
 	m, ok := v.(map[string]any)
 	if !ok {
@@ -624,6 +700,6 @@ func buildTicketContext(ticketID string, tickets, worklogs []rec) (TicketContext
 			out.Worklogs = append(out.Worklogs, w)
 		}
 	}
-	out.Note = "conversation and note threads are not synced locally; fetch live with 'superops-cli tickets get " + ticketID + "'"
+	out.Note = "conversation and note threads are not included; read them in the SuperOps console or with 'superops-cli raw query'"
 	return out, true
 }

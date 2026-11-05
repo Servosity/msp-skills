@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "rocketcyber-mcp",
   "display_name": "RocketCyber",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
   "author": {
     "name": "Servosity Inc."
@@ -16,7 +16,12 @@
       "args": [],
       "env": {
         "ROCKETCYBER_API_TOKEN": "${user_config.rocketcyber_api_token}",
-        "ROCKETCYBER_BASE_URL": "${user_config.rocketcyber_base_url}"
+        "ROCKETCYBER_BASE_URL": "${user_config.rocketcyber_base_url}",
+        "ROCKETCYBER_MCP_READ_ONLY": "${user_config.rocketcyber_mcp_read_only}",
+        "ROCKETCYBER_NO_LOCAL_DATA": "${user_config.rocketcyber_no_local_data}",
+        "ROCKETCYBER_MCP_HTTP_TOKEN": "${user_config.rocketcyber_mcp_http_token}",
+        "ROCKETCYBER_USER_AGENT": "${user_config.rocketcyber_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,6 +39,41 @@
       "description": "Base URL for the RocketCyber API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://api-us.rocketcyber.com/v3"
+    },
+    "rocketcyber_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "rocketcyber_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "rocketcyber_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "rocketcyber_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on RocketCyber requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -44,11 +84,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:19:25.763972Z",
-    "spec_checksum": "sha256:406b76914cddb89289e9b6f6034e6df8f3a3e818e37dfc370d5d2de29ff092b7",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-30T11:16:44.353219Z",
+    "spec_checksum": "sha256:8b23871008a0a6ef956bb7708f99bef3d815f41af8d90f1dcb173c9b2e2a5350",
     "spec_format": "internal"
   }
 }

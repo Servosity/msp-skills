@@ -525,7 +525,7 @@ A: No. The ScalePad API key (BACKUP_RADAR_API_KEY, v3) powers health, devices, b
 Q: Will this hit my Backup Radar or ScalePad API rate limits?
 A: The analysis commands read the local mirror, so the daily API cost is one sync: v3 client health with a year of history, v3 devices with 90 days, and the v2 backups lists with 31 days. The client sends at most 2 requests per second by default (--rate-limit).
 Q: Can an AI agent retire backups by mistake?
-A: backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first.
+A: backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, --server-dry-run (the request is sent and nothing is retired; the global --dry-run sends nothing). stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first.
 Q: Does it work for EU ScalePad tenants?
 A: Yes. Set BACKUP_RADAR_BASE_URL to https://eu.api.scalepad.com/backup-radar/v3 (the default is the US host). The Backup Radar API v2 has a single host, https://api.backupradar.com.
 
@@ -2073,7 +2073,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way mspbots-mcp runs, and shares MCP configuration with Codex: add mspbots-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way mspbots-mcp runs, and shares MCP configuration with Codex: add mspbots-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my MSPbots data safe?
@@ -2708,7 +2708,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web needs a remote server: you host rocketcyber-mcp over HTTPS with ROCKETCYBER_MCP_HTTP_TOKEN set, and it works only if your ChatGPT connector can send that bearer token (see the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your RocketCyber API token once.
 Q: Is my RocketCyber data safe?
@@ -2718,7 +2718,7 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 Q: What RocketCyber access do I need?
 A: A RocketCyber provider account and an API token you generate in the RocketCyber app. The skill talks to the RocketCyber Customer API v3 (US region by default; set ROCKETCYBER_BASE_URL for the EU endpoint) and reads your own SOC data - incidents, agents, detection events, Defender, Microsoft 365 posture, and suppression rules - scoped to the accounts your token can see.
 
-Governance: The skill reads your RocketCyber SOC data - incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules - and computes the analytics locally. The only command that writes to the API is `import` (create/upsert from a JSONL file), and it supports `--dry-run` to preview every request before sending. `auth set-token` and `auth logout` manage your stored credential. Keep autonomous agents on read plus previewed imports, and require a human for credential changes.
+Governance: The skill reads your RocketCyber SOC data - incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules - and computes the analytics locally. The RocketCyber Customer API is read-only, so no command changes anything in RocketCyber. Local commands (`teach`, `profile save`, `feedback`, `local-data purge`) write only to this machine, and `local-data purge` is a dry run unless you pass `--yes`. `auth set-token` and `auth logout` manage your stored credential. Let autonomous agents read, and require a human for credential changes and for erasing local data.
 
 ### Rootly (Incident Response)
 
@@ -3117,12 +3117,12 @@ Outcomes (question -> command your AI agent runs):
 - Which open tickets has nobody touched in a week? -> superops-cli stale-tickets --days 7
 - Everything about one client - sites, users, contracts, tickets, assets, open invoices? -> superops-cli client-360 "Acme Corp"
 - Where is billable time concentrated before this month's invoicing? -> superops-cli unbilled --since 2026-05-01
-- Give my triage agent one ticket with its worklogs, client, and SLA in a single read -> superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name
+- Give my triage agent one ticket with its worklogs, client, and SLA in a single read -> superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name,worklogs
 - Search every synced ticket, asset, and client for "disk full" -> superops-cli search "disk full"
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way superops-mcp runs, and shares MCP configuration with Codex: add superops-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way superops-mcp runs, and shares MCP configuration with Codex: add superops-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my SuperOps data safe?
@@ -3132,11 +3132,11 @@ A: The local mirror exists so reads stop hitting the API. After the first `sync`
 Q: Does it work with the US and EU SuperOps regions?
 A: Yes. The US host is the default; set SUPEROPS_REGION=eu to target the EU host (euapi.superops.ai). Your tenant subdomain goes in SUPEROPS_SUBDOMAIN, which the CLI sends as the CustomerSubDomain header on every request.
 Q: Can it create or update tickets?
-A: The typed commands are read-only by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example createTicket, updateTicket, resolveAlerts). Pair it with --dry-run to preview the exact GraphQL request, and keep a human in the loop; `raw query` is the read-only counterpart.
+A: The typed commands are read-only by design - inspection, export, sync, and analysis. The one write path is raw mutation, the supported escape hatch for operations the typed commands don't wrap (for example createTicket, updateTicket, resolveAlerts). Without --yes it prints the exact GraphQL request and sends nothing; add --yes to send. Over MCP, raw_mutation can only preview (the MCP server never passes --yes), and GraphQL variables go inline in the document because the separate vars field is not offered there. raw query is the read-only counterpart and refuses any document that is not a query. Keep a human in the loop for every send.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`; the recommended policy is to preview it with --dry-run, show the exact GraphQL request, get approval, then run. The strongest control is the scope of the API token you mint.
+Governance: The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`, which prints the exact GraphQL request and sends nothing without --yes; over MCP it can only preview. The recommended policy: preview, show the request, get approval, then run with --yes. The strongest control is the scope of the API token you mint.
 
 ### Syncro (PSA)
 

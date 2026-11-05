@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/superops-cli ./cmd/superops-cli
+	go build -trimpath -o bin/superops-cli$(BIN_EXT) ./cmd/superops-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/superops-mcp ./cmd/superops-mcp
+	go build -trimpath -o bin/superops-mcp$(BIN_EXT) ./cmd/superops-mcp
 
 install-mcp:
 	go install ./cmd/superops-mcp

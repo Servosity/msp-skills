@@ -19,7 +19,7 @@ func newBackupsRetireCmd(flags *rootFlags) *cobra.Command {
 	var bodyClosePsaTickets bool
 	var bodyDeviceId string
 	var bodyDeviceName string
-	var bodyDryRun bool
+	var bodyServerDryRun bool
 	var bodyJobName string
 	var bodyNoResultIn int
 	var bodyReason string
@@ -28,7 +28,7 @@ func newBackupsRetireCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "retire",
 		Short:       "Retires backups that match the supplied filters (v3 key). Filters are exact (case-insensitive) and combined with AND.",
-		Example:     "  backup-radar-cli backups retire --client-id 0042a52b-6a34-44d7-b0b7-5600849ca5a4 --dry-run --no-result-in 30 --reason 'Removed from the backup portal during nightly reconciliation'",
+		Example:     "  backup-radar-cli backups retire --client-id 0042a52b-6a34-44d7-b0b7-5600849ca5a4 --server-dry-run --no-result-in 30 --reason 'Removed from the backup portal during nightly reconciliation'",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "backups.retire", "pp:method": "POST", "pp:path": "/backups/retire", "pp:requires-input": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,10 +71,11 @@ func newBackupsRetireCmd(flags *rootFlags) *cobra.Command {
 				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
 					return fmt.Errorf("parsing stdin JSON: %w", err)
 				}
-				// HAND-FIX(retire-stdin-dry-run): --dry-run here is the body flag
-				// (it shadows the global one); honor it for stdin bodies too.
-				if cmd.Flags().Changed("dry-run") && jsonBody != nil {
-					jsonBody["dry_run"] = bodyDryRun
+				// HAND-FIX(retire-stdin-dry-run): the vendor's own preview is
+				// --server-dry-run (body dry_run), honored for stdin bodies too. The
+				// global --dry-run is never a body field: it sends nothing.
+				if cmd.Flags().Changed("server-dry-run") && jsonBody != nil {
+					jsonBody["dry_run"] = bodyServerDryRun
 				}
 				body = jsonBody
 			} else {
@@ -95,8 +96,8 @@ func newBackupsRetireCmd(flags *rootFlags) *cobra.Command {
 				if cmd.Flags().Changed("device-name") || bodyDeviceName != "" {
 					bodyMap["device_name"] = bodyDeviceName
 				}
-				if cmd.Flags().Changed("dry-run") {
-					bodyMap["dry_run"] = bodyDryRun
+				if cmd.Flags().Changed("server-dry-run") { // HAND-FIX(retire-stdin-dry-run)
+					bodyMap["dry_run"] = bodyServerDryRun
 				}
 				if cmd.Flags().Changed("job-name") || bodyJobName != "" {
 					bodyMap["job_name"] = bodyJobName
@@ -270,7 +271,9 @@ func newBackupsRetireCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyClosePsaTickets, "close-psa-tickets", false, "When false, related tickets stay in Backup Radar only. (default: false)")
 	cmd.Flags().StringVar(&bodyDeviceId, "device-id", "", "ScalePad device id.")
 	cmd.Flags().StringVar(&bodyDeviceName, "device-name", "", "Exact device name. Matches the ScalePad device name when the device is mapped; otherwise the Backup Radar device name.")
-	cmd.Flags().BoolVar(&bodyDryRun, "dry-run", false, "When true, return the match set and do not retire anything. (default: false)")
+	// HAND-FIX(retire-stdin-dry-run): the vendor's body field dry_run is --server-dry-run, a real
+	// (non-destructive) request; a local --dry-run here would shadow the global one and send.
+	cmd.Flags().BoolVar(&bodyServerDryRun, "server-dry-run", false, "Ask Backup Radar to return the match set and retire nothing (sends the request with dry_run: true; the global --dry-run sends nothing)")
 	cmd.Flags().StringVar(&bodyJobName, "job-name", "", "Exact backup job name. Matching is case-insensitive.")
 	cmd.Flags().IntVar(&bodyNoResultIn, "no-result-in", 0, "Retire backups with no result received in the last N days, including backups that have never received a result.")
 	cmd.Flags().StringVar(&bodyReason, "reason", "", "Note stored on each retired backup and in the retire activity log.")

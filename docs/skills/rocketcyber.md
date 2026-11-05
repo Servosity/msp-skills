@@ -12,7 +12,7 @@ faqs:
   - q: "Is the RocketCyber MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `ROCKETCYBER_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `ROCKETCYBER_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web needs a remote server: you host rocketcyber-mcp over HTTPS with ROCKETCYBER_MCP_HTTP_TOKEN set, and it works only if your ChatGPT connector can send that bearer token (see the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your RocketCyber API token once."
   - q: "Is my RocketCyber data safe?"
@@ -124,11 +124,11 @@ After install, authenticate once with your RocketCyber credentials, then verify 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | triage, incidents, agents (+ stale), defender (+ riskiest), events list/summary, office trend, suppression rules/audit, reports, search, sync | Allow |
-| Write (routine) | import <resource> (create/upsert from a JSONL file) | Preview with --dry-run, then a reviewed write |
+| Read | triage, incidents, agents (+ stale), defender (+ riskiest), events list/summary, office trend, suppression rules/audit, reports, search, sync, export, tail | Allow |
+| Local only | teach, profile save/delete, feedback (local unless --send to a configured endpoint), local-data purge (dry run unless --yes) | Allow; require a human for local-data purge --yes |
 | Credential / config | auth set-token, auth logout | Human-in-the-loop only |
 
-The skill reads your RocketCyber SOC data - incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules - and computes the analytics locally. The only command that writes to the API is `import` (create/upsert from a JSONL file), and it supports `--dry-run` to preview every request before sending. `auth set-token` and `auth logout` manage your stored credential. Keep autonomous agents on read plus previewed imports, and require a human for credential changes. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/rocketcyber/governance.md).
+The skill reads your RocketCyber SOC data - incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules - and computes the analytics locally. The RocketCyber Customer API is read-only, so no command changes anything in RocketCyber. Local commands (`teach`, `profile save`, `feedback`, `local-data purge`) write only to this machine, and `local-data purge` is a dry run unless you pass `--yes`. `auth set-token` and `auth logout` manage your stored credential. Let autonomous agents read, and require a human for credential changes and for erasing local data. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/rocketcyber/governance.md).
 
 ## Frequently asked questions
 
@@ -142,7 +142,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rocketcyber-mcp runs, and shares MCP configuration with Codex: add rocketcyber-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web needs a remote server: you host rocketcyber-mcp over HTTPS with ROCKETCYBER_MCP_HTTP_TOKEN set, and it works only if your ChatGPT connector can send that bearer token (see the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

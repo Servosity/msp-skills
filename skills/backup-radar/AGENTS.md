@@ -31,9 +31,9 @@ backup-radar-cli push --help
 backup-radar-cli push --from results.csv --dry-run --agent
 ```
 
-`backups retire --dry-run` is different: it is the API's own preview flag, so the request is sent with `dry_run: true`.
+`--dry-run` sends nothing on every command. `backups retire --server-dry-run` is the API's own preview: it sends the request with `dry_run: true` and retires nothing (a `--stdin` body with `dry_run: true` does the same).
 
-No command here asks for confirmation: `backups ingest`, `backups retire` (without `--dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --dry-run` first.
+No command here asks for confirmation: `backups ingest`, `backups retire` (without `--server-dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --server-dry-run` first.
 
 ## Novel Command Data Sources
 

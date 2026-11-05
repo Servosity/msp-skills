@@ -34,7 +34,7 @@
           "name": "resourceId",
           "type": "string",
           "location": "path",
-          "description": "Dataset resource ID (19-digit snowflake from the MSPbots app)",
+          "description": "Dataset resource ID, the 19-digit snowflake from the MSPbots app (e.g. 1534956341424005122)",
           "required": true
         },
         {
@@ -69,7 +69,7 @@
           "name": "resourceId",
           "type": "string",
           "location": "path",
-          "description": "Widget resource ID (19-digit snowflake from the MSPbots app)",
+          "description": "Widget resource ID, the 19-digit snowflake from the MSPbots app (e.g. 1534956341424005122)",
           "required": true
         },
         {

@@ -95,7 +95,7 @@ Capture snapshots first with 'snapshot'.`, "\n"),
 				}
 			} else {
 				if len(snaps) < 2 {
-					return notFoundErr(fmt.Errorf("alias %q has %d snapshot(s); need at least 2 — run 'mspbots-cli snapshot %s' again later", alias, len(snaps), alias))
+					return notFoundErr(fmt.Errorf("a second snapshot of alias %q not found (it has %d; diff needs 2); run 'mspbots-cli snapshot %s' again later", alias, len(snaps), alias))
 				}
 				toMeta = &snaps[0]
 				fromMeta = &snaps[1]

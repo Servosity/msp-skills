@@ -33,7 +33,11 @@ type auditView struct {
 	StaleAfter       string      `json:"stale_after"`
 	StaleActiveRules []auditRule `json:"stale_active_rules"`
 	RecentlyChanged  []auditRule `json:"recently_changed"`
-	Note             string      `json:"note,omitempty"`
+	// Incomplete: the API counted more rules than it answered (one page), so
+	// the counts and stale list cover only the rules shown (rocketcyber
+	// handfix novel-scan-caps-said).
+	Incomplete bool   `json:"incomplete"`
+	Note       string `json:"note,omitempty"`
 }
 
 // classifySuppressionRules classifies rules by status and last-touched age:
@@ -105,7 +109,7 @@ Do NOT use it to fetch one rule's raw config; use 'suppression rule <ruleId>'.
   rocketcyber-cli suppression audit --stale-after 90d --json
   rocketcyber-cli suppression audit --account-id 2 --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -135,12 +139,18 @@ Do NOT use it to fetch one rule's raw config; use 'suppression rule <ruleId>'.
 			}
 			data, err := c.Get(cmd.Context(), "/suppression/rules", params)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			items, _ := parseEnvelope(data)
+			items, total, err := parseEnvelope(data)
+			if err != nil {
+				return fmt.Errorf("/suppression/rules: %w; no audit", err)
+			}
 			view := classifySuppressionRules(items, time.Now().UTC(), staleAfter)
 			view.StaleAfter = flagStaleAfter
-			if view.TotalRules == 0 {
+			if total > int64(len(items)) {
+				view.Incomplete = true
+				view.Note = fmt.Sprintf("RocketCyber counted %d rules and answered %d; the audit covers only the rules answered", total, len(items))
+			} else if view.TotalRules == 0 {
 				view.Note = "no suppression rules returned for this scope"
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)

@@ -55,9 +55,7 @@
    "local-data"
   ],
   "backup-radar": [
-   "mcp-stdio",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "betterstack": [
    "mcp-http",
@@ -207,11 +205,6 @@
    "read-only",
    "local-data"
   ],
-  "mspbots": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "n-central": [
    "mcp-http",
    "read-only",
@@ -283,11 +276,6 @@
    "read-only",
    "local-data"
   ],
-  "rocketcyber": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "rootly": [
    "mcp-http",
    "write-gating",
@@ -328,11 +316,6 @@
   ],
   "sophos-central": [
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "superops": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],

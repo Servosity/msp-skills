@@ -139,6 +139,11 @@ type Snapshot struct {
 	// Synced records which collections completed a sync attempt (or kept
 	// rows from one), so reports can say "skipped" instead of "nothing found".
 	Synced map[string]bool
+	// Incomplete records which collections' last sync attempt did not finish
+	// (a --max-pages cap, a failed page, an interrupted run): rows kept from
+	// it are read, and every report names the collection as incomplete
+	// (class incomplete-paging-read-as-complete, Codex r1 4.34.2 review).
+	Incomplete map[string]bool
 }
 
 // AnySynced reports whether any report collection (v3 or v2) was synced.

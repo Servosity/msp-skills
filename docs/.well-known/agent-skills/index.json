@@ -90,7 +90,7 @@
       "type": "skill-md",
       "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching. Trigger phrases: `which backups is nobody watching`, `morning backup check`, `backup compliance for a client`, `retire stale backups`, `backup radar failures today`, `use backup-radar`, `run backup-radar`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/SKILL.md",
-      "digest": "sha256:019d52842e0d2f2f344b152965005ae4eb45d3047dd4b53fc63bbfbbb170722a"
+      "digest": "sha256:2124eb6e7bfd75e8e1e097166dfd80d4b8ba793a8e9fd6c458018af5db029ac4"
     },
     {
       "name": "betterstack",
@@ -398,7 +398,7 @@
       "type": "skill-md",
       "description": "The first MSPbots tool anywhere - readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Trigger phrases: `pull the open tickets dataset from MSPbots`, `export MSPbots data to CSV`, `snapshot our MSPbots KPIs`, `is our ticket backlog up or down this week`, `what columns does this MSPbots dataset have`, `use mspbots`, `run mspbots-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/SKILL.md",
-      "digest": "sha256:0dca93b1549196c3d4ee7cc36e7a8b8a735ee813972517f297e7decd602345c4"
+      "digest": "sha256:fb60f39e7d754515c65bc90ad5dab2c0abbd3db2977ce7af3d30b8dd014ba91e"
     },
     {
       "name": "n-central",
@@ -517,7 +517,7 @@
       "type": "skill-md",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes. Trigger phrases: `check rocketcyber incidents`, `soc triage board`, `which rocketcyber agents are offline`, `rocketcyber secure score trend`, `audit rocketcyber suppression rules`, `use rocketcyber`, `run rocketcyber-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/SKILL.md",
-      "digest": "sha256:b928dcc2e2dd914079875653f378e40f4fd5f880dc01ad9fc03f3a62225e53e0"
+      "digest": "sha256:c7042fc2accc5f524b04c37b681724de905002dc9f5587320d2e98ea5a63823c"
     },
     {
       "name": "rootly",
@@ -594,7 +594,7 @@
       "type": "skill-md",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Trigger phrases: `list superops tickets`, `which tickets are breaching sla`, `show unbilled worklog in superops`, `assets missing patches with open tickets`, `client 360 in superops`, `use superops`, `run superops`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/superops/SKILL.md",
-      "digest": "sha256:3609d0592fbfb97bb69f0b5e2a7db6a1554d8da505e82bfcacf2fb26839e3a8a"
+      "digest": "sha256:54c34925b48c8a9b40a80d4a1d1e490e9ac662c35fc19cbf6673a827a2ad2f63"
     },
     {
       "name": "syncro",

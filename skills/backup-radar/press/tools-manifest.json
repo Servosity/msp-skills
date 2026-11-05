@@ -1,0 +1,605 @@
+{
+  "api_name": "backup-radar",
+  "base_url": "https://api.scalepad.com/backup-radar/v3",
+  "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "x-api-key",
+    "in": "header",
+    "env_vars": [
+      "BACKUP_RADAR_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "BACKUP_RADAR_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://developer.scalepad.com/docs/getting-started"
+  },
+  "tier_routing": {
+    "tiers": {
+      "v2": {
+        "base_url": "https://api.backupradar.com",
+        "auth": {
+          "type": "api_key",
+          "header": "ApiKey",
+          "in": "header",
+          "env_vars": [
+            "BACKUP_RADAR_V2_API_KEY"
+          ],
+          "env_var_specs": [
+            {
+              "name": "BACKUP_RADAR_V2_API_KEY",
+              "kind": "per_call",
+              "required": true,
+              "sensitive": true,
+              "inferred": true
+            }
+          ]
+        },
+        "allow_cross_host_auth": true
+      }
+    }
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "backups_filters",
+      "description": "Returns the available filters, such as tags, companies, statuses, and more (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY).",
+      "method": "GET",
+      "path": "/backups/filters",
+      "tier": "v2",
+      "params": []
+    },
+    {
+      "name": "backups_get",
+      "description": "Returns the backup data for a specific day (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Required: backupId. Optional: date.",
+      "method": "GET",
+      "path": "/backups/{backupId}",
+      "tier": "v2",
+      "params": [
+        {
+          "name": "backupId",
+          "type": "int",
+          "location": "path",
+          "description": "The unique identifier of the backup (e.g. 4421).",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "The date for which to retrieve the backup data. (Example: 2018-02-14)."
+        }
+      ]
+    },
+    {
+      "name": "backups_inactive",
+      "description": "Returns inactive backups that are ready to be activated (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Optional: SearchByCompanyName, SearchByDeviceName, SearchByJobName (plus 5 more).",
+      "method": "GET",
+      "path": "/backups/inactive",
+      "tier": "v2",
+      "params": [
+        {
+          "name": "SearchByCompanyName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by company name."
+        },
+        {
+          "name": "SearchByDeviceName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by device name."
+        },
+        {
+          "name": "SearchByJobName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by job name."
+        },
+        {
+          "name": "SearchByBackupMethod",
+          "type": "string",
+          "location": "query",
+          "description": "Search by backup method."
+        },
+        {
+          "name": "SearchByEmailFrom",
+          "type": "string",
+          "location": "query",
+          "description": "Search by email."
+        },
+        {
+          "name": "SearchByBackupType",
+          "type": "string",
+          "location": "query",
+          "description": "Search by backup type."
+        },
+        {
+          "name": "Page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to get from the API. Default: 1."
+        },
+        {
+          "name": "Size",
+          "type": "int",
+          "location": "query",
+          "description": "Size of the page to get from the API. Default: 50. Max page size: 1000."
+        }
+      ]
+    },
+    {
+      "name": "backups_ingest",
+      "description": "Accepts a root JSON array of backup entries (v3 key). Each entry identifies a device, job, and client, and may include result collections for backups, replications, verifications, boot verifications, and alerts. The entire batch is rejected when any entry fails validation. The total number of results across all collections in a request must not exceed 10,000. A successful request is acknowledged with an empty `202 Accepted` response. Accepted results are queued for asynchronous processing by the backup results saver pipeline. Uses the ScalePad API key (BACKUP_RADAR_API_KEY).",
+      "method": "POST",
+      "path": "/backups",
+      "params": []
+    },
+    {
+      "name": "backups_list",
+      "description": "Returns scheduled backups that match the specified filters and are paginated accordingly (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Optional: Page, Size, SearchByCompanyName (plus 20 more).",
+      "method": "GET",
+      "path": "/backups",
+      "tier": "v2",
+      "params": [
+        {
+          "name": "Page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to get from the API. Default: 1."
+        },
+        {
+          "name": "Size",
+          "type": "int",
+          "location": "query",
+          "description": "Size of the page to get from the API. Default: 50. Max page size: 1000."
+        },
+        {
+          "name": "SearchByCompanyName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by company name."
+        },
+        {
+          "name": "SearchByDeviceName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by device name."
+        },
+        {
+          "name": "SearchByJobName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by job name."
+        },
+        {
+          "name": "SearchByBackupMethod",
+          "type": "string",
+          "location": "query",
+          "description": "Search by backup method."
+        },
+        {
+          "name": "SearchByTooltip",
+          "type": "string",
+          "location": "query",
+          "description": "Search by backup note."
+        },
+        {
+          "name": "SearchByTag",
+          "type": "string",
+          "location": "query",
+          "description": "Search by tag."
+        },
+        {
+          "name": "DaysWithoutSuccess",
+          "type": "int",
+          "location": "query",
+          "description": "Filter by days without success."
+        },
+        {
+          "name": "HistoryDays",
+          "type": "int",
+          "location": "query",
+          "description": "Count of days to get backup history. Default: 0 days(without history). Maximum: 31 days."
+        },
+        {
+          "name": "FilterScheduled",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter only scheduled backups."
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "Date from (Example: 2018-02-14)."
+        },
+        {
+          "name": "searchString",
+          "type": "string",
+          "location": "query",
+          "description": "Search string."
+        },
+        {
+          "name": "companies",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by companies."
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by tags."
+        },
+        {
+          "name": "excludeTags",
+          "type": "array",
+          "location": "query",
+          "description": "Exclude the policies with the specific tags."
+        },
+        {
+          "name": "backupMethods",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by backup methods."
+        },
+        {
+          "name": "deviceTypes",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "excludeDeviceTypes",
+          "type": "array",
+          "location": "query",
+          "description": "Exclude the policies with the specific device types."
+        },
+        {
+          "name": "statuses",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by statuses."
+        },
+        {
+          "name": "policyIds",
+          "type": "array",
+          "location": "query",
+          "description": "Include only the policies with the listed Ids."
+        },
+        {
+          "name": "excludeBackupMethods",
+          "type": "array",
+          "location": "query",
+          "description": "Exclude the policies with the specific backup methods."
+        },
+        {
+          "name": "policyTypes",
+          "type": "array",
+          "location": "query",
+          "description": "Filter by policy type."
+        }
+      ]
+    },
+    {
+      "name": "backups_overview",
+      "description": "Returns the counts of policies, backups, servers, and workstations (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY).",
+      "method": "GET",
+      "path": "/backups/overview",
+      "tier": "v2",
+      "params": []
+    },
+    {
+      "name": "backups_results",
+      "description": "Returns all backup results for the given date (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Required: backupId. Optional: date.",
+      "method": "GET",
+      "path": "/backups/{backupId}/results",
+      "tier": "v2",
+      "params": [
+        {
+          "name": "backupId",
+          "type": "int",
+          "location": "path",
+          "description": "The unique identifier of the backup (e.g. 4421).",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "location": "query",
+          "description": "The date for which to retrieve backup results. (Example: 2018-02-14)."
+        }
+      ]
+    },
+    {
+      "name": "backups_retire",
+      "description": "Retires backups that match the supplied filters (v3 key). Filters are exact (case-insensitive) and combined with AND. `reason` is required. At least one filter is required. Set `dry_run` to `true` to preview every match without retiring anything. A live request retires every match and returns the full retired set. Tenant-level API keys are allowed. A user-tied key must belong to a tenant administrator or a user with the Retire Backup permission. Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Required: reason. Optional: client_id, client_name, close_psa_tickets (default: false) (plus 5 more).",
+      "method": "POST",
+      "path": "/backups/retire",
+      "params": [
+        {
+          "name": "client_id",
+          "type": "string",
+          "location": "body",
+          "description": "ScalePad Core client id. Matches only devices linked to that client. Unmapped devices are excluded."
+        },
+        {
+          "name": "client_name",
+          "type": "string",
+          "location": "body",
+          "description": "Exact client name. Matches the ScalePad client name when the device is mapped; otherwise the Backup Radar company name. Matching is case-insensitive."
+        },
+        {
+          "name": "close_psa_tickets",
+          "type": "bool",
+          "location": "body",
+          "description": "When false, related tickets stay in Backup Radar only. When true, Backup Radar also attempts to close the ticket in the connected PSA."
+        },
+        {
+          "name": "device_id",
+          "type": "string",
+          "location": "body",
+          "description": "ScalePad device id."
+        },
+        {
+          "name": "device_name",
+          "type": "string",
+          "location": "body",
+          "description": "Exact device name. Matches the ScalePad device name when the device is mapped; otherwise the Backup Radar device name. Matching is case-insensitive."
+        },
+        {
+          "name": "dry_run",
+          "type": "bool",
+          "location": "body",
+          "description": "When true, return the match set and do not retire anything."
+        },
+        {
+          "name": "job_name",
+          "type": "string",
+          "location": "body",
+          "description": "Exact backup job name. Matching is case-insensitive."
+        },
+        {
+          "name": "no_result_in",
+          "type": "int",
+          "location": "body",
+          "description": "Retire backups with no result received in the last N days, including backups that have never received a result."
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "body",
+          "description": "Note stored on each retired backup and in the retire activity log.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backups_retired",
+      "description": "Returns backups that have been retired (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Optional: SearchByCompanyName, SearchByDeviceName, SearchByJobName (plus 8 more).",
+      "method": "GET",
+      "path": "/backups/retired",
+      "tier": "v2",
+      "params": [
+        {
+          "name": "SearchByCompanyName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by company name."
+        },
+        {
+          "name": "SearchByDeviceName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by device name."
+        },
+        {
+          "name": "SearchByJobName",
+          "type": "string",
+          "location": "query",
+          "description": "Search by job name."
+        },
+        {
+          "name": "SearchByBackupMethod",
+          "type": "string",
+          "location": "query",
+          "description": "Search by backup method."
+        },
+        {
+          "name": "SearchByEmailFrom",
+          "type": "string",
+          "location": "query",
+          "description": "Search by email."
+        },
+        {
+          "name": "SearchByRetireMessage",
+          "type": "string",
+          "location": "query",
+          "description": "Search by retire message."
+        },
+        {
+          "name": "SearchByRetiredBy",
+          "type": "string",
+          "location": "query",
+          "description": "Search by user who retired backup."
+        },
+        {
+          "name": "SearchByRetiredDateStart",
+          "type": "string",
+          "location": "query",
+          "description": "Search by retired backup date start."
+        },
+        {
+          "name": "SearchByRetiredDateEnd",
+          "type": "string",
+          "location": "query",
+          "description": "Search by retired backup date end."
+        },
+        {
+          "name": "Page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to get from the API. Default: 1."
+        },
+        {
+          "name": "Size",
+          "type": "int",
+          "location": "query",
+          "description": "Size of the page to get from the API. Default: 50. Max page size: 1000."
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Returns a cursor-paginated list of backup devices whose names match the optional filters (v3 key). Each item includes the device's last result and per-day SLA history for the requested window, ending on the tenant's current local date. Devices are returned whether or not their Backup Radar company is mapped to a ScalePad company. When a device is not mapped, the ScalePad-specific fields (`device_id`, `device_name`, and the `client` `name`/`client_id`) are null. Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Optional: page_size (default: 100), history_days, sort (plus 3 more).",
+      "method": "GET",
+      "path": "/clients/devices",
+      "params": [
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items per page. Must be between 1 and 200. Defaults to 100 when omitted."
+        },
+        {
+          "name": "history_days",
+          "type": "int",
+          "location": "query",
+          "description": "Number of calendar days of backup history to return, ending on the tenant's current local date. Must be between 1 and 365."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order for a single field. **Syntax** - `field` or `+field`: ascending - `-field`: descending **Supported fields** - `device_name` - `device_id` **Examples** - `sort=device_name` - `sort=+device_name` - `sort=-device_name` - `sort=device_id` - `sort=-device_id`"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The cursor from the previous response (`next_cursor`). Pass it here to fetch the next page."
+        },
+        {
+          "name": "device_name",
+          "wire_name": "filter[device_name]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter on device name using the operators below. Prefers the ScalePad `device_name` when the device is mapped; when it is not mapped to a ScalePad device, filters against `br_device_name` instead. **Operators:** `eq` (equality; this is the default) and `in` (match any value in the list). Use double quotes for values when the value contains a comma, a colon, or spaces. **Equality examples:** - `filter[device_name]=Server-01` - `filter[device_name]=eq:Server-01` - `filter[device_name]=eq:'Server, Primary'` - `filter[device_name]=eq:'Server: Primary'` **List examples:** - `filter[device_name]=in:Device-01,Device-02` - `filter[device_name]=in:Device-01,'Device, Primary'`"
+        },
+        {
+          "name": "device_id",
+          "wire_name": "filter[device_id]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter on `device_id` (ScalePad device id) using the operators below. Devices that are not mapped to a ScalePad device are excluded when this filter is applied. **Operators:** `eq` (equality; this is the default) and `in` (match any value in the list). **Equality examples:** - `filter[device_id]=9999999b-6d54-44d7-b0b7-5600849ca5a4` - `filter[device_id]=eq:9999999b-6d54-44d7-b0b7-5600849ca5a4` **List examples:** - `filter[device_id]=in:9999999b-6d54-44d7-b0b7-5600849ca5a4,0aaaaaab-1111-2222-3333-444444444444`"
+        }
+      ]
+    },
+    {
+      "name": "health_get",
+      "description": "Returns backup health for one client (v3 key). Identify the client with the **ScalePad client ID** (`client_id` in list responses). Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Required: id. Optional: history_days (default: 7).",
+      "method": "GET",
+      "path": "/clients/{id}/health",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ScalePad client ID.",
+          "required": true
+        },
+        {
+          "name": "history_days",
+          "type": "int",
+          "location": "query",
+          "description": "Number of calendar days of backup health history to return, ending on the tenant's current local date. Must be between 1 and 365. Default value: 7"
+        }
+      ]
+    },
+    {
+      "name": "health_list",
+      "description": "Returns a cursor-paginated list of clients whose backup health matches the optional filters (v3 key). Each item includes history for the last seven calendar days, ending on the tenant's current local date. Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Optional: page_size (default: 100), history_days, sort (plus 2 more).",
+      "method": "GET",
+      "path": "/clients/health",
+      "params": [
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items per page. Must be between 1 and 200. Defaults to 100 when omitted."
+        },
+        {
+          "name": "history_days",
+          "type": "int",
+          "location": "query",
+          "description": "Number of calendar days of backup health history to return, ending on the tenant's current local date. Must be between 1 and 365."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Sort order for a single field. **Syntax** - `field` or `+field`: ascending - `-field`: descending **Supported field** - `client.name` **Examples** - `sort=client.name` - `sort=+client.name` - `sort=-client.name`"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The cursor from the previous response (`next_cursor`). Pass it here to fetch the next page."
+        },
+        {
+          "name": "client_name",
+          "wire_name": "filter[client.name]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter on `client.name` using the operators below. **Operators:** `eq` (equality; this is the default) and `in` (match any value in the list). Use double quotes for values when the value contains a comma, a colon, or spaces. **Equality examples:** - `filter[client.name]=Corp` - `filter[client.name]=eq:Corp` - `filter[client.name]=eq:'Fabrik, LLC'` - `filter[client.name]=eq:'Solty: West'` **List examples:** - `filter[client.name]=in:Conto,Fabrik` - `filter[client.name]=in:Conto,'Fabrik, LLC'`"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Morning backup check",
+      "command": "check",
+      "description": "One ranked list of today's failing, silent and at-risk backups, each marked new or ongoing with days in status and open ticket count; uses whichever keys you synced."
+    },
+    {
+      "name": "Who is nobody watching",
+      "command": "unwatched",
+      "description": "Every backup Backup Radar receives but nobody acts on: inactive, unmapped to ScalePad, failing with no ticket, no PSA company, or warnings counted as success by policy. Unmapped needs the v3 key; the other reasons need the v2 key."
+    },
+    {
+      "name": "Cross-vendor coverage diff",
+      "command": "coverage diff",
+      "description": "Compare the devices a backup vendor protects against what Backup Radar monitors and list the gaps in both directions."
+    },
+    {
+      "name": "Retire candidates",
+      "command": "stale",
+      "description": "Backups with no result in N days, grouped by client, with retire request bodies ready to preview; works from either key's synced data."
+    },
+    {
+      "name": "Client compliance scorecard",
+      "command": "scorecard",
+      "description": "In-compliance rate, weekly trend and worst devices for one client, or every client ranked, from up to a year of client health (v3 key); worst devices use synced device history (each sync fetches 90 days; stored days accumulate up to a year)."
+    },
+    {
+      "name": "Device timeline",
+      "command": "timeline",
+      "description": "One device's day-by-day backup story merged from both API generations, with tickets, tags and notes; --live adds each day's v2 results (v2 key)."
+    },
+    {
+      "name": "Validated bulk ingest",
+      "command": "push",
+      "description": "Push flat CSV or JSONL backup results into Backup Radar (v3 key, live write) with local validation and automatic batching under the 10,000-result limit."
+    }
+  ]
+}
