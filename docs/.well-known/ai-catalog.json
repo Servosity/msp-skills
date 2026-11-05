@@ -658,6 +658,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:exchange-online",
+      "displayName": "Exchange Online",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/SKILL.md",
+      "description": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Can mail auto-forward out of this tenant, and does the outbound spam policy or a remote domain block it?",
+        "Which inbox rules in this tenant forward, redirect, delete or hide mail?",
+        "Which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on?",
+        "What compromise evidence does this one mailbox show right now?",
+        "Which Exchange offboarding steps are done or still pending for this leaver?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/exchange-online.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:fortinet",
       "displayName": "Fortinet",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

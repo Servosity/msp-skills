@@ -1252,6 +1252,42 @@ A: No add-on is required - you generate an API Key from the Domotz Portal under 
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
 
+### Exchange Online (Security)
+
+Page: [Exchange Online](https://msp-skills.compoundingteams.com/skills/exchange-online.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/install.sh)
+
+Ask your AI "is mail leaving this client's tenant?" or "which mailboxes still use EWS?" and get the answer from Exchange Online's REST admin endpoints, one customer tenant per call, with no PowerShell session to open. Forwarding audits, inbox-rule sweeps, compromise triage, offboarding with a per-step receipt and a cross-tenant quarantine queue, from one local binary and MCP server.
+
+Outcomes (question -> command your AI agent runs):
+- Can mail auto-forward out of this tenant, and does the outbound spam policy or a remote domain block it? -> exchange-online-cli forwarding-audit 0550b473-9fd2-4dbb-a058-a1640b4bf458 --sweep --agent
+- Which inbox rules in this tenant forward, redirect, delete or hide mail? -> exchange-online-cli inbox-rules sweep 0550b473-9fd2-4dbb-a058-a1640b4bf458 --agent
+- Which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on? -> exchange-online-cli ews-posture 0550b473-9fd2-4dbb-a058-a1640b4bf458 --all --agent
+- What compromise evidence does this one mailbox show right now? -> exchange-online-cli bec triage 0550b473-9fd2-4dbb-a058-a1640b4bf458 alex@example.com --agent
+- Which Exchange offboarding steps are done or still pending for this leaver? -> exchange-online-cli offboard 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --manager boss@example.com --plan --agent
+- Which mailboxes can this user open, send as or send on behalf of? -> exchange-online-cli access-map 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --agent
+- Why did this person not get the email, and what should I do next? -> exchange-online-cli where-is 0550b473-9fd2-4dbb-a058-a1640b4bf458 --recipient alex@example.com --since 48h --agent
+- Which quarantine release requests are waiting longest across every tenant I snapshotted? -> exchange-online-cli quarantine queue --older-than 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Microsoft Exchange Online MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Microsoft Exchange Online data safe?
+A: Your data stays on your machine. The CLI and MCP server run locally and talk only to Microsoft's Exchange Online endpoint; inbox-rule sweeps and quarantine snapshots are saved to a local database under your user account (secret fields stripped; cmdlet reads are not saved), and a held credential is withheld from every output and file. Credentials are never bundled or transmitted by MSP Skills.
+Q: Do I still need Exchange Online PowerShell?
+A: Not for the cmdlets this connector covers: it calls the same REST admin endpoints the ExchangeOnlineManagement v3 module uses, so no PowerShell session is needed. Bulk policy creation, Purview compliance and Exchange Server on-premises stay with PowerShell or other tools.
+Q: What token does it need?
+A: A bearer token for the resource https://outlook.office365.com, issued for the customer tenant you are working in, with an Exchange role that allows the cmdlets you run. Set it as EXCHANGE_ONLINE_TOKEN or save it with auth set-token; each call names the tenant ID.
+Q: Can an AI agent change mailboxes on its own?
+A: Not over MCP without your approval: every state-changing cmdlet and the offboard command return a preview until the call carries confirm: true, and EXCHANGE_ONLINE_MCP_READ_ONLY=1 removes every write tool. On the command line, preview writes with --dry-run (offboard with --plan) before running them.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads mailboxes, permissions, inbox rules, mail flow, policies, message traces and quarantine in one customer tenant at a time. It can change mailboxes, permissions, client protocols, inbox and transport rules, quarantine and mobile devices, and run an offboarding sequence; over MCP every change previews until it is confirmed. Let an agent run reads freely, approve routine writes after a preview, and keep device wipes, quarantine deletes and offboarding with a human.
+
 ### Fortinet (Security)
 
 Page: [Fortinet](https://msp-skills.compoundingteams.com/skills/fortinet.md)

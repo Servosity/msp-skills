@@ -53,6 +53,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
+        - exchange-online
         - fortinet
         - google-workspace
         - gradient

@@ -1434,6 +1434,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "exchange-online",
+      "source": "./skills/exchange-online",
+      "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "exchange-online",
+        "microsoft exchange online",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
