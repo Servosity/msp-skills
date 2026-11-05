@@ -85,7 +85,7 @@
     },
     {
       "q": "Can an AI agent retire backups by mistake?",
-      "a": "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
+      "a": "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, --server-dry-run (the request is sent and nothing is retired; the global --dry-run sends nothing). stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
     },
     {
       "q": "Does it work for EU ScalePad tenants?",
