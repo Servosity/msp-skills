@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("backups_filters",
 			mcplib.WithDescription("Returns the available filters, such as tags, companies, statuses, and more (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY)."),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -54,8 +56,9 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("backups_get",
 			mcplib.WithDescription("Returns the backup data for a specific day (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Required: backupId. Optional: date."),
-			mcplib.WithNumber("backupId", mcplib.Required(), mcplib.Description("The unique identifier of the backup.")),
+			mcplib.WithNumber("backupId", mcplib.Required(), mcplib.Description("The unique identifier of the backup (e.g. 4421).")),
 			mcplib.WithString("date", mcplib.Description("The date for which to retrieve the backup data. (Example: 2018-02-14).")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -73,6 +76,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("SearchByBackupType", mcplib.Description("Search by backup type.")),
 			mcplib.WithNumber("Size", mcplib.Description("Size of the page to get from the API. Default: 50. Max page size: 1000.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -85,6 +89,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.NewTool("backups_ingest",
 				mcplib.WithDescription("Accepts a root JSON array of backup entries (v3 key). Each entry identifies a device, job, and client, and may include result collections for backups, replications, verifications, boot verifications, and alerts. The entire batch is rejected when any entry fails validation. The total number of results across all collections in a request must not exceed 10,000. A successful request is acknowledged with an empty `202 Accepted` response. Accepted results are queued for asynchronous processing by the backup results saver pipeline. Uses the ScalePad API key (BACKUP_RADAR_API_KEY)."),
 				mcplib.WithString("body_json", mcplib.Required(), mcplib.Description("JSON array of backup entries")),
+				mcplib.WithSchemaAdditionalProperties(false),
 				mcplib.WithDestructiveHintAnnotation(false),
 				mcplib.WithOpenWorldHintAnnotation(true),
 			),
@@ -117,6 +122,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithArray("excludeBackupMethods", mcplib.Description("Exclude the policies with the specific backup methods.")),
 			mcplib.WithArray("policyTypes", mcplib.Description("Filter by policy type.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -126,6 +132,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("backups_overview",
 			mcplib.WithDescription("Returns the counts of policies, backups, servers, and workstations (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY)."),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -135,8 +142,9 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("backups_results",
 			mcplib.WithDescription("Returns all backup results for the given date (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY). Required: backupId. Optional: date."),
-			mcplib.WithNumber("backupId", mcplib.Required(), mcplib.Description("The unique identifier of the backup.")),
+			mcplib.WithNumber("backupId", mcplib.Required(), mcplib.Description("The unique identifier of the backup (e.g. 4421).")),
 			mcplib.WithString("date", mcplib.Description("The date for which to retrieve backup results. (Example: 2018-02-14).")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -147,20 +155,21 @@ func RegisterTools(s *server.MCPServer) {
 	if !cliutil.IsMCPReadOnlyEnv() {
 		s.AddTool(
 			mcplib.NewTool("backups_retire",
-				mcplib.WithDescription("Retires backups that match the supplied filters (v3 key). Filters are exact (case-insensitive) and combined with AND. `reason` is required. At least one filter is required. Set `dry_run` to `true` to preview every match without retiring anything. A live request retires every match and returns the full retired set. Tenant-level API keys are allowed. A user-tied key must belong to a tenant administrator or a user with the Retire Backup permission. Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Required: reason. Optional: client_id, client_name, close_psa_tickets (default: false) (plus 5 more)."),
+				mcplib.WithDescription("Retires backups that match the supplied filters (v3 key). Filters are exact (case-insensitive) and combined with AND. `reason` is required. At least one filter is required. Set `server_dry_run` to `true` to have Backup Radar return every match without retiring anything (a real, non-destructive request; it still needs confirm: true). A live request retires every match and returns the full retired set. Tenant-level API keys are allowed. A user-tied key must belong to a tenant administrator or a user with the Retire Backup permission. Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Required: reason. Optional: client_id, client_name, close_psa_tickets (default: false) (plus 5 more)."),
 				mcplib.WithString("client_id", mcplib.Description("ScalePad Core client id. Matches only devices linked to that client. Unmapped devices are excluded.")),
 				mcplib.WithString("client_name", mcplib.Description("Exact client name. Matches the ScalePad client name when the device is mapped; otherwise the Backup Radar company name.")),
 				mcplib.WithBoolean("close_psa_tickets", mcplib.Description("When false, related tickets stay in Backup Radar only. (default: false)")),
 				mcplib.WithString("device_id", mcplib.Description("ScalePad device id.")),
 				mcplib.WithString("device_name", mcplib.Description("Exact device name. Matches the ScalePad device name when the device is mapped; otherwise the Backup Radar device name.")),
-				mcplib.WithBoolean("dry_run", mcplib.Description("When true, return the match set and do not retire anything. (default: false)")),
+				mcplib.WithBoolean("server_dry_run", mcplib.Description("When true, Backup Radar returns the match set and retires nothing (sent as the body field dry_run; a real request). (default: false)")), // HAND-FIX(retire-stdin-dry-run): not dry_run, which reads as a local preview that sends nothing
 				mcplib.WithString("job_name", mcplib.Description("Exact backup job name. Matching is case-insensitive.")),
 				mcplib.WithNumber("no_result_in", mcplib.Description("Retire backups with no result received in the last N days, including backups that have never received a result.")),
 				mcplib.WithString("reason", mcplib.Required(), mcplib.Description("Note stored on each retired backup and in the retire activity log.")),
+				mcplib.WithSchemaAdditionalProperties(false),
 				mcplib.WithDestructiveHintAnnotation(true), // HAND-FIX(mcp-retire-destructive),
 				mcplib.WithOpenWorldHintAnnotation(true),
 			),
-			makeAPIHandler("POST", "/backups/retire", "", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "client_id", WireName: "client_id", Location: "body"}, {PublicName: "client_name", WireName: "client_name", Location: "body"}, {PublicName: "close_psa_tickets", WireName: "close_psa_tickets", Location: "body"}, {PublicName: "device_id", WireName: "device_id", Location: "body"}, {PublicName: "device_name", WireName: "device_name", Location: "body"}, {PublicName: "dry_run", WireName: "dry_run", Location: "body"}, {PublicName: "job_name", WireName: "job_name", Location: "body"}, {PublicName: "no_result_in", WireName: "no_result_in", Location: "body"}, {PublicName: "reason", WireName: "reason", Location: "body"}}, []string{}),
+			makeAPIHandler("POST", "/backups/retire", "", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "client_id", WireName: "client_id", Location: "body"}, {PublicName: "client_name", WireName: "client_name", Location: "body"}, {PublicName: "close_psa_tickets", WireName: "close_psa_tickets", Location: "body"}, {PublicName: "device_id", WireName: "device_id", Location: "body"}, {PublicName: "device_name", WireName: "device_name", Location: "body"}, {PublicName: "server_dry_run", WireName: "dry_run", Location: "body"}, {PublicName: "job_name", WireName: "job_name", Location: "body"}, {PublicName: "no_result_in", WireName: "no_result_in", Location: "body"}, {PublicName: "reason", WireName: "reason", Location: "body"}}, []string{}),
 		)
 	}
 	s.AddTool(
@@ -177,6 +186,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("SearchByRetiredDateEnd", mcplib.Description("Search by retired backup date end.")),
 			mcplib.WithNumber("Size", mcplib.Description("Size of the page to get from the API. Default: 50. Max page size: 1000.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -192,6 +202,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("device_name", mcplib.Description("Filter on device name using the operators below.")),
 			mcplib.WithString("device_id", mcplib.Description("Filter on `device_id` (ScalePad device id) using the operators below.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -203,6 +214,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Returns backup health for one client (v3 key). Identify the client with the **ScalePad client ID** (`client_id` in list responses). Uses the ScalePad API key (BACKUP_RADAR_API_KEY). Required: id. Optional: history_days (default: 7)."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("ScalePad client ID.")),
 			mcplib.WithNumber("history_days", mcplib.Description("Number of calendar days of backup health history to return, ending on the tenant's current local date. (default: 7)")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -217,6 +229,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("sort", mcplib.Description("Sort order for a single field.")),
 			mcplib.WithString("client_name", mcplib.Description("Filter on `client.name` using the operators below.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -230,7 +243,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("search",
 			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
-			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
+			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25, at most "+strconv.Itoa(bound.MaxItems)+")"), mcplib.Max(bound.MaxItems)),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -260,7 +273,29 @@ func RegisterTools(s *server.MCPServer) {
 
 	// Runtime Cobra-tree mirror — exposes every user-facing command that is
 	// not already covered by a typed endpoint or framework MCP tool.
-	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)
+	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)
+	cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath) // backup-radar handfix: mcp-mirror-write-confirm
+	// backup-radar handfix: mcp-endpoint-write-confirm
+	RequireConfirmForEndpointWrites(s)
+
+	// The read-only switch covers every tool, so this runs after all
+	// registrations. Tools without readOnlyHint, including local-store
+	// writers, are removed.
+	if cliutil.IsMCPReadOnlyEnv() {
+		dropNonReadOnlyTools(s)
+	}
+}
+
+// dropNonReadOnlyTools removes every tool not annotated readOnlyHint=true.
+// A tool with no annotation fails closed.
+func dropNonReadOnlyTools(s *server.MCPServer) {
+	var drop []string
+	for name, entry := range s.ListTools() {
+		if hint := entry.Tool.Annotations.ReadOnlyHint; hint == nil || !*hint {
+			drop = append(drop, name)
+		}
+	}
+	s.DeleteTools(drop...)
 }
 
 type mcpParamBinding struct {
@@ -514,20 +549,8 @@ func makeAPIHandler(method, pathTemplate, tier string, readOnly bool, binaryResp
 			}
 		}
 
-		for k, v := range args {
-			if pathParams[k] || knownArgs[k] {
-				continue
-			}
-			switch method {
-			case "POST", "PUT", "PATCH", "DELETE":
-				// HAND-FIX(mcp-writes-refuse-unknown-args): an out-of-schema
-				// argument on a write (e.g. the CLI spelling "dry-run" instead of
-				// dry_run) was forwarded into the body or dropped, and the write ran
-				// live. Refuse it so the caller sees the schema's name.
-				return mcpToolError(fmt.Sprintf("unknown MCP parameter %q on a write tool; use the tool schema's named parameters (the retire preview is dry_run; backups_ingest has no preview over MCP)", k)), nil
-			default:
-				params[k] = formatMCPParamValue(v)
-			}
+		if err := rejectUndeclaredMCPArgs(args, knownArgs, pathParams); err != nil {
+			return mcpToolError(err.Error()), nil
 		}
 
 		// The public cursor argument is either an opaque MCP cursor or, on a
@@ -681,21 +704,21 @@ func makeAPIHandler(method, pathTemplate, tier string, readOnly bool, binaryResp
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key with: export BACKUP_RADAR_API_KEY=\"your-token-here\" (PowerShell: $env:BACKUP_RADAR_API_KEY = \"your-token-here\")" +
+					"\n      " + "Set your API key with: " + cliutil.EnvAssignHint(true, "BACKUP_RADAR_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://developer.scalepad.com/docs/getting-started" +
 					"\n      ScalePad > API tab > New API key (requires an active Administrator user). The v2-only commands need a separate Backup Radar key in BACKUP_RADAR_V2_API_KEY." +
 					"\n      Run 'backup-radar-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set your API key with: export BACKUP_RADAR_API_KEY=\"your-token-here\" (PowerShell: $env:BACKUP_RADAR_API_KEY = \"your-token-here\")" +
+					"\n      " + "Set your API key with: " + cliutil.EnvAssignHint(true, "BACKUP_RADAR_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://developer.scalepad.com/docs/getting-started" +
 					"\n      ScalePad > API tab > New API key (requires an active Administrator user). The v2-only commands need a separate Backup Radar key in BACKUP_RADAR_V2_API_KEY." +
 					"\n      Run 'backup-radar-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
-					"\n      Set your API key with: export BACKUP_RADAR_API_KEY=\"your-token-here\" (PowerShell: $env:BACKUP_RADAR_API_KEY = \"your-token-here\")" +
+					"\n      " + "Set your API key with: " + cliutil.EnvAssignHint(true, "BACKUP_RADAR_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://developer.scalepad.com/docs/getting-started" +
 					"\n      ScalePad > API tab > New API key (requires an active Administrator user). The v2-only commands need a separate Backup Radar key in BACKUP_RADAR_V2_API_KEY." +
 					"\n      Run 'backup-radar-cli doctor' to check auth status."), nil
@@ -759,6 +782,163 @@ func mcpToolError(message string) *mcplib.CallToolResult {
 	return mcpResultError(bound.Text(message))
 }
 
+// Reserved transport arguments are accepted on every endpoint tool. They are
+// not request fields, so an unused one is ignored instead of copied onto the
+// wire. Declared bindings with these names still flow through knownArgs.
+func mcpReservedArg(name string) bool {
+	switch name {
+	case "cursor", "body_json", "body_base64", "content_type":
+		return true
+	default:
+		return false
+	}
+}
+
+func rejectUndeclaredMCPArgs(args map[string]any, knownArgs, pathParams map[string]bool) error {
+	var unknown []string
+	for name := range args {
+		if pathParams[name] || knownArgs[name] || mcpReservedArg(name) {
+			continue
+		}
+		unknown = append(unknown, name)
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+	candidates := mcpArgCandidates(knownArgs, pathParams)
+	parts := make([]string, len(unknown))
+	for i, name := range unknown {
+		parts[i] = formatUnknownMCPArg(name, suggestMCPArg(name, candidates))
+	}
+	return fmt.Errorf("%s", strings.Join(parts, "; "))
+}
+
+func mcpArgCandidates(knownArgs, pathParams map[string]bool) []string {
+	names := make([]string, 0, len(knownArgs)+len(pathParams))
+	seen := make(map[string]struct{}, len(knownArgs)+len(pathParams))
+	for name := range knownArgs {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for name := range pathParams {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func formatUnknownMCPArg(name, suggestion string) string {
+	if suggestion == "" {
+		return fmt.Sprintf("unknown argument %q", name)
+	}
+	return fmt.Sprintf("unknown argument %q (did you mean %q?)", name, suggestion)
+}
+
+func suggestMCPArg(name string, candidates []string) string {
+	folded := mcpArgFold(name)
+	stripped := mcpArgStrip(folded)
+	best := ""
+	bestDist := 0
+	ambiguous := false
+	consider := func(cand string, dist int) {
+		if best == "" || dist < bestDist {
+			best = cand
+			bestDist = dist
+			ambiguous = false
+			return
+		}
+		if dist == bestDist && cand != best {
+			ambiguous = true
+		}
+	}
+	for _, cand := range candidates {
+		if cand == "" || cand == name {
+			continue
+		}
+		cf := mcpArgFold(cand)
+		if cf == folded {
+			consider(cand, 0)
+			continue
+		}
+		if stripped != "" && mcpArgStrip(cf) == stripped {
+			consider(cand, 0)
+			continue
+		}
+		dist := runeLevenshtein(folded, cf)
+		if mcpArgDistanceOK(folded, cf, dist) {
+			consider(cand, dist)
+		}
+	}
+	if ambiguous {
+		return ""
+	}
+	return best
+}
+
+func mcpArgFold(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "-", "_")
+}
+
+func mcpArgStrip(folded string) string {
+	return strings.ReplaceAll(folded, "_", "")
+}
+
+func mcpArgDistanceOK(a, b string, dist int) bool {
+	if dist <= 0 {
+		return false
+	}
+	la, lb := len([]rune(a)), len([]rune(b))
+	if la < 3 || lb < 3 {
+		return false
+	}
+	if la >= 5 && lb >= 5 {
+		return dist <= 2
+	}
+	return dist <= 1
+}
+
+func runeLevenshtein(a, b string) int {
+	ar, br := []rune(a), []rune(b)
+	if len(ar) == 0 {
+		return len(br)
+	}
+	if len(br) == 0 {
+		return len(ar)
+	}
+	prev := make([]int, len(br)+1)
+	cur := make([]int, len(br)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ar); i++ {
+		cur[0] = i
+		for j := 1; j <= len(br); j++ {
+			cost := 1
+			if ar[i-1] == br[j-1] {
+				cost = 0
+			}
+			del, ins, sub := prev[j]+1, cur[j-1]+1, prev[j-1]+cost
+			cur[j] = del
+			if ins < cur[j] {
+				cur[j] = ins
+			}
+			if sub < cur[j] {
+				cur[j] = sub
+			}
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(br)]
+}
+
 func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
 	return mcpToolPageResultTextWithPlatform(method, data, pageConfig, cursor, "", false, nil)
 }
@@ -797,6 +977,9 @@ func newMCPConfig() (*config.Config, error) {
 
 func newMCPClientFromConfig(ctx context.Context, cfg *config.Config) (*client.Client, *platform.Session, error) {
 	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
+	if tlsErr := c.TLSConfigError(); tlsErr != nil {
+		return nil, nil, tlsErr
+	}
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -896,8 +1079,14 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 
 	limit := 25
+	limitCapped := false
 	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
+		if v > float64(bound.MaxItems) {
+			limit = bound.MaxItems
+			limitCapped = true
+		} else {
+			limit = int(v)
+		}
 	}
 
 	path, err := mcpDBPath()
@@ -910,8 +1099,13 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 	defer db.Close()
 
-	results, err := db.Search(query, limit)
+	queryCtx, cancel := bound.WithSQLQueryDeadline(ctx)
+	defer cancel()
+	results, err := db.SearchContext(queryCtx, query, limit)
 	if err != nil {
+		if queryCtx.Err() != nil {
+			return mcpResultError(fmt.Sprintf("search cancelled: %v. MCP search queries are bounded to %s.", queryCtx.Err(), bound.SQLQueryTimeout)), nil
+		}
 		return mcpResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 	storeStatus, err := mcpStoreStatus(db)
@@ -919,10 +1113,10 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcpResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
-	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus, limitCapped))
 }
 
-func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind) map[string]any {
+func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind, limitCapped bool) map[string]any {
 	if results == nil {
 		results = []json.RawMessage{}
 	}
@@ -931,6 +1125,9 @@ func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind
 		"results":      results,
 		"store_status": storeStatus,
 		"resumable":    false,
+	}
+	if limitCapped {
+		out["limit_capped"] = true
 	}
 	if storeStatus == mcpStoreStatusPartial {
 		out["warning"] = "Local data may be incomplete because the latest sync attempt did not finish."

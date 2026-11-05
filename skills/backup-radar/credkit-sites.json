@@ -1,0 +1,124 @@
+{
+ "sites": [
+  {
+   "file": "cmd/backup-radar-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is the next handler of requireBearerAuthWithLimits, which serves every response through credkit.MCPHTTP (handfixes.json credkit-wiring)"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdFile",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config and credential store files credentialFiles names, inside Start, and the bytes go only to credkit.HoldBody"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "StashFeedbackStdin",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook for `feedback --stdin`; nothing is written to it"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "StashFeedbackStdin",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens os.DevNull as the empty stdin left after the feedback note is taken; not a credential file"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty 0600 temp file and closes it; the body is written into it only by credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the temp file credkit.WriteFile filled to a name safeJoinUnder confines to the operator's --deliver file: directory; a withheld body leaves no temp file to move"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the client built in the same function with credkit.Transport(nil), which follows no redirect"
+  },
+  {
+   "file": "internal/learn/teach_log.go",
+   "func": "rotateTeachLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "rotates the teach log to <log>.1 in the state directory; the log is written only by credkit.AppendFile and its destination is never a credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "repairJournalSegmentTail",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes only a newline to end a torn journal line; the records themselves are appended by credkit.AppendFile"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "ReadJournalFrom",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads journal segments under the state directory, written only by credkit.AppendFile; not a credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "LoadJournalOffset",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the journal's read offset under the state directory; not a credential file"
+  }
+ ]
+}

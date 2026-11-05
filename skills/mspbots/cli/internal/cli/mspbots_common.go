@@ -103,13 +103,13 @@ func resolveResource(ctx context.Context, db *store.Store, arg, typeOverride str
 		}
 		known, listErr := db.RegistryList(ctx)
 		if listErr != nil || len(known) == 0 {
-			return resolvedResource{}, notFoundErr(fmt.Errorf("alias %q is not registered and is not a raw resource ID; register it first: mspbots-cli registry add %s <resourceId> --type dataset", arg, arg))
+			return resolvedResource{}, notFoundErr(fmt.Errorf("alias %q not found: it is not registered and is not a raw resource ID; register it first: mspbots-cli registry add %s <resourceId> --type dataset", arg, arg))
 		}
 		names := make([]string, 0, len(known))
 		for _, e := range known {
 			names = append(names, e.Alias)
 		}
-		return resolvedResource{}, notFoundErr(fmt.Errorf("alias %q is not registered (known aliases: %s)", arg, strings.Join(names, ", ")))
+		return resolvedResource{}, notFoundErr(fmt.Errorf("alias %q not found: it is not registered (known aliases: %s)", arg, strings.Join(names, ", ")))
 	default:
 		return resolvedResource{}, fmt.Errorf("looking up alias %q: %w", arg, err)
 	}

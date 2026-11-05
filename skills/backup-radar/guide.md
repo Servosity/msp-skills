@@ -101,6 +101,13 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 Backup Radar has two API generations with two different keys. The v3 commands (health, devices, backups ingest, backups retire, push) use a ScalePad API key from the ScalePad API tab: set BACKUP_RADAR_API_KEY (`export` on macOS / Linux, `$env:BACKUP_RADAR_API_KEY = "..."` on Windows) or store it with auth set-token. The v2 commands (backups list, get, results, filters, inactive, retired, overview, and timeline --live) use a separate Backup Radar API key that is read only from the environment: set BACKUP_RADAR_V2_API_KEY the same way. Either key alone works for its own commands, and the local reports use whatever data you synced. doctor probes each configured key against its API (GET /clients/health with the v3 key, GET /backups/overview with the v2 key) and reports valid, rejected or not verified per key. EU tenants set BACKUP_RADAR_BASE_URL=https://eu.api.scalepad.com/backup-radar/v3; that override applies to v3 commands only, because v2 always uses https://api.backupradar.com.
 
+### Credential safety
+
+- Each key goes only to its own host. `BACKUP_RADAR_API_KEY` (sent as `x-api-key`) goes only to the scheme, host and port of the v3 base URL: `https://api.scalepad.com/backup-radar/v3`, or `BACKUP_RADAR_BASE_URL` when set (EU: `https://eu.api.scalepad.com/backup-radar/v3`). `BACKUP_RADAR_V2_API_KEY` (sent as `ApiKey`) goes only to `https://api.backupradar.com`. A request that would carry a key anywhere else, over plain http, or across a redirect to another host is refused before it is sent.
+- Any output, file, store write or MCP result that would repeat a key is replaced by a notice such as "[credkit: withheld from stdout: it carried a credential this program holds]". GET responses are never cached on disk.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `backups_ingest` and `backups_retire` return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Quick Start
 
 ```bash
@@ -285,6 +292,10 @@ Relocation is one-way. Unsetting `BACKUP_RADAR_HOME` does not move files back to
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `backup-radar-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
+### Local data
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are never cached on disk. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `BACKUP_RADAR_NO_LOCAL_DATA=1` turns `auto` reads into live reads, writes nothing new to the store, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `BACKUP_RADAR_DATA_SOURCE` sets the `--data-source` default.
+
 ## Commands
 
 ### backups
@@ -305,7 +316,7 @@ A successful request is acknowledged with an empty `202 Accepted` response. Acce
 - **`backup-radar-cli backups retire`** - Retires backups that match the supplied filters (v3 key). Filters are exact (case-insensitive) and combined with AND.
 `reason` is required. At least one filter is required.
 
-Set `dry_run` to `true` to preview every match without retiring anything.
+Add `--server-dry-run` (body `dry_run: true`) to have the API return every match without retiring anything; the request is sent. The global `--dry-run` sends nothing.
 
 A live request retires every match and returns the full retired set.
 
@@ -417,8 +428,8 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending; `backups retire --dry-run` is the exception: it is the API's own preview flag, so the request is sent with `dry_run: true` (and with `--stdin` it sets `dry_run` in the body)
-- **Live writes** - `backups ingest`, `backups retire` (without `--dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --dry-run` first
+- **Previewable** - `--dry-run` shows the request without sending, on every command; `backups retire --server-dry-run` is the API's own preview: it sends the request with `dry_run: true` and retires nothing (a `--stdin` body with `dry_run: true` does the same)
+- **Live writes** - `backups ingest`, `backups retire` (without `--server-dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --server-dry-run` first
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set

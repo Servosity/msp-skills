@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.7] - 2026-11-05
+
+Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command, flag and MCP tool that shipped in 0.1.6 is still here; the list below is what changed for an operator or an agent. The press upgrade follows advisory GHSA-jh26-vhqh-692c.
+
+### Security
+- **HTTP mode for remote agents is available again.** `mspbots-mcp --transport http` refuses to start until `MSPBOTS_MCP_HTTP_TOKEN` is set, answers 401 to any request without that token as a bearer header, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` for any address other than loopback. The install guide documents this mode for reference; msp-skills does not support a web-only AI app on it yet.
+- **Every output is checked for credentials.** Stdout, stderr, files the CLI writes (an `export --out` file included), its local database, MCP tool results and child processes all pass one shared check: text that repeats a credential the program holds, whole, as a piece of 8 or more characters, or in a decoded form, is withheld whole and replaced by a notice that says so. The check can withhold ordinary text it cannot finish reading; it says so the same way, so rephrase and retry.
+- **A credential is held wherever it comes from.** Before the command line is parsed, the CLI and the MCP server read every credential source they can reach: `MSPBOTS_API_KEY`, a user name, password or query value written into `MSPBOTS_BASE_URL`, every config file `--config`, `--home` or `MSPBOTS_CONFIG` names (a file that does not parse is read token by token), saved profiles and the saved credentials. A value is withheld however short it is.
+- **A credential is only sent to your configured MSPbots API, over https.** A request that carries a credential is refused if it goes to any other host (a redirect included) or over plain `http://`. A `--deliver` webhook whose URL carries a `token=` query value is refused unless it points at the API base URL.
+- **Errors printed before a command runs pass the check too,** such as a bad flag value or an unknown command.
+- Updated `golang.org/x/text` to v0.42.0 and `mark3labs/mcp-go` to v0.57.0.
+
+### Added
+- `MSPBOTS_MCP_READ_ONLY=1` exposes only read-only MCP tools and refuses any state-changing call; `MSPBOTS_NO_LOCAL_DATA=1` keeps no local copy of API responses and refuses `snapshot`. Both are optional and declared in the Claude Desktop extension, the MCP Registry entry and the install guide, beside `MSPBOTS_MCP_HTTP_TOKEN`, `MSPBOTS_USER_AGENT` and `PRINTING_PRESS_CLIENT_PROFILE`.
+
+### Fixed
+- **`doctor` checks the API key against the real MSPbots API** (`https://api.mspbots.ai`) instead of reporting the default host as a placeholder, and says so when no key is configured.
+- Commands that take an alias (`pull`, `export`, `snapshot`, `describe`, `diff`, `trend`) say "not found" and name what is missing when the alias is not registered or has too few snapshots.
+
 ## [0.1.6] - 2026-10-22
 
 ### Security

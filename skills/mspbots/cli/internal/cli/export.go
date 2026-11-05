@@ -9,13 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"mspbots-pp-cli/internal/cliutil"
+	"mspbots-pp-cli/internal/credkit"
 )
 
 // exportSummary is printed to stderr (or as JSON with --out) after a stream
@@ -105,7 +105,8 @@ a complete one.`, "\n"),
 			var w io.Writer = cmd.OutOrStdout()
 			if outPath != "" {
 				// #nosec G304 -- outPath is the user's explicit --out destination; writing the export to a caller-chosen file is this flag's whole purpose.
-				f, err := os.Create(outPath)
+				// Hand-fix (handfixes.json export-novel-file-sink-withheld): the export file goes through the credential kit.
+				f, err := credkit.Create(outPath)
 				if err != nil {
 					return fmt.Errorf("creating %s: %w", outPath, err)
 				}

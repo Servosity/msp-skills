@@ -66,7 +66,7 @@ Do NOT use this command for today's failing backups; use 'check' instead.`,
 				if len(args) == 1 {
 					if len(scores) == 0 {
 						// An empty mirror is an empty result, not a lookup failure.
-						view.Sources.Note = "no client health synced; run 'backup-radar-cli sync --resources health'"
+						view.Sources.Note = joinNotes("no client health synced; run 'backup-radar-cli sync --resources health'", incompleteNote(view.Sources.Incomplete))
 					} else {
 						one, err := radar.FindClient(scores, args[0])
 						if err != nil {

@@ -90,7 +90,7 @@
       "type": "skill-md",
       "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching. Trigger phrases: `which backups is nobody watching`, `morning backup check`, `backup compliance for a client`, `retire stale backups`, `backup radar failures today`, `use backup-radar`, `run backup-radar`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/backup-radar/SKILL.md",
-      "digest": "sha256:019d52842e0d2f2f344b152965005ae4eb45d3047dd4b53fc63bbfbbb170722a"
+      "digest": "sha256:2124eb6e7bfd75e8e1e097166dfd80d4b8ba793a8e9fd6c458018af5db029ac4"
     },
     {
       "name": "betterstack",
@@ -398,7 +398,7 @@
       "type": "skill-md",
       "description": "The first MSPbots tool anywhere - readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep. Trigger phrases: `pull the open tickets dataset from MSPbots`, `export MSPbots data to CSV`, `snapshot our MSPbots KPIs`, `is our ticket backlog up or down this week`, `what columns does this MSPbots dataset have`, `use mspbots`, `run mspbots-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mspbots/SKILL.md",
-      "digest": "sha256:0dca93b1549196c3d4ee7cc36e7a8b8a735ee813972517f297e7decd602345c4"
+      "digest": "sha256:fb60f39e7d754515c65bc90ad5dab2c0abbd3db2977ce7af3d30b8dd014ba91e"
     },
     {
       "name": "n-central",

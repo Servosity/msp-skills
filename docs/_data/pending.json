@@ -85,10 +85,10 @@
   },
   "backup-radar": {
     "state": "up-to-date",
-    "version": "0.1.2",
-    "latest_tag": "backup-radar-v0.1.2",
-    "current_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0",
-    "released_hash": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0"
+    "version": "0.1.3",
+    "latest_tag": "backup-radar-v0.1.3",
+    "current_hash": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce",
+    "released_hash": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce"
   },
   "betterstack": {
     "state": "up-to-date",
@@ -393,10 +393,10 @@
   },
   "mspbots": {
     "state": "up-to-date",
-    "version": "0.1.6",
-    "latest_tag": "mspbots-v0.1.6",
-    "current_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557",
-    "released_hash": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557"
+    "version": "0.1.7",
+    "latest_tag": "mspbots-v0.1.7",
+    "current_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
+    "released_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3"
   },
   "n-central": {
     "state": "up-to-date",

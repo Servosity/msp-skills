@@ -55,9 +55,7 @@
    "local-data"
   ],
   "backup-radar": [
-   "mcp-stdio",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "betterstack": [
    "mcp-http",
@@ -203,11 +201,6 @@
    "local-data"
   ],
   "microsoft-graph": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "mspbots": [
    "mcp-http",
    "read-only",
    "local-data"
