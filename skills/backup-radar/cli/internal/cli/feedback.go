@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"backup-radar-pp-cli/internal/cliutil"
+	"backup-radar-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +65,7 @@ func appendFeedback(entry FeedbackEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening feedback ledger: %w", err)
 	}
@@ -83,7 +84,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "backup-radar-cli/feedback")
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting feedback: %w", err)
@@ -119,9 +120,12 @@ maintainer sees it.`,
 			}
 			var text string
 			if useStdin {
-				data, err := io.ReadAll(cmd.InOrStdin())
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
+				data := cliutil.StashedStdin // Hand-fix (handfixes.json credkit-wiring): taken before the kit's StdinFlags read
+				if !cliutil.StdinStashed {
+					var err error
+					if data, err = io.ReadAll(cmd.InOrStdin()); err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
 				}
 				text = strings.TrimSpace(string(data))
 			} else if len(args) > 0 {

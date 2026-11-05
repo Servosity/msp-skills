@@ -24,12 +24,6 @@ Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups 
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Backup Radar skill |
@@ -41,7 +35,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `backup-radar-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `backup-radar-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `backup-radar-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -204,7 +198,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `backup-radar-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `backup-radar-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `backup-radar-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `backup-radar-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -228,7 +222,7 @@ The analysis commands read the local mirror, so the daily API cost is one `sync`
 
 ### Can an AI agent retire backups by mistake?
 
-`backups retire` is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own `--dry-run` preview. `stale` prepares retire bodies with `dry_run: true`, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a `retire_note` instead of a body. Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes the `backups_retire` and `backups_ingest` tools entirely, and `backups_retire` is annotated destructive so hosts ask first.
+`backups retire` is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, `--server-dry-run` (the request is sent and nothing is retired; the global `--dry-run` sends nothing). `stale` prepares retire bodies with `dry_run: true`, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a `retire_note` instead of a body. Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes the `backups_retire` and `backups_ingest` tools entirely, and `backups_retire` is annotated destructive so hosts ask first.
 
 ### Does it work for EU ScalePad tenants?
 
@@ -246,7 +240,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Write (routine) | `backups ingest`, `push`, `import` (post backup results into Backup Radar) | Preview with `--dry-run`, then a reviewed write |
 | Destructive / credential | `backups retire` (removes backups from monitoring; `--close-psa-tickets` closes their tickets), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
-Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes `backups_ingest`, `backups_retire`, `sync`, `export`, `workflow_archive` and the learning-store write tools (`learnings_forget`, `learnings_reject`); the `push` and `import` commands are never exposed over MCP, and flags that read or write local files (`--devices`, `--playbook-file`, `--notes-file`, `--output`, `--db`) are refused from MCP callers.
+Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes `backups_ingest`, `backups_retire`, `sync`, `export`, `workflow_archive` and the learning-store write tools (`teach`, `teach_pattern`, `teach_lookup`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_forget`, `learnings_reject`); the `push` and `import` commands are never exposed over MCP, and flags that read or write local files (`--devices`, `--playbook-file`, `--notes-file`, `--output`, `--db`) are refused from MCP callers.
 
 The strongest control is the **scope you grant the Backup Radar credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

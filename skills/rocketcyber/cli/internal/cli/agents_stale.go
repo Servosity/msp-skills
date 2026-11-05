@@ -27,12 +27,17 @@ type staleAgent struct {
 	DaysSilent    int    `json:"days_silent"`
 }
 
+// staleView: without_last_connected counts agents with no usable
+// lastConnected (never reported, or an unreadable time); they are neither
+// stale nor "reported within the window" (rocketcyber handfix
+// novel-missing-input-is-an-error).
 type staleView struct {
-	Since      string         `json:"since"`
-	StaleCount int            `json:"stale_count"`
-	ByCustomer map[string]int `json:"by_customer"`
-	Agents     []staleAgent   `json:"agents"`
-	Note       string         `json:"note,omitempty"`
+	Since                string         `json:"since"`
+	StaleCount           int            `json:"stale_count"`
+	WithoutLastConnected int            `json:"without_last_connected"`
+	ByCustomer           map[string]int `json:"by_customer"`
+	Agents               []staleAgent   `json:"agents"`
+	Note                 string         `json:"note,omitempty"`
 }
 
 // classifyStaleAgents keeps agents whose lastConnected is older than cutoff,
@@ -49,7 +54,11 @@ func classifyStaleAgents(items []json.RawMessage, cutoff, now time.Time, limit i
 		}
 		last := extractString(probe, "lastConnected")
 		t := parseAPITime(last)
-		if t.IsZero() || !t.Before(cutoff) {
+		if t.IsZero() {
+			view.WithoutLastConnected++
+			continue
+		}
+		if !t.Before(cutoff) {
 			continue
 		}
 		row := staleAgent{
@@ -92,7 +101,7 @@ use it for a raw filtered device dump; use 'agents' instead.
   rocketcyber-cli agents stale --since 7d --json
   rocketcyber-cli agents stale --since 30d --limit 100 --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -123,19 +132,20 @@ use it for a raw filtered device dump; use 'agents' instead.
 			if !hintIfUnsynced(cmd, db, "agents") {
 				hintIfStale(cmd, db, "agents", flags.maxAge)
 			}
-			rows, err := db.List("agents", 10000)
+			rows, err := db.List("agents", 0) // every synced agent: a row cap would hide silent devices
 			if err != nil {
 				return fmt.Errorf("reading agents from local store: %w", err)
 			}
 			now := time.Now().UTC()
 			view := classifyStaleAgents(rows, now.Add(-window), now, flagLimit)
 			view.Since = flagSince
-			if view.StaleCount == 0 {
-				if len(rows) == 0 {
-					view.Note = "no agents in the local store; run 'rocketcyber-cli sync --resources agents --full' first"
-				} else {
-					view.Note = fmt.Sprintf("all %d synced agents reported within %s", len(rows), flagSince)
-				}
+			switch {
+			case len(rows) == 0:
+				view.Note = "no agents in the local store; run 'rocketcyber-cli sync --resources agents --full' first"
+			case view.WithoutLastConnected > 0:
+				view.Note = fmt.Sprintf("%d synced agents have no usable lastConnected; they are not counted as stale", view.WithoutLastConnected)
+			case view.StaleCount == 0:
+				view.Note = fmt.Sprintf("all %d synced agents reported within %s", len(rows), flagSince)
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

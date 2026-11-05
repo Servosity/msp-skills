@@ -294,5 +294,42 @@
         }
       ]
     }
+  ],
+  "novel_features": [
+    {
+      "name": "SLA breach board",
+      "command": "sla-watch",
+      "description": "See which open tickets are breaching or about to breach SLA, grouped by technician or client."
+    },
+    {
+      "name": "Unbilled worklog",
+      "command": "unbilled",
+      "description": "Total billable worklog time per client from the local store, to reconcile against invoices."
+    },
+    {
+      "name": "Patch + alert risk",
+      "command": "at-risk-assets",
+      "description": "List assets missing a critical patch that also have an active (unresolved) alert."
+    },
+    {
+      "name": "Alert coverage",
+      "command": "alert-coverage",
+      "description": "Partition alerts into open (uncovered) vs resolved, grouped by client."
+    },
+    {
+      "name": "Client 360",
+      "command": "client-360",
+      "description": "One offline bundle of a client plus its sites, users, contracts, open tickets, assets, and open invoices."
+    },
+    {
+      "name": "Stale tickets",
+      "command": "stale-tickets",
+      "description": "Open tickets with no ticket update or worklog activity in N days."
+    },
+    {
+      "name": "Agent context pack",
+      "command": "context-ticket",
+      "description": "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob from the local store."
+    }
   ]
 }

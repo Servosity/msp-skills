@@ -64,6 +64,32 @@ func rankRiskyDevices(items []json.RawMessage, top int) []riskyDevice {
 	return devices
 }
 
+// defenderDevicesAtRisk reads devicesAtRisk {total, data} from a /defender
+// answer (or a top-level {total, data}). An answer without that list is an
+// error, never "no devices at risk" (rocketcyber handfix
+// novel-missing-input-is-an-error).
+func defenderDevicesAtRisk(data json.RawMessage) ([]json.RawMessage, int64, error) {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(data, &probe); err != nil || probe == nil {
+		return nil, 0, fmt.Errorf("the answer is not a Defender report")
+	}
+	atRisk := probe
+	if nested, ok := probe["devicesAtRisk"]; ok {
+		if err := json.Unmarshal(nested, &atRisk); err != nil || atRisk == nil {
+			return nil, 0, fmt.Errorf("the answer's devicesAtRisk member is not an object")
+		}
+	}
+	var items []json.RawMessage
+	if d, ok := atRisk["data"]; !ok || json.Unmarshal(d, &items) != nil || items == nil {
+		return nil, 0, fmt.Errorf("the answer carries no devicesAtRisk list")
+	}
+	total, ok := cliutil.ExtractInt(atRisk, "total")
+	if !ok {
+		total = int64(len(items))
+	}
+	return items, total, nil
+}
+
 func newNovelDefenderRiskiestCmd(flags *rootFlags) *cobra.Command {
 	var flagAccountID int
 	var flagTop int
@@ -83,7 +109,7 @@ it for the raw Defender health JSON; use 'defender' instead.
   rocketcyber-cli defender riskiest --account-id 2 --top 10 --json
   rocketcyber-cli defender riskiest --top 5 --agent
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
@@ -105,31 +131,15 @@ it for the raw Defender health JSON; use 'defender' instead.
 			}
 			data, err := c.Get(cmd.Context(), "/defender", params)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			view := riskiestView{Top: flagTop, Devices: []riskyDevice{}}
-			var probe map[string]json.RawMessage
-			if err := json.Unmarshal(data, &probe); err == nil {
-				atRisk := probe
-				if nested, ok := probe["devicesAtRisk"]; ok {
-					var np map[string]json.RawMessage
-					if err := json.Unmarshal(nested, &np); err == nil {
-						atRisk = np
-					}
-				}
-				if t, ok := cliutil.ExtractInt(atRisk, "total"); ok {
-					view.TotalAtRisk = t
-				}
-				if d, ok := atRisk["data"]; ok {
-					var items []json.RawMessage
-					if err := json.Unmarshal(d, &items); err == nil {
-						view.Devices = rankRiskyDevices(items, flagTop)
-						if view.TotalAtRisk == 0 {
-							view.TotalAtRisk = int64(len(items))
-						}
-					}
-				}
+			items, total, err := defenderDevicesAtRisk(data)
+			if err != nil {
+				return fmt.Errorf("/defender: %w; no ranking", err)
 			}
+			view.Devices = rankRiskyDevices(items, flagTop)
+			view.TotalAtRisk = total
 			if len(view.Devices) == 0 {
 				view.Note = "no devices-at-risk returned by /defender for this scope"
 			}

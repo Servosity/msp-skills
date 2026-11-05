@@ -21,15 +21,16 @@ token is permitted to do.
 - **Every typed command is read-only.** Tickets, assets, alerts, clients, contracts,
   invoices, worklogs, sites, technicians, the cross-entity views (`sla-watch`,
   `client-360`, `at-risk-assets`, `alert-coverage`, `unbilled`, `stale-tickets`,
-  `context-ticket`), `sync`, `search`, and `analytics` all read; none of them change
-  remote state.
-- **The single write path is `raw mutation`.** `raw query` reads; `raw mutation` is the
-  one supported escape hatch for operations the typed commands don't wrap (for example
-  `createTicket`, `updateTicket`, `resolveAlerts`). `--dry-run` prints the exact GraphQL
-  request without sending it - make your agent's policy: preview, show the request, get
-  approval, then run.
-- **`import` is a no-op.** Bulk import is not supported on this GraphQL API; the command
-  exists only to say so.
+  `context-ticket`), `search`, and `analytics` all read; none of them change
+  remote state. `sync` and `workflow archive` also only read SuperOps, and write what
+  they read into the local store on this machine.
+- **The single write path is `raw mutation`.** `raw query` reads and refuses any document
+  that is not a query; `raw mutation` is the one supported escape hatch for operations the
+  typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`).
+  Without `--yes` it prints the exact GraphQL request and sends nothing. Over MCP,
+  `raw_mutation` can only preview (the MCP server never passes `--yes`), and GraphQL
+  variables go inline in the document. Make your agent's policy: preview, show the request,
+  get approval, then run with `--yes`.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but adds no write
   gating - the preview-then-approve policy above still applies. See AGENTS.md.
 
@@ -40,8 +41,8 @@ require a human for any `raw mutation` that actually sends.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search, the cross-entity views. No change. | every typed command + `raw query`; e.g. `sla-watch`, `client-360`, `at-risk-assets`, `unbilled`, `tickets list`, `search`, `sync` | Allow |
-| **Write (mutation escape hatch)** | The only path that changes remote state. | `raw mutation` (createTicket, updateTicket, resolveAlerts, and anything the typed commands don't wrap) | Preview with `--dry-run`, then an approved, reviewed send |
+| **Read** | Reports, rollups, search, the cross-entity views. No change to SuperOps (`sync` and `workflow archive` write only the local store). | every typed command + `raw query`; e.g. `sla-watch`, `client-360`, `at-risk-assets`, `unbilled`, `tickets list`, `search`, `sync` | Allow |
+| **Write (mutation escape hatch)** | The only path that changes remote state. | `raw mutation` (createTicket, updateTicket, resolveAlerts, and anything the typed commands don't wrap); sends only with `--yes`, previews only over MCP | Preview first (the default), then an approved, reviewed `--yes` send |
 | **Destructive** | Irreversible data or config loss. | no typed destructive command exists; a delete would be an explicit destructive GraphQL operation run through `raw mutation` | Human-in-the-loop only, explicit confirmation |
 | **Credential / security** | Touches tokens, keys, MFA. | none on the remote API; `auth set-token` / `auth logout` only write the local config file | Human-in-the-loop only |
 
@@ -49,13 +50,13 @@ require a human for any `raw mutation` that actually sends.
 
 - **Scope the token** to only what your workflow needs. A read/report workflow does not
   need a token that can run mutations.
-- **Keep autonomous agents to Read + previewed mutations.** Have a human approve the
-  actual `raw mutation` send - the gate lives in your agent's policy, not in the binary's
-  defaults.
+- **Keep autonomous agents to Read + previewed mutations.** `raw mutation` sends nothing
+  without `--yes`, and over MCP it cannot send at all; have a human approve every `--yes`
+  send from the command line.
 - **Never let an agent run a destructive `raw mutation` unattended.** Treat it like a
   production database change: human, reviewed, logged.
-- **Rotate the token if it is ever exposed** (for example after bridging the MCP server
-  to a public endpoint for ChatGPT - see mcp-install.md).
+- **Rotate the token if it is ever exposed**, and treat the HTTP-mode bearer token
+  (`SUPEROPS_MCP_HTTP_TOKEN`) the same way - see mcp-install.md.
 
 ## Why an MSP owner can be comfortable
 

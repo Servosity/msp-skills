@@ -32,8 +32,9 @@ a cached row.
   `import backups` post backup results (`import` sends one POST per JSONL record to the
   v3 ingest path; the API expects a root array, so prefer `push`); `backups retire` removes
   backups from monitoring. Everything else reads the API or the local mirror.
-- **`--dry-run` is opt-in - use it.** `backups retire --dry-run` asks the API for the
-  match set without retiring anything; `push --dry-run` validates every row and shows
+- **Previews are opt-in - use them.** `--dry-run` sends nothing on any command.
+  `backups retire --server-dry-run` asks the API for the match set without retiring
+  anything (the request is sent); `push --dry-run` validates every row and shows
   the exact first request body. `stale` only ever emits retire bodies with
   `dry_run: true`. Make your agent's policy: preview, show the exact command, get
   approval, then run the write.
@@ -56,15 +57,15 @@ require a human for anything below the line.
 | **Read** | Reports, rollups, search. No change. | `check`, `unwatched`, `scorecard`, `timeline`, `stale`, `coverage diff`, `health list`, `health get`, `devices`, `backups list`, `backups get`, `backups results`, `backups filters`, `backups inactive`, `backups retired`, `backups overview`, `sync`, `search`, `analytics`, `export` | Allow |
 | **Write (routine)** | Posts backup results into Backup Radar. | `backups ingest`, `push`, `import` | Preview with `--dry-run`, then an approved write |
 | **Credential / security** | Touches the saved ScalePad key. | `auth set-token`, `auth logout` | Human-in-the-loop only |
-| **Destructive** | Removes backups from monitoring; can close their PSA tickets. | `backups retire` (with `--close-psa-tickets`, the related tickets are closed too) | Human-in-the-loop only, explicit confirmation, after a `--dry-run` of the same filters |
+| **Destructive** | Removes backups from monitoring; can close their PSA tickets. | `backups retire` (with `--close-psa-tickets`, the related tickets are closed too) | Human-in-the-loop only, explicit confirmation, after a `--server-dry-run` of the same filters |
 | **Admin** | Back-office administration. | none in this connector (ScalePad user and policy administration are not in the API) | n/a |
 
 ## What the MCP server exposes
 
-- `BACKUP_RADAR_MCP_READ_ONLY=1` (or `true` / `yes`) removes the `backups_ingest` and `backups_retire` tools
-  and the `sync`, `export`, `learnings_forget`, `learnings_reject` and `workflow_archive`
-  mirrors. The remaining tools still write local state: the response cache, the mirror
-  and learning entries.
+- `BACKUP_RADAR_MCP_READ_ONLY=1` (or `true` / `yes`) removes the `backups_ingest` and `backups_retire` tools,
+  the `sync`, `export` and `workflow_archive` mirrors, and the learning-store write tools (`teach`, `teach_pattern`, `teach_lookup`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_forget`, `learnings_reject`). The remaining
+  tools still write local state: the mirror and the learn journal.
+  GET responses are never cached on disk.
 - `backups_retire` carries the MCP destructive annotation, so hosts that honor it ask
   before calling.
 - `push` and `import` are never exposed over MCP (they read local files).
@@ -74,11 +75,10 @@ require a human for anything below the line.
   root `--output`, `--db`, `--home`, `--config`, `--deliver`, `--receipt-file` and
   `--audit-dir`. A call to a mirrored command that names one of them is rejected with
   `unknown MCP parameter`. The typed endpoint tools (`health_*`, `devices_list`,
-  `backups_*`) have no file flags at all. On the read tools an argument outside the schema
-  is forwarded to the Backup Radar API as a query parameter and is never read as a local
-  path; the write tools (`backups_ingest`, `backups_retire`) refuse any argument outside
-  their schema, so a mistyped preview flag (`dry-run` for `dry_run`) fails instead of
-  running live.
+  `backups_*`) have no file flags at all. The read tools refuse an argument outside the
+  schema and send nothing; the write tools (`backups_ingest`, `backups_retire`) refuse any argument outside
+  their schema, so a mistyped preview argument (`dry_run` for `server_dry_run`) fails instead of
+  running live. Both write tools return a preview and send only with `confirm: true`.
 - When the server runs with `--transport http`, `BACKUP_RADAR_MCP_HTTP_TOKEN` must be a
   real bearer token; an unresolved `${user_config...}` placeholder is refused.
 

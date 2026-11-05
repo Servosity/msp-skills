@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -23,13 +24,16 @@ account ID or an exact client name.`,
   superops-cli client-360 5016054681314398208
   superops-cli client-360 "Acme Corp" --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:happy-args": "Acme"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "Acme"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if len(args) == 0 {
 				return cmd.Help()
 			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "client-360")
 			}
 			query := strings.TrimSpace(args[0])
 			db, err := openStoreForNovel(cmd.Context(), dbPath)
@@ -37,16 +41,34 @@ account ID or an exact client name.`,
 				return err
 			}
 			defer db.Close()
-			clients, err := queryRecs(db, "clients")
+			clients, err := loadRecs(cmd, db, "clients")
 			if err != nil {
 				return err
 			}
-			sites, _ := queryRecs(db, "sites")
-			users, _ := queryRecs(db, "users")
-			contracts, _ := queryRecs(db, "contracts")
-			tickets, _ := queryRecs(db, "tickets")
-			assets, _ := queryRecs(db, "assets")
-			invoices, _ := queryRecs(db, "invoices")
+			sites, err := loadRecs(cmd, db, "sites")
+			if err != nil {
+				return err
+			}
+			users, err := loadRecs(cmd, db, "users")
+			if err != nil {
+				return err
+			}
+			contracts, err := loadRecs(cmd, db, "contracts")
+			if err != nil {
+				return err
+			}
+			tickets, err := loadRecs(cmd, db, "tickets")
+			if err != nil {
+				return err
+			}
+			assets, err := loadRecs(cmd, db, "assets")
+			if err != nil {
+				return err
+			}
+			invoices, err := loadRecs(cmd, db, "invoices")
+			if err != nil {
+				return err
+			}
 
 			bundle, ok := buildClient360(query, clients, sites, users, contracts, tickets, assets, invoices)
 			if !ok {

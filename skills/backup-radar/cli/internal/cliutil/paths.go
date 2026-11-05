@@ -5,6 +5,7 @@
 package cliutil
 
 import (
+	"backup-radar-pp-cli/internal/credkit"
 	"backup-radar-pp-cli/internal/termio"
 	"errors"
 	"fmt"
@@ -129,6 +130,37 @@ func ReadFileWithLegacyFallback(primary, legacy string) ([]byte, string, error) 
 }
 
 func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileMode) error {
+	return atomicWritePrivate(path, fileMode, dirMode, func(tmpPath string, tmp *os.File) error {
+		if err := tmp.Close(); err != nil {
+			return fmt.Errorf("closing temporary private file: %w", err)
+		}
+		// Hand-fix (handfixes.json credkit-wiring): the data is written through the credential kit.
+		if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {
+			return fmt.Errorf("writing temporary private file: %w", err)
+		}
+		return nil
+	})
+}
+
+// AtomicWriteCredentialFile writes the connector's own 0600 credential store or
+// config file. Hand-fix (handfixes.json credkit-wiring): these files are credential
+// SOURCES named in the kit's Declarations.Files, so their writes go outside the kit,
+// which would withhold them by contract. Every other private file uses
+// AtomicWritePrivateFile.
+func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {
+	return atomicWritePrivate(path, fileMode, dirMode, func(_ string, tmp *os.File) error {
+		if _, err := tmp.Write(data); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("writing temporary private file: %w", err)
+		}
+		if err := tmp.Close(); err != nil {
+			return fmt.Errorf("closing temporary private file: %w", err)
+		}
+		return nil
+	})
+}
+
+func atomicWritePrivate(path string, fileMode, dirMode os.FileMode, write func(tmpPath string, tmp *os.File) error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("creating private file dir: %w", err)
@@ -143,14 +175,9 @@ func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileM
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("securing temporary private file: %w", err)
 	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
+	if err := write(tmpPath, tmp); err != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("writing temporary private file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("closing temporary private file: %w", err)
+		return err
 	}
 	if err := renamePrivateFileWithRetry(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)
