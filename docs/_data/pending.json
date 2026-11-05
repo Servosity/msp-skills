@@ -322,10 +322,10 @@
     "released_hash": "sha256:63bb5026bcecfbabfacbd404a7f235efaa28e88251779dfff9454d13d70bba65"
   },
   "immybot": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.11",
     "latest_tag": "immybot-v0.1.11",
-    "current_hash": "sha256:a1de566df6a632b6c8de973512f4faa6e166d2501063765549d63e9709a2f500",
+    "current_hash": "sha256:6fef33ff6ec9f267dc76a3fba500bc4e0e937d5b0aa3ead4ef29b58c748aeb4b",
     "released_hash": "sha256:a1de566df6a632b6c8de973512f4faa6e166d2501063765549d63e9709a2f500"
   },
   "itglue": {
