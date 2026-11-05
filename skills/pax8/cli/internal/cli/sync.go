@@ -18,6 +18,7 @@ import (
 	"pax8-pp-cli/internal/cliutil"
 	"pax8-pp-cli/internal/learn"
 	"pax8-pp-cli/internal/learn/lookups"
+	"pax8-pp-cli/internal/pax8page"
 	"pax8-pp-cli/internal/store"
 	"regexp"
 	"sort"
@@ -86,6 +87,9 @@ Exit codes & warnings:
   ...} so callers can detect that a partial failure was tolerated. Pass
   --strict to exit non-zero on any per-resource failure. Exit is always
   non-zero when every selected resource failed, regardless of --strict.
+  A list whose walk cannot be proven complete (no page block from
+  the API, or a block that contradicts the rows read) fails its resource,
+  deletes nothing under --full, and exits non-zero.
 
 Resource scoping:
   --resources runs the named top-level resources, plus any parent-keyed
@@ -608,8 +612,14 @@ func syncResource(ctx context.Context, c interface {
 	flatReconcilable := resourceIsFlatReconcilable(reconcileMode)
 	outcome := partitionOutcome{}
 	var seenIDs []string
+	// Hand-fix (handfixes.json sync-reads-every-page): the page block
+	// decides where the walk ends. requestLimit is what goes on the wire;
+	// pageSize.limit is reset each page to the answer the checks below expect.
+	var walk pax8page.Walk
+	requestLimit := pageSize.limit
 
 	for {
+		pageSize.limit = requestLimit
 		params := map[string]string{}
 		// Seed spec-declared param defaults before anything sync computes, so
 		// paging, the since filter, and user --param overrides all still win.
@@ -673,6 +683,27 @@ func syncResource(ctx context.Context, c interface {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
 			}
 			return syncResult{Resource: resource, Count: totalCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
+		}
+		var pagingErr error
+		if isJSONResponse(data) {
+			var step pax8page.Step
+			step, pagingErr = walk.Page(params[pageSize.cursorParam], data, len(items))
+			nextCursor, hasMore, pageSize.limit = step.Next, step.More, step.PageLimit(len(items))
+		}
+		pagingFailure := func(count int) syncResult {
+			err := fmt.Errorf("%s paging failed: %w", resource, pagingErr)
+			// The next run starts over from page 0: resuming would skip whatever
+			// this walk lost, and read as complete.
+			if saveErr := db.SaveSyncProgressInScope(resource, scopeKey, "", count); saveErr != nil {
+				err = fmt.Errorf("%w; saving sync progress: %v", err, saveErr)
+			}
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
+			}
+			return syncResult{Resource: resource, Count: count, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
+		}
+		if pagingErr != nil && len(items) == 0 {
+			return pagingFailure(totalCount)
 		}
 		if sortEffective && maxPages > 0 {
 			for _, item := range items {
@@ -839,6 +870,11 @@ func syncResource(ctx context.Context, c interface {
 					}
 				}
 			}
+		}
+		// The rows are kept, the walk is not trusted: failing here skips the
+		// prune and the watermark below.
+		if pagingErr != nil {
+			return pagingFailure(totalCount)
 		}
 		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
@@ -1037,6 +1073,11 @@ func syncResource(ctx context.Context, c interface {
 	}
 
 	if outcome.reason == "non_json_200_body" {
+		// A later page that cannot be read leaves a partial walk: a failure.
+		if pagesFetched > 0 {
+			err := fmt.Errorf("%s paging failed: page %s returned a 200 response with a non-JSON body", resource, cursor)
+			return syncResult{Resource: resource, Count: totalCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
+		}
 		return syncResult{
 			Resource: resource,
 			Count:    0,
@@ -1112,7 +1153,7 @@ func syncResource(ctx context.Context, c interface {
 		if !humanFriendly {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"%s","total":%d}`+"\n", resource, reason, cachedCount)
 		}
-		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("%s sync incomplete (%s); %d rows stored", resource, reason, cachedCount), Duration: time.Since(started)}
+		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("%s sync incomplete (%s); %d rows stored", resource, reason, cachedCount), IntegrityFailure: true, Duration: time.Since(started)}
 	}
 	if !humanFriendly {
 		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
@@ -1206,8 +1247,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			cursorType:     "page",
 			initialCursor:  "0",
 			nextCursorPath: "",
-			limitParam:     "",
-			limit:          100,
+			limitParam:     "size",
+			limit:          pax8page.MaxSize,
 		}
 	case "invoices-draft-items":
 		return paginationDefaults{
@@ -1233,8 +1274,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			cursorType:     "page",
 			initialCursor:  "0",
 			nextCursorPath: "",
-			limitParam:     "",
-			limit:          100,
+			limitParam:     "size",
+			limit:          pax8page.MaxSize,
 		}
 	case "products":
 		return paginationDefaults{
@@ -1242,8 +1283,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			cursorType:     "page",
 			initialCursor:  "0",
 			nextCursorPath: "",
-			limitParam:     "",
-			limit:          100,
+			limitParam:     "size",
+			limit:          pax8page.MaxSize,
 		}
 	case "subscriptions":
 		return paginationDefaults{
@@ -1251,8 +1292,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			cursorType:     "page",
 			initialCursor:  "0",
 			nextCursorPath: "",
-			limitParam:     "",
-			limit:          100,
+			limitParam:     "size",
+			limit:          pax8page.MaxSize,
 		}
 	case "subscriptions/subscriptions_usage_summaries":
 		return paginationDefaults{
@@ -1260,8 +1301,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			cursorType:     "page",
 			initialCursor:  "0",
 			nextCursorPath: "",
-			limitParam:     "",
-			limit:          100,
+			limitParam:     "size",
+			limit:          pax8page.MaxSize,
 		}
 	}
 	return paginationDefaults{
@@ -2688,8 +2729,13 @@ func syncOneParent(
 
 	outcome := partitionOutcome{scopeVal: parentID}
 	var seenIDs []string
+	// Hand-fix (handfixes.json sync-reads-every-page): same reading as the
+	// flat loop; pageSize is this worker's copy.
+	var walk pax8page.Walk
+	requestLimit := pageSize.limit
 
 	for {
+		pageSize.limit = requestLimit
 		params := map[string]string{}
 		// Same seeding as the flat loop: spec defaults first, everything
 		// sync or the operator sets afterwards overrides them.
@@ -2764,6 +2810,24 @@ func syncOneParent(
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, rep.failure))
 			}
+			break
+		}
+		var pagingErr error
+		if isJSONResponse(data) {
+			var step pax8page.Step
+			step, pagingErr = walk.Page(params[pageSize.cursorParam], data, len(items))
+			nextCursor, hasMore, pageSize.limit = step.Next, step.More, step.PageLimit(len(items))
+		}
+		pagingFailure := func() {
+			outcome.reason = "paging_failed"
+			rep.integrityFailure = true
+			rep.failure = fmt.Errorf("%s parent %s paging failed: %w", dep.Name, parentID, pagingErr)
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, rep.failure))
+			}
+		}
+		if pagingErr != nil && len(items) == 0 {
+			pagingFailure()
 			break
 		}
 
@@ -2891,6 +2955,10 @@ func syncOneParent(
 				}
 			}
 		}
+		if pagingErr != nil {
+			pagingFailure()
+			break
+		}
 		if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(dep.Name, path)...) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
 		}
@@ -2972,7 +3040,20 @@ func syncOneParent(
 		}
 	}
 
-	rep.nonJSONBody = outcome.reason == "non_json_200_body"
+	// A walk that broke off without a recorded failure is one too: the parent's
+	// children are missing rows. The operator's own page cap is not.
+	if rep.failure == nil {
+		switch {
+		case outcome.reason == "stuck_page", outcome.reason == "stuck_cursor", outcome.reason == "cursor_unavailable", outcome.reason == "empty_non_list_response",
+			outcome.reason == "non_json_200_body" && pagesFetched > 0:
+			rep.integrityFailure = true
+			rep.failure = fmt.Errorf("%s parent %s paging failed: %s", dep.Name, parentID, outcome.reason)
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, rep.failure))
+			}
+		}
+	}
+	rep.nonJSONBody = outcome.reason == "non_json_200_body" && pagesFetched == 0
 	rep.complete = outcome.complete && rep.failure == nil && !rep.denied && rep.anomaly == nil
 	rep.reason = outcome.reason
 	return rep

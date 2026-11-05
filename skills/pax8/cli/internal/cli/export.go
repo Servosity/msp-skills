@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"pax8-pp-cli/internal/cliutil"
 	"pax8-pp-cli/internal/credkit"
+	"pax8-pp-cli/internal/pax8page"
 )
 
 func newExportCmd(flags *rootFlags) *cobra.Command {
@@ -129,6 +130,7 @@ large datasets as it has no memory pressure.`,
 			allItems := []json.RawMessage{}
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
+			var pageWalk pax8page.Walk
 			for {
 				remaining := 0
 				if limit > 0 {
@@ -171,7 +173,24 @@ large datasets as it has no memory pressure.`,
 					count++
 				}
 
-				if config.paginationType == "" || len(items) == 0 || (limit > 0 && count >= limit) {
+				if config.paginationType == "" || (limit > 0 && count >= limit) {
+					break
+				}
+				// Hand-fix (handfixes.json export-reads-every-page): the page
+				// block ends the walk, and a walk that cannot prove it read every
+				// row fails instead of writing part of a backup.
+				if config.paginationType == "page" {
+					step, err := pageWalk.Page(params[config.cursorParam], data, len(items))
+					if err != nil {
+						return fmt.Errorf("export pagination for %q: %w", resource, err)
+					}
+					if !step.More {
+						break
+					}
+					page++
+					continue
+				}
+				if len(items) == 0 {
 					break
 				}
 				page++

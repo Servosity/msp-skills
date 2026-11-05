@@ -33,6 +33,7 @@ import (
 	"pax8-pp-cli/internal/cliutil"
 	"pax8-pp-cli/internal/config"
 	"pax8-pp-cli/internal/credkit"
+	"pax8-pp-cli/internal/pax8page"
 	"pax8-pp-cli/internal/platform"
 )
 
@@ -1468,6 +1469,9 @@ func paginatedGet(ctx context.Context, c interface {
 	reportedTotal := 0
 	page := 0
 	omitCompleteEvent := false
+	// Hand-fix (handfixes.json all-reads-every-page): a page-numbered walk
+	// follows the page block, from page 0 to the last page it names.
+	var pageWalk pax8page.Walk
 	for {
 		page++
 		if humanFriendly {
@@ -1543,6 +1547,17 @@ func paginatedGet(ctx context.Context, c interface {
 					previousPageItemsSet = true
 					allItems = append(allItems, nested...)
 					itemCount = len(nested)
+				}
+				if paginationType == "page" {
+					step, err := pageWalk.Page(clean[cursorParam], data, itemCount)
+					if err != nil {
+						return nil, fmt.Errorf("--all could not read every page: %w", err)
+					}
+					if !step.More {
+						break
+					}
+					clean[cursorParam] = step.Next
+					continue
 				}
 				if n := reportedCollectionTotal(obj); n > 0 {
 					reportedTotal = n
@@ -1792,9 +1807,11 @@ func nextClientSidePaginationCursor(params map[string]string, cursorParam, pagin
 	}
 	switch paginationType {
 	case "page":
+		// Hand-fix (handfixes.json all-reads-every-page): Pax8 counts pages
+		// from 0, so an absent page is page 0 and the next is 1.
 		current := params[cursorParam]
 		if current == "" {
-			current = "1"
+			current = "0"
 		}
 		n, err := strconv.Atoi(current)
 		if err != nil {

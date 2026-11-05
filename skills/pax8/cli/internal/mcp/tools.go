@@ -28,6 +28,7 @@ import (
 	"pax8-pp-cli/internal/learn"
 	"pax8-pp-cli/internal/mcp/bound"
 	"pax8-pp-cli/internal/mcp/cobratree"
+	"pax8-pp-cli/internal/pax8page"
 	"pax8-pp-cli/internal/platform"
 	"pax8-pp-cli/internal/store"
 )
@@ -77,13 +78,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithBoolean("billOnBehalfOfEnabled", mcplib.Description("Return only companies matching this ```billOnBehalfOfEnabled``` value")),
 			mcplib.WithBoolean("orderApprovalRequired", mcplib.Description("Return only companies matching this ```orderApprovalRequired``` value")),
 			mcplib.WithString("status", mcplib.Description("Return only companies matching this ```status``` value")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/companies", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "city", WireName: "city", Location: "query"}, {PublicName: "country", WireName: "country", Location: "query"}, {PublicName: "stateOrProvince", WireName: "stateOrProvince", Location: "query"}, {PublicName: "postalCode", WireName: "postalCode", Location: "query"}, {PublicName: "selfServiceAllowed", WireName: "selfServiceAllowed", Location: "query"}, {PublicName: "billOnBehalfOfEnabled", WireName: "billOnBehalfOfEnabled", Location: "query"}, {PublicName: "orderApprovalRequired", WireName: "orderApprovalRequired", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/companies", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "city", WireName: "city", Location: "query"}, {PublicName: "country", WireName: "country", Location: "query"}, {PublicName: "stateOrProvince", WireName: "stateOrProvince", Location: "query"}, {PublicName: "postalCode", WireName: "postalCode", Location: "query"}, {PublicName: "selfServiceAllowed", WireName: "selfServiceAllowed", Location: "query"}, {PublicName: "billOnBehalfOfEnabled", WireName: "billOnBehalfOfEnabled", Location: "query"}, {PublicName: "orderApprovalRequired", WireName: "orderApprovalRequired", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("companies_get",
@@ -148,13 +150,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Returns a paginated list of contacts ordered by ```createDate``` descending. Required: companyId. Optional: page (default: 0), size (default: 10)."),
 			mcplib.WithNumber("size", mcplib.Description("Return this number of company records per page (default: 10)")),
 			mcplib.WithString("companyId", mcplib.Required(), mcplib.Description("Company id")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/companies/{companyId}/contacts", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "path"}}, []string{"companyId"}),
+		makeAPIHandler("GET", "/companies/{companyId}/contacts", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "path"}}, []string{"companyId"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("companies_contacts_get-companies",
@@ -197,13 +200,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("balance", mcplib.Description("Return only invoices matching this ```balance``` value")),
 			mcplib.WithNumber("carriedBalance", mcplib.Description("Return only invoices matching this ```carriedBalance``` value")),
 			mcplib.WithString("companyId", mcplib.Description("Return only invoices matching this ```companyId``` value")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/invoices", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "invoiceDate", WireName: "invoiceDate", Location: "query"}, {PublicName: "invoiceDateRangeStart", WireName: "invoiceDateRangeStart", Location: "query"}, {PublicName: "invoiceDateRangeEnd", WireName: "invoiceDateRangeEnd", Location: "query"}, {PublicName: "dueDate", WireName: "dueDate", Location: "query"}, {PublicName: "total", WireName: "total", Location: "query"}, {PublicName: "balance", WireName: "balance", Location: "query"}, {PublicName: "carriedBalance", WireName: "carriedBalance", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/invoices", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "invoiceDate", WireName: "invoiceDate", Location: "query"}, {PublicName: "invoiceDateRangeStart", WireName: "invoiceDateRangeStart", Location: "query"}, {PublicName: "invoiceDateRangeEnd", WireName: "invoiceDateRangeEnd", Location: "query"}, {PublicName: "dueDate", WireName: "dueDate", Location: "query"}, {PublicName: "total", WireName: "total", Location: "query"}, {PublicName: "balance", WireName: "balance", Location: "query"}, {PublicName: "carriedBalance", WireName: "carriedBalance", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("invoices_find-partner-draft-items",
@@ -211,13 +215,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("size", mcplib.Description("Returns _this_ number of draft invoice items per page (default: 10)")),
 			mcplib.WithNumber("monthOffset", mcplib.Description("Number of months from current to return draft items for. 0 = current month, 1 = next month. (default: 1)")),
 			mcplib.WithString("companyId", mcplib.Description("Filter draft items to a specific company.")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/invoices/draftItems", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "monthOffset", WireName: "monthOffset", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/invoices/draftItems", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "monthOffset", WireName: "monthOffset", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("invoices_get-partner",
@@ -235,13 +240,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Fetch a paginated list of invoice items. Default page is 0 and default size is 10. The maximum page size is 200. Required: invoiceId. Optional: page (default: 0), size (default: 10). Returns array of InvoiceItem."),
 			mcplib.WithString("invoiceId", mcplib.Required(), mcplib.Description("The invoice id")),
 			mcplib.WithNumber("size", mcplib.Description("Returns _this_ number of invoices items per page (default: 10)")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/invoices/{invoiceId}/items", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "invoiceId", WireName: "invoiceId", Location: "path"}, {PublicName: "size", WireName: "size", Location: "query"}}, []string{"invoiceId"}),
+		makeAPIHandler("GET", "/invoices/{invoiceId}/items", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "invoiceId", WireName: "invoiceId", Location: "path"}, {PublicName: "size", WireName: "size", Location: "query"}}, []string{"invoiceId"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_create",
@@ -261,13 +267,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Returns a paginated list of orders. Currently NOT supported for scheduled orders(orders with a future date). Optional: page (default: 0), size (default: 10), companyId."),
 			mcplib.WithNumber("size", mcplib.Description("Size (default: 10)")),
 			mcplib.WithString("companyId", mcplib.Description("The company id to filter on")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/orders", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/orders", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_find-by-id",
@@ -287,13 +294,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("sort", mcplib.Description("Return products sorted by the field and direction specified. Formatted as fieldName, direction - ex. sort=name,desc")),
 			mcplib.WithString("search", mcplib.Description("Search on fields like name, vendor, SKU and ID.")),
 			mcplib.WithString("vendorName", mcplib.Description("Return only products matching the specified vendor name")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/products", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "search", WireName: "search", Location: "query"}, {PublicName: "vendorName", WireName: "vendorName", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/products", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "search", WireName: "search", Location: "query"}, {PublicName: "vendorName", WireName: "vendorName", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("products_find-by-id",
@@ -360,13 +368,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("billingTerm", mcplib.Description("Return only subscriptions matching this ```billingTerm``` value")),
 			mcplib.WithString("companyId", mcplib.Description("Return only subscriptions matching this ```companyId``` value")),
 			mcplib.WithString("productId", mcplib.Description("Return only subscriptions matching this ```productId``` value")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/subscriptions", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "billingTerm", WireName: "billingTerm", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}, {PublicName: "productId", WireName: "productId", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/subscriptions", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "status", WireName: "status", Location: "query"}, {PublicName: "billingTerm", WireName: "billingTerm", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}, {PublicName: "productId", WireName: "productId", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("subscriptions_find-by-id",
@@ -408,13 +417,14 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("sort", mcplib.Description("Return usage summaries sorted by this field and direction Formatted as fieldName,direction - ex. sort=resourceGroup,desc")),
 			mcplib.WithString("resourceGroup", mcplib.Description("Return only usage summaries matching this ```resourceGroup``` value")),
 			mcplib.WithString("companyId", mcplib.Description("Return only usage summaries with this ```companyId``` value")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/subscriptions/{subscriptionId}/usage-summaries", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "subscriptionId", WireName: "subscriptionId", Location: "path"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "resourceGroup", WireName: "resourceGroup", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{"subscriptionId"}),
+		makeAPIHandler("GET", "/subscriptions/{subscriptionId}/usage-summaries", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "subscriptionId", WireName: "subscriptionId", Location: "path"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "resourceGroup", WireName: "resourceGroup", Location: "query"}, {PublicName: "companyId", WireName: "companyId", Location: "query"}}, []string{"subscriptionId"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("usage-summaries_find-subscription-usage-summary",
@@ -433,12 +443,15 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("usageSummaryId", mcplib.Required(), mcplib.Description("The usage summary id")),
 			mcplib.WithString("usageDate", mcplib.Required(), mcplib.Description("The date usage was recorded")),
 			mcplib.WithString("productId", mcplib.Description("Return only usage summaries with this ```productId``` value")),
+			mcplib.WithNumber("size", mcplib.Description("Return this number of usage lines per page (default: 10, maximum: 200)")),
+			mcplib.WithNumber("page", mcplib.Description("Return this page of results, counting from 0 (default: 0). A next_cursor continues a page this response cut short and the pages after it")),
+			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
 			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/usage-summaries/{usageSummaryId}/usage-lines", true, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "usageSummaryId", WireName: "usageSummaryId", Location: "path"}, {PublicName: "usageDate", WireName: "usageDate", Location: "query"}, {PublicName: "productId", WireName: "productId", Location: "query"}}, []string{"usageSummaryId"}),
+		makeAPIHandler("GET", "/usage-summaries/{usageSummaryId}/usage-lines", true, false, nil, mcpPageConfig{CursorParam: "page", NextCursorPath: ""}, []mcpParamBinding{{PublicName: "page", WireName: "page", Location: "query"}, {PublicName: "size", WireName: "size", Location: "query"}, {PublicName: "usageSummaryId", WireName: "usageSummaryId", Location: "path"}, {PublicName: "usageDate", WireName: "usageDate", Location: "query"}, {PublicName: "productId", WireName: "productId", Location: "query"}}, []string{"usageSummaryId"}),
 	)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
@@ -515,6 +528,7 @@ type mcpPageConfig struct {
 	CursorInBody         bool
 	ExternalContinuation bool
 	BodyPath             []string
+	Query                map[string]string
 }
 
 func formatMCPParamValue(v any) string {
@@ -739,6 +753,31 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			return mcpToolError(err.Error()), nil
 		}
 
+		// Hand-fix (handfixes.json mcp-list-reaches-every-row): a cursor is a
+		// position in one walk, so it brings that walk's filters and size, and
+		// anything that would move the walk off them is refused rather than
+		// skipping rows.
+		pagedList := strings.EqualFold(method, "GET") && pageConfig.CursorParam == "page"
+		if pagedList {
+			if mcpCursor != "" {
+				if _, ok := args["page"]; ok {
+					return mcpToolError("pass page or cursor, not both: a cursor already names its page"), nil
+				}
+				pinned, err := bound.CursorQuery(mcpCursor)
+				if err != nil {
+					return mcpToolError(err.Error()), nil
+				}
+				for key, value := range pinned {
+					if current, ok := params[key]; ok && current != value {
+						return mcpToolError(fmt.Sprintf("this cursor continues a walk with %s=%s: repeat that value or leave %s out", key, value, key)), nil
+					}
+					params[key] = value
+				}
+			} else if requestCursor == "" {
+				requestCursor = params["page"]
+			}
+		}
+
 		// The public cursor argument is either an opaque MCP cursor or, on a
 		// read-only non-GET, the API cursor itself. Replay must send the API
 		// cursor, never the opaque blob, or the next slice skips entries.
@@ -944,6 +983,27 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			return mcplib.NewToolResultText(result), nil
 		}
 		if pageConfig.CursorParam != "" || pageConfig.NextCursorPath != "" || pageConfig.ExternalContinuation {
+			if pagedList {
+				// A server repeating one page however it is asked would look like a
+				// walk that ended early. A response with no block keeps today's
+				// answer: its rows, and no cursor.
+				walkConfig := pageConfig
+				walkConfig.Query = make(map[string]string, len(params))
+				for key, value := range params {
+					if key != "page" {
+						walkConfig.Query[key] = value
+					}
+				}
+				if block, ok := pax8page.Read(data); ok {
+					if err := block.Answers(params["page"]); err != nil {
+						return mcpToolError("paging failed: " + err.Error()), nil
+					}
+					if _, ok := walkConfig.Query["size"]; !ok && block.Size > 0 {
+						walkConfig.Query["size"] = strconv.Itoa(block.Size)
+					}
+				}
+				return mcpToolPageResultTextWithPlatform(method, data, walkConfig, mcpCursor, requestCursor, readOnly, platformSession), nil
+			}
 			return mcpToolPageResultTextWithPlatform(method, data, pageConfig, mcpCursor, requestCursor, readOnly, platformSession), nil
 		}
 		return mcpToolResultTextWithPlatform(method, data, readOnly, platformSession), nil
@@ -1142,6 +1202,7 @@ func mcpToolPageResultTextWithPlatform(method string, data json.RawMessage, page
 		RequestCursor:        requestCursor,
 		ReadOnly:             readOnly,
 		ExternalContinuation: pageConfig.ExternalContinuation,
+		Query:                pageConfig.Query,
 	})
 	if platformSession != nil {
 		result = bound.WithMetadata(result, platformSession.OutputMetadata())
@@ -1774,8 +1835,8 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass page parameter for subsequent pages.",
-			"Control page size with the size parameter (default 100).",
+			"List tools return next_cursor while rows remain: pass it back as cursor until none is returned. Or pass page, counting from 0.",
+			"Control page size with the size parameter (default 10, maximum 200).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",

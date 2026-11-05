@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"pax8-pp-cli/internal/pax8page"
 )
 
 type resourceReadConfig struct {
@@ -44,11 +46,11 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 }
 
 var resourceReadConfigs = map[string]resourceReadConfig{
-	"companies":     {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: 10},
-	"invoices":      {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"orders":        {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"products":      {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "", nextCursorPath: "", hasMoreField: "", pageSize: 100},
-	"subscriptions": {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "", nextCursorPath: "", hasMoreField: "", pageSize: 100},
+	"companies":     {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: pax8page.MaxSize},
+	"invoices":      {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: pax8page.MaxSize},
+	"orders":        {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: pax8page.MaxSize},
+	"products":      {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: pax8page.MaxSize},
+	"subscriptions": {responsePath: "content", paginationType: "page", cursorParam: "page", limitParam: "size", nextCursorPath: "", hasMoreField: "", pageSize: pax8page.MaxSize},
 }
 
 func resourceReadPath(resource string) (string, error) {
@@ -254,7 +256,9 @@ func resourcePageParams(config resourceReadConfig, cursor string, page int, rema
 		case "offset":
 			params[config.cursorParam] = strconv.Itoa(page * stride)
 		case "page":
-			params[config.cursorParam] = strconv.Itoa(page + 1)
+			// Hand-fix (handfixes.json export-reads-every-page): page counts
+			// from 0 here and at Pax8.
+			params[config.cursorParam] = strconv.Itoa(page)
 		default:
 			if cursor != "" {
 				params[config.cursorParam] = cursor

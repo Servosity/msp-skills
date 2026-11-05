@@ -9,9 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"pax8-pp-cli/internal/pax8page"
 )
 
 const (
@@ -53,12 +56,16 @@ type PageOptions struct {
 	RequestCursor        string
 	ReadOnly             bool
 	ExternalContinuation bool
+	// Query is every query parameter of the walk but the page itself. A cursor
+	// carries it, so the cursor alone continues the same walk.
+	Query map[string]string
 }
 
 type endpointCursor struct {
-	Version        int    `json:"v"`
-	Offset         int    `json:"o,omitempty"`
-	UpstreamCursor string `json:"u,omitempty"`
+	Version        int               `json:"v"`
+	Offset         int               `json:"o,omitempty"`
+	UpstreamCursor string            `json:"u,omitempty"`
+	Query          map[string]string `json:"q,omitempty"`
 }
 
 // EndpointResponse renders a typed endpoint response within the MCP result
@@ -78,6 +85,15 @@ func EndpointPageResponse(method string, data json.RawMessage, opts PageOptions)
 		return endpointResponse(method, data, PageOptions{})
 	}
 	return endpointResponse(method, data, opts)
+}
+
+// CursorQuery returns the query parameters an opaque MCP cursor was minted under.
+func CursorQuery(cursor string) (map[string]string, error) {
+	state, err := decodeEndpointCursor(cursor)
+	if err != nil {
+		return nil, err
+	}
+	return state.Query, nil
 }
 
 // UpstreamCursor unwraps the upstream API cursor embedded in an opaque MCP
@@ -360,6 +376,13 @@ func boundedSingleArrayPageObject(data json.RawMessage, opts PageOptions) ([]byt
 		return nil, false
 	}
 	nextUpstream := extractStringPath(data, opts.NextCursorPath)
+	// Hand-fix (handfixes.json mcp-list-reaches-every-row): the next API
+	// page comes from the page block, the same reading every other reader uses.
+	if opts.CursorParam == "page" && opts.NextCursorPath == "" {
+		if block, ok := pax8page.Read(data); ok && block.More() {
+			nextUpstream = strconv.Itoa(block.Number + 1)
+		}
+	}
 	if nextUpstream != "" {
 		if state, err := decodeEndpointCursor(opts.Cursor); err == nil && nextUpstream == state.UpstreamCursor {
 			nextUpstream = ""
@@ -563,6 +586,12 @@ func decodeEndpointCursor(cursor string) (endpointCursor, error) {
 }
 
 func presentedPageCursor(nextCursor string, opts PageOptions) string {
+	if len(opts.Query) > 0 && nextCursor != "" {
+		if state, err := decodeEndpointCursor(nextCursor); err == nil {
+			state.Query = opts.Query
+			nextCursor = encodeEndpointCursor(state)
+		}
+	}
 	if !opts.ExternalContinuation || nextCursor == "" {
 		return nextCursor
 	}
