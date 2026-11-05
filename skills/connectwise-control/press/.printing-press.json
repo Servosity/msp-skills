@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T13:19:57.663741Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-29T12:44:41.475354Z",
+  "printing_press_version": "4.34.2",
   "api_name": "connectwise-control",
-  "display_name": "Connectwise Control",
+  "display_name": "ConnectWise Control",
   "cli_name": "connectwise-control-pp-cli",
   "creator": {
     "handle": "DamienStevens",
@@ -14,10 +14,11 @@
   "printer_name": "Damien Stevens",
   "spec_path": "spec.yaml",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:e40cd22c73cba74fefd2f8af32ba6870215d99f3e6b092059e757e5356bed984",
-  "run_id": "20260613-131957",
+  "spec_source": "official",
+  "spec_checksum": "sha256:7b0771ff569f4a9370fbc20e7efa444ae321d2d19ed960aa3380aa6c4c8703f9",
+  "run_id": "20261029-041607-91d0c8bf",
   "category": "monitoring",
-  "description": "Unofficial OpenAPI 3 description of the ConnectWise Control (ScreenConnect) instance REST surface",
+  "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI.",
   "mcp_binary": "connectwise-control-pp-mcp",
   "mcp_tool_count": 13,
   "mcp_ready": "full",
@@ -27,5 +28,44 @@
   "auth_env_vars": [
     "CONNECTWISE_CONTROL_USERNAME",
     "CONNECTWISE_CONTROL_PASSWORD"
-  ]
+  ],
+  "novel_features": [
+    {
+      "name": "Stale guest sessions",
+      "command": "sessions stale",
+      "description": "List sessions whose guest has not connected for at least --days (default 30), oldest first, plus sessions with no recorded connection."
+    },
+    {
+      "name": "User access review",
+      "command": "security access-review",
+      "description": "Flag instance users that are disabled, have an expired password, or belong to no security group, with each user's groups listed."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Stale guest sessions",
+      "command": "sessions stale",
+      "description": "List sessions whose guest has not connected for at least --days (default 30), oldest first, plus sessions with no recorded connection."
+    },
+    {
+      "name": "User access review",
+      "command": "security access-review",
+      "description": "Flag instance users that are disabled, have an expired password, or belong to no security group, with each user's groups listed."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 37,
+    "total": 37,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
 }

@@ -13,10 +13,10 @@
       "category": "Security",
       "display_name": "Abnormal Security",
       "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
-      "cli_hash": "sha256:d12d1eef0628a3105c8b052c73bccf5708ba6cd241ce3c167287cb0b478350f1",
+      "cli_hash": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:d553731f02ec318ca7403ee9fa916be3aed8c54e215d2a4db1a4ae98b9446f3d",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -529,7 +529,7 @@
     },
     "cloudally": {
       "system": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "cloudally-cli",
       "mcp_binary": "cloudally-mcp",
       "vendor": "CloudAlly",
@@ -543,10 +543,15 @@
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-05",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/pull/400",
+        "verified_by": "@sonofskywalker3 (Servosity)",
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/400",
+        "verified_version": "0.1.0",
+        "verified_cli_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+        "verified_basis": "latest-release-at-flip"
       },
       "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
     },
@@ -628,7 +633,7 @@
       "first_party": false,
       "category": "Remote Access",
       "display_name": "ConnectWise Control",
-      "cli_hash": "sha256:bdb3213af8de39e089b08b9cc87e7e20bc2635ad33f889acafac2af88f5e2f9d",
+      "cli_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:fa6992095fdcb9ff4e22f37dcea8e92a95c309adc2d09ec3c5d8838efb140c4c",
@@ -865,8 +870,8 @@
       "has_video": true,
       "cli_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:4462315152a61c8b108546580e4595392a580068bd2e0212bddaba2cff095da0",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1268,8 +1273,31 @@
       "has_video": true,
       "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
       "template_version": 3,
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "keeper": {
+      "system": "Password manager administration for MSPs: managed companies, users, 2FA and admin posture, and licences across every client",
+      "status": "beta",
+      "cli_binary": "keeper-cli",
+      "mcp_binary": "keeper-mcp",
+      "vendor": "Keeper Security",
+      "vendor_trademark_owner": "Keeper Security, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Keeper Admin and MSP Console",
+      "tagline": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "has_video": true,
+      "cli_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9",
+      "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "cli_hash_at_release": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1456,8 +1484,8 @@
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
       "cli_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:554ab783a7bfba7d64f6a5c4dea55e6405018afe7b8dc1d27adf0f5517cf542b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1532,8 +1560,8 @@
       "has_video": true,
       "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -2468,6 +2496,29 @@
         "verified_version": null,
         "verified_cli_hash": null,
         "verified_basis": "unknown"
+      }
+    },
+    "zoom-phone": {
+      "system": "cloud phone system for business: users, numbers, call queues, auto receptionists, desk phones and E911",
+      "status": "beta",
+      "cli_binary": "zoom-phone-cli",
+      "mcp_binary": "zoom-phone-mcp",
+      "vendor": "Zoom",
+      "vendor_trademark_owner": "Zoom Communications, Inc",
+      "first_party": false,
+      "category": "Telephony",
+      "display_name": "Zoom Phone",
+      "tagline": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "has_video": true,
+      "cli_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     }
   }

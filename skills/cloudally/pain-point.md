@@ -37,8 +37,4 @@ Every command takes `--dry-run` to show the request before anything changes.
 
 ## Status
 
-Beta, awaiting live verification. Servosity built this connector for its own
-CloudAlly partner tenant and has run it there against live data. That is a first-party
-run; the badge flips once a maintainer records it, and an outside MSP's receipt is
-still the most valuable one. The command surface is CloudAlly's published Management
-API v2, covered by unit and integration tests against simulated CloudAlly responses.
+Live-verified. Confirmed by @sonofskywalker3 (Servosity) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/400)).

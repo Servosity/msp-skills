@@ -6,11 +6,6 @@ All notable changes to this skill are documented here. Format follows
 
 ## [0.1.15] - 2026-11-05
 
-### Changed
-- Describe the changes in this release.
-
-## [0.2.0] - unreleased
-
 Fixes #491, #492, #493.
 
 ### Security

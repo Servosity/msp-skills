@@ -169,8 +169,9 @@ naming them. Do NOT use it for vendor compromise; use 'vendor-risk'.
 Do NOT use it for the raw login CSV alone; the generated employee logins
 endpoint returns that.
 
-Case matching scans recent cases and matches affectedEmployee against the
-email or its local part; scanned_cases reports how many were examined.`, "\n"),
+Case matching scans recent cases, reads each one's detail (the list rows do
+not name the employee), and keeps the open ones whose affectedEmployee matches
+the email or its local part; scanned_cases reports how many were examined.`, "\n"),
 		Example: strings.Trim(`
   abnormal-cli employee-risk vip@example.com
   abnormal-cli employee-risk vip@example.com --agent
@@ -271,17 +272,31 @@ email or its local part; scanned_cases reports how many were examined.`, "\n"),
 					break
 				}
 				var pageDoc struct {
-					Cases          []riskCase `json:"cases"`
-					NextPageNumber *int       `json:"nextPageNumber"`
+					Cases          []map[string]json.RawMessage `json:"cases"`
+					NextPageNumber *int                         `json:"nextPageNumber"`
 				}
 				if err := json.Unmarshal(data, &pageDoc); err != nil {
 					fail("cases", fmt.Errorf("parsing cases page %d: %w", page, err))
 					scanCapHit = false
 					break
 				}
-				for _, cs := range pageDoc.Cases {
-					view.ScannedCases++
-					if caseMatchesEmployee(cs.AffectedEmployee, email) {
+				// The list rows carry no affectedEmployee or case_status
+				// (spec.json AbnormalCase); the detail does (AbnormalCaseDetails).
+				ids, missing := listedIDs(pageDoc.Cases, "caseId")
+				if missing > 0 {
+					fail("cases", fmt.Errorf("%d listed case(s) on page %d carry no caseId", missing, page))
+				}
+				view.ScannedCases += len(pageDoc.Cases)
+				for i, raw := range listedCaseDetails(ctx, c, "/cases/", ids, fail) {
+					if raw == nil {
+						continue
+					}
+					cs, err := decodeRiskCase(raw)
+					if err != nil {
+						fail("/cases/"+ids[i], fmt.Errorf("parsing case detail: %w", err))
+						continue
+					}
+					if caseMatchesEmployee(cs.AffectedEmployee, email) && caseIsOpen(cs.Status) {
 						view.OpenCases = append(view.OpenCases, cs)
 					}
 				}
@@ -290,18 +305,39 @@ email or its local part; scanned_cases reports how many were examined.`, "\n"),
 					break
 				}
 			}
-			if len(view.OpenCases) == 0 && scanCapHit {
+			if len(view.FetchFailures) > 0 {
+				view.Note = fmt.Sprintf("%d fetch(es) failed (see fetch_failures): open_cases may be incomplete", len(view.FetchFailures))
+			} else if len(view.OpenCases) == 0 && scanCapHit {
 				view.Note = fmt.Sprintf("scanned %d recent cases without a match for %s; raise --max-scan-pages to widen the search", view.ScannedCases, email)
 			}
 			if len(view.FetchFailures) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of 4 sources failed; profile assembled from the remaining sources\n", len(view.FetchFailures))
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d fetch(es) failed; profile assembled from the remaining sources, open_cases may be incomplete\n", len(view.FetchFailures))
 			}
 			if view.Profile == nil && view.Identity == nil && view.Logins == nil {
-				return classifyAPIError(fmt.Errorf("all employee sources failed for %s; first error: %s", email, view.FetchFailures[0].Error), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("all employee sources failed for %s; first error: %s", email, view.FetchFailures[0].Error), flags)
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},
 	}
 	cmd.Flags().IntVar(&maxScanPages, "max-scan-pages", 3, "Maximum recent-case pages (100 cases each) to scan for this employee")
 	return cmd
+}
+
+// decodeRiskCase reads an AbnormalCaseDetails body (caseId as a string or a
+// number).
+func decodeRiskCase(raw json.RawMessage) (riskCase, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return riskCase{}, err
+	}
+	if idText(m["caseId"]) == "" {
+		return riskCase{}, fmt.Errorf("the case detail names no caseId") // null, {} or another shape: unreadable, never "no match"
+	}
+	str := func(k string) string {
+		var s string
+		_ = json.Unmarshal(m[k], &s)
+		return s
+	}
+	return riskCase{CaseID: idText(m["caseId"]), Severity: str("severity"), AffectedEmployee: str("affectedEmployee"),
+		FirstObserved: str("firstObserved"), Status: str("case_status")}, nil
 }

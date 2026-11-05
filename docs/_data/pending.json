@@ -1,10 +1,10 @@
 {
   "abnormal": {
     "state": "up-to-date",
-    "version": "0.1.7",
-    "latest_tag": "abnormal-v0.1.7",
-    "current_hash": "sha256:d553731f02ec318ca7403ee9fa916be3aed8c54e215d2a4db1a4ae98b9446f3d",
-    "released_hash": "sha256:d553731f02ec318ca7403ee9fa916be3aed8c54e215d2a4db1a4ae98b9446f3d"
+    "version": "0.1.8",
+    "latest_tag": "abnormal-v0.1.8",
+    "current_hash": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d",
+    "released_hash": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d"
   },
   "acronis": {
     "state": "up-to-date",
@@ -175,10 +175,10 @@
     "released_hash": "sha256:d8f6686a60d3d698925866b4d906dfc0e2ef64b2e7d14a8ae9014e3afad53e52"
   },
   "connectwise-control": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.8",
     "latest_tag": "connectwise-control-v0.1.8",
-    "current_hash": "sha256:fa6992095fdcb9ff4e22f37dcea8e92a95c309adc2d09ec3c5d8838efb140c4c",
+    "current_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
     "released_hash": "sha256:fa6992095fdcb9ff4e22f37dcea8e92a95c309adc2d09ec3c5d8838efb140c4c"
   },
   "connectwise-manage": {
@@ -238,11 +238,11 @@
     "released_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729"
   },
   "dnsfilter": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "dnsfilter-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "dnsfilter-v0.1.1",
     "current_hash": "sha256:4462315152a61c8b108546580e4595392a580068bd2e0212bddaba2cff095da0",
-    "released_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb"
+    "released_hash": "sha256:4462315152a61c8b108546580e4595392a580068bd2e0212bddaba2cff095da0"
   },
   "domotz": {
     "state": "up-to-date",
@@ -350,11 +350,18 @@
     "released_hash": "sha256:b1f19cda876aff80f14fb863088099ac0644b409c4c6a6e7c90b6e6f2f6d45d8"
   },
   "kaseya-vsa": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "kaseya-vsa-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "kaseya-vsa-v0.1.1",
     "current_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
-    "released_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf"
+    "released_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce"
+  },
+  "keeper": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "keeper-v0.1.0",
+    "current_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9",
+    "released_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9"
   },
   "knowbe4": {
     "state": "up-to-date",
@@ -406,11 +413,11 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "binary-pending",
-    "version": "0.1.7",
-    "latest_tag": "mspbots-v0.1.7",
+    "state": "up-to-date",
+    "version": "0.1.8",
+    "latest_tag": "mspbots-v0.1.8",
     "current_hash": "sha256:554ab783a7bfba7d64f6a5c4dea55e6405018afe7b8dc1d27adf0f5517cf542b",
-    "released_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3"
+    "released_hash": "sha256:554ab783a7bfba7d64f6a5c4dea55e6405018afe7b8dc1d27adf0f5517cf542b"
   },
   "n-central": {
     "state": "up-to-date",
@@ -427,11 +434,11 @@
     "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
   },
   "netsapiens": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "netsapiens-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "netsapiens-v0.1.1",
     "current_hash": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d",
-    "released_hash": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee"
+    "released_hash": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d"
   },
   "ninjaone": {
     "state": "up-to-date",
@@ -490,9 +497,9 @@
     "released_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab"
   },
   "quickbooks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.15",
-    "latest_tag": "quickbooks-v0.1.14",
+    "latest_tag": "quickbooks-v0.1.15",
     "current_hash": "sha256:a20ad9a69719003e0418fa1ad1db66ff509df91722a08dbadbb448782eab8dd2",
     "released_hash": "sha256:a20ad9a69719003e0418fa1ad1db66ff509df91722a08dbadbb448782eab8dd2"
   },
@@ -698,5 +705,12 @@
     "latest_tag": "zammad-v0.1.12",
     "current_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057",
     "released_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057"
+  },
+  "zoom-phone": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
+    "released_hash": null
   }
 }

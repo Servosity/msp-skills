@@ -1,0 +1,154 @@
+{
+  "api_name": "keeper",
+  "base_url": "https://localhost:9090",
+  "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "api-key",
+    "in": "header",
+    "env_vars": [
+      "KEEPER_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "KEEPER_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "health_get",
+      "description": "Liveness probe. Answers {'status':'ok'} with no authentication and is exempt from the Service Mode rate limit (keepercommander/service/api/routes.py init_routes health_check). Returns the Health.",
+      "method": "GET",
+      "path": "/health",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "queue_get-status",
+      "description": "The Service Mode request queue: the size of the whole queue (every key's waiting requests), this API key's active and completed request counts, the id of the request currently processing when it is this key's (null otherwise or when idle), and whether the worker runs. Requires Commander 17.1.7 or later with queue mode on (the default); a host in legacy mode answers 404 here and serves only /api/v1. Source: keepercommander/service/api/command.py get_queue_status, keepercommander/service/core/request_queue.py. Returns the QueueStatus.",
+      "method": "GET",
+      "path": "/api/v2/queue/status",
+      "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Multi-company posture report",
+      "command": "posture report",
+      "description": "Fetch 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seat usage for every managed company in one run, and record it."
+    },
+    {
+      "name": "Posture diff between runs",
+      "command": "posture diff",
+      "description": "Compare two stored posture runs (needs two 'posture report' runs): per-company metric deltas and per-user transitions such as 2FA turned off or newly at risk."
+    },
+    {
+      "name": "Change events feed",
+      "command": "events list",
+      "description": "Read posture change events (user.twofa_disabled, posture.weak_passwords_increased and more) after a cursor, once each."
+    },
+    {
+      "name": "Cross-company user lookup",
+      "command": "users find",
+      "description": "Find which managed company a user belongs to, with status, 2FA and last login, across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Account hygiene sweep",
+      "command": "users hygiene",
+      "description": "List stale invites (with how long they have been pending), locked, inactive and pending-transfer users across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "User security exceptions",
+      "command": "users risk",
+      "description": "List users without 2FA (admins outside any 2FA-enforcing role first), BreachWatch at-risk users and users with weak or reused passwords across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Posture run history",
+      "command": "posture runs",
+      "description": "List stored posture runs with their time, status and inactivity window."
+    },
+    {
+      "name": "Managed companies",
+      "command": "companies list",
+      "description": "List every managed company with plan, seats allocated and active, storage and add-ons."
+    },
+    {
+      "name": "One managed company",
+      "command": "companies get",
+      "description": "Show one managed company's plan, seats and add-ons by id."
+    },
+    {
+      "name": "MSP products and pricing",
+      "command": "products list",
+      "description": "List MSP products, add-ons and file plans with pricing."
+    },
+    {
+      "name": "MSP permits",
+      "command": "permits list",
+      "description": "Show which products and add-ons the MSP may allocate and the maximum file plan."
+    },
+    {
+      "name": "Consumption billing statement",
+      "command": "billing report",
+      "description": "Show the monthly consumption billing statement, optionally by company and by date."
+    },
+    {
+      "name": "Users with status and 2FA",
+      "command": "users list",
+      "description": "List an enterprise's or a managed company's users with status, transfer status, node, roles and 2FA."
+    },
+    {
+      "name": "Last login per user",
+      "command": "users last-login",
+      "description": "Show each user's last login within a window."
+    },
+    {
+      "name": "Nodes",
+      "command": "nodes list",
+      "description": "List the enterprise node tree with user, team and role counts."
+    },
+    {
+      "name": "Teams",
+      "command": "teams list",
+      "description": "List teams with node and user count."
+    },
+    {
+      "name": "Roles",
+      "command": "roles list",
+      "description": "List roles with admin flag, default role, node and user count."
+    },
+    {
+      "name": "Security audit",
+      "command": "security-audit report",
+      "description": "Show each user's weak, fair, medium, strong, reused and unique password counts, security score and 2FA."
+    },
+    {
+      "name": "BreachWatch summary",
+      "command": "breachwatch summary",
+      "description": "Show each user's BreachWatch at-risk, passed and ignored counts."
+    },
+    {
+      "name": "Audit trail events",
+      "command": "audit-trail events",
+      "description": "Read raw audit events, newest first, filtered by period, user and event type."
+    },
+    {
+      "name": "Audit trail summary",
+      "command": "audit-trail summary",
+      "description": "Count audit events by type per day, week, month or the whole period."
+    },
+    {
+      "name": "Command allowlist",
+      "command": "allowlist",
+      "description": "Print the read-only Commander commands this CLI can send and the matching Service Mode -c value."
+    }
+  ]
+}

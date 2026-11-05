@@ -46,7 +46,7 @@ Outcomes (question -> command your AI agent runs):
 - What new, unremediated email threats need attention right now? -> abnormal-cli triage --since 24h --top 20
 - Pull a client-ready security report for the quarter -> abnormal-cli report-snapshot --since 90d --csv
 - What is the account-takeover risk picture for this employee? -> abnormal-cli employee-risk "vip@acme.com"
-- Is this vendor showing email-compromise signs? -> abnormal-cli vendor-risk "acme-supplies.com"
+- Is this vendor showing email-compromise signs? -> abnormal-cli vendor-risk "supplier.example.com"
 - Remediate a threat and block until it actually completes -> abnormal-cli remediate-watch <threat|case> <id>
 - List the latest Abnormal cases -> abnormal-cli cases retrieve --all
 - How many attacks did we stop this week? -> abnormal-cli aggregations attack-stopped-retrieve
@@ -54,7 +54,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way abnormal-mcp runs, and shares MCP configuration with Codex: add abnormal-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way abnormal-mcp runs, and shares MCP configuration with Codex: add abnormal-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see Remote agents in the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Abnormal Security data safe?
@@ -852,7 +852,7 @@ Governance: The skill reads Umbrella deployments, policies, destination lists, r
 ### CloudAlly (Backup/DR)
 
 Page: [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md)
-Verification: Awaiting live verification
+Verification: Live-verified by @sonofskywalker3 (Servosity) (2026-11-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
 
 Ask your AI about CloudAlly SaaS backup for Microsoft 365 and Google Workspace: the latest backup status of every customer, one customer's backup tasks and their entities, running or pausing backups, users, billing and restore jobs, all through CloudAlly's Management API v2 from one CLI and MCP server.
@@ -1897,6 +1897,40 @@ Q: Will this hit my VSA 10 API rate limits?
 A: It is built to stay inside them. VSA 10 limits each API token per hour, so the skill syncs once and then answers fleet questions from the local mirror without new API calls. The CLI paces itself to the server's rate-limit headers, and kaseya-vsa-cli rate-limits shows what is left in the current window.
 
 Governance: The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.
+
+### Keeper Admin and MSP Console (Security)
+
+Page: [Keeper Admin and MSP Console](https://msp-skills.compoundingteams.com/skills/keeper.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/install.sh)
+
+See every client's Keeper 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seats in one run, then ask what changed since last quarter. Keeper Security + your AI reads through your own Commander Service Mode host and stores each run locally. It is read-only, and it has no path to a vault record.
+
+Outcomes (question -> command your AI agent runs):
+- How is every client doing on 2FA, weak passwords and BreachWatch? -> keeper-cli posture report --days 90 --agent
+- Which clients have users without 2FA, admins first? -> keeper-cli users risk --kind no-2fa --agent
+- What changed since the last posture run, by client and by user? -> keeper-cli posture diff --agent
+- Which invites went stale, and who is inactive or locked? -> keeper-cli users hygiene --kind invited,inactive --agent
+- Which managed company does this user belong to? -> keeper-cli users find jane@example.com --agent
+- How many seats does each client have allocated and active? -> keeper-cli companies list --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Keeper Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Keeper Security data safe?
+A: Your data stays on your machine and your own Service Mode host. Typed reads are printed and not saved; only posture report saves metrics and per-user facts to a local store. The skill cannot read a vault record, and a response shaped like record content is refused whole.
+Q: Can this read passwords from a client's vault?
+A: No. It can send only the admin and MSP reports listed by keeper-cli allowlist, each with fixed read-only flags. Set the same list on your Service Mode key with service-create -c, so Service Mode refuses anything else too.
+Q: What do I need from Keeper?
+A: Keeper Commander running in Service Mode on a host you control, over TLS (service-create with -crtf and -crtp), and its API key. The CLI refuses plain http on every host, localhost included. A private certificate is trusted with KEEPER_CA_CERT.
+Q: Do I need a Keeper MSP account?
+A: The cross-client commands need one. An account that is not an MSP is reported as its own enterprise, one company in the same format.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill reads Keeper admin and MSP reports: companies, seats, users, roles, teams, 2FA, password-health scores, BreachWatch summaries and audit events. It cannot change anything in Keeper and cannot read a vault record. The only things it writes are local: posture runs, learnings and profiles. Let an agent read freely, and keep a human on the credential commands.
 
 ### KnowBe4 (Security)
 
@@ -3716,3 +3750,36 @@ Q: Can my agent hear about new Zammad tickets without polling?
 A: Yes. `zammad-cli webhooks register` creates signed Zammad webhooks and triggers, and `zammad-cli webhooks listen` receives them on this machine (127.0.0.1 by default; any other address needs TLS). It verifies every request's signature, drops replays, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down. Your agent reads the events with `events list` or the read-only MCP tool `events_list`. Zammad has to reach the listener, so this fits a self-hosted Zammad on the same server or your LAN.
 
 Governance: Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.
+
+### Zoom Phone (Telephony)
+
+Page: [Zoom Phone](https://msp-skills.compoundingteams.com/skills/zoom-phone.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/install.sh)
+
+Ask which client users have no verified 911 address, where the main number really rings after hours, or what a departing employee still holds, and get the answer from every client Zoom Phone account at once. The CLI mirrors each account locally for the audits, reads live data for routing and missed calls, and a change made through the MCP server runs only with confirm: true; in the CLI a change is sent at once, and --dry-run is the opt-in preview.
+
+Outcomes (question -> command your AI agent runs):
+- Which users, common areas and sites have a missing or unverified emergency address? -> zoom-phone-cli e911 audit --json --select findings.kind,findings.name,findings.detail
+- Which phone numbers are unassigned, pending, or still held by an inactive user? -> zoom-phone-cli numbers inventory --agent
+- Which desk phones are offline, unassigned or on drifted firmware, by site? -> zoom-phone-cli devices health --agent
+- Which external callers missed us this week and have not been called back? -> zoom-phone-cli callbacks --since 7d --agent
+- Which IVR keys point at nothing, and which call queues have nobody to answer? -> zoom-phone-cli routing audit --agent
+- What does this user hold before we remove them? -> zoom-phone-cli footprint jane@example.com --agent
+- Run the E911 audit across every client account at once -> zoom-phone-cli fleet -- e911 audit
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Zoom MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Zoom data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data. Credentials are saved with the current token in a credentials file readable only by your user, and are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Zoom credentials does it need?
+A: A Server-to-Server OAuth app in the Zoom App Marketplace, created in each client account, with the phone admin read scopes your workflow needs (add write scopes only if you want changes). You give the CLI its Account ID, Client ID and Client Secret; save one profile per client with accounts connect.
+Q: Will it hit my Zoom rate limits?
+A: Zoom Phone limits are per account and shared by every app. The E911, number and desk-phone audits read the local mirror, so after a sync they make no API calls. Live reads (routing, callbacks, footprint group membership) back off on HTTP 429 and honor Retry-After.
+
+Governance: Reads (the audits, routing traces, missed-call lists, footprints, sync and every Zoom Phone GET) change nothing and are safe to allow. Changes to a client account (call forwarding, queue members, settings) should be previewed and then approved: in the CLI a write is sent as soon as it runs and --dry-run is opt-in, while the MCP server runs a write only with confirm: true; deletes, the offboard plan's --apply, phone reboots, firmware and provisioning rules, SMS and emergency-address changes stay human-in-the-loop. Any command that can return a stored secret (device SIP passwords, PINs, activation codes) and any change to roles is credential tier.

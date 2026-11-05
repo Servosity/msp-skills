@@ -1,0 +1,77 @@
+{
+ "config_types": [],
+ "sites": [
+  {
+   "file": "internal/cli/keeper_common.go",
+   "func": "newKeeperPoster",
+   "what": "carrier",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "keeperPoster holds the client guardClient built: every post passes the origin pin and credkit.Transport beneath it, and its one method posts to the pinned Service Mode host."
+  },
+  {
+   "file": "internal/cli/keeper_guard.go",
+   "func": "guardClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/keeper_guard.go",
+   "func": "guardClient",
+   "what": "convert:keeper-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/keeper_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/keeper_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "HoldProfileStoreFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Reads the run profile store to hold its values: a credential source, read on purpose inside Start."
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start."
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "Lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "pathsUnder",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds config and store values before anything prints, which is its job."
+  }
+ ]
+}
