@@ -230,6 +230,13 @@
     "current_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6",
     "released_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6"
   },
+  "exchange-online": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
+    "released_hash": null
+  },
   "fortinet": {
     "state": "up-to-date",
     "version": "0.1.4",
