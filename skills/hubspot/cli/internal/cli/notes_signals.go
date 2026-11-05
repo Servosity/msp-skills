@@ -23,7 +23,7 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "signals",
 		Short:       "Scan note bodies for buying / lost signals and group by deal",
-		Long:        `Regex-scan HubSpot note bodies for buying signals (meeting scheduled, budget approved, etc.) and lost signals (no response, competitor chosen, etc.). When the local hubspot_associations table is populated, signals group by deal; otherwise per-note rows are emitted.`,
+		Long:        `Regex-scan HubSpot note bodies for buying signals (meeting scheduled, budget approved, etc.) and lost signals (no response, competitor chosen, etc.). When the local hubspot_associations table is populated, signals group by deal; otherwise per-note rows are emitted and not_computed names deal_grouping. This build's sync does not collect associations, so --pipeline (which needs note-to-deal associations) fails instead of returning unfiltered rows.`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli notes signals --since 30d --pipeline default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,6 +44,12 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-notes-crm") {
 				hintIfStale(cmd, db, "hubspot-notes-crm", flags.maxAge)
 			}
+			if err := hsRequireCollected(cmd.Context(), db, "notes signals", "hubspot-notes-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
+			if err := hsRequireCollected(cmd.Context(), db, "notes signals", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
@@ -57,14 +63,21 @@ func newNovelNotesSignalsCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			var assocCount int
-			_ = db.DB().QueryRow(`SELECT COUNT(*) FROM hubspot_associations`).Scan(&assocCount)
+			assocCount, err := hsAssociationCount(db)
+			if err != nil {
+				return err
+			}
 			source := "local"
+			gaps := newHSReportGaps()
 			if assocCount == 0 {
-				source = "local-no-associations"
+				// A --pipeline answer is notes on that pipeline's deals; with
+				// no note-to-deal associations the filter cannot be applied,
+				// and unfiltered rows would answer a different question.
 				if pipeline != "" {
-					fmt.Fprintln(cmd.ErrOrStderr(), "warning: --pipeline requires the hubspot_associations table (sync associations first); emitting unfiltered per-note rows")
+					return fmt.Errorf("notes signals --pipeline needs note-to-deal associations to know which notes belong to the pipeline's deals, and %s, so the filter cannot be applied; rerun without --pipeline for per-note signals across every pipeline", hsAssociationsNotCollected)
 				}
+				source = "local-no-associations"
+				gaps.associationGap(cmd, "deal_grouping", "signals are listed per note, not grouped by deal")
 			}
 
 			q := `
@@ -74,7 +87,7 @@ SELECT n.id,
   COALESCE(n.updated_at, n.created_at, '') AS ts
 FROM hubspot_notes_crm n
 WHERE COALESCE(n.archived, 0) = 0
-  AND (? = '' OR ts > ?)
+  AND (? = '' OR julianday(ts) > julianday(?))
   AND (? = '' OR owner_id = ?)`
 			rows, err := db.DB().QueryContext(cmd.Context(), q, cutoff, cutoff, ownerID, ownerID)
 			if err != nil {
@@ -131,12 +144,13 @@ JOIN hubspot_deals_crm d ON d.id = a.to_id
 WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
   AND (? = '' OR COALESCE(json_extract(d.data, '$.properties.pipeline'), '') = ?)`, n.NoteID, pipeline, pipeline)
 					if err != nil {
-						continue
+						return fmt.Errorf("reading note deals: %w", err)
 					}
 					for dealRows.Next() {
 						var did, dname string
 						if err := dealRows.Scan(&did, &dname); err != nil {
-							continue
+							_ = dealRows.Close()
+							return fmt.Errorf("reading note deals: %w", err)
 						}
 						if agg[did] == nil {
 							agg[did] = &dealAgg{DealID: did, DealName: dname}
@@ -146,11 +160,15 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
 						a.Lost += n.Lost
 						a.Signals = appendUnique(a.Signals, n.BuyingKind...)
 						a.Signals = appendUnique(a.Signals, n.LostKind...)
-						if n.TS > a.LastNoteAt {
+						if a.LastNoteAt == "" || hsNewerFirst(n.TS, a.LastNoteAt) {
 							a.LastNoteAt = n.TS
 						}
 					}
+					iterErr := dealRows.Err()
 					_ = dealRows.Close()
+					if iterErr != nil {
+						return fmt.Errorf("reading note deals: %w", iterErr)
+					}
 				}
 				aggList := []dealAgg{}
 				for _, v := range agg {
@@ -158,10 +176,10 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
 				}
 				sort.Slice(aggList, func(i, j int) bool { return aggList[i].Buying-aggList[i].Lost > aggList[j].Buying-aggList[j].Lost })
 				if flags.asJSON {
-					return flags.printJSON(cmd, map[string]any{
+					return flags.printJSON(cmd, gaps.envelope(map[string]any{
 						"data_source": source,
 						"results":     aggList,
-					})
+					}))
 				}
 				fmt.Fprintf(cmd.ErrOrStderr(), "data_source: %s\n", source)
 				headers := []string{"deal_id", "deal_name", "buying_count", "lost_count", "signal_types", "last_note_at"}
@@ -176,7 +194,7 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
 				return flags.printTabular(cmd, headers, out)
 			}
 
-			// Fallback: per-note results.
+			// Fallback: per-note results, marked by gaps.
 			type noteRow struct {
 				NoteID  string   `json:"note_id"`
 				Buying  int      `json:"buying_count"`
@@ -195,10 +213,10 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
 				})
 			}
 			if flags.asJSON {
-				return flags.printJSON(cmd, map[string]any{
+				return flags.printJSON(cmd, gaps.envelope(map[string]any{
 					"data_source": source,
 					"results":     items,
-				})
+				}))
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "data_source: %s\n", source)
 			headers := []string{"note_id", "buying_count", "lost_count", "signal_types", "note_at", "snippet"}
@@ -213,7 +231,7 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals' AND a.from_id = ?
 			return flags.printTabular(cmd, headers, out)
 		},
 	}
-	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Restrict to deals in a single pipeline id (requires sync-associations)")
+	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Restrict to deals in a single pipeline id (needs note-to-deal associations, which this build's sync does not collect)")
 	cmd.Flags().StringVar(&since, "since", "", "Only notes newer than this (e.g. 30d, 4h, RFC3339)")
 	cmd.Flags().StringVar(&owner, "owner", "", "Filter by note owner id, email, or 'me'")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")

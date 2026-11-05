@@ -1,0 +1,1042 @@
+{
+ "slug": "prtg",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. First print press 4.33.5 (run 20261015-074514-8f469b20); first release on press 4.34.2 (run 20261027-153346-829448e4). Credential-less: no vendor core; behaviour proven against a mock core built from Paessler's official API v2 OAS (tools/mock_prtg.py).",
+ "handfixes": [
+  {
+   "id": "sync-no-sensor-data-fanout",
+   "summary": "Generated sync has no sensors -> /sensors/{id}/data dependent",
+   "why": "The dependent makes one API call per sensor on every sync (cores commonly hold thousands of sensors, each request bounded by PRTG's 25 s execution timeout) to copy channel measurements no command reads from the mirror; 'sensors data <id>' still reads them live. With it present, a sync against an unreachable core also reported success. Re-apply: cli-factory/prtg/reprint-4342-20261027/tools/apply_handfixes.py.",
+   "status": "active",
+   "spec_encode_followup": "a per-dependent sync opt-out (x-pp-sync: false on the sub-collection) in the press",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// prtg handfix: sensors/{id}/data dependent removed",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "PathTemplate: \"/sensors/{id}/data\""
+    }
+   ]
+  },
+  {
+   "id": "root-display-name",
+   "summary": "Root help reads 'PRTG Network Monitor CLI', not the slug-derived 'Prtg CLI'",
+   "why": "root.go.tmpl renders {{humanName .Name}} and ignores the spec's x-display-name (press 4.33.5 and 4.34.2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "PRTG Network Monitor CLI",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Prtg CLI"
+    }
+   ]
+  },
+  {
+   "id": "license-key-off-disk",
+   "summary": "No sync, export or store path reads GET /experimental/license; 'system license-info' reads live, without the response cache, and returns the whole body",
+   "why": "The license body carries the PRTG license key. Press 4.33.5 made it the 'system' sync/export resource (the generic store used the key as the row id, FTS-indexed); press 4.34.2 maps 'system' to /experimental/featureflags instead, and the asserts fail if a later press moves it back. The generated 'auto' read writes the body through to the local store and caches it on disk.",
+   "status": "active",
+   "spec_encode_followup": "a per-endpoint x-pp-syncable: false / no-cache extension in the press",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/system_license-info.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/system_license-info.go",
+     "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"system\", false, path, params, nil, \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "/experimental/license"
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "/experimental/license"
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "not_contains": "/experimental/license"
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request and redirect hop goes only to the scheme, host and port the configuration resolved when the client was built (for --core, the registered core's server); anything else is refused before it is resolved, dialled or given the key",
+   "why": "Work order host pinning. The generated client sends the Bearer key to whatever URL a request names; a Location header, sync --path-context or an MCP argument could move one client's key to another host. originPinTripper (hand file internal/cli/prtg_guard.go, applied to every CLI, fleet-child and MCP client from applyPRTGTransport after the TLS setting) compares a byte-exact ASCII-folded origin (a host with any non-ASCII byte never matches) and the same check runs FIRST in CheckRedirect, before the generated redirect guard. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestNormalizedOriginRefusesNonASCIIAndFillsPorts.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origin: origin, next: responseHoldTripper{next: next}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "if origin == \"\" || normalizedOrigin(req.URL) != origin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "!isASCII(u.Scheme) || !isASCII(u.Host)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_transport.go",
+     "contains": "defer guardClient(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_rules_test.go",
+     "contains": "func TestOriginPinRefusesRedirectToAnotherHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "credential-in-files",
+   "summary": "The on-disk HTTP response cache is off for every API client",
+   "why": "PRTG bodies carry the license key and credential settings (windowsloginpassword, snmp communities, ...), and an echoed key would land in cache files. c.NoCache = true in guardClient (prtg_guard.go), every client. Proven by the black-box file scan (prove_bb.sh no-cache).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "credential-in-files",
+   "summary": "Every store write passes mergeIncomingResourceData, which redacts credential-named fields (the one rule fleet output uses); a statement carrying a held credential is refused by the kit's SQL driver (credkit-sqlite-every-handle).",
+   "why": "Sync, the write-through cache and the keep-richer merge all store raw API bodies; PRTG include sections carry Windows/Linux/ESX/SNMP credential settings and an echoing core could repeat the key. mergeIncomingResourceData returns withoutStoredSecrets(...) (hand file internal/store/prtg_secrets.go; rule cliutil.SecretFieldName in prtg_secrets.go, shared with fleet.Redact). Numbers, booleans and null are kept (counts such as total_tokens). Codex review r1 [P1]: an id repeating the key reached resources.id and resources_fts.id (the id is resolved before the strip); resourceStorageID and upsertGenericResourceTx now pass storedID. Proven by the black-box file scan (prove_bb.sh store-strip, store-id).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/prtg_secrets.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/model.go",
+     "contains": "func SecretField(name string) bool { return cliutil.SecretFieldName(name) }",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "class": "secret-echo",
+   "summary": "Every credential a request body or a response carries is held before the request is sent or any command reads the body: credential-named JSON strings at any depth (request values of 4+ characters, response values of 8+ that are not PRTG's **** masks), the response decoded per Content-Encoding exactly as the client decodes it",
+   "why": "Work order: minted tokens join the holder before anything can print. Codex review r1 [P1]: a deflate-encoded CreateAPIKeyResponse.key reached stdout (the POST-only hold parsed the body before the client decompressed it); the license key (LicenseInfo.key) printed in license-info output and its --deliver file; a password sent in a --stdin body was echoed back unheld. Class fix: responseHoldTripper (hand file internal/cli/prtg_guard.go) holds request-body and response credential fields for every method; ReadBody/DecodeBody (hand file internal/client/prtg_decode.go) reuse the client's own size cap and decoder. Behaviour change: session login, users api-keys create and system license-info print the notice in place of the token, key or license key. Tests: TestResponseCredentialsHeld; the black-box battery (license-info JSON/CSV/table/--deliver, deflate api-keys create, session login --stdin).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origin: origin, next: responseHoldTripper{next: next}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/prtg_decode.go",
+     "contains": "b, err := decodeContentEncoding(encoding, body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_rules_test.go",
+     "contains": "func TestResponseCredentialsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/prtg_decode.go",
+     "contains": "return sanitizeJSONResponse(b), nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/prtg_secrets.go",
+     "contains": "if secret && t != \"\" && (operator || !isMaskValue(t)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_rules_test.go",
+     "contains": "func TestOperatorValueShapedLikeAMaskIsHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-every-write-needs-confirm",
+   "class": "write-safety",
+   "summary": "the press spec (library spec.yaml, not shipped in this repo) declares x-pp-mutation on every operation that is not a GET (true; false only for the lookup POST /users/api-keys/find), so prtg_execute previews every state-changing call until confirm and prtg_read refuses it",
+   "why": "Codex review r1 [P1] write without confirm: the press reads a POST whose body is only a PRTG filter as a search, so /sensors|devices|groups|probes/resume and /scan and /users/pause|resume ran from MCP prtg_read without confirm, even with PRTG_MCP_READ_ONLY=1. Spec-encoded by tools/derive_spec.py step 7, so it survives every reprint by construction; the test catches a press that stops honouring it. msp-skills does not ship the spec, so the ledger asserts its generated effect: at least 61 code_orch endpoints need confirm (every non-GET but the lookup).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   true",
+     "min_count": 61,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/prtg_writes_confirm_test.go",
+     "contains": "func TestEveryStateChangingEndpointNeedsConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-archetype",
+   "class": "docs",
+   "summary": "The MCP context tool reports archetype infrastructure and carries no chat-API insights",
+   "why": "The profiler scores channels (communication) and probe_network (infrastructure) +2 each and breaks the tie in Go map order, so a render emits archetype communication with 'Message search' / 'Channel health' insights at random (seen at 4.33.5 and 4.34.2). Re-apply: tools/apply_handfixes.py fix_mcp_archetype.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"archetype\":   \"infrastructure\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Message search"
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Mirrored MCP tools that can change PRTG state (fleet ack, fleet pause, fleet resume, import, any later non-read-only command) preview and send only with confirm: true; the fleet actions preview with the CLI's own per-core preview and send by the gate adding --yes",
+   "why": "Press 4.34.2 gates prtg_execute on confirm, but the Cobra-tree mirror registers fleet_ack/fleet_pause/fleet_resume (which could only ever preview: --yes is a blocked tool argument) and import with no confirm. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/prtg_confirm.go), called from RegisterTools right after RegisterAll, wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/fleet sync/workflow archive, so a command added later is gated by default. Only boolean true sends; confirm is never forwarded; --yes stays a blocked argument and is added only by the gate for commands annotated prtg:sends-with-yes. Mock e2e: previews 0 POSTs, confirm true sends. Tests: TestRegisteredMirroredWritesNeedConfirm (fails without the tools.go line), TestSendsWithYesPreviewsThenSendsWithYes, TestMirroredWriteNeedsBooleanConfirm.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/prtg_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/prtg_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_ack.go",
+     "contains": "\"prtg:sends-with-yes\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_pause.go",
+     "contains": "\"prtg:sends-with-yes\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_resume.go",
+     "contains": "\"prtg:sends-with-yes\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/prtg_confirm_registered_test.go",
+     "contains": "\"fleet_ack\", \"fleet_pause\", \"fleet_resume\", \"import\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bulk-action-outcomes",
+   "class": "wrong-result",
+   "summary": "A bulk action reports success only when every item succeeded: one shared reader of PRTG ActionResult lists (fleet.ActionOutcomes / ResponseFailure) fails the whole result on any failure signal from any item, with per-item detail, in the generated multi-* commands, the fleet action engine and MCP prtg_execute",
+   "why": "Codex review r2 [P1] failed bulk action reported successful: sensors multi-resume with PRTG's documented '200: Success with one failure' body printed success:true and exited 0 (the generated detectPartialFailure only knows partialFailureError). Orchestrator order: any failure signal from any item (a failure member that is not null whatever it holds, a populated error field, success:false, an HTTP status of 400+ or failure wording in a status field, an entry naming no node) makes the whole result a failure. detectPartialFailure calls prtgActionFailure first (one line in helpers.go; --allow-partial-failure still downgrades); the fleet engine's actionResults uses the same reader; the API transport reports any write response with a failed item to the MCP call's record (cliutil.ReportActionFailure) and the MCP middleware fails that call. Tests: TestBulkActionPerItemFailureFailsTheCommand, TestFleetActionResultsAnyFailureSignalWins, TestBulkActionFailureFailsCLIAndMCP (built binaries); prove_c.sh.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if r := prtgActionFailure(data); r != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_bulk.go",
+     "contains": "items, failed, summary := fleet.ResponseFailure(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/prtg_outcomes.go",
+     "contains": "func ActionOutcomes(body []byte) (items []ItemOutcome, isList bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_fleet_action.go",
+     "contains": "items, isList := fleet.ActionOutcomes(trimmed)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "cliutil.ReportActionFailure(req.Context(),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/prtg_args_mcp.go",
+     "contains": "ctx, actions := cliutil.WithActionFailures(ctx)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/blackbox_test.go",
+     "contains": "func TestBulkActionFailureFailsCLIAndMCP(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "handoff-recovery-never-omitted",
+   "class": "wrong-result",
+   "summary": "fleet handoff reports every sensor that is up now, switched to up inside the window and has a recorded last_down at or before that switch as recovered, whatever interrupted the way back (pause and resume, acknowledgement, rescheduled interval), with via=direct or via=after_gap; CLI and MCP fleet_handoff both expose it",
+   "why": "Codex review r1/r2 [P1] omitted recovery events: the window and scanning-interval rules dropped real recoveries (down at the 15:00 hourly scan, up at 16:00; interval changed before recovery). Orchestrator order: whatever handoff the run interrupts (pause, acknowledge, resume) has a recovery path that the CLI and MCP both expose and test. Hand file (survives a reprint); recorded for the tests. Tests: TestHandoffNeverOmitsAnInterruptedRecovery, TestHandoffRecoveryOnCLIAndMCP (built binaries), e2e (mock core).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/checks.go",
+     "contains": "r.Via = \"after_gap\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/blackbox_test.go",
+     "contains": "func TestHandoffRecoveryOnCLIAndMCP(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-keys-one-declared-variable",
+   "class": "secret-echo",
+   "summary": "Every registered core's API key comes from ONE variable, PRTG_FLEET_KEYS (name=key entries separated by commas and/or newlines; fleet.ParseKeys), read only by its literal name in internal/fleet/keys.go. Core.KeyEnv, core add --key-env and every os.Getenv/EnvOverride of a computed name are gone; a legacy fleet.json key_env field is ignored. A child pinned to core C gets PRTG_FLEET_KEYS=C=<key> only (fleet.Scrub drops the inherited value with every other PRTG_* variable, case-insensitively); --core narrows its own process the same way. HoldCredentials holds the raw value and every parsed key, and on a parse failure every fragment, before any output. Parse errors name the entry position, never key text.",
+   "why": "check_env_schema.py cannot resolve an operator-named credential variable and has no waiver for one; one literal PRTG_FLEET_KEYS keeps every credential read visible and declarable on all three install channels, and keys stay off disk.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/keys.go",
+     "contains": "return cliutil.EnvOverride(\"PRTG_FLEET_KEYS\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/registry.go",
+     "not_contains": "KeyEnv"
+    },
+    {
+     "file": "cli/internal/fleet/keys_test.go",
+     "contains": "func TestParseFleetKeys(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "out = append(out, KeysEnv+\"=\"+KeysFor(c.Name, key))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/prtg_hold.go",
+     "contains": "HoldKeys(keySource, vals...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/blackbox_test.go",
+     "contains": "func TestUnparseableFleetKeysNeverEcho(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-create-alias-on-non-create-post",
+   "class": "write-safety",
+   "summary": "users multi-pause-request, sensors multi-acknowledge and ai analyze-aiincidents carry no \"create\" alias.",
+   "why": "The press assigns alias \"create\" to every POST, so `users create` paused every matching user account and `sensors create` acknowledged every matching alarm: a bulk state change behind the most innocent verb (verify_all row 'no destructive create alias'). Commands that really create (devices create-sensor, groups create-device-for, groups create-for, probes create-*) keep theirs.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/users_multi-pause-request.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/sensors_multi-acknowledge.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/ai_analyze-aiincidents.go",
+     "not_contains": "[]string{\"create\"}"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-verdict",
+   "summary": "doctor probes a real argument-free GET with the real credential and refuses to dial the shipped https://{server}/api/v2 template, instead of calling any HTTP response 'reachable' and printing 'present, not verified'",
+   "why": "`doctor` is the command every guide tells an operator to run to confirm the connector works. The 4.34.2 print called any response to GET / reachable and never probed the credential, so an expired API key and a base_url aimed at the PRTG web UI both read as healthy, and the placeholder state never named PRTG_BASE_URL. doctor_verdict.go is the fleet helper (grafted from the acronis 4.34.0 copy, the same templated-base shape); replay_handfixes.py's doctor-verdict recipe wires doctor.go. Gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(doctorBase)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bulk-success-never-overridden",
+   "class": "wrong-result",
+   "summary": "--allow-partial-failure changes only the exit code; a generated action whose result has a failed item always reports success: false",
+   "why": "The press computes the mutation envelope's success as (partialFailure == nil || flags.allowPartialFailure), so `sensors multi-resume --allow-partial-failure --json` against PRTG's documented 200 response with a failed item (spec /sensors/resume 200 example 'Success with one failure') reported success: true and exit 0 with every item failed (Codex r1). Every generated mutation command now computes success from the outcome alone. Test: TestBulkActionFailureFailsCLIAndMCP.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/autodiscoverytasks_start-auto-discovery-task.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_pause_probe.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_multi-pause.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/session_login.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_delete-apikey.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_resume_user.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_multi-pause.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_multi-resume.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_multi-scan-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_multi-scan-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_resume_device.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_update.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_scan_probe-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_pause_sensor.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_delete.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_multi-resume.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_scan_sensor-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/objects_multi-delete.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_trigger-autodiscovery.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_create-device-for.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_trigger-autodiscovery.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_create-sensor.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_resume_group.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_update.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/session_logout.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_pause_user.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_trigger-password-reset.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_resume_sensor.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_resume_probe.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_multi-pause.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_delete.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_pause_device.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/autodiscoverytasks_modify-auto-discovery-task.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_delete.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_scan_device-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_create-device-for.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_update.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_scan_group-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/ai_analyze-aiincidents.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_multi-pause-request.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/autodiscoverytasks_delete-auto-discovery-task.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_create-group-for.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_create-for.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/objects_move_object.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_update.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_multi-scan-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_multi-acknowledge.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_api-keys_create.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_multi-pause.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_reset-password.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_create-auto-discovery-task.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_multi-scan-now.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_delete.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/objects_clone_object.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/groups_pause_group.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_multi-resume.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_acknowledge_sensor.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/sensors_multi-resume.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/users_modify-apikey.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/devices_metascan.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    },
+    {
+     "file": "cli/internal/cli/probes_multi-resume.go",
+     "not_contains": "(partialFailure == nil || flags.allowPartialFailure)"
+    }
+   ]
+  },
+  {
+   "id": "redirects-never-followed",
+   "class": "api-origin-pinned",
+   "summary": "no redirect is followed, same origin included",
+   "why": "The origin pin refused off-origin redirects, but a same-origin 302 was followed and the generated redirect hook re-attached Authorization (Codex r1: GET /version -> 302 /capture). The PRTG v2 API answers its own paths directly, so guardClient refuses every redirect. Test: TestOriginPinRefusesSameOriginRedirect.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "contains": "var ErrRedirectRefused = errors.New(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/prtg_guard.go",
+     "not_contains": "return generated(req, via)"
+    },
+    {
+     "file": "cli/internal/cli/prtg_rules_test.go",
+     "contains": "func TestOriginPinRefusesSameOriginRedirect(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "state-changing-get-confirms",
+   "class": "write-safety",
+   "summary": "GET /session (renews the session) previews until confirm over MCP, is refused under PRTG_MCP_READ_ONLY, and is refused by fleet exec and the raw child",
+   "why": "The spec documents GET /session as 'Renews an active user session.', a state change, but the read classifier keys on the verb, so prtg_read ran it under PRTG_MCP_READ_ONLY (Codex r1). One list (cliutil.StateChangingGET) feeds the MCP confirm resolution, the session.renew endpoint flags, the CLI annotation and cleanAPIPath. The factory spec derivation should set x-pp-mutation: true on GET /session so a reprint generates it. Tests: TestStateChangingGETNeedsConfirm, TestCleanAPIPathRefusesStateChangingGET.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/prtg_semantics.go",
+     "contains": "var stateChangingGETs = map[string]bool{\"/session\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "(method == \"GET\" && cliutil.StateChangingGET(resolvedPath))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/session_renew.go",
+     "not_contains": "\"pp:path\": \"/session\", \"mcp:read-only\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/fleet_exec.go",
+     "contains": "if cliutil.StateChangingGET(p) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/prtg_state_get_test.go",
+     "contains": "func TestStateChangingGETNeedsConfirm(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel, chokepoint and SQLite wrapper. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client and feedback client go through credkit.Transport under the origin pin; every file write except the 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Declarations from the auth spec, Start and Exit in each main, kit sinks in the file, HTTP, SQL and MCP templates).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"PRTG_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-cli/main.go",
+     "contains": "credkit.Exit(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "credkit.RunCommand(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.Transport(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_open_classes_test.go",
+     "contains": "func TestKitFeedbackNeverSendsAHeldCredentialToItsEndpoint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a token holding the word unauthorized would get a piece of itself back.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "contains": "credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/prtgblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv-like",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The config is held before it is parsed, by a line scanner that survives a malformed file, and parse errors name the file and line and never quote a value.",
+   "why": "go-toml's errors quote the file's text, so a credential in a malformed config could print, and a quoted value withheld the whole message so the operator lost the file name.",
+   "spec_encode_followup": "Press-side: the kit's config loader template.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "HoldConfigFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "ParseProblem(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/config_parse_test.go",
+     "contains": "func TestMalformedConfigNamesFileAndLine(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "saved-credential-bound-to-core",
+   "class": "credential-to-other-host",
+   "status": "active",
+   "summary": "A credential from disk is only sent to the core its file names: refuseFileCredentialsElsewhere clears file keys and headers when PRTG_SERVER or PRTG_BASE_URL point elsewhere, and a saved credential stays bound to its origin.",
+   "why": "With a saved key, PRTG_SERVER=<other core> would otherwise hand one client's key to another client's core.",
+   "spec_encode_followup": "Press-side: bind file credentials to the origin they were saved for.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/prtg_origin.go",
+     "contains": "func (c *Config) refuseFileCredentialsElsewhere() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "refuseFileCredentialsElsewhere(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_classes_test.go",
+     "contains": "func TestDiskCredentialsStayWithTheirCore(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-held-whole",
+   "class": "credential-source-not-held",
+   "status": "active",
+   "summary": "A --stdin body is held before a generated command parses it, every member of a duplicate key included.",
+   "why": "Generated commands parse --stdin into a map, losing every member of a duplicate key but the last. The kit also holds the whole body from StdinFlags, which covers a body that does not parse.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_core_select.go",
+     "contains": "holdStdinBody(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_classes_test.go",
+     "contains": "func TestStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-honours-core-selection",
+   "class": "untrusted-config-routing",
+   "status": "active",
+   "summary": "PRTG_CORE selects the core for the MCP server's native tools as well as its mirrored ones, keeps the server's own controls (read-only, no-local-data, HTTP bearer), and a selection naming no core stops the server.",
+   "why": "The MCP server has no root command, so the selector never ran for its native tools, and the selection's scrub dropped the operator's switches.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/prtg_core_select.go",
+     "contains": "func ApplyMCPCoreSelection() error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/prtg-mcp/main.go",
+     "contains": "cli.ApplyMCPCoreSelection()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "\"PRTG_MCP_READ_ONLY\": true, \"PRTG_NO_LOCAL_DATA\": true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_classes_test.go",
+     "contains": "func TestCoreSelectionKeepsTheServersControls(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "path-context-stays-in-the-run",
+   "class": "host-file-written-from-mcp-argument",
+   "status": "active",
+   "summary": "config.toml keeps only the server of template_vars, and no path context can set the server.",
+   "why": "The sync path-context argument was merged into TemplateVars: server=<host> moved the origin pin and the key with it, and the token save wrote it to config.toml.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "TemplateVars:  savedTemplateVars(c.TemplateVars)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "--path-context cannot set server",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_classes_test.go",
+     "contains": "func TestPathContextCannotNameTheCore(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "saved-profile-credentials-held",
+   "class": "credential-source-not-held",
+   "status": "active",
+   "summary": "A saved profile's value under a credential flag's name or base-url is held at startup, every duplicate included, in the config directory, the legacy path, under --home and under a registered core's home.",
+   "why": "Profiles replay their values as flags, so a profile is a credential file the rest of the program never reads as one.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdProfileStoresUnder(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/prtgblackbox/kit_classes_test.go",
+     "contains": "func TestSavedProfileCredentialsAreHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

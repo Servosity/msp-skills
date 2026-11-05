@@ -1,0 +1,20 @@
+{
+  "name": "synology",
+  "version": "0.1.0",
+  "description": "Every client NAS's Active Backup for Business jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/synology",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "synology",
+    "backup-dr",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

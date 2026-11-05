@@ -287,6 +287,10 @@ proxmox:
   vendor: "Proxmox"
   example_command: "Which client VMs lack a verified backup?"
 
+prtg:
+  vendor: "Paessler PRTG"
+  example_command: "What is down across all my clients' PRTG cores?"
+
 quickbooks:
   vendor: "QuickBooks Online"
   example_command: "Which overdue invoices should I chase first?"
@@ -359,6 +363,10 @@ superops:
 syncro:
   vendor: "Syncro"
   example_command: "Which customers have logged time we never invoiced?"
+
+synology:
+  vendor: "Synology"
+  example_command: "Which client backups failed last night?"
 
 tactical-rmm:
   vendor: "Tactical RMM"

@@ -185,21 +185,25 @@ func TestGetFreshFallsBackToPlainGet(t *testing.T) {
 // the only honest confirmation available when the API returns no task id: a 200
 // means accepted, not applied.
 func TestEntityFlagsReflect(t *testing.T) {
+	quarantined := &entityFlags{Quarantined: true}
 	tests := []struct {
 		name   string
 		flags  entityFlags
+		pre    *entityFlags
 		action string
 		want   bool
 	}{
-		{"quarantine landed", entityFlags{Quarantined: true}, "quarantine", true},
-		{"quarantine not yet visible", entityFlags{Quarantined: false}, "quarantine", false},
-		{"restore landed, flag set", entityFlags{Restored: true}, "restore", true},
-		{"restore landed, simply no longer quarantined", entityFlags{Quarantined: false}, "restore", true},
-		{"restore not yet visible", entityFlags{Quarantined: true, Restored: false}, "restore", false},
+		{"quarantine landed", entityFlags{Quarantined: true}, nil, "quarantine", true},
+		{"quarantine not yet visible", entityFlags{Quarantined: false}, nil, "quarantine", false},
+		{"restore landed, flag set", entityFlags{Restored: true}, nil, "restore", true},
+		{"restore landed, out of quarantine since submission", entityFlags{Quarantined: false}, quarantined, "restore", true},
+		{"restore unproven: never seen quarantined", entityFlags{Quarantined: false}, nil, "restore", false},
+		{"restore unproven: was not quarantined before", entityFlags{Quarantined: false}, &entityFlags{}, "restore", false},
+		{"restore not yet visible", entityFlags{Quarantined: true, Restored: false}, quarantined, "restore", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.flags.reflects(tt.action); got != tt.want {
+			if got := tt.flags.reflects(tt.action, tt.pre); got != tt.want {
 				t.Errorf("reflects(%q) = %v, want %v", tt.action, got, tt.want)
 			}
 		})

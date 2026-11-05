@@ -231,7 +231,9 @@ search; use 'search' instead.
 				if isUnresolved(str(obj, stateKeys...)) {
 					a.group.Unresolved++
 				}
-				if r := str(obj, recipientKeys...); r != "" {
+				// Every recipient, not the first: the documented payload
+				// carries them as arrays (to, recipients, cc, bcc).
+				for _, r := range strs(obj, recipientKeys...) {
 					a.recipients[strings.ToLower(r)] = true
 				}
 				if s := str(obj, scopeKeys...); s != "" {

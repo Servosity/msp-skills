@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -108,11 +109,12 @@ func TestQueryContactsWinBack_HappyPath(t *testing.T) {
 	}
 }
 
-func TestQueryContactsWinBack_NoAssociationsReturnsEmpty(t *testing.T) {
+func TestQueryContactsWinBack_NoAssociationsRefuses(t *testing.T) {
 	ctx := context.Background()
 	s := newNovelTestStore(t)
-	// No associations table at all — the command must tolerate its absence and
-	// return an empty list rather than erroring.
+	// No associations table at all: the store cannot say which contacts are
+	// on a Closed Won deal, so an empty list would be a confident wrong
+	// answer. The command refuses (Codex r1 2026-10-24).
 	seedContact(t, s, "c1", map[string]any{
 		"email":                "x@example.com",
 		"notes_last_contacted": time.Now().Add(-200 * 24 * time.Hour).UTC().Format(time.RFC3339),
@@ -121,11 +123,11 @@ func TestQueryContactsWinBack_NoAssociationsReturnsEmpty(t *testing.T) {
 	cmd := newNovelContactsWinBackCmd(&rootFlags{})
 	cmd.SetContext(ctx)
 	items, err := queryContactsWinBack(cmd, s, "", 90, 50)
-	if err != nil {
-		t.Fatalf("queryContactsWinBack: %v", err)
+	if err == nil {
+		t.Fatalf("expected a refusal with no associations, got %d rows", len(items))
 	}
-	if len(items) != 0 {
-		t.Errorf("expected empty result with no associations, got %d", len(items))
+	if !strings.Contains(err.Error(), "associations") {
+		t.Errorf("refusal %q does not name associations", err)
 	}
 }
 
@@ -136,6 +138,11 @@ func TestContactsWinBack_EmptyDBJSONShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
+	// Associations present but no win-back match: the answer is a real [].
+	// (With no associations at all the command refuses; see
+	// TestQueryContactsWinBack_NoAssociationsRefuses.)
+	createAssociations(t, s)
+	seedAssociation(t, s, "contacts", "nobody", "deals", "nothing")
 	s.Close()
 
 	flags := &rootFlags{asJSON: true}

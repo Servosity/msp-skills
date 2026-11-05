@@ -1,0 +1,119 @@
+{
+  "outcome_intro": "PRTG plus your AI answers the questions that span every client's PRTG core at once: what is down right now and since when, what changed overnight, what someone paused or acknowledged and forgot, and which cores are behind on version, license or maintenance. Register each core once; every fleet command asks all of them in one run and names a core that fails instead of counting it as healthy.",
+  "instead_of_say": [
+    {
+      "instead": "Logging in to each client's PRTG web interface in turn at the start of a shift and reading its alarm list, because every client runs its own core",
+      "say": "What is down across all my clients' PRTG cores right now?",
+      "cli": "prtg-cli fleet alarms --status down --unacked --agent"
+    },
+    {
+      "instead": "Asking the night tech what happened, then scrolling each core's sensor lists for new alarms and recoveries since the last shift",
+      "say": "What changed across every PRTG core in the last 12 hours?",
+      "cli": "prtg-cli fleet handoff --since 12h --agent"
+    },
+    {
+      "instead": "Pausing the same firewall in five PRTG web interfaces before patch night and hoping nobody forgets to resume them afterwards",
+      "say": "Pause fw01 on every client core for two hours of patching - show me first",
+      "cli": "prtg-cli fleet pause --kind device --filter 'name = \"fw01\"' --duration 2h --message 'Patch night'"
+    }
+  ],
+  "pain_points": [
+    "Many MSPs run one PRTG core per client. Paessler's MSP offering says PRTG MSP Edition supports running clients on fully separate instances, and each instance has its own web interface, alarm list and API key, so 'what is down for every client' means opening each core.",
+    "Paessler retired the PRTG Enterprise Console, its multi-server desktop client, from PRTG 19.4.53 and points users to PRTG Desktop and PRTG MultiBoard instead (Paessler blog, 'PRTG Enterprise Console EOL - Switch to PRTG Desktop Now'). Those are viewers for a person at a desk, not something an AI agent or a script can ask.",
+    "Muted sensors hide outages: an acknowledgement or pause with no end date stays silent until someone remembers it, and there is no single list of everything paused or acknowledged across cores."
+  ],
+  "outcomes": [
+    {
+      "question": "Which client core is in the worst shape right now?",
+      "command": "prtg-cli fleet status --agent"
+    },
+    {
+      "question": "What is down and unacknowledged across every core, oldest first?",
+      "command": "prtg-cli fleet alarms --status down --unacked --agent"
+    },
+    {
+      "question": "What changed overnight: new alarms and recoveries, with how each sensor came back?",
+      "command": "prtg-cli fleet handoff --since 12h --agent"
+    },
+    {
+      "question": "What has someone paused or acknowledged with no end date for more than a week?",
+      "command": "prtg-cli fleet silenced --indefinite --older-than 7d --agent"
+    },
+    {
+      "question": "Which cores are behind on version, have a license or maintenance ending, or a disconnected probe?",
+      "command": "prtg-cli fleet drift --within 30d --agent"
+    },
+    {
+      "question": "Which probes does each client have, and are they connected?",
+      "command": "prtg-cli fleet exec /experimental/probes --agent"
+    },
+    {
+      "question": "Acknowledge the ISP outage alarm on every client with the ticket number - preview first",
+      "command": "prtg-cli fleet ack --filter 'name = \"Ping\"' --message 'TKT-4411 ISP outage' --duration 2h"
+    },
+    {
+      "question": "After maintenance, resume the paused devices everywhere and rescan them",
+      "command": "prtg-cli fleet resume --kind device --filter 'name = \"fw01\"' --scan"
+    }
+  ],
+  "different_vs_wrappers": "Most PRTG integrations talk to one PRTG server with one key. This connector is built for the MSP case of one core per client: register each core once with core add (its key stays in an environment variable, never on disk) and the fleet commands ask every core in one run, sort the merged result worst first, and keep a core that fails as an error row instead of counting it as healthy. It also wraps every PRTG API v2 operation as a typed command you can point at one core with --core.",
+  "different_vs_vendor": "PRTG Desktop and PRTG MultiBoard show several PRTG servers to a person at a desk; this connector gives your AI agent the same cross-core view as data it can query, plus previewed bulk actions (acknowledge, pause, resume) across every core at once. It complements the PRTG web interface, it does not replace it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the PRTG Network Monitor MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my PRTG data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Which PRTG versions and editions does it work with?",
+      "a": "It uses PRTG API v2, which the PRTG application server serves on port 1616 by default. Paessler documents API v2 as not available on PRTG clusters, so use it with single-node PRTG Network Monitor cores. The fleet views read the typed list endpoints Paessler marks deprecated in favour of the experimental ones; PRTG still serves them, and they also work on cores older than 24.3."
+    },
+    {
+      "q": "Can an agent pause or acknowledge things on my clients' cores by accident?",
+      "a": "fleet ack, fleet pause and fleet resume only preview what they would do on each core until you add --yes. Over MCP, every tool that changes PRTG returns that preview until it is called again with confirm: true, and setting PRTG_MCP_READ_ONLY=1 makes the MCP server refuse every write. Single-core write commands such as sensors pause sensor send when you run them, so keep agents to reads and --dry-run previews and see the safety model below."
+    },
+    {
+      "q": "Where do the API keys live?",
+      "a": "In environment variables. For one core set PRTG_SERVER and PRTG_API_KEY; for many, core add records each core's server and PRTG_FLEET_KEYS holds every core's key as name=key pairs (acme=KEY1,globex=KEY2); the keys are never written to disk. Create keys in PRTG under Account Settings > My Account > API Keys, with the lowest access level your workflow needs."
+    }
+  ],
+  "governance_summary": "The connector reads PRTG monitoring data freely, and changes PRTG only through write commands: acknowledgements, pauses, resumes and scans day to day; deleting sensors, devices, groups and probes; and user and API key management. Let an agent run reads and the fleet previews on its own, approve every --yes and every MCP confirm, and keep deletes, discovery scans of client networks and anything touching users or keys behind a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet alarms, fleet status, fleet handoff, fleet silenced, fleet drift, fleet exec, sensors get, devices list-experimental, sync, search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "fleet ack, fleet pause, fleet resume, sensors acknowledge sensor, sensors pause sensor, devices multi-scan-now, sensors update, objects move object, import",
+      "policy": "Preview first (fleet commands preview by default; --dry-run elsewhere; MCP confirm), then a reviewed write"
+    },
+    {
+      "tier": "Acts on client networks",
+      "examples": "devices trigger-autodiscovery, groups trigger-autodiscovery, autodiscoverytasks start-auto-discovery-task, devices metascan",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Credential / identity",
+      "examples": "any command that can emit a secret (session login, users api-keys create, system license-info), users api-keys and password reset commands, users pause and resume",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "sensors delete, devices delete, groups delete, probes delete, objects multi-delete, autodiscoverytasks delete-auto-discovery-task, users delete-apikey",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

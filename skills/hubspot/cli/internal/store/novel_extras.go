@@ -8,7 +8,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -20,6 +19,9 @@ type PropertyHistoryEntry struct {
 	Timestamp time.Time
 	Source    string
 	SourceID  string
+	// SnapshotAt is the record's last-modified time as HubSpot reported it in
+	// the response that carried this history, never the local write time.
+	SnapshotAt string
 }
 
 // UpsertPropertyHistoryBatch inserts a slice of property-history entries in one
@@ -32,30 +34,19 @@ func (s *Store) UpsertPropertyHistoryBatch(ctx context.Context, objectType, obje
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.PrepareContext(ctx, `INSERT OR REPLACE INTO hubspot_property_history (object_type, object_id, property, value, timestamp, source, source_id, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT OR REPLACE INTO hubspot_property_history (object_type, object_id, property, value, timestamp, source, source_id, synced_at, snapshot_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULLIF(?, ''))`)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
 	}
 	defer stmt.Close()
 	for _, e := range entries {
-		if _, err := stmt.ExecContext(ctx, objectType, objectID, e.Property, e.Value, e.Timestamp.UTC(), e.Source, e.SourceID); err != nil {
+		if _, err := stmt.ExecContext(ctx, objectType, objectID, e.Property, e.Value, e.Timestamp.UTC(), e.Source, e.SourceID, e.SnapshotAt); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
 	}
 	return tx.Commit()
-}
-
-// LogMutation appends one mutation event to the local audit log.
-// Best-effort: failures are silently swallowed so audit-logging never blocks
-// the user. The audit log is a QoL artifact — "what did I just do?" — not a
-// safety contract; a failed write must never take down the foreground command.
-func (s *Store) LogMutation(ctx context.Context, command string, args []string, exitCode, affectedCount int, source string, duration time.Duration) {
-	argsJSON, _ := json.Marshal(args)
-	_, _ = s.db.ExecContext(ctx,
-		`INSERT INTO hubspot_local_mutations (command, args_json, exit_code, affected_count, source, duration_ms) VALUES (?, ?, ?, ?, ?, ?)`,
-		command, string(argsJSON), exitCode, affectedCount, source, duration.Milliseconds())
 }
 
 // PendingDigest is the row shape returned by GetPendingDigest. Mirrors

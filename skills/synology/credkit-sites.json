@@ -1,0 +1,1441 @@
+{
+ "sites": [
+  {
+   "file": "cmd/synology-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the handler is wrapped at once by requireBearerAuthWithOrigins, whose outer handler is credkit.MCPHTTP, so every response passes the kit"
+  },
+  {
+   "file": "internal/cache/cache.go",
+   "func": "Store.Get",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the response cache: bytes the kit passed when they were written"
+  },
+  {
+   "file": "internal/cli/auth_logout_dsm.go",
+   "func": "envStillSet",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a registered NAS's <PREFIX>_* variables, only to say which are still set; its values are held at startup by credwire",
+   "names": []
+  },
+  {
+   "file": "internal/cli/auth_logout_dsm.go",
+   "func": "fillNilLists",
+   "what": "reflect",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "walks logoutReport, a plain report struct, to make nil lists empty in its JSON: strings, bools and slices, no command, client or transport"
+  },
+  {
+   "file": "internal/cli/auth_logout_dsm.go",
+   "func": "fillNilListsValue",
+   "what": "reflect",
+   "count": 13,
+   "kind": "exempt",
+   "reason": "walks logoutReport, a plain report struct, to make nil lists empty in its JSON: strings, bools and slices, no command, client or transport"
+  },
+  {
+   "file": "internal/cli/auth_logout_dsm.go",
+   "func": "fillNilListsValue",
+   "what": "reflect.Value.Set",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "walks logoutReport, a plain report struct, to make nil lists empty in its JSON: strings, bools and slices, no command, client or transport"
+  },
+  {
+   "file": "internal/cli/auth_logout_dsm.go",
+   "func": "readConfigMap",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the config file auth logout rewrites; Files names it and it is held before it is parsed"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by the &http.Client{Transport: credkit.Transport(nil)} built a few lines below"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file whose body then goes through credkit.WriteFile; the rename only moves it to the path the operator named"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file whose body then goes through credkit.WriteFile; the rename only moves it to the path the operator named"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "openExportOutput",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the descriptor goes straight into credkit.NewWriter(f, credkit.SinkFile) in newExportCmd"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "newFeedbackListCmd",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the local feedback log, written through credkit.AppendFile"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by the &http.Client{Transport: credkit.Transport(nil)} built a few lines below"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "declaredJSONFields",
+   "what": "reflect",
+   "count": 17,
+   "kind": "exempt",
+   "reason": "reads the JSON tags of a report row's type (TypeOf only): plain data"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "writeFleetCards",
+   "what": "reflect",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the JSON tags of a report row's type (TypeOf only): plain data"
+  },
+  {
+   "file": "internal/cli/fleet_registry.go",
+   "func": "newFleetAddCmd",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet.NAS is strings and a bool, plus Override *dsm.Credentials marked json:\"-\"; JSON never reaches a sink through it, and a NAS builds its client in a method"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the owner marker: a temp file written by credkit.WriteFile holding a scope hash, linked into place"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the owner marker: a temp file written by credkit.WriteFile holding a scope hash, linked into place"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the owner marker: a scope hash"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "publishStoreFile",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "publishes the SQLite mirror, whose rows all passed credsql's kit driver, under its scoped name"
+  },
+  {
+   "file": "internal/cli/nas_process.go",
+   "func": "nasChildEnviron",
+   "what": "os.Environ",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "copies the environment for a NAS child, dropping every other NAS's credential variables; the kit's StartCommand then hands over the rest outside the child's environment",
+   "names": []
+  },
+  {
+   "file": "internal/cli/platform_client.go",
+   "func": "isNilCredentialResolver",
+   "what": "reflect",
+   "count": 9,
+   "kind": "exempt",
+   "reason": "IsNil on a resolver interface, or DeepEqual on plain client-profile values: reads only"
+  },
+  {
+   "file": "internal/cli/platform_client.go",
+   "func": "newPlatformClientMigrateCmd",
+   "what": "reflect",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "IsNil on a resolver interface, or DeepEqual on plain client-profile values: reads only"
+  },
+  {
+   "file": "internal/cli/platform_client.go",
+   "func": "validatePlatformArtifactOverrides",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "<CLI>_DB and the other artifact-path variables of a client profile's CLI, only to refuse an override; paths, no credential",
+   "names": []
+  },
+  {
+   "file": "internal/cli/profile.go",
+   "func": "saveProfileStore",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves a temp file written by credkit.WriteFile; profiles.json is not a credential store"
+  },
+  {
+   "file": "internal/cli/report_keep.go",
+   "func": "reportIdentities",
+   "what": "reflect",
+   "count": 11,
+   "kind": "exempt",
+   "reason": "reads a report row's JSON tags and identity fields to keep rows across a run: plain data"
+  },
+  {
+   "file": "internal/cli/report_keep.go",
+   "func": "reportKeepFields",
+   "what": "reflect",
+   "count": 21,
+   "kind": "exempt",
+   "reason": "reads a report row's JSON tags and identity fields to keep rows across a run: plain data"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "claimClosedStore",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the SQLite store file, opened to pin it, or /proc metadata: no credential file"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinFDs",
+   "what": "unsafe",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinPIDs",
+   "what": "unsafe",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinProcInfo",
+   "what": "golang.org/x/sys/unix.Syscall6",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinProcInfo",
+   "what": "unsafe",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinStoreFileUnusedByOthers",
+   "what": "golang.org/x/sys/unix.Fstat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_darwin.go",
+   "func": "darwinVnodeID",
+   "what": "unsafe",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "pinClosedStoreFile",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the SQLite store file, opened to pin it, or /proc metadata: no credential file"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "pinClosedStoreFile",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the SQLite store file to take a lease on it: no bytes are written"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "procSameUID",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the SQLite store file, opened to pin it, or /proc metadata: no credential file"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "setStoreWriteLease",
+   "what": "golang.org/x/sys/unix.FcntlInt",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "storeFilePin.close",
+   "what": "golang.org/x/sys/unix.FcntlInt",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "storeFileUnusedByOthers",
+   "what": "golang.org/x/sys/unix.Fstat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_linux.go",
+   "func": "storeFileUnusedByOthers",
+   "what": "golang.org/x/sys/unix.Stat",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_windows.go",
+   "func": "claimClosedStore",
+   "what": "golang.org/x/sys/windows.CloseHandle",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_windows.go",
+   "func": "claimClosedStore",
+   "what": "golang.org/x/sys/windows.CreateFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/store_adopt_windows.go",
+   "func": "claimClosedStore",
+   "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "asks the OS whether another process holds the store file open, or takes a lease on it, before adopting a legacy store: metadata only, no data written, no command run"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "rotateLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sets a full log aside: its lines were written through the kit"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "scrubLogFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the operator's playbook or a local log: no credential file"
+  },
+  {
+   "file": "internal/cli/teach_playbook.go",
+   "func": "resolvePlaybookInputs",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the operator's playbook or a local log: no credential file"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.doInternal",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by c.HTTPClient, built by newHTTPClient and wrapped by guardHTTPClient"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.platformCacheMetadataMatches",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the response cache: bytes the kit passed when they were written"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.readCacheWithHeaders",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the response cache: bytes the kit passed when they were written"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: each branch sets guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: each branch sets guardTransport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "chromeAllowTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "t.next is the transport guardHTTPClient wraps; this tripper only stamps the dial guard's allowed host on the request and sends nothing of its own"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "defaultDialPinned",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dial function of a transport wrapped in guardTransport; only bytes that passed credkit.Transport go over it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "dialAddrIsConfiguredProxy",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the proxy variables, read to allow a dial to the configured proxy",
+   "names": [
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy"
+   ]
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "dialDirect",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dial function of a transport wrapped in guardTransport; only bytes that passed credkit.Transport go over it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "this is where the generated client's transport becomes guardTransport, which is credkit.Transport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: guardTransport keeps the inner *http.Transport beside the guarded RoundTripper so StreamingHTTPClient can clone it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "carrier",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: guardTransport keeps the inner *http.Transport beside the guarded RoundTripper so StreamingHTTPClient can clone it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: guardTransport keeps the inner *http.Transport beside the guarded RoundTripper so StreamingHTTPClient can clone it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: guardTransport keeps the inner *http.Transport beside the guarded RoundTripper so StreamingHTTPClient can clone it"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "loadCACertPool",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a PEM trust bundle: public certificates"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "newHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "every caller passes the client to guardHTTPClient before its first send (client.go New and Client.withConfig, session.go NewSessionManager)"
+  },
+  {
+   "file": "internal/client/session.go",
+   "func": "SessionManager.EnsureToken",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by m.client, wrapped by guardHTTPClient in NewSessionManager"
+  },
+  {
+   "file": "internal/client/session.go",
+   "func": "SessionManager.legacySessionTokenFetch",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by m.client, wrapped by guardHTTPClient in NewSessionManager"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "credentialTomlKey",
+   "what": "reflect",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads toml tags of the Credentials struct to scrub stored fields: strings only"
+  },
+  {
+   "file": "internal/cliutil/credentials.go",
+   "func": "credentialsFileFrom",
+   "what": "reflect",
+   "count": 7,
+   "kind": "exempt",
+   "reason": "reads toml tags of the Credentials struct to scrub stored fields: strings only"
+  },
+  {
+   "file": "internal/cliutil/credkit_wiring.go",
+   "func": "ReadRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_unix.go",
+   "func": "ReadOpenedConfig",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_unix.go",
+   "func": "openatNoFollow",
+   "what": "golang.org/x/sys/unix.Openat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and permissions to refuse a foreign one, or opens it read-only with no symlink following"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_unix.go",
+   "func": "openatNoFollow",
+   "what": "os.NewFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps a descriptor just opened O_RDONLY|O_NOFOLLOW to read a credential file: never written"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_unix.go",
+   "func": "readExplicitCredentialBytes",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_unix.go",
+   "func": "readGlobalCredentialBytes",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "ReadOpenedConfig",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "VerifyCredsPerms",
+   "what": "golang.org/x/sys/windows.GetNamedSecurityInfo",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and permissions to refuse a foreign one, or opens it read-only with no symlink following"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "VerifyCredsPerms",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and permissions to refuse a foreign one, or opens it read-only with no symlink following"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "readCredentialFromRoot",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "verifyWindowsHandle",
+   "what": "golang.org/x/sys/windows.GetSecurityInfo",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and permissions to refuse a foreign one, or opens it read-only with no symlink following"
+  },
+  {
+   "file": "internal/cliutil/creds_perms_windows.go",
+   "func": "verifyWindowsHandle",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and permissions to refuse a foreign one, or opens it read-only with no symlink following"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl.go",
+   "func": "openDarwinFollowACL",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "darwinOwnerUUID",
+   "what": "golang.org/x/sys/unix.Fstat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and ACL to refuse a foreign one: metadata only"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "darwinOwnerUUID",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "init only assigns this function to a variable; it runs when a credential file's ACL is judged, after Start, and only reads the descriptor's metadata"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "darwinOwnerUUID",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "init only assigns this function to a variable; it runs when a credential file's ACL is judged, after Start, and only reads the descriptor's metadata"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "openDarwinNoFollow",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "readDarwinFileSec",
+   "what": "golang.org/x/sys/unix.Syscall6",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and ACL to refuse a foreign one: metadata only"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "readDarwinFileSec",
+   "what": "unsafe",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and ACL to refuse a foreign one: metadata only"
+  },
+  {
+   "file": "internal/cliutil/darwin_acl_darwin.go",
+   "func": "var",
+   "what": "unsafe",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads a credential file's owner and ACL to refuse a foreign one: metadata only"
+  },
+  {
+   "file": "internal/cliutil/filelock.go",
+   "func": "openLockFile",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a lock file beside a state file; the only byte ever written is a constant zero"
+  },
+  {
+   "file": "internal/cliutil/filelock_unix.go",
+   "func": "ReadConfigTrust",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/filelock_unix.go",
+   "func": "lockFile",
+   "what": "syscall.Flock",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_unix.go",
+   "func": "tryLockFile",
+   "what": "syscall.Flock",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_unix.go",
+   "func": "unlockFile",
+   "what": "syscall.Flock",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "ReadConfigTrust",
+   "what": "golang.org/x/sys/windows.GetSecurityInfo",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "ReadConfigTrust",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "ReadConfigTrust",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "lockFile",
+   "what": "golang.org/x/sys/windows.LockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "tryLockFile",
+   "what": "golang.org/x/sys/windows.LockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/filelock_windows.go",
+   "func": "unlockFile",
+   "what": "golang.org/x/sys/windows.UnlockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an advisory file lock or a read of the lock file's owner: no data written"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "ReadFileWithLegacyFallback",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "ResolveKindDir",
+   "what": "synology-pp-cli/internal/cliutil.envDir",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the directory variables a path kind resolves through",
+   "names": [
+    "SYNOLOGY_CONFIG_DIR",
+    "SYNOLOGY_DATA_DIR",
+    "SYNOLOGY_STATE_DIR",
+    "SYNOLOGY_CACHE_DIR",
+    "SYNOLOGY_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+   ]
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "atomicWritePrivate",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the temp file behind AtomicWritePrivateFile, whose body goes through credkit.WriteFile, and AtomicWriteCredentialFile, the credential store itself, which the kit would withhold"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "renamePrivateFileWithRetry",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the temp file behind AtomicWritePrivateFile, whose body goes through credkit.WriteFile, and AtomicWriteCredentialFile, the credential store itself, which the kit would withhold"
+  },
+  {
+   "file": "internal/cliutil/probe.go",
+   "func": "ProbeReachable",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by the caller's client or &http.Client{Transport: credkit.Transport(nil)} below; a probe with an empty body"
+  },
+  {
+   "file": "internal/cliutil/startup_dirs.go",
+   "func": "kindRungs",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the directory variables a path kind resolves through",
+   "names": [
+    "SYNOLOGY_CONFIG_DIR",
+    "SYNOLOGY_DATA_DIR",
+    "SYNOLOGY_STATE_DIR",
+    "SYNOLOGY_CACHE_DIR",
+    "SYNOLOGY_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+   ]
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.DACL",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.Owner",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.SID.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.SecurityDescriptorFromString",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.SetNamedSecurityInfo",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.Token.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/testenv/sandbox_windows.go",
+   "func": "lockSandbox",
+   "what": "golang.org/x/sys/windows.Token.GetTokenUser",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test sandbox helper (never imported by a binary): sets a private ACL on the sandbox directory"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "currentUserSID",
+   "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "currentUserSID",
+   "what": "golang.org/x/sys/windows.SID.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "currentUserSID",
+   "what": "golang.org/x/sys/windows.Token.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "currentUserSID",
+   "what": "golang.org/x/sys/windows.Token.GetTokenUser",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "resolveSDDLAlias",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "resolveSDDLAlias",
+   "what": "golang.org/x/sys/windows.SID.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "resolveSDDLAlias",
+   "what": "golang.org/x/sys/windows.SecurityDescriptorFromString",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/cliutil/windows_account.go",
+   "func": "resolveSDDLAlias",
+   "what": "golang.org/x/sys/windows.StringToSid",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "looks up the current user's SID to judge a credential file's ACL: reads only"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "Config.scrubLegacyCredentials",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "readConfigFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.Symlink",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "puts the credential store back after a failed write: the file exists to hold the credentials, and the kit would withhold them"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.WriteFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "puts the credential store back after a failed write: the file exists to hold the credentials, and the kit would withhold them"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "snapshotCredentialsFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config, credential store or profile store: Files names the one this run uses and credwire holds the others at startup, and each load holds its values before they are parsed (HoldConfigFile, holdJSONStore); a read of a file's owner opens only that metadata"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the connection the kit's driver is opening in a database/sql handle to set SQLite's length limit: a PRAGMA-level call with no user data, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "wraps the connection the kit's driver is opening in a database/sql handle to set SQLite's length limit: a PRAGMA-level call with no user data, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "credentialFiles",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a registered NAS's <PREFIX>_* variables, held here under minted:other-nas",
+   "names": []
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "registeredNAS",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet.json: names, addresses, variable names and certificate pins, no credential"
+  },
+  {
+   "file": "internal/dsm/devicecache.go",
+   "func": "readRecord",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session and trusted-device cache, held at startup by credwire holdJSONStore and at login by parseLogin"
+  },
+  {
+   "file": "internal/dsm/devicecache.go",
+   "func": "writeAtomic",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session and trusted-device cache: a credential store, held at startup by credwire holdJSONStore"
+  },
+  {
+   "file": "internal/dsm/devicecache.go",
+   "func": "writeAtomic",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session and trusted-device cache: a credential store, held at startup by credwire holdJSONStore"
+  },
+  {
+   "file": "internal/dsm/dsm.go",
+   "func": "Client.Get",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by a client from NoRedirect or NAS.HTTPClient, both guarded; TestPlainHTTPSendsNoCredential and TestOneNASProcessSendsNoCredentialToAnother drive it on the built binary"
+  },
+  {
+   "file": "internal/dsm/dsm.go",
+   "func": "Client.Logout",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by a client from NoRedirect or NAS.HTTPClient, both guarded; TestPlainHTTPSendsNoCredential and TestOneNASProcessSendsNoCredentialToAnother drive it on the built binary"
+  },
+  {
+   "file": "internal/dsm/dsm.go",
+   "func": "login",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by a client from NoRedirect or NAS.HTTPClient, both guarded; TestPlainHTTPSendsNoCredential and TestOneNASProcessSendsNoCredentialToAnother drive it on the built binary"
+  },
+  {
+   "file": "internal/dsm/dsmtest/redirect.go",
+   "func": "NewRedirectingNAS",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test helper (never imported by a binary): the fake NAS the tests log in to"
+  },
+  {
+   "file": "internal/dsm/dsmtest/redirect.go",
+   "func": "NewRedirectingNAS",
+   "what": "net/http/httptest.NewServer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test helper (never imported by a binary): the fake NAS the tests log in to"
+  },
+  {
+   "file": "internal/dsm/dsmtest/twofactor.go",
+   "func": "NewTwoFactorNAS",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test helper (never imported by a binary): the fake NAS the tests log in to"
+  },
+  {
+   "file": "internal/dsm/dsmtest/twofactor.go",
+   "func": "NewTwoFactorNAS",
+   "what": "net/http/httptest.NewServer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "test helper (never imported by a binary): the fake NAS the tests log in to"
+  },
+  {
+   "file": "internal/dsm/guard.go",
+   "func": "NoRedirect",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a nil client gets OutboundGuard(nil); a copy keeps its caller's guarded transport"
+  },
+  {
+   "file": "internal/dsm/guard.go",
+   "func": "NoRedirect",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a nil client gets OutboundGuard(nil); a copy keeps its caller's guarded transport"
+  },
+  {
+   "file": "internal/dsm/guard.go",
+   "func": "NoRedirect",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a nil client gets OutboundGuard(nil); a copy keeps its caller's guarded transport"
+  },
+  {
+   "file": "internal/dsm/probe.go",
+   "func": "ProbeDSM",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent by a client from NoRedirect or NAS.HTTPClient, both guarded; TestPlainHTTPSendsNoCredential and TestOneNASProcessSendsNoCredentialToAnother drive it on the built binary"
+  },
+  {
+   "file": "internal/dsm/sessioncache.go",
+   "func": "readRegularFile",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session and trusted-device cache, held at startup by credwire holdJSONStore and at login by parseLogin"
+  },
+  {
+   "file": "internal/dsm/tls.go",
+   "func": "FetchFingerprint",
+   "what": "crypto/tls.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the NAS's public certificate for fleet add --pin-cert, which only displays its fingerprint: a TLS handshake that sends no application data and no credential; nothing is saved, and the login (--check) is refused with --pin-cert"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "LoadRegistry",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet.NAS is strings and a bool, plus Override *dsm.Credentials marked json:\"-\"; JSON never reaches a sink through it, and a NAS builds its client in a method"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "LoadRegistry",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet.json: names, addresses, variable names and certificate pins, no credential"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "NAS.Credentials",
+   "what": "synology-pp-cli/internal/cliutil.EnvOverride",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "a registered NAS's <PREFIX>_* variables; their values are held at startup by credwire and again in NAS.Credentials",
+   "names": []
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "NAS.EnvStatus",
+   "what": "synology-pp-cli/internal/cliutil.EnvOverride",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a registered NAS's <PREFIX>_* variables; their values are held at startup by credwire and again in NAS.Credentials",
+   "names": []
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "NAS.HTTPClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a NAS client's only transport"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "NAS.HTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a NAS client's only transport"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "NAS.HTTPClient",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sent only by a client whose Transport is cliutil.OutboundGuard, which is credkit.Transport; tests swap the variable for identity: a NAS client's only transport"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "Registry.Save",
+   "what": "carrier",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "fleet.NAS is strings and a bool, plus Override *dsm.Credentials marked json:\"-\"; JSON never reaches a sink through it, and a NAS builds its client in a method"
+  },
+  {
+   "file": "internal/learn/derive.go",
+   "func": "fileHasByteFrom",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the learn journal or a playbook: written through the kit, no credential file"
+  },
+  {
+   "file": "internal/learn/derive.go",
+   "func": "sessionRecallFamiliesBeforeBatch",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the learn journal or a playbook: written through the kit, no credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "LoadJournalOffset",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the learn journal or a playbook: written through the kit, no credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "ReadJournalFrom",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the learn journal or a playbook: written through the kit, no credential file"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "journalHashedHarnessSession",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "agent-harness session labels (JournalHarnessSessionEnvVars), stored only hashed",
+   "names": [
+    "CODEX_THREAD_ID",
+    "CODEX_SESSION_ID",
+    "CLAUDE_SESSION_ID",
+    "CLAUDE_CODE_SESSION",
+    "CURSOR_SESSION_ID",
+    "CURSOR_TRACE_ID"
+   ]
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "repairJournalSegmentTail",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "repairJournalSegmentTail trims a torn last line from the journal: no new bytes; lines are appended through the kit (handfixes.json journal-credential-hardening)"
+  },
+  {
+   "file": "internal/learn/playbooks.go",
+   "func": "ParsePlaybookFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the learn journal or a playbook: written through the kit, no credential file"
+  },
+  {
+   "file": "internal/learn/teach_log.go",
+   "func": "rotateTeachLogIfNeeded",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sets a full log aside: its lines were written through the kit"
+  },
+  {
+   "file": "internal/mcp/cobratree/shellout.go",
+   "func": "mcpChildEnviron",
+   "what": "os.Environ",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "copies the environment for a CLI child, dropping the MCP bearer; the kit's StartCommand hands over the rest outside the child's environment",
+   "names": []
+  },
+  {
+   "file": "internal/platform/migration.go",
+   "func": "BackupLegacyArtifacts",
+   "what": "os.Rename",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "renames a legacy artifact to its backup name in place; it writes no new bytes"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "LoadProfile",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a client profile; its values are held as they load (minted:profile)"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "SelectProfile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the default profile name: a name, not a credential"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "SetDefaultProfile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the default profile name: a name, not a credential"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "loadOrCreateFingerprintKey",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the local fingerprint key exclusively: random bytes this CLI minted, never a value from a vendor"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "readFingerprintKey",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the local fingerprint key this CLI minted; it is never sent or printed"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file whose body then goes through credkit.WriteFile, renamed into place"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file whose body then goes through credkit.WriteFile, renamed into place"
+  },
+  {
+   "file": "internal/platform/ratelimit.go",
+   "func": "EndpointLimiter.Wait",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a rate-limit state or audit index this CLI wrote: no credential file"
+  },
+  {
+   "file": "internal/platform/ratelimit.go",
+   "func": "acquireLedgerLock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates an empty lock file exclusively; its timestamp then goes through credkit.WriteFile"
+  },
+  {
+   "file": "internal/platform/receipt.go",
+   "func": "ReceiptWriter.appendAuditIndex",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a rate-limit state or audit index this CLI wrote: no credential file"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "ensureSQLiteJournalPrivate",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "ensureSQLiteJournalPrivate creates an empty SQLite journal with private permissions and closes it; every row goes through credsql's kit driver"
+  }
+ ]
+}

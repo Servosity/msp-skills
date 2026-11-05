@@ -85,6 +85,7 @@ body:
         - pipedrive
         - proofpoint
         - proxmox
+        - prtg
         - quickbooks
         - quotewerks
         - resourceguru
@@ -103,6 +104,7 @@ body:
         - sophos-central
         - superops
         - syncro
+        - synology
         - tactical-rmm
         - td-synnex
         - threatdown

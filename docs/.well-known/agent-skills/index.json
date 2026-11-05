@@ -67,9 +67,9 @@
     {
       "name": "avanan",
       "type": "skill-md",
-      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation as one CLI and MCP server, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, exception conflict auditing, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`.",
+      "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions. Trigger phrases: `check avanan for phishing`, `what did harmony email catch today`, `quarantine this email`, `restore that quarantined message`, `is this domain allowlisted in avanan`, `show me our avanan tenants`, `which avanan tenant is over its seat count`, `use avanan`, `run avanan`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/SKILL.md",
-      "digest": "sha256:d3f5b50da6ddb3d478a0afeee3bc23038e284170e5016d7f5b83a589e5456484"
+      "digest": "sha256:42d673c083d6bd4576b58f39522492f0c8171bbba125622c09031821c1857fad"
     },
     {
       "name": "aws-billing",
@@ -293,7 +293,7 @@
       "type": "skill-md",
       "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history. Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/SKILL.md",
-      "digest": "sha256:775d286abe1c222545bb7df13a75a5f62a91bb80934c6aacb76ebaea465747fa"
+      "digest": "sha256:f6db6e0821b11cc1994d1c3aeabc3db8be001480801cb8463f6370f4f9c55682"
     },
     {
       "name": "hudu",
@@ -471,6 +471,13 @@
       "digest": "sha256:3fe95b17ff259a76f1323b0da1ef7fb7bac36ecabe532308bba68343eea88100"
     },
     {
+      "name": "prtg",
+      "type": "skill-md",
+      "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command. Trigger phrases: `what's down across all our PRTG cores`, `acknowledge this alarm on every client`, `pause monitoring for patch night`, `which PRTG cores are behind on version`, `use prtg`, `run prtg`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/prtg/SKILL.md",
+      "digest": "sha256:99a7a73749df6a1376acb6194e4af4417e52f9f30ff49b95244eedb1cd6f9eec"
+    },
+    {
       "name": "quickbooks",
       "type": "skill-md",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
@@ -595,6 +602,13 @@
       "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has. Trigger phrases: `list syncro tickets`, `show uninvoiced time in syncro`, `syncro ar aging`, `which syncro assets are missing patches`, `triage stale syncro tickets`, `use syncro`, `run syncro`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/SKILL.md",
       "digest": "sha256:fd6a774df99358b74f98a1364ce754065d4568a7eacece9dd11ef5e4ccac6149"
+    },
+    {
+      "name": "synology",
+      "type": "skill-md",
+      "description": "Use when the user asks whether client Synology NAS backups succeeded, which machines have not backed up, or how client NAS storage is doing: mirrors Synology Active Backup for Business jobs and storage health from every registered client NAS (one DSM login each, two-factor supported) into one local database, then answers failed and missed runs, stale devices, which task protects a machine, why a task failed, success-rate trends, machines that dropped out of protection, unusual backup sizes, and degraded pools, bad disks or volumes about to fill across all of them. Also reads Hyper Backup, storage, system health, logs, users and groups per NAS. Trigger phrases: `did last night's synology backups succeed`, `active backup for business failures`, `which machines have not backed up`, `which client nas is running out of space`, `check synology nas disk health`, `why did the synology backup fail`, `use synology`, `run synology-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/SKILL.md",
+      "digest": "sha256:ade69760f89fb239ed88cbae593540e37aa6633553dbcdf2a6cf47bb9d80336b"
     },
     {
       "name": "tactical-rmm",

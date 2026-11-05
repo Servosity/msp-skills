@@ -45,7 +45,7 @@ func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Contacts with no engagement in N days",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli stale contacts --days 30 --owner me
-  hubspot-cli stale contacts --days 30 --filter 'lifecyclestage=customer !do_not_call'`,
+  hubspot-cli stale contacts --days 30 --filter 'lifecyclestage=customer !hubspot_owner_id'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateDataSourceStrategy(flags, "local"); err != nil {
 				return err
@@ -71,20 +71,20 @@ func newStaleContactsCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-contacts-crm") {
 				hintIfStale(cmd, db, "hubspot-contacts-crm", flags.maxAge)
 			}
+			if err := hsRequireCollected(cmd.Context(), db, "stale contacts", "hubspot-contacts-crm", expr.FieldsReferenced()...); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
 			}
 
-			// When --filter is in play we hoist the post-filter LIMIT into
-			// memory so the filter sees the full candidate set: rows
-			// rejected by --filter shouldn't eat into the operator's --limit
-			// budget. The pre-filter cap of 5x --limit keeps memory bounded
-			// when --filter is empty (the cap never triggers in the
-			// no-filter case because filterMatches==len).
+			// --filter runs in memory, so with a filter the SQL returns every
+			// candidate (LIMIT -1) and --limit is applied after filtering: a
+			// row rejected by --filter must never cost a matching row its slot.
 			sqlLimit := limit
-			if !expr.IsEmpty() && limit > 0 {
-				sqlLimit = limit * 20
+			if !expr.IsEmpty() || limit <= 0 {
+				sqlLimit = -1
 			}
 			q := `
 SELECT * FROM (
@@ -212,14 +212,21 @@ func newStaleDealsCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
 				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
 			}
+			if err := requireKnownDealStates(cmd.Context(), db, "stale deals", ""); err != nil {
+				return err
+			}
+			if err := hsRequireCollected(cmd.Context(), db, "stale deals", "hubspot-deals-crm", expr.FieldsReferenced()...); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
 			}
 
+			// As in stale contacts: filter first, then --limit.
 			sqlLimit := limit
-			if !expr.IsEmpty() && limit > 0 {
-				sqlLimit = limit * 20
+			if !expr.IsEmpty() || limit <= 0 {
+				sqlLimit = -1
 			}
 			q := `
 SELECT * FROM (
@@ -242,7 +249,7 @@ SELECT * FROM (
   WHERE COALESCE(archived, 0) = 0
     AND (? = '' OR owner_id = ?)
     AND (? = '' OR COALESCE(json_extract(data, '$.properties.dealstage'), '') = ?)
-    AND COALESCE(json_extract(data, '$.properties.dealstage'), '') NOT IN ('closedwon', 'closedlost')
+    AND NOT ` + dealClosedSQL("") + `
 )
 WHERE idle_days >= ?
 ORDER BY idle_days DESC

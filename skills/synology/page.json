@@ -1,0 +1,142 @@
+{
+  "outcome_intro": "Ask your AI which client PCs and servers missed last night's Active Backup, which have not had a good backup in three days, and which NAS volumes are degraded or nearly full, and get one answer across every client NAS. DSM answers one NAS at a time in its own web UI. This logs in to each NAS you register, mirrors its Active Backup jobs and storage health into one local database, and answers from there.",
+  "instead_of_say": [
+    {
+      "instead": "Opening every client's DSM web UI each morning to check Active Backup for Business, or reading a pile of per-NAS notification emails",
+      "say": "Which Active Backup jobs failed, partially failed or never ran last night, across every client NAS?",
+      "cli": "synology-cli abb failures --since 24h"
+    },
+    {
+      "instead": "Noticing a laptop has not backed up in a week only when the user asks for a restore, because no alert fires for a backup that simply stopped",
+      "say": "Which protected PCs and servers have had no successful backup in 3 days?",
+      "cli": "synology-cli abb stale --older-than 72h"
+    },
+    {
+      "instead": "Logging in to each NAS's Storage Manager to look for a degraded pool, a failing disk or a volume running out of room",
+      "say": "Which client NAS units have a degraded volume, a bad disk, or a volume over 85 percent full?",
+      "cli": "synology-cli fleet health --full-pct 85"
+    }
+  ],
+  "pain_points": [
+    "Without an ActiveProtect appliance, Active Backup for Business has no multi-client console: an MSP with almost a hundred client NAS units reported that per-NAS email notifications had become unmanageable and that nothing alerts on a backup that has not run for days.",
+    "SNMP does not help: DSM's MIBs do not expose backup state, so an RMM cannot see whether last night's Active Backup jobs succeeded.",
+    "The workarounds are SSH scripts that read Active Backup's internal SQLite files on every NAS, or a custom dashboard someone has to build and keep running.",
+    "Storage problems hide on the same boxes: without Active Insight, a degraded pool, a disk with bad SMART status or a volume about to fill is one Storage Manager screen per client.",
+    "Finding which task protects one machine, and when it last backed up, means knowing which client's NAS to log in to first."
+  ],
+  "outcomes": [
+    {
+      "question": "Is every client NAS OK? One row per NAS with backup outcomes, stale devices, worst storage state and sync age.",
+      "command": "synology-cli fleet status"
+    },
+    {
+      "question": "Which Active Backup jobs failed, partially failed or never ran in the last 24 hours?",
+      "command": "synology-cli abb failures --since 24h"
+    },
+    {
+      "question": "Which machines dropped out of protection in the last 30 days: removed from a task, task deleted, or schedule turned off?",
+      "command": "synology-cli abb unprotected --since 30d"
+    },
+    {
+      "question": "Which PCs, servers and VMs have had no successful backup in 36 hours, or never had one?",
+      "command": "synology-cli abb stale --older-than 36h"
+    },
+    {
+      "question": "Which volumes, pools or disks are degraded, failing, hot or nearly full, and how many days until full?",
+      "command": "synology-cli fleet health --full-pct 85 --disk-temp 55"
+    },
+    {
+      "question": "Which volumes fill within the next 30 days at their current growth rate?",
+      "command": "synology-cli fleet capacity --horizon 30d"
+    },
+    {
+      "question": "Which task protects BOB-LAPTOP, when did it last back up, and what happened on its recent runs?",
+      "command": "synology-cli abb device \"BOB-LAPTOP\""
+    },
+    {
+      "question": "Why did the Office PCs task fail? Show the failed run's error lines and the log from that window.",
+      "command": "synology-cli abb triage \"Office PCs\" --nas acme"
+    },
+    {
+      "question": "Which tasks have the lowest success rate, or ran far longer than usual last time?",
+      "command": "synology-cli abb trend --since 30d"
+    },
+    {
+      "question": "Which machines' newest backup moved far more data than usual, or nothing at all for three runs?",
+      "command": "synology-cli abb change-rate --since 30d"
+    },
+    {
+      "question": "Which Hyper Backup tasks does a client's NAS run (live, the NAS in SYNOLOGY_BASE_URL), and to what kind of destination?",
+      "command": "synology-cli hyperbackup tasks"
+    },
+    {
+      "question": "Who is in the administrators group on one client's NAS (live, the NAS in SYNOLOGY_BASE_URL)?",
+      "command": "synology-cli group members --group administrators"
+    }
+  ],
+  "different_vs_wrappers": "[rafalr100/synology-mcp](https://github.com/rafalr100/synology-mcp) is a general-purpose DSM server with 71 tools for one NAS, covering files, storage, users, packages and Hyper Backup, with power controls off unless you enable them. [cmeans/mcp-synology](https://github.com/cmeans/mcp-synology) covers File Station, system health, Download Station and Synology Photos, with one config and login per NAS. Neither covers Active Backup for Business. This one is built for it: `fleet sync` logs in to every client NAS you register and mirrors Active Backup jobs, per-device runs and storage health into one local database, so `fleet status`, `abb failures` and `abb stale` answer across every client in one query. A NAS that did not sync reads as not synced, never as OK.",
+  "different_vs_vendor": "Synology's AI Console brings AI models into Synology's own apps (drafting and summarising in MailPlus and Office, AI search in Drive), and DSM 7.4's DSM Agent is a built-in advisor for one NAS (Synology has announced backup validation for a later DSM Agent 2.0); neither answers Active Backup questions across client NAS units. Active Insight, Synology's cloud monitoring service, offers MSP delegation, storage pool status and capacity forecasts, Hyper Backup monitoring and alerts on abnormal events per host; ActiveProtect Manager centrally manages NAS units running Active Backup for Business but needs an ActiveProtect appliance. This adds the per-device Active Backup answers an MSP asks every morning (failed runs, devices with no recent success, which task protects a machine), across every client NAS, in the AI agent you already use.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and synology-mcp speaks HTTP natively: set SYNOLOGY_MCP_HTTP_TOKEN to a long random value, run `synology-mcp --transport http`, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client NAS once with `synology-cli fleet add` and set its login in environment variables."
+    },
+    {
+      "q": "How do I check 40 client NAS units, not just one?",
+      "a": "Register each one: `synology-cli fleet add acme --url https://nas.acme.example:5001 --client \"Acme Corp\" --tls-fingerprint <sha256> --check`, with the certificate fingerprint checked in DSM (`--pin-cert` only displays the one the NAS presents, to compare). Its login comes from SYNOLOGY_ACME_ACCOUNT and SYNOLOGY_ACME_PASSWORD (or the prefix you pass with --env-prefix), so no password is stored in the registry. `fleet sync` then logs in to every NAS, four at a time by default, and `fleet status` gives one row per client. One unreachable NAS is recorded and does not stop the others."
+    },
+    {
+      "q": "Our NAS accounts use two-factor sign-in. Does that work?",
+      "a": "Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NAME>_OTP_CODE for a fleet NAS). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again."
+    },
+    {
+      "q": "My NAS uses DSM's self-signed certificate. Will it connect?",
+      "a": "Yes, without turning verification off. `fleet add --tls-fingerprint <sha256>` pins the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards (`fleet add --pin-cert` only displays the fingerprint the NAS presents, to compare with DSM's Control Panel > Security > Certificate first); for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM, then re-pin with that value: `synology-cli fleet add <name> --tls-fingerprint <sha256>` keeps the address and mirrored history."
+    },
+    {
+      "q": "Can it change my clients' NAS units?",
+      "a": "Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add --dry-run. Everything else reads. Set SYNOLOGY_MCP_READ_ONLY=1 and the MCP server drops every command that is not read-only."
+    },
+    {
+      "q": "Is my Synology data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server and the local mirror are all local. DSM passwords are read from environment variables and never written to disk; the fleet registry holds only each NAS's URL, client name, certificate setting and the names of its env vars. Credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout): in a terminal they send immediately unless you add --dry-run, and over MCP they return a preview until called with confirm true, so have a human approve them. Registering a NAS (fleet add) decides where its password is sent, so it is CLI only and never offered to an agent; SYNOLOGY_MCP_READ_ONLY=1 drops every non-read-only tool from the MCP server.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet status, fleet health, fleet capacity, fleet list, auth status, auth setup, abb failures, abb stale, abb unprotected, abb device, abb trend, abb change-rate, abb triage, abb tasks, abb results, abb logs, abb transfers, hyperbackup tasks, storage, system, log, package, folder, user, group, sync, search, export. Local writes only: sync fills the local mirror, export --output overwrites the file you name",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "abb backup (start a backup now), abb cancel (cancel a running backup), session logout (end the CLI's DSM session), each previewing over MCP until confirm is true; fleet sync (sends each registered NAS's env-var login to that NAS's registered URL, logs out when done and rewrites the mirror)",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth login (sends the password to SYNOLOGY_BASE_URL and caches the DSM session and two-factor trusted-device token), auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Admin (operator only)",
+      "examples": "fleet add (registers a NAS URL and the env vars whose login is sent there; --check logs in once), fleet remove. CLI only: neither is offered as an MCP tool",
+      "policy": "Operator only, never an agent"
+    },
+    {
+      "tier": "Data egress",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send, which POSTs a feedback note to the configured feedback endpoint",
+      "policy": "Human-in-the-loop - a webhook sink moves client data off your machine"
+    }
+  ],
+  "auth_note": "DSM has no API keys: the CLI logs in with a DSM account. For one NAS set SYNOLOGY_BASE_URL, SYNOLOGY_ACCOUNT and SYNOLOGY_PASSWORD and run `synology-cli auth login`. For many, register each NAS with `synology-cli fleet add <name> --url https://<nas>:5001 --tls-fingerprint <sha256> --check` (the fingerprint checked in DSM; `--pin-cert` only displays the presented one) and set SYNOLOGY_<NAME>_ACCOUNT and SYNOLOGY_<NAME>_PASSWORD. Two-factor accounts add a one-time code on the first login only, then unset it. The address must be https://; plain http:// to another host is refused."
+}

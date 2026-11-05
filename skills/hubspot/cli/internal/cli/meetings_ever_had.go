@@ -27,10 +27,10 @@ func newNovelMeetingsEverHadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "ever-had",
 		Short:       "Find every meeting whose property was EVER set to a given value within a date range",
-		Long:        `Walk the local hubspot_property_history table for rows matching (object_type='meetings', property, value) inside the [from, to] window, then join the current meeting row from hubspot_meetings_crm so the report shows both the historical hit AND the meeting's current state.`,
+		Long:        `Walk the local hubspot_property_history table for rows matching (object_type='meetings', property, value) from --from up to (not including) --to, then join the current meeting row from hubspot_meetings_crm so the report shows both the historical hit AND the meeting's current state.`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-05-01 --to 2026-05-31
-  hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --filter 'hubspot_owner_id=12345678'`,
+  hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-04-01 --to 2026-04-30 --filter 'hubspot_owner_id=12345678'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate inside RunE so verify/dry-run can still walk through.
 			if property == "" || value == "" {
@@ -112,16 +112,27 @@ type meetingsEverHadRow struct {
 }
 
 func queryMeetingsEverHad(cmd *cobra.Command, db *store.Store, property, value string, fromTS, toTS time.Time, expr cliutil.FilterExpr) ([]meetingsEverHadRow, error) {
-	// Pull each matching object_id with its earliest hit timestamp inside the window.
-	q := `SELECT object_id, MIN(timestamp) AS first_hit_at
+	if err := hsRequireCollected(cmd.Context(), db, "meetings", "hubspot-meetings-crm", expr.FieldsReferenced()...); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return nil, err
+	}
+	// Pull each matching object_id with its earliest hit timestamp inside the
+	// window. The window, the MIN and the ORDER BY all run on julianday(), never
+	// on the stored text; first_hit_at is the stored text of the MIN row
+	// (SQLite takes a bare column from the row that holds the MIN). A row whose
+	// timestamp does not parse is outside every window.
+	// Hand-fix (handfixes.json meetings-ever-had-value-any-case): HubSpot
+	// stores outcome values in upper case (SCHEDULED, NO_SHOW), so --value
+	// matches regardless of case.
+	jd := hsJulianSQL("timestamp")
+	q := `SELECT object_id, CAST(timestamp AS TEXT) AS first_hit_at, MIN(` + jd + `) AS first_hit_jd
 FROM hubspot_property_history
 WHERE object_type = 'meetings'
   AND property = ?
-  AND value = ?
-  AND timestamp >= ? AND timestamp < ?
+  AND value = ? COLLATE NOCASE
+  AND ` + jd + ` >= julianday(?) AND ` + jd + ` < julianday(?)
 GROUP BY object_id
-ORDER BY first_hit_at DESC`
-	rows, err := db.DB().QueryContext(cmd.Context(), q, property, value, fromTS.UTC(), toTS.UTC())
+ORDER BY first_hit_jd DESC`
+	rows, err := db.DB().QueryContext(cmd.Context(), q, property, value, hsTimeString(fromTS), hsTimeString(toTS))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -130,7 +141,8 @@ ORDER BY first_hit_at DESC`
 	out := []meetingsEverHadRow{}
 	for rows.Next() {
 		var id, firstHit string
-		if err := rows.Scan(&id, &firstHit); err != nil {
+		var firstHitJD float64
+		if err := rows.Scan(&id, &firstHit, &firstHitJD); err != nil {
 			return nil, err
 		}
 		row := meetingsEverHadRow{MeetingID: id, FirstHitAt: firstHit}

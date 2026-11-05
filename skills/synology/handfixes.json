@@ -1,0 +1,3280 @@
+{
+ "slug": "synology",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "dsm-session-login",
+   "summary": "Session handshake performs a real SYNO.API.Auth login (form POST) from config/env credentials, one session file per NAS shared with the fleet device-token cache, bound to the account and the full origin (a sid cached for https:// is never sent to http://), keeping the SynoToken and 2FA trusted-device token; the per-account trusted-device tokens the fleet layer keeps in the same file survive every write; an expired session clears only the rejected sid; a TLS pin over http:// refuses to log in; a refused configuration (address with a user or password, the example placeholder address, a pin over http://) sends nothing; each request carries an atomic sid+SynoToken snapshot",
+   "why": "The generic session_handshake template GETs a static token URL with no credentials; DSM needs an account login, returns sid + synotoken + did, and DSM 7.3.2+ rejects calls without X-SYNO-TOKEN. A regenerated session.go silently sends every request without a session (DSM error 119).",
+   "status": "active",
+   "spec_encode_followup": "press support for credential-bearing session logins (form POST with auth_flow_input env vars) in session_handshake",
+   "asserts": [
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "HAND-FIX(dsm-login)",
+     "min_count": 17,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.Login(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sess.ConfigureDSM(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"X-SYNO-TOKEN\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.SessionFilePath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "rec.Account != account",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.WriteSessionRecord(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.CachedDeviceIDFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "func (m *SessionManager) InvalidateSID(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "func (m *SessionManager) Snapshot()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.CheckOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "func (m *SessionManager) EnsureSnapshot()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "func (m *SessionManager) Refused()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "dsm.PlaceholderOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Session.EnsureSnapshot()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Session.Refused()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "key += \"|dsm_account=\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HTML document (%d bytes; content not shown)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "m.creds.OTPCode = \"\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-envelope",
+   "summary": "HTTP 200 {success:false} becomes an APIError with the DSM error text; relogin once on an expired session; {success:true,data} is unwrapped; a DSM read that comes back without a {success:true,data} envelope is an error",
+   "why": "DSM reports every failure as HTTP 200. Without this a failed call prints the error envelope as if it were data and exits 0 (false green).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(dsm-envelope)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "dsm.Envelope(respBody)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Session.InvalidateSID(authHeader)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "Body: \"DSM answered without a data envelope\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "&& !strings.Contains(path, \"/webapi/\") {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-tls",
+   "summary": "SYNOLOGY_TLS_FINGERPRINT pins and SYNOLOGY_SKIP_TLS_VERIFY skips TLS verification on the standard transport; no DSM request (probe, login, authenticated read or write, logout) follows a redirect, same origin included: every DSM http.Client's CheckRedirect is dsm.RefuseRedirect, a 3xx net/http returns unfollowed is an error too, the refusal names the status only and is not retried",
+   "why": "Most NAS units serve DSM's self-signed certificate. Only the h2-only browser-chrome transport emits --insecure, and that transport cannot reach DSM over plain HTTP or with HTTP/2 off (DSM's default). DSM's WebAPI never redirects; the generated client followed same-origin redirects on authenticated requests, so a NAS (or anything on the path) answering a read with 302 Location: /webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&...&_sid=... made the client carry the sid and SynoToken into a backup start through the read-only abb_tasks tool, even with SYNOLOGY_MCP_READ_ONLY=1. TestNoDSMRequestFollowsARedirect, TestMCPReadToolNeverFollowsARedirect and TestEveryHTTPClientRefusesRedirects fail with the generated redirect policy restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "dsm.EnvTLS()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.CheckRedirect = dsm.RefuseRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if rerr := dsm.RedirectStatus(resp.StatusCode); rerr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!errors.Is(transportErr, dsm.ErrRedirectRefused)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "m.client.CheckRedirect = dsm.RefuseRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "dsm.SameOriginRedirect("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "redirectDestinationRefused(req.URL, via)"
+    },
+    {
+     "file": "cli/internal/dsm/guard.go",
+     "contains": "func RefuseRedirect(req *http.Request, _ []*http.Request) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/redirect_refused_test.go",
+     "contains": "func TestNoDSMRequestFollowsARedirect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/redirect_refused_test.go",
+     "contains": "func TestEveryHTTPClientRefusesRedirects(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/redirect_refused_test.go",
+     "contains": "func TestMCPReadToolNeverFollowsARedirect(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-auth-login",
+   "summary": "auth login performs the DSM login and caches the session instead of importing browser cookies for the spec's placeholder host; the generated browser-cookie import helpers it replaced (loadSessionCookiesFromFile and three siblings) are deleted, since nothing calls them",
+   "why": "The generated auth login imported cookies for https://nas.example.com:5001 (the spec placeholder), so it could never authenticate a real NAS. The dead helpers were also the only source of three security-gate P1s in auth.go (gosec G304 on the cookie-file read, G124 on two http.Cookie literals); a reprint that restores them restores those findings.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "HAND-FIX(dsm-auth-login)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "ImportSession(\"https://nas.example.com"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "dsm.DisplayAddress(cfg.BaseURL)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "func loadSessionCookiesFromFile("
+    }
+   ]
+  },
+  {
+   "id": "session-auth-tests",
+   "summary": "Three generated credentials tests that assert access_token precedence are skipped",
+   "why": "Session-handshake auth never reads access_token into AuthHeader; the generated assertions do not apply and fail.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "HAND-FIX(session-auth-tests)",
+     "min_count": 3,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "dsm-dry-run",
+   "summary": "abb backup, abb cancel and session logout (DSM write calls are GETs on entry.cgi) answer --dry-run without sending anything, with a preview that names the exact request: the standard {dry_run, action, would} keys (would = the request line, for example GET https://<nas>:5001/webapi/entry.cgi?api=SYNO.ActiveBackup.Task&method=backup&task_ids=%5B5%5D&trigger_type=1&version=1) plus a request object (http_method, nas origin, path, api, api_method, version, params incl. task_ids); the password, sid and SynoToken are never printed",
+   "why": "The generated GET-mutation template wraps the client's dry-run sentinel in the provenance envelope ({meta, results:{dry_run:true}}), which fails the live dogfood dry-run JSON contract (missing top-level dry_run:true) and so the Phase 5 gate. Fix round 1: the preview said only {\"would\":\"run abb backup; no changes made\"} (no NAS, DSM call or task ids), so the person approving it saw nothing; dsmDryRun now takes the call site's params and reads the request from the command's own pp:method/pp:path annotations. TestDSMWriteDryRunNamesTheRequest fails with the old preview restored.",
+   "status": "active",
+   "spec_encode_followup": "press: give GET-shaped mutations (RPC APIs) the same dry-run short-circuit as POST mutations",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/abb_backup.go",
+     "contains": "HAND-FIX(dsm-dry-run)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/abb_cancel.go",
+     "contains": "HAND-FIX(dsm-dry-run)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/session_logout.go",
+     "contains": "HAND-FIX(dsm-dry-run)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/abb_backup.go",
+     "contains": "return dsmDryRun(cmd, flags, \"abb backup\", map[string]string{\"task_ids\": formatCLIParamValue(flagTaskIds)})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_cancel.go",
+     "contains": "return dsmDryRun(cmd, flags, \"abb cancel\", map[string]string{\"task_ids\": formatCLIParamValue(flagTaskIds)})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/session_logout.go",
+     "contains": "return dsmDryRun(cmd, flags, \"session logout\", nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_common.go",
+     "contains": "method, path := cmd.Annotations[\"pp:method\"], cmd.Annotations[\"pp:path\"]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dsm_dry_run_preview_test.go",
+     "contains": "func TestDSMWriteDryRunNamesTheRequest(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-auth-logout",
+   "summary": "auth logout forgets, on this computer, the whole cached session file of the NAS SYNOLOGY_BASE_URL (or the config's base_url, or --nas <registered name>) names - every account's sid, SynoToken, cookies and two-factor trusted-device tokens - or with --all every session file the CLI wrote, plus the login stored in the CLI's own config (credential fields of config.json, the credentials file); it removes only files it can prove it wrote (the name is exactly the CLI's scheme - session-<scheme>-<host>_<port>[_<path>]-<hash8>.json in the data directory, the legacy session.json, or either's .<name>.<digits>.tmp - AND the content parses as the record the CLI writes under that name, a per-NAS record's origin naming the file), never follows a symbolic link, and lists every other session-cache-like file as skipped (kept); it prints every file it removed, changed or kept (or 'nothing cached for <address>'), never contacts the NAS and says so, keeps --dry-run truthful with the same JSON shape as the run (every list [] when empty, never null), and with no usable NAS address refuses (exit 2, naming SYNOLOGY_BASE_URL, --nas and --all) instead of reporting 'cleared' for the example placeholder",
+   "why": "The generated logout cleared only what the current shell named: in a fresh shell (SYNOLOGY_BASE_URL unset) it targeted https://nas.example.com:5001, cleared nothing, wrote a config.json naming the placeholder and still printed {\"cleared\": true} / 'Logged out. Credentials cleared.', so the next command reused the live sid with no password; with SYNOLOGY_BASE_URL set and SYNOLOGY_ACCOUNT unset it removed the sid but kept the account's trusted-device token, so the next password login skipped the second factor. TestAuthLogoutInAFreshShell, TestAuthLogoutWithoutAnAccount and TestAuthLogoutForgetsOnlyTheNamedNAS (against a two-factor DSM stand-in: after logout the next command needs the password and a one-time code) fail with the contract reverted. Round 5: --all deleted every file NAMED like a session cache in the config directory (--config, SYNOLOGY_CONFIG, SYNOLOGY_CONFIG_DIR can point at a shared or per-client folder), so a user's session.json, session-planning-2026.json and .session-keep.tmp were removed; and the dry-run printed session_files null where the run printed []. TestSessionCacheFilesAreProvenBeforeRemoval, TestAuthLogoutKeepsFilesItDidNotWrite and TestAuthLogoutPreviewAndRunHaveOneShape fail with the proof, the data-directory scoping or the list normalisation reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "HAND-FIX(dsm-auth-logout)",
+     "min_count": 2,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return runAuthLogout(cmd, flags, all, nasName)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "Long:    authLogoutLong,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "Logged out. Credentials cleared."
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "cfg.ClearTokens()"
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "func runAuthLogout(cmd *cobra.Command, flags *rootFlags, all bool, nasName string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "removed, changed, ferr := dsm.ForgetSessionFiles(files)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "contains": "func CachedSessions(baseURL string, dirs SessionDirs) ([]CachedSession, []SkippedFile, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_contract_test.go",
+     "contains": "func TestAuthLogoutInAFreshShell(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_contract_test.go",
+     "contains": "func TestAuthLogoutWithoutAnAccount(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_contract_test.go",
+     "contains": "func TestAuthLogoutForgetsOnlyTheNamedNAS(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"Forget every DSM session file this CLI wrote in its data directory (the single NAS and every fleet NAS), the legacy session.json next to the config when it is the CLI's, and the stored login; any other file is kept\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "Forget every cached DSM session in the data directory"
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "files, skipped, err := dsm.CachedSessions(target, dirs)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "fillNilLists(&rep)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "contains": "} else if SessionFileName(origin) != owner {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "contains": "case owner != \"session.json\" && !dataDir:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "contains": "case lst.Mode()&fs.ModeSymlink != 0:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "contains": "if _, reason, _ := proveSessionFile(f.File, f.owner, f.legacy); reason != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache.go",
+     "not_contains": "func isSessionCacheName("
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "os.CreateTemp(filepath.Dir(path), atomicTempPattern(path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache_test.go",
+     "contains": "func TestSessionCacheFilesAreProvenBeforeRemoval(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_proof_test.go",
+     "contains": "func TestAuthLogoutKeepsFilesItDidNotWrite(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_proof_test.go",
+     "contains": "func TestAuthLogoutPreviewAndRunHaveOneShape(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "return \".\" + filepath.Base(path) + \".*.tmp\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/sessioncache_test.go",
+     "contains": "func TestAtomicWriteTempNamesItsFile(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tabular-printers-scrub-terminal",
+   "summary": "--csv, --plain and --quiet output drops terminal control characters (C0 except tab/CR/LF, DEL, C1) from NAS-sourced values",
+   "why": "Task, host and share names come from the NAS, and the generated printCSV/printPlain/printQuiet/quietScalar wrote them raw, so a name carrying ESC ] 52 ; c ; ... BEL (OSC 52, the clipboard) or ESC [ 2 J reached the terminal. Measured on the shipped tree against a stub NAS: `abb tasks --csv`, `--plain` and `group list --quiet` printed raw ESC, BEL and U+009D. Ported from bitdefender/backup-radar (same press 4.33.5 template). The hand-written fleet and abb report tables already go through printAutoTable/formatCellValue, which scrub. TestTabularPrintersScrubTerminalControls fails with the scrub removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cell = scrubCell(cell)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "s := scrubCell(formatTabularCell(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return cliutil.ScrubTerminal(t)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func scrubCell(s string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tabular_scrub_test.go",
+     "contains": "func TestTabularPrintersScrubTerminalControls(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "output-escapes-c1-controls",
+   "summary": "every terminal write in every package goes through the shared escaping writers in internal/termio (stdoutW()/stderrW() in internal/cli, termio.Stderr() in client, store, config, cliutil, learn, platform and the MCP main): UTF-8 C1, lone 8-bit C1, raw C0/DEL (except tab, newline, CR before newline) become \\u00XX; only the CLI's own SGR colors pass; isTerminal unwraps the writer; sync progress redraws through termio.Progress",
+   "why": "encoding/json escapes C0 but writes U+0080-U+009F raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST): `abb tasks --json` against a stub NAS printed a task name's U+009D...U+009C raw; and 150 generated fmt.Fprintf(os.Stderr, ...) sites (dry-run request bodies, retry notes, warnings) bypassed any writer. Ported from backup-radar (termio converged there over 4 Codex rounds). TestExecuteEscapesControlsOnStdoutAndStderr runs the real Execute() and fails with the SetOut/SetErr wiring removed; TestNoDirectTerminalWrites walks the module and fails on any new direct stream write; TestIsTerminalUnwrapsEscapingWriter pins the unwrap.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.SetOut(stdoutW())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.SetErr(stderrW())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "envelopeWriter := stdoutW()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "w := &mirrorWriter{primary: stdoutW(), copy: flags.deliverBuf}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/c1_escape.go",
+     "contains": "func stdoutW() io.Writer { return termio.Stdout() }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/c1_escape.go",
+     "contains": "func stderrW() io.Writer { return termio.Stderr() }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/termio/termio.go",
+     "contains": "func (c *Writer) Write(p []byte) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/termio/termio.go",
+     "contains": "func EscapeString(s string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/termio/termio.go",
+     "contains": "if allowedSGR[string(p[:i+1])] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "termio.Progress(\"  %s: %d synced\", resource",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_, _ = termio.Stderr().Write(cliutil.EscapeJSONControls(buf.Bytes()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/termio/termio_test.go",
+     "contains": "func TestC1EscapeWriterKeepsJSONValidAndTerminalSafe(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/c1_escape_test.go",
+     "contains": "func TestExecuteEscapesControlsOnStdoutAndStderr(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/c1_escape_test.go",
+     "contains": "func TestNoDirectTerminalWrites(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_hypervisors.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_logs.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_result_detail.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_results.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_settings.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_storage.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_tasks.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/abb_transfers.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/group_list.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/group_members.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/hyperbackup_task_status.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/hyperbackup_tasks.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/learn_init.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/playbook_init.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/promoted_folder.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/promoted_log.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/promoted_package.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/promoted_user.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/session_apis.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_disks.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_overview.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_pools.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_smart.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_smart_schedule.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/storage_volumes.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_dsm.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_get.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_health_check.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_network.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_ups.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cli/system_utilization.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "not_contains": "(os.Stderr,"
+    },
+    {
+     "file": "cli/internal/platform/perms_windows.go",
+     "not_contains": "(os.Stderr,"
+    }
+   ]
+  },
+  {
+   "id": "mcp-tool-results-escape-controls",
+   "summary": "every MCP tool result and error text (typed endpoint tools, the why_did_a_task_fail intent and the Cobra-mirror tools) is built through an escaping constructor (mcpResultText/mcpResultError, escapedToolResultText/Error/escapedTextContent) that rewrites C0, DEL and C1 controls as \\u00XX",
+   "why": "The typed endpoint tools returned DSM JSON verbatim and mcp-go encodes the frame with encoding/json, so a task name carrying U+009D...U+009C (OSC 52) reached content[].text and the stdio frame raw; measured on the shipped binary: abb_tasks and why_did_a_task_fail answered with raw C1 on the wire. Ported from backup-radar. TestEndpointResultEscapesTaskName (fake NAS) fails with the escape removed; TestToolHandlersUseEscapingConstructors fails if any handler calls mcplib.NewToolResultText/Error or NewTextContent directly.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/result_escape.go",
+     "contains": "func escapeTerminalControls(s string) string { return termio.EscapeString(s) }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/result_escape.go",
+     "contains": "return mcplib.NewToolResultText(escapeTerminalControls(s))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/result_escape.go",
+     "contains": "return mcplib.NewToolResultText(termio.EscapeString(s))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "return escapedToolResultError(bound.Text(message))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "toolResult := escapedToolResultText(bound.Text(result.Stdout))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "mcplib.NewToolResultText("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "mcplib.NewToolResultError("
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "mcplib.NewToolResultError("
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "mcplib.NewTextContent("
+    },
+    {
+     "file": "cli/internal/mcp/result_escape_test.go",
+     "contains": "func TestToolHandlersUseEscapingConstructors(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/result_escape_test.go",
+     "contains": "func TestEndpointResultEscapesTaskName(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "not_contains": "mcplib.NewToolResultError("
+    }
+   ]
+  },
+  {
+   "id": "mcp-findings-keep-report",
+   "summary": "when a shelled-out command exits non-zero with output on both streams, the MCP error result carries its stdout as well as stderr, so fleet status, fleet health and the abb reports (exit 6 with findings) hand an agent the rows, not only the count",
+   "why": "The report commands exit 6 exactly when they found something; RunCLICommand quoted stderr alone, so the abb_failures MCP tool answered `Error: 1 row(s) need attention` with the rows dropped (measured on the shipped binary against a stub NAS). Same shape as quotewerks mcp-partial-failure-keeps-receipt. TestShellOutFindingsKeepRows (a helper process that prints rows and exits 6) fails without the branch.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "detail := cliFailureDetail(stdoutTrim, stderrText)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "case stdout != \"\" && stderr != \"\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/findings_report_test.go",
+     "contains": "func TestShellOutFindingsKeepRows(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-describes-dsm",
+   "summary": "the MCP context tool, the search/sql tool descriptions and the sql no-such-table hint describe DSM truthfully: GET operations selected by api=/method=, offset/limit paging with the real defaults, the fleet mirror filled by fleet_sync, sql/search covering only the generic sync store (folder, group, package, user; the DSM system log is read live with log_list and is neither syncable nor searchable), registry administration (fleet add/remove) named as CLI-only and tail as not an MCP tool, archetype infrastructure, no developer-platform playbook, real auth env descriptions",
+   "why": "The generated context tool (`call this first`) told agents lists page with a cursor (default 100), marked abb, storage and system searchable although sync never stores them, pointed the sql tool and its no-such-table hint at resource_type='abb' rows that never exist, described SYNOLOGY_PASSWORD/DEVICE_ID/OTP_CODE as `Set during initial auth setup.` and shipped a developer-platform archetype and playbook. Same class bitdefender and backup-radar fixed. TestMCPContextDescribesDSM fails with the old archetype or the cursor tip restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"archetype\":   \"infrastructure\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"DSM lists page with offset and limit",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"The sql and search tools read only the generic sync store",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Pagination uses cursor-based paging"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "resource_type='abb'"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Developer platform APIs often have nested resource hierarchies"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"description\": \"Set during initial auth setup.\""
+    },
+    {
+     "file": "cli/internal/mcp/context_truth_test.go",
+     "contains": "func TestMCPContextDescribesDSM(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "group, log, package"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "groups, the DSM system log, packages"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "registered with fleet_add"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Registry administration is operator-only: fleet add and fleet remove are CLI commands, not MCP tools",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"description\": \"DSM system log\","
+    },
+    {
+     "file": "cli/internal/mcp/operator_only_tools_test.go",
+     "contains": "func TestMCPContextNeverListsTheLiveLogAsSynced(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "agent-compaction-keeps-report-fields",
+   "summary": "the fleet and abb reports (fleet sync/status/health/list, abb failures/stale/device/trend via printFleetRows, and abb triage) keep every field their row types declare under --agent/--compact (printReportJSON: printJSONFilteredKeep with the reflected JSON field names)",
+   "why": "--agent compaction keeps a row key only when it is on the gravity allow-list or present on 80% of rows, and the report rows mark their reconciliation fields omitempty. Measured on the shipped binary with five registered NAS units, one unreachable: `fleet sync --agent` printed n5 as ok:false with its error dropped and `fleet status --agent` dropped sync_error; abb triage lost error_code and params on the failing timeline step. TestAgentCompactionKeepsReportFields fails with the keep set removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/report_keep.go",
+     "contains": "return printJSONFilteredKeep(w, v, flags, reportKeepFields(v)...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_common.go",
+     "contains": "return printReportJSON(w, rows, flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_triage.go",
+     "contains": "return printReportJSON(cmd.OutOrStdout(), rep, flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report_keep_test.go",
+     "contains": "func TestAgentCompactionKeepsReportFields(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-values-count-as-typed",
+   "summary": "ApplyProfileToFlags marks every flag it applies as Changed, so a profile value behaves like a typed one",
+   "why": "Commands gate on Changed(): abb backup/cancel run their required-input check and --task-ids JSON validation only when the flag changed, hasChangedLocalFlags decides whether a bare call prints help, --agent fills json/compact/no-input only where they are unchanged. A profile value applied without Changed was ignored (help printed, nothing ran) or sent unvalidated. The backup-radar safety case (a saved --dry-run running live) is not reachable here because the DSM write commands read flags.dryRun directly, but the class is the same template code. TestApplyProfileMarksFlagsChanged fails without the line.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "\t\tflag.Changed = true\n\t}\n\treturn nil\n}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile_changed_test.go",
+     "contains": "func TestApplyProfileMarksFlagsChanged(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-output-mode-groups",
+   "summary": "a typed output-mode flag (json/csv/plain/quiet/agent) or projection (compact/select) wins over every profile value in its group",
+   "why": "ApplyProfileToFlags overlaid by flag name only, so a typed --csv or --plain lost to a profile's --json: measured on the shipped binary, `profile save pj --json` then `group list --profile pj --csv` printed JSON. TestApplyProfileTypedOutputModeWins fails without the group rule.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "for _, group := range [][]string{{\"json\", \"csv\", \"plain\", \"quiet\", \"agent\"}, {\"compact\", \"select\"}} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile_changed_test.go",
+     "contains": "func TestApplyProfileTypedOutputModeWins(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-writes-refuse-unknown-args",
+   "summary": "the typed MCP write tools (abb_backup, abb_cancel, session_logout) refuse any argument outside their schema, and every typed read tool refuses an argument that would override its fixed DSM query (api, method, version, _sid, SynoToken, or any key its path fixes), before any request",
+   "why": "makeAPIHandler forwarded undeclared arguments as query parameters and the client merges them into the path's own query with Set. Every DSM operation is a GET on one CGI path selected by api=/method=, so with SYNOLOGY_MCP_READ_ONLY=1 the read-only abb_tasks tool called with {\"method\":\"backup\"} started a backup and abb_settings with {\"api\":\"SYNO.ActiveBackup.Task\",\"method\":\"cancel\"} cancelled one, and abb_backup with the CLI spelling dry-run:true ran live (all three measured on the shipped binary against a stub NAS). TestEndpointWriteRefusesUndeclaredArgument and TestReadToolRefusesOperationOverride fail with the check removed and prove declared calls and a harmless extra filter still reach the NAS.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if err := undeclaredEndpointArgError(args, declaredArgs, pathTemplate, readOnly); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/endpoint_args_guard.go",
+     "contains": "func undeclaredEndpointArgError(args map[string]any, declared map[string]bool, pathTemplate string, readOnly bool) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/endpoint_args_guard.go",
+     "contains": "var dsmReservedQueryKeys = []string{\"api\", \"method\", \"version\", \"_sid\", \"synotoken\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "governance.md",
+     "contains": "refuse any argument outside their schema",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/endpoint_args_guard_test.go",
+     "contains": "func TestEndpointWriteRefusesUndeclaredArgument(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/endpoint_args_guard_test.go",
+     "contains": "func TestReadToolRefusesOperationOverride(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-read-only-drops-endpoint-writes",
+   "summary": "SYNOLOGY_MCP_READ_ONLY removes every tool not annotated read-only after all tools register (abb_backup, abb_cancel, session_logout and the local writers teach, teach_playbook, learnings_confirm, playbook_amend that the Cobra mirror keeps); a write tool registered before the switch refuses at call time; the why_did_a_task_fail intent (abb triage, mcp:read-only in the Cobra tree) is annotated read-only so it stays",
+   "why": "The press applies the switch only in cobratree.RegisterAll. Measured on the shipped binary with SYNOLOGY_MCP_READ_ONLY=1: tools/list still offered abb_backup, abb_cancel, session_logout and six local writers, and tools/call sent backup, cancel and logout to a stub NAS. Same defect td-synnex and quotewerks fixed. TestReadOnlyEnvDropsEndpointWrites fails without the call (and on any offered tool lacking readOnlyHint); TestReadOnlyCallTimeBackstop fails without the backstop.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\tif cliutil.IsMCPReadOnlyEnv() {\n\t\tdropNonReadOnlyTools(s)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if !readOnly && cliutil.IsMCPReadOnlyEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/read_only_endpoints.go",
+     "contains": "func dropNonReadOnlyTools(s *server.MCPServer) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/read_only_endpoints_test.go",
+     "contains": "func TestReadOnlyEnvDropsEndpointWrites(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/read_only_endpoints_test.go",
+     "contains": "func TestReadOnlyCallTimeBackstop(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-read-only-fails-closed",
+   "summary": "SYNOLOGY_MCP_READ_ONLY fails closed: blank, 0, false, no and off (case-insensitive, trimmed, an unresolved ${user_config...} placeholder counts as blank) leave it off; any other value, including true, yes and on, turns it on; the generated TestMCPReadOnlySwitch 'other values' subtest is updated to that contract",
+   "why": "The generated check accepted exactly \"1\" and the .mcpb exposes the switch as a free-text field: measured on the shipped binary, SYNOLOGY_MCP_READ_ONLY=true, yes, TRUE and on all left 67 tools including fleet_sync, sync and export. Same fix as td-synnex mcp-read-only-fails-closed. TestReadOnlyEnvDropsEndpointWrites (values 1/true/yes) fails with the literal-1 check restored. Codex round 6: a literal ${READ_ONLY} value was read as unset through EnvOverride and left the write tools in place; only the switch's own unfilled MCPB placeholder now reads as unset.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "switch strings.ToLower(strings.TrimSpace(v)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "case \"\", \"0\", \"false\", \"no\", \"off\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "not_contains": "return os.Getenv(MCPReadOnlyEnvVar) == \"1\""
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "left the read-only switch off",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "manifest.json",
+     "contains": "Any other value, for example 1, true or yes",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "if strings.TrimSpace(v) == \"${user_config.synology_mcp_read_only}\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "\"${READ_ONLY}\", \"${user_config.other}\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-writes-through-cmd-out",
+   "summary": "--deliver captures every command's output: export, agent-context, version and tail write through cmd.OutOrStdout(), and the deliver writer is set on the executing command AND root (help prints through root's writer); completion refuses --deliver",
+   "why": "Measured on the shipped binary: `export group --deliver file:x`, `agent-context --deliver`, `version --deliver` and `help abb --deliver` each left an empty file while printing to the terminal. Ported from backup-radar. TestDeliverCapturesEveryCommandsOutput fails with any one of the writers or the root tee reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "writer = bufio.NewWriter(cmd.OutOrStdout())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/version.go",
+     "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cmd.Root().SetOut(w)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "--deliver does not apply to completion scripts; redirect stdout instead",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Every command except `completion` accepts `--deliver <sink>`",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_gaps_test.go",
+     "contains": "func TestDeliverCapturesEveryCommandsOutput(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-after-profile",
+   "summary": "a saved profile is applied before --deliver is wired, so a --deliver the profile restores is honoured",
+   "why": "The press template wired the sink before applying --profile: measured on the shipped binary, `profile save nightly --deliver file:x` then `group list --profile nightly` left x holding the save confirmation. TestDeliverAfterProfile fails with the deliver block moved back above the profile block.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err := ApplyProfileToFlags(cmd, profile); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "// HAND-FIX(deliver-after-profile): a saved --deliver has to be applied\n\t\t// before the sink is chosen, so the profile overlay above runs first.\n\t\tif flags.deliverSpec != \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/deliver_gaps_test.go",
+     "contains": "func TestDeliverAfterProfile(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-on-failure",
+   "summary": "a failed command still delivers what it printed (or warns that the sink was not updated); profile save validates --deliver and records it without performing it",
+   "why": "The template delivered only on success, and the fleet/abb reports exit 6 exactly when they find something: measured on the shipped binary, `fleet status --json --deliver file:x` with a finding exited 6 and never created x, so a scheduled RMM delivery kept the previous run's all-clear. profile save overwrote its sink with the save confirmation. TestDeliverOnFailure and TestDeliverAfterProfile fail with the branch or the profile-save exception removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err != nil && !envelopeWritten && flags.deliverBuf != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "return cmd.Name() == \"save\" && cmd.Parent() != nil && cmd.Parent().Name() == \"profile\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if sink.Scheme != \"stdout\" && sink.Scheme != \"\" && !isProfileSave(cmd) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "unprojected.selectFields, unprojected.compact = \"\", false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "A command that fails still delivers what it printed",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_gaps_test.go",
+     "contains": "func TestDeliverOnFailure(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-clear-never-marks-complete",
+   "summary": "the sync --full / --latest-only and workflow archive cursor clears mark a collection incomplete (store.ClearSyncCursor), run only after every flag is validated, and only for known resource names; the hand-written fleet mirror commits data and outcome together after the walk and has no pre-walk clear",
+   "why": "The generated clears wrote last_attempt_complete=1 for every collection before validating --since or walking anything: measured on the shipped tree, `sync --full --since bogus` exited with a usage error and left five sync_state rows marked complete with zero rows, so MCP search/sql reported store_status ready (false-GREEN). Ported from backup-radar. TestClearSyncCursorNeverMarksComplete fails with complete=1; TestSyncUsageErrorsLeaveSyncStateUntouched fails with the clear moved back before validation.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) ClearSyncCursor(resourceType string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "last_synced_at = excluded.last_synced_at, total_count = 0, last_attempt_complete = 0`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.ClearSyncScopeIfCurrent(resource, scopeKey)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "last_attempt_complete = 0 WHERE resource_type = ?",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "db.SaveSyncStateAt(resource, \"\", 0, time.Time{})"
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if err := s.ClearSyncCursor(resource); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "s.SaveSyncState(resource, \"\", 0)"
+    },
+    {
+     "file": "cli/internal/store/clear_sync_cursor_test.go",
+     "contains": "func TestClearSyncCursorNeverMarksComplete(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_clear_order_test.go",
+     "contains": "func TestSyncUsageErrorsLeaveSyncStateUntouched(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-guards-local-mutations",
+   "summary": "--dry-run changes nothing locally: export -o, feedback (local file and --send POST) and profile delete return the dry-run preview (auth login/logout and the fleet, teach and learnings writers already did)",
+   "why": "Measured on the shipped binary: `export group -o keep.json --dry-run` overwrote keep.json, `feedback --dry-run` appended to feedback.jsonl, `profile delete p1 --yes --dry-run` deleted p1. Ported from backup-radar. TestDryRunChangesNothingLocally fails with any of the three guards removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if outputFile != \"\" && !dryRunOK(flags) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"feedback\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"profile delete\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dry_run_local_test.go",
+     "contains": "func TestDryRunChangesNothingLocally(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-setup-windows-twin",
+   "summary": "auth setup and the unauthenticated auth status print the DSM login setup for macOS/Linux and PowerShell; auth status treats SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD (or an auth_header session id) as configured and names what is missing",
+   "why": "auth setup printed `No setup URL is configured for this CLI; check the API's docs.` and named no variable, and auth status read only auth_header: measured on the shipped binary with the account and password set, even right after a successful auth login, it printed `Not authenticated`, a bare `Set your token:` and exited 4. Most MSPs run PowerShell, where `export` does not exist. TestAuthSetupPrintsBothShells and TestAuthStatusReadsDSMLogin fail with the generated text restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "printDSMSetup(w)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed, missing := dsmCredentialState(cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_setup_dsm.go",
+     "contains": "func printDSMSetup(w io.Writer) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_setup_dsm.go",
+     "contains": "$env:SYNOLOGY_PASSWORD = \"<password>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "No setup URL is configured for this CLI"
+    },
+    {
+     "file": "cli/internal/cli/windows_twin_test.go",
+     "contains": "func TestAuthSetupPrintsBothShells(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/windows_twin_test.go",
+     "contains": "func TestAuthStatusReadsDSMLogin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "help-examples-windows-twin",
+   "summary": "every user-facing POSIX-only form carries its PowerShell twin: the auth login `SYNOLOGY_OTP_CODE=... cmd` example, the fleet sync `credentials not set` hint, and the mcp-install remote launch line",
+   "why": "PowerShell has no `VAR=value cmd` prefix and rejects `<`; the fleet sync row error said `export <prefix>_ACCOUNT and <prefix>_PASSWORD` only, and mcp-install.md gave only the POSIX launch line. The PowerShell launch line keeps `VAR=` with no spaces so check_env_schema still sees each required variable. TestHelpExamplesCarryPowerShellTwin and TestFleetSyncCredentialHintCarriesPowerShellTwin fail with the twins removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "$env:SYNOLOGY_OTP_CODE = \\\"123456\\\"; synology-cli auth login   # PowerShell",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "PowerShell: $env:%[1]s_ACCOUNT",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "not_contains": "\"credentials not set: export %s_ACCOUNT and %s_PASSWORD\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "$env:SYNOLOGY_BASE_URL=\"https://<nas>:5001\"; $env:SYNOLOGY_ACCOUNT=\"<dsm-account>\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/windows_twin_test.go",
+     "contains": "func TestHelpExamplesCarryPowerShellTwin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/windows_twin_test.go",
+     "contains": "func TestFleetSyncCredentialHintCarriesPowerShellTwin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor refuses the placeholder address and names SYNOLOGY_BASE_URL, proves the host is a DSM WebAPI with dsm.ProbeDSM (the unauthenticated SYNO.API.Info check dsm.Login itself runs before every credential POST, so doctor and every login share one rule) before any password is sent; a certificate pin mismatch is its own verdict, then logs in and makes one authenticated SYNO.DSM.Info read, reporting valid / rejected (DSM 4xx) / two-factor code needed / scope-limited; the auth row counts SYNOLOGY_ACCOUNT plus SYNOLOGY_PASSWORD as configured; the Credentials row names the same reason kind as the API row (not a DSM WebAPI, certificate pin mismatch, certificate failed verification, unreachable) through dsm.TransportKind, and a transport row reports plain http:// as WARN",
+   "why": "The generated doctor called any answer to GET / reachable (DSM's own login page included: `reachable (HTML body at /)`) and, with SYNOLOGY_ACCOUNT/PASSWORD set, printed no credentials row and auth `not configured`; check_doctor_truth failed 5 assertions on the shipped tree, and the generated probe POSTed the password to a JSON or HTML host that is not DSM. The gate's generic stub does not speak DSM's {success,data} envelope or carry an account login, so its healthy fixture is honestly reported as not a DSM WebAPI; with the generic GET / probe gone from doctor.go the gate passes on its expired, wrong-base and placeholder checks. TestDoctorVerdictTracksReality drives a DSM-faithful stub in both directions (valid, wrong password, 2FA, non-DSM JSON, HTML, no login, placeholder) and asserts the password never reaches a non-DSM host; it fails with the generated probe restored. The Credentials row used to say 'SYNOLOGY_BASE_URL does not answer as a DSM WebAPI' for every probe failure, an unreachable NAS and a refused certificate included (TestDoctorCredentialsRowNamesTheRealReason); plain http:// sent the password in clear text without a doctor WARN (TestPlainHTTPLoginWarnsOnEveryPath).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorDSMVerdict(cmd.Context(), flags, cfg, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if ok, _ := dsmCredentialState(cfg); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"api\"] = \"reachable (HTML body at /)\""
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "err := dsm.VerifyDSM(ctx, hc, origin)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/probe.go",
+     "contains": "const APIInfoProbePath = \"/webapi/query.cgi?api=SYNO.API.Info&method=query&version=1&query=SYNO.API.Auth\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "if err := VerifyDSM(ctx, hc, baseURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/probe_test.go",
+     "contains": "func TestLoginProbesBeforeSendingPassword(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_probe_test.go",
+     "contains": "func TestCredentialPathsNeverSendThePasswordToANonDSMHost(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorClassifyLogin(c *dsm.Client, err error) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorVerdictTracksReality(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if ok, verdict, credVerdict := doctorProbeDSMAPI(ctx, hc, n.URL); !ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "switch dsm.TransportKind(err) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "report[\"transport\"] = doctorTransport(n)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "{\"transport\", \"Transport\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_reason_kind_test.go",
+     "contains": "func TestDoctorCredentialsRowNamesTheRealReason(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-token-placeholder",
+   "summary": "the MCP server's --transport http bearer token, SYNOLOGY_TLS_FINGERPRINT and SYNOLOGY_SKIP_TLS_VERIFY are read through cliutil.EnvOverride, so an unresolved ${user_config...} placeholder reads as unset (no bearer secret, no certificate pin) instead of as a value",
+   "why": "requireHTTPCallerToken read SYNOLOGY_MCP_HTTP_TOKEN with os.Getenv; the variable is an optional MCPB user_config value and a host that skips the prompt leaves the public placeholder text, which then authenticated anyone. dsm.EnvTLS read the TLS variables the same way, so a skipped optional pin became a fingerprint that refuses every NAS certificate. Same fix as sophos-central, bitdefender and backup-radar. TestHTTPTokenPlaceholderRefused and TestEnvTLSIgnoresUnresolvedPlaceholders fail with os.Getenv restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/tls.go",
+     "contains": "return strings.TrimSpace(cliutil.EnvOverride(\"SYNOLOGY_TLS_FINGERPRINT\")),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/tls.go",
+     "contains": "cliutil.EnvOverride(\"SYNOLOGY_SKIP_TLS_VERIFY\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/http_token_placeholder_test.go",
+     "contains": "func TestHTTPTokenPlaceholderRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/envtls_placeholder_test.go",
+     "contains": "func TestEnvTLSIgnoresUnresolvedPlaceholders(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "install-env-declared-on-every-channel",
+   "summary": "every variable the binaries read (SYNOLOGY_BASE_URL, ACCOUNT, PASSWORD required; DEVICE_ID, OTP_CODE, TLS_FINGERPRINT, SKIP_TLS_VERIFY, MCP_READ_ONLY, MCP_HTTP_TOKEN, USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE optional) is declared identically on manifest.json, server.json and every mcp-install.md env block, with optional values blank in the copy-paste blocks and a remote launch line for each shell",
+   "why": "check_env_schema reported 13 findings on the shipped tree: SYNOLOGY_USER_AGENT and PRINTING_PRESS_CLIENT_PROFILE undeclared, and server.json marking every variable required and secret against the manifest. The copy-paste blocks also set optional variables to `<your-...>` text, which a pasted config would send as a one-time code, a device token, a certificate pin, an HTTP token and (now that the switch fails closed) read-only mode. SYNOLOGY_BASE_URL stays required.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"SYNOLOGY_USER_AGENT\": \"${user_config.synology_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SYNOLOGY_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"SYNOLOGY_MCP_READ_ONLY\": \"\",",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"\"",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "SYNOLOGY_BASE_URL=https://<nas>:5001 SYNOLOGY_ACCOUNT=<dsm-account> SYNOLOGY_PASSWORD=<dsm-password> SYNOLOGY_MCP_HTTP_TOKEN=<a long random value> synology-mcp --transport http",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "<your-synology_mcp_read_only>"
+    }
+   ]
+  },
+  {
+   "id": "secret-fields-never-persisted",
+   "summary": "no credential-named field (password, passwd, secret, token, private key, API key, sid, did, ...) from a DSM answer reaches disk: rows are redacted at the single store sink (upsertGenericResourceTx, which sync, write-through live reads and the FTS index share), and an answer carrying one is never written to the HTTP response cache; live output is unchanged",
+   "why": "The spec declares no response schemas, so the secret-bearing reads cannot be enumerated; the class is reachable mechanically. Measured on the shipped binary against a stub NAS serving SENTINEL-SECRET-7731 in user passwd, share enc_passwd, Hyper Backup repo_password, ABB smtp_password and network pppoe_password: `sync` and the write-through of `hyperbackup tasks` stored it in data.db (which MCP sql serves even in read-only mode) and the response cache kept three copies. The fleet mirror stores typed columns only (first_error uses an allow-list of log params), so fleet sync never stored it. No synology GET is known or declared to return credential material, so no command moved to the Credential tier. TestSyncAndLiveReadsNeverPersistSecretFields walks the whole home after sync and live reads and fails with either sink's redaction removed; TestStoreNeverPersistsSecretFields and TestResponseCacheNeverStoresSecretFields pin each sink.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "data = cliutil.RedactSecretFields(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !bytes.Equal(cliutil.RedactSecretFields(data), data) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func RedactSecretFields(data []byte) []byte {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func SecretFieldName(key string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/secret_fields_persist_test.go",
+     "contains": "func TestSyncAndLiveReadsNeverPersistSecretFields(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/secret_fields_persist_test.go",
+     "contains": "func TestStoreNeverPersistsSecretFields(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/secret_cache_test.go",
+     "contains": "func TestResponseCacheNeverStoresSecretFields(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-registry-admin-and-tail-hidden",
+   "summary": "fleet add, fleet remove (registry administration) and tail are never MCP tools (mcp:hidden), in full and read-only mode; fleet_sync stays exposed and reaches only operator-registered NAS units",
+   "why": "fleet_add took url and env-prefix from the agent, so {url: attacker, env-prefix: SYNOLOGY, check: true} (or a later fleet_sync) POSTed SYNOLOGY_PASSWORD, or any <prefix>_PASSWORD in the server's env, to a host the agent chose; fleet_remove let an agent drop a client NAS from monitoring. Measured on the shipped binaries: the attacker host received the password. tail defaults to --follow and polls forever, so an MCP tools/call never returned and hung an unattended agent (no result in 20 s). fleet_add/fleet_remove are hand-written (fleet_registry.go); tail.go is generated. TestMCPOmitsOperatorOnlyAndStreamingTools and TestMCPFleetSyncReachesOnlyRegisteredNAS fail with any of the three annotations removed.",
+   "status": "active",
+   "spec_encode_followup": "press: an x-mcp-hidden (or streaming) marker for follow/poll commands so tail is never mirrored",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "\"mcp:read-only\": \"true\", \"mcp:hidden\": \"true\", \"pp:no-error-path-probe\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "\"mcp:hidden\": \"true\"",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/operator_only_tools_test.go",
+     "contains": "func TestMCPOmitsOperatorOnlyAndStreamingTools(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/operator_only_tools_test.go",
+     "contains": "func TestMCPFleetSyncReachesOnlyRegisteredNAS(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-params-keep-operation",
+   "summary": "no flag, --param/--global-param/--resource-param or MCP argument may re-select the DSM operation (api, method, version), the session (_sid, SynoToken) or another key the spec path fixes: dsm.CheckOperationParams runs in the generated client before the dry run and before any login, and in the fleet dsm.Client",
+   "why": "Every DSM operation is a GET on one CGI path selected by api=/method=. Measured on the shipped binaries: `sync --resources folder --param api=SYNO.ActiveBackup.Task --param method=backup --param task_ids=[8]` started a backup, and the MCP sync tool did the same with {param: api=..., global-param: method=backup, resource-param: folder:task_ids=[8]}. The sweep's endpoint_args_guard covered only the typed endpoint tools. TestSyncParamsCannotReselectTheDSMOperation and TestMCPSyncCannotReselectTheDSMOperation fail with the client check removed.",
+   "status": "active",
+   "spec_encode_followup": "press: treat RPC-selector query keys fixed in a path (api/method/version) as reserved in the generated client",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := dsm.CheckOperationParams(path, params); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(dsm-params-keep-operation)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "func CheckOperationParams(path string, params map[string]string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_param_operation_test.go",
+     "contains": "func TestSyncParamsCannotReselectTheDSMOperation(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/operator_only_tools_test.go",
+     "contains": "func TestMCPSyncCannotReselectTheDSMOperation(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "DSM operation keys (api, method, version and the session keys) and keys the request already fixes are refused.",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-pin-mismatch-named-not-retried",
+   "summary": "a NAS certificate that does not match the pin is its own error kind (dsm.PinMismatchError / ErrCertificatePinMismatch): transport errors, fleet sync rows, live commands and doctor say 'the NAS certificate does not match the pinned SHA-256 fingerprint' with the presented fingerprint and the re-pin remedy, and the generated client does not retry it; the remedy is to verify the presented fingerprint in DSM and pin that value with --tls-fingerprint (or SYNOLOGY_TLS_FINGERPRINT), never a blind --pin-cert",
+   "why": "A pin mismatch read as 'the request failed (connection error or malformed response)', so a NAS that renewed its certificate (DSM self-signed renewal, Let's Encrypt every ~90 days) silently broke every sync; a live call over a cached session retried it three times with back-off (7 s) before failing. TestPinMismatchIsNamedEverywhere, TestPinMismatchIsItsOwnErrorKind and TestPinMismatchIsNotRetried fail with the description or the no-retry check removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!errors.Is(transportErr, dsm.ErrCertificatePinMismatch)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(dsm-pin-mismatch-not-retried)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "case errors.As(err, &pinErr):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pin_mismatch_test.go",
+     "contains": "func TestPinMismatchIsNotRetried(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/tls.go",
+     "not_contains": "re-pin it: 'synology-cli fleet add <name> --pin-cert'"
+    }
+   ]
+  },
+  {
+   "id": "fleet-add-pin-cert-display-only",
+   "summary": "fleet add --pin-cert only displays: it reads the certificate the address presents (dsm.FetchFingerprint, a TLS handshake with no request) and prints its SHA-256 fingerprint, where to compare it in DSM (Control Panel > Security > Certificate) and the exact 'fleet add ... --tls-fingerprint <fp>' command that pins it; it saves nothing (new or registered NAS) and refuses --check, --client, --env-prefix and --insecure before any connection; every stored pin comes from --tls-fingerprint or SYNOLOGY_TLS_FINGERPRINT",
+   "why": "--pin-cert stored whatever certificate the address presented (trust on first use), and with --check in the same command the account, password and any one-time code went to whoever held that certificate: an interceptor at the NAS address passes the DSM probe and the pin. TestPinCertOnlyDisplays, TestPinCertWithCheckIsRefused and TestPinCertOnRegisteredNASOnlyDisplays fail with the pre-change fleet add restored; TestTLSFingerprintPinsAndChecks keeps the operator-checked pin path.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "return showCertFingerprint(cmd, flags, name, origin)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "for _, f := range []string{\"check\", \"client\", \"env-prefix\", \"insecure\"} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "dsm.FetchFingerprint(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "not_contains": "n.TLSFingerprint = fp"
+    },
+    {
+     "file": "cli/internal/cli/pin_display_test.go",
+     "contains": "func TestPinCertWithCheckIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-skips-live-log",
+   "summary": "sync (and workflow archive) store folder, group, package and user; the DSM system log (SYNO.Core.SyslogClient.Log) is not a sync resource and the log command reads it live only (no write-through, --data-source local refused)",
+   "why": "SyslogClient.Log items (time, level, descr, who, logtype) carry no id, so the log resource aborted as critical and `sync` exited 1 on every run against a real DSM shape (workflow archive too); the incomplete sync_state then made every MCP sql/search answer say the latest sync was incomplete, and the live log command printed a 'not cached locally' warning on every call. TestSyncSucceedsOnRealDSMShapes fails with log restored to the sync defaults, the workflow list or the log command's auto strategy.",
+   "status": "active",
+   "spec_encode_followup": "press: an x-pp-sync: false (live stream) resource marker for list endpoints without a primary key",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"group\",\n\t\t\"log\",\n\t\t\"package\","
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"log\":     \"/webapi/entry.cgi?api=SYNO.Core.SyslogClient.Log&method=list&version=1\","
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "[]string{\"folder\", \"group\", \"log\", \"package\", \"user\"}"
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := []string{\"folder\", \"group\", \"package\", \"user\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_log.go",
+     "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"log\", true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_live_log_test.go",
+     "contains": "func TestSyncSucceedsOnRealDSMShapes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-redacts-secret-fields",
+   "summary": "export (to --output or stdout) passes every record through cliutil.RedactSecretFields, the funnel the store and response cache use: secret-named values (passwd, enc_passwd, repo_password, smtp_password, ...) read [redacted]",
+   "why": "export --output wrote DSM answers as they came, unlike the store and the cache (secret-fields-never-persisted). Measured with the sentinel mock: users.jsonl carried user passwd/password and share enc_passwd. TestExportNeverWritesSecretFields fails with the per-record redaction removed. The single-item branch is redacted too; no resource declares a single-item path today, so it is unreachable.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "item = cliutil.RedactSecretFields(item)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "data = cliutil.RedactSecretFields(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export_redaction_test.go",
+     "contains": "func TestExportNeverWritesSecretFields(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-no-agent-chosen-file-reads",
+   "summary": "the MCP teach and teach_playbook tools do not take --playbook-file, --playbook-notes-file or --notes-file (dropped from the schema and refused via mcp:write-flags); MCP agents use the inline --playbook-json / --playbook-notes / --notes; the CLI keeps the file flags",
+   "why": "Found auditing the MCP surface for 'the caller chooses where a credential or client data goes': teach_playbook {notes-file: <any path>} read the file into the learn store and playbook_list returned it verbatim (measured with a sentinel file), so an agent could read the CLI's config (SYNOLOGY_PASSWORD) or session file (sid, SynoToken) and carry it anywhere. mcp:write-flags is the press's only annotation that drops a flag from the MCP schema and refuses it as an argument; the flags here are read sources. TestMCPTeachNeverReadsAnAgentChosenFile fails with either annotation removed.",
+   "status": "active",
+   "spec_encode_followup": "press: an mcp:read-flags (agent-chosen read source) annotation, and drop *-file read flags from mirrored learn tools by default",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "\"mcp:write-flags\":     \"playbook-file,playbook-notes-file\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "\"mcp:write-flags\":     \"playbook-file,notes-file\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/operator_only_tools_test.go",
+     "contains": "func TestMCPTeachNeverReadsAnAgentChosenFile(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-display-address",
+   "summary": "the configured NAS address is never printed raw: doctor's base_url, auth login's 'Logged in to ...', the generated dry-run request line, the request-construction error, fleet list/add output and the fleet sync dry-run plan all go through dsm.DisplayAddress, which drops a user, a password, a query and a fragment even from an address that does not parse",
+   "why": "SYNOLOGY_BASE_URL=https://admin:Password7731@nas:5001 synology-cli doctor --json printed the password in base_url; a query or fragment in the address reached doctor and the dry-run preview; a fleet entry hand-edited with a password printed it in fleet list and fleet add. TestNASAddressNeverPrintedRaw and TestDisplayAddressStripsCredentialsQueryAndFragment fail with any of the display calls reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"base_url\"] = dsm.DisplayAddress(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"base_url\"] = cfg.BaseURL"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.displayURL(dsm.DisplayAddress(c.BaseURL)+path, authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "creating request: SYNOLOGY_BASE_URL (%s) plus the request path is not a valid URL",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "fmt.Errorf(\"creating request: %w\", err)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "dsm.DisplayAddress(cfg.BaseURL)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/guard.go",
+     "contains": "func DisplayAddress(raw string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nas_address_display_test.go",
+     "contains": "func TestNASAddressNeverPrintedRaw(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-transport-kind-kept",
+   "summary": "a sanitised transport error keeps its kind: the generated client wraps it with dsm.SanitizeTransport (text = the kind only, Unwrap = the cause under *url.Error), maskedError unwraps to the transport kind, and the session manager's masked login error (dsm.ScrubError) keeps it too, so --data-source auto still falls back to the local store when the NAS is unreachable, over a cached session and on a fresh login",
+   "why": "Sanitising transport errors (so no server-chosen text reaches the user) used errors.New, which discarded the type: isNetworkError no longer recognised a refused connection and --data-source auto stopped falling back to the local store. TestAutoDataSourceFallsBackWhenTheNASIsUnreachable fails with any of the three wrappers reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "err = dsm.SanitizeTransport(err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "err = errors.New(dsm.DescribeTransport(err))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (e maskedError) Unwrap() error { return e.kind }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return maskedError{msg: msg, kind: kind}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "return \"\", dsm.ScrubError(err, append(m.Secrets(), creds.Password, creds.OTPCode, creds.DeviceID)...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/guard.go",
+     "contains": "func (e *TransportError) Unwrap() error { return e.cause }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offline_fallback_test.go",
+     "contains": "func TestAutoDataSourceFallsBackWhenTheNASIsUnreachable(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-probe-before-session",
+   "summary": "no request that carries a credential or a session (password, one-time code, trusted-device token, a sid from a login, the config's auth_header or the session cache, the SynoToken, session cookies) is sent to a NAS address that has not answered the SYNO.API.Info probe as DSM in this process: the generated client sends through sendVerified (dsm.VerifyDSM whenever the request carries a session or the client holds any credential), the fleet client checks before every request and logout, Login and doctor use the same VerifyDSM; the probe runs once per address per process and carries no cookie; a host that is not DSM gets a SessionRefusedError ('DSM session refused: ... the session was not sent') and nothing else",
+   "why": "The probe guarded only the login. A private config with base_url and a raw auth_header sid (no account, no password, no cached session) made `system dsm --no-cache` send _sid=<sid> straight to the host, even one serving a router page; a cached session for an address that now answers as something else went the same way. TestRawSessionGoesOnlyToADSM, TestRawSessionFromConfigIsNotSentToANonDSMHost, TestFleetClientNeverSendsASessionToANonDSM and TestProbeCarriesNoCookie fail with the gate (or the probe's cookie strip) reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "resp, err := c.sendVerified(ctx, httpClient, req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "resp, err := httpClient.Do(req)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := dsm.VerifyDSM(ctx, hc, c.BaseURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if hc != nil && dsm.CarriesSession(req, hc.Jar) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(dsm-probe-before-session)",
+     "min_count": 3,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/dsm/verified.go",
+     "contains": "func VerifyDSM(ctx context.Context, hc *http.Client, baseURL string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "if err := c.verifyBeforeSending(ctx, api); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "if err := c.verifyBeforeSending(ctx, \"DSM logout\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/probe.go",
+     "contains": "pc.Jar = nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/platform_rate_limit_test.go",
+     "contains": "if dsmtest.ServeAPIInfo(w, r) {",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session_gate_test.go",
+     "contains": "func TestRawSessionGoesOnlyToADSM(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/session_gate_cli_test.go",
+     "contains": "func TestRawSessionFromConfigIsNotSentToANonDSMHost(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/session_gate_test.go",
+     "contains": "func TestFleetClientNeverSendsASessionToANonDSM(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/session_gate_test.go",
+     "contains": "func TestVerifyDSMProbesOncePerAddressPerProcess(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-session-origin-bound",
+   "summary": "a session (sid, SynoToken, cookies, trusted-device token) is restored only for the exact origin and account it was saved for: newSessionManager loads nothing, ConfigureDSM empties and re-binds the cookie jar to the new origin and clears every session field before loading, loadFromDisk returns with no NAS address or no account and never reads the legacy origin-less session.json, the cached device token needs the record's exact origin and account; the jar (dsm.OriginJar) stores and returns cookies only for its one scheme://host:port and stores an https:// origin's cookies Secure",
+   "why": "newSessionManager called loadFromDisk before the origin was configured: an unexpired legacy session.json without an account passed the empty-account check, the origin check was skipped because the base URL was still empty, its cookies were restored without Secure, and ConfigureDSM cleared the sid but kept the jar, so a request to http://<same host> carried cookies saved for https://. TestLegacySessionNeverLoaded, TestReconfigureResetsTheSession and TestOriginJarBindsCookiesToOneOrigin fail with the binding reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "*dsm.OriginJar",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "jar := dsm.NewOriginJar()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "not_contains": "cookiejar.New(nil)"
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "m.jar.Bind(m.baseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "if baseURL == \"\" || account == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "cliutil.ReadFileWithLegacyFallback(path, \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "not_contains": "filepath.Join(filepath.Dir(m.configPath), \"session.json\")"
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "HAND-FIX(dsm-session-origin-bound)",
+     "min_count": 5,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/dsm/verified.go",
+     "contains": "func (j *OriginJar) Bind(baseURL string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "if path == \"\" || account == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session_gate_test.go",
+     "contains": "func TestLegacySessionNeverLoaded(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session_gate_test.go",
+     "contains": "func TestReconfigureResetsTheSession(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/session_gate_test.go",
+     "contains": "func TestOriginJarBindsCookiesToOneOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-session-key",
+   "summary": "one canonical session key, dsm.SessionKey (= CanonicalAddress: lower-case scheme and host, default port written out, reverse-proxy path kept, no trailing slash), names the per-NAS session file (dsm.SessionFilePath), is the origin recorded in it (session manager and fleet SaveDeviceID), and every comparison against a recorded origin goes through dsm.SameSession (session reuse and the trusted-device token cache), in the generated session manager and the fleet client alike",
+   "why": "saveToDisk recorded the full SYNOLOGY_BASE_URL as the origin while loadFromDisk asked CachedDeviceIDFile for dsm.Origin(baseURL) (scheme://host only) and the file was named by scheme://host, so with a reverse-proxied address (https://proxy/nas1) or an upper-case scheme the exact-origin check never matched and every relogin after the session ended demanded a fresh one-time code; two NAS behind one proxy also shared one file. TestTrustedDeviceTokenBehindAProxyPath and TestSessionKeyIsOneCanonicalKey fail with the key reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "return dsm.SessionFilePath(dir, m.baseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "m.deviceID = dsm.CachedDeviceIDFile(path, baseURL, account)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "if !dsm.SameSession(rec.Origin, baseURL) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "origin := m.synoToken, m.deviceID, dsm.SessionKey(m.baseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "not_contains": "dsm.Origin(baseURL)"
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "not_contains": "if rec.Origin != baseURL {"
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "not_contains": "dsm.SessionFileName(u.Scheme+\"://\"+u.Host)"
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "HAND-FIX(dsm-session-key)",
+     "min_count": 4,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "func SessionKey(baseURL string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "if o, _ := rec[\"origin\"].(string); !SameSession(o, baseURL) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "rec[\"origin\"] = SessionKey(baseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session_key_test.go",
+     "contains": "func TestTrustedDeviceTokenBehindAProxyPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/session_key_test.go",
+     "contains": "func TestSessionKeyIsOneCanonicalKey(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-required-args-enforced",
+   "summary": "RegisterTools installs installRequiredArgsGuard, a server middleware that refuses every tools/call omitting (absent, null or blank) an argument the tool's own input schema marks required, before the handler runs: endpoint reads and writes, the Cobra mirror and novel tools alike; the result is an MCP error '<tool> requires \"<arg>\" (missing or empty); nothing was sent'",
+   "why": "mcp-go advertises a schema's required list but does not enforce it, and the generated endpoint handler forwards whatever it gets: abb_backup and abb_cancel declare task_ids as required, yet a call with no task_ids sent the backup/cancel write with no task list (the CLI refuses the same call). TestMCPRequiredArgsAreEnforced (through the server's own message path) fails with the guard removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "installRequiredArgsGuard(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/required_args_guard.go",
+     "contains": "func installRequiredArgsGuard(s *server.MCPServer) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/required_args_guard_test.go",
+     "contains": "func TestMCPRequiredArgsAreEnforced(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "json-flag-usage-exit",
+   "summary": "a JSON flag that does not parse (--task-ids on abb backup/cancel, --additional on the promoted list commands) is a usage error, exit 2, as SKILL.md documents",
+   "why": "The generated commands return a plain error for an unparseable JSON flag, which isCobraUsageError did not recognise, so `abb backup --task-ids not-json` exited 1 (Codex round 4). One classifier rule covers every generated JSON flag. TestInvalidJSONFlagIsUsageError fails with the rule removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "(strings.HasPrefix(msg, \"--\") && strings.Contains(msg, \" must be valid JSON: \"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/json_flag_usage_test.go",
+     "contains": "func TestInvalidJSONFlagIsUsageError(t *testing.T)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "required-positionals",
+   "summary": "a positional a command needs is declared once, as \"<name>\" in Use (abb triage <task>, abb device <host-name>, fleet add/remove <name>), so the Cobra mirror's MCP schema requires it and the required-argument guard refuses a tool call without it; the CLI enforces the same declaration in one place (a hook wrapping the root PersistentPreRunE, before any other pre-run step): a call missing or blanking a required positional exits 2 naming it ('<path> requires <name> (missing or empty); nothing was run'), a bare call prints the help (exit 0), --dry-run does not waive it (only the press verify/dogfood harness does); and Cobra's own positional-count refusals (accepts N arg(s) / between / at most / requires at least) are usage errors, exit 2, in isCobraUsageError",
+   "why": "abb triage and abb device declared their needed positional optional ([task], [host-name]), so their MCP tools did not require it and a call without it returned the command's help text with isError false (round-5 review); across the CLI the same omission exited 0 (help for recall, learnings forget and search even with --json; a dry-run plan for abb triage/device, learnings confirm/reject and fleet add/remove) or 1 (export, profile, client: Cobra's ExactArgs/RangeArgs message was not a recognised usage error). TestMissingRequiredPositionalIsRefused (every command in the tree, through the real Execute), TestRequiredPositionalsReadUseLikeTheMCPSchema and TestMirroredPositionalsAreRequired (every mirrored tool, through the server's message path) fail with the declarations, the hook or the classifier rule reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "HAND-FIX(required-positionals)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isCobraArgCountError(msg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/required_positionals.go",
+     "contains": "if err := refuseMissingPositionals(cmd, flags, args); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/required_positionals.go",
+     "contains": "return pflag.ErrHelp",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_triage.go",
+     "contains": "Use:   \"triage <task>\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_device.go",
+     "contains": "Use:   \"device <host-name>\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "Use:   \"add <name>\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_registry.go",
+     "contains": "Use:         \"remove <name>\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/required_positionals_test.go",
+     "contains": "func TestMissingRequiredPositionalIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/required_positionals_test.go",
+     "contains": "func TestRequiredPositionalsReadUseLikeTheMCPSchema(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/positional_required_test.go",
+     "contains": "func TestMirroredPositionalsAreRequired(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-plain-http-refused",
+   "status": "active",
+   "summary": "A DSM login or session over plain http:// to a host that is not this computer is refused before anything is dialed (dsm.Login and Client.Get), the same rule press 4.34.2's client applies to every request (ErrPlaintextCredential); doctor shows a FAIL transport row. Loopback http keeps the warning.",
+   "why": "The wip DSM login only warned, so it sent the password over http:// and then every request was refused. press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/dsm/guard.go",
+     "contains": "func RefusePlainHTTP(origin string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "if err := RefusePlainHTTP(baseURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "if err := RefusePlainHTTP(c.BaseURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/plain_http_refused_test.go",
+     "contains": "func Test",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-writes-need-confirm",
+   "status": "active",
+   "summary": "Every typed MCP tool that is not read-only (abb_backup, abb_cancel, session_logout) returns a preview and sends nothing until called with \"confirm\": true (a JSON boolean); the schema advertises confirm, undeclared or missing arguments are refused before the preview, and confirm is never forwarded.",
+   "why": "Work order (Damien GO): every MCP write previews and sends only with confirm. The generated endpoint handlers started or cancelled a backup on the first call. press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/write_confirm_guard.go",
+     "contains": "func installWriteConfirmGuard(s *server.MCPServer, typed map[string]bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "typed := typedToolNames(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "installWriteConfirmGuard(s, typed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/write_confirm_guard_test.go",
+     "contains": "func TestMirrorCarriesNoDSMWrite(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-logout-config-toml",
+   "status": "active",
+   "summary": "auth logout reads and rewrites the TOML config (press 4.34.2 config files are TOML) when it clears a stored login.",
+   "why": "The wip auth_logout_dsm.go parsed the config as JSON, so on a 4.34.2 config it silently kept the stored password. press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "toml.Unmarshal(data, &m)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "toml.Marshal(m)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dsm-missing-ca-no-panic",
+   "status": "active",
+   "summary": "ConfigureDSM no longer dereferences a nil session client when --ca-cert cannot be loaded; the command reports the error instead of panicking.",
+   "why": "abb tasks --ca-cert /missing/ca.pem panicked (review r1 P2). press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "if m.client != nil { // HAND-FIX(dsm-missing-ca-no-panic)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/missing_ca_test.go",
+     "contains": "func TestMissingCACertIsAnErrorNotAPanic(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dogfood-fixtures-loopback-mock",
+   "status": "active",
+   "summary": "Phase 5 fixtures so the press 4.34.2 promote gate sees every novel command run: the fleet reports carry pp:happy-args --no-fail (they exit 6 on an unsynced mirror), abb triage uses task 8, fleet capacity leads its help with a non-CSV example, fleet sync is pp:verified-by-proof (fleet-sync-mock-proof.md: a real run against a loopback mock DSM), and the generated local-data purge dry-run JSON carries an action.",
+   "why": "Press 4.34.2 refuses to promote a pass marker whose novel coverage is hollow; with no NAS credentials the full live matrix ran against a loopback mock DSM (e2e/mock_dsm.py, fake credentials), which proves the binary end to end against DSM's envelope, not against a vendor NAS (live_api_verification stays 0). press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/local_data.go",
+     "contains": "map[string]any{\"action\": \"local-data purge\", \"dry_run\": !apply",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "\"pp:verified-by-proof\": \"fleet-sync-mock-proof.md\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_triage.go",
+     "contains": "\"pp:happy-args\": \"task=8\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_capacity.go",
+     "contains": "\"pp:happy-args\": \"--horizon=30d;--no-fail\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_failures.go",
+     "contains": "\"pp:happy-args\": \"--no-fail\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-protection-capacity-change-rate",
+   "status": "active",
+   "summary": "Three hand-written fleet reports added in the 4.34.2 reprint: abb unprotected (devices and tasks that dropped out of protection), fleet capacity (days until each volume fills), abb change-rate (devices whose good backups moved far more, or nothing, versus their own median).",
+   "why": "Novel features from the reprint's feature pass; hand files a regeneration does not produce. press 4.34.2 reprint 2026-10-27 (run 20261027-102148-de535b02).",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/report_extra.go",
+     "contains": "func ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_unprotected.go",
+     "contains": "func ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_capacity.go",
+     "contains": "func ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_change_rate.go",
+     "contains": "func ",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-local-data-covers-fleet-sync",
+   "class": "local-data",
+   "summary": "SYNOLOGY_NO_LOCAL_DATA=1 refuses fleet sync as well as sync and workflow archive: fleet sync's job is to save every registered NAS's answers to the fleet mirror, so the operator's no-local-copy switch blocks it before any NAS is contacted.",
+   "why": "The press's localDataWriterCommands lists only the generated writers; fleet sync is a hand-written command that writes fleet.db, so with the switch set an agent's fleet_sync call still mirrored client data to disk.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "var localDataWriterCommands = map[string]bool{\"sync\": true, \"workflow archive\": true, \"fleet sync\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/no_local_data_fleet_test.go",
+     "contains": "func TestNoLocalDataRefusesFleetSync(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint, masks and funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the generated client, the fleet client, the DSM probe and the feedback and deliver clients send through credkit.Transport (cliutil.OutboundGuard); every file write except the credential stores goes through the kit; the MCP server's stdio, HTTP and tool results pass the kit; the kit hands a child its credentials outside its environment, and a process per NAS gets only that NAS's variables (nasChildEnviron).",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. An answer that carries a credential is now withheld whole at each sink, not masked value by value. Tests: internal/credwire/leak_test.go on the built binaries, seen failing on a build without the kit (the review's round-2 input among them). Replaces the entries held-credential-chokepoint, held-unparsed-sources, secret-echo-decoded-funnel and dsm-mask-secret-values.",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal.",
+   "asserts": [
+    {
+     "file": "cli/cmd/synology-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/registry.go",
+     "contains": "cliutil.OutboundGuard(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRoundTwoCharacterCodesAreWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestNoHeldCredentialReachesAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestChildGetsItsCredentials(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEveryEnvVarIsClassified(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nas_process.go",
+     "contains": "case cliutil.CredentialEnvName(name) && !n.IsCredentialEnv(name):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldURLCredentials(cliutil.SentNowhere, os.Getenv(\"SYNOLOGY_FEEDBACK_ENDPOINT\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProxyPassword(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestUnfilledMCPBPlaceholderIsNotHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a value set when the connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The learn journal minimizes what it keeps: an override session id is stored hashed (o:<hash>), argv_shape keeps only flag names the invoked command declares, and failed_flag is kept only when it is a near miss of a declared flag. teach error logs carry argument counts, not arguments.",
+   "why": "A credential typed where a flag goes, or set as a session label, is not a value the kit has held, so the structural rules must keep it out on their own.",
+   "spec_encode_followup": "Press-side: generate the hashed session key and the declared-only argv shape.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalFailedFlag(failed, suggested string, declared []string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\"o:\" + hashHarnessSession(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalFailedFlag(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "\"playbook amend: missing --query (%d args)\", len(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-one-process-per-nas",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit binds a credential to one base URL per process, and a fleet's NAS addresses are known only at run time. So a process is bound by its parent's SYNOLOGY_BASE_URL (cli.runForNAS, after flags are parsed), or by a command line that starts with fleet add (credwire bindProcessToNAS, before the kit reads the variable), every registered NAS's credential is held and sent nowhere (minted:other-nas) until the process that is for that NAS logs in (minted:this-nas, cli.dsmClient), and a command reaching another NAS reruns itself for it (internal/cli/nas_process.go): fleet sync one child per NAS with only that NAS's credential variables, which the kit hands over outside the child's environment, abb triage for a sole registered NAS. NAS processes serialize their mirror commits with a file lock. CredentialFields leaves out _sid and SynoToken, which lead every read's query (see .review/kit-findings.md).",
+   "why": "A fleet is several origins with several passwords, and each password may reach only its own NAS. Tests: TestFleetSyncRunsOneProcessPerNAS, TestOneNASProcessSendsNoCredentialToAnother, TestSoleNASCommandReachesItsNAS on the built binaries.",
+   "spec_encode_followup": "Kit-side: per-credential origins known at run time would let one process serve a fleet; press-side: nothing, this CLI's fleet layer is hand-written.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nas_process.go",
+     "contains": "func runForNAS(ctx context.Context, n fleet.NAS, args []string, stdout, stderr io.Writer) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-cli/main.go",
+     "contains": "cli.RunOneProcessPerNAS()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:other-nas\", Allowed: nil},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:this-nas\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "rows[i] = syncNASInChild(ctx, s.DB(), path, n, childArgs, perNAS)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abb_triage.go",
+     "contains": "return rerunForNAS(cmd, flags, n)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "\"_sid\", \"SynoToken\""
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFleetSyncRunsOneProcessPerNAS(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/dsm.go",
+     "contains": "strings.Contains(err.Error(), \"credkit: withheld from outbound\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if len(args) < 2 || args[0] != \"fleet\" || args[1] != \"add\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestArgvNeverBindsAProcessTheParserDoesNot(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/synology-mcp/main.go",
+     "contains": "if flag.NArg() > 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPServerTakesNoPositionalArguments(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A run profile may carry only a flag some command really declares and that takes no credential; a hand-edited or legacy store's other keys are dropped on load. A URL password, a credential query value and a credential-named value in any field of profiles.json are held at startup (credwire holdJSONStore).",
+   "why": "A profile store is a credential source a person can edit. The kit is not given the file: nested JSON is outside its canonical subset, so it would hold every string, and a profile's \"true\" would withhold every answer. Test: TestRunProfileStore on the built binaries, seen failing before this entry.",
+   "spec_encode_followup": "Press-side: generate the allow-list and the startup hold of the store.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func runProfileValueAllowed(flag string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if !runProfileValueAllowed(flag) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "for _, path := range profileStores(configDirs) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRunProfileStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-origin-from-used-config",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Declarations.Files returns only the files this run really reads: the last --config, else SYNOLOGY_CONFIG, else the defaults under the last --home. Every other file any --config or --home could mean is only held, so a discovered default's base_url never becomes an allowed origin. The --tls-key file is held too.",
+   "why": "The kit takes the base URL, and with it every credential's allowed origin, from the first file naming one. With discovered defaults first, a password for the NAS --config names was refused and the default's address was the allowed origin. Test: TestExplicitConfigDecidesTheOrigin on the built binaries, seen failing before this entry.",
+   "spec_encode_followup": "Press-side: generate this file order with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "return explicitFiles(explicit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldConfigFilePath(path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldTLSKeyFile(keyFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/startup_dirs.go",
+     "contains": "func StartupKindDir(kind PathKind, home string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestExplicitConfigDecidesTheOrigin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-declared",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Declarations.StdinFlags names --stdin, the only flag that reads a body, and feedback --stdin refuses: the kit holds the body whole and line by line, so a note could only be withheld from feedback.jsonl. A note goes as an argument.",
+   "why": "Without the refusal `feedback --stdin` stores `[credkit: withheld from file...]` and exits 0. TestFeedbackStdinBody on the built binaries, seen failing before this entry. Same call as blackpoint.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags: []string{\"--stdin\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "feedback --stdin cannot record a note",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "not_contains": "func HoldTextFields("
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFeedbackStdinBody(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "base-url-values-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A saved base-url (profile, config, session record) and each registered NAS or feedback address has its password and every query and fragment value held, whatever the name, through the kit's own reader (credkit.HoldURL); the feedback address passes only its password and credential-named values to it. A URL in any other field is free text, which contract section 1 leaves out, and is no longer scanned.",
+   "why": "A name check missed `?%70assword=<value>`, so a profile's description printed the value. TestProfileBaseURLIsASource on the built binary, seen failing first.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "contains": "var HoldURL = credkit.HoldURL",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "contains": "normalKey(k) == \"baseurl\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileBaseURLIsASource(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "not_contains": "func holdURL("
+    }
+   ]
+  },
+  {
+   "id": "credkit-verify-clean",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Nothing that writes runs or is referenced before credkit.Start: novel commands are added from newRootCmd instead of hooks registered in init functions, the MCP recipe path and root resolve at registration, and test seams stay nil until a test sets them. Every other site the wiring checker cannot see routed is listed in credkit-sites.json with its reason. The MCP bearer's origin is https://mcp-http-token.invalid, which never resolves.",
+   "why": "tools/maintainer/credkit_verify exits 0 only when every sink, source, field and variable is routed or classified; an init-time hook put the whole command tree before Start (1288 sites on the first run). A reprint regenerates root.go with the init-hook pattern, so these asserts name what must survive. Also fixes a real gap: StreamingHTTPClient returned a raw *http.Transport for a client that was not already guarded. sync --param's help no longer names SynoToken: the MCP tool list carried it, so a cached session token whose text contains that word withheld tools/list over HTTP (verify.py feature 3).",
+   "spec_encode_followup": "Press-side: generate novel-command registration without init hooks, and seams that start nil; kit-side: let a credential declare no origin (.review/kit-findings.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addFleetRegistryCommands(rootCmd, flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "wrapRequiredPositionals(rootCmd, flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "recipeCLIPath, recipeCLIPathErr = cobratree.SiblingCLIPath()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "contains": "var verifyFreshMCPInvocation func(context.Context) (*platform.Session, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "var companionCLIResolve func() (string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/guard.go",
+     "contains": "var PlainHTTPWarnings io.Writer",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Allowed: []string{\"https://mcp-http-token.invalid\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "DSM operation keys (api, method, version and the session keys)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-store-values-sent-nowhere",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Session caches, profile stores and configs a run does not load are held at startup under a source sent nowhere (cliutil.SentNowhere). The session manager binds a record to this NAS only after checking its origin, and a config binds when the run loads it. Every member of a duplicate key, every cookie except stay_login, numbers, and a torn file's short values are held. A record's cookie binds only for a cookie of this NAS; a torn file keeps what parsed and holds the cut value when its name is a credential's. Only this CLI's own session file names are read, and a profile's name is not read as a credential's. A save reads the file through readOwnRecord, so another NAS's record is neither kept nor stamped with this NAS's origin.",
+   "why": "The data directory is shared by every NAS. Without this, another NAS's cached session was held under the wildcard source, whose origin is this process's NAS, so a value the operator's --filter named reached the wrong NAS. A generic json.Unmarshal also dropped duplicate members.",
+   "spec_encode_followup": "Press-side: generate the kit wiring with a source for held-only stores.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "cliutil.Hold(cliutil.SentToThisNAS, rec.Token, rec.SynoToken)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldJSONStore(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_wiring.go",
+     "contains": "type memberDecoder struct",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdSecrets(cliutil.SentToThisNAS, cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/session.go",
+     "contains": "!dsm.SameSession(c.URL, baseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "sessionFileRE.MatchString",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache.go",
+     "contains": "func readOwnRecord(path, baseURL string) map[string]any {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/dsm/devicecache_test.go",
+     "contains": "func TestSavingOverAnotherNASRecordKeepsNothingOfIt(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "one-process-per-nas-stops-at-one",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit binds to the last --nas, as the flag parser does, and a process runForNAS started never starts another. A child gets only its own NAS's exact credential variables. fleet add <name> --check binds to the registered NAS.",
+   "why": "Binding to the first --nas while the parser kept the last made each child see itself unbound and rerun, a runaway chain that outlived its caller. A prefix match handed acme the password of acme-b.",
+   "spec_encode_followup": "Hand-written fleet layer; no press change.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nas_process.go",
+     "contains": "os.Getenv(nasProcessEnvVar) != \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if len(args) < 2 || args[0] != \"fleet\" || args[1] != \"add\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/registry.go",
+     "contains": "strings.EqualFold(name, n.EnvPrefix+suffix)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stored-login-belongs-to-its-nas",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "With SYNOLOGY_BASE_URL naming another NAS than the config file does, the file's stored login is not applied and a save keeps it unchanged. auth logout --nas clears a stored login only for the NAS its file names.",
+   "why": "The file's password followed the address override to another NAS, and because the kit binds the address first, auth logout --nas compared the target with itself and cleared another NAS's login.",
+   "spec_encode_followup": "Press-side: a stored login is bound to the base_url in the same file.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "!dsm.SameSession(file, v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_logout_dsm.go",
+     "contains": "forTarget := func(named string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if !c.credentialsFileForThisRun(creds) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialsFileWithAConfigBelongsToItsNAS(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestLogoutKeepsACredentialsFileOfAnotherNAS(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  }
+ ]
+}

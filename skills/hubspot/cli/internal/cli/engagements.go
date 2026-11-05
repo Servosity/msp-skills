@@ -16,7 +16,7 @@ func newNovelEngagementsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "engagements",
 		Short:       "Cross-object intelligence",
 		Example:     "  hubspot-cli engagements of contact:12345 --since 30d --json",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelEngagementsOfCmd(flags))

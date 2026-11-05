@@ -1,5 +1,5 @@
 {
-  "count": 93,
+  "count": 95,
   "connectors": [
     {
       "slug": "abnormal",
@@ -834,6 +834,19 @@
       "url": "/skills/proxmox/"
     },
     {
+      "slug": "prtg",
+      "display_name": "PRTG Network Monitor",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "category": "Network Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/prtg/"
+    },
+    {
       "slug": "quickbooks",
       "display_name": "QuickBooks Online",
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.",
@@ -1066,6 +1079,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/syncro/"
+    },
+    {
+      "slug": "synology",
+      "display_name": "Synology",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/synology/"
     },
     {
       "slug": "tactical-rmm",
