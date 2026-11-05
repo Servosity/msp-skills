@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.4] - 2026-11-04
 
 ### Security
 - **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode now listens on `127.0.0.1:7777` by default, refuses to start until `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, refuses browser origins other than loopback unless listed in `GOOGLE_WORKSPACE_MCP_HTTP_ALLOWED_ORIGINS`, and needs `--tls-cert` and `--tls-key` for any address other than loopback. The ChatGPT desktop app runs the connector locally; web-only AI apps (ChatGPT on the web, Copilot Studio, the Gemini app) are not supported by msp-skills yet; see [mcp-install.md](./mcp-install.md).
