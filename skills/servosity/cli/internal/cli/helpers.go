@@ -32,6 +32,7 @@ import (
 	"servosity-msp-pp-cli/internal/client"
 	"servosity-msp-pp-cli/internal/cliutil"
 	"servosity-msp-pp-cli/internal/config"
+	"servosity-msp-pp-cli/internal/credkit"
 	"servosity-msp-pp-cli/internal/platform"
 )
 
@@ -77,6 +78,7 @@ func readSecretFromStdin(r io.Reader) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("empty token on stdin")
 	}
+	credkit.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring)
 	return token, nil
 }
 
@@ -111,11 +113,7 @@ func isTerminal(w io.Writer) bool {
 		}
 	}
 	if f, ok := w.(*os.File); ok {
-		fi, err := f.Stat()
-		if err != nil {
-			return true
-		}
-		return (fi.Mode() & os.ModeCharDevice) != 0
+		return credkit.Terminal(f) // Hand-fix (handfixes.json credkit-wiring)
 	}
 	return false
 }
@@ -558,7 +556,7 @@ func endpointArgsUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error
 			printFlags = &copied
 		}
 		if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-			"error": funnelShownError(err),
+			"error": err.Error(),
 			"usage": endpointUsageLine(cmd),
 		}, printFlags); printErr != nil {
 			return printErr
@@ -1088,7 +1086,7 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = writeEncodedJSON(w, map[string]any{
-		"error": funnelShownError(err),
+		"error": err.Error(),
 		"code":  code,
 	}, "", "")
 }
@@ -1457,6 +1455,10 @@ func paginatedGet(ctx context.Context, c interface {
 	reportedTotal := 0
 	page := 0
 	omitCompleteEvent := false
+	// drf-page-pagination: a Django REST Framework envelope's count, or -1.
+	// The count guard below only holds a walk that began at the first page.
+	drfCount := -1
+	walkFromStart := clean[cursorParam] == "" || (paginationType == "page" && clean[cursorParam] == "1") || (paginationType == "offset" && clean[cursorParam] == "0")
 	for {
 		page++
 		if humanFriendly {
@@ -1467,6 +1469,13 @@ func paginatedGet(ctx context.Context, c interface {
 
 		data, err := c.GetWithHeaders(ctx, path, clean, headers)
 		if err != nil {
+			// drf-page-pagination: DRF answers a page past the last one with
+			// 404 {"detail":"Invalid page."}. Stop there; the count guard
+			// below decides whether rows are missing.
+			if page > 1 && drfCount >= 0 && strings.Contains(err.Error(), "HTTP 404") {
+				page--
+				break
+			}
 			return nil, err
 		}
 		if isDryRunResponseForClient(c, data) {
@@ -1536,6 +1545,9 @@ func paginatedGet(ctx context.Context, c interface {
 				if n := reportedCollectionTotal(obj); n > 0 {
 					reportedTotal = n
 				}
+				if n, ok := drfEnvelopeCount(obj); ok {
+					drfCount = n
+				}
 
 				nextAdvance := resolvePaginatedNextCursor(obj, cursorLookupPath, cursorParam)
 				// Boolean has_more stays on the bool path below so a false value
@@ -1565,6 +1577,12 @@ func paginatedGet(ctx context.Context, c interface {
 						nextAdvance = ""
 						hasExplicitNoMore = true
 					}
+				}
+				// drf-page-pagination: a present, null next is the server
+				// saying this was the last page. Asking for the page after it
+				// draws DRF's 404.
+				if rawNext, present := obj["next"]; present && nextAdvance == "" && hasMoreField == "" && (rawJSONNull(rawNext) || string(bytes.TrimSpace(rawNext)) == `""`) {
+					hasExplicitNoMore = true
 				}
 				if missingHasMoreCursor {
 					break
@@ -1655,6 +1673,12 @@ func paginatedGet(ctx context.Context, c interface {
 	if fetchAll && page == 1 && nextCursorPath == "" && !foundCursorField && hasMoreField == "" && paginationType != "offset" && paginationType != "page" {
 		emitMissingPaginationSignalWarning(ctx)
 	}
+	// drf-page-pagination: never return fewer rows than the API counted.
+	if walkFromStart && drfCount > len(allItems) {
+		platform.MarkContextTruncated(ctx, platform.TruncationReason{Kind: "count_mismatch", Configured: drfCount, Observed: len(allItems), MoreAvailable: true})
+		fmt.Fprintf(os.Stderr, `{"event":"truncated","fetched":%d,"count":%d}`+"\n", len(allItems), drfCount)
+		return nil, partialFailureErr(fmt.Errorf("--all fetched %d of the %d rows the API reported; refusing to return a partial list", len(allItems), drfCount))
+	}
 	if !omitCompleteEvent {
 		if humanFriendly {
 			fmt.Fprintf(os.Stderr, "fetched %d items across %d pages\n", len(allItems), page)
@@ -1671,10 +1695,26 @@ func paginatedGet(ctx context.Context, c interface {
 			deleteRawPath(collectionEnvelope, cursorParam)
 		}
 		result, _ = json.Marshal(collectionEnvelope)
+	} else if drfCount >= 0 {
+		// drf-page-pagination: keep the API's count beside the rows.
+		result, _ = json.Marshal(map[string]any{"results": allItems, "meta": map[string]any{"total_count": drfCount}})
 	} else {
 		result, _ = json.Marshal(allItems)
 	}
 	return json.RawMessage(result), nil
+}
+
+// drfEnvelopeCount reads a Django REST Framework page envelope's count: an
+// object carrying both next and a non-negative integer count.
+func drfEnvelopeCount(obj map[string]json.RawMessage) (int, bool) {
+	if _, ok := obj["next"]; !ok {
+		return 0, false
+	}
+	var n int
+	if raw, ok := obj["count"]; !ok || json.Unmarshal(raw, &n) != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
 }
 
 func cloneRawObject(obj map[string]json.RawMessage) map[string]json.RawMessage {

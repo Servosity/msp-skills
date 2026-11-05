@@ -566,7 +566,7 @@
       "type": "skill-md",
       "description": "Use when the user asks where their attention is needed across Servosity clients, which backups went stale, what changed since yesterday, to build QBR backup reports, draft stale-backup follow-up emails, watch restore queues during a DR event, reconcile the Servosity bill against client invoicing, find unprovisioned agents, audit retention tiers against a required minimum, or group this month's backup failures by root cause. Wraps the Servosity partner API plus a local fleet mirror with snapshot history. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `servosity retention audit`, `cluster servosity backup failures`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/SKILL.md",
-      "digest": "sha256:a22490945fbbe32de57f20a50bdd4e063cb72b48d760e87c453605ae60933cc3"
+      "digest": "sha256:3f623bd0c7073b12ff2a9b88e3ed80bfbe6cb13743e385c3b60e76a55620c00e"
     },
     {
       "name": "sherweb",

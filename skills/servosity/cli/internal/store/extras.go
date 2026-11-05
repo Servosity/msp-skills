@@ -19,6 +19,10 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 	migrations := []string{
 		// Add CREATE TABLE IF NOT EXISTS statements here.
 	}
+	// Hand-fix (handfixes.json issues-watch-events): vendor_events and the
+	// issue_watch_state snapshot for `issues watch` and `events list`.
+	migrations = append(migrations, vendorEventsMigrations...)
+	migrations = append(migrations, issueWatchMigrations...)
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {
 			return fmt.Errorf("extra migration failed: %w", err)

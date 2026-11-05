@@ -2962,6 +2962,7 @@ Outcomes (question -> command your AI agent runs):
 - Build the backup section of Acme's QBR as a PDF -> servosity-cli qbr "Acme Co" --out acme-q1.pdf
 - Quarter-end: every client's QBR backup report in one pass -> servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/
 - Watch every client's restore queue during a DR event -> servosity-cli restore-queue watch
+- Which issues are new or changed since my agent last looked? -> servosity-cli events list --since 0 --json
 - Does my Servosity bill match what I invoice my clients? -> servosity-cli bill --reconcile invoices.csv
 - Which hosts are below 7-year retention or outside the recovery guarantee? -> servosity-cli retention-audit --min 7YEAR
 - What one root cause is behind this month's backup failures? -> servosity-cli failure-clusters --top 10
@@ -2979,6 +2980,8 @@ Q: What credentials do I need?
 A: A Servosity partner API token from the partner portal. Set SERVOSITY_MSP_TOKEN in your environment or run servosity-cli auth set-token. The token carries your reseller scope - the CLI sees exactly the clients your Servosity account sees, nothing more.
 Q: Can this change anything in my Servosity account?
 A: The day-to-day surface is read-only. The write surface is issue triage (triage --ignore / --archive / --reactivate / --comment) and import, plus raw create/update/delete subcommands under the API resource groups. --dry-run is an opt-in preview, not a default - the recommended agent policy is preview, approve, then run. Restores and backup configuration stay in the dashboard.
+Q: Can my agent hear about new Servosity issues?
+A: Yes. Servosity does not send webhooks yet, so servosity-cli issues watch polls your issue list read-only (every 5 minutes by default) and records each new, changed, archived, ignored or reactivated issue as an event. Your agent reads them with servosity-cli events list --since <cursor> or the read-only MCP tool events_list, which costs no Servosity call. Events carry ids and triage fields, never issue text.
 Q: Is it fast enough for the morning sweep?
 A: After a sync, the fleet views (attention, drift, stale-backups, backup-facts, qbr) read the local store - instant and offline. Pass --refresh when you want a live pull; restore-queue watch polls live by design.
 Q: Do I need to be a Servosity partner?
