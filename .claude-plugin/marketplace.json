@@ -1420,7 +1420,7 @@
       "name": "warranty",
       "source": "./skills/warranty",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "warranty",
