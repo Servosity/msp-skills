@@ -222,14 +222,12 @@ func runFiles(explicit string) []string {
 	// orchestrator item 8c: a value under a credential flag's name or under
 	// base-url), read here and not in the returned list: it is nested JSON, which
 	// the kit's file reader answers by holding every string in it, so a profile
-	// named "p" or a saved --limit 7 would refuse every later start. HoldFile reads
-	// it with the kit's HoldBody, which holds the declared credential names (the
-	// flag spellings client-id and client-secret included) at any depth.
+	// named "p" or a saved --limit 7 would refuse every later start.
 	if dir, err := cliutil.ConfigDir(); err == nil {
-		cliutil.HoldFile(filepath.Join(dir, "profiles.json"))
+		cliutil.HoldProfileFile(filepath.Join(dir, "profiles.json"))
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		cliutil.HoldFile(filepath.Join(home, ".pax8-cli", "profiles.json"))
+		cliutil.HoldProfileFile(filepath.Join(home, ".pax8-cli", "profiles.json"))
 	}
 	return files
 }
