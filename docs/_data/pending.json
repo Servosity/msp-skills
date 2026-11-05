@@ -210,11 +210,11 @@
     "released_hash": "sha256:3f7bd3dc267dff47df35c2d7529f354fc0f70355199c1fe5075573704434b4a2"
   },
   "crowdstrike": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "version-pending",
+    "version": "0.1.11",
     "latest_tag": "crowdstrike-v0.1.10",
     "current_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7",
-    "released_hash": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca"
+    "released_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7"
   },
   "datagate": {
     "state": "up-to-date",
