@@ -283,11 +283,6 @@
    "read-only",
    "local-data"
   ],
-  "rocketcyber": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "rootly": [
    "mcp-http",
    "write-gating",
