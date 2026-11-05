@@ -41,6 +41,7 @@ body:
         - cipp
         - cisco-duo
         - cisco-meraki
+        - cisco-umbrella
         - connectsecure
         - connectwise-automate
         - connectwise-control
@@ -52,7 +53,9 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - dnsfilter
         - domotz
+        - exchange-online
         - fortinet
         - google-workspace
         - gradient
@@ -64,6 +67,7 @@ body:
         - itglue
         - jira-service-management
         - kaseya-bms
+        - kaseya-vsa
         - knowbe4
         - levelio
         - liongard
@@ -105,6 +109,7 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - warranty
         - watchguard
         - wordpress
         - xero

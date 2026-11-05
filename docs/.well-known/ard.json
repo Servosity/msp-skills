@@ -401,6 +401,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cisco-umbrella",
+      "displayName": "Cisco Umbrella",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/SKILL.md",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health. Trigger phrases: `is this domain blocked in umbrella`, `umbrella fleet health across customers`, `add a domain to the umbrella blocklist`, `umbrella roaming computers offline`, `use cisco umbrella`, `run cisco-umbrella-cli`.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have roaming computers off, uninstalled, stale or without web protection, and how many seats each?",
+        "In one customer, which roaming computers, virtual appliances, tunnels and networks have a deployment problem?",
+        "For a domain from a ticket: its category, risk score, security status, which of our lists block or allow it, and who resolved it?",
+        "Which allow-list entries are now categorized as malicious, conflict with a block-list entry, or were added this week?",
+        "What would I add and remove to make a destination list match my blocklist file?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cisco-umbrella.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -633,6 +653,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dnsfilter",
+      "displayName": "DNSFilter",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/SKILL.md",
+      "description": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Why is this domain blocked for this client, and which policy and rule did it?",
+        "Allow it on the policies that actually blocked it (preview first)",
+        "What unblock requests are waiting across every client, grouped by domain?",
+        "Which clients have roaming clients behind the latest agent release?",
+        "Who is still on the roaming client build that got pulled?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/dnsfilter.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
       "displayName": "Domotz",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -650,6 +690,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/domotz.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:exchange-online",
+      "displayName": "Exchange Online",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/SKILL.md",
+      "description": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Can mail auto-forward out of this tenant, and does the outbound spam policy or a remote domain block it?",
+        "Which inbox rules in this tenant forward, redirect, delete or hide mail?",
+        "Which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on?",
+        "What compromise evidence does this one mailbox show right now?",
+        "Which Exchange offboarding steps are done or still pending for this leaver?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/exchange-online.md"
       }
     },
     {
@@ -883,6 +943,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/kaseya-bms.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:kaseya-vsa",
+      "displayName": "Kaseya VSA 10",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/SKILL.md",
+      "description": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "tags": [
+        "RMM"
+      ],
+      "representativeQueries": [
+        "Which pending OS updates are exposed on the most devices, across every client?",
+        "Which clients carry the most critical patch exposure?",
+        "Which devices are offline, without working antivirus, or with the firewall off?",
+        "Which devices are low on disk space?",
+        "Which versions of Google Chrome are installed, and on how many devices?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/kaseya-vsa.md"
       }
     },
     {
@@ -1716,6 +1796,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/veeam.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:warranty",
+      "displayName": "Device Warranty",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/SKILL.md",
+      "description": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "tags": [
+        "Documentation"
+      ],
+      "representativeQueries": [
+        "Which client devices are out of warranty or expire in the next 90 days?",
+        "Which of Acme Dental's devices have already expired?",
+        "What is the warranty on these serials right now?",
+        "How many devices per client lose coverage in each of the next four quarters, and how many are past four years old?",
+        "Which devices could the report not speak for, and why?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/warranty.md"
       }
     },
     {

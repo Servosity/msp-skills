@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T00:11:24.992948Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "cisco-umbrella",
+  "display_name": "Cisco Umbrella",
+  "cli_name": "cisco-umbrella-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:3dedc05f8df13e1aacd16d85ad87aabbd45c56865c3cf36c5e4e3b58563369ec",
+  "run_id": "20261027-173701-14c91125",
+  "category": "monitoring",
+  "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+  "mcp_binary": "cisco-umbrella-pp-mcp",
+  "mcp_tool_count": 233,
+  "mcp_ready": "full",
+  "api_version": "2.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "oauthFlow",
+  "auth_env_vars": [
+    "CISCO_UMBRELLA_API_KEY",
+    "CISCO_UMBRELLA_API_SECRET"
+  ],
+  "auth_key_url": "https://dashboard.umbrella.com",
+  "novel_features": [
+    {
+      "name": "Domain verdict",
+      "command": "verdict",
+      "description": "One answer for a domain: category, risk score, security status, every destination list that blocks or allows it (including parent-domain entries), and who resolved it recently."
+    },
+    {
+      "name": "List vs file diff",
+      "command": "destination-lists diff",
+      "description": "Reconcile a destination list against a source-of-truth file: see what to add and remove, then apply it in API-sized chunks. --apply also removes entries absent from the file unless --no-remove."
+    },
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One row per managed customer: seats, an issues count, and counts of off, uninstalled, stale, and SWG-unprotected roaming computers, unhealthy virtual appliances, and down tunnels. Customers that fail are listed under fetch_failures."
+    },
+    {
+      "name": "Deployment hygiene",
+      "command": "hygiene",
+      "description": "Device-level findings in one org: stale or offline roaming computers, unhealthy virtual appliances, down tunnels, and unverified networks, each tagged with a kind."
+    },
+    {
+      "name": "Customer report card",
+      "command": "report-card",
+      "description": "A customer's security summary, top threat types, blocked categories, and deployment status for a window, compared with the prior window. --csv emits the summary rows only."
+    },
+    {
+      "name": "Allow-list audit",
+      "command": "allowlist audit",
+      "description": "Find allow-list entries that are now categorized as malicious, entries that conflict with a block list, and allows added in a recent window."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Domain verdict",
+      "command": "verdict",
+      "description": "One answer for a domain: category, risk score, security status, every destination list that blocks or allows it (including parent-domain entries), and who resolved it recently."
+    },
+    {
+      "name": "List vs file diff",
+      "command": "destination-lists diff",
+      "description": "Reconcile a destination list against a source-of-truth file: see what to add and remove, then apply it in API-sized chunks. --apply also removes entries absent from the file unless --no-remove."
+    },
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One row per managed customer: seats, an issues count, and counts of off, uninstalled, stale, and SWG-unprotected roaming computers, unhealthy virtual appliances, and down tunnels. Customers that fail are listed under fetch_failures."
+    },
+    {
+      "name": "Deployment hygiene",
+      "command": "hygiene",
+      "description": "Device-level findings in one org: stale or offline roaming computers, unhealthy virtual appliances, down tunnels, and unverified networks, each tagged with a kind."
+    },
+    {
+      "name": "Customer report card",
+      "command": "report-card",
+      "description": "A customer's security summary, top threat types, blocked categories, and deployment status for a window, compared with the prior window. --csv emits the summary rows only."
+    },
+    {
+      "name": "Allow-list audit",
+      "command": "allowlist audit",
+      "description": "Find allow-list entries that are now categorized as malicious, entries that conflict with a block list, and allows added in a recent window."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 179,
+    "total": 179,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

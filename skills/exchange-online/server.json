@@ -1,0 +1,82 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/exchange-online-mcp",
+  "title": "Microsoft Exchange Online MCP",
+  "description": "Exchange Online admin for MSPs: forwarding audits, EWS posture and offboarding, no PowerShell",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/exchange-online/exchange-online-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/exchange-online"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/exchange-online-v0.1.0/exchange-online-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "EXCHANGE_ONLINE_TOKEN",
+          "description": "Set the EXCHANGE_ONLINE_TOKEN credential for the Microsoft Exchange Online MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "EXCHANGE_ONLINE_BASE_URL",
+          "description": "Optional. Leave blank to use https://outlook.office365.com. Set it only for a national cloud or a test server; the token then goes to that host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "EXCHANGE_ONLINE_ANCHOR_MAILBOX",
+          "description": "Optional. The X-AnchorMailbox value for calls with no target mailbox, for example UPN:admin@example.com with a delegated token. Leave blank to use the organization system mailbox Microsoft documents for app-only calls.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "EXCHANGE_ONLINE_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to keep only read tools: exchange-online_read still serves the Get-* cmdlets, and every write tool is removed.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "EXCHANGE_ONLINE_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to stop saving reads locally; reads go to the API. An inbox-rule sweep or quarantine snapshot you run is still saved.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "EXCHANGE_ONLINE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "EXCHANGE_ONLINE_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on Exchange requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank; each call names its tenant ID.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

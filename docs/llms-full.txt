@@ -815,6 +815,40 @@ A: Writes send immediately when called, with no confirmation prompt, so keep aut
 
 Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
 
+### Cisco Umbrella (Security)
+
+Page: [Cisco Umbrella](https://msp-skills.compoundingteams.com/skills/cisco-umbrella.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/install.sh)
+
+Ask which customers have roaming computers off, uninstalled or not checking in, and get one row per customer. Cisco Umbrella plus your AI agent mints a token for each child org in your MSP console and rolls up deployment health, instead of switching into one customer at a time. It also gives one verdict for a suspicious domain and reconciles a block list against your own file.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have roaming computers off, uninstalled, stale or without web protection, and how many seats each? -> cisco-umbrella-cli fleet health --stale-days 7 --agent
+- In one customer, which roaming computers, virtual appliances, tunnels and networks have a deployment problem? -> cisco-umbrella-cli hygiene --stale-days 14 --agent
+- For a domain from a ticket: its category, risk score, security status, which of our lists block or allow it, and who resolved it? -> cisco-umbrella-cli verdict login.example.com --agent
+- Which allow-list entries are now categorized as malicious, conflict with a block-list entry, or were added this week? -> cisco-umbrella-cli allowlist audit --since 7d --agent
+- What would I add and remove to make a destination list match my blocklist file? -> cisco-umbrella-cli destination-lists diff 1234567 --file blocklist.txt --agent
+- For one customer's QBR: request summary, top threat types and blocked categories against the prior 30 days, and deployment status? -> cisco-umbrella-cli report-card --org 8675309 --from -30days --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Cisco Umbrella MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Cisco Umbrella data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it work with an MSP or Multi-org console?
+A: Yes. Create the API key in the parent console. Every command takes --org <child org ID> (or CISCO_UMBRELLA_ORG_ID) and mints a token for that customer with the X-Umbrella-OrgId header; fleet health walks every managed customer for you. The child token stays in memory and each customer's synced data goes to its own local store.
+Q: Which API key scopes does it need?
+A: Only the scopes for what you run: Reports for activity, report-card and verdict's resolver lookup, Deployments for networks, roaming computers and fleet health, which also needs the Admin customers scope, Policies for destination lists, Investigate for categorization and risk scores, Admin for keys and users. A section the key cannot reach returns 403 and is skipped with a note where the command says so; read-only keys cannot change anything.
+Q: Will this hit the Umbrella API rate limits?
+A: It is built to stay inside them. Token requests are limited to 20 a minute, so fleet health starts customers 3 seconds apart; narrow a large fleet with --customers or --max-customers. Sync once and search, hygiene and analytics answer from the local store without new API calls.
+
+Governance: The skill reads Umbrella deployments, policies, destination lists, reports, Investigate data and MSP customer records, and keeps a local store for offline questions; credential values are withheld from its output and never kept in the SQLite store; the key, secret and bearer token are saved to an owner-only, unencrypted credentials.toml until auth logout. It can also create, change and delete networks, sites, destination lists, tunnels, users and customer records, and it can change API keys and set tunnel credentials you chose. It refuses five actions, because Umbrella returns a new secret only once and this program withholds it: api-keys create, api-keys refresh, s3-bucket-keys, tunnels add with no secret of your own and tunnels update-credentials with auto-rotate or no secret of your own. Do those in the Umbrella dashboard. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes and anything that changes a credential.
+
 ### connect-tool (Meta)
 
 Page: [connect-tool](https://msp-skills.compoundingteams.com/skills/connect-tool.md)
@@ -1218,6 +1252,46 @@ A: You need an API key and secret key from Setup > Users in your Datto RMM porta
 
 Governance: The skill reads your Datto RMM fleet and writes only when you ask it to - creating or updating variables, warranty and UDF data, sites, and quick jobs. Every fleet rollup, search, and lookup is read-only and always safe to run. Deleting variables or site proxy settings, bulk-resolving alert storms, and resetting your API keys are gated as destructive or credential operations and should stay human-in-the-loop.
 
+### DNSFilter (Security)
+
+Page: [DNSFilter](https://msp-skills.compoundingteams.com/skills/dnsfilter.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/install.sh)
+
+Running DNSFilter for a book of clients? Ask your AI "why is this site blocked for Acme Dental," "which unblock requests are waiting across my clients," or "who is still on the roaming client build that got pulled" and get one answer instead of clicking through each organization. why-blocked names the policy and rule that decided it, allow previews the fix on the policies that actually blocked it, and the fleet views cover every client org.
+
+Outcomes (question -> command your AI agent runs):
+- Why is this domain blocked for this client, and which policy and rule did it? -> dnsfilter-cli why-blocked "example.com" --org "Acme Dental"
+- Allow it on the policies that actually blocked it (preview first) -> dnsfilter-cli allow "example.com" --org "Acme Dental" --note "TKT-4821"
+- What unblock requests are waiting across every client, grouped by domain? -> dnsfilter-cli unblocks triage
+- Which clients have roaming clients behind the latest agent release? -> dnsfilter-cli agents drift
+- Who is still on the roaming client build that got pulled? -> dnsfilter-cli agents drift --bad-version 1.7.15 --agent-type windows
+- Which roaming clients stopped checking in, or are unprotected or bypassed? -> dnsfilter-cli agents stale --older-than 7d
+- Which client policies already allow or block this domain or a parent domain? -> dnsfilter-cli lists where "example.com"
+- Which allow-listed domains are now categorized as threats, and which policies leave security categories unblocked? -> dnsfilter-cli policy-audit
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and dnsfilter-mcp speaks HTTP natively: run `dnsfilter-mcp --transport http` with DNSFILTER_MCP_HTTP_TOKEN set (it serves `http://127.0.0.1:7777/mcp` and requires that token as a bearer header) and put it behind an HTTPS gateway that ChatGPT can sign in to with OAuth and that adds that bearer header, since ChatGPT connectors do not send a fixed one. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my DNSFilter data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Secret fields DNSFilter returns, such as each site's secret key and API key tokens, are not written to the local mirror.
+Q: What DNSFilter API key do I need?
+A: An API token created in the DNSFilter dashboard (see DNSFilter's API Tokens help article). Set DNSFILTER_API_KEY to the token itself: DNSFilter expects the bare token in the Authorization header, with no Bearer prefix. Create it in your MSP organization so the cross-client commands can see your client organizations; a token from a single client organization only sees that client.
+Q: Can the AI allow a domain or change a policy by itself?
+A: Only if you let it. allow prints the plan and writes nothing unless you add --confirm with a --note (the ticket number), refuses a domain in a security category unless you add --force, skips policies you cannot edit, that belong to another client, or whose allow list it cannot read, marks an assigned policy it cannot evaluate as review instead of writing to it, and leaves shared global policies alone unless you pass --include-global (when every target needs review, --confirm exits 6); a saved profile can never supply --confirm or --force. Generated commands such as policies update or policies add-whitelist-domain send as soon as they run, so preview them with --dry-run. Over MCP, the generic dnsfilter_execute tool can call any DNSFilter endpoint, deletes included, but it returns a preview first and sends only when the agent repeats the call with confirm: true. For an agent that should only read, set DNSFILTER_MCP_READ_ONLY=1 in the MCP server's environment: write tools, allow and dnsfilter_execute are removed, and API key reads, site secret keys and the roaming client uninstall PIN are withheld. Keep the approval prompt on.
+Q: Does why-blocked see every rule DNSFilter applies?
+A: No, and it says so. It evaluates the site or roaming client's current policy (including the scheduled-policy slot and a roaming client inheriting its site's policy) in DNSFilter's documented order: allow list, allow-list-only mode, block list, uncategorized domains, blocked categories. User, collection and LAN-subnet assignments, the org or MSP Universal Allow and Block Lists, and AppAware application rules are not exposed by the policy API, so they are not evaluated; when a Query Log hit names a policy outside the ones it checked, the output flags it.
+Q: Why do agents drift, agents stale or lists where say there is nothing to report?
+A: They read the local mirror, so run sync first: `dnsfilter-cli sync --full --resources organizations,networks,policies,scheduled-policies,user-agents`. agents drift also reads DNSFilter's release feed live on every run, so a pulled release does not linger in a stale copy.
+Q: Has it been tested against a live DNSFilter account?
+A: Not yet. It is built from DNSFilter's published OpenAPI spec and tested against a local mock, so it ships as Beta and Awaiting live verification. A few request shapes were inferred from the spec (some list filters sent in the request body, the bulk domain lookup requiring fqdns) and will be confirmed on the first live run; tell us what you see.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill authenticates with a DNSFilter API token you create, and it can do whatever that token can do in the dashboard. Every troubleshooting and fleet view (why-blocked, unblocks triage, agents drift, agents stale, lists where, policy-audit) and the ordinary lists and gets are read-only and safe to let an agent run. allow previews by default; it and every policy, allow-list, block-list, scheduled-policy and unblock-decision change, and every change to which policy or bypass domains a site, MAC address or roaming client uses, need a human to approve the exact command, because one allow opens the site for every site and roaming client on that policy. Reads that return a secret (site secret keys in the networks lists, API key tokens, the roaming client uninstall PIN) and everything that creates, rotates or revokes a credential are human-only, as are deletes, roaming client uninstalls, billing, seat and distributor changes. The MCP server's generic execute tool can call any endpoint, so set DNSFILTER_MCP_READ_ONLY=1 for an agent that should only read.
+
 ### Domotz (Network Monitoring)
 
 Page: [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md)
@@ -1251,6 +1325,42 @@ Q: Do I need a special Domotz plan to use the API?
 A: No add-on is required - you generate an API Key from the Domotz Portal under Settings > Services > API Keys on your existing account. A handful of endpoints (company areas, team moves, some RBAC) are Enterprise-plan only; everything else works on standard accounts, and the CLI returns a clear error when a plan gates an endpoint.
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
+
+### Exchange Online (Security)
+
+Page: [Exchange Online](https://msp-skills.compoundingteams.com/skills/exchange-online.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/install.sh)
+
+Ask your AI "is mail leaving this client's tenant?" or "which mailboxes still use EWS?" and get the answer from Exchange Online's REST admin endpoints, one customer tenant per call, with no PowerShell session to open. Forwarding audits, inbox-rule sweeps, compromise triage, offboarding with a per-step receipt and a cross-tenant quarantine queue, from one local binary and MCP server.
+
+Outcomes (question -> command your AI agent runs):
+- Can mail auto-forward out of this tenant, and does the outbound spam policy or a remote domain block it? -> exchange-online-cli forwarding-audit 0550b473-9fd2-4dbb-a058-a1640b4bf458 --sweep --agent
+- Which inbox rules in this tenant forward, redirect, delete or hide mail? -> exchange-online-cli inbox-rules sweep 0550b473-9fd2-4dbb-a058-a1640b4bf458 --agent
+- Which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on? -> exchange-online-cli ews-posture 0550b473-9fd2-4dbb-a058-a1640b4bf458 --all --agent
+- What compromise evidence does this one mailbox show right now? -> exchange-online-cli bec triage 0550b473-9fd2-4dbb-a058-a1640b4bf458 alex@example.com --agent
+- Which Exchange offboarding steps are done or still pending for this leaver? -> exchange-online-cli offboard 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --manager boss@example.com --plan --agent
+- Which mailboxes can this user open, send as or send on behalf of? -> exchange-online-cli access-map 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --agent
+- Why did this person not get the email, and what should I do next? -> exchange-online-cli where-is 0550b473-9fd2-4dbb-a058-a1640b4bf458 --recipient alex@example.com --since 48h --agent
+- Which quarantine release requests are waiting longest across every tenant I snapshotted? -> exchange-online-cli quarantine queue --older-than 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Microsoft Exchange Online MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Microsoft Exchange Online data safe?
+A: Your data stays on your machine. The CLI and MCP server run locally and talk only to Microsoft's Exchange Online endpoint; inbox-rule sweeps and quarantine snapshots are saved to a local database under your user account (secret fields stripped; cmdlet reads are not saved), and a held credential is withheld from every output and file. Credentials are never bundled or transmitted by MSP Skills.
+Q: Do I still need Exchange Online PowerShell?
+A: Not for the cmdlets this connector covers: it calls the same REST admin endpoints the ExchangeOnlineManagement v3 module uses, so no PowerShell session is needed. Bulk policy creation, Purview compliance and Exchange Server on-premises stay with PowerShell or other tools.
+Q: What token does it need?
+A: A bearer token for the resource https://outlook.office365.com, issued for the customer tenant you are working in, with an Exchange role that allows the cmdlets you run. Set it as EXCHANGE_ONLINE_TOKEN or save it with auth set-token; each call names the tenant ID.
+Q: Can an AI agent change mailboxes on its own?
+A: Not over MCP without your approval: every state-changing cmdlet and the offboard command return a preview until the call carries confirm: true, and EXCHANGE_ONLINE_MCP_READ_ONLY=1 removes every write tool. On the command line, preview writes with --dry-run (offboard with --plan) before running them.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads mailboxes, permissions, inbox rules, mail flow, policies, message traces and quarantine in one customer tenant at a time. It can change mailboxes, permissions, client protocols, inbox and transport rules, quarantine and mobile devices, and run an offboarding sequence; over MCP every change previews until it is confirmed. Let an agent run reads freely, approve routine writes after a preview, and keep device wipes, quarantine deletes and offboarding with a human.
 
 ### Fortinet (Security)
 
@@ -1683,6 +1793,40 @@ Q: Will this replace my Kaseya BMS portal?
 A: No. It's a faster path for the questions you ask every day - queue health, unbilled time, pipeline - and for letting an AI agent drive the service desk. The BMS portal stays your system of record.
 
 Governance: The skill reads everything - tickets, CRM, contracts, finance, projects - and can create and update records across the service desk, CRM, finance, and projects, so keep an autonomous agent to reads plus previewed (--dry-run) writes with a human approving each write. Deletes, the back-office 'admin' group, and any command that returns stored credentials (ITGlue or VSA access info) are human-in-the-loop only. The strongest control is the scope of the BMS API user you authenticate as.
+
+### Kaseya VSA 10 (RMM)
+
+Page: [Kaseya VSA 10](https://msp-skills.compoundingteams.com/skills/kaseya-vsa.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/install.sh)
+
+Ask which devices across every client are offline, unprotected or missing a critical patch, and get the list. Kaseya VSA 10 plus your AI agent reads a local mirror of your whole fleet, so the cross-client questions the portal answers one policy or one device at a time become one reproducible answer. It also runs a VSA script on a device and hands back the output in one call.
+
+Outcomes (question -> command your AI agent runs):
+- Which pending OS updates are exposed on the most devices, across every client? -> kaseya-vsa-cli patch-exposure --by kb --severity critical,important --agent
+- Which clients carry the most critical patch exposure? -> kaseya-vsa-cli patch-exposure --by org --severity critical --agent
+- Which devices are offline, without working antivirus, or with the firewall off? -> kaseya-vsa-cli health --check offline,av,firewall --offline-for 72h --agent
+- Which devices are low on disk space? -> kaseya-vsa-cli health --check disk --disk-below 15 --agent
+- Which versions of Google Chrome are installed, and on how many devices? -> kaseya-vsa-cli software "Google Chrome" --versions --agent
+- Which devices with software inventory are missing our security agent? -> kaseya-vsa-cli software "Huntress Agent" --absent --agent
+- Who did what in the tenant this week, including remote control and API token changes? -> kaseya-vsa-cli audit-logs digest --since 7d --agent
+- What is the current state of one device: notifications, security posture, disks and pending updates? -> kaseya-vsa-cli devices brief FRONTDESK-01 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Kaseya VSA MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Kaseya VSA data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Is this for Kaseya VSA 10 or classic VSA 9?
+A: VSA 10, the platform formerly called VSA X, with an instance host such as yourcompany.vsax.net. It uses the VSA 10 REST API (/api/v3) with an API token ID and secret created under Administration > Configuration > API Access. Classic on-premises VSA 9 has a different API and is not supported.
+Q: Will this hit my VSA 10 API rate limits?
+A: It is built to stay inside them. VSA 10 limits each API token per hour, so the skill syncs once and then answers fleet questions from the local mirror without new API calls. The CLI paces itself to the server's rate-limit headers, and kaseya-vsa-cli rate-limits shows what is left in the current window.
+
+Governance: The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.
 
 ### KnowBe4 (Security)
 
@@ -3230,6 +3374,41 @@ Q: Can it change backup jobs or run restores?
 A: The full VSPC v3 surface is exposed, including create/delete jobs and agent deployment, but those are gated human-in-the-loop in governance.md. Day-to-day this is read-first monitoring; destructive and infrastructure commands need explicit approval.
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
+
+### Device Warranty (Documentation)
+
+Page: [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/install.sh)
+
+Ask which client devices go out of warranty this quarter and get the list, per client. Device Warranty plus your AI agent looks up Dell, Lenovo and Apple serials with whichever vendor credentials you have, keeps every answer in a local warranty mirror, and answers fleet questions offline: what expires soon, what to refresh next year, and which devices were never verified.
+
+Outcomes (question -> command your AI agent runs):
+- Which client devices are out of warranty or expire in the next 90 days? -> warranty-cli report --within 90d --agent
+- Which of Acme Dental's devices have already expired? -> warranty-cli report --customer "Acme Dental" --status expired --agent
+- What is the warranty on these serials right now? -> warranty-cli lookup 1ABC234 PF1ABCDE --agent
+- How many devices per client lose coverage in each of the next four quarters, and how many are past four years old? -> warranty-cli lifecycle --quarters 4 --age 4y --agent
+- Which devices could the report not speak for, and why? -> warranty-cli unresolved --agent
+- Which vendors are configured, and what does each still need? -> warranty-cli doctor --json
+- Which coverage expired or changed since I last checked? -> warranty-cli events list --since 0 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Device Warranty MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my client device data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need credentials for all three vendors?
+A: No. Every vendor is optional. Dell needs a TechDirect Warranty API client ID and secret, Lenovo a ClientID token from your Lenovo account manager, Apple an Apple Business API account in the client's organization. A vendor without credentials is reported as vendor_unconfigured and never called, and the others keep working. warranty-cli doctor --json lists what each vendor still needs.
+Q: Where do the serials come from?
+A: Any CSV or JSON device export with a serial column (manufacturer, model and hostname are optional), for example from your RMM. warranty-cli import devices.csv --customer "Acme Dental" loads it into the mirror; apple-pull loads a client's Apple devices straight from Apple Business.
+Q: Will this hit the vendors' rate limits?
+A: It is built to stay inside them: Dell lookups go 100 service tags per call, Lenovo 25 serials per call spaced 250 ms apart, Apple one serial per call. recheck refreshes only stale or soon-expiring devices, and --max-calls caps a run.
+
+Governance: The skill reads warranty and coverage data from Dell, Lenovo and Apple and changes nothing at any vendor. It writes only its own local warranty mirror (import, lookup, recheck, apple-pull), which you can preview with --dry-run, and over MCP those saves need confirm. Let an agent read and report freely; keep a human on credential commands and on local-data purge.
 
 ### WatchGuard Cloud (Security)
 

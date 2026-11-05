@@ -1,0 +1,148 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T19:26:03.940963Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "kaseya-vsa",
+  "display_name": "Kaseya VSA 10",
+  "cli_name": "kaseya-vsa-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:d50fd767beb8bb954b6afbe7e11999dfd3b8c6a9401f4ee94c2a7f3b0e78a2b7",
+  "run_id": "20261027-140746-e245c063",
+  "category": "monitoring",
+  "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+  "mcp_binary": "kaseya-vsa-pp-mcp",
+  "mcp_tool_count": 72,
+  "mcp_ready": "full",
+  "api_version": "3.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "basicAuth",
+  "auth_env_vars": [
+    "KASEYA_VSA_TOKEN_ID",
+    "KASEYA_VSA_TOKEN_SECRET"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "KASEYA_VSA_TOKEN_ID",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "VSA 10 API token ID (Administration \u003e Configuration \u003e API Access)."
+    },
+    {
+      "name": "KASEYA_VSA_TOKEN_SECRET",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "VSA 10 API token secret, shown once when the token is created."
+    }
+  ],
+  "endpoint_template_vars": [
+    "server"
+  ],
+  "endpoint_template_env_overrides": {
+    "server": "KASEYA_VSA_SERVER"
+  },
+  "endpoint_template_var_defaults": {
+    "server": "yourcompany.vsax.net"
+  },
+  "auth_key_url": "https://help.vsa10.kaseya.com/help/Content/2-Administration/configuration/api.htm",
+  "auth_title": "VSA 10 API token",
+  "novel_features": [
+    {
+      "name": "Fleet health exceptions",
+      "command": "health",
+      "description": "From the synced local mirror (run sync first), list devices across every client that are offline, have antivirus off or stale, firewall or UAC off, low disk, or high CPU or memory; rows are fail or unknown, with scanned and per-check counts."
+    },
+    {
+      "name": "Patch exposure rollup",
+      "command": "patch-exposure",
+      "description": "From the synced local mirror (run sync first), rank pending OS updates across all clients by KB, client, or device, filtered by severity, CVSS, KB, or CVE."
+    },
+    {
+      "name": "Fleet software inventory",
+      "command": "software",
+      "description": "From the synced local mirror (run sync first), find which devices run an application, its version spread, devices below a version, or devices missing it."
+    },
+    {
+      "name": "One-device digest",
+      "command": "devices brief",
+      "description": "Get one device's online state, notification counts, security posture, disks, pending-update counts by severity, antivirus, policies, and recent audit activity from six live API calls."
+    },
+    {
+      "name": "Script run-and-wait",
+      "command": "scripts run-wait",
+      "description": "Run an automation script on a managed device (starts immediately, no confirmation) and get its exit code and output when it finishes."
+    },
+    {
+      "name": "Task run-and-collect",
+      "command": "tasks run-wait",
+      "description": "Run a saved task on chosen devices (starts immediately, no confirmation) or attach to a running execution, and collect per-device, per-script exit codes and output."
+    },
+    {
+      "name": "Audit activity digest",
+      "command": "audit-logs digest",
+      "description": "From the synced local mirror (run sync first), see who did what in the tenant over a time window, with audit categories and event types decoded to names."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet health exceptions",
+      "command": "health",
+      "description": "From the synced local mirror (run sync first), list devices across every client that are offline, have antivirus off or stale, firewall or UAC off, low disk, or high CPU or memory; rows are fail or unknown, with scanned and per-check counts."
+    },
+    {
+      "name": "Patch exposure rollup",
+      "command": "patch-exposure",
+      "description": "From the synced local mirror (run sync first), rank pending OS updates across all clients by KB, client, or device, filtered by severity, CVSS, KB, or CVE."
+    },
+    {
+      "name": "Fleet software inventory",
+      "command": "software",
+      "description": "From the synced local mirror (run sync first), find which devices run an application, its version spread, devices below a version, or devices missing it."
+    },
+    {
+      "name": "One-device digest",
+      "command": "devices brief",
+      "description": "Get one device's online state, notification counts, security posture, disks, pending-update counts by severity, antivirus, policies, and recent audit activity from six live API calls."
+    },
+    {
+      "name": "Script run-and-wait",
+      "command": "scripts run-wait",
+      "description": "Run an automation script on a managed device (starts immediately, no confirmation) and get its exit code and output when it finishes."
+    },
+    {
+      "name": "Task run-and-collect",
+      "command": "tasks run-wait",
+      "description": "Run a saved task on chosen devices (starts immediately, no confirmation) or attach to a running execution, and collect per-device, per-script exit codes and output."
+    },
+    {
+      "name": "Audit activity digest",
+      "command": "audit-logs digest",
+      "description": "From the synced local mirror (run sync first), see who did what in the tenant over a time window, with audit categories and event types decoded to names."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 103,
+    "total": 103,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 97,
+      "grade": "A",
+      "total": 97
+    }
+  }
+}

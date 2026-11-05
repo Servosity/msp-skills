@@ -1,0 +1,1084 @@
+{
+  "sites": [
+    {
+      "file": "internal/cli/audit_logs_digest.go",
+      "func": "newNovelAuditLogsDigestCmd",
+      "what": "fmt.Fprintf",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/audit_logs_digest.go",
+      "func": "newNovelAuditLogsDigestCmd",
+      "what": "fmt.Fprintln",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/audit_logs_digest.go",
+      "func": "newNovelAuditLogsDigestCmd",
+      "what": "writer:io.Writer",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/devices_brief.go",
+      "func": "newNovelDevicesBriefCmd",
+      "what": "writer:io.Writer",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/devices_brief.go",
+      "func": "printBriefHuman",
+      "what": "fmt.Fprintf",
+      "count": 8,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/health.go",
+      "func": "newNovelHealthCmd",
+      "what": "fmt.Fprintf",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/health.go",
+      "func": "newNovelHealthCmd",
+      "what": "fmt.Fprintln",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/health.go",
+      "func": "newNovelHealthCmd",
+      "what": "writer:io.Writer",
+      "count": 6,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/kaseya_fleet.go",
+      "func": "loadFleetRows",
+      "what": "database/sql.DB.QueryContext",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/kaseya_fleet.go",
+      "func": "openFleetStore",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/kaseya_guard.go",
+      "func": "init",
+      "what": "convert:kaseya-vsa-pp-cli/internal/cli.originPinTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/cli/kaseya_guard.go",
+      "func": "init",
+      "what": "net/http.Client.Transport",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/cli/kaseya_guard.go",
+      "func": "init",
+      "what": "net/http.DefaultTransport",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/cli/kaseya_guard.go",
+      "func": "originPinTripper.RoundTrip",
+      "what": "net/http.RoundTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/cli/kaseya_runwait.go",
+      "func": "writeRunPreview",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/kaseya_runwait.go",
+      "func": "writeRunPreview",
+      "what": "writer:io.Writer",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/patch_exposure.go",
+      "func": "newNovelPatchExposureCmd",
+      "what": "writer:io.Writer",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/patch_exposure.go",
+      "func": "printPatchHuman",
+      "what": "fmt.Fprintf",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/scripts_run_wait.go",
+      "func": "newNovelScriptsRunWaitCmd",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/scripts_run_wait.go",
+      "func": "newNovelScriptsRunWaitCmd",
+      "what": "writer:io.Writer",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/scripts_run_wait.go",
+      "func": "printScriptRun",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/scripts_run_wait.go",
+      "func": "printScriptRun",
+      "what": "fmt.Fprintln",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/scripts_run_wait.go",
+      "func": "printScriptRun",
+      "what": "writer:io.Writer",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/software.go",
+      "func": "newNovelSoftwareCmd",
+      "what": "fmt.Fprintf",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/software.go",
+      "func": "newNovelSoftwareCmd",
+      "what": "writer:io.Writer",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/tasks_run_wait.go",
+      "func": "newNovelTasksRunWaitCmd",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/tasks_run_wait.go",
+      "func": "newNovelTasksRunWaitCmd",
+      "what": "writer:io.Writer",
+      "count": 6,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/tasks_run_wait.go",
+      "func": "printTaskRun",
+      "what": "fmt.Fprintf",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/cli/tasks_run_wait.go",
+      "func": "printTaskRun",
+      "what": "fmt.Fprintln",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+    },
+    {
+      "file": "internal/client/kaseya_chrome_kit.go",
+      "func": "chromeConnectExchange.RoundTrip",
+      "what": "net/http.Request.Write",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the CONNECT exchange, run only as OutboundGuard(chromeConnectExchange{...}) in chromeProxyCONNECT, after Start: the kit judges the request before this writes it and holds the answer"
+    },
+    {
+      "file": "internal/client/kaseya_chrome_kit.go",
+      "func": "chromeConnectExchange.RoundTrip",
+      "what": "writer:net.Conn",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the CONNECT exchange, run only as OutboundGuard(chromeConnectExchange{...}) in chromeProxyCONNECT, after Start: the kit judges the request before this writes it and holds the answer"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "ServePlainHTTPOverH1",
+      "what": "net/http.Client.Transport",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "carrier",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "convert:kaseya-vsa-pp-cli/internal/client.chromeAllowTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "convert:kaseya-vsa-pp-cli/internal/client.chromeHeaderTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "convert:kaseya-vsa-pp-cli/internal/client.chromeTransport.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "convert:kaseya-vsa-pp-cli/internal/client.schemeSplitTripper.RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "plainHTTPSplit",
+      "what": "sink:net/http.Transport",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/client/kaseya_plain_http.go",
+      "func": "schemeSplitTripper.RoundTrip",
+      "what": "net/http.RoundTripper.RoundTrip",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.DB.Conn",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.OpenDB",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+    },
+    {
+      "file": "internal/cli/kaseya_stdin_hold.go",
+      "func": "holdStdinBody",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs from PersistentPreRunE, after credkit.Start: it reads stdin and feeds the same bytes back to this process, writing nothing out; Declarations.Files builds the command tree only to read its flags and runs no command"
+    },
+    {
+      "file": "internal/cli/kaseya_stdin_hold.go",
+      "func": "holdStdinBody",
+      "what": "os.File.Write",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs from PersistentPreRunE, after credkit.Start: it reads stdin and feeds the same bytes back to this process, writing nothing out; Declarations.Files builds the command tree only to read its flags and runs no command"
+    },
+    {
+      "file": "internal/cli/kaseya_stdin_hold.go",
+      "func": "holdStdinBody",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs from PersistentPreRunE, after credkit.Start: it reads stdin and feeds the same bytes back to this process, writing nothing out; Declarations.Files builds the command tree only to read its flags and runs no command"
+    },
+    {
+      "file": "internal/cli/kaseya_stdin_hold.go",
+      "func": "readsStdinBodyUnheld",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "runs from PersistentPreRunE, after credkit.Start: it reads stdin and feeds the same bytes back to this process, writing nothing out; Declarations.Files builds the command tree only to read its flags and runs no command"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "claimClosedStore",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "claimClosedStore",
+      "what": "os.Open",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "claimClosedStore",
+      "what": "writer:*os.File",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinFDs",
+      "what": "unsafe",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinPIDs",
+      "what": "unsafe",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinProcInfo",
+      "what": "golang.org/x/sys/unix.Syscall6",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinProcInfo",
+      "what": "unsafe",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinStoreFileUnusedByOthers",
+      "what": "golang.org/x/sys/unix.Fstat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinStoreFileUnusedByOthers",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_darwin.go",
+      "func": "darwinVnodeID",
+      "what": "unsafe",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files read-only and asks the kernel (proc_pidinfo, fstat) whether another process holds them; reads process tables and writes nothing; the *os.File passed on is that read-only handle; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "pinClosedStoreFile",
+      "what": "os.File.Close",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "pinClosedStoreFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "pinClosedStoreFile",
+      "what": "os.Open",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "pinClosedStoreFile",
+      "what": "os.OpenFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "pinClosedStoreFile",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "procSameUID",
+      "what": "os.ReadFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "setStoreWriteLease",
+      "what": "golang.org/x/sys/unix.FcntlInt",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFilePin.close",
+      "what": "golang.org/x/sys/unix.FcntlInt",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFilePin.close",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFilePin.close",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFilePin.stillClosed",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFileUnusedByOthers",
+      "what": "golang.org/x/sys/unix.Fstat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFileUnusedByOthers",
+      "what": "golang.org/x/sys/unix.Stat",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_linux.go",
+      "func": "storeFileUnusedByOthers",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: opens its files (O_RDWR only so F_SETLEASE can take a write lease; no byte is written) and reads /proc to see whether another process holds them; writes nothing; the store keeps no credentials (store-never-keeps-secrets)"
+    },
+    {
+      "file": "internal/cli/store_adopt_windows.go",
+      "func": "claimClosedStore",
+      "what": "golang.org/x/sys/windows.CloseHandle",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: CreateFile with no sharing only to learn whether another process holds the file, then CloseHandle; no byte is read or written"
+    },
+    {
+      "file": "internal/cli/store_adopt_windows.go",
+      "func": "claimClosedStore",
+      "what": "golang.org/x/sys/windows.CreateFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: CreateFile with no sharing only to learn whether another process holds the file, then CloseHandle; no byte is read or written"
+    },
+    {
+      "file": "internal/cli/store_adopt_windows.go",
+      "func": "claimClosedStore",
+      "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "adopting the legacy SQLite store: CreateFile with no sharing only to learn whether another process holds the file, then CloseHandle; no byte is read or written"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "ReadOpenedConfig",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "ReadOpenedConfig",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "ReadOpenedConfig",
+      "what": "writer:*os.File",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "credentialPermFailure",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "openatNoFollow",
+      "what": "golang.org/x/sys/unix.Openat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "openatNoFollow",
+      "what": "os.NewFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readExplicitCredentialBytes",
+      "what": "os.File.Close",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readExplicitCredentialBytes",
+      "what": "os.File.Fd",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readExplicitCredentialBytes",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readExplicitCredentialBytes",
+      "what": "writer:*os.File",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readGlobalCredentialBytes",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readGlobalCredentialBytes",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readVerifiedCredential",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "readVerifiedCredential",
+      "what": "writer:*os.File",
+      "count": 4,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_unix.go",
+      "func": "verifyUnixCredentialDir",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard: checks the owner, mode and ACL of the config file and the credential store (Declarations.Files names both) on a descriptor opened read-only: the credential store and its directory with O_NOFOLLOW (openat), the config with os.Open, which follows a symlink once so the verdict and the bytes come from that same descriptor; the *os.File passed on is that read handle (Stat, ReadAll, Close); writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "ReadOpenedConfig",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "ReadOpenedConfig",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "ReadOpenedConfig",
+      "what": "writer:*os.File",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "VerifyCredsPerms",
+      "what": "golang.org/x/sys/windows.GetNamedSecurityInfo",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "VerifyCredsPerms",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "readCredentialFromRoot",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "readCredentialFromRoot",
+      "what": "writer:*os.File",
+      "count": 3,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "verifyWindowsHandle",
+      "what": "golang.org/x/sys/windows.GetSecurityInfo",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "verifyWindowsHandle",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/creds_perms_windows.go",
+      "func": "verifyWindowsHandle",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on Windows: reads the owner and DACL of the config file and credential store (Declarations.Files names both) on a read-only handle; the *os.File passed on is that read handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "darwinOwnerUUID",
+      "what": "golang.org/x/sys/unix.Fstat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "darwinOwnerUUID",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "darwinOwnerUUID",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "openDarwinNoFollow",
+      "what": "os.OpenFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "readDarwinFileSec",
+      "what": "golang.org/x/sys/unix.Syscall6",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "readDarwinFileSec",
+      "what": "unsafe",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/darwin_acl_darwin.go",
+      "func": "var",
+      "what": "unsafe",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the private-file guard on macOS: opens a path read-only (O_NOFOLLOW) only to read its owner and ACL with fstat and fgetattrlist; no byte of the file is read or written; the unsafe uses are compile-time size checks and the attribute buffer"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "lockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "lockFile",
+      "what": "syscall.Flock",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "tryLockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "tryLockFile",
+      "what": "syscall.Flock",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "unlockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_unix.go",
+      "func": "unlockFile",
+      "what": "syscall.Flock",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "flock on the connector's own lock file, which holds no data; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "ReadConfigTrust",
+      "what": "golang.org/x/sys/windows.GetSecurityInfo",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "ReadConfigTrust",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "lockFile",
+      "what": "golang.org/x/sys/windows.LockFileEx",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "lockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "tryLockFile",
+      "what": "golang.org/x/sys/windows.LockFileEx",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "tryLockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "unlockFile",
+      "what": "golang.org/x/sys/windows.UnlockFileEx",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/filelock_windows.go",
+      "func": "unlockFile",
+      "what": "os.File.Fd",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "LockFileEx on the connector's own lock file, which holds no data, and the config file's owner and DACL check on a read-only handle; writes nothing"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.DACL",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.Owner",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.SID.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.SecurityDescriptorFromString",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.SetNamedSecurityInfo",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.Token.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/testenv/sandbox_windows.go",
+      "func": "lockSandbox",
+      "what": "golang.org/x/sys/windows.Token.GetTokenUser",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "test-only helper: package testenv is imported only by _test.go files, never by a main; it sets a sandbox directory's owner-only DACL"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "currentUserSID",
+      "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "currentUserSID",
+      "what": "golang.org/x/sys/windows.SID.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "currentUserSID",
+      "what": "golang.org/x/sys/windows.Token.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "currentUserSID",
+      "what": "golang.org/x/sys/windows.Token.GetTokenUser",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "resolveSDDLAlias",
+      "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "resolveSDDLAlias",
+      "what": "golang.org/x/sys/windows.SID.String",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "resolveSDDLAlias",
+      "what": "golang.org/x/sys/windows.SecurityDescriptorFromString",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/cliutil/windows_account.go",
+      "func": "resolveSDDLAlias",
+      "what": "golang.org/x/sys/windows.StringToSid",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the current user's SID from the process token and resolves SDDL aliases for the private-file guard; no file, no output"
+    },
+    {
+      "file": "internal/platform/perms_windows.go",
+      "func": "verifyPrivatePerms",
+      "what": "fmt.Fprintf",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "prints a fixed warning naming a file path and the permission check's error (owner or DACL), never the file's contents; Windows only"
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+{
+ "config_types": [],
+ "sites": [
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "guardClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "guardClient",
+   "what": "convert:exchange-online-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "guardClient",
+   "what": "convert:exchange-online-pp-cli/internal/cli.responseHoldTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_guard.go",
+   "func": "responseHoldTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The kit transport sits under the origin pin and the response hold, because the pin must see each request first; every send still passes credkit.Transport underneath."
+  },
+  {
+   "file": "internal/cli/exo_transport.go",
+   "func": "exoTransport.RoundTrip",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The cmdlet transport wraps the pinned one, so every page it sends passes the pin and credkit.Transport; its one Fprintf runs after Start, from a client hook registered in init."
+  },
+  {
+   "file": "internal/cli/exo_transport.go",
+   "func": "exoTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "The cmdlet transport wraps the pinned one, so every page it sends passes the pin and credkit.Transport; its one Fprintf runs after Start, from a client hook registered in init."
+  },
+  {
+   "file": "internal/cli/exo_transport.go",
+   "func": "installEXOTransport",
+   "what": "convert:exchange-online-pp-cli/internal/cli.exoTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The cmdlet transport wraps the pinned one, so every page it sends passes the pin and credkit.Transport; its one Fprintf runs after Start, from a client hook registered in init."
+  },
+  {
+   "file": "internal/cli/exo_transport.go",
+   "func": "installEXOTransport",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "The cmdlet transport wraps the pinned one, so every page it sends passes the pin and credkit.Transport; its one Fprintf runs after Start, from a client hook registered in init."
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "HoldProfileStoreFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Reads the run profile store to hold its values: a credential source, read on purpose."
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Applies the MCP sql value cap on a throwaway handle as the driver opens a connection; the connection itself is registered through credkit.SQLDriver."
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "Applies the MCP sql value cap on a throwaway handle as the driver opens a connection; the connection itself is registered through credkit.SQLDriver."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "pathsUnder",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "refeedStdin",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "refeedStdin",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "stdinIsTerminal",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Files runs inside Start and holds piped stdin and config values before anything prints, which is its job; it writes nothing but the same stdin bytes back into a new pipe."
+  }
+ ]
+}
