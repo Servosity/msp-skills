@@ -17,6 +17,8 @@
       "env": {
         "HUBSPOT_ACCESS_TOKEN": "${user_config.hubspot_access_token}",
         "HUBSPOT_BASE_URL": "${user_config.hubspot_base_url}",
+        "HUBSPOT_MCP_READ_ONLY": "${user_config.hubspot_mcp_read_only}",
+        "HUBSPOT_NO_LOCAL_DATA": "${user_config.hubspot_no_local_data}",
         "HUBSPOT_OWNER_EMAIL": "${user_config.hubspot_owner_email}",
         "HUBSPOT_MCP_HTTP_TOKEN": "${user_config.hubspot_mcp_http_token}",
         "HUBSPOT_USER_AGENT": "${user_config.hubspot_user_agent}",
@@ -39,17 +41,32 @@
       "required": false,
       "default": "https://api.hubapi.com"
     },
-    "hubspot_owner_email": {
+    "hubspot_mcp_read_only": {
       "type": "string",
-      "title": "Default owner email",
-      "description": "Email address that `--owner me` resolves to when git config user.email is not set. Leave blank to name the owner on each call.",
-      "required": false
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "hubspot_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
     },
     "hubspot_mcp_http_token": {
       "type": "string",
       "title": "HTTP transport bearer token",
       "description": "Bearer token that `hubspot-mcp --transport http` requires from every HTTP client (Authorization: Bearer). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
       "sensitive": true,
+      "required": false
+    },
+    "hubspot_owner_email": {
+      "type": "string",
+      "title": "Default owner email",
+      "description": "Email address that `--owner me` resolves to when git config user.email is not set. Leave blank to name the owner on each call.",
       "required": false
     },
     "hubspot_user_agent": {
@@ -73,11 +90,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.32.5",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.32.5",
-    "generated_at": "2026-09-28T17:26:58.378855Z",
-    "spec_checksum": "sha256:ef8bded66c004ef2ec92019b4f0a4a942494165e2d27cf38ffef6743905bc723",
-    "spec_format": "printing-press-combined"
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-24T22:22:32.838661Z",
+    "spec_checksum": "sha256:f529cc01f227b2d7c2f8ba12882b80cc52514d9c603f5c79c220c41540855e96",
+    "spec_format": "internal"
   }
 }

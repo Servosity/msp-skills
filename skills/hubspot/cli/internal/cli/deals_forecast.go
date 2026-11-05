@@ -22,7 +22,7 @@ func newNovelDealsForecastCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "forecast",
 		Short:       "Probability-weighted pipeline forecast bucketed by close-date month",
-		Long:        "Sum amount × stage-probability across open deals grouped by close-date month (Closed Lost = 0, Closed Won = 1.0, intermediate stages use their HubSpot-provided probability).\n\nUse this command for close-month-bucketed weighted forecast totals.\nDo NOT use this command for per-stage dollar-at-risk; use 'pipeline-health' instead.",
+		Long:        "Sum amount × stage-probability across open deals grouped by close-date month (Closed Lost = 0, Closed Won = 1.0, intermediate stages use their HubSpot-provided probability). A deal whose stage has no known probability (the deal pipelines are not in the local store) fails the forecast instead of weighing 0.\n\nUse this command for close-month-bucketed weighted forecast totals.\nDo NOT use this command for per-stage dollar-at-risk; use 'pipeline-health' instead.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli deals forecast --pipeline default
   hubspot-cli deals forecast --month 2026-07`,
@@ -43,6 +43,9 @@ func newNovelDealsForecastCmd(flags *rootFlags) *cobra.Command {
 			defer db.Close()
 			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
 				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
+			}
+			if err := hsRequireCollected(cmd.Context(), db, "deals forecast", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
 			}
 
 			view, err := queryDealsForecast(cmd, db, pipeline, month)
@@ -98,9 +101,9 @@ type forecastView struct {
 func queryDealsForecast(cmd *cobra.Command, db *store.Store, pipeline, month string) (forecastView, error) {
 	view := forecastView{Months: []forecastMonth{}}
 
-	// Reuse deals_top.go's stageId -> probability map verbatim (same table,
-	// columns, and metadata.probability fallback rules).
-	stageProb, err := loadAllStageProbabilities(db)
+	// One stage-probability rule for every weighted report: a stage with no
+	// known probability fails the forecast (dealStagePricer), never weighs 0.
+	pricer, err := newDealStagePricer(db)
 	if err != nil {
 		return view, err
 	}
@@ -109,12 +112,13 @@ func queryDealsForecast(cmd *cobra.Command, db *store.Store, pipeline, month str
 	// property. Deals with no closedate bucket into `undated`.
 	q := `
 SELECT
+  id,
   COALESCE(substr(json_extract(data, '$.properties.closedate'), 1, 7), '') AS close_month,
   COALESCE(json_extract(data, '$.properties.dealstage'), '') AS stage,
   CAST(json_extract(data, '$.properties.amount') AS REAL) AS amount
 FROM hubspot_deals_crm
 WHERE COALESCE(archived, 0) = 0
-  AND COALESCE(json_extract(data, '$.properties.dealstage'), '') NOT IN ('closedwon', 'closedlost')
+  AND NOT ` + dealClosedSQL("") + `
   AND (? = '' OR json_extract(data, '$.properties.pipeline') = ?)`
 	rows, err := db.DB().QueryContext(cmd.Context(), q, pipeline, pipeline)
 	if err != nil {
@@ -132,32 +136,27 @@ WHERE COALESCE(archived, 0) = 0
 	var totalWeighted float64
 
 	for rows.Next() {
-		var closeMonth, stage string
+		var id, closeMonth, stage string
 		var amt sql.NullFloat64
-		if err := rows.Scan(&closeMonth, &stage, &amt); err != nil {
+		if err := rows.Scan(&id, &closeMonth, &stage, &amt); err != nil {
 			return view, err
 		}
+		// When a single --month is requested, undated deals and other months
+		// don't belong to it; skip them before pricing so the totals describe
+		// the month and only deals in the answer need a probability.
+		if month != "" && closeMonth != month {
+			continue
+		}
 		amount := nullF(amt)
-		// Closed Lost = 0, Closed Won = 1.0 are honored by the stage metadata
-		// (loadAllStageProbabilities); open intermediate stages use their
-		// HubSpot-provided probability, defaulting to 0 when absent.
-		prob := stageProb[stage]
-		weighted := amount * prob
+		// Open intermediate stages use their HubSpot-provided probability;
+		// an unknown one is recorded and fails the forecast below.
+		weighted := amount * pricer.price(stage, "deal "+id)
 
 		if closeMonth == "" {
-			// When a single --month is requested, undated deals don't belong to
-			// that month; skip them entirely so the totals describe the month.
-			if month != "" {
-				continue
-			}
 			undated.count++
 			undated.weighted += weighted
 			undated.unweighted += amount
 			totalWeighted += weighted
-			continue
-		}
-		// --month filter (single close month).
-		if month != "" && closeMonth != month {
 			continue
 		}
 		a := byMonth[closeMonth]
@@ -172,6 +171,9 @@ WHERE COALESCE(archived, 0) = 0
 	}
 	if err := rows.Err(); err != nil {
 		return view, fmt.Errorf("iterating forecast rows: %w", err)
+	}
+	if err := pricer.err("deals forecast"); err != nil {
+		return view, err
 	}
 
 	months := make([]string, 0, len(byMonth))

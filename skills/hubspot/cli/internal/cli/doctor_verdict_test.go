@@ -14,11 +14,11 @@ import (
 // HubSpot's one public API root is the real endpoint, never a placeholder;
 // real placeholders are still refused.
 func TestDoctorBaseURLIsPlaceholder_HubSpotRoot(t *testing.T) {
-	if doctorBaseURLIsPlaceholder("https://api.hubapi.com") {
+	if doctorRefusesBaseURL("https://api.hubapi.com") {
 		t.Error("https://api.hubapi.com is HubSpot's real API root and must not be refused as a placeholder")
 	}
 	for _, p := range []string{"https://{portal}.hubapi.com", "https://api.example.com", "https://x/YOUR_PORTAL"} {
-		if !doctorBaseURLIsPlaceholder(p) {
+		if !doctorRefusesBaseURL(p) {
 			t.Errorf("%q must be refused as a placeholder", p)
 		}
 	}
@@ -38,4 +38,10 @@ func TestDoctorReachIsRefusedRedirect(t *testing.T) {
 	if doctorReachIsRefusedRedirect(nil) {
 		t.Error("nil is not a refused redirect")
 	}
+}
+
+// doctorRefusesBaseURL is the condition doctor.go refuses to dial on: the
+// press-native literal-placeholder check or this connector's shipped-value one.
+func doctorRefusesBaseURL(base string) bool {
+	return doctorBaseURLIsPlaceholder(base) || doctorBaseURLIsShippedPlaceholder(base)
 }

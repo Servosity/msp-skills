@@ -84,8 +84,10 @@ Safety:
     1. First run prints a digest (blast-<hex>) and "would update N contacts".
     2. Re-run with --confirm N --digest blast-<hex> to execute.
 
-  Smaller batches are dispatched in one pass with a one-line warning that
-  the digest gate was bypassed.
+  Smaller batches skip the digest but still need --yes; MCP tool calls can
+  never set --yes. A row counts as updated only when HubSpot's batch response
+  is COMPLETE and names the row; any other row fails the run (exit 6) unless
+  --allow-partial-failure is set.
 
 The CSV header row names the columns. Each column maps to a property of the
 same name (lowercased). Use --map to override:
@@ -96,10 +98,10 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
   hubspot-cli contacts bulk-update --from-csv updates.csv --dry-run
 
   # Apply via update
-  hubspot-cli contacts bulk-update --from-csv updates.csv
+  hubspot-cli contacts bulk-update --from-csv updates.csv --yes
 
   # Upsert via email key, JSONL stdin
-  cat rows.jsonl | hubspot-cli contacts bulk-update --jsonl --id-property email
+  cat rows.jsonl | hubspot-cli contacts bulk-update --jsonl --id-property email --yes
 
   # Large batch dance
   cat 500-rows.jsonl | hubspot-cli contacts bulk-update --jsonl --id-property email
@@ -107,7 +109,11 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
   cat 500-rows.jsonl | hubspot-cli contacts bulk-update --jsonl --id-property email \
       --confirm 500 --digest blast-deadbeef12345678`,
 		// Treat this as read-only ONLY when --dry-run is set; default invocation
-		// of this command mutates, so we deliberately leave the annotation off.
+		// of this command mutates, so we deliberately leave mcp:read-only off.
+		// --from-csv names a file on this machine; over MCP the server account
+		// would read whatever path a tool call chose, so the MCP mirror drops
+		// and refuses it.
+		Annotations: map[string]string{"mcp:read-flags": "from-csv"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if csvPath == "" && !jsonlMode {
 				return cmd.Help()
@@ -218,8 +224,13 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 			}
 			switch outcome {
 			case cliutil.GateProceedBelowThreshold:
+				// Small batches skip the digest dance but are still a live
+				// write: they need --yes (which no MCP tool call may set).
+				if !flags.yes {
+					return usageErr(fmt.Errorf("refusing to update %d contacts without confirmation: preview with --dry-run, then re-run with --yes", planRowCount))
+				}
 				fmt.Fprintf(cmd.ErrOrStderr(),
-					"note: %d rows ≤ threshold %d; digest gate bypassed (digest=%s)\n",
+					"note: %d rows ≤ threshold %d; confirmed with --yes (digest=%s)\n",
 					planRowCount, gate.Threshold, digest)
 			case cliutil.GateDryRunPersisted:
 				return emitConfirmInstructions(cmd, flags, digest, planRowCount, idProperty)
@@ -233,14 +244,32 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 			}
 			updated, errCount, err := dispatchBulk(cmd.Context(), c, ok, idProperty, jw)
 			if err != nil {
+				// A batch failed after earlier batches were applied: say how
+				// far the run got, and exit as a partial run.
+				if updated > 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "stopped: %d rows updated before the failure, %d not\n", updated, len(ok)+len(bad)-updated)
+					return partialFailureErr(err)
+				}
 				return err
 			}
+			// Rows rejected while reading (JSONL printed each one already)
+			// were not updated either: they count in the summary and the
+			// exit policy.
+			errCount += len(bad)
 
+			// Any row HubSpot did not confirm fails the run (exit 6) unless
+			// --allow-partial-failure says a partial batch is acceptable.
+			partial := func() error {
+				if errCount == 0 || flags.allowPartialFailure {
+					return nil
+				}
+				return partialFailureErr(fmt.Errorf("%d of %d rows were not confirmed by HubSpot", errCount, len(ok)+len(bad)))
+			}
 			if jsonlMode {
 				// JSONL already emitted per-row results; the final summary
 				// goes to stderr so stdout stays a clean JSONL stream.
 				fmt.Fprintf(cmd.ErrOrStderr(), "done: %d ok, %d errors\n", updated, errCount)
-				return nil
+				return partial()
 			}
 			report := map[string]any{
 				"total":        len(rows),
@@ -250,14 +279,17 @@ Rows are identified by an 'id' or 'email' column (id wins when both present).`,
 				"errors":       bad,
 			}
 			if flags.asJSON {
-				return flags.printJSON(cmd, report)
+				if err := flags.printJSON(cmd, report); err != nil {
+					return err
+				}
+				return partial()
 			}
 			if errCount > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts (%d rows rejected by the batch endpoint).\n", updated, errCount)
+				fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts (%d rows not confirmed by the batch endpoint).\n", updated, errCount)
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "Updated %d contacts.\n", updated)
 			}
-			return nil
+			return partial()
 		},
 	}
 	cmd.Flags().StringVar(&csvPath, "from-csv", "", "Path to the CSV file with the updates")
@@ -381,9 +413,10 @@ func readJSONLBulkRows(r interface {
 	for entry := range cliutil.ReadJSONLInputs(r) {
 		idx++
 		if entry.Err != nil {
-			// Surface the parse error directly to the agent. No row to
-			// add to the plan.
+			// Surface the parse error directly to the agent. The line is
+			// kept as a rejected row so it counts as a failure.
 			_ = jw.WriteError("", entry.Err)
+			rows = append(rows, bulkRow{Index: idx, Errors: []string{entry.Err.Error()}})
 			continue
 		}
 		row := bulkRow{Index: idx, Patch: map[string]string{}}
@@ -392,6 +425,7 @@ func readJSONLBulkRows(r interface {
 		var raw map[string]json.RawMessage
 		if err := json.Unmarshal(entry.Input.Payload, &raw); err != nil {
 			_ = jw.WriteError(entry.Input.ID, fmt.Errorf("line %d: %w", entry.LineNum, err))
+			rows = append(rows, bulkRow{Index: idx, ID: entry.Input.ID, Errors: []string{err.Error()}})
 			continue
 		}
 		row.ID = entry.Input.ID
@@ -552,83 +586,131 @@ func dispatchBulk(ctx context.Context, c *client.Client, rows []bulkRow, idPrope
 			}
 			return updated, errored + len(chunk), fmt.Errorf("batch %s [%d..%d]: %w", endpoint, start, end, err)
 		}
-		// The batch endpoint returns {"results":[...],"errors":[...]} with
-		// per-row errors carrying an index back into the chunk's inputs.
-		// Count those so `updated` reflects only rows that actually
-		// succeeded, on both the JSONL and plain-text paths.
-		errIdx := batchErrorIndex(resp, len(chunk))
-		if jw != nil {
-			emitBatchResults(jw, chunk, errIdx, resp, idProperty)
+		for k, o := range batchOutcome(resp, chunk, idProperty) {
+			if o.err != "" {
+				errored++
+				if jw != nil {
+					_ = jw.WriteError(chunk[k].ID, fmt.Errorf("%s", o.err))
+				}
+				continue
+			}
+			updated++
+			if jw != nil {
+				_ = jw.WriteOK(chunk[k].ID, o.result)
+			}
 		}
-		updated += len(chunk) - len(errIdx)
-		errored += len(errIdx)
 	}
 	return updated, errored, nil
 }
 
-// batchErrorIndex parses a batch endpoint response and returns the
-// within-chunk input index -> message map for per-row errors. Indexes
-// outside [0, chunkLen) are dropped rather than miscounted.
-func batchErrorIndex(resp json.RawMessage, chunkLen int) map[int]string {
-	var parsed struct {
-		Errors []struct {
-			Index   int    `json:"index"`
-			Status  int    `json:"status"`
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	_ = json.Unmarshal(resp, &parsed)
-	errIdx := map[int]string{}
-	for _, e := range parsed.Errors {
-		if e.Index >= 0 && e.Index < chunkLen {
-			errIdx[e.Index] = e.Message
-		}
-	}
-	return errIdx
+type rowOutcome struct {
+	result json.RawMessage
+	err    string
 }
 
-// emitBatchResults parses a batch endpoint response and emits one
-// JSONLResult per input row. HubSpot's batch endpoints return
-// {"status":"COMPLETE", "results":[...], "errors":[...]}; results map to
-// the input row order, errors carry a "category" + "message" + index ref.
-//
-// Mapping strategy:
-//
-//  1. For each "result" item, try to correlate by index (results often
-//     match inputs[i] when no per-row errors).
-//  2. For each "error" item (pre-parsed into errIdx), surface its message
-//     on the row identified by error.index.
-//  3. For rows we couldn't correlate in either bucket, emit OK with an
-//     empty data payload — they were not in the error list, so the
-//     batch accepted them.
-//
-// The agent gets per-row receipts even when HubSpot's response shape
-// is partial; the worst case is "OK with empty data" instead of a
-// detailed echo.
-func emitBatchResults(jw *cliutil.JSONLWriter, chunk []bulkRow, errIdx map[int]string, resp json.RawMessage, idProperty string) {
+// batchOutcome reads one HubSpot batch update/upsert response and decides
+// each input row's fate. It fails closed: a row is updated only when the
+// batch reports COMPLETE and a result names that row by the mode's one key
+// (the record id for updates, only the --id-property value for upserts). An error naming the row (by
+// context.ids or by input index), a non-COMPLETE status (PENDING,
+// PROCESSING, CANCELED) or a missing result makes the row fail.
+func batchOutcome(resp json.RawMessage, chunk []bulkRow, idProperty string) []rowOutcome {
+	out := make([]rowOutcome, len(chunk))
 	var parsed struct {
+		Status  string            `json:"status"`
 		Results []json.RawMessage `json:"results"`
+		Errors  []struct {
+			Index    *int   `json:"index"`
+			Category string `json:"category"`
+			Message  string `json:"message"`
+			Context  struct {
+				IDs []string `json:"ids"`
+			} `json:"context"`
+		} `json:"errors"`
 	}
-	_ = json.Unmarshal(resp, &parsed)
-
-	for i, r := range chunk {
-		if msg, bad := errIdx[i]; bad {
-			_ = jw.WriteError(r.ID, fmt.Errorf("%s", msg))
+	if err := json.Unmarshal(resp, &parsed); err != nil {
+		for k := range out {
+			out[k].err = "unreadable batch response: " + err.Error()
+		}
+		return out
+	}
+	// One correlation key per mode, used for errors and results alike: the
+	// record id for updates, the --id-property value (case-folded) for
+	// upserts. Under --id-property the row's own id is only the caller's
+	// correlation handle and never names a HubSpot record.
+	key := func(r bulkRow) string {
+		if idProperty != "" {
+			return strings.ToLower(strings.TrimSpace(r.IDPropertyValue))
+		}
+		return strings.TrimSpace(r.ID)
+	}
+	normalize := func(v string) string {
+		if idProperty != "" {
+			return strings.ToLower(strings.TrimSpace(v))
+		}
+		return strings.TrimSpace(v)
+	}
+	// A key that is empty or shared by two rows of one batch cannot be
+	// attributed to one row, so every such row fails.
+	seen := map[string]int{}
+	for _, r := range chunk {
+		seen[key(r)]++
+	}
+	for k, r := range chunk {
+		if key(r) == "" {
+			out[k].err = "row has no key the batch response can name"
+		} else if seen[key(r)] > 1 {
+			out[k].err = "row key appears more than once in one batch; its outcome cannot be attributed"
+		}
+	}
+	for _, e := range parsed.Errors {
+		msg := firstNonEmptyString(e.Message, e.Category, "rejected by the batch endpoint")
+		if e.Index != nil && *e.Index >= 0 && *e.Index < len(chunk) {
+			out[*e.Index].err = msg
+		}
+		for _, id := range e.Context.IDs {
+			for k, r := range chunk {
+				if key(r) != "" && key(r) == normalize(id) {
+					out[k].err = msg
+				}
+			}
+		}
+	}
+	if !strings.EqualFold(parsed.Status, "COMPLETE") {
+		for k := range out {
+			if out[k].err == "" {
+				out[k].err = fmt.Sprintf("batch status %q: HubSpot has not completed this update", parsed.Status)
+			}
+		}
+		return out
+	}
+	for _, raw := range parsed.Results {
+		var res struct {
+			ID         string            `json:"id"`
+			Properties map[string]string `json:"properties"`
+		}
+		if json.Unmarshal(raw, &res) != nil {
 			continue
 		}
-		// Prefer the explicit result blob from HubSpot when present;
-		// fall back to a minimal {id, idProperty} envelope so the agent
-		// still gets correlation info.
-		if i < len(parsed.Results) {
-			_ = jw.WriteOK(r.ID, parsed.Results[i])
-			continue
+		for k, r := range chunk {
+			if out[k].err != "" || out[k].result != nil {
+				continue
+			}
+			got := res.ID
+			if idProperty != "" {
+				got = res.Properties[idProperty]
+			}
+			if normalize(got) == key(r) {
+				out[k].result = raw
+			}
 		}
-		minimal, _ := json.Marshal(map[string]string{
-			"id":          r.ID,
-			"id_property": idProperty,
-		})
-		_ = jw.WriteOK(r.ID, minimal)
 	}
+	for k := range out {
+		if out[k].err == "" && out[k].result == nil {
+			out[k].err = "no result for this row in the batch response"
+		}
+	}
+	return out
 }
 
 // emitDryRunReport renders the existing JSON / text dry-run summary,
@@ -722,9 +804,9 @@ func loadContactsPropertySchema(db *store.Store) (map[string]propertyDef, error)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var raw json.RawMessage
+		var raw string
 		if err := rows.Scan(&raw); err != nil {
-			continue
+			return nil, fmt.Errorf("reading contacts property schema: %w", err)
 		}
 		var p struct {
 			Name    string `json:"name"`
@@ -734,8 +816,8 @@ func loadContactsPropertySchema(db *store.Store) (map[string]propertyDef, error)
 				Label string `json:"label"`
 			} `json:"options"`
 		}
-		if err := json.Unmarshal(raw, &p); err != nil {
-			continue
+		if err := json.Unmarshal([]byte(raw), &p); err != nil {
+			return nil, fmt.Errorf("parsing contacts property schema: %w", err)
 		}
 		def := propertyDef{Name: p.Name, Type: p.Type}
 		for _, o := range p.Options {

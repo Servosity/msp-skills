@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -96,6 +96,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`hubspot-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `HUBSPOT_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export HUBSPOT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+hubspot-mcp --transport http
+```
+
+Set `HUBSPOT_MCP_READ_ONLY=1` (exactly `1`) to keep only tools marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write (`teach`, `teach-playbook` and the rest that write only this CLI's own learn store) are dropped too, so the learning loop's writes need the CLI or a server without it.
+
 ## Authentication
 
 Authenticate with a HubSpot Private App access token (prefix `pat-…`). Create one at https://app.hubspot.com/private-apps with CRM read+write scopes, then export it as `HUBSPOT_ACCESS_TOKEN`. The token's scopes determine which commands work  -  `doctor` reports them.
@@ -106,22 +117,17 @@ Authenticate with a HubSpot Private App access token (prefix `pat-…`). Create 
 # First, set HUBSPOT_ACCESS_TOKEN (a Private App token from https://app.hubspot.com/private-apps); then doctor confirms reachability, auth, and scopes
 hubspot-cli doctor
 
-
-# Mirror contacts, companies, deals, engagements, pipelines, owners, properties, and lists into the local SQLite store
+# Mirror contacts, companies, deals (with hs_is_closed), deal pipelines, engagements, owners and lists into the local SQLite store (sync does not collect associations)
 hubspot-cli sync
-
 
 # Re-sync meetings with property snapshots retained in the local hubspot_property_history table
 hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id
 
-
 # Customer-ready monthly report: every meeting that was EVER scheduled in April, even if it later flipped to No Show or Completed
 hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv
 
-
 # Daily 'who do I call' list, ranked offline from the local mirror
 hubspot-cli nurture queue --owner me --top 20 --agent
-
 
 # Per-rep pipeline health  -  one offline SQL aggregation
 hubspot-cli owner-load --pipeline default --json
@@ -130,10 +136,7 @@ hubspot-cli owner-load --pipeline default --json
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Local state that compounds
-
 - **`stale`**  -  Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage  -  instantly, offline.
 
   _Use this when the user asks 'what's gone cold'  -  works after one sync, no API quota burn._
@@ -148,21 +151,21 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   hubspot-cli owner-load --pipeline default --json
   ```
-- **`pipeline-health`**  -  Per-stage rollup of count, $ total, $ at risk (idle deals near their close date), and the oldest-stuck deal  -  one query for a sales-ops dashboard. Closed Lost weighted at probability 0, Closed Won at 1.0.
+- **`pipeline-health`**  -  Per-stage rollup of count, $ total, open $ at risk (open deals idle at least --idle-days), and the oldest open deal's idle days  -  one query for a sales-ops dashboard. A closed deal is never counted as money at risk.
 
-  _Use this for forecast-vs-reality checks before a pipeline review._
+  _Use this for per-stage open-risk checks before a pipeline review; deals forecast answers the weighted forecast._
 
   ```bash
   hubspot-cli pipeline-health default --idle-days 14 --json
   ```
-- **`nurture queue`**  -  Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns.
+- **`nurture queue`**  -  Ranked 'who to contact today' list by stale days, with the rationale exposed as columns. The deal amount and stage probability terms need contact-to-deal associations, which sync does not collect yet, so the output names deal_ranking in not_computed.
 
   _Reach for this in the nurture skill or any daily-touch-list loop where an agent needs a priority order with reasons attached._
 
   ```bash
   hubspot-cli nurture queue --owner me --top 20 --agent
   ```
-- **`deals top`**  -  Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns.
+- **`deals top`**  -  Composite-ranked top-N deals by amount, stage probability and days since contact, with the score breakdown exposed as columns. Needs the deal pipelines stored; the note-signal term needs note-to-deal associations, which sync does not collect yet, so it is reported in not_computed.
 
   _Pick this for sales-lead Monday reviews or when an agent needs the top opportunities ranked by signal-weighted score, not raw amount._
 
@@ -171,7 +174,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Property history & audit
-
 - **`meetings history`**  -  Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)  -  when each value was set, by whom, and from what source.
 
   _Reach for this when investigating 'when did this meeting flip from Scheduled to No Show, and who changed it'. Requires a prior 'sync --resources hubspot-meetings-crm --with-history <props>' to populate the history table._
@@ -184,7 +186,7 @@ These capabilities aren't available in any other tool for this API.
   _Pick this when a customer or audit asks 'every meeting that was at some point in status X during month Y'. Requires a prior 'sync --with-history' capture; the standard /search API cannot answer it._
 
   ```bash
-  hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --json
+  hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-04-01 --to 2026-04-30 --json
   ```
 - **`meetings status-report`**  -  Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set.
 
@@ -200,7 +202,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id
   ```
-- **`deals velocity`**  -  Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot.
+- **`deals velocity`**  -  Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot. A deal whose stage changed after the last --with-history sync, or that has no history, is left out and listed under skipped.
 
   _Use this when the user asks where deals stall or how long deals sit per stage  -  requires a prior sync deals --with-history dealstage._
 
@@ -209,7 +211,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Cross-object intelligence
-
 - **`engagements of`**  -  Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.
 
   _Use this when an agent or human asks 'what touched this prospect/deal'  -  one command instead of five paginated API calls._
@@ -217,12 +218,12 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   hubspot-cli engagements of contact:12345 --since 30d --json
   ```
-- **`notes signals`**  -  Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-deal signal counts with the source note id.
+- **`notes signals`**  -  Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-note signal counts. Grouping by deal and --pipeline need note-to-deal associations, which sync does not collect yet: the output names deal_grouping in not_computed and --pipeline refuses.
 
   _Use this when summarizing what's heating up or cooling off in the pipeline without re-reading every note._
 
   ```bash
-  hubspot-cli notes signals --pipeline default --since 30d --json
+  hubspot-cli notes signals --since 30d --json
   ```
 - **`since`**  -  What changed across contacts, deals, and engagements since a given timestamp  -  agent-friendly cross-object delta.
 
@@ -245,14 +246,14 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   hubspot-cli deals unowned --pipeline default --json
   ```
-- **`contacts win-back`**  -  Contacts attached to a Closed Won deal but with no engagement in N days  -  the customer-expansion and re-engage list.
+- **`contacts win-back`**  -  Contacts attached to a Closed Won deal but with no engagement in N days  -  the customer-expansion and re-engage list. It needs contact-to-deal associations, which sync does not collect yet, so in this build it refuses rather than return an empty list.
 
-  _Use this for post-win expansion outreach  -  distinct from nurture-mine (open-deal cold) and stale (any cold)._
+  _Use this for post-win expansion outreach  -  distinct from nurture-mine (cold contacts) and stale (any cold)._
 
   ```bash
   hubspot-cli contacts win-back --cold-days 90 --json
   ```
-- **`deals forecast`**  -  Probability-weighted pipeline forecast bucketed by close-date month  -  the canonical GM revenue question, answered offline.
+- **`deals forecast`**  -  Probability-weighted pipeline forecast bucketed by close-date month, answered offline from the deal pipelines `hubspot-cli sync` stores; a deal whose stage has no known probability fails the command instead of weighing 0.
 
   _Use this for close-month weighted totals for revenue reviews; pipeline-health answers per-stage risk, forecast answers per-month expectation._
 
@@ -261,8 +262,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Bulk operations
-
-- **`nurture-mine`**  -  Surface the contacts assigned to you that have gone cold but still have open deals  -  the daily 'who do I call' list, computed across local SQLite.
+- **`nurture-mine`**  -  Surface the contacts assigned to you that have gone cold  -  the daily 'who do I call' list, computed across local SQLite. The open-deal filter needs contact-to-deal associations, which sync does not collect yet: every cold contact is listed and not_computed names open_deals.
 
   _Reach for this when an agent or human needs the daily Titans-style nurture queue without round-tripping HubSpot for every prospect._
 
@@ -279,7 +279,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Monthly customer report  -  every meeting EVER scheduled in April
 
 ```bash
@@ -291,7 +290,7 @@ Two commands: refresh meetings with property history retained, then emit the can
 ### Investigate a single meeting's status history
 
 ```bash
-hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --agent --select id,property,value,timestamp,source_type --json
+hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-04-01 --to 2026-04-30 --agent --select meeting_id,title,first_hit_at,current_outcome --json
 ```
 
 Find every meeting touching status Scheduled in April; agent-friendly dotted-path --select keeps only the columns the agent needs, --agent enables compact output.
@@ -302,12 +301,12 @@ Find every meeting touching status Scheduled in April; agent-friendly dotted-pat
 hubspot-cli nurture queue --owner me --top 20 --agent
 ```
 
-Ranked daily contact list with stale-days, deal $, and stage probability columns  -  drop straight into `/nurture today`.
+Ranked daily contact list by stale days  -  drop straight into `/nurture today`. Deal $ and stage probability need contact-to-deal associations, which sync does not collect yet; the output says so in not_computed.
 
 ### Cross-object timeline for a deal
 
 ```bash
-hubspot-cli engagements of deal:1234567 --since 90d --json --select id,type,timestamp,subject,from_owner
+hubspot-cli engagements of deal:1234567 --since 90d --json --select type,id,timestamp,title_or_snippet,outcome
 ```
 
 Every call, email, meeting, note, and task touching the deal in the last 90 days  -  one query replaces five paginated API calls; --select keeps the agent context tight.
@@ -326,7 +325,7 @@ Open deals that have not had an engagement in 21 days, scoped to me, with only t
 hubspot-cli contacts bulk-update --from-csv titans.csv --map email=email,lifecyclestage=Stage --dry-run
 ```
 
-Validate the CSV against the local properties schema before any write; drop --dry-run when the report is clean.
+Validate the CSV against the local properties schema before any write; when the report is clean, replace --dry-run with --yes to send it (above 100 rows, follow the digest confirm it prints).
 
 ## Usage
 
@@ -367,6 +366,15 @@ hubspot-cli doctor
 
 Under `HUBSPOT_HOME=/srv/hubspot`, the four dirs resolve to `/srv/hubspot/config`, `/srv/hubspot/data`, `/srv/hubspot/state`, and `/srv/hubspot/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:HUBSPOT_HOME = "C:\srv\hubspot"
+hubspot-cli doctor
+```
+
+Under `$env:HUBSPOT_HOME = "C:\srv\hubspot"`, the four dirs resolve to `C:\srv\hubspot\config`, `C:\srv\hubspot\data`, `C:\srv\hubspot\state`, and `C:\srv\hubspot\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -387,6 +395,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `HUBSPOT_DATA
 Relocation is one-way. Unsetting `HUBSPOT_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `hubspot-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `hubspot-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `hubspot-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `HUBSPOT_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `HUBSPOT_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -743,6 +761,88 @@ Manage objects search
 - **`hubspot-cli objects-search <objectType>`** - Post crm v3 objects object type search do search
 
 
+### contacts
+
+
+- **`hubspot-cli contacts bulk-update`** - Apply a CSV of property changes to many contacts at once, pre-validating each row against HubSpot's property schema (types, picklists) before any mutation.
+
+- **`hubspot-cli contacts funnel`** - One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios.
+
+- **`hubspot-cli contacts win-back`** - Contacts attached to a Closed Won deal but with no engagement in N days  -  the customer-expansion and re-engage list. It needs contact-to-deal associations, which sync does not collect yet, so in this build it refuses rather than return an empty list.
+
+
+### deals
+
+
+- **`hubspot-cli deals top`** - Composite-ranked top-N deals by amount, stage probability and days since contact, with the score breakdown exposed as columns. Needs the deal pipelines stored; the note-signal term needs note-to-deal associations, which sync does not collect yet, so it is reported in not_computed.
+
+- **`hubspot-cli deals velocity`** - Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history  -  find where deals rot. A deal whose stage changed after the last --with-history sync, or that has no history, is left out and listed under skipped.
+
+- **`hubspot-cli deals unowned`** - Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure  -  the hygiene gap owner-load can't see.
+
+- **`hubspot-cli deals forecast`** - Probability-weighted pipeline forecast bucketed by close-date month, answered offline from the deal pipelines `hubspot-cli sync` stores; a deal whose stage has no known probability fails the command instead of weighing 0.
+
+
+### engagements
+
+
+- **`hubspot-cli engagements of`** - Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company.
+
+
+### meetings
+
+
+- **`hubspot-cli meetings history`** - Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields)  -  when each value was set, by whom, and from what source.
+
+- **`hubspot-cli meetings ever-had`** - Find every meeting whose given property was EVER set to a given value within a date range  -  even if it has since changed.
+
+- **`hubspot-cli meetings status-report`** - Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set.
+
+
+### notes
+
+
+- **`hubspot-cli notes signals`** - Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-note signal counts. Grouping by deal and --pipeline need note-to-deal associations, which sync does not collect yet: the output names deal_grouping in not_computed and --pipeline refuses.
+
+
+### nurture
+
+
+- **`hubspot-cli nurture queue`** - Ranked 'who to contact today' list by stale days, with the rationale exposed as columns. The deal amount and stage probability terms need contact-to-deal associations, which sync does not collect yet, so the output names deal_ranking in not_computed.
+
+
+### nurture-mine
+
+
+- **`hubspot-cli nurture-mine`** - Surface the contacts assigned to you that have gone cold  -  the daily 'who do I call' list, computed across local SQLite. The open-deal filter needs contact-to-deal associations, which sync does not collect yet: every cold contact is listed and not_computed names open_deals.
+
+
+### owner-load
+
+
+- **`hubspot-cli owner-load`** - Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age  -  the Monday-morning sales-lead report.
+
+
+### pipeline-health
+
+
+- **`hubspot-cli pipeline-health`** - Per-stage rollup of count, $ total, open $ at risk (open deals idle at least --idle-days), and the oldest open deal's idle days  -  one query for a sales-ops dashboard. A closed deal is never counted as money at risk.
+
+
+### since
+
+
+- **`hubspot-cli since`** - What changed across contacts, deals, and engagements since a given timestamp  -  agent-friendly cross-object delta.
+
+
+### stale
+
+
+- **`hubspot-cli stale`** - Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage  -  instantly, offline.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -778,6 +878,8 @@ hubspot-cli crm get-v4-objects-object-type-object-id-associations-to-object-type
 hubspot-cli crm get-v4-objects-object-type-object-id-associations-to-object-type-get-page mock-value mock-value mock-value --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -804,9 +906,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `hubspot-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/hubspot-cli/config.toml` (`%USERPROFILE%\.config\hubspot-cli\config.toml` on Windows); `--home`, `HUBSPOT_HOME`, and per-kind env vars can relocate it.
+Run `hubspot-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/hubspot-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\hubspot-cli\config.toml` on Windows; `--home`, `HUBSPOT_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `HUBSPOT_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `HUBSPOT_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -827,14 +931,11 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-
 - **doctor reports 401 or token rejected**  -  Verify `HUBSPOT_ACCESS_TOKEN` starts with `pat-` and was copied without surrounding whitespace; recreate at https://app.hubspot.com/private-apps if rotated
 - **Property history is empty after sync**  -  Sync was run without `--with-history`. Re-run with `--with-history <prop1>,<prop2>` (for example `hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome`)  -  only that path persists the propertiesWithHistory block into the local snapshot table.
 - **Older property history is missing even after --with-history**  -  HubSpot retains property history for ~90 days on free tiers; longer on paid (Professional/Enterprise). Check your account tier  -  the API only returns what HubSpot has kept; the CLI cannot recover snapshots older than the tier limit.
 - **HTTP 429 during sync**  -  HubSpot enforces 110 req / 10s; rerun with `--rate-limit 5` to slow the client, or sync individual objects with `sync --resources contacts`. With `--with-history` the per-object read leg uses GET (not batch search) so it spends more requests  -  narrow `--with-history` to only the properties you actually need.
 - **sync errors with 'MISSING_SCOPES' on a specific object**  -  Open the Private App settings, grant the missing CRM scope (e.g., `crm.objects.deals.read`), and reissue the token. For `--with-history` on meetings, the same `crm.objects.meetings.read` scope is enough  -  property history requires no extra scope.
-
----
 
 ## Sources & Inspiration
 

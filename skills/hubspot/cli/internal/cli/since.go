@@ -76,6 +76,9 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 				switch t {
 				case "engagements":
 					for et, info := range engagementTables {
+						if err := hsRequireCollected(cmd.Context(), db, "since", strings.ReplaceAll(info.Table, "_", "-")); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+							return err
+						}
 						q := fmt.Sprintf(`SELECT id,
   COALESCE(json_extract(data, '$.properties.hs_engagement_title'),
            json_extract(data, '$.properties.hs_task_subject'),
@@ -85,50 +88,59 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
   COALESCE(json_extract(data, '$.properties.hubspot_owner_id'), '') AS owner_id,
   COALESCE(updated_at, '') AS updated_at
 FROM %s
-WHERE updated_at > ?
+WHERE julianday(updated_at) > julianday(?)
   AND (? = '' OR owner_id = ?)
-ORDER BY updated_at DESC
+ORDER BY julianday(updated_at) DESC
 LIMIT ?`, info.Table)
 						if err := scanItems(db, cmd.Context(), q, et, ownerID, cutoff, limit, &rows); err != nil {
 							return err
 						}
 					}
 				case "deals":
+					if err := hsRequireCollected(cmd.Context(), db, "since", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+						return err
+					}
 					q := `SELECT id,
   COALESCE(json_extract(data, '$.properties.dealname'), '') AS name,
   COALESCE(json_extract(data, '$.properties.hubspot_owner_id'), '') AS owner_id,
   COALESCE(updated_at, '') AS updated_at
 FROM hubspot_deals_crm
-WHERE updated_at > ?
+WHERE julianday(updated_at) > julianday(?)
   AND (? = '' OR owner_id = ?)
-ORDER BY updated_at DESC
+ORDER BY julianday(updated_at) DESC
 LIMIT ?`
 					if err := scanItems(db, cmd.Context(), q, "deals", ownerID, cutoff, limit, &rows); err != nil {
 						return err
 					}
 				case "contacts":
+					if err := hsRequireCollected(cmd.Context(), db, "since", "hubspot-contacts-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+						return err
+					}
 					q := `SELECT id,
   TRIM(COALESCE(json_extract(data, '$.properties.firstname'), '') || ' ' ||
        COALESCE(json_extract(data, '$.properties.lastname'), '')) AS name,
   COALESCE(json_extract(data, '$.properties.hubspot_owner_id'), '') AS owner_id,
   COALESCE(updated_at, '') AS updated_at
 FROM hubspot_contacts_crm
-WHERE updated_at > ?
+WHERE julianday(updated_at) > julianday(?)
   AND (? = '' OR owner_id = ?)
-ORDER BY updated_at DESC
+ORDER BY julianday(updated_at) DESC
 LIMIT ?`
 					if err := scanItems(db, cmd.Context(), q, "contacts", ownerID, cutoff, limit, &rows); err != nil {
 						return err
 					}
 				case "companies":
+					if err := hsRequireCollected(cmd.Context(), db, "since", "hubspot-companies-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+						return err
+					}
 					q := `SELECT id,
   COALESCE(json_extract(data, '$.properties.name'), '') AS name,
   COALESCE(json_extract(data, '$.properties.hubspot_owner_id'), '') AS owner_id,
   COALESCE(updated_at, '') AS updated_at
 FROM hubspot_companies_crm
-WHERE updated_at > ?
+WHERE julianday(updated_at) > julianday(?)
   AND (? = '' OR owner_id = ?)
-ORDER BY updated_at DESC
+ORDER BY julianday(updated_at) DESC
 LIMIT ?`
 					if err := scanItems(db, cmd.Context(), q, "companies", ownerID, cutoff, limit, &rows); err != nil {
 						return err
@@ -138,7 +150,7 @@ LIMIT ?`
 				}
 			}
 
-			sort.Slice(rows, func(i, j int) bool { return rows[i].UpdatedAt > rows[j].UpdatedAt })
+			sort.SliceStable(rows, func(i, j int) bool { return hsNewerFirst(rows[i].UpdatedAt, rows[j].UpdatedAt) })
 			if limit > 0 && len(rows) > limit {
 				rows = rows[:limit]
 			}

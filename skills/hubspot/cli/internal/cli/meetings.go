@@ -15,8 +15,8 @@ func newNovelMeetingsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "meetings",
 		Short:       "Property history & audit",
-		Example:     "  hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30 --json",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Example:     "  hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-04-01 --to 2026-04-30 --json",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelMeetingsEverHadCmd(flags))

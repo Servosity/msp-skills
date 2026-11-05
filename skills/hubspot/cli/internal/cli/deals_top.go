@@ -5,7 +5,6 @@ package cli
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -27,7 +26,7 @@ func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "top",
 		Short:       "Top-N deals by composite score (signal x amount x stage x recency)",
-		Long:        `Score = signal_score * 2 + log(amount) * 1.5 + stage_probability * 3 + recency_score * 2. Reads from the local SQLite mirror.`,
+		Long:        `Score = signal_score * 2 + log(amount) * 1.5 + stage_probability * 3 + recency_score * 2. Reads from the local SQLite mirror. A deal whose stage has no known probability (the deal pipelines are not in the local store) fails the command instead of scoring 0. signal_score needs note-to-deal associations, which this build's sync does not collect: without them it is reported in not_computed and every deal's signal_score is 0.`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli deals top --top 5 --owner me
   hubspot-cli deals top --top 10 --filter 'pipeline=default'`,
@@ -56,18 +55,24 @@ func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
 				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
 			}
+			if err := hsRequireCollected(cmd.Context(), db, "deals top", "hubspot-deals-crm", expr.FieldsReferenced()...); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 			ownerID, err := resolveOwnerArg(db, owner)
 			if err != nil {
 				return err
 			}
 
-			stageProb, err := loadAllStageProbabilities(db)
+			pricer, err := newDealStagePricer(db)
 			if err != nil {
 				return err
 			}
 
-			var assocCount int
-			_ = db.DB().QueryRow(`SELECT COUNT(*) FROM hubspot_associations`).Scan(&assocCount)
+			assocCount, err := hsAssociationCount(db)
+			if err != nil {
+				return err
+			}
+			gaps := newHSReportGaps()
 			source := "local"
 			signalByDeal := map[string]struct {
 				Buying  int
@@ -76,9 +81,15 @@ func newNovelDealsTopCmd(flags *rootFlags) *cobra.Command {
 				TopLost string
 			}{}
 			if assocCount > 0 {
-				signalByDeal = computeDealSignals(db)
+				if err := hsRequireCollected(cmd.Context(), db, "deals top", "hubspot-notes-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+					return err
+				}
+				if signalByDeal, err = computeDealSignals(db); err != nil {
+					return err
+				}
 			} else {
 				source = "local-no-associations"
+				gaps.associationGap(cmd, "note_signals", "signal_score is 0 for every deal, so the ranking uses amount, stage probability and recency only")
 			}
 
 			q := `
@@ -96,7 +107,7 @@ SELECT id,
   ))) AS INTEGER) AS idle_days
 FROM hubspot_deals_crm
 WHERE COALESCE(archived, 0) = 0
-  AND stage NOT IN ('closedwon', 'closedlost')
+  AND NOT ` + dealClosedSQL("") + `
   AND (? = '' OR pipeline = ?)
   AND (? = '' OR owner_id = ?)`
 			queryArgs := []interface{}{pipeline, pipeline, ownerID, ownerID}
@@ -138,7 +149,7 @@ WHERE COALESCE(archived, 0) = 0
 					return err
 				}
 				stageStr := nullStr(stage)
-				probability := stageProb[stageStr]
+				probability := pricer.price(stageStr, "deal "+nullStr(id))
 				amount := nullF(amt)
 				logAmt := math.Log(math.Max(amount, 1))
 				idleD := nullI(idle)
@@ -161,6 +172,11 @@ WHERE COALESCE(archived, 0) = 0
 			if err := rows.Err(); err != nil {
 				return fmt.Errorf("iterating deal rows: %w", err)
 			}
+			// Every candidate is scored before --top, so one unpriced deal
+			// makes the whole ranking unknown.
+			if err := pricer.err("deals top"); err != nil {
+				return err
+			}
 			sort.Slice(items, func(i, j int) bool { return items[i].Score > items[j].Score })
 			if topN > 0 && len(items) > topN {
 				items = items[:topN]
@@ -170,10 +186,10 @@ WHERE COALESCE(archived, 0) = 0
 			}
 
 			if flags.asJSON {
-				return flags.printJSON(cmd, map[string]any{
+				return flags.printJSON(cmd, gaps.envelope(map[string]any{
 					"data_source": source,
 					"results":     items,
-				})
+				}))
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "data_source: %s\n", source)
 			headers := []string{"rank", "id", "name", "amount", "stage", "probability", "owner", "idle_days", "score", "top_buying_signal", "top_lost_signal"}
@@ -200,51 +216,13 @@ WHERE COALESCE(archived, 0) = 0
 	return cmd
 }
 
-// loadAllStageProbabilities flattens all pipelines' stages into a stageId -> probability map.
-func loadAllStageProbabilities(db *store.Store) (map[string]float64, error) {
-	out := map[string]float64{}
-	rows, err := db.DB().Query(`SELECT data FROM hubspot_pipelines_crm WHERE COALESCE(archived,0)=0`)
-	if err != nil {
-		return out, nil
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var raw json.RawMessage
-		if err := rows.Scan(&raw); err != nil {
-			continue
-		}
-		var pl struct {
-			Stages []struct {
-				StageID  string         `json:"stageId"`
-				Metadata map[string]any `json:"metadata"`
-			} `json:"stages"`
-		}
-		if err := json.Unmarshal(raw, &pl); err != nil {
-			continue
-		}
-		for _, s := range pl.Stages {
-			p := 0.0
-			if v, ok := s.Metadata["probability"]; ok {
-				switch x := v.(type) {
-				case float64:
-					p = x
-				case string:
-					_, _ = fmt.Sscanf(x, "%f", &p)
-				}
-			}
-			out[s.StageID] = p
-		}
-	}
-	return out, nil
-}
-
 // computeDealSignals walks notes_signals semantics inline and returns buying/lost counts per deal.
-func computeDealSignals(db *store.Store) map[string]struct {
+func computeDealSignals(db *store.Store) (map[string]struct {
 	Buying  int
 	Lost    int
 	TopBuy  string
 	TopLost string
-} {
+}, error) {
 	out := map[string]struct {
 		Buying  int
 		Lost    int
@@ -258,13 +236,13 @@ FROM hubspot_associations a
 JOIN hubspot_notes_crm n ON n.id = a.from_id
 WHERE a.from_type = 'notes' AND a.to_type = 'deals'`)
 	if err != nil {
-		return out
+		return nil, fmt.Errorf("reading note signals: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var dealID, body string
 		if err := rows.Scan(&dealID, &body); err != nil {
-			continue
+			return nil, fmt.Errorf("reading note signals: %w", err)
 		}
 		text := stripHTML(body)
 		b, bk := scanRegexHits(text, buyingSignals)
@@ -280,5 +258,8 @@ WHERE a.from_type = 'notes' AND a.to_type = 'deals'`)
 		}
 		out[dealID] = s
 	}
-	return out
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading note signals: %w", err)
+	}
+	return out, nil
 }

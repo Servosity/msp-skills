@@ -22,7 +22,7 @@ func newNovelContactsWinBackCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "win-back",
 		Short:       "Contacts on Closed Won deals gone cold — the post-win re-engagement list",
-		Long:        "Join Closed Won deals to their associated contacts and surface those with no engagement in N days — the customer-expansion / re-engage motion.\n\nUse this command for post-win customer re-engagement/expansion.\nDo NOT use this command for open-deal cold contacts; use 'nurture-mine' instead.\nDo NOT use this command for generic no-engagement detection; use 'stale' instead.",
+		Long:        "Join Closed Won deals to their associated contacts and surface those with no engagement in N days: the customer-expansion / re-engage motion. It needs contact-to-deal associations, which this build's sync does not collect: with none in the local store the command fails rather than report that no customer has gone cold.\n\nUse this command for post-win customer re-engagement/expansion.\nDo NOT use this command for open-deal cold contacts; use 'nurture-mine' instead.\nDo NOT use this command for generic no-engagement detection; use 'stale' instead.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli contacts win-back --cold-days 90
   hubspot-cli contacts win-back --owner me --cold-days 120 --limit 25`,
@@ -89,14 +89,22 @@ type winBackRow struct {
 
 func queryContactsWinBack(cmd *cobra.Command, db *store.Store, ownerID string, coldDays, limit int) ([]winBackRow, error) {
 	items := []winBackRow{}
+	if err := hsRequireCollected(cmd.Context(), db, "contacts win-back", "hubspot-contacts-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return items, err
+	}
+	if err := hsRequireCollected(cmd.Context(), db, "contacts win-back", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return items, err
+	}
 
-	// Requires the association table to know which contacts are attached to a
-	// Closed Won deal. Absence is tolerated (error-ignored COUNT, mirroring
-	// nurture_mine.go); with no associations there is nothing to surface.
-	var assocCount int
-	_ = db.DB().QueryRow(`SELECT COUNT(*) FROM hubspot_associations`).Scan(&assocCount)
+	// The whole answer is the contact-to-deal join: with no association rows
+	// the store cannot say which contacts sit on a Closed Won deal, and an
+	// empty list would claim that no won customer has gone cold. Refuse.
+	assocCount, err := hsAssociationCount(db)
+	if err != nil {
+		return nil, err
+	}
 	if assocCount == 0 {
-		return items, nil
+		return nil, fmt.Errorf("contacts win-back needs contact-to-deal associations to know which contacts are on a Closed Won deal, and %s, so it cannot answer (an empty list would claim no won customer has gone cold). To check one contact's deals live: 'hubspot-cli crm get-v4-objects-object-type-object-id-associations-to-object-type-get-page contacts <contact-id> deals'", hsAssociationsNotCollected)
 	}
 
 	// One row per (contact, closedwon deal). idle_days computed via stale.go's
@@ -125,7 +133,7 @@ SELECT * FROM (
   JOIN hubspot_deals_crm d
     ON d.id = a.to_id
    AND COALESCE(d.archived, 0) = 0
-   AND json_extract(d.data, '$.properties.dealstage') = 'closedwon'
+   AND ` + dealWonSQL("d") + `
   WHERE COALESCE(c.archived, 0) = 0
     AND (? = '' OR json_extract(c.data, '$.properties.hubspot_owner_id') = ?)
 )

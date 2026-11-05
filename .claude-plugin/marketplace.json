@@ -454,7 +454,7 @@
     {
       "name": "hubspot",
       "source": "./skills/hubspot",
-      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
+      "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
       "version": "0.2.4",
       "category": "crm",
       "tags": [

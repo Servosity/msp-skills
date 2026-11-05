@@ -16,7 +16,7 @@ func newNovelNurtureCmd(flags *rootFlags) *cobra.Command {
 		Use:         "nurture",
 		Short:       "Local state that compounds",
 		Example:     "  hubspot-cli nurture queue --owner me --top 20 --agent",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelNurtureQueueCmd(flags))
