@@ -266,7 +266,18 @@ const mcpMaxUploadBytes = 100 << 20 // 100 MiB
 // "", ".", and ".." are rejected) and falls back to the parameter name. In the
 // opt-in path mode the filename is derived from the confined path's base name
 // and filenameHint is ignored.
+// mcpUploadsRefused keeps every MCP upload refused (appdirect handfix
+// mcp-upload-refused); the code below it stays for a later release that
+// proves an upload root safe.
+var mcpUploadsRefused = true
+
 func resolveMCPMultipartFile(field, filenameHint string, v any) (string, func(), error) {
+	// appdirect handfix: mcp-upload-refused. This MCP server takes no file
+	// content and no host path from a tool call (0.1.8 behavior); uploads run
+	// with the CLI. Refused before any byte is decoded or any path is opened.
+	if mcpUploadsRefused {
+		return "", nil, fmt.Errorf("refusing multipart file parameter %q: this MCP server takes no file content or path from a tool call; run the matching appdirect-cli command with its file flag instead", field)
+	}
 	raw, ok := v.(string)
 	if !ok {
 		return "", nil, fmt.Errorf("multipart file parameter %q must be a string over MCP (base64-encoded file content, or a path when %s is set)", field, mcpUploadRootEnvVar)

@@ -951,7 +951,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `appdirect-mcp --transport http` requires `APPDIRECT_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `APPDIRECT_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `APPDIRECT_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `appdirect-mcp --transport http` requires `APPDIRECT_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `APPDIRECT_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `APPDIRECT_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

@@ -1606,6 +1606,43 @@
      "not_contains": "func TestAgentcookieMarkerKeepsCredentialsInConfig("
     }
    ]
+  },
+  {
+   "id": "mcp-upload-refused",
+   "class": "mcp-file-flag",
+   "status": "active",
+   "summary": "the MCP server refuses the six upload (multipart) endpoints before any request and names the CLI command; no endpoint offers a file parameter over MCP, and the typed-tool upload resolver refuses base64 content and paths alike, upload root set or not",
+   "why": "Since 0.1.8 this connector's MCP server takes no file from a tool call; uploads run with the CLI. Press 4.34.2 re-offers the six AppDirect upload endpoints over MCP with base64 content or an opt-in upload root. Keeping 0.1.8's behavior means the reprint exposes nothing new (work order criterion 6). Same shape as immybot mcp-upload-refused.",
+   "spec_encode_followup": "Press option to omit MCP multipart uploads per connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "FileParams:     []string{\""
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "it uploads a file, and this MCP server takes no file content or path from a tool call",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "var mcpUploadsRefused = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if mcpUploadsRefused {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/appdirect_upload_refused_test.go",
+     "contains": "func TestUploadEndpointsAreRefusedOverMCP(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

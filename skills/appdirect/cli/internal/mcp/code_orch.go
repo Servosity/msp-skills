@@ -253,7 +253,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{{PublicName: "inviterUuid", WireName: "inviterUuid"}},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"invitations"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("account", "resource-company-invite-csvusers-post", "Invite multiple users to a marketplace company using a CSV file.", "/account/v2/companies/{companyUuid}/invitations/csv"),
@@ -4268,7 +4267,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"file"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("product-uploader-api", "resource-data-uploader-create-catalog-post", "Create a new product catalog using a CSV file.", "/api/v1/product-uploader-api/createCatalog"),
@@ -4283,7 +4281,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"file"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("product-uploader-api", "resource-data-uploader-publish-catalog-post", "Publish a product catalog using a CSV file. This endpoint makes the catalog available for use in the marketplace.", "/api/v1/product-uploader-api/publishCatalog"),
@@ -4298,7 +4295,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"file"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("product-uploader-api", "resource-data-uploader-update-catalog-post", "Update an existing product catalog using a CSV file.", "/api/v1/product-uploader-api/updateCatalog"),
@@ -4339,7 +4335,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"file"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "upload-and-link-image", "Uploads an image file and links it to a specific product resource.", "/products/v1/resources/image/uploadAndLink"),
@@ -4354,7 +4349,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Multipart:      true,
-		FileParams:     []string{"file"},
 		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "upload-and-link-pdf-file", "Uploads a PDF file and links it to a specific product as documentation or resource material.", "/products/v1/resources/file/uploadAndLink"),
@@ -4542,12 +4536,8 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 	if ep.Page.CursorParam != "" {
 		out["cursor_param"] = ep.Page.CursorParam
 	}
-	if ep.Multipart {
-		out["multipart"] = map[string]any{
-			"file_params":    ep.FileParams,
-			"file_value":     "base64-encoded file content",
-			"filename_param": "optional <param>_filename sets the upload filename (servers may sniff format by extension); defaults to the parameter name",
-		}
+	if ep.Multipart { // appdirect handfix: mcp-upload-refused
+		out["multipart"] = "uploads a file: refused over MCP; run " + codeOrchUploadCLI(ep.ID) + " instead"
 	}
 	return out
 }
@@ -4669,6 +4659,11 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	return codeOrchInvoke(ctx, req, true)
 }
 
+// codeOrchUploadCLI names the CLI command that runs an upload endpoint.
+func codeOrchUploadCLI(id string) string {
+	return "appdirect-cli " + strings.ReplaceAll(id, ".", " ")
+}
+
 func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -4683,6 +4678,12 @@ func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool
 	method := codeOrchNormalizeMethod(ep.Method)
 	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
 		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	// appdirect handfix: mcp-upload-refused. No MCP upload (0.1.8 behavior):
+	// this server takes no file content and no host path from a tool call, so
+	// every multipart endpoint is refused before any request, confirmed or not.
+	if ep.Multipart {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s: it uploads a file, and this MCP server takes no file content or path from a tool call; run %s with its file flag instead", id, codeOrchUploadCLI(id))), nil
 	}
 
 	params, _ := args["params"].(map[string]any)

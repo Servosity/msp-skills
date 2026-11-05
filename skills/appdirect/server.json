@@ -86,7 +86,7 @@
         },
         {
           "name": "APPDIRECT_MCP_UPLOAD_ROOT",
-          "description": "Optional. Leave blank: an MCP tool that uploads a file (a user CSV, a catalog file, a product PDF) then takes the file content base64-encoded. Set it to a folder to also accept a file path, confined to that folder.",
+          "description": "Optional. Leave blank. Reserved for MCP file uploads: the AppDirect MCP server refuses every upload in this release (a user CSV, a catalog file, a product image or PDF) and names the CLI command to run instead, so the server never opens a local path and this setting has no effect.",
           "isRequired": false,
           "isSecret": false
         },

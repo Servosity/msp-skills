@@ -14,6 +14,7 @@ Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command and MCP 
 - **The client pair goes only to your own marketplace.** The token is minted from `APPDIRECT_TOKEN_URL`, else `/oauth2/token` on the host of `APPDIRECT_BASE_URL`, so a reseller marketplace mints from itself. A credential sent to any other host, over plain `http://`, or across a redirect to another host is refused before it is sent. A blank `APPDIRECT_BASE_URL` counts as unset, so the configured marketplace is used.
 - **A token is only sent for the client and marketplace it was minted for.** A client pair from the environment mints its own token and keeps it in memory; only a pair stored in `credentials.toml` (mode 0600) has its token saved beside it.
 - **Every MCP write previews first.** A tool call that changes AppDirect returns a preview and sends only when called again with `confirm: true`, and a tool argument can never name a file to read or write.
+- **The MCP server still takes no file for an upload.** The six upload endpoints (user CSV invitations, catalog create, publish and update, product image and PDF) are refused over MCP, with or without `confirm`, and the refusal names the `appdirect-cli` command to run instead. `APPDIRECT_MCP_UPLOAD_ROOT` has no effect in this release.
 - **Startup refusals reach you.** An MCP server that refuses to start (no HTTP token, a non-loopback address without TLS) prints its reason before it exits, and `appdirect-mcp -h` prints its usage.
 - Updated `golang.org/x/text` to v0.42.0 and `mark3labs/mcp-go` to v0.57.0.
 
