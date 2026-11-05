@@ -72,3 +72,11 @@ func TestLoadEnvTokenBeatsKeyPair(t *testing.T) {
 		t.Errorf("GradientToken = %q, want explicit env token to win", cfg.GradientToken)
 	}
 }
+
+func TestDeriveGradientTokenIgnoresUnresolvedBundlePlaceholder(t *testing.T) {
+	t.Setenv(EnvVendorAPIKey, "${user_config.gradient_vendor_api_key}")
+	t.Setenv(EnvPartnerAPIKey, "pk_456")
+	if token, _ := DeriveGradientToken(); token != "" {
+		t.Fatalf("an unresolved .mcpb placeholder was used as a key: token %q", token)
+	}
+}

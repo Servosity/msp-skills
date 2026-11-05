@@ -36,8 +36,8 @@ became tickets. Do NOT use this command to dispatch a new alert; use
 The Synthesize API has no list route for dispatched alerts; the local alert
 ledger written by 'alert send' is the only record. Each entry carries the
 messageId, account, dispatch time, and last-known ticket state. --stuck
-filters to alerts still pending or timed out - the queue-debugging work
-queue.
+filters to alerts that never became tickets (pending, timed out, or failed
+with Gradient's reason) - the queue-debugging work queue.
 `, "\n"),
 		Example: strings.Trim(`
   gradient-cli alert trace --agent
@@ -69,7 +69,9 @@ queue.
 			view := alertTraceView{Alerts: []ledger.AlertRecord{}}
 			view.Total = len(alerts)
 			for _, a := range alerts {
-				stuck := a.TicketStatus == "pending" || a.TicketStatus == "timeout"
+				// Fail closed: every state but created (pending, timeout, failed,
+				// or anything else) is an alert without a ticket.
+				stuck := a.TicketStatus != alertTicketCreated
 				if stuck {
 					view.StuckCount++
 				}
@@ -91,7 +93,7 @@ queue.
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&flagStuck, "stuck", false, "Only alerts still pending or timed out (never became tickets)")
+	cmd.Flags().BoolVar(&flagStuck, "stuck", false, "Only alerts that never became tickets (pending, timed out or failed)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 25, "Maximum alerts to return, newest first (0 = all)")
 	return cmd
 }

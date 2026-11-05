@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - unreleased
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.2** (security release, [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).
+- **MCP HTTP mode now needs a token.** `gradient-mcp --transport http` refuses to start until `GRADIENT_MCP_HTTP_TOKEN` is set, every request must send it as a bearer header, it listens on 127.0.0.1:7777 by default, and any other address also needs `--tls-cert` and `--tls-key`.
+- **MCP tools that change Gradient data preview first.** They send only when the call repeats with `confirm: true`. `GRADIENT_MCP_READ_ONLY=1` exposes only read tools.
+- **Credentials: `GRADIENT_TOKEN` alone, or the vendor and partner API keys together.** The server builds the token from the pair; the token wins when both are set.
+
+### Security
+- **One shared credential layer.** The CLI and MCP server now use the msp-skills credential kit: every credential the program holds is known before anything prints, any output unit that repeats one in any encoding (stdout, stderr, files, the local store, MCP results) is replaced whole by a notice, and a credential is sent only to the configured Gradient API over https.
+- **The learn journal no longer records text typed in place of a flag name,** and a `GRADIENT_LEARN_SESSION` value is stored hashed.
+
 ## [0.1.8] - 2026-10-23
 
 ### Security

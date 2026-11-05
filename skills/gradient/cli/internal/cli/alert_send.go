@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -128,7 +129,7 @@ ledger that powers 'alert trace'.
 			path := replacePathParam("/vendor-api/alerting/{accountId}", "accountId", flagAccount)
 			data, _, err := c.Post(cmd.Context(), path, body)
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("dispatching alert: %w", err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("dispatching alert: %w", err), flags)
 			}
 			var created struct {
 				MessageID string `json:"messageId"`
@@ -198,22 +199,32 @@ ledger that powers 'alert trace'.
 			start := time.Now()
 			deadline := start.Add(timeout)
 			debugPath := replacePathParam("/vendor-api/alerting/debug/{messageId}", "messageId", created.MessageID)
+			var lastCheck string
 			for {
 				dbg, err := c.GetNoCache(cmd.Context(), debugPath, nil)
-				if err == nil {
-					var ticket struct {
-						TicketID string `json:"ticketId"`
-						Status   string `json:"status"`
+				if err != nil {
+					lastCheck = err.Error()
+				} else {
+					st := readAlertDebug(dbg)
+					lastCheck = st.Detail
+					if st.State == alertTicketFailed {
+						view.TicketStatus = alertTicketFailed
+						view.TicketID = st.TicketID
+						view.Note = "Gradient reports this alert did not become a ticket: " + st.Detail + "; fix the cause and dispatch it again"
+						break
 					}
-					if json.Unmarshal(dbg, &ticket) == nil && ticket.TicketID != "" {
-						view.TicketID = ticket.TicketID
-						view.TicketStatus = "created"
+					if st.State == alertTicketCreated {
+						view.TicketID = st.TicketID
+						view.TicketStatus = alertTicketCreated
 						break
 					}
 				}
 				if time.Now().After(deadline) {
 					view.TicketStatus = "timeout"
 					view.Note = fmt.Sprintf("no ticket after %s; the queue may be slow - re-check with 'alert trace --stuck'", timeout)
+					if lastCheck != "" {
+						view.Note += " (last check: " + lastCheck + ")"
+					}
 					break
 				}
 				select {
@@ -231,11 +242,22 @@ ledger that powers 'alert trace'.
 				rec.TicketID = view.TicketID
 				rec.TicketStatus = view.TicketStatus
 				rec.CheckedAt = time.Now().UTC()
+				if view.TicketStatus == alertTicketFailed {
+					rec.Error = view.Note
+				}
 				if _, err := ledger.UpdateAlert(dir, rec); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "warning: ledger update failed: %v\n", err)
 				}
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
+			if err := printJSONFiltered(cmd.OutOrStdout(), view, flags); err != nil {
+				return err
+			}
+			if view.TicketStatus == alertTicketFailed {
+				// A documented failure is a failed command: exit non-zero so an
+				// exit-code-gated caller does not read it as dispatched.
+				return fmt.Errorf("alert %s did not become a ticket (see note)", created.MessageID)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&flagAccount, "account", "", "Account id (as provided by the vendor) the alert belongs to")
@@ -250,4 +272,98 @@ ledger that powers 'alert trace'.
 	cmd.Flags().DurationVar(&flagTimeout, "timeout-wait", 2*time.Minute, "Maximum time to wait for the ticket with --wait")
 	cmd.Flags().DurationVar(&flagInterval, "interval", 5*time.Second, "Poll interval with --wait")
 	return cmd
+}
+
+// Ticket states an alert dispatch can end in (the alert ledger's
+// ticket_status). Only alertTicketCreated means a PSA ticket exists.
+const (
+	alertTicketCreated = "created"
+	alertTicketFailed  = "failed"
+	alertTicketPending = "pending"
+)
+
+// alertDebugState is one reading of the ticket-event debug route.
+type alertDebugState struct {
+	State    string // alertTicketCreated, alertTicketFailed or alertTicketPending
+	TicketID string
+	Detail   string // Gradient's message, status and errors, for the note
+}
+
+// readAlertDebug is the one parser of GET /vendor-api/alerting/debug/{messageId}
+// (spec.json#/components/schemas/RetrieveAlertResponseDto: ticketId,
+// createdAt, message, messageId, status "failed" | "pending" | "success",
+// statusCode "if there was an error processing the Alert into a Ticket",
+// errors "on failure"). Any failure signal wins, whatever the other members
+// say (gradient handfix alert-failure-is-terminal, Codex r1 class documented
+// alert failure reported as timeout): a status reading failed, any populated
+// errors member (whatever its JSON type), or a statusCode outside 2xx. A
+// ticket counts as created only with a ticketId and no failure signal;
+// anything else is still pending (polling continues to the deadline).
+func readAlertDebug(body []byte) alertDebugState {
+	var raw struct {
+		TicketID   string          `json:"ticketId"`
+		Status     json.RawMessage `json:"status"`
+		StatusCode json.RawMessage `json:"statusCode"`
+		Message    json.RawMessage `json:"message"`
+		Errors     json.RawMessage `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return alertDebugState{State: alertTicketPending, Detail: "unreadable debug response"}
+	}
+	status := strings.ToLower(strings.TrimSpace(jsonScalarText(raw.Status)))
+	code := strings.TrimSpace(jsonScalarText(raw.StatusCode))
+	var detail []string
+	if m := strings.TrimSpace(jsonScalarText(raw.Message)); m != "" {
+		detail = append(detail, m)
+	}
+	if status != "" {
+		detail = append(detail, "status "+status)
+	}
+	failed := status == "failed" || status == "failure" || status == "error"
+	if code != "" && code != "0" {
+		detail = append(detail, "statusCode "+code)
+		if n, err := strconv.ParseFloat(code, 64); err != nil || n < 200 || n >= 300 {
+			failed = true
+		}
+	}
+	if populatedJSON(raw.Errors) {
+		failed = true
+		detail = append(detail, "errors "+strings.TrimSpace(string(raw.Errors)))
+	}
+	st := alertDebugState{TicketID: raw.TicketID, Detail: strings.Join(detail, "; ")}
+	switch {
+	case failed:
+		st.State = alertTicketFailed
+		if st.Detail == "" {
+			st.Detail = "failure reported"
+		}
+	case strings.TrimSpace(raw.TicketID) != "":
+		st.State = alertTicketCreated
+	default:
+		st.State = alertTicketPending
+	}
+	return st
+}
+
+// jsonScalarText is a JSON string's text, or any other scalar as written.
+func jsonScalarText(m json.RawMessage) string {
+	var s string
+	if json.Unmarshal(m, &s) == nil {
+		return s
+	}
+	t := strings.TrimSpace(string(m))
+	if t == "null" {
+		return ""
+	}
+	return t
+}
+
+// populatedJSON reports a member that carries anything: not absent, null,
+// false, 0, "", [] or {}.
+func populatedJSON(m json.RawMessage) bool {
+	switch strings.Join(strings.Fields(string(m)), "") {
+	case "", "null", "false", "0", `""`, "[]", "{}":
+		return false
+	}
+	return true
 }

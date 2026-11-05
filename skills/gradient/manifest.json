@@ -15,10 +15,15 @@
       "command": "${__dirname}/bin/gradient-mcp",
       "args": [],
       "env": {
+        "GRADIENT_TOKEN": "${user_config.gradient_token}",
         "GRADIENT_BASE_URL": "${user_config.gradient_base_url}",
         "GRADIENT_PARTNER_API_KEY": "${user_config.gradient_partner_api_key}",
-        "GRADIENT_TOKEN": "${user_config.gradient_token}",
-        "GRADIENT_VENDOR_API_KEY": "${user_config.gradient_vendor_api_key}"
+        "GRADIENT_VENDOR_API_KEY": "${user_config.gradient_vendor_api_key}",
+        "GRADIENT_MCP_READ_ONLY": "${user_config.gradient_mcp_read_only}",
+        "GRADIENT_NO_LOCAL_DATA": "${user_config.gradient_no_local_data}",
+        "GRADIENT_USER_AGENT": "${user_config.gradient_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "GRADIENT_MCP_HTTP_TOKEN": "${user_config.gradient_mcp_http_token}"
       }
     }
   },
@@ -26,23 +31,23 @@
     "gradient_token": {
       "type": "string",
       "title": "GRADIENT_TOKEN",
-      "description": "Sets GRADIENT_TOKEN for the Gradient MSP MCP server.",
+      "description": "The GRADIENT-TOKEN header value, base64(\"<vendorApiKey>:<partnerApiKey>\"). Leave empty when you fill in the vendor and partner API keys; when set, it is used instead of them.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "gradient_partner_api_key": {
       "type": "string",
       "title": "Gradient partner API key",
-      "description": "Partner API key issued alongside the vendor key. Both halves are sent in the GRADIENT-TOKEN header.",
+      "description": "Synthesize partner API key, issued with the vendor key. Fill in this and the vendor key, or GRADIENT_TOKEN alone.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "gradient_vendor_api_key": {
       "type": "string",
       "title": "Gradient vendor API key",
-      "description": "Vendor API key from Synthesize (Integrations > Custom > Generate API Tokens). Shown once.",
+      "description": "Synthesize vendor API key (Integrations -> Custom -> Generate API Tokens). Fill in this and the partner key, or GRADIENT_TOKEN alone.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "gradient_base_url": {
       "type": "string",
@@ -50,6 +55,41 @@
       "description": "Base URL for the Gradient MSP API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://app.usegradient.com/api"
+    },
+    "gradient_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "gradient_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "gradient_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Gradient MSP requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "gradient_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -60,11 +100,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:26:10.503559Z",
-    "spec_checksum": "sha256:28e232440e648e5601ff5b25e974ae181744bee8f13ef22c27ccd18db86a9500",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T17:21:48.081673Z",
+    "spec_checksum": "sha256:8052c1f5db7fcec0cd982ecf1234a6de8ac69a210585cb492498cb5deb53f537",
     "spec_format": "openapi3"
   }
 }
