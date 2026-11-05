@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Changed
 - Rebuilt on cli-printing-press 4.34.2 (see GHSA-jh26-vhqh-692c for why the press was upgraded). The MCP server's HTTP mode now requires a bearer token (`KASEYA_BMS_MCP_HTTP_TOKEN`), listens on loopback by default and refuses browser origins it was not told to allow.
