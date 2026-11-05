@@ -1027,7 +1027,7 @@
    "id": "credkit-wiring",
    "class": "credential-kit",
    "status": "active",
-   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal (SecretEnv PAX8_CLIENT_ID, PAX8_CLIENT_SECRET, PAX8_COOKIE and PAX8_MCP_HTTP_TOKEN; URLEnv PAX8_TOKEN_URL and PAX8_FEEDBACK_ENDPOINT; Files = the config the run really uses first, then the 0600 credential store and the legacy config, with every other config, store and profiles.json any --config or --home could mean held through cliutil.HoldFile; CredentialFlags --client-id and --client-secret; StdinFlags --stdin; ResponseFields access_token, refresh_token and id_token; BaseURL PAX8_BASE_URL, default https://api.pax8.com/v1; Origins the base URL for everything, the base URL and Pax8's token manager for the client pair, nowhere for the cookie and the MCP HTTP token). credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: stdout and stderr at the descriptor; the API client (client.OutboundGuard, under the origin pin in pax8_guard.go), feedback, deliver and the probe through credkit.Transport; cache, journal, teach log, learnings audit, profile, platform profile, rate-limit lock, download and export files through credkit.WriteFile, AppendFile, OpenFile and NewWriter; SQLite through internal/credsql (credkit.SQLDriver, the MCP sql value cap set as each connection opens); the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP; the MCP server's CLI child through RunCommand; terminal checks through credkit.Terminal; auth set-token holds the token it reads from stdin, and a minted token is held where it is minted. The 0600 credential store and config.toml are credential sources: their writes are a declared exemption, outside the kit in cliutil.AtomicWriteCredentialFile, and both are in Files.",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal (SecretEnv PAX8_CLIENT_ID, PAX8_CLIENT_SECRET, PAX8_COOKIE and PAX8_MCP_HTTP_TOKEN; URLEnv PAX8_TOKEN_URL and PAX8_FEEDBACK_ENDPOINT; Files = the config the run really uses first, then the 0600 credential store and the legacy config, with every other config, store and profiles.json any --config or --home could mean held through cliutil.HoldFile (a profile store through cliutil.HoldProfileFile); CredentialFlags --client-id and --client-secret; StdinFlags --stdin; ResponseFields access_token, refresh_token and id_token; BaseURL PAX8_BASE_URL, default https://api.pax8.com/v1; Origins the base URL for everything, the base URL and Pax8's token manager for the client pair, nowhere for the cookie and the MCP HTTP token). credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: stdout and stderr at the descriptor; the API client (client.OutboundGuard, under the origin pin in pax8_guard.go), feedback, deliver and the probe through credkit.Transport; cache, journal, teach log, learnings audit, profile, platform profile, rate-limit lock, download and export files through credkit.WriteFile, AppendFile, OpenFile and NewWriter; SQLite through internal/credsql (credkit.SQLDriver, the MCP sql value cap set as each connection opens); the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP; the MCP server's CLI child through RunCommand; terminal checks through credkit.Terminal; auth set-token holds the token it reads from stdin, and a minted token is held where it is minted. The 0600 credential store and config.toml are credential sources: their writes are a declared exemption, outside the kit in cliutil.AtomicWriteCredentialFile, and both are in Files.",
    "why": "Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The connector's own holder, output chokepoint, secret funnel, encodings table and outbound checks kept growing per review round because each sink and encoding was closed one at a time; the kit is one shared implementation of the leak contract, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). It closes the classes Codex r2 left open, each kept with its failing input in internal/pax8blackbox/kit_r2_test.go against the built binary: a partly escaped secret mixed with plain text in output, hex of each half of the secret in two query values of feedback --send (reaches the server 0 times), and one value of PAX8_COOKIE printed on its own. Seen failing logs: .review/seen/kit-*-seen-failing.log.",
    "spec_encode_followup": "Press-side: generate the Declarations literal and route every sink through the kit, as the press's own credential layer, so a reprint carries the wiring by construction.",
    "asserts": [
@@ -1214,6 +1214,316 @@
     {
      "file": "cli/internal/learn/journal_credential_hardening_test.go",
      "contains": "func TestLearnSinksRefuseHeldCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "all-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "--all on a Pax8 list starts at page 0, follows the page block to the last page and reports the true total. A walk that cannot be proven complete is an error, not a short list. The generic 100-page cap does not stop a block walk.",
+   "why": "Adversarial review 2026-11-05, s5_all: an absent page counted as 1, so the second request asked for page=2 and rows 10 to 19 of every list were lost: 15 rows of 25, exit 0. internal/pax8blackbox TestPagingAll* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "pageWalk.Page(clean[cursorParam], data, itemCount)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "--all could not read every page",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "current = \"0\"",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "current = \"1\""
+    }
+   ]
+  },
+  {
+   "id": "export-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "export asks for page 0 first with size=200, follows the page block to the last page, and fails rather than writing a partial backup when the walk cannot be proven complete. A resource with fewer rows than one page exports every row.",
+   "why": "Adversarial review 2026-11-05, s12_export: export sent page+1, so it started at page=1: 15 rows of 25, and a resource of 3 rows exported 0, exit 0. internal/pax8blackbox TestPagingExport* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "pageWalk.Page(params[config.cursorParam], data, len(items))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "params[config.cursorParam] = strconv.Itoa(page)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "strconv.Itoa(page + 1)"
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "limitParam: \"size\"",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "pax8page.MaxSize",
+     "min_count": 5,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-list-reaches-every-row",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every Pax8 MCP list tool takes page and size in its schema and returns next_cursor while rows remain, read from the page block. The cursor alone continues the same walk with the size and filters it was minted under; repeating them is allowed, changing them or passing page with it is refused. A page the API answers with the wrong number is a tool error. usage-summaries_usage-lines_find pages like the others.",
+   "why": "Adversarial review 2026-11-05, s8_mcp and s9_mcp_cursor: the cursor only walked the slices of the current API page and page was refused as an unknown argument, so subscriptions_find {size:200} reached 200 of 437 rows and no route led further, while the context tool told agents to pass page. internal/pax8blackbox TestPagingMCP* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "{PublicName: \"page\", WireName: \"page\", Location: \"query\"}",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "mcplib.WithNumber(\"page\"",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "pax8page.Read(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "pass page or cursor, not both",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "if opts.CursorParam == \"page\" && opts.NextCursorPath == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "state.Query = opts.Query",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-money-shapes",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "spend and mrr share one reading of the money Pax8 documents (internal/cli/pax8_novel_rules.go). spend sums Invoice.total for status Unpaid, Paid and Carried; Void, Nothing Due and Credited are left out and counted; any other status, or none, is left out and reported with its amount. Money is never added across currencyCode: spend has one row per company and currency, and mrr with more than one currency prints null for totals.mrr and totals.margin and one total per currency in totals.byCurrency. spend shows every company unless --limit asks for fewer. mrr reports a margin only over subscriptions that carry partnerCost and counts the rest in subscriptionsWithoutCost; with no cost on any row the margin is null. Invoice.carriedBalance is not subtracted, because the spec examples do not settle whether Invoice.total includes it. overage averages a product within one currency.",
+   "why": "Adversarial review 2026-11-05, reproduced on the binary: spend counted a Void invoice as spend, cut to 25 companies with no notice, and added currencies under the first currency it saw; mrr printed a margin equal to the MRR when partnerCost was absent, which is every documented example. Tests in internal/cli/pax8_money_test.go failed before the fix (seen/r1-class3-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8InvoiceOwed(status string) (owed, known bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8Currency(row map[string]any) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "owed, known := pax8InvoiceOwed(pax8FieldStr(inv, \"status\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "key := spendKey{cid, pax8Currency(inv)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "cmd.Flags().IntVar(&limit, \"limit\", 0,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "cost, hasCost := pax8FieldNum(s, \"partnerCost\", \"partner_cost\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "res.Totals.ByCurrency = currencies",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "pax8UsageAverageKey(s)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-store-hold",
+   "class": "credential-leak",
+   "status": "active",
+   "summary": "At startup every run profile store a run could mean is read through cliutil.HoldProfileFile: HoldBody holds the declared names at any depth, a value under base-url or token-url goes through credkit.HoldURL, and a value under any other credential's name is held, every member of a duplicate key. A profile's name, its free text and its ordinary values still print.",
+   "why": "Codex round 1, confirmed on the binary: a profiles.json with values base-url https://u:<password>@api.pax8.com/v1 printed the password on profile show. HoldBody does not read base-url, and the TOML parse in HoldConfigFile refuses JSON before HoldURL ran. internal/pax8blackbox TestSavedProfileCredentialsNeverPrint failed before the fix (seen/r1-class4-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileFile(path string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileFile(filepath.Join(dir, \"profiles.json\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileFile(filepath.Join(home, \".pax8-cli\", \"profiles.json\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "cliutil.HoldFile(filepath.Join(dir, \"profiles.json\"))"
+    }
+   ]
+  },
+  {
+   "id": "resources-write-order",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every write of a row in the resources table moves that row past every other row (the upsert's DO UPDATE sets rowid to MAX(rowid) + 1). updated_at keeps its format and its whole-second precision, so a record stored under two names reads as the row written last, within one second too, and rows an earlier release wrote still read by updated_at.",
+   "why": "Codex round 1, reproduced against the store: a live read stored usage summary Y under usage-summaries with currentCharges 10, then a sync updated its older subscriptions_usage_summaries row to 90 in the same second. The update kept the older row's smaller rowid, so the stale 10 won and overage missed a 1.8x overage. internal/cli TestSameSecondUsageSummaryWrittenLastWins and internal/store TestUpsertAdvancesTheRowOnEveryWrite failed before the fix (seen/r1-class5-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "ON CONFLICT(resource_type, id) DO UPDATE SET rowid = (SELECT MAX(rowid) + 1 FROM resources), data = excluded.data",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-failed-dependent-not-success",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A dependent whose parent failed, was not readable this run, or was never read counts as failed, not synced, so a sync where everything failed exits non-zero and MCP reports isError. A dependent whose parent was read and really has no rows is still a success. A parent that failed with rows already in the store still gets its children refreshed, and the dependent reports incomplete with nothing pruned. Failed runs keep their counts on stdout for machine callers.",
+   "why": "Adversarial review 2026-11-05, s13_sync_rc: when the token endpoint answered 401, sync exited 0 with errored:6, success:3, total_records:0 and MCP reported no isError, because a dependent with no parent rows counted as a success whatever had happened to its parent. internal/pax8blackbox TestSyncExit* failed before the fix (seen/r1-sync-exit-seen-failing.log) and again with the fix reverted (seen/r1-sync-exit-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "parentFailure := dependentParentFailure(c, db, dep, flatOutcomes, userParams)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return syncResult{Resource: dep.Name, Err: parentFailure, Duration: time.Since(started)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "coverageReason = \"parent_not_read\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "its parent %s was never read; sync it first",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Sync finished with failures: %d records across %d resources",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "sync asks for size=200 on subscriptions, invoices, products, orders and usage summaries, and on every list it reads on until the page block says the last page was read. A row count never decides the end. A walk that cannot be proven complete (no page block, the wrong page answered, an empty page before the last, rows that do not add up to totalElements, a later page that fails or is not JSON) fails its resource with a non-zero exit, keeps the rows it read, prunes nothing under --full, and clears the resume cursor so the next run starts at page 0.",
+   "why": "Adversarial review 2026-11-05, s1_paging: those five lists sent size=10 and believed a page held 100 rows, so a full page of 10 read as the last page. 437 subscriptions stored as 10 with exit 0, mrr reported 200 instead of 8740, and a plain sync --full pruned a complete store to 10 rows. internal/pax8blackbox TestPagingSync* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "walk.Page(params[pageSize.cursorParam], data, len(items))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limit:          pax8page.MaxSize",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limitParam:     \"size\"",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.SaveSyncProgressInScope(resource, scopeKey, \"\", count)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "%s sync incomplete (%s); %d rows stored\", resource, reason, cachedCount), IntegrityFailure: true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"paging_failed\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "Warn: fmt.Errorf(\"%s sync incomplete (%s)"
+    },
+    {
+     "file": "cli/internal/pax8page/page.go",
+     "contains": "func (w *Walk) Page(requested string, data []byte, rows int) (Step, error)",
+     "min_count": 1,
      "code_only": true
     }
    ]

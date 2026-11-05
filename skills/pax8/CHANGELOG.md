@@ -17,11 +17,18 @@ All notable changes to this skill are documented here. Format follows
 - **Paid trials are expected on the invoice.** A trial priced above zero is now flagged when no invoice line bills it.
 - **Credit lines do not count as billing.** Rebate, payment-credit, service-credit and invoice-credit lines, and any line with a negative total, neither bill nor count as billed.
 - **`since`, `overage` and `reconcile` print `[]`, not `null`, on an empty store.**
+- **`sync`, `--all`, `export` and the MCP list tools read every row.** Pax8 pages from 0 with a default size of 10. `sync` kept only the first 10 rows of every list and exited 0, `--all` and `export` skipped the first page, and MCP list tools could not get past one API page. `mrr`, `spend`, `reconcile` and `overage` were computed from those partial rows. Run `pax8-cli sync` again after you update. A read that cannot finish now fails instead of storing part of a list, and `sync --full` never prunes from a partial read.
+- **A sync with nothing read exits non-zero.** A rejected sign-in used to exit 0 with an empty store, because dependents with no parents counted as successes.
+- **`spend` counts what is owed.** Void, Nothing Due and Credited invoices are left out and counted; an invoice with any other status, or none, is left out and reported with its amount. Every company is shown by default (it stopped at 25 with no notice); `--limit` still works. `spend` does not subtract `carriedBalance`, because Pax8's documentation does not settle whether `total` includes it.
+- **`mrr` shows no margin it cannot know.** A subscription with no `partnerCost` used to count as pure margin. The margin now covers only rows with a cost and says how many lack one; with no costs at all, `totals.margin` is `null`.
+- **Money is never added across currencies.** `mrr` gives one total per currency, with `totals.mrr` and `totals.margin` `null` when there is more than one. `spend` gives one row per company and currency. `overage` averages a product within one currency.
+- **The newest usage record wins a same-second tie.** A sync and a live read in the same second could leave `overage` reading the older charges.
 
 ### Security
 - **Credentials are held by the shared credential kit** (`docs/credential-leak-contract.md`) from the first instruction of each binary: the client ID and secret, the MCP HTTP token, `PAX8_COOKIE` and every value in the config and credentials files never reach standard output or error, an MCP result, a file, the local store or a request to another host, in any of the encodings the kit reads: what would carry one is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`.
 - **The client ID and secret go only to Pax8's token manager or your API base URL's host.** A `PAX8_TOKEN_URL` on any other host than that or your API base URL's is refused before anything is sent.
 - **`config.toml` keeps less.** `base_url` and `token_url` are saved without their userinfo, query and fragment, and a `[headers]` value the kit would refuse to send to the API is left out, each with a warning naming the field.
+- **A saved profile's credentials are held.** A password in a profile's `base-url` or `token-url` and a value under a credential's name are withheld from every output, duplicates included.
 - **New exit codes.** A command whose standard output was partly lost exits 74 instead of 0; a token that also occurs in ordinary text (for example one repeated letter) is refused at startup with exit 78. `pax8-mcp` refuses `--config` and `--home`; set `PAX8_CONFIG` or `PAX8_HOME` in its environment instead.
 
 ## [0.1.8] - 2026-10-23
