@@ -764,8 +764,8 @@
       "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.",
       "cli_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
