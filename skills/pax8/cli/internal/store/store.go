@@ -1753,10 +1753,13 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	// Hand-fix (handfixes.json resources-write-order): updated_at has whole-second
+	// precision, so an update also moves its row past every other row. A rowid then
+	// orders two writes in one second, and rows an earlier release left read as before.
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
-		 ON CONFLICT(resource_type, id) DO UPDATE SET data = excluded.data, synced_at = excluded.synced_at, updated_at = excluded.updated_at`,
+		 ON CONFLICT(resource_type, id) DO UPDATE SET rowid = (SELECT MAX(rowid) + 1 FROM resources), data = excluded.data, synced_at = excluded.synced_at, updated_at = excluded.updated_at`,
 		id, resourceType, string(data), time.Now().UTC().Format(time.RFC3339), time.Now().UTC().Format(time.RFC3339),
 	)
 	if err != nil {

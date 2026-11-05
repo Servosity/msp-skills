@@ -194,10 +194,11 @@ var pax8NovelSyncedCollections = [][]string{pax8Companies, pax8Products, pax8Sub
 
 // pax8Collection reads every row stored under any of names. A record stored
 // under more than one name (a sync dependent and a live write-through of the
-// same id) is returned once: the row written last (updated_at, then the
-// store's insertion order), so a fresh live read is never hidden behind an
-// older sync row. Rows under a single name are all kept (history snapshots
-// share their subscription's id).
+// same id) is returned once: the row written last (updated_at, then the rowid,
+// which the store advances on every write of a row), so a fresh read of either
+// name is never hidden behind an older one, within one second included. Rows
+// under a single name are all kept (history snapshots share their subscription's
+// id).
 func pax8Collection(db *store.Store, names []string) ([]map[string]any, error) {
 	if len(names) == 1 {
 		return pax8ListObjects(db, names[0])
