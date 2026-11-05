@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Security
 - **Rebuilt on CLI Printing Press 4.34.2** (the security update in [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). HTTP mode (`rocketcyber-mcp --transport http`) refuses to start until `ROCKETCYBER_MCP_HTTP_TOKEN` is set to at least 32 characters, every request must send it as `Authorization: Bearer <token>`, it serves `http://127.0.0.1:7777/mcp` by default, any other address also needs `--tls-cert` and `--tls-key`, and a request from a web page on another origin is refused. The "do not use HTTP mode" note is removed.

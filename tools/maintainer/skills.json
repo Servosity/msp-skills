@@ -1825,8 +1825,8 @@
       "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
       "cli_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
