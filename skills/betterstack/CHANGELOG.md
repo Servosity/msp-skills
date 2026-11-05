@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Security
 - **Rebuilt on Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)).** MCP HTTP mode serves `127.0.0.1:7777` by default and refuses to start until `BETTERSTACK_MCP_HTTP_TOKEN` is set; any other address also needs TLS. MCP write tools return a preview and send only with `confirm: true`. A tool argument can never name a file to read or write.
