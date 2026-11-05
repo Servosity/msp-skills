@@ -846,7 +846,7 @@ reviews:
     - "!skills/appdirect/cli/internal/mcp/cobratree/shellout_test*.go"
     - "!skills/appdirect/cli/internal/mcp/cobratree/typemap*.go"
     - "!skills/appdirect/cli/internal/mcp/cobratree/walker*.go"
-    - "!skills/appdirect/cli/internal/mcp/code*.go"
+    - "!skills/appdirect/cli/internal/mcp/code_orch_writebody*.go"
     - "!skills/appdirect/cli/internal/mcp/intents*.go"
     - "!skills/appdirect/cli/internal/mcp/platform*.go"
     - "!skills/appdirect/cli/internal/mcp/recipe*.go"
