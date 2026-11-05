@@ -105,11 +105,11 @@
     "released_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146"
   },
   "blackpoint": {
-    "state": "binary-pending",
-    "version": "0.1.0",
+    "state": "version-pending",
+    "version": "0.1.1",
     "latest_tag": "blackpoint-v0.1.0",
     "current_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68",
-    "released_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f"
+    "released_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68"
   },
   "blumira": {
     "state": "up-to-date",
@@ -259,11 +259,11 @@
     "released_hash": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652"
   },
   "google-workspace": {
-    "state": "binary-pending",
-    "version": "0.1.4",
+    "state": "version-pending",
+    "version": "0.1.5",
     "latest_tag": "google-workspace-v0.1.4",
     "current_hash": "sha256:e4431db90b2474237bc7d1aa60608c82553b2c8c2bba75fa6d0de7de0ff1fc53",
-    "released_hash": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69"
+    "released_hash": "sha256:e4431db90b2474237bc7d1aa60608c82553b2c8c2bba75fa6d0de7de0ff1fc53"
   },
   "grab-cookie": {
     "state": "markdown-only",
@@ -287,11 +287,11 @@
     "released_hash": "sha256:fbdcef322d723554f9f2b07cda08090900a2de5cf1718239ccbf7715a399a399"
   },
   "hubspot": {
-    "state": "binary-pending",
-    "version": "0.2.5",
+    "state": "version-pending",
+    "version": "0.2.6",
     "latest_tag": "hubspot-v0.2.5",
     "current_hash": "sha256:e887c15cabbec519c689cc30b6795d69c28f6ba5d680d4a199cceaf899812af7",
-    "released_hash": "sha256:574361f40252fcb246a7dd7518772d798540af0244ef715d6529dcfae63aad98"
+    "released_hash": "sha256:e887c15cabbec519c689cc30b6795d69c28f6ba5d680d4a199cceaf899812af7"
   },
   "hudu": {
     "state": "up-to-date",
@@ -679,10 +679,10 @@
     "released_hash": "sha256:0b4e049d840c594ca1b104a70e4487dba643aeaf968057e4925d7eafc17231d5"
   },
   "zammad": {
-    "state": "binary-pending",
-    "version": "0.1.11",
+    "state": "version-pending",
+    "version": "0.1.12",
     "latest_tag": "zammad-v0.1.11",
     "current_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057",
-    "released_hash": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c"
+    "released_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057"
   }
 }
