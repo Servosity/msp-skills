@@ -979,8 +979,8 @@
       "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
       "cli_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:ea662ea786f2d24fe3e129231506239fd25935da812e9bfb0b3b77bc6707837f",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
