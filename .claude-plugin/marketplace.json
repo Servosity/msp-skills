@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "billing",
       "tags": [
         "quickbooks",
