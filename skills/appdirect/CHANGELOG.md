@@ -25,6 +25,7 @@ Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command and MCP 
 ### Changed
 - List commands page with `--offset` (was `--start`); the request still sends AppDirect's `start` parameter.
 - `company show` no longer lists users: a synced user record names no company, so the store cannot tell which users belong to it. `users_hint` names the memberships command that lists them live.
+- `checkout create-and-finalize-shopping-cart` (a purchase) does not answer to `create`; call it by its own name.
 - Under an agentcookie-managed config, `auth set-token` and `auth login` refuse to save.
 - Mutation responses are not cached locally.
 

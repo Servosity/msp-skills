@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -65,6 +66,9 @@ func TestR1TokenURLNeverLeavesTheConfiguredHost(t *testing.T) {
 // URL follows that refusal (auth login, the mint and the refresh all resolve
 // through ResolveAppDirectTokenURL).
 func TestR1UntrustedConfigNeverChoosesTheTokenHost(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mode bits: Windows has no group/other write bit to make the config untrusted")
+	}
 	dir := isolateCredentialStore(t)
 	path := filepath.Join(dir, "loose", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

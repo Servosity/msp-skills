@@ -8,7 +8,6 @@ package config
 
 import (
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 
@@ -60,12 +59,12 @@ func StartupBaseURL(configFlag string) string {
 // configFileDiffers reports whether data would change the values config.toml
 // at path holds. A file that reads back to the same values is not rewritten.
 func configFileDiffers(path string, data []byte) bool {
-	old, err := os.ReadFile(path) // #nosec G304 -- the configuration path Load resolved
+	old, err := cliutil.ReadOpenedConfig(path)
 	if err != nil {
 		return true
 	}
 	var was, will map[string]any
-	if toml.Unmarshal(old, &was) != nil || toml.Unmarshal(data, &will) != nil {
+	if toml.Unmarshal(old.Data, &was) != nil || toml.Unmarshal(data, &will) != nil {
 		return true
 	}
 	return !reflect.DeepEqual(was, will)

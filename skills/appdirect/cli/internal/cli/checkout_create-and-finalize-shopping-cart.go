@@ -42,7 +42,6 @@ func newCheckoutCreateAndFinalizeShoppingCartCmd(flags *rootFlags) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:         "create-and-finalize-shopping-cart",
-		Aliases:     []string{"create"},
 		Short:       "Creates and finalizes a shopping cart in a single request",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "checkout.create-and-finalize-shopping-cart", "pp:method": "POST", "pp:path": "/v3/checkout/shoppingCarts/finalize", "pp:requires-input": "true"},

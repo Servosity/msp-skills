@@ -237,18 +237,18 @@ func TestKitBlankBaseURLNeverSendsThePairToTheDefaultMarketplace(t *testing.T) {
 // query string is never written back to config.toml by auth set-token.
 func TestKitConfigHeaderRepeatingAURLCredentialIsNotWrittenBack(t *testing.T) {
 	s := newSandbox(t)
-	before := "base_url = \"https://tenant.example.net/api\"\n\n[headers]\nX-Trace = \"UrlSecret-7c9f2d\"\n"
+	before := "base_url = \"https://tenant.example.net/api\"\n\n[headers]\nX-Trace = \"ub-kakaka-mimimi\"\n"
 	cfg := s.writeFile(t, "ad/config.toml", before)
-	env := []string{"APPDIRECT_BASE_URL=https://tenant.example.net/api?api_key=UrlSecret-7c9f2d"}
+	env := []string{"APPDIRECT_BASE_URL=https://tenant.example.net/api?api_key=ub-kakaka-mimimi"}
 	r := s.run(t, kitCLI, env, "LocalBearer-8e1f3c\n", "--config", cfg, "auth", "set-token")
 	after, err := os.ReadFile(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(after) != before && bytes.Contains(after, []byte("UrlSecret-7c9f2d")) {
+	if string(after) != before && bytes.Contains(after, []byte("ub-kakaka-mimimi")) {
 		t.Errorf("auth set-token wrote the URL credential back into config.toml (exit %d, output %q):\n%s", r.code, r.all(), after)
 	}
-	for _, v := range []string{"UrlSecret-7c9f2d", "LocalBearer-8e1f3c"} {
+	for _, v := range []string{"ub-kakaka-mimimi", "LocalBearer-8e1f3c"} {
 		if strings.Contains(r.all(), v) {
 			t.Errorf("auth set-token printed %q: %q", v, r.all())
 		}
@@ -268,7 +268,7 @@ func TestKitDeclaredCredentialsWithSpacesAndShortBearerAreHeld(t *testing.T) {
 		_, env := tlsMarketplace(t, s, "MintedAccess-Zq4vX81k", func(p string) string {
 			return fmt.Sprintf(`{"id":"co-1","name":%q,"password":%q,"status":"ACTIVE"}`, spaced, spaced)
 		})
-		env = append(env, "APPDIRECT_CLIENT_ID=PairId-Wm3c7Hq2", "APPDIRECT_CLIENT_SECRET=PairSecret-Jt6r1Ky9")
+		env = append(env, "APPDIRECT_CLIENT_ID=pi-vovovo-rerere", "APPDIRECT_CLIENT_SECRET=ps-lalala-nonono")
 		r := s.run(t, kitCLI, env, "", "account", "resource-company-read-company-get", "co-1", "--json", "--data-source", "live")
 		if strings.Contains(r.all(), spaced) {
 			t.Errorf("a declared response credential with spaces was printed (exit %d): %q", r.code, r.all())
