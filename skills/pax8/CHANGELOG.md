@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- **Credentials are held by the shared credential kit** (`docs/credential-leak-contract.md`) from the first instruction of each binary: the client ID and secret, the MCP HTTP token, `PAX8_COOKIE` and every value in the config and credentials files never reach standard output or error, an MCP result, a file, the local store or a request to another host, in any of the encodings the kit reads: what would carry one is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`.
+- **The client ID and secret go only to Pax8's token manager.** A `PAX8_TOKEN_URL` on any other host is refused before anything is sent.
+- **`config.toml` keeps less.** `base_url` and `token_url` are saved without their userinfo, query and fragment, and a `[headers]` value the kit would refuse to send to the API is left out, each with a warning naming the field.
+- **New exit codes.** A command whose standard output was partly lost exits 74 instead of 0; a token that also occurs in ordinary text (for example one repeated letter) is refused at startup with exit 78. `pax8-mcp` refuses `--config` and `--home`; set `PAX8_CONFIG` or `PAX8_HOME` in its environment instead.
+
 ## [0.1.8] - 2026-10-23
 
 ### Security

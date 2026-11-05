@@ -238,8 +238,8 @@ Pax8 uses OAuth2 client-credentials. Set PAX8_CLIENT_ID and PAX8_CLIENT_SECRET (
 
 ## Credential safety
 
-- The client ID and secret go only to the token URL (`PAX8_TOKEN_URL`, default `https://token-manager.pax8.com/oauth/token`), and that host receives nothing but the token request. The bearer token and every API request go only to the scheme, host and port of `PAX8_BASE_URL` (default `https://api.pax8.com/v1`). A redirect to any other host is refused, so a credential never reaches it.
-- Any output, file or MCP result that would repeat the client ID, the client secret, a minted token or a credential-named value from a response prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- The client ID and secret go only to Pax8's token manager (`https://token-manager.pax8.com`), which receives nothing but the token request. A `PAX8_TOKEN_URL` on any other host is refused before anything is sent. The bearer token and every API request go only to the scheme, host and port of `PAX8_BASE_URL` (default `https://api.pax8.com/v1`). A redirect to any other host is refused, so a credential never reaches it.
+- Any output, file, outbound request or MCP result that would repeat the client ID, the client secret or a token (from the environment, the store, or a token field in a response), whole or in an encoded form, is withheld whole, and "[credkit: withheld from <where>: it carried a credential this program holds]" takes its place. A record that carries one is not written to the local store. Responses are never cached on disk.
 - Only `credentials.toml` (mode 0600) holds a credential. Set `PAX8_NO_CONFIG_WRITE=1` to keep even the minted token off disk.
 - `--dry-run` sends nothing and mints no token. Over MCP, a tool that creates, updates, orders or cancels returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
