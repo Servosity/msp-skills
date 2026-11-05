@@ -34,7 +34,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `abnormal-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `abnormal-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `abnormal-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see **Remote agents** in [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -159,7 +159,7 @@ ABNORMAL_API_TOKEN=<value> abnormal-cli doctor
 | What new, unremediated email threats need attention right now? | `abnormal-cli triage --since 24h --top 20` |
 | Pull a client-ready security report for the quarter | `abnormal-cli report-snapshot --since 90d --csv` |
 | What is the account-takeover risk picture for this employee? | `abnormal-cli employee-risk "vip@acme.com"` |
-| Is this vendor showing email-compromise signs? | `abnormal-cli vendor-risk "acme-supplies.com"` |
+| Is this vendor showing email-compromise signs? | `abnormal-cli vendor-risk "supplier.example.com"` |
 | Remediate a threat and block until it actually completes | `abnormal-cli remediate-watch <threat\|case> <id>` |
 | List the latest Abnormal cases | `abnormal-cli cases retrieve --all` |
 | How many attacks did we stop this week? | `abnormal-cli aggregations attack-stopped-retrieve` |
@@ -182,7 +182,7 @@ This skill maps that pain to commands:
 - **`triage --since 24h --top 20`** - ranked queue of the newest, highest-severity, still-unremediated threats, so a shift starts on what matters.
 - **`report-snapshot --since 90d --csv`** - attacks seen, attacks stopped, impersonation breakdowns, and trending attacks in one client-ready table.
 - **`employee-risk "vip@acme.com"`** - one account-takeover picture per employee: profile, Genome identity, 30-day logins, and open cases naming them.
-- **`vendor-risk "acme-supplies.com"`** - vendor-email-compromise picture: details, recent activity, and open vendor cases.
+- **`vendor-risk "supplier.example.com"`** - vendor-email-compromise picture: details, recent activity, and open vendor cases.
 - **`remediate-watch <threat|case> <id>`** - remediate and block until Abnormal reports a terminal state, with a typed exit code receipt.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -191,7 +191,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `abnormal-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `abnormal-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `abnormal-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `abnormal-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see **Remote agents** in [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
