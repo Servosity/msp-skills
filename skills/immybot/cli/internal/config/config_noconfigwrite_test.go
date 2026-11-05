@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"immybot-pp-cli/internal/cliutil"
+	"immybot-pp-cli/internal/cliutil/testenv"
 )
 
 // Issue #270: a supported way to run this connector with no credential
@@ -63,12 +66,24 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 	return hits
 }
 
+// ncwHome is a throwaway home every directory lookup resolves inside. HOME
+// alone is not enough: on Windows os.UserHomeDir reads USERPROFILE, so the
+// credentials file under the data dir would land in the real profile.
+func ncwHome(t *testing.T) string {
+	t.Helper()
+	restore, err := cliutil.SetHomeOverride("")
+	if err != nil {
+		t.Fatalf("reset home override: %v", err)
+	}
+	t.Cleanup(restore)
+	return testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
+}
+
 // ncwMint runs one "an ordinary command minted a token" cycle under a
 // throwaway HOME and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := ncwHome(t)
 	t.Setenv("IMMYBOT_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +143,8 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	home := ncwHome(t)
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("IMMYBOT_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is

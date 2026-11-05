@@ -37,7 +37,7 @@ const (
 // env-supplied client secret must not reach the credentials file when
 // `auth login` mints a token.
 func TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk(t *testing.T) {
-	clearCredEnv(t)
+	isolateCredentials(t) // 4.34.0 name for the shipped clearCredEnv
 	t.Setenv("IMMYBOT_CLIENT_ID", "env-client-id")
 	t.Setenv("IMMYBOT_CLIENT_SECRET", envSuppliedSecret)
 
@@ -81,7 +81,7 @@ func TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk(t *testing.T) {
 // With no environment variable in play the operator passed the secret on the
 // command line, and saving it is the documented behaviour of `auth login`.
 func TestSaveTokens_PersistsExplicitlyPassedClientSecret(t *testing.T) {
-	clearCredEnv(t)
+	isolateCredentials(t) // 4.34.0 name for the shipped clearCredEnv
 
 	cfg, err := Load("")
 	if err != nil {

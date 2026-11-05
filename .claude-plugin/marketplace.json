@@ -12,7 +12,7 @@
       "name": "abnormal",
       "source": "./skills/abnormal",
       "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "abnormal",
@@ -497,8 +497,8 @@
     {
       "name": "immybot",
       "source": "./skills/immybot",
-      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.11",
+      "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -640,7 +640,7 @@
       "name": "mspbots",
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "msp",
       "tags": [
         "mspbots",
@@ -837,7 +837,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -957,7 +957,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "psa",
       "tags": [
         "superops",
@@ -1389,7 +1389,7 @@
       "name": "netsapiens",
       "source": "./skills/netsapiens",
       "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "telephony",
       "tags": [
         "netsapiens",
@@ -1452,7 +1452,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1467,7 +1467,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1499,7 +1499,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "network-monitoring",
       "tags": [
         "prtg",
@@ -1515,7 +1515,7 @@
       "name": "synology",
       "source": "./skills/synology",
       "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "synology",
@@ -1551,6 +1551,38 @@
       "tags": [
         "cloudally",
         "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "keeper",
+      "source": "./skills/keeper",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "keeper",
+        "keeper security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "zoom-phone",
+      "source": "./skills/zoom-phone",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
+      "version": "0.1.0",
+      "category": "telephony",
+      "tags": [
+        "zoom-phone",
+        "zoom",
+        "telephony",
         "msp",
         "mcp",
         "claude-code",

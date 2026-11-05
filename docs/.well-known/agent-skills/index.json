@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "The full Abnormal Security REST API as an agent-ready CLI - with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/SKILL.md",
-      "digest": "sha256:5b770759ee4d8f6c8194597ff6b06b7fdd950c098702b76a3f49b392fbc59e5b"
+      "digest": "sha256:0e13a7e0496a192111d720eaa4461248ef5e2d15c5c0404b12bb93d24ddd07fa"
     },
     {
       "name": "acronis",
@@ -179,9 +179,9 @@
     {
       "name": "connectwise-control",
       "type": "skill-md",
-      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `stale screenconnect agents`, `connectwise control user access review`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
-      "digest": "sha256:04e959d85eb395ebe2a3801a9e6b01d5ceecc84256876c59e6970082cd22b9f5"
+      "digest": "sha256:c7b3c2d6da601a3cf56096ca76eecf5d45a9b4839c82f4f94a2003225eb20a66"
     },
     {
       "name": "connectwise-manage",
@@ -328,7 +328,7 @@
       "type": "skill-md",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot. Trigger phrases: `what failed in last night's maintenance window`, `which tenants are still on an old version of chrome`, `why didn't this computer get the deployment`, `what changed in the fleet since yesterday`, `which computers does this script reach`, `which machines are stuck onboarding`, `use immybot`, `run immybot`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/SKILL.md",
-      "digest": "sha256:d6160e3eeb0e0e4435fb1e8a49d46ff31f7825494c76b3946dfbc0c0d6353030"
+      "digest": "sha256:cedac32faf5e3c5c954be5d8bf59154bc522b7e1551c823105c1ba8cd05c588b"
     },
     {
       "name": "itglue",
@@ -359,6 +359,13 @@
       "digest": "sha256:54cab9ace2b990a3059a41b671ab496c8bf0fe6067b7bca8240a5bbee67f0195"
     },
     {
+      "name": "keeper",
+      "type": "skill-md",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret. Trigger phrases: `which keeper clients have users without 2fa`, `keeper msp posture report`, `keeper seats per managed company`, `keeper breachwatch exposure across clients`, `use keeper`, `run keeper`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "digest": "sha256:de8bdaabaf5fd2640b8ceae87d8fec9087565c829bf514aa4a2429d05d7bc87e"
+    },
+    {
       "name": "knowbe4",
       "type": "skill-md",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",
@@ -377,7 +384,7 @@
       "type": "skill-md",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/SKILL.md",
-      "digest": "sha256:7ab58c55bbc74f52dda461eb53724269edf3b00b95aef52c7756eafcca6d260f"
+      "digest": "sha256:75e7fa45377f9e8b830f4b36c5775bc52c51a947903046848e1bcaeeec10d9c5"
     },
     {
       "name": "maxio",
@@ -700,6 +707,13 @@
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server - plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
       "digest": "sha256:358b8a4d2818908ad53e9af2d45740a7588bf2257f154404a93105ca3094ad0f"
+    },
+    {
+      "name": "zoom-phone",
+      "type": "skill-md",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account. Trigger phrases: `audit zoom phone e911`, `what does this zoom phone user have`, `which call queues is this user in`, `where does this zoom phone number ring`, `zoom phone missed calls callback list`, `offboard a zoom phone user`, `zoom phone unassigned numbers`, `offline zoom desk phones`, `broken zoom phone call routing`, `run a zoom phone audit across all client accounts`, `use zoom-phone`, `run zoom-phone`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "digest": "sha256:067b51e9cdbf486193982fb305d2f016d86bd7ad4ccfc7770aa586952d0d36e6"
     }
   ]
 }

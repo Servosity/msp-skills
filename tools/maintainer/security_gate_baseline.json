@@ -17,11 +17,9 @@
       "datto-rmm",
       "domotz",
       "halopsa",
-      "immybot",
       "itglue",
       "kaseya-bms",
       "knowbe4",
-      "liongard",
       "maxio",
       "microsoft-graph",
       "nerdio",
@@ -66,7 +64,6 @@
       "kaseya-bms",
       "knowbe4",
       "levelio",
-      "liongard",
       "maxio",
       "microsoft-graph",
       "n-central",
@@ -109,10 +106,8 @@
       "domotz",
       "fortinet",
       "halopsa",
-      "immybot",
       "jira-service-management",
       "kaseya-bms",
-      "liongard",
       "maxio",
       "nerdio",
       "pagerduty",
@@ -158,7 +153,6 @@
       "xero"
     ],
     "mcp-mutating-get-as-read": [
-      "liongard",
       "proxmox",
       "servosity",
       "tactical-rmm"

@@ -32,19 +32,48 @@
           "name": "CONNECTWISE_CONTROL_BASE_URL",
           "description": "Your ScreenConnect instance base URL, e.g. https://company.screenconnect.com (per-instance).",
           "isRequired": true,
-          "isSecret": false,
-          "default": "https://your-instance.screenconnect.com"
+          "isSecret": false
         },
         {
           "name": "CONNECTWISE_CONTROL_USERNAME",
           "description": "Your ConnectWise Control instance user name (HTTP Basic auth).",
           "isRequired": true,
-          "isSecret": false
+          "isSecret": true
         },
         {
           "name": "CONNECTWISE_CONTROL_PASSWORD",
           "description": "Your ConnectWise Control instance password (HTTP Basic auth).",
           "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CONNECTWISE_CONTROL_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on ConnectWise Control requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_CONTROL_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_CONTROL_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_CONTROL_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (32 characters or more). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

@@ -70,7 +70,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -116,8 +116,8 @@
     },
     {
       "tier": "Credential / security",
-      "examples": "auth login, oauth get-access-tokens, access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id, roles create",
-      "policy": "Human-in-the-loop only"
+      "examples": "auth login, oauth get-access-tokens, access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id, access create-update-azure-tenant-auth-details, roles create",
+      "policy": "Human-in-the-loop only. The two access auth-details commands return the tenant's app registration secret, so they are CLI only, never cached or stored, never offered over MCP."
     },
     {
       "tier": "Destructive",

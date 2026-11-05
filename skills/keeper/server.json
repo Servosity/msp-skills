@@ -1,0 +1,77 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/keeper-mcp",
+  "title": "Keeper Security MCP",
+  "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/keeper/keeper-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/keeper"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/keeper-v0.1.0/keeper-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KEEPER_API_KEY",
+          "description": "The Keeper Commander Service Mode API key service-create printed. It is sent only to your Service Mode host.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "KEEPER_BASE_URL",
+          "description": "Your Keeper Commander Service Mode host, e.g. https://keeper-svc.example.internal:9090 (https only; run Service Mode with TLS).",
+          "isRequired": true,
+          "isSecret": false,
+          "default": "https://localhost:9090"
+        },
+        {
+          "name": "KEEPER_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to remove every MCP tool that writes this connector's local files. Keeper reads stay available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KEEPER_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to refuse posture report, the one command that saves Keeper data locally. Live reads still work.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KEEPER_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KEEPER_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the client sends to your Service Mode host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional. The name of a client profile to bind this MCP server to.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

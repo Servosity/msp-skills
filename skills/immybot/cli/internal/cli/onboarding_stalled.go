@@ -13,36 +13,43 @@ import (
 	"time"
 
 	"immybot-pp-cli/internal/cliutil"
-	"immybot-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
 type stalledOnboard struct {
-	ComputerID   string  `json:"computer_id"`
-	ComputerName string  `json:"computer_name"`
-	Tenant       string  `json:"tenant"`
-	Serial       string  `json:"serial,omitempty"`
-	Status       string  `json:"onboarding_status,omitempty"`
-	Online       bool    `json:"online"`
-	Attempted    bool    `json:"onboarding_attempted"`
-	Failed       bool    `json:"onboarding_failed"`
-	Outcome      string  `json:"outcome"`
-	AgeDays      float64 `json:"age_days"`
-	AgeBucket    string  `json:"age_bucket"`
-	UpdatedDate  string  `json:"updated_date,omitempty"`
-	SessionID    string  `json:"onboarding_session_id,omitempty"`
+	ComputerID   string `json:"computer_id"`
+	ComputerName string `json:"computer_name"`
+	Tenant       string `json:"tenant"`
+	Serial       string `json:"serial,omitempty"`
+	Status       string `json:"onboarding_status,omitempty"`
+	Online       bool   `json:"online"`
+	Attempted    bool   `json:"onboarding_attempted"`
+	Failed       bool   `json:"onboarding_failed"`
+	Outcome      string `json:"outcome"`
+	// AgeDays is null and AgeBucket "unknown" when updatedDate is absent or
+	// does not parse: such a row has no age.
+	AgeDays     *float64 `json:"age_days"`
+	AgeBucket   string   `json:"age_bucket"`
+	UpdatedDate string   `json:"updated_date,omitempty"`
+	SessionID   string   `json:"onboarding_session_id,omitempty"`
+	// at is the row's time (immyOnboardingTimeFields). The --older-than
+	// filter compares the exact age as a duration: AgeDays is for display.
+	at immyRowTime
 }
 
 type onboardingStalledView struct {
-	OlderThan      string           `json:"older_than,omitempty"`
-	ScannedQueued  int              `json:"scanned_queued"`
-	StalledCount   int              `json:"stalled_count"`
-	NeverAttempted int              `json:"never_attempted"`
-	FailedAttempts int              `json:"failed_attempts"`
-	BucketCounts   map[string]int   `json:"bucket_counts"`
-	Computers      []stalledOnboard `json:"computers"`
-	Note           string           `json:"note,omitempty"`
+	OlderThan      string `json:"older_than,omitempty"`
+	ScannedQueued  int    `json:"scanned_queued"`
+	StalledCount   int    `json:"stalled_count"`
+	NeverAttempted int    `json:"never_attempted"`
+	FailedAttempts int    `json:"failed_attempts"`
+	// Undated counts the computers --older-than left out because their
+	// updatedDate is absent or does not parse, so their age is unknown.
+	Undated      int              `json:"undated"`
+	BucketCounts map[string]int   `json:"bucket_counts"`
+	Computers    []stalledOnboard `json:"computers"`
+	Note         string           `json:"note,omitempty"`
 }
 
 func ageBucket(days float64) string {
@@ -72,7 +79,9 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 		Use:   "onboarding-stalled",
 		Short: "Computers stuck waiting to onboard, bucketed by age",
 		Long: "Computers stuck waiting to onboard, bucketed by age and annotated with whether " +
-			"onboarding was ever attempted and how it ended.",
+			"onboarding was ever attempted and how it ended. Age is measured from updatedDate; a " +
+			"computer without a readable one has no age: it is bucketed unknown, never passes " +
+			"--older-than, and is counted in undated when --older-than leaves it out.",
 		Example: strings.Trim(`
   immybot-cli onboarding-stalled --older-than 3d
   immybot-cli onboarding-stalled --older-than 1w --agent
@@ -114,7 +123,7 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
-			db, err := store.OpenWithContext(ctx, dbPath)
+			db, err := immyOpenMirror(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}
@@ -133,7 +142,7 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 					json_extract(data,'$.isOnline'),
 					json_extract(data,'$.onboardingFailed'),
 					json_extract(data,'$.onboardingSessionId'),
-					json_extract(data,'$.updatedDate')
+					`+immyTimeColumns(immyOnboardingTimeFields)+`
 				FROM resources
 				WHERE resource_type = 'computers-onboarding'`)
 			if err != nil {
@@ -143,8 +152,10 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 			now := time.Now().UTC()
 			scanned := make([]stalledOnboard, 0)
 			for rows.Next() {
-				var id, name, tenant, serial, status, online, failed, session, updated sql.NullString
-				if err := rows.Scan(&id, &name, &tenant, &serial, &status, &online, &failed, &session, &updated); err != nil {
+				var id, name, tenant, serial, status, online, failed, session sql.NullString
+				ts := newImmyTimeScan(immyOnboardingTimeFields)
+				dest := append([]any{&id, &name, &tenant, &serial, &status, &online, &failed, &session}, ts.dest()...)
+				if err := rows.Scan(dest...); err != nil {
 					_ = rows.Close()
 					return fmt.Errorf("scanning onboarding row: %w", err)
 				}
@@ -157,8 +168,10 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 					Online:       truthy(nullStr(online)),
 					Failed:       truthy(nullStr(failed)),
 					SessionID:    nullStr(session),
-					UpdatedDate:  nullStr(updated),
+					at:           ts.time(),
 				}
+				// Shown as mirrored, even when it does not parse.
+				rec.UpdatedDate = ts.raw("updatedDate")
 				rec.Attempted = strings.TrimSpace(rec.SessionID) != "" && rec.SessionID != "0"
 				switch {
 				case rec.Failed:
@@ -168,12 +181,11 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 				default:
 					rec.Outcome = "never-attempted"
 				}
-				if rec.UpdatedDate != "" {
-					if t, err := time.Parse(time.RFC3339, rec.UpdatedDate); err == nil {
-						rec.AgeDays = now.Sub(t).Hours() / 24
-					}
+				rec.AgeBucket = immyUndatedBucket
+				if rec.at.Known {
+					days := now.Sub(rec.at.At).Hours() / 24
+					rec.AgeDays, rec.AgeBucket = &days, ageBucket(days)
 				}
-				rec.AgeBucket = ageBucket(rec.AgeDays)
 				scanned = append(scanned, rec)
 			}
 			if err := rows.Err(); err != nil {
@@ -190,7 +202,10 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 				if tenantFilter != "" && !strings.Contains(strings.ToLower(rec.Tenant), tenantFilter) {
 					continue
 				}
-				if minAge > 0 && rec.UpdatedDate != "" && time.Duration(rec.AgeDays*24)*time.Hour < minAge {
+				if minAge > 0 && !rec.at.AgeAtLeast(now, minAge) {
+					if !rec.at.Known {
+						view.Undated++
+					}
 					continue
 				}
 				view.StalledCount++
@@ -203,11 +218,16 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 				}
 				view.Computers = append(view.Computers, rec)
 			}
+			// Oldest first; a computer with no age sorts after every dated one.
 			sort.Slice(view.Computers, func(i, j int) bool {
-				if view.Computers[i].AgeDays != view.Computers[j].AgeDays {
-					return view.Computers[i].AgeDays > view.Computers[j].AgeDays
+				a, b := view.Computers[i], view.Computers[j]
+				if (a.AgeDays == nil) != (b.AgeDays == nil) {
+					return b.AgeDays == nil
 				}
-				return view.Computers[i].ComputerName < view.Computers[j].ComputerName
+				if a.AgeDays != nil && *a.AgeDays != *b.AgeDays {
+					return *a.AgeDays > *b.AgeDays
+				}
+				return a.ComputerName < b.ComputerName
 			})
 			if flagLimit > 0 && len(view.Computers) > flagLimit {
 				view.Computers = view.Computers[:flagLimit]
@@ -217,12 +237,20 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 			} else if view.StalledCount == 0 {
 				view.Note = fmt.Sprintf("scanned %d queued computer(s); none matched the age and tenant filters", view.ScannedQueued)
 			}
+			if view.Undated > 0 {
+				msg := fmt.Sprintf("%d queued computer(s) have no updatedDate that parses, so their age is unknown "+
+					"and --older-than left them out; run without --older-than to list them", view.Undated)
+				view.Note = strings.TrimPrefix(view.Note+"; "+msg, "; ")
+			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
 			if len(view.Computers) == 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "No stalled onboards found (scanned %d queued computers).\n", view.ScannedQueued)
+				if view.Undated > 0 {
+					fmt.Fprintln(cmd.OutOrStdout(), view.Note)
+				}
 				return nil
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%-8s %-28s %-26s %-20s %s\n", "AGE", "COMPUTER", "TENANT", "OUTCOME", "STATUS")
@@ -232,10 +260,13 @@ func newNovelOnboardingStalledCmd(flags *rootFlags) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%d stalled; %d never attempted, %d failed attempts.\n",
 				view.StalledCount, view.NeverAttempted, view.FailedAttempts)
+			if view.Undated > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "%d left out: no updatedDate that parses, so their age is unknown.\n", view.Undated)
+			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&flagOlderThan, "older-than", "", "Only show computers queued longer than this (e.g. 3d, 1w)")
+	cmd.Flags().StringVar(&flagOlderThan, "older-than", "", "Only show computers queued longer than this (e.g. 3d, 1w); a computer with no readable updatedDate never matches and is counted in undated")
 	cmd.Flags().StringVar(&flagTenant, "tenant", "", "Only show computers whose tenant name contains this substring")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Maximum computers to return (0 for all)")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Local mirror database path")

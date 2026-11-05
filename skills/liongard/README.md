@@ -16,13 +16,6 @@ Every Liongard endpoint, plus an offline copy of your whole MSP estate you can j
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Liongard skill |
@@ -34,11 +27,11 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `liongard-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `liongard-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `liongard-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see **Remote agents** in [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
+Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
 
 | Agent | What it takes |
 | --- | --- |
@@ -173,7 +166,7 @@ LIONGARD_INSTANCE=<your-subdomain> LIONGARD_API_KEY=<value> liongard-cli doctor
 
 ## What this skill does
 
-Run `liongard-cli sync` once first - the cross-estate commands below (`drift`, `health`, `coverage`, the stale/offline/failure rollups, `metrics pivot`) read your local mirror, so they return empty until the first sync populates it.
+Run `liongard-cli sync` once first - the cross-estate commands below (`drift`, `health`, `coverage`, the stale/offline/failure rollups, `metrics pivot`) read your local mirror, so until a full sync has finished they refuse and name the exact `sync` command to run.
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
@@ -183,8 +176,7 @@ Run `liongard-cli sync` once first - the cross-estate commands below (`drift`, `
 | Give me one health scorecard for the whole estate. | `liongard-cli health --agent` |
 | Show one client's complete picture in a single command. | `liongard-cli environments overview 42` |
 | Which inspections failed or errored across the estate? | `liongard-cli detections failures --since 7d` |
-| Pull one metric across every system, CSV-ready for a report. | `liongard-cli metrics pivot "MFA Enabled Count" --csv` |
-| Which systems breach a threshold (e.g. patch age over 30 days)? | `liongard-cli metrics breach "Patch Age Days" --op gt --value 30` |
+| Which systems does one metric cover, CSV-ready for a report? | `liongard-cli metrics pivot "MFA Enabled Count" --csv` |
 | Where are my monitoring gaps? | `liongard-cli coverage` |
 | Which environments are still missing a given inspector? | `liongard-cli inspectors coverage --inspector "Microsoft 365"` |
 
@@ -209,7 +201,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `liongard-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `liongard-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `liongard-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `liongard-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see **Remote agents** in [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

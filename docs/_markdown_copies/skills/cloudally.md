@@ -6,7 +6,7 @@
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by OpenText Corporation.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @sonofskywalker3 (Servosity)** against a production tenant · 2026-11-05 · [receipt →](https://github.com/Servosity/msp-skills/pull/400).
 
 Yes - there is an MCP server for CloudAlly. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects CloudAlly to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -148,7 +148,7 @@ Run more than one Backup/DR tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the CloudAlly API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by @sonofskywalker3 (Servosity) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/400)). More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

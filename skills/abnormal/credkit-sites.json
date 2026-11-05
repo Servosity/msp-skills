@@ -1,0 +1,196 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/abnormal_guard.go",
+   "func": "installPin",
+   "what": "convert:abnormal-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "--dry-run's transport: it closes the body and sends nothing"
+  },
+  {
+   "file": "internal/cli/abnormal_guard.go",
+   "func": "installPin",
+   "what": "convert:abnormal-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin: it refuses a request off the configured host and otherwise hands it, unchanged, to the kit's transport (or to dryRunTripper)"
+  },
+  {
+   "file": "internal/cli/abnormal_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin (api-origin-pinned) wraps the client's transport, which client.guardTransport already made credkit.Transport; a client built without one gets credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/abnormal_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the pin's next hop: credkit.Transport, or dryRunTripper, which sends nothing"
+  },
+  {
+   "file": "internal/cli/employee_risk.go",
+   "func": "newNovelEmployeeRiskCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/employee_risk.go",
+   "func": "newNovelEmployeeRiskCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/remediate_watch.go",
+   "func": "newNovelRemediateWatchCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/remediate_watch.go",
+   "func": "newNovelRemediateWatchCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/report_snapshot.go",
+   "func": "newNovelReportSnapshotCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/report_snapshot.go",
+   "func": "newNovelReportSnapshotCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/smoke.go",
+   "func": "newNovelSmokeCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/smoke.go",
+   "func": "newNovelSmokeCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/vendor_risk.go",
+   "func": "newNovelVendorRiskCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cli/vendor_risk.go",
+   "func": "newNovelVendorRiskCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reached before credkit.Start only through the generated internal/mcp/intents.go, which stores the cli.RootCmd function value in a package-level variable (recipeCommandRoot): taking a function value runs nothing, so this command body runs from Execute or an MCP call, after Start, on the kit's stdout, stderr and SQL driver"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only config, credential store, TLS key and run profile files named by credwire.credentialFiles or config.Load, and the bytes go only to the kit's holders"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  }
+ ]
+}

@@ -172,6 +172,10 @@ For the fleet audits, yes: a reseller-scoped key sees every client domain. An of
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 
+## More Telephony connectors
+
+Run more than one Telephony tool, or comparing options? These connectors work the same way: [Zoom Phone](/skills/zoom-phone/)
+
 ## Status
 
 Beta. Validated against the NetSapiens API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

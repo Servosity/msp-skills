@@ -18,6 +18,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -62,7 +63,18 @@ func openNovelStore(cmd *cobra.Command, flags *rootFlags) (*store.Store, error) 
 }
 
 // loadObjs lists and decodes every synced object of the given resource_type.
+// It refuses a resource whose local copy is not a complete snapshot (Codex r1
+// class incomplete-snapshot-read-as-complete: with the timeline never synced,
+// run-stale read "no timeline row" as "never inspected" and triggered runs),
+// whose last finished sync was narrowed (Codex r2: a fields[]-projected
+// agents sync left no LastHeartbeat and `agents offline` reported zero), a
+// row that does not decode, and a row missing a field the commands need.
+// Every novel reads the store through here, so none reads a row that was
+// never fetched, or a field that was never fetched, as one that is absent.
 func loadObjs(db *store.Store, resourceType string) ([]map[string]any, error) {
+	if err := requireCompleteSnapshot(db, resourceType); err != nil {
+		return nil, err
+	}
 	raws, err := db.List(resourceType, novelListCap)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s from local store: %w", resourceType, err)
@@ -70,11 +82,193 @@ func loadObjs(db *store.Store, resourceType string) ([]map[string]any, error) {
 	out := make([]map[string]any, 0, len(raws))
 	for _, r := range raws {
 		var m map[string]any
-		if err := json.Unmarshal(r, &m); err == nil {
-			out = append(out, m)
+		if err := json.Unmarshal(r, &m); err != nil || m == nil {
+			return nil, fmt.Errorf("%w of %s: a stored row does not decode as an object; %s", errIncompleteSnapshot, resourceType, fullSyncRemedy(resourceType))
 		}
+		if isMetricEvaluationRow(resourceType, m) {
+			continue
+		}
+		out = append(out, m)
+	}
+	if err := requireNovelFields(resourceType, out); err != nil {
+		return nil, err
 	}
 	return out, nil
+}
+
+// errIncompleteSnapshot marks a novel refused because a resource it reads has
+// no complete local copy.
+var errIncompleteSnapshot = errors.New("the local store has no complete copy")
+
+// fullSyncRemedy names the sync that gives a resource a full local copy.
+// --full drops any resume cursor and since window; the narrowing flags are
+// named so the user does not repeat them.
+func fullSyncRemedy(resourceType string) string {
+	return fmt.Sprintf("run 'liongard-cli sync --full --resources %s' (without --param, --global-param, --resource-param, --since or --max-pages) and try again", resourceType)
+}
+
+// requireCompleteSnapshot passes only a resource whose last sync finished
+// as a full, unnarrowed snapshot (sync_state: last_attempt_complete = 1 with
+// a sync time, and snapshot_full = 1). Any other signal refuses: no sync
+// record (rows a live read cached are one page, not the estate), a sync that
+// stopped early (a --max-pages cap, an error, a stuck cursor) or was reset
+// for another tenant, a finished sync that was narrowed (fields[],
+// conditions[], any --param, --global-param or --resource-param, a since
+// window over a partial copy, a resumed cursor), or a sync state that cannot
+// be read.
+func requireCompleteSnapshot(db *store.Store, resourceType string) error {
+	snap, err := db.SyncSnapshotState(resourceType)
+	if err != nil {
+		return fmt.Errorf("%w of %s: reading its sync state: %v", errIncompleteSnapshot, resourceType, err)
+	}
+	if snap.Full {
+		return nil
+	}
+	if !snap.Recorded && !slicesContains(knownSyncResourceNames(), resourceType) {
+		return fmt.Errorf("%w of %s: this CLI's sync does not fetch %s yet, so this command cannot answer from local data (rows a live read cached are not the whole estate)", errIncompleteSnapshot, resourceType, resourceType)
+	}
+	if snap.Complete {
+		return fmt.Errorf("%w of %s: its last finished sync was narrowed (query parameters such as fields[] or conditions[], a since window, a resumed or capped walk), so the store holds only some of its rows or fields; %s", errIncompleteSnapshot, resourceType, fullSyncRemedy(resourceType))
+	}
+	return fmt.Errorf("%w of %s (never synced, or its last sync did not finish); %s", errIncompleteSnapshot, resourceType, fullSyncRemedy(resourceType))
+}
+
+// novelFieldGroups are the documented fields (spec.yaml components/schemas)
+// the store-backed commands read from each resource, where a missing field
+// changes an answer instead of erroring: no LastHeartbeat reads as "not
+// offline", no Launchpoint as "uninspected", no run timestamps as "never
+// inspected" (and a run-stale target), no Status as "not failed". Each group
+// lists the spellings the commands accept for one field (lgGet: a nested
+// reference or its scalar ID, any case); a row passes when every group has
+// at least one key present, null included (a documented nullable field the
+// API returned as null is data; a key a projection dropped is not).
+var novelFieldGroups = map[string][][]string{
+	rtAgents:       {{"ID"}, {"Environment", "EnvironmentID"}, {"LastHeartbeat"}},
+	rtEnvironments: {{"ID"}, {"Name"}},
+	rtSystems:      {{"ID"}, {"Environment", "EnvironmentID"}, {"Launchpoint", "LaunchpointID"}, {"Inspector", "InspectorID"}},
+	rtLaunchpoints: {{"ID"}, {"Environment", "EnvironmentID"}, {"Inspector", "InspectorID"}, {"LastScheduledRun"}, {"LastAdHocRun"}, {"TotalScheduledRuns"}, {"TotalAdHocRuns"}},
+	rtTimeline:     {{"ID"}, {"Environment", "EnvironmentID"}, {"Launchpoint", "LaunchpointID"}, {"System", "SystemID"}, {"Status"}, {"FinishedAt"}, {"CreatedOn"}},
+	rtDetections:   {{"ID"}, {"Environment", "EnvironmentID"}, {"System", "SystemID"}, {"CreatedOn"}},
+	rtMetrics:      {{"ID"}, {"Name"}, {"Inspector", "InspectorID"}, {"Environment", "EnvironmentID"}},
+	rtInspectors:   {{"ID"}, {"Name"}},
+}
+
+// requireNovelFields refuses the resource when any row lacks a field group
+// (novelFieldGroups). A resource with no listed groups passes.
+func requireNovelFields(resourceType string, rows []map[string]any) error {
+	groups := novelFieldGroups[resourceType]
+	if len(groups) == 0 {
+		return nil
+	}
+	missing := map[string]int{}
+	for _, row := range rows {
+		for _, g := range groups {
+			if !rowHasAnyKey(row, g) {
+				missing[g[0]]++
+			}
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(missing))
+	for name, n := range missing {
+		names = append(names, fmt.Sprintf("%s (%d of %d rows)", name, n, len(rows)))
+	}
+	sort.Strings(names)
+	return fmt.Errorf("%w of %s: stored rows lack %s, so this command cannot answer from them (a projected or filtered sync or live read stored them); %s. If rows still lack it after a full sync, Liongard did not return the field and this command cannot answer from local data", errIncompleteSnapshot, resourceType, strings.Join(names, ", "), fullSyncRemedy(resourceType))
+}
+
+// isMetricEvaluationRow reports a row of the metrics resource that is a
+// metric evaluation, not a metric definition: `metrics evaluation` reads
+// GET /metrics/bulk under the metrics resource, and its live-read cache
+// stores each documented components/schemas/MetricEvaluation entry
+// ({"TimelineID":..., "Metric":{"ID","Name","err","value"}}) beside the
+// definitions. It is not a definition with fields missing, so it is
+// skipped rather than refused. Closed rule: no ID, a Metric object and a
+// TimelineID.
+func isMetricEvaluationRow(resourceType string, row map[string]any) bool {
+	if resourceType != rtMetrics || rowHasAnyKey(row, []string{"ID"}) {
+		return false
+	}
+	_, hasMetric := lgGet(row, "Metric").(map[string]any)
+	return hasMetric && rowHasAnyKey(row, []string{"TimelineID"})
+}
+
+// rowHasAnyKey reports whether row carries one of keys (any case), null
+// values included.
+func rowHasAnyKey(row map[string]any, keys []string) bool {
+	for _, k := range keys {
+		if _, ok := row[k]; ok {
+			return true
+		}
+	}
+	for rowKey := range row {
+		for _, k := range keys {
+			if strings.EqualFold(rowKey, k) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func slicesContains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// lastRunByLaunchpoint is each launchpoint's newest known inspection: the
+// newest timeline entry that references it, or the launchpoint's own
+// documented last-run timestamps (components/schemas/Launchpoints
+// LastScheduledRun and LastAdHocRun), whichever is newer. The timeline alone
+// misses a run older than the timeline the store holds.
+func lastRunByLaunchpoint(timeline, launchpoints []map[string]any) map[string]time.Time {
+	latest := map[string]time.Time{}
+	seen := func(id string, ts time.Time) {
+		if cur, ok := latest[id]; !ok || ts.After(cur) {
+			latest[id] = ts
+		}
+	}
+	for _, t := range timeline {
+		if lpID := lgRefID(t, "Launchpoint", "LaunchpointID"); lpID != "" {
+			if ts, ok := lgTime(t, tsKeysInspection...); ok {
+				seen(lpID, ts)
+			}
+		}
+	}
+	for _, lp := range launchpoints {
+		id := lgID(lp)
+		if id == "" {
+			continue
+		}
+		for _, k := range launchpointLastRunKeys {
+			if ts, ok := lgTime(lp, k); ok {
+				seen(id, ts)
+			}
+		}
+	}
+	return latest
+}
+
+// launchpointLastRunKeys are the launchpoint's own documented last-run
+// timestamps (components/schemas/Launchpoints).
+var launchpointLastRunKeys = []string{"LastScheduledRun", "LastAdHocRun"}
+
+// ranBefore reports a launchpoint whose documented run counters
+// (components/schemas/Launchpoints TotalScheduledRuns, TotalAdHocRuns) say it
+// has run at least once.
+func ranBefore(lp map[string]any) bool {
+	for _, k := range []string{"TotalScheduledRuns", "TotalAdHocRuns"} {
+		if n, ok := lgFloat(lp, k); ok && n > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // lgGet returns the first present, non-nil value among keys, falling back to a
@@ -293,22 +487,9 @@ func computeStaleLaunchpoints(db *store.Store, olderThan time.Duration, envFilte
 	}
 	envByID, _ := envNameIndex(envs)
 
-	// Newest inspection timestamp per launchpoint, keyed by the launchpoint the
-	// timeline entry references.
-	latestByLP := map[string]time.Time{}
-	for _, t := range timeline {
-		lpID := lgRefID(t, "Launchpoint", "LaunchpointID")
-		if lpID == "" {
-			continue
-		}
-		ts, ok := lgTime(t, tsKeysInspection...)
-		if !ok {
-			continue
-		}
-		if cur, seen := latestByLP[lpID]; !seen || ts.After(cur) {
-			latestByLP[lpID] = ts
-		}
-	}
+	// Newest inspection per launchpoint: the timeline entries that reference
+	// it and its own documented last-run timestamps.
+	latestByLP := lastRunByLaunchpoint(timeline, launchpoints)
 
 	now := time.Now().UTC()
 	cutoff := now.Add(-olderThan)
@@ -336,6 +517,13 @@ func computeStaleLaunchpoints(db *store.Store, olderThan time.Duration, envFilte
 		}
 		last, seen := latestByLP[id]
 		if !seen {
+			// No run time anywhere. Its documented run counts
+			// (TotalScheduledRuns, TotalAdHocRuns) above zero say it did run:
+			// there is no evidence it is stale, so it is neither "never
+			// inspected" nor a run-stale target (fail closed for the write).
+			if ranBefore(lp) {
+				continue
+			}
 			item.NeverInspected = true
 			item.DaysStale = -1
 			out = append(out, item)
@@ -636,16 +824,26 @@ type offlineAgentRow struct {
 	Name          string `json:"name,omitempty"`
 	Hostname      string `json:"hostname,omitempty"`
 	Status        string `json:"status,omitempty"`
+	LastHeartbeat string `json:"last_heartbeat,omitempty"`
+	Reason        string `json:"reason"`
 	EnvironmentID string `json:"environment_id,omitempty"`
 	Environment   string `json:"environment,omitempty"`
 }
 
-// filterOfflineAgents returns the offline agents joined to their environment.
+// filterOfflineAgents is filterOfflineAgentsAt now, with the default
+// heartbeat threshold.
 func filterOfflineAgents(agents, envs []map[string]any, envFilter string) []offlineAgentRow {
+	return filterOfflineAgentsAt(agents, envs, envFilter, time.Now().UTC(), defaultAgentOfflineAfter)
+}
+
+// filterOfflineAgentsAt returns the offline agents (agentOfflineReason)
+// joined to their environment.
+func filterOfflineAgentsAt(agents, envs []map[string]any, envFilter string, now time.Time, after time.Duration) []offlineAgentRow {
 	envByID, _ := envNameIndex(envs)
 	rows := []offlineAgentRow{}
 	for _, a := range agents {
-		if !agentIsOffline(a) {
+		reason := agentOfflineReason(a, now, after)
+		if reason == "" {
 			continue
 		}
 		envID := lgRefID(a, "Environment", "EnvironmentID")
@@ -661,6 +859,8 @@ func filterOfflineAgents(agents, envs []map[string]any, envFilter string) []offl
 			Name:          lgStr(a, "Name", "name", "FriendlyName"),
 			Hostname:      lgStr(a, "Hostname", "hostname", "FQDN"),
 			Status:        lgStr(a, "Status", "State", "ConnectionStatus"),
+			LastHeartbeat: lgStr(a, "LastHeartbeat"),
+			Reason:        reason,
 			EnvironmentID: envID,
 			Environment:   envName,
 		})

@@ -86,9 +86,14 @@ Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binar
 If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
 
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.ps1 | iex            # Windows
+```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -108,38 +113,47 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`immybot-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `IMMYBOT_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export IMMYBOT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+immybot-mcp --transport http
+```
+
+Set `IMMYBOT_MCP_READ_ONLY=1` (exactly `1`) to list only read-only tools: every mirrored command that is not marked read-only is dropped, including the learn-store tools (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `learnings_confirm`), the execute and sync tools are removed, and the raw read tool refuses state-changing calls.
+
 ## Authentication
 
-ImmyBot authenticates through Microsoft Entra ID rather than an ImmyBot-issued key. Register an app in Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise Application's object ID into the AD External ID field, promoting that person to an admin user. The CLI then needs four values: IMMYBOT_SUBDOMAIN (your instance name without .immy.bot), IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID, and IMMYBOT_CLIENT_SECRET. The client-credentials token is minted against login.microsoftonline.com and cached automatically; the API scope is derived from your instance URL, and IMMYBOT_OAUTH_SCOPE overrides it if your tenant exposes a different App ID URI.
+ImmyBot authenticates through Microsoft Entra ID rather than an ImmyBot-issued key. Register an app in Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise Application's object ID into the AD External ID field, promoting that person to an admin user. The CLI then needs four values: IMMYBOT_SUBDOMAIN (your instance name without .immy.bot), IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. The client-credentials token is minted against login.microsoftonline.com and cached automatically; the API scope is derived from your instance URL, and IMMYBOT_OAUTH_SCOPE overrides it if your tenant exposes a different App ID URI.
 
 ## Quick Start
 
 ```bash
-# Confirm the instance subdomain and Entra credentials resolve before anything else.
+# verify the subdomain, the Entra credential trio and reachability
 immybot-cli doctor
 
-# Build the local mirror the cross-tenant commands read from.
-immybot-cli sync --resources tenants,computers
+# list the tenants this app registration can see
+immybot-cli tenants list --agent
 
-# Confirm the mirror has real rows.
-immybot-cli computers list --page-size 20
+# mirror computers, tenants, software and sessions into the local store
+immybot-cli sync
 
-# Collapse the last maintenance window into distinct root causes.
-immybot-cli session-triage --since 24h
+# last night's failures grouped by root cause
+immybot-cli session-triage --since 24h --agent
 
-# Answer the recurring question: which tenants are still behind on a title.
-immybot-cli version-spread "Google Chrome" --min-version 140
+# which tenants are still below a version floor
+immybot-cli version-spread "Google Chrome" --min-version 140 --agent
 
 ```
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Local state that compounds
-- **`session-triage`** - Group last night's failed maintenance actions by root cause instead of reading the same error on forty machines.
+- **`session-triage`** - Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines.
 
-  _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems actually worth a ticket._
+  _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems worth a ticket._
 
   ```bash
   immybot-cli session-triage --since 24h --agent
@@ -151,9 +165,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   immybot-cli version-spread "Google Chrome" --min-version 140 --agent
   ```
-- **`fleet-diff`** - What actually changed between two syncs: computers added or removed, software versions moved, assignments modified.
+- **`fleet-diff`** - What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since.
 
-  _Use this to answer "what changed since last night" without diffing two exports by hand._
+  _Use this to answer what changed since last night without diffing two exports by hand._
 
   ```bash
   immybot-cli fleet-diff --since 24h --agent
@@ -165,21 +179,42 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   immybot-cli onboarding-stalled --older-than 3d --agent
   ```
+- **`drift`** - Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet.
+
+  _Use this for a whole-tenant compliance posture; use version-spread for one title._
+
+  ```bash
+  immybot-cli drift --tenant Contoso --agent
+  ```
+- **`computer-dossier`** - Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass.
+
+  _One call before touching a machine a client is asking about._
+
+  ```bash
+  immybot-cli computer-dossier 4821 --agent
+  ```
 
 ### Deployment resolution
 - **`assignment-explain`** - Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
 
-  _Use this for any "why didn't this machine get X" question; it answers what a computer receives and why, which no single endpoint does._
+  _Use this for any why-didn't-this-machine-get-X question._
 
   ```bash
   immybot-cli assignment-explain 4821 --agent
   ```
-- **`script-blast-radius`** - Every maintenance task, software package, and computer that a script reaches before you edit it.
+- **`script-blast-radius`** - Every maintenance task, software package and computer that a script reaches before you edit it.
 
   _Run this before editing any shared script; it is the only way to see downstream reach across tenants._
 
   ```bash
   immybot-cli script-blast-radius 312 --agent
+  ```
+- **`deployment-health`** - Historical success rate per deployment, including ones that never worked.
+
+  _Find the deployments that have never once succeeded before a client asks why the software is missing._
+
+  ```bash
+  immybot-cli deployment-health --only-failing --agent
   ```
 
 ### Integration hygiene
@@ -189,6 +224,20 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   immybot-cli psa-reconcile --provider 7 --agent
+  ```
+- **`schedule-orphans`** - Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror.
+
+  _A schedule pointing at a deleted target still looks configured: this lists every one so a missed maintenance window is caught before a client notices._
+
+  ```bash
+  immybot-cli schedule-orphans --agent
+  ```
+- **`provider-link-health`** - Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded.
+
+  _A broken provider link silently stops agent and client syncing; this is the check to run when computers stop appearing._
+
+  ```bash
+  immybot-cli provider-link-health --agent
   ```
 
 ## Recipes
@@ -272,6 +321,15 @@ immybot-cli doctor
 
 Under `IMMYBOT_HOME=/srv/immybot`, the four dirs resolve to `/srv/immybot/config`, `/srv/immybot/data`, `/srv/immybot/state`, and `/srv/immybot/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:IMMYBOT_HOME = "C:\srv\immybot"
+immybot-cli doctor
+```
+
+Under `$env:IMMYBOT_HOME = "C:\srv\immybot"`, the four dirs resolve to `C:\srv\immybot\config`, `C:\srv\immybot\data`, `C:\srv\immybot\state`, and `C:\srv\immybot\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -293,6 +351,16 @@ Relocation is one-way. Unsetting `IMMYBOT_HOME` does not move files back to plat
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `immybot-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. The exception is the two `access` auth-details commands, whose responses carry the tenant's app registration secret: they print to the terminal that asked and are never cached or stored. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `immybot-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `immybot-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `IMMYBOT_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `IMMYBOT_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
+
 ## Commands
 
 ### access
@@ -301,8 +369,8 @@ Manage access
 
 - **`immybot-cli access create-delete-azure-tenant-auth-details`** - Create delete azure tenant auth details
 - **`immybot-cli access create-request`** - Create request
-- **`immybot-cli access create-update-azure-tenant-auth-details`** - Create update azure tenant auth details
-- **`immybot-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id`** - Get get azure tenant auth details by azure tenant principal id
+- **`immybot-cli access create-update-azure-tenant-auth-details`** - Create update azure tenant auth details (echoes the tenant's app registration secret back: CLI only, never cached or stored, never offered over MCP)
+- **`immybot-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id`** - Get get azure tenant auth details by azure tenant principal id (returns the tenant's app registration secret, shown as a withheld notice: CLI only, never cached or stored, never offered over MCP)
 - **`immybot-cli access get-get-ip-addresses`** - Get get ip addresses
 - **`immybot-cli access get-me-permissions-by-permission-type-tenants`** - Get me permissions by permission type tenants
 - **`immybot-cli access list`** - List
@@ -992,6 +1060,80 @@ Manage webhooks
 - **`immybot-cli webhooks get-by-id`** - Get by id
 
 
+### assignment-explain
+
+
+- **`immybot-cli assignment-explain`** - Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
+
+
+### computer-dossier
+
+
+- **`immybot-cli computer-dossier`** - Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass.
+
+
+### deployment-health
+
+
+- **`immybot-cli deployment-health`** - Historical success rate per deployment, including ones that never worked.
+
+
+### drift
+
+
+- **`immybot-cli drift`** - Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet.
+
+
+### fleet-diff
+
+
+- **`immybot-cli fleet-diff`** - What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since.
+
+
+### onboarding-stalled
+
+
+- **`immybot-cli onboarding-stalled`** - Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted.
+
+
+### provider-link-health
+
+
+- **`immybot-cli provider-link-health`** - Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded.
+
+
+### psa-reconcile
+
+
+- **`immybot-cli psa-reconcile`** - Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets.
+
+
+### schedule-orphans
+
+
+- **`immybot-cli schedule-orphans`** - Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror.
+
+
+### script-blast-radius
+
+
+- **`immybot-cli script-blast-radius`** - Every maintenance task, software package and computer that a script reaches before you edit it.
+
+
+### session-triage
+
+
+- **`immybot-cli session-triage`** - Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines.
+
+
+### version-spread
+
+
+- **`immybot-cli version-spread`** - Semver-ordered distribution of one software title across every tenant, flagging everything below a floor.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -1027,6 +1169,8 @@ immybot-cli access list --dry-run
 immybot-cli access list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -1041,7 +1185,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Runtime Endpoint
 
@@ -1062,9 +1206,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `immybot-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/immybot-cli/config.toml` (`%USERPROFILE%\.config\immybot-cli\config.toml` on Windows); `--home`, `IMMYBOT_HOME`, and per-kind env vars can relocate it.
+Run `immybot-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/immybot-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\immybot-cli\config.toml` on Windows; `--home`, `IMMYBOT_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `IMMYBOT_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `IMMYBOT_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -1108,11 +1254,12 @@ turns it on. See issue #270.
 - Run the `list` command to see available items
 
 ### API-specific
-- **Every request returns 401 Unauthorized** - Confirm the Enterprise Application object ID (not the Application ID) is set as a Person's AD External ID in ImmyBot and that the person is an admin user.
+- **Entra rejects the token request (AADSTS500011 or invalid_scope)** - Set IMMYBOT_SUBDOMAIN: the scope is https://<subdomain>.immy.bot/.default and is derived from it. Override with IMMYBOT_OAUTH_SCOPE only if your instance uses another App ID URI.
+- **401 or 403 on every call after a token is minted** - Add the Entra app's Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID), then run doctor.
+- **sync stores exactly 1000 computers** - GET /api/v1/computers returns one capped page; sync warns when the cap is hit. Use computers get-paged for larger instances.
+- **Cross-tenant commands return nothing** - Run sync first; session-triage, version-spread and the other mirror commands read the local store only.
 - **tenant required for token URL** - Set IMMYBOT_TENANT_ID to the Entra directory (tenant) ID that issues the token.
 - **Requests go to your-instance.immy.bot** - Set IMMYBOT_SUBDOMAIN to your instance name without the .immy.bot suffix, or pass --base-url.
-- **Token mints but the API still rejects it** - The scope must match your instance App ID URI; set IMMYBOT_OAUTH_SCOPE to https://<subdomain>.immy.bot/.default.
-- **Cross-tenant commands return nothing** - Run sync --resources tenants,computers,software first; those commands read the local mirror, not the live API.
 - **HTTP 429 Too Many Requests** - Lower sync concurrency by syncing one resource at a time, or re-run with --max-pages to bound the walk.
 
 ## Sources & Inspiration

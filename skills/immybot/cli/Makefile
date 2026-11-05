@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/immybot-cli$(BIN_EXT) ./cmd/immybot-cli
+	go build -trimpath -o bin/immybot-cli$(BIN_EXT) ./cmd/immybot-cli
 
 test:
 	go test ./...
@@ -18,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/immybot-mcp$(BIN_EXT) ./cmd/immybot-mcp
+	go build -trimpath -o bin/immybot-mcp$(BIN_EXT) ./cmd/immybot-mcp
 
 install-mcp:
 	go install ./cmd/immybot-mcp

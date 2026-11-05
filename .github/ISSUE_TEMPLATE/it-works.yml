@@ -71,6 +71,7 @@ body:
         - jira-service-management
         - kaseya-bms
         - kaseya-vsa
+        - keeper
         - knowbe4
         - levelio
         - liongard
@@ -119,6 +120,7 @@ body:
         - wordpress
         - xero
         - zammad
+        - zoom-phone
         - other / not listed
     validations:
       required: true
