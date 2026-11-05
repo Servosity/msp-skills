@@ -588,9 +588,9 @@
     "released_hash": "sha256:39bdd318aa0b3259af4e71e2eb728cfadd7030873d4ea3c153672b8c739256d1"
   },
   "superops": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.14",
-    "latest_tag": "superops-v0.1.13",
+    "latest_tag": "superops-v0.1.14",
     "current_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e",
     "released_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e"
   },
