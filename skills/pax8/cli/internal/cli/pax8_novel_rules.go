@@ -21,6 +21,13 @@ package cli
 //     2-Year and 3-Year recur on another cadence and are reported beside MRR
 //     as per-term amounts, never summed into it; One-Time, Activation and
 //     Trial do not recur. A term outside the enum, or none, is unclassified.
+//   - Invoice status (the /invoices status enum in spec.json): one rule
+//     (pax8InvoiceOwed). Unpaid, Paid and Carried were billed; Void, Nothing Due
+//     and Credited are not owed. A status outside the enum, or none, is
+//     unclassified: never summed, and reported with its amount.
+//   - currencyCode (Subscription, Invoice): money is never added across it
+//     (pax8Currency). A row with no currency is its own group, since it may be
+//     any of them.
 //   - Timestamps (examples/subscription-history writes "-0700" offsets):
 //     pax8ParseTime reads RFC 3339, numeric offsets with or without a colon,
 //     no zone (UTC) and dates; a value it cannot read is never inside a
@@ -32,6 +39,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -58,6 +66,40 @@ var pax8StatusBills = map[string]bool{
 func pax8SubscriptionBills(status string) (bills, known bool) {
 	bills, known = pax8StatusBills[strings.ToLower(strings.TrimSpace(status))]
 	return bills, known
+}
+
+// pax8InvoiceStatusOwed is the documented /invoices status enum, lowercased: true
+// when the invoice was billed, so its total is spend. The spec names these values
+// and does not define them, so this is their plain reading: a Carried invoice was
+// billed and rolled onto a later one, and a Paid one was billed and settled.
+var pax8InvoiceStatusOwed = map[string]bool{
+	"unpaid":      true,
+	"paid":        true,
+	"carried":     true,
+	"void":        false,
+	"nothing due": false,
+	"credited":    false,
+}
+
+// pax8InvoiceOwed reports whether an invoice with this status counts as spend
+// (known is false for a status outside the documented enum, or none).
+func pax8InvoiceOwed(status string) (owed, known bool) {
+	owed, known = pax8InvoiceStatusOwed[strings.ToLower(strings.TrimSpace(status))]
+	return owed, known
+}
+
+// pax8Currency is a row's currencyCode, so that "usd" and "USD" are one currency;
+// "" when the row has none.
+func pax8Currency(row map[string]any) string {
+	return strings.ToUpper(strings.TrimSpace(pax8FieldStr(row, "currencyCode", "currency_code")))
+}
+
+// pax8Money writes an amount in a currency, or alone when there is none.
+func pax8Money(amount float64, currency string) string {
+	if currency == "" {
+		return fmt.Sprintf("%.2f", amount)
+	}
+	return fmt.Sprintf("%.2f %s", amount, currency)
 }
 
 // Billing-term classes.
