@@ -34,6 +34,13 @@
     "current_hash": "sha256:085bc169d03b82a4eb92d66f813eb4e77bb2ee7f19b44bfa426493bc499c7336",
     "released_hash": "sha256:085bc169d03b82a4eb92d66f813eb4e77bb2ee7f19b44bfa426493bc499c7336"
   },
+  "apple-business": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+    "released_hash": null
+  },
   "atera": {
     "state": "up-to-date",
     "version": "0.1.8",
@@ -376,6 +383,13 @@
     "latest_tag": "nerdio-v0.1.8",
     "current_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911",
     "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
+  },
+  "netsapiens": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "netsapiens-v0.1.0",
+    "current_hash": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+    "released_hash": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee"
   },
   "ninjaone": {
     "state": "up-to-date",

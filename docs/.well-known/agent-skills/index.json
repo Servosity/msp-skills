@@ -37,6 +37,13 @@
       "digest": "sha256:c7cf452982fa6da85a72f066534cdacb361967355cff0e3c4cf45773c48c1935"
     },
     {
+      "name": "apple-business",
+      "type": "skill-md",
+      "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock. Trigger phrases: `which MDM is this serial assigned to`, `find Apple devices not assigned to an MDM`, `AppleCare expiring for this customer`, `assign these serials to Jamf in Apple Business`, `Apple Business audit log`, `use apple-business`, `run apple-business-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/apple-business/SKILL.md",
+      "digest": "sha256:4c4a7b1222abf5f45d0899ddd2bb3712ead0f9aeeff12260cb92b346c19b4af7"
+    },
+    {
       "name": "atera",
       "type": "skill-md",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can. Trigger phrases: `which atera agents are offline`, `atera tickets about to breach sla`, `atera book of business`, `what changed in atera since yesterday`, `sync atera to my machine`, `use atera`, `run atera-cli`, `which customers are under-contracted`, `patch compliance across the fleet`, `what contracts are expiring`.",
@@ -378,6 +385,13 @@
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has. Trigger phrases: `list nerdio accounts`, `audit autoscale across customers`, `which AVD hosts are running`, `nerdio billing rollup`, `wait for nerdio job`, `use nerdio`, `run nerdio-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/SKILL.md",
       "digest": "sha256:bb9c3cf04db8e5d709a15f47b939c8b71eff7909447d62a9ce0e9ebe7a419ff5"
+    },
+    {
+      "name": "netsapiens",
+      "type": "skill-md",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once. Trigger phrases: `which phones are offline`, `who owns this DID`, `which clients are over their seat limit`, `check E911 across our VoIP clients`, `missed calls report for netsapiens`, `use netsapiens`, `run netsapiens`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/SKILL.md",
+      "digest": "sha256:6481750e378eea830a810036a3ca76629271bda91e38dd8325b38549eaea0178"
     },
     {
       "name": "ninjaone",

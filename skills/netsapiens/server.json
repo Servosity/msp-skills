@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/netsapiens-mcp",
+  "title": "NetSapiens MCP",
+  "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/netsapiens/netsapiens-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/netsapiens"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/netsapiens-v0.1.0/netsapiens-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NETSAPIENS_API_KEY",
+          "description": "Set the NETSAPIENS_API_KEY credential for the NetSapiens MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "NETSAPIENS_SERVER",
+          "description": "Set the NETSAPIENS_SERVER credential for the NetSapiens MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "NETSAPIENS_BASE_URL",
+          "description": "Optional. Overrides the whole base URL (https://<host>/ns-api/v2) when your provider uses a different path.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "NETSAPIENS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "NETSAPIENS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "NETSAPIENS_MCP_HTTP_TOKEN",
+          "description": "Required only for --transport http: callers must send a matching Authorization: Bearer header.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "NETSAPIENS_USER_AGENT",
+          "description": "Overrides the User-Agent sent on NetSapiens requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "NETSAPIENS_MCP_UPLOAD_ROOT",
+          "description": "Optional. Leave unset: no NetSapiens MCP tool in this release takes a file, so this setting has no effect.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

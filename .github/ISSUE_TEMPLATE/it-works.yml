@@ -27,6 +27,7 @@ body:
         - action1
         - afi
         - appdirect
+        - apple-business
         - atera
         - autotask
         - auvik
@@ -73,6 +74,7 @@ body:
         - mspbots
         - n-central
         - nerdio
+        - netsapiens
         - ninjaone
         - pagerduty
         - pandadoc
