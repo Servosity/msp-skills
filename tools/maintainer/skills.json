@@ -1187,6 +1187,29 @@
         "issue_url": null
       }
     },
+    "kaseya-vsa": {
+      "system": "Kaseya VSA 10 RMM - devices, patches, software inventory, scripts, tasks, and alerts",
+      "status": "beta",
+      "cli_binary": "kaseya-vsa-cli",
+      "mcp_binary": "kaseya-vsa-mcp",
+      "vendor": "Kaseya VSA",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Kaseya VSA 10",
+      "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "has_video": true,
+      "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "knowbe4": {
       "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
       "status": "beta",
