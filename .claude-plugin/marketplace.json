@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "liongard",

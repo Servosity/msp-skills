@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Security
 - **Rebuilt on CLI Printing Press 4.34.2** (the press upgrade behind [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). HTTP mode refuses to start without `LIONGARD_MCP_HTTP_TOKEN`, checks it on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback; every MCP write previews and sends only with `confirm: true`.
