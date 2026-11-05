@@ -733,6 +733,25 @@
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal."
     },
     {
+      "name": "dropsuite",
+      "system": "Dropsuite (NinjaOne SaaS Backup): fleet backup health, coverage gaps, seat and billing reconciliation, restore-test evidence across every client organization",
+      "status": "beta",
+      "skill_path": "skills/dropsuite",
+      "cli_binary": "dropsuite-cli",
+      "mcp_binary": "dropsuite-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Dropsuite (NinjaOne)",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/install.sh)",
+      "install_mcp_doc": "skills/dropsuite/mcp-install.md",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+      "verification": "awaiting",
+      "category": "Backup/DR"
+    },
+    {
       "name": "exchange-online",
       "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
       "status": "beta",

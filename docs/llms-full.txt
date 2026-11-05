@@ -1326,6 +1326,40 @@ A: No add-on is required - you generate an API Key from the Domotz Portal under 
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
 
+### Dropsuite (Backup/DR)
+
+Page: [Dropsuite](https://msp-skills.compoundingteams.com/skills/dropsuite.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/install.sh)
+
+Selling Dropsuite backup to a book of clients? Ask your AI "what is failing or stale across my clients," "which users are not backed up yet," or "do my seat counts match what I invoice" and get one answer instead of opening each organization in the partner portal. One reseller credential resolves every client's token, and health snapshots plus a restore-test ledger build dated evidence the API does not keep.
+
+Outcomes (question -> command your AI agent runs):
+- What is failing, stuck or stale across every client right now? -> dropsuite-cli health --stale-after 48h --failing --agent
+- Which tenant mailboxes are not added to backup, with coverage percent per client? -> dropsuite-cli coverage --agent
+- Which clients are over-allocated against my PSA invoice, or suspended but still holding seats? -> dropsuite-cli billing --invoice psa-seats.csv --flagged-only --agent
+- Which deactivated or deleted mailboxes still hold storage, and which invitations were never accepted? -> dropsuite-cli hygiene --older-than 30d --agent
+- Which client owns this email address, and are its mailbox and OneDrive backed up? -> dropsuite-cli locate jane@example.com --agent
+- Give me dated proof of protection for one client for an insurer or QBR -> dropsuite-cli evidence --org 26561-14 --window 90d --markdown
+- What changed since last week: objects that left backup or backups that stopped advancing? -> dropsuite-cli drift --since 7d --agent
+- Which clients are due a restore test? -> dropsuite-cli restore-test due --every 90d --pick --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Dropsuite (NinjaOne) MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Dropsuite data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local store are local, and the AI sees query results, not raw bulk data. Requests go only to your configured Dropsuite API host, and the reseller tokens and every organization token the CLI reads are withheld from all output, files and the local store. Responses are never cached on disk.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which Dropsuite credentials do I need?
+A: The two values from Settings > API Settings in the Dropsuite partner portal: the Reseller Token (DROPSUITE_RESELLER_TOKEN, sent as X-Reseller-Token) and your reseller Authentication Token (DROPSUITE_ACCESS_TOKEN, sent as X-Access-Token). You do not collect each client's token: --org, or DROPSUITE_ORG for the MCP server, resolves it from the organization list. If your partner API is not on dropsuite.us, set DROPSUITE_HOST.
+Q: Can the AI change backups or restore data?
+A: No. Every command reads, and restore-test record only writes to a local ledger on your machine. The exception is a portal sign-in link: portal get-login-link, organizations get-support-sso-link, locate --sso-link and evidence --with-sso-link mint one, and a new organization link invalidates the previous one. Over MCP those calls return a preview and mint only when the agent repeats the call with confirm: true. For an agent that should only read, set DROPSUITE_MCP_READ_ONLY=1: the sign-in link tools are removed.
+
+Governance: The skill reads backup status, coverage, seats and organization settings for every client your reseller credential can see, and keeps health snapshots and a restore-test ledger on your machine. It cannot change a backup or run a restore. The one sensitive action is minting a portal sign-in link, which is credential tier: let an agent read freely, and keep a human on sign-in links.
+
 ### Exchange Online (Security)
 
 Page: [Exchange Online](https://msp-skills.compoundingteams.com/skills/exchange-online.md)

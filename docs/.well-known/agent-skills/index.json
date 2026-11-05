@@ -247,6 +247,13 @@
       "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
     },
     {
+      "name": "dropsuite",
+      "type": "skill-md",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential. Trigger phrases: `check dropsuite backups`, `which clients have failing saas backups`, `unprotected mailboxes in ninjaone saas backup`, `reconcile dropsuite seats with billing`, `use dropsuite`, `run dropsuite`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/SKILL.md",
+      "digest": "sha256:a8190f4088167b93bc92c47715afe70c9be40f36b0c6a1bdb5a0a197b04a3582"
+    },
+    {
       "name": "exchange-online",
       "type": "skill-md",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session. Trigger phrases: `audit mailbox forwarding`, `which mailboxes still have EWS on`, `offboard this user's mailbox`, `why didn't this email arrive`, `release quarantined email`, `use exchange-online`, `run exchange-online`.",

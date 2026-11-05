@@ -148,6 +148,10 @@ domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
 
+dropsuite:
+  vendor: "Dropsuite"
+  example_command: "Which client backups are failing or stale?"
+
 exchange-online:
   vendor: "Exchange Online"
   example_command: "Is any client mail auto-forwarding out?"

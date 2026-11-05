@@ -1,0 +1,96 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/dropsuite-mcp",
+  "title": "Dropsuite (NinjaOne) MCP",
+  "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/dropsuite/dropsuite-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/dropsuite"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/dropsuite-v0.1.0/dropsuite-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DROPSUITE_ACCESS_TOKEN",
+          "description": "Set the DROPSUITE_ACCESS_TOKEN credential for the Dropsuite (NinjaOne) MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DROPSUITE_HOST",
+          "description": "Your Dropsuite region's host (for example dropsuite.us), used as https://<host>/api.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "dropsuite.us"
+        },
+        {
+          "name": "DROPSUITE_RESELLER_TOKEN",
+          "description": "Set the DROPSUITE_RESELLER_TOKEN credential for the Dropsuite (NinjaOne) MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DROPSUITE_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "DROPSUITE_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DROPSUITE_BASE_URL",
+          "description": "Optional. The whole API base URL, such as https://dropsuite.us/api. Leave blank to build it from the region host above.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DROPSUITE_ORG",
+          "description": "Optional. An organization id or owner email that points the per-organization tools at one client; the server resolves that organization's token from the organization list. Leave blank to name it on each call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DROPSUITE_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Dropsuite requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DROPSUITE_MCP_HTTP_TOKEN",
+          "description": "Bearer token required by `dropsuite-mcp --transport http`; unused by the default stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

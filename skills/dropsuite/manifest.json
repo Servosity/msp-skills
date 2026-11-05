@@ -1,0 +1,115 @@
+{
+  "manifest_version": "0.3",
+  "name": "dropsuite-mcp",
+  "display_name": "Dropsuite",
+  "version": "0.1.0",
+  "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/dropsuite-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/dropsuite-mcp",
+      "args": [],
+      "env": {
+        "DROPSUITE_ACCESS_TOKEN": "${user_config.dropsuite_access_token}",
+        "DROPSUITE_HOST": "${user_config.dropsuite_host}",
+        "DROPSUITE_RESELLER_TOKEN": "${user_config.dropsuite_reseller_token}",
+        "DROPSUITE_MCP_READ_ONLY": "${user_config.dropsuite_mcp_read_only}",
+        "DROPSUITE_NO_LOCAL_DATA": "${user_config.dropsuite_no_local_data}",
+        "DROPSUITE_MCP_HTTP_TOKEN": "${user_config.dropsuite_mcp_http_token}",
+        "DROPSUITE_BASE_URL": "${user_config.dropsuite_base_url}",
+        "DROPSUITE_ORG": "${user_config.dropsuite_org}",
+        "DROPSUITE_USER_AGENT": "${user_config.dropsuite_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "dropsuite_access_token": {
+      "type": "string",
+      "title": "DROPSUITE_ACCESS_TOKEN",
+      "description": "Authentication Token from Settings > API Settings (the reseller admin token), sent as X-Access-Token.",
+      "sensitive": true,
+      "required": true
+    },
+    "dropsuite_host": {
+      "type": "string",
+      "title": "Dropsuite region host",
+      "description": "Your Dropsuite region's host (dropsuite.us, dropsuite.com, dropsuite.au and so on), used as https://<host>/api. Leave the prefilled default unless your account is in another region.",
+      "default": "dropsuite.us",
+      "required": false
+    },
+    "dropsuite_reseller_token": {
+      "type": "string",
+      "title": "DROPSUITE_RESELLER_TOKEN",
+      "description": "Reseller Token from Settings > API Settings, sent as X-Reseller-Token.",
+      "sensitive": true,
+      "required": true
+    },
+    "dropsuite_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "dropsuite_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "dropsuite_mcp_http_token": {
+      "type": "string",
+      "title": "HTTP transport bearer token",
+      "description": "Bearer token that `dropsuite-mcp --transport http` requires from every HTTP client (Authorization: Bearer). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+      "sensitive": true,
+      "required": false
+    },
+    "dropsuite_base_url": {
+      "type": "string",
+      "title": "Dropsuite API base URL",
+      "description": "Optional. The whole API base URL, such as https://dropsuite.us/api. Leave blank to build it from the region host above.",
+      "required": false
+    },
+    "dropsuite_org": {
+      "type": "string",
+      "title": "Organization",
+      "description": "Optional. An organization id or owner email that points the per-organization tools at one client; the server resolves that organization's token from the organization list. Leave blank to name it on each call.",
+      "required": false
+    },
+    "dropsuite_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Dropsuite requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T04:53:23.385525Z",
+    "spec_checksum": "sha256:99197a5d6efefa811a20c21f6da3009b2884a7180912b7f951e58321964f917d",
+    "spec_format": "openapi3"
+  }
+}
