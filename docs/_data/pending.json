@@ -705,5 +705,12 @@
     "latest_tag": "zammad-v0.1.12",
     "current_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057",
     "released_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057"
+  },
+  "zoom-phone": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
+    "released_hash": null
   }
 }
