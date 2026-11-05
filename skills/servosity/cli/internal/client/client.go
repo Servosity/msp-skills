@@ -1124,7 +1124,8 @@ func terminalTransportRefusal(err error) bool {
 	return errors.Is(err, ErrPlaintextCredential) ||
 		errors.Is(err, ErrRedirectPrivateDestination) ||
 		errors.Is(err, ErrRedirectProtocolDowngrade) ||
-		errors.Is(err, ErrRedirectUnsupportedScheme)
+		errors.Is(err, ErrRedirectUnsupportedScheme) ||
+		errors.Is(err, ErrOffOriginRedirect) // Hand-fix (handfixes.json sync-json-only-bounded)
 }
 
 func terminalSentinel(err error) error {
@@ -1137,6 +1138,8 @@ func terminalSentinel(err error) error {
 		return ErrRedirectProtocolDowngrade
 	case errors.Is(err, ErrRedirectUnsupportedScheme):
 		return ErrRedirectUnsupportedScheme
+	case errors.Is(err, ErrOffOriginRedirect): // Hand-fix (handfixes.json sync-json-only-bounded)
+		return ErrOffOriginRedirect
 	default:
 		return err
 	}
@@ -2453,6 +2456,8 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		// kit's outbound guard, around the guarded transport the client already carries.
 		sendClient := *httpClient
 		sendClient.Transport = OutboundGuard(httpClient.Transport)
+		// Hand-fix (handfixes.json sync-json-only-bounded): under sync, a redirect off the API's origin is not followed.
+		sendClient.CheckRedirect = jsonOnlyCheckRedirect(ctx, httpClient.CheckRedirect)
 		resp, err := sendClient.Do(req)
 		if err != nil {
 			if cancelAttempt != nil {
@@ -2482,6 +2487,15 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				continue
 			}
 			return nil, 0, lastErr
+		}
+
+		// Hand-fix (handfixes.json sync-json-only-bounded): under sync, a body that is not JSON is never read.
+		if refusal := refuseNonJSONResponse(ctx, resp); refusal != nil {
+			_ = resp.Body.Close()
+			if cancelAttempt != nil {
+				cancelAttempt()
+			}
+			return nil, resp.StatusCode, refusal
 		}
 
 		respBody, err := readLimitedResponse(resp, streamIdle, cancelAttempt)
