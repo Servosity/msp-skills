@@ -24,12 +24,16 @@ type triageAccount struct {
 
 type triageView struct {
 	GeneratedAtWindow string          `json:"generated_at_window"`
+	Currency          string          `json:"currency,omitempty"`
 	Accounts          []triageAccount `json:"accounts"`
 }
 
 // pp:data-source local
 //
-// newNovelTriageCmd ranks active-subscription customers by an attention score
+// newNovelTriageCmd ranks current customers (every subscription in a
+// documented live or problem state: revenue.CurrentStates; Codex r1 class
+// current-states-narrowed-to-active made the past-due scoring unreachable)
+// by an attention score
 // built from past-due/unpaid state, large renewals approaching inside the next
 // 30 days, and high MRR concentration (top-decile accounts). It reads only the
 // local store; nothing here mutates external state.
@@ -56,8 +60,9 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 
 			var latest sql.NullString
 			_ = db.QueryRowContext(cmd.Context(), `SELECT MAX(snapshot_at) FROM rev_sub_mrr_snapshots`).Scan(&latest)
+			currency, money := revenueMoney(cmd.Context(), db)
 
-			// One row per active subscription, joined to the latest per-sub MRR
+			// One row per current subscription, joined to the latest per-sub MRR
 			// snapshot and the customer record for a display name.
 			rows, qerr := db.QueryContext(cmd.Context(), `
 				SELECT CAST(json_extract(sub.data,'$.customer.id') AS TEXT) AS cust_id,
@@ -71,10 +76,10 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 				LEFT JOIN rev_sub_mrr_snapshots s ON s.subscription_id = sub.id AND s.snapshot_at = ?
 				LEFT JOIN resources cust ON cust.resource_type='customers-json'
 				     AND cust.id = CAST(json_extract(sub.data,'$.customer.id') AS TEXT)
-				WHERE sub.resource_type='subscriptions-json' AND json_extract(sub.data,'$.state')='active'`,
-				latest.String)
+				WHERE sub.resource_type='subscriptions-json' AND LOWER(COALESCE(json_extract(sub.data,'$.state'),'')) IN (SELECT value FROM json_each(?))`,
+				latest.String, revenue.CurrentStatesArg())
 			if qerr != nil {
-				return fmt.Errorf("querying active subscriptions: %w", qerr)
+				return fmt.Errorf("querying current subscriptions: %w", qerr)
 			}
 			defer rows.Close()
 
@@ -106,10 +111,10 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 				}
 				a.mrr += mrr.Int64
 
-				// Past-due / unpaid / dunning subscription state on any sub.
-				switch state.String {
-				case "past_due", "unpaid", "dunning":
-					if a.state != "past_due" && a.state != "unpaid" && a.state != "dunning" {
+				// A documented Problem State (past_due, soft_failure, unpaid)
+				// on any of the customer's subscriptions.
+				if revenue.IsProblemState(state.String) {
+					if !revenue.IsProblemState(a.state) {
 						a.state = state.String
 					}
 					if !containsStr(a.reasons, "past-due/unpaid subscription") {
@@ -139,20 +144,20 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 								}
 								a.score += bump
 								a.reasons = append(a.reasons,
-									fmt.Sprintf("large renewal in %dd (%s)", days, revenue.Cents(subMRR)))
+									fmt.Sprintf("large renewal in %dd (%s)", days, money(subMRR)))
 							}
 						}
 					}
 				}
 			}
 			if err := rows.Err(); err != nil {
-				return fmt.Errorf("scanning active subscriptions: %w", err)
+				return fmt.Errorf("scanning current subscriptions: %w", err)
 			}
 
 			if len(order) == 0 {
 				hintRunMrrSync(cmd.ErrOrStderr())
-				return emitRevenue(cmd, flags, triageView{GeneratedAtWindow: "30d", Accounts: []triageAccount{}}, func(w io.Writer) {
-					fmt.Fprintln(w, "No active subscriptions found.")
+				return emitRevenue(cmd, flags, triageView{GeneratedAtWindow: "30d", Currency: currency, Accounts: []triageAccount{}}, func(w io.Writer) {
+					fmt.Fprintln(w, "No current subscriptions found.")
 				})
 			}
 
@@ -192,11 +197,11 @@ func newNovelTriageCmd(flags *rootFlags) *cobra.Command {
 				accounts = accounts[:limit]
 			}
 
-			view := triageView{GeneratedAtWindow: "30d", Accounts: accounts}
+			view := triageView{GeneratedAtWindow: "30d", Currency: currency, Accounts: accounts}
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "Accounts needing attention (renewal window 30d)\n")
 				for _, a := range view.Accounts {
-					fmt.Fprintf(w, "  [%3d] %-34s %12s  %s\n", a.Score, truncate(a.Customer, 34), revenue.Cents(a.MRRCents), a.State)
+					fmt.Fprintf(w, "  [%3d] %-34s %12s  %s\n", a.Score, truncate(a.Customer, 34), money(a.MRRCents), a.State)
 					for _, r := range a.Reasons {
 						fmt.Fprintf(w, "         - %s\n", r)
 					}

@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Changed
+- Rebuilt on press 4.34.2. `MAXIO_SITE` is now required: with it unset, a command names the variable and sends nothing, where it used to send your key to the spec's example host.
+- The MCP server gains HTTP mode with a bearer token (`MAXIO_MCP_HTTP_TOKEN`), and two switches: `MAXIO_MCP_READ_ONLY` and `MAXIO_NO_LOCAL_DATA`.
+
+### Fixed
+- **Two identical MRR movements on either side of a page boundary stay two.** `mrr sync` used to store one of them, so MRR and churn totals came out short.
+- **A failed or partial movement sync always warns.** `churn` and `new-customers` used to report $0 of churned or new MRR with no warning when the first movement page had failed.
+- **A consolidated invoice is counted once.** `revenue-mix` and `reconcile` used to add a parent invoice on top of its stored child segments.
+- **A narrowed `sync` no longer hides later changes.** A run with a `--param`, `--global-param` or `--resource-param`, or a `--since` later than the stored sync time, used to move the stored sync time, so the next plain `sync` missed older records changed in between. Such a run now leaves the stored time and the resume cursor alone.
+
+### Security
+- Credential handling moves to the shared credential kit, which checks every output, file, database write, MCP message and outbound request. See the Credential safety section of the README.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed

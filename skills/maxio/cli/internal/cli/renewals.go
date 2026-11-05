@@ -19,6 +19,7 @@ type renewalRow struct {
 }
 
 type renewalsView struct {
+	Currency       string       `json:"currency,omitempty"`
 	WithinDays     int          `json:"within_days"`
 	Count          int          `json:"count"`
 	TotalMRRAtRisk int64        `json:"total_mrr_at_risk_cents"`
@@ -28,7 +29,8 @@ type renewalsView struct {
 
 // pp:data-source local
 //
-// newNovelRenewalsCmd lists active subscriptions whose current period ends
+// newNovelRenewalsCmd lists current subscriptions (revenue.CurrentStates;
+// Codex r1 class current-states-narrowed-to-active) whose current period ends
 // within the next N days (default 90) — the deal-room renewal-visibility view
 // alongside concentration. MRR-at-risk joins the latest snapshot.
 func newNovelRenewalsCmd(flags *rootFlags) *cobra.Command {
@@ -36,7 +38,7 @@ func newNovelRenewalsCmd(flags *rootFlags) *cobra.Command {
 	var within int
 	cmd := &cobra.Command{
 		Use:         "renewals",
-		Short:       "Active subscriptions renewing within the next N days (default 90), with MRR at risk.",
+		Short:       "Current subscriptions renewing within the next N days (default 90), with MRR at risk.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     "  maxio-cli renewals\n  maxio-cli renewals --within 30 --json",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -61,6 +63,7 @@ func newNovelRenewalsCmd(flags *rootFlags) *cobra.Command {
 
 			var latest sql.NullString
 			_ = db.QueryRowContext(cmd.Context(), `SELECT MAX(snapshot_at) FROM rev_sub_mrr_snapshots`).Scan(&latest)
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			// Compare on the YYYY-MM-DD prefix so timezone offsets in the stored
 			// ISO timestamp don't perturb the window boundary.
@@ -75,16 +78,16 @@ func newNovelRenewalsCmd(flags *rootFlags) *cobra.Command {
 				LEFT JOIN resources cust ON cust.resource_type='customers-json'
 				                        AND cust.id = json_extract(sub.data,'$.customer.id')
 				WHERE sub.resource_type='subscriptions-json'
-				  AND json_extract(sub.data,'$.state')='active'
+				  AND LOWER(COALESCE(json_extract(sub.data,'$.state'),'')) IN (SELECT value FROM json_each(?))
 				  AND substr(json_extract(sub.data,'$.current_period_ends_at'),1,10) >= ?
 				  AND substr(json_extract(sub.data,'$.current_period_ends_at'),1,10) <= ?
-				ORDER BY ends_at`, latest.String, lo, hi)
+				ORDER BY ends_at`, latest.String, revenue.CurrentStatesArg(), lo, hi)
 			if qerr != nil {
 				return fmt.Errorf("querying renewals: %w", qerr)
 			}
 			defer rows.Close()
 
-			view := renewalsView{WithinDays: within, Renewals: []renewalRow{}}
+			view := renewalsView{Currency: currency, WithinDays: within, Renewals: []renewalRow{}}
 			for rows.Next() {
 				var id, name, ends sql.NullString
 				var mrr sql.NullInt64
@@ -100,17 +103,17 @@ func newNovelRenewalsCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("scanning renewals: %w", err)
 			}
 			view.Count = len(view.Renewals)
-			view.Note = fmt.Sprintf("active subscriptions with current_period_ends_at in %s..%s; mrr_cents is from the latest snapshot (0 if unsynced).", lo, hi)
+			view.Note = fmt.Sprintf("current subscriptions (live or problem states) with current_period_ends_at in %s..%s; mrr_cents is from the latest snapshot (0 if unsynced).", lo, hi)
 
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
-				fmt.Fprintf(w, "renewals in next %d days: %d   MRR at risk: %s\n\n", view.WithinDays, view.Count, revenue.Cents(view.TotalMRRAtRisk))
+				fmt.Fprintf(w, "renewals in next %d days: %d   MRR at risk: %s\n\n", view.WithinDays, view.Count, money(view.TotalMRRAtRisk))
 				fmt.Fprintf(w, "%-40s %-12s %14s\n", "customer", "ends", "mrr")
 				for _, r := range view.Renewals {
 					ends := r.EndsAt
 					if len(ends) >= 10 {
 						ends = ends[:10]
 					}
-					fmt.Fprintf(w, "%-40s %-12s %14s\n", truncReason(r.Customer), ends, revenue.Cents(r.MRRCents))
+					fmt.Fprintf(w, "%-40s %-12s %14s\n", truncReason(r.Customer), ends, money(r.MRRCents))
 				}
 			})
 		},

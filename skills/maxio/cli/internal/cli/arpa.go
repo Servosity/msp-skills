@@ -8,8 +8,6 @@ import (
 	"math"
 
 	"github.com/spf13/cobra"
-
-	"maxio-pp-cli/internal/revenue"
 )
 
 type arpaDecomp struct {
@@ -25,6 +23,7 @@ type arpaDecomp struct {
 }
 
 type arpaView struct {
+	Currency           string      `json:"currency,omitempty"`
 	SiteMRRCents       int64       `json:"site_mrr_cents"`
 	ActiveCustomers    int         `json:"active_customers"`
 	ActiveSubscription int         `json:"active_subscriptions"`
@@ -67,7 +66,8 @@ func newNovelArpaCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			view := arpaView{SiteMRRCents: total, ActiveCustomers: len(custs)}
+			currency, money := revenueMoney(cmd.Context(), db)
+			view := arpaView{Currency: currency, SiteMRRCents: total, ActiveCustomers: len(custs)}
 			if len(custs) == 0 || total == 0 {
 				hintRunMrrSync(cmd.ErrOrStderr())
 				view.Note = "no MRR snapshots yet — run `maxio-cli mrr sync` first"
@@ -96,13 +96,13 @@ func newNovelArpaCmd(flags *rootFlags) *cobra.Command {
 			view.Note = "ARPA/ARPU and percentiles are over the per-subscription MRR snapshot, which excludes annual-prepay subscriptions; the full-book recognized-revenue total is in QuickBooks (report pnl)."
 
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
-				fmt.Fprintf(w, "site MRR: %s   customers: %d   subscriptions: %d\n", revenue.Cents(view.SiteMRRCents), view.ActiveCustomers, view.ActiveSubscription)
-				fmt.Fprintf(w, "ARPA: %s/mo   ARPU: %s/mo\n", revenue.Cents(view.ARPACents), revenue.Cents(view.ARPUCents))
-				fmt.Fprintf(w, "MRR percentiles  p50 %s   p90 %s   p99 %s\n", revenue.Cents(view.P50Cents), revenue.Cents(view.P90Cents), revenue.Cents(view.P99Cents))
+				fmt.Fprintf(w, "site MRR: %s   customers: %d   subscriptions: %d\n", money(view.SiteMRRCents), view.ActiveCustomers, view.ActiveSubscription)
+				fmt.Fprintf(w, "ARPA: %s/mo   ARPU: %s/mo\n", money(view.ARPACents), money(view.ARPUCents))
+				fmt.Fprintf(w, "MRR percentiles  p50 %s   p90 %s   p99 %s\n", money(view.P50Cents), money(view.P90Cents), money(view.P99Cents))
 				if d := view.Decomposition; d != nil {
 					fmt.Fprintf(w, "\nprice-vs-volume %s → %s  (ΔMRR %s = volume %s + price %s)\n",
 						d.PriorSnapshot[:min(10, len(d.PriorSnapshot))], d.CurrentSnapshot[:min(10, len(d.CurrentSnapshot))],
-						revenue.Cents(d.DeltaMRRCents), revenue.Cents(d.VolumeCents), revenue.Cents(d.PriceCents))
+						money(d.DeltaMRRCents), money(d.VolumeCents), money(d.PriceCents))
 				} else {
 					fmt.Fprintln(w, "\nprice-vs-volume: needs ≥2 snapshots (run `mrr sync` over time)")
 				}

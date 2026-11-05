@@ -26,10 +26,11 @@ type churnReason struct {
 }
 
 type churnView struct {
-	Since   string        `json:"since,omitempty"`
-	Periods []churnPeriod `json:"periods"`
-	Reasons []churnReason `json:"reasons"`
-	Note    string        `json:"note,omitempty"`
+	Since    string        `json:"since,omitempty"`
+	Currency string        `json:"currency,omitempty"`
+	Periods  []churnPeriod `json:"periods"`
+	Reasons  []churnReason `json:"reasons"`
+	Note     string        `json:"note,omitempty"`
 }
 
 // pp:data-source local
@@ -40,6 +41,12 @@ type churnView struct {
 // Involuntary churn is failed-card / dunning cancellation; everything else is
 // voluntary. Reason comes from cancellation_message, falling back to
 // cancellation_method.
+//
+// A churned logo is a customer, not a subscription (Codex r1, maxio 4.34.2
+// reprint, class subscription-counted-as-logo): a customer churns when none of
+// its subscriptions is current (revenue.CurrentStates) and at least one was
+// canceled; its churn month, method and reason are those of its last
+// cancellation.
 func newNovelChurnCmd(flags *rootFlags) *cobra.Command {
 	var flagSince, dbPath string
 	cmd := &cobra.Command{
@@ -63,54 +70,73 @@ func newNovelChurnCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer st.Close()
+			currency, money := revenueMoney(cmd.Context(), db)
 
-			// Logo churn from canceled subscriptions, bucketed by cancellation
-			// month. Involuntary = dunning/payment-failure cancellation method.
+			// Logo churn: customers with no current subscription, bucketed by
+			// their last cancellation's month. Involuntary = dunning/payment-
+			// failure cancellation method of that last cancellation.
 			logoRows, qerr := db.QueryContext(cmd.Context(), `
-				SELECT substr(json_extract(data,'$.canceled_at'),1,7) AS period,
-				       LOWER(COALESCE(json_extract(data,'$.cancellation_method'),'')) AS method,
-				       COUNT(*) AS n
-				FROM resources
-				WHERE resource_type='subscriptions-json'
-				  AND json_extract(data,'$.canceled_at') IS NOT NULL
-				  AND substr(json_extract(data,'$.canceled_at'),1,7) >= ?
-				GROUP BY period, method
-				ORDER BY period`, monthOf(cutoff))
+				WITH subs AS (
+				  SELECT CAST(json_extract(data,'$.customer.id') AS TEXT) AS cid,
+				         json_extract(data,'$.state') AS state,
+				         json_extract(data,'$.canceled_at') AS canceled_at,
+				         LOWER(COALESCE(json_extract(data,'$.cancellation_method'),'')) AS method,
+				         TRIM(COALESCE(NULLIF(json_extract(data,'$.cancellation_message'),''),
+				                       NULLIF(json_extract(data,'$.cancellation_method'),''),
+				                       'unspecified')) AS reason
+				  FROM resources
+				  WHERE resource_type='subscriptions-json' AND json_extract(data,'$.customer.id') IS NOT NULL
+				),
+				churned AS (
+				  SELECT cid, MAX(canceled_at) AS churned_at
+				  FROM subs
+				  GROUP BY cid
+				  HAVING SUM(CASE WHEN LOWER(COALESCE(state,'')) IN (SELECT value FROM json_each(?)) THEN 1 ELSE 0 END) = 0
+				     AND MAX(canceled_at) IS NOT NULL
+				)
+				SELECT c.cid, substr(c.churned_at,1,7) AS period, s.method, s.reason
+				FROM churned c JOIN subs s ON s.cid = c.cid AND s.canceled_at = c.churned_at
+				WHERE substr(c.churned_at,1,7) >= ?
+				ORDER BY period, c.cid`, revenue.CurrentStatesArg(), monthOf(cutoff))
 			if qerr != nil {
-				return fmt.Errorf("querying churned subscriptions: %w", qerr)
+				return fmt.Errorf("querying churned customers: %w", qerr)
 			}
 			defer logoRows.Close()
 
 			byPeriod := map[string]*churnPeriod{}
 			var order []string
+			counted := map[string]bool{}
+			reasonCount := map[string]int{}
 			for logoRows.Next() {
-				var period, method sql.NullString
-				var n sql.NullInt64
-				if err := logoRows.Scan(&period, &method, &n); err != nil {
-					continue
+				var cid, period, method, reason sql.NullString
+				if err := logoRows.Scan(&cid, &period, &method, &reason); err != nil {
+					return fmt.Errorf("scanning churned customers: %w", err)
 				}
 				key := period.String
-				if key == "" {
-					continue
+				if key == "" || counted[cid.String] {
+					continue // one logo per customer, whichever last cancellation ties
 				}
+				counted[cid.String] = true
 				p := byPeriod[key]
 				if p == nil {
 					p = &churnPeriod{Period: key}
 					byPeriod[key] = p
 					order = append(order, key)
 				}
-				p.ChurnedLogos += int(n.Int64)
+				p.ChurnedLogos++
 				if isInvoluntaryCancellation(method.String) {
-					p.InvoluntaryLogos += int(n.Int64)
+					p.InvoluntaryLogos++
 				} else {
-					p.VoluntaryLogos += int(n.Int64)
+					p.VoluntaryLogos++
 				}
+				reasonCount[reason.String]++
 			}
 			if err := logoRows.Err(); err != nil {
-				return fmt.Errorf("scanning churned subscriptions: %w", err)
+				return fmt.Errorf("scanning churned customers: %w", err)
 			}
 
 			// Dollar churn from the movement log (churn bucket, negative cents).
+			warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())
 			if has, _ := revenue.HasMovements(cmd.Context(), db); has {
 				mvRows, mverr := db.QueryContext(cmd.Context(), `
 					SELECT substr(ts,1,7) AS period, COALESCE(SUM(amount_cents),0)
@@ -137,42 +163,30 @@ func newNovelChurnCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			// Reason breakdown across the window.
-			reasonRows, rerr := db.QueryContext(cmd.Context(), `
-				SELECT TRIM(COALESCE(NULLIF(json_extract(data,'$.cancellation_message'),''),
-				                     NULLIF(json_extract(data,'$.cancellation_method'),''),
-				                     'unspecified')) AS reason,
-				       COUNT(*) AS n
-				FROM resources
-				WHERE resource_type='subscriptions-json'
-				  AND json_extract(data,'$.canceled_at') IS NOT NULL
-				  AND substr(json_extract(data,'$.canceled_at'),1,7) >= ?
-				GROUP BY reason
-				ORDER BY n DESC`, monthOf(cutoff))
+			// Reason breakdown across the window: one per churned customer, the
+			// reason of its last cancellation.
 			reasons := []churnReason{}
-			if rerr == nil {
-				defer reasonRows.Close()
-				for reasonRows.Next() {
-					var reason sql.NullString
-					var n sql.NullInt64
-					if err := reasonRows.Scan(&reason, &n); err != nil {
-						continue
-					}
-					reasons = append(reasons, churnReason{Reason: reason.String, Count: int(n.Int64)})
-				}
+			for reason, n := range reasonCount {
+				reasons = append(reasons, churnReason{Reason: reason, Count: n})
 			}
+			sort.Slice(reasons, func(i, j int) bool {
+				if reasons[i].Count != reasons[j].Count {
+					return reasons[i].Count > reasons[j].Count
+				}
+				return reasons[i].Reason < reasons[j].Reason
+			})
 
 			sort.Strings(order)
-			view := churnView{Since: cutoff, Periods: make([]churnPeriod, 0, len(order)), Reasons: reasons}
+			view := churnView{Since: cutoff, Currency: currency, Periods: make([]churnPeriod, 0, len(order)), Reasons: reasons}
 			for _, key := range order {
 				view.Periods = append(view.Periods, *byPeriod[key])
 			}
-			view.Note = "involuntary = failed-card/dunning cancellation; voluntary = everything else. churn_mrr_cents is the signed (negative) dollar churn from the movement log; logo counts come from canceled subscription records."
+			view.Note = "involuntary = failed-card/dunning cancellation; voluntary = everything else. churn_mrr_cents is the signed (negative) churned MRR from the movement log; a churned logo is a customer with no current subscription left, counted in the month of its last cancellation (reasons likewise, one per churned customer)."
 
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "%-9s %8s %8s %8s %14s\n", "period", "logos", "vol", "invol", "churn_mrr")
 				for _, p := range view.Periods {
-					fmt.Fprintf(w, "%-9s %8d %8d %8d %14s\n", p.Period, p.ChurnedLogos, p.VoluntaryLogos, p.InvoluntaryLogos, revenue.Cents(p.ChurnMRRCents))
+					fmt.Fprintf(w, "%-9s %8d %8d %8d %14s\n", p.Period, p.ChurnedLogos, p.VoluntaryLogos, p.InvoluntaryLogos, money(p.ChurnMRRCents))
 				}
 				if len(view.Reasons) > 0 {
 					fmt.Fprintln(w, "\nreasons:")
