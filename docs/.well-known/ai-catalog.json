@@ -638,6 +638,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dnsfilter",
+      "displayName": "DNSFilter",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/SKILL.md",
+      "description": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Why is this domain blocked for this client, and which policy and rule did it?",
+        "Allow it on the policies that actually blocked it (preview first)",
+        "What unblock requests are waiting across every client, grouped by domain?",
+        "Which clients have roaming clients behind the latest agent release?",
+        "Who is still on the roaming client build that got pulled?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/dnsfilter.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
       "displayName": "Domotz",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

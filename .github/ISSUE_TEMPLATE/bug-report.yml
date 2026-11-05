@@ -52,6 +52,7 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - dnsfilter
         - domotz
         - exchange-online
         - fortinet

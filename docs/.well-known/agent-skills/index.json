@@ -226,6 +226,13 @@
       "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
     },
     {
+      "name": "dnsfilter",
+      "type": "skill-md",
+      "description": "Use when the user asks about DNSFilter across every client: why a domain is blocked or allowed for one client and which policy and rule did it, allowing a domain on the policies that actually blocked it (preview first), the pending end-user unblock request queue, which client orgs have roaming clients behind the latest agent release or on a pulled build, roaming clients that went silent, unprotected or bypassed, which policies already allow or block a domain, or a policy hygiene audit. Covers every DNSFilter API operation as commands. Trigger phrases: `why is this site blocked in DNSFilter`, `allow this domain for a client in DNSFilter`, `which DNSFilter roaming clients are out of date`, `DNSFilter unblock requests`, `which clients are on the bad roaming client version`, `use dnsfilter`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dnsfilter/SKILL.md",
+      "digest": "sha256:29677391eba043513241da85b1a43e376fa3c92479bd24808d8103c20e869ac8"
+    },
+    {
       "name": "domotz",
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
