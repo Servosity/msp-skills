@@ -870,8 +870,8 @@
       "has_video": true,
       "cli_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:4462315152a61c8b108546580e4595392a580068bd2e0212bddaba2cff095da0",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1273,8 +1273,8 @@
       "has_video": true,
       "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1484,8 +1484,8 @@
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
       "cli_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:554ab783a7bfba7d64f6a5c4dea55e6405018afe7b8dc1d27adf0f5517cf542b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1560,8 +1560,8 @@
       "has_video": true,
       "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d",
       "live_verified": {
         "status": "awaiting",
         "date": null,
