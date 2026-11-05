@@ -4,7 +4,13 @@ package cli
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
+
+	"quickbooks-pp-cli/internal/cliutil/testenv"
 )
 
 func TestParseReportAmount(t *testing.T) {
@@ -146,5 +152,45 @@ func TestMatchHighlights(t *testing.T) {
 	// Unmatched and blank terms produce no output.
 	if got := matchHighlights([]string{"nonexistent", "  "}, leaves, summaries); len(got) != 0 {
 		t.Errorf("want no matches, got %+v", got)
+	}
+}
+
+// TestReportBalanceSheetDefaultAsOfIsLocalDate pins the calendar-date class for
+// the Reports API: "today" is the caller's calendar date, not UTC's, so an
+// evening run in the Americas does not ask for tomorrow's balance sheet and a
+// morning run in Asia-Pacific does not ask for yesterday's. The zone is chosen
+// so that its date differs from UTC's at the moment the test runs.
+func TestReportBalanceSheetDefaultAsOfIsLocalDate(t *testing.T) {
+	testenv.Isolate(t)
+	zone := time.FixedZone("UTC+14", 14*3600)
+	if time.Now().UTC().Hour() < 10 {
+		zone = time.FixedZone("UTC-12", -12*3600)
+	}
+	prev := time.Local
+	time.Local = zone
+	t.Cleanup(func() { time.Local = prev })
+	want := time.Now().In(zone).Format("2006-01-02")
+	if want == time.Now().UTC().Format("2006-01-02") {
+		t.Fatalf("test zone %s does not differ from UTC right now", zone)
+	}
+
+	var asked string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.Query().Get("end_date")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"Header":{"ReportBasis":"Accrual","Currency":"USD"},"Rows":{"Row":[]}}`)
+	}))
+	defer srv.Close()
+	t.Setenv("QUICKBOOKS_BASE_URL", srv.URL)
+	t.Setenv("QUICKBOOKS_ACCESS_TOKEN", "fixture-token")
+	root := newRootCmd(&rootFlags{})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"report", "balance-sheet", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("report balance-sheet: %v", err)
+	}
+	if asked != want {
+		t.Fatalf("balance sheet asked for end_date %q, want the local date %q", asked, want)
 	}
 }
