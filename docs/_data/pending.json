@@ -223,6 +223,13 @@
     "current_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729",
     "released_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729"
   },
+  "dnsfilter": {
+    "state": "version-pending",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+    "released_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb"
+  },
   "domotz": {
     "state": "up-to-date",
     "version": "0.1.7",
