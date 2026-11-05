@@ -16,6 +16,7 @@ import (
 
 type contractBurnItem struct {
 	Contract             string   `json:"contract"`
+	ContractID           string   `json:"contract_id,omitempty"`
 	Account              string   `json:"account"`
 	Type                 string   `json:"type,omitempty"`
 	Status               string   `json:"status,omitempty"`
@@ -42,22 +43,31 @@ type contractBurnView struct {
 func aggregateContractBurn(contractRows, ticketRows, timelogRows []map[string]any, windowDays int, unit string, now time.Time) contractBurnView {
 	view := contractBurnView{WindowDays: windowDays, Items: []contractBurnItem{}}
 
-	// Contract metadata from the synced finance-contracts-summary mirror.
+	// Contract metadata from the synced finance-contracts-summary mirror,
+	// keyed by contract identity (kaseya-bms handfix record-identity-by-id;
+	// Codex review r1 class contract identity collision: two "Support"
+	// contracts of different accounts were one item, their tickets and hours
+	// combined): ClientContractSummaryOutputDto.Id joins
+	// TicketListDto.ContractId; a record without an id keys on its contract
+	// number, then on its name and account.
 	type meta struct {
-		account, ctype, status, cycle string
-		start, end                    time.Time
-		hasStart, hasEnd              bool
+		id, name, account, ctype, status, cycle string
+		start, end                              time.Time
+		hasStart, hasEnd                        bool
 	}
 	contracts := map[string]*meta{}
 	for _, m := range contractRows {
+		key := kbmsContractKey(m, "Id")
+		if key == "" {
+			continue
+		}
 		name := kbmsStr(m, "ContractName")
 		if name == "" {
 			name = kbmsStr(m, "Name")
 		}
-		if name == "" {
-			continue
-		}
 		cm := &meta{
+			id:      kbmsIDString(m, "Id"),
+			name:    name,
 			account: kbmsStr(m, "AccountName"),
 			ctype:   kbmsStr(m, "ContractType"),
 			status:  kbmsStr(m, "Status"),
@@ -65,28 +75,34 @@ func aggregateContractBurn(contractRows, ticketRows, timelogRows []map[string]an
 		}
 		cm.start, cm.hasStart = kbmsTime(m, "StartDate")
 		cm.end, cm.hasEnd = kbmsTime(m, "EndDate")
-		contracts[name] = cm
+		contracts[key] = cm
 	}
 
 	// Ticket -> contract routing plus open-ticket counts per contract.
 	ticketContract := map[string]string{}
 	openByContract := map[string]int{}
 	accountByContract := map[string]string{}
+	nameByContract := map[string]string{}
+	idByContract := map[string]string{}
 	for _, m := range ticketRows {
-		contract := kbmsStr(m, "ContractName")
-		if contract == "" {
+		key := kbmsContractKey(m, "ContractId")
+		if key == "" {
 			continue
 		}
-		if id := kbmsStr(m, "Id"); id != "" {
-			ticketContract[id] = contract
-		} else if n, ok := kbmsNum(m, "Id"); ok {
-			ticketContract[fmt.Sprintf("%.0f", n)] = contract
+		if id := kbmsIDString(m, "Id"); id != "" {
+			ticketContract[id] = key
 		}
-		if accountByContract[contract] == "" {
-			accountByContract[contract] = kbmsStr(m, "AccountName")
+		if accountByContract[key] == "" {
+			accountByContract[key] = kbmsStr(m, "AccountName")
+		}
+		if nameByContract[key] == "" {
+			nameByContract[key] = kbmsStr(m, "ContractName")
+		}
+		if idByContract[key] == "" {
+			idByContract[key] = kbmsIDString(m, "ContractId")
 		}
 		if kbmsTicketOpen(m) {
-			openByContract[contract]++
+			openByContract[key]++
 		}
 	}
 
@@ -101,40 +117,41 @@ func aggregateContractBurn(contractRows, ticketRows, timelogRows []map[string]an
 		if !ok || started.Before(cutoff) {
 			continue
 		}
-		var ticketID string
-		if id := kbmsStr(m, "TicketId"); id != "" {
-			ticketID = id
-		} else if n, ok := kbmsNum(m, "TicketId"); ok {
-			ticketID = fmt.Sprintf("%.0f", n)
-		}
-		contract := ticketContract[ticketID]
-		if contract == "" {
+		key := ticketContract[kbmsIDString(m, "TicketId")]
+		if key == "" {
 			continue
 		}
 		if raw, ok := kbmsNum(m, "Timespent"); ok {
-			hoursByContract[contract] += kbmsHoursFromTimespent(raw, unit)
+			hoursByContract[key] += kbmsHoursFromTimespent(raw, unit)
 		}
 	}
 
 	// Union of contracts seen anywhere.
-	names := map[string]bool{}
-	for name := range contracts {
-		names[name] = true
+	keys := map[string]bool{}
+	for key := range contracts {
+		keys[key] = true
 	}
-	for name := range openByContract {
-		names[name] = true
+	for key := range openByContract {
+		keys[key] = true
 	}
-	for name := range hoursByContract {
-		names[name] = true
+	for key := range hoursByContract {
+		keys[key] = true
 	}
 
-	for _, name := range kbmsSortedKeys(names) {
+	for _, key := range kbmsSortedKeys(keys) {
 		item := contractBurnItem{
-			Contract:      name,
-			HoursConsumed: kbmsRound2(hoursByContract[name]),
-			OpenTickets:   openByContract[name],
+			Contract:      nameByContract[key],
+			ContractID:    idByContract[key],
+			HoursConsumed: kbmsRound2(hoursByContract[key]),
+			OpenTickets:   openByContract[key],
 		}
-		if cm, ok := contracts[name]; ok {
+		if cm, ok := contracts[key]; ok {
+			if cm.name != "" {
+				item.Contract = cm.name
+			}
+			if cm.id != "" {
+				item.ContractID = cm.id
+			}
 			item.Account = cm.account
 			item.Type = cm.ctype
 			item.Status = cm.status
@@ -159,7 +176,7 @@ func aggregateContractBurn(contractRows, ticketRows, timelogRows []map[string]an
 			}
 		}
 		if item.Account == "" {
-			item.Account = accountByContract[name]
+			item.Account = accountByContract[key]
 		}
 		view.Items = append(view.Items, item)
 	}
@@ -167,7 +184,10 @@ func aggregateContractBurn(contractRows, ticketRows, timelogRows []map[string]an
 		if view.Items[i].HoursConsumed != view.Items[j].HoursConsumed {
 			return view.Items[i].HoursConsumed > view.Items[j].HoursConsumed
 		}
-		return view.Items[i].Contract < view.Items[j].Contract
+		if view.Items[i].Contract != view.Items[j].Contract {
+			return view.Items[i].Contract < view.Items[j].Contract
+		}
+		return view.Items[i].ContractID < view.Items[j].ContractID
 	})
 	if len(view.Items) == 0 {
 		view.Note = "no contracts in the local mirror; run 'sync --resources finance-contracts-summary,servicedesk,timelogs' to refresh"
@@ -237,4 +257,24 @@ contract period elapsed from the synced contract summary.`, "\n"),
 	cmd.Flags().StringVar(&unit, "timespent-unit", "minutes", "Unit BMS uses for Timespent values: minutes, hours, or seconds")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default ~/.local/share/kaseya-bms-cli/data.db)")
 	return cmd
+}
+
+// kbmsContractKey is a contract's identity on a contract or ticket row: its id
+// (idField: Id on a contract, ContractId on a ticket), else its contract
+// number, else its name and account; "" when the row names no contract.
+func kbmsContractKey(m map[string]any, idField string) string {
+	if id := kbmsIDString(m, idField); id != "" && id != "0" {
+		return "id:" + id
+	}
+	if n := strings.TrimSpace(kbmsStr(m, "ContractNumber")); n != "" {
+		return "number:" + strings.ToLower(n)
+	}
+	name := kbmsStr(m, "ContractName")
+	if name == "" {
+		name = kbmsStr(m, "Name")
+	}
+	if name == "" {
+		return ""
+	}
+	return "name:" + kbmsNormName(name) + "|" + kbmsNormName(kbmsStr(m, "AccountName"))
 }

@@ -1,12 +1,6 @@
 {
  "_comment": "Read by tools/maintainer/verify_gate.py in every CI build row. 'connectors': the .claude/skills/verify-msp-skills features each connector FAILS on main today; features 3 to 6 (mcp-http, write-gating, read-only, local-data) fail by design on connectors printed before press 4.34.0 and pass after the reprint. 'known_errors': harness ERRORs (not connector defects) the fleet had when this was seeded; reported, kept visible by verify-watch.yml, fixed in the skill. Both only SHRINK: an unlisted FAIL or ERROR fails CI (fix it, never baseline it); a listed pair that no longer happens fails CI until its entry is removed (in the PR that fixed it); the guards job's --assert-baseline-shrinks refuses any added pair; PR rows read it from the base commit via --policy-base. Seeded from Linux CI verdicts (PR #453).",
  "connectors": {
-  "abnormal": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "acronis": [
    "install"
   ],
@@ -57,11 +51,6 @@
   "backup-radar": [
    "mcp-stdio"
   ],
-  "betterstack": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "bitdefender": [
    "write-gating",
    "read-only",
@@ -92,11 +81,6 @@
    "read-only",
    "local-data"
   ],
-  "connectwise-control": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "connectwise-manage": [
    "mcp-http",
    "write-gating",
@@ -114,11 +98,7 @@
    "local-data"
   ],
   "crowdstrike": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "datagate": [
    "read-only",
@@ -151,24 +131,12 @@
    "read-only",
    "local-data"
   ],
-  "immybot": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "itglue": [
    "mcp-http",
    "read-only",
    "local-data"
   ],
   "jira-service-management": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "kaseya-bms": [
-   "mcp-http",
    "write-gating",
    "read-only",
    "local-data"
@@ -180,12 +148,6 @@
   ],
   "levelio": [
    "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "liongard": [
-   "mcp-http",
-   "write-gating",
    "read-only",
    "local-data"
   ],
@@ -241,12 +203,6 @@
   ],
   "proxmox": [
    "mcp-stdio",
-   "read-only",
-   "local-data"
-  ],
-  "quickbooks": [
-   "mcp-http",
-   "write-gating",
    "read-only",
    "local-data"
   ],

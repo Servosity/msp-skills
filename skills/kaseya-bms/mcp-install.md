@@ -1,12 +1,5 @@
 # Kaseya BMS MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 This page wires the Kaseya BMS MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -50,7 +43,12 @@ Add (or merge with your existing `mcpServers` block):
         "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
         "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
         "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
-        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>",
+        "KASEYA_BMS_MCP_READ_ONLY": "",
+        "KASEYA_BMS_NO_LOCAL_DATA": "",
+        "KASEYA_BMS_MCP_HTTP_TOKEN": "",
+        "KASEYA_BMS_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -94,7 +92,12 @@ Configuration**) and add:
         "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
         "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
         "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
-        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>",
+        "KASEYA_BMS_MCP_READ_ONLY": "",
+        "KASEYA_BMS_NO_LOCAL_DATA": "",
+        "KASEYA_BMS_MCP_HTTP_TOKEN": "",
+        "KASEYA_BMS_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -120,7 +123,12 @@ Claude Desktop:
         "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
         "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
         "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
-        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>",
+        "KASEYA_BMS_MCP_READ_ONLY": "",
+        "KASEYA_BMS_NO_LOCAL_DATA": "",
+        "KASEYA_BMS_MCP_HTTP_TOKEN": "",
+        "KASEYA_BMS_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -132,13 +140,13 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Remote agents (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `kaseya-bms-mcp` running in HTTP mode. Do not
-run HTTP mode with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. If your team works in one
+on your machine, so they would need `kaseya-bms-mcp` running in HTTP mode behind
+HTTPS, which msp-skills does not set up for you. Do not put this server behind a
+tunnel or reverse proxy. If your team works in one
 of those apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
@@ -148,7 +156,7 @@ The HTTP-mode launch command is kept below for reference. It is commented out on
 purpose, so pasting it does nothing:
 
 ```bash
-# KASEYA_BMS_BASE_URL=<value> KASEYA_BMS_BEARER_AUTH=<value> KASEYA_BMS_PASSWORD=<value> KASEYA_BMS_TENANT=<value> KASEYA_BMS_TOKEN=<value> KASEYA_BMS_USERNAME=<value> kaseya-bms-mcp --transport http
+# KASEYA_BMS_BASE_URL=<value> KASEYA_BMS_BEARER_AUTH=<value> KASEYA_BMS_PASSWORD=<value> KASEYA_BMS_TENANT=<value> KASEYA_BMS_TOKEN=<value> KASEYA_BMS_USERNAME=<value> KASEYA_BMS_MCP_READ_ONLY=<value> KASEYA_BMS_NO_LOCAL_DATA=<value> KASEYA_BMS_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> kaseya-bms-mcp --transport http
 ```
 
 ---

@@ -220,7 +220,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 	case status == 404:
 		doctorWrongBaseURL(apiPath, report)
 	case status >= 500:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was never checked.", status, apiPath)
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was not tested.", status, apiPath)
 	case status > 0:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `%s %s` to see the full response.", status, apiPath, bin, cmdPath)
 	default:
@@ -235,7 +235,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 // credential is not at fault and must not be blamed, and the api row must stop
 // claiming the connector is reachable in any useful sense.
 func doctorWrongBaseURL(apiPath string, report map[string]any) {
-	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", apiPath)
+	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was not tested.", apiPath)
 	report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not this vendor's API root. Point %s at the API root.", apiPath, doctorBaseURLEnv)
 }
 

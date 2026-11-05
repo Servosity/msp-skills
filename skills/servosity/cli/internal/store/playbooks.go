@@ -81,6 +81,8 @@ func (s *Store) UpsertPlaybook(in UpsertPlaybookInput) (int64, bool, error) {
 	return id, inserted, nil
 }
 
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func upsertPlaybookTx(tx *sql.Tx, in UpsertPlaybookInput, now time.Time) (int64, bool, error) {
 	family := strings.TrimSpace(in.QueryFamily)
 	if family == "" {
@@ -182,6 +184,8 @@ func (s *Store) AppendPlaybookNotes(family, marker string) (int64, bool, error) 
 	return id, inserted, nil
 }
 
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func appendPlaybookNotesTx(tx *sql.Tx, family, marker string, now time.Time) (int64, bool, error) {
 	family = strings.TrimSpace(family)
 	if family == "" {

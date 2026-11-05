@@ -22,9 +22,12 @@ type statusPageRow struct {
 }
 
 func loadStatusPages(ctx context.Context, s *store.Store) ([]statusPageRow, error) {
+	if err := requireFinishedSync(s, "status-pages"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	q := fmt.Sprintf(`SELECT %s,%s,%s,%s,%s FROM resources WHERE resource_type='status-pages'`,
-		jx("id"), jx("attributes.company_name"), jx("attributes.subdomain"),
-		jx("attributes.custom_domain"), jx("attributes.aggregate_state"))
+		jx("id"), ja("company_name"), ja("subdomain"),
+		ja("custom_domain"), ja("aggregate_state"))
 	recs, err := queryTextRows(ctx, s, q, 5)
 	if err != nil {
 		return nil, err
@@ -45,8 +48,11 @@ type groupRow struct {
 }
 
 func loadGroupRows(ctx context.Context, s *store.Store, resourceType string) ([]groupRow, error) {
+	if err := requireFinishedSync(s, resourceType); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	q := fmt.Sprintf(`SELECT %s,%s,%s FROM resources WHERE resource_type='%s'`,
-		jx("id"), jx("attributes.name"), jx("attributes.paused"), resourceType)
+		jx("id"), ja("name"), ja("paused"), resourceType)
 	recs, err := queryTextRows(ctx, s, q, 3)
 	if err != nil {
 		return nil, err
@@ -62,8 +68,11 @@ func loadGroupRows(ctx context.Context, s *store.Store, resourceType string) ([]
 // group-health rollup. Kept separate from loadHeartbeats so the ported
 // analytics layer stays byte-compatible with the prior print.
 func loadHeartbeatGroupIDs(ctx context.Context, s *store.Store) (map[string]string, error) {
+	if err := requireFinishedSync(s, "heartbeats"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	q := fmt.Sprintf(`SELECT %s,%s FROM resources WHERE resource_type='heartbeats'`,
-		jx("id"), jx("attributes.heartbeat_group_id"))
+		jx("id"), ja("heartbeat_group_id"))
 	recs, err := queryTextRows(ctx, s, q, 2)
 	if err != nil {
 		return nil, err
@@ -75,16 +84,30 @@ func loadHeartbeatGroupIDs(ctx context.Context, s *store.Store) (map[string]stri
 	return out, nil
 }
 
-// openIncidentsBySource indexes open incidents (no resolved_at) by their
-// source monitor id. Incidents whose source is not a monitor id still appear
-// under their source string so nothing is silently dropped.
-func openIncidentsBySource(incidents []incidentRow) map[string][]incidentRow {
-	out := make(map[string][]incidentRow)
+// openIncidents indexes open incidents (no resolved_at) by the monitor and
+// by the heartbeat they belong to (incidentRow.MonitorID / HeartbeatID). Codex
+// r1 (betterstack 4.34.2 reprint) class heartbeat-incidents-omitted: the index
+// was keyed by monitor only, so a heartbeat's open incident counted nowhere
+// (group-health open_incidents 0, statuspage-audit never checked a heartbeat
+// entry). Open counts every open incident whatever its source.
+type openIncidents struct {
+	byMonitor, byHeartbeat map[string][]incidentRow
+	open                   int
+}
+
+func indexOpenIncidents(incidents []incidentRow) openIncidents {
+	idx := openIncidents{byMonitor: map[string][]incidentRow{}, byHeartbeat: map[string][]incidentRow{}}
 	for _, in := range incidents {
 		if in.ResolvedAt != "" {
 			continue
 		}
-		out[in.Source] = append(out[in.Source], in)
+		idx.open++
+		if in.MonitorID != "" {
+			idx.byMonitor[in.MonitorID] = append(idx.byMonitor[in.MonitorID], in)
+		}
+		if in.HeartbeatID != "" {
+			idx.byHeartbeat[in.HeartbeatID] = append(idx.byHeartbeat[in.HeartbeatID], in)
+		}
 	}
-	return out
+	return idx
 }

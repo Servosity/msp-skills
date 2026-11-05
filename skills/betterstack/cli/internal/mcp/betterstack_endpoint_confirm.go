@@ -1,0 +1,120 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+
+package mcp
+
+// betterstack handfix (mcp-endpoint-write-confirm): every typed endpoint tool that is
+// not read-only (creating, updating or deleting monitors, heartbeats, groups,
+// escalation policies, status pages and their sections and resources;
+// acknowledging, resolving or deleting incidents) returns a preview of the
+// request and sends nothing until confirm is boolean true. A preview shows an
+// argument under a credential name (cliutil.SecretFieldName: a monitor's
+// auth_password, say) as "[redacted]"; the credential kit would otherwise
+// withhold the whole preview, since an MCP argument it names is held.
+// Fail closed: the gate wraps every registered tool that lacks the read-only
+// hint and is not a mirrored command (those carry their own gate,
+// cobratree.RequireConfirmForMirroredWrites), so an endpoint a later print
+// adds is gated too.
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+
+	mcplib "github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/spf13/cobra"
+
+	"betterstack-pp-cli/internal/cli"
+	"betterstack-pp-cli/internal/cliutil"
+	"betterstack-pp-cli/internal/mcp/bound"
+)
+
+const endpointConfirmNote = "Preview only: nothing was sent to Better Stack. Call again with the same arguments and confirm set to boolean true to send it."
+
+// RequireConfirmForEndpointWrites wraps every non-read-only, non-mirrored tool
+// in the confirm gate. Call it after every tool is registered.
+func RequireConfirmForEndpointWrites(s *server.MCPServer) {
+	root := cli.RootCmd()
+	for name, entry := range s.ListTools() {
+		tool := entry.Tool
+		if tool.Meta != nil && tool.Meta.AdditionalFields["pp:tenant-gate"] == "child-cli" {
+			continue
+		}
+		if hint := tool.Annotations.ReadOnlyHint; hint != nil && *hint {
+			continue
+		}
+		if _, gated := tool.InputSchema.Properties["confirm"]; gated {
+			continue
+		}
+		method, path := endpointRequest(root, name)
+		if tool.InputSchema.Properties == nil {
+			tool.InputSchema.Properties = map[string]any{}
+		}
+		tool.InputSchema.Properties["confirm"] = map[string]any{
+			"type":        "boolean",
+			"description": "Set to boolean true to send this request. It changes data in your Better Stack account. Any other value, including the string \"true\", returns a preview and sends nothing.",
+		}
+		tool.Description = strings.TrimSpace(tool.Description + " Returns a preview and sends nothing until confirm is boolean true.")
+		s.AddTool(tool, endpointConfirmGate(name, method, path, entry.Handler))
+	}
+}
+
+// endpointRequest names the HTTP method and path template of the command a
+// tool mirrors (tool monitors_update is command
+// `monitors update`), for the preview; "" when unknown.
+func endpointRequest(root *cobra.Command, tool string) (string, string) {
+	if root == nil {
+		return "", ""
+	}
+	cmd, _, err := root.Find(strings.Split(tool, "_"))
+	if err != nil || cmd == nil || cmd == root {
+		return "", ""
+	}
+	return cmd.Annotations["pp:method"], cmd.Annotations["pp:path"]
+}
+
+func endpointConfirmGate(name, method, path string, send server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+		args := req.GetArguments()
+		rest := make(map[string]any, len(args))
+		for k, v := range args {
+			if k != "confirm" {
+				rest[k] = v
+			}
+		}
+		if confirmed, ok := args["confirm"].(bool); ok && confirmed {
+			req.Params.Arguments = rest
+			return send(ctx, req)
+		}
+		preview := map[string]any{
+			"preview":               true,
+			"confirmation_required": true,
+			"tool":                  name,
+			"arguments":             previewArguments(rest),
+			"note":                  endpointConfirmNote,
+		}
+		if method != "" {
+			preview["method"], preview["path"] = method, path
+		}
+		text, err := bound.JSON(preview)
+		if err != nil {
+			return mcpToolError("encoding confirmation preview: " + err.Error()), nil
+		}
+		return mcplib.NewToolResultText(text), nil
+	}
+}
+
+// previewArguments is a copy of args with every value under a credential name
+// replaced by "[redacted]", for a preview only; the request a confirmed call
+// sends is built from the arguments as given.
+func previewArguments(args any) any {
+	data, err := json.Marshal(args)
+	if err != nil {
+		return args
+	}
+	var v any
+	if json.Unmarshal(data, &v) != nil {
+		return args
+	}
+	return cliutil.RedactSecretFields(v)
+}

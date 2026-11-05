@@ -1,0 +1,108 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/cwc_guard.go",
+   "func": "installPin",
+   "what": "convert:connectwise-control-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/cwc_guard.go",
+   "func": "installPin",
+   "what": "convert:connectwise-control-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/cwc_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/cwc_guard.go",
+   "func": "installPin",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/cwc_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/cwc_novel_shared.go",
+   "func": "cwcEmit",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/cwc_novel_shared.go",
+   "func": "cwcEmit",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/cwc_novel_shared.go",
+   "func": "cwcPost",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/security_access_review.go",
+   "func": "newNovelSecurityAccessReviewCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/sessions_stale.go",
+   "func": "newNovelSessionsStaleCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdProfileStore",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a run profile store only to hold its values with the kit (credkit.HoldBody, credkit.HoldURL); Declarations.Files leaves it out because the kit would hold every string in it"
+  }
+ ]
+}

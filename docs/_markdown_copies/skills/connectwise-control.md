@@ -94,7 +94,7 @@ After install, authenticate once with your ConnectWise Control credentials, then
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | sessions list / get-detail, session-groups, security get-configuration, audit get-info / query-log, and search | Allow |
+| Read | sessions list / get-detail, sessions stale, session-groups, security get-configuration, security access-review, audit get-info / query-log, and search | Allow |
 | Write (session metadata) | sessions update-name, sessions update-custom-property | Preview with --dry-run, then a reviewed write |
 | Session and host control | sessions run-command (runs a real command on a guest machine), sessions add-event-to (queues control events like wake) | Human-in-the-loop, explicit confirmation |
 | Access grant | sessions get-access-token (issues a one-time token/URL that grants remote access to a session) | Human-in-the-loop only |

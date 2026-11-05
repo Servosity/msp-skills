@@ -1,5 +1,5 @@
 {
-  "count": 96,
+  "count": 99,
   "connectors": [
     {
       "slug": "abnormal",
@@ -273,6 +273,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/cisco-umbrella/"
+    },
+    {
+      "slug": "cloudally",
+      "display_name": "CloudAlly",
+      "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "category": "Backup/DR",
+      "verification": "live-verified",
+      "verified_by": "@sonofskywalker3 (Servosity)",
+      "source": "github",
+      "issue_url": "https://github.com/Servosity/msp-skills/pull/400",
+      "verified_version": "0.1.0",
+      "verified_code": "current",
+      "url": "/skills/cloudally/"
     },
     {
       "slug": "connectsecure",
@@ -624,6 +637,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/kaseya-vsa/"
+    },
+    {
+      "slug": "keeper",
+      "display_name": "Keeper Admin and MSP Console",
+      "tagline": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/keeper/"
     },
     {
       "slug": "knowbe4",
@@ -1248,6 +1274,19 @@
       "verified_version": null,
       "verified_code": "unknown",
       "url": "/skills/zammad/"
+    },
+    {
+      "slug": "zoom-phone",
+      "display_name": "Zoom Phone",
+      "tagline": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "category": "Telephony",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/zoom-phone/"
     }
   ],
   "featured": [

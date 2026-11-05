@@ -2,7 +2,7 @@
 
 **The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.**
 
-Kaseya BMS has a 433-operation official API and zero CLI ecosystem. This binary covers the whole surface - tickets, CRM, contracts, finance, projects - and mirrors core entities into local SQLite so dispatch questions like 'queue-health', 'stale-tickets', and 'contract-burn' answer instantly without burning the 1500/hour/endpoint rate limit.
+Kaseya BMS has a 433-operation official API and zero CLI ecosystem. This binary covers the whole surface - tickets, CRM, contracts, finance, projects - and mirrors core entities into local SQLite so dispatch questions like 'queue-health', 'stale-tickets', and 'contract-burn' answer instantly without burning the 500/hour/endpoint rate limit.
 
 ## Install
 
@@ -58,11 +58,9 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=kaseya-bms).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `KASEYA_BMS_TOKEN` when Claude Desktop prompts you.
+3. Fill in your BMS username, password and tenant when Claude Desktop prompts you (or a pre-minted `KASEYA_BMS_TOKEN`).
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `kaseya-bms-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `KASEYA_BMS_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/kaseya-bms/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`kaseya-bms-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `KASEYA_BMS_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `KASEYA_BMS_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export KASEYA_BMS_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+kaseya-bms-mcp --transport http
+```
+
+Set `KASEYA_BMS_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-BMS uses short-lived JWTs. Set KASEYA_BMS_USERNAME, KASEYA_BMS_PASSWORD, and KASEYA_BMS_TENANT (your company name from My Settings in BMS), then run `kaseya-bms-cli auth login` to exchange them for a token - it is stored locally and sent as a Bearer header on every call. If you already have a JWT, set KASEYA_BMS_TOKEN directly. Regional tenants set KASEYA_BMS_BASE_URL (https://api.bms.kaseya.com is the default; EMEA uses https://api.bmsemea.kaseya.com, APAC https://api.bmsapac.kaseya.com, legacy Vorex https://api.vorexlogin.kaseya.com). API users with MFA pass --mfa-code at login.
+BMS uses short-lived JWTs. Set KASEYA_BMS_USERNAME, KASEYA_BMS_PASSWORD, and KASEYA_BMS_TENANT (your company name from My Settings in BMS), and every command exchanges them for a token on first use and again when it expires; the token is kept in the 0600 credential store (never in config.toml) and sent as a Bearer header. `kaseya-bms-cli auth login` checks the login up front. If you already have a JWT, set KASEYA_BMS_TOKEN directly (it wins over the login). Regional tenants set KASEYA_BMS_BASE_URL (https://api.bms.kaseya.com is the default; EMEA uses https://api.bmsemea.kaseya.com, APAC https://api.bmsapac.kaseya.com, legacy Vorex https://api.vorexlogin.kaseya.com). API users with MFA run `kaseya-bms-cli auth login --mfa-code <code>` (the automatic mint cannot answer MFA) and again when that token expires.
 
 ## Quick Start
 
@@ -104,11 +113,11 @@ BMS uses short-lived JWTs. Set KASEYA_BMS_USERNAME, KASEYA_BMS_PASSWORD, and KAS
 # Verify the binary, config, and gateway URL before touching credentials
 kaseya-bms-cli doctor --dry-run
 
-# Exchange KASEYA_BMS_USERNAME/PASSWORD/TENANT for a JWT and store it
+# Check KASEYA_BMS_USERNAME/PASSWORD/TENANT and store a JWT (commands also mint one on first use)
 kaseya-bms-cli auth login
 
-# Mirror recent tickets, accounts, contacts, and contracts into local SQLite
-kaseya-bms-cli sync --since 7d
+# Mirror tickets, time logs, opportunities, contracts and lookups into local SQLite (each sync is whole: BMS has no modified-since filter)
+kaseya-bms-cli sync
 
 # The dispatcher's morning board: open volume by queue, priority, and status
 kaseya-bms-cli queue-health --agent
@@ -119,8 +128,6 @@ kaseya-bms-cli stale-tickets --days 7 --agent
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Service-desk pulse
 - **`queue-health`**  -  See open ticket volume by queue, priority, and status in one shot, with stale counts flagged before the morning standup.
@@ -170,7 +177,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Morning queue triage
 
 ```bash
@@ -214,6 +220,81 @@ Opportunities by stage with weighted value and slipped-close flags, computed ove
 ## Usage
 
 Run `kaseya-bms-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `KASEYA_BMS_CONFIG_DIR`, `KASEYA_BMS_DATA_DIR`, `KASEYA_BMS_STATE_DIR`, or `KASEYA_BMS_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `KASEYA_BMS_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export KASEYA_BMS_HOME=/srv/kaseya-bms
+kaseya-bms-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:KASEYA_BMS_HOME = "C:\ProgramData\kaseya-bms"
+kaseya-bms-cli doctor
+```
+
+Under `KASEYA_BMS_HOME=/srv/kaseya-bms`, the four dirs resolve to `/srv/kaseya-bms/config`, `/srv/kaseya-bms/data`, `/srv/kaseya-bms/state`, and `/srv/kaseya-bms/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:KASEYA_BMS_HOME = "C:\srv\kaseya-bms"
+kaseya-bms-cli doctor
+```
+
+Under `$env:KASEYA_BMS_HOME = "C:\srv\kaseya-bms"`, the four dirs resolve to `C:\srv\kaseya-bms\config`, `C:\srv\kaseya-bms\data`, `C:\srv\kaseya-bms\state`, and `C:\srv\kaseya-bms\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "kaseya-bms": {
+      "command": "kaseya-bms-mcp",
+      "env": {
+        "KASEYA_BMS_HOME": "/srv/kaseya-bms"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `KASEYA_BMS_DATA_DIR` overrides an explicit `--home` for that kind. Use `KASEYA_BMS_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `KASEYA_BMS_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `kaseya-bms-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `kaseya-bms-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `kaseya-bms-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `KASEYA_BMS_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `KASEYA_BMS_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -726,24 +807,80 @@ Manage timelogs
 - **`kaseya-bms-cli timelogs`** - Get all time logs
 
 
+### contract-burn
+
+
+- **`kaseya-bms-cli contract-burn`** - Per-contract burn picture: hours consumed, open tickets, and how much of the contract period has elapsed - at-risk agreements surface first.
+
+
+### pipeline
+
+
+- **`kaseya-bms-cli pipeline`** - Open opportunities grouped by stage with counts, total and weighted value, and slipped-close flags for the Monday sales call.
+
+
+### queue-health
+
+
+- **`kaseya-bms-cli queue-health`** - See open ticket volume by queue, priority, and status in one shot, with stale counts flagged before the morning standup.
+
+
+### stale-tickets
+
+
+- **`kaseya-bms-cli stale-tickets`** - List open tickets that have not been touched in N days, oldest first, with account and assignee so nothing rots in the queue.
+
+
+### unbilled
+
+
+- **`kaseya-bms-cli unbilled`** - Billable, approved, not-yet-billed time grouped by account, in hours - the month-end ready-to-bill review without the Excel export.
+
+
+### workload
+
+
+- **`kaseya-bms-cli workload`** - Open and in-progress ticket load per assignee, flagging who is overloaded and who has slack before you dispatch the next ticket.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`kaseya-bms-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`kaseya-bms-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`kaseya-bms-cli learnings list`** - Inspect taught rows
+- **`kaseya-bms-cli learnings forget <query>`** - Undo a teach
+- **`kaseya-bms-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`kaseya-bms-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`kaseya-bms-cli teach-pattern`** - Install a query/resource template up front
+- **`kaseya-bms-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `KASEYA_BMS_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `kaseya-bms-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-kaseya-bms-cli project get <id>
+kaseya-bms-cli project get mock-value
 
 # JSON for scripting and agents
-kaseya-bms-cli project get <id> --json
-
+kaseya-bms-cli project get mock-value --json
 # Filter to specific fields
-kaseya-bms-cli project get <id> --json --select id,name,status
+kaseya-bms-cli project get mock-value --json --select Error,Result,Success
 
 # Dry run  -  show the request without sending
-kaseya-bms-cli project get <id> --dry-run
+kaseya-bms-cli project get mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-kaseya-bms-cli project get <id> --agent
+kaseya-bms-cli project get mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -751,15 +888,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -771,20 +908,33 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/kaseya-bms-cli/config.toml`
+Run `kaseya-bms-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/kaseya-bms-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\kaseya-bms-cli\config.toml` on Windows; `--home`, `KASEYA_BMS_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `KASEYA_BMS_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `KASEYA_BMS_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `KASEYA_BMS_TOKEN` | per_call | No | Set to your API credential. |
-| `KASEYA_BMS_BEARER_AUTH` | per_call | No | Set to your API credential. |
+| `KASEYA_BMS_USERNAME` | config | Yes* | The API user's login name. With the password and tenant, every command mints a token. |
+| `KASEYA_BMS_PASSWORD` | config | Yes* | The API user's password (environment only; never written to disk). |
+| `KASEYA_BMS_TENANT` | config | Yes* | Your company name exactly as shown under My Settings in BMS. |
+| `KASEYA_BMS_TOKEN` | per_call | No | A pre-minted bearer token; when set it wins over the login and nothing is minted. *Not needed with the login. |
+| `KASEYA_BMS_BEARER_AUTH` | per_call | No | Alternative name for a pre-minted bearer token (`KASEYA_BMS_TOKEN` wins). |
+| `KASEYA_BMS_BASE_URL` | config | No | Your region's API host (default `https://api.bms.kaseya.com`). |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `kaseya-bms-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- Every API request, the login request and the bearer token go only to the scheme, host and port of the API base URL: `KASEYA_BMS_BASE_URL` (default `https://api.bms.kaseya.com`; EMEA `https://api.bmsemea.kaseya.com`, APAC `https://api.bmsapac.kaseya.com`). The login is `POST /v2/security/authenticate` on that same host. A redirect to any other host is refused, so a credential never reaches another host.
+- Any output, file or MCP result that would repeat `KASEYA_BMS_PASSWORD`, `KASEYA_BMS_TOKEN`, `KASEYA_BMS_BEARER_AUTH`, a minted token or a credential-named value from a response (an IT Glue password, an integration access token, a webhook secret) prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential. The password from the environment is never written to disk. A minted token is cached there, bound to the host and login it was minted for: another login mints its own, and a token is never sent to another region's host.
+- `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes Kaseya BMS returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -795,9 +945,9 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **401 Security Error (code 978001) on every call**  -  Your JWT expired - run `kaseya-bms-cli auth login` again, or refresh KASEYA_BMS_TOKEN
+- **401 Security Error (code 978001) on every call**  -  The login was rejected or the token expired - with KASEYA_BMS_USERNAME, KASEYA_BMS_PASSWORD and KASEYA_BMS_TENANT set the CLI mints a fresh token itself, so check those three and the region; an MFA user runs `kaseya-bms-cli auth login --mfa-code <code>` again; a pasted KASEYA_BMS_TOKEN must be refreshed by hand
 - **400 'Tenant can't be empty' at login**  -  Set KASEYA_BMS_TENANT to your company name exactly as shown in BMS under My Settings
-- **Rate-limited after heavy listing**  -  BMS caps V2 calls at 1500/hour/endpoint - run `kaseya-bms-cli sync` once and use queue-health/stale-tickets/search against the local mirror
+- **Rate-limited after heavy listing**  -  BMS caps API calls at 500/hour/endpoint - run `kaseya-bms-cli sync` once and use queue-health/stale-tickets/search against the local mirror
 - **Login succeeds but data is empty or 404s**  -  You may be on the wrong regional gateway - set KASEYA_BMS_BASE_URL to your region (api.bmsemea.kaseya.com, api.bmsapac.kaseya.com, or api.vorexlogin.kaseya.com)
 - **Staleness/age numbers look off by a few hours**  -  BMS serializes some timestamps without zone info; the CLI treats them as UTC. If your tenant emits local time, expect age/staleness boundaries to shift by your UTC offset
 

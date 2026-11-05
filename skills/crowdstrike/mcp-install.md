@@ -1,12 +1,5 @@
 # CrowdStrike MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 This page wires the CrowdStrike MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -15,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `crowdstrike-mcp` directly on your machine - no
 hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
 Studio, the Gemini app) need a remote server, which msp-skills does not support
-yet; see **Remote agents** below.
+yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -37,7 +30,15 @@ Edit your Claude Desktop config:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Add (or merge with your existing `mcpServers` block):
+Add (or merge with your existing `mcpServers` block). Set `FALCON_CLIENT_ID` and
+`FALCON_CLIENT_SECRET`; every other variable is optional. Set `CROWDSTRIKE_BASE_URL` to your
+Falcon cloud (`https://api.us-2.crowdstrike.com`, `https://api.eu-1.crowdstrike.com` or
+`https://api.laggar.gcw.crowdstrike.com`; US-1 is the default) and leave `CROWDSTRIKE_TOKEN_URL`
+blank: the token request goes to `/oauth2/token` on that same cloud. `CROWDSTRIKE_OAUTH_SCOPE`
+is optional and not a secret; CrowdStrike grants scopes to the API client in the Falcon console.
+`CROWDSTRIKE_MCP_READ_ONLY` is preset to `1`, which makes the server refuse every write.
+Set `CROWDSTRIKE_NO_LOCAL_DATA` to `1` to keep no local copy of API responses. The same
+applies to the configs below.
 
 ```json
 {
@@ -45,12 +46,17 @@ Add (or merge with your existing `mcpServers` block):
     "crowdstrike": {
       "command": "crowdstrike-mcp",
       "env": {
-        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
-        "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
-        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
-        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
+        "CROWDSTRIKE_OAUTH_SCOPE": "",
+        "CROWDSTRIKE_TOKEN_URL": "",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": "",
+        "CROWDSTRIKE_MCP_READ_ONLY": "1",
+        "CROWDSTRIKE_NO_LOCAL_DATA": "",
+        "CROWDSTRIKE_USER_AGENT": "",
+        "CROWDSTRIKE_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -58,6 +64,11 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+`CROWDSTRIKE_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove
+it (or set it to blank) only when you want the agent to contain hosts, change
+policies or edit host groups; each write then previews first and sends only
+when called again with `confirm: true`.
 
 ## ChatGPT desktop app (OpenAI)
 
@@ -67,11 +78,11 @@ configuration with Codex on the same machine
 **MCP servers**, add a server, choose **STDIO**, and give `crowdstrike-mcp` as the
 command (its full path if the app can't find it). The server reads the same
 environment variables as the Claude Desktop block above. To keep them in a file,
-add the server once to Codex's `~/.codex/config.toml` (a
-`[mcp_servers.crowdstrike]` table with `command = "crowdstrike-mcp"` and an `env`
-table); the desktop app reads that file too.
+add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.crowdstrike]`
+table with `command = "crowdstrike-mcp"` and an `env` table); the desktop app reads
+that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -79,7 +90,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -89,12 +100,17 @@ Configuration**) and add:
       "type": "stdio",
       "command": "crowdstrike-mcp",
       "env": {
-        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
-        "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
-        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
-        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
+        "CROWDSTRIKE_OAUTH_SCOPE": "",
+        "CROWDSTRIKE_TOKEN_URL": "",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": "",
+        "CROWDSTRIKE_MCP_READ_ONLY": "1",
+        "CROWDSTRIKE_NO_LOCAL_DATA": "",
+        "CROWDSTRIKE_USER_AGENT": "",
+        "CROWDSTRIKE_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -115,12 +131,17 @@ Claude Desktop:
     "crowdstrike": {
       "command": "crowdstrike-mcp",
       "env": {
-        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
-        "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
-        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
-        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
+        "CROWDSTRIKE_OAUTH_SCOPE": "",
+        "CROWDSTRIKE_TOKEN_URL": "",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": "",
+        "CROWDSTRIKE_MCP_READ_ONLY": "1",
+        "CROWDSTRIKE_NO_LOCAL_DATA": "",
+        "CROWDSTRIKE_USER_AGENT": "",
+        "CROWDSTRIKE_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -128,28 +149,38 @@ Claude Desktop:
 ```
 
 Restart Gemini CLI; the CrowdStrike tools appear in its tool list. (The **Gemini app /
-web** is remote-only - see the remote section below.)
+web** is remote-only - see **Web-only AI apps** below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `crowdstrike-mcp` running in HTTP mode. Do not
-run HTTP mode with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. If your team works in one
-of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `crowdstrike-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `CROWDSTRIKE_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
-# CROWDSTRIKE_BASE_URL=<value> CROWDSTRIKE_OAUTH_SCOPE=<value> CROWDSTRIKE_TOKEN_URL=<value> FALCON_CLIENT_ID=<value> FALCON_CLIENT_SECRET=<value> crowdstrike-mcp --transport http
+export CROWDSTRIKE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+FALCON_CLIENT_ID=<value> FALCON_CLIENT_SECRET=<value> CROWDSTRIKE_BASE_URL=<value> CROWDSTRIKE_MCP_READ_ONLY=1 crowdstrike-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your
+CrowdStrike credentials.
 
 ---
 

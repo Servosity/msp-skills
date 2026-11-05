@@ -53,11 +53,13 @@ func TestDeploymentHealthFlagsNeverSucceeded(t *testing.T) {
 			{"id": "asg-bad", "targetName": "Broken package", "maintenanceIdentifier": "broken", "tenantId": "t1"},
 		},
 		"maintenance-actions": {
-			{"id": "1", "assignmentId": "asg-good", "statusName": "Success"},
-			{"id": "2", "assignmentId": "asg-good", "statusName": "Success"},
-			{"id": "3", "assignmentId": "asg-good", "statusName": "Failed"},
-			{"id": "4", "assignmentId": "asg-bad", "statusName": "Failed"},
-			{"id": "5", "assignmentId": "asg-bad", "statusName": "Failed"},
+			// Spec shape (GetMaintenanceActionResponse): statusName is the lifecycle,
+			// result/resultName the outcome, in the string or the integer form.
+			{"id": "1", "assignmentId": "asg-good", "status": "Complete", "statusName": "Complete", "result": "Success", "resultName": "Success"},
+			{"id": "2", "assignmentId": "asg-good", "status": 4, "statusName": "Complete", "result": 1, "resultName": "Success"},
+			{"id": "3", "assignmentId": "asg-good", "status": "Complete", "statusName": "Complete", "result": "Failed", "resultName": "Failed"},
+			{"id": "4", "assignmentId": "asg-bad", "status": "Complete", "statusName": "Complete", "result": "Failed", "resultName": "Failed"},
+			{"id": "5", "assignmentId": "asg-bad", "status": 4, "statusName": nil, "result": 2, "resultName": nil},
 		},
 	})
 	out, err := runCLI(t, "deployment-health", "--json", "--db", db)
@@ -98,9 +100,9 @@ func TestComputerDossierJoinsEverything(t *testing.T) {
 			{"id": "3", "computerId": "43", "computerName": "WS-43", "softwareName": "Firefox", "version": "1.0"},
 		},
 		"maintenance-actions": {
-			{"id": "1", "computerId": "42", "computerName": "WS-42", "maintenanceDisplayName": "Install Chrome", "statusName": "Failed", "startTime": "2026-08-20T01:00:00Z"},
-			{"id": "2", "computerId": "42", "computerName": "WS-42", "maintenanceDisplayName": "Patch", "statusName": "Success", "startTime": "2026-08-20T02:00:00Z"},
-			{"id": "3", "computerId": "43", "computerName": "WS-43", "maintenanceDisplayName": "Other", "statusName": "Failed", "startTime": "2026-08-20T03:00:00Z"},
+			{"id": "1", "computerId": 42, "computerName": "WS-42", "maintenanceDisplayName": "Install Chrome", "status": "Complete", "statusName": "Complete", "result": "Failed", "resultName": "Failed", "resultReasonMessage": "Installer failed", "startTime": "2026-08-20T01:00:00Z"},
+			{"id": "2", "computerId": 42, "computerName": "WS-42", "maintenanceDisplayName": "Patch", "status": "Complete", "statusName": "Complete", "result": "Success", "resultName": "Success", "startTime": "2026-08-20T02:00:00Z"},
+			{"id": "3", "computerId": 43, "computerName": "WS-43", "maintenanceDisplayName": "Other", "status": "Complete", "statusName": "Complete", "result": "Failed", "resultName": "Failed", "startTime": "2026-08-20T03:00:00Z"},
 		},
 	})
 	out, err := runCLI(t, "computer-dossier", "42", "--json", "--db", db)

@@ -41,7 +41,7 @@ Demo data is simulated. Every command shown exists in the real CLI.
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
 | Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? | `quickbooks-cli ar-aging --agent` |
-| What do we owe vendors, and when is it due? | `quickbooks-cli ap-aging --agent` |
+| What do we owe vendors, and how overdue is it? | `quickbooks-cli ap-aging --agent` |
 | Which overdue invoices should I chase first? | `quickbooks-cli invoices stale --days 30 --agent` |
 | Where does our cash stand across accounts, AR, and AP? | `quickbooks-cli balances --agent` |
 | What net cash movement is scheduled over the next 4 weeks? | `quickbooks-cli cash-forecast --weeks 4 --agent` |
@@ -102,7 +102,7 @@ After install, authenticate once with your QuickBooks Online credentials, then v
 | Write (routine) | invoices / bills / payments / customers / vendors / accounts / items / journal-entries create and update (16 commands), plus bulk import | Preview with --dry-run, then a reviewed write |
 | Destructive / config | invoices delete, bills delete, payments delete, journal-entries delete (hard deletes) | Human-in-the-loop only |
 
-The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/governance.md).
+The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials come from the environment or from the local credentials file that `auth set-token` and `auth refresh` write, and are never logged. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quickbooks/governance.md).
 
 ## Frequently asked questions
 
@@ -116,7 +116,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

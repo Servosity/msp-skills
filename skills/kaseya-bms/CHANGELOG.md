@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Changed
+- Rebuilt on cli-printing-press 4.34.2 (see GHSA-jh26-vhqh-692c for why the press was upgraded). The MCP server's HTTP mode now requires a bearer token (`KASEYA_BMS_MCP_HTTP_TOKEN`), listens on loopback by default and refuses browser origins it was not told to allow.
+- Every CLI command, novel command and MCP tool now signs in with the BMS login (username, password, tenant) on first use and again when the token expires. Earlier versions minted a token only in `auth login`, so an MCP install configured with the login stopped working once the short-lived token expired. `KASEYA_BMS_TOKEN` still wins over the login when set.
+- The connector now uses the shared msp-skills credential kit: every credential it holds is kept out of terminal output, files, the local store, logs and MCP results, and is sent only to the configured Kaseya BMS API over https, never across a redirect to another host.
+- The rate-limit guidance now matches Kaseya's published policy: 500 requests per hour per endpoint.
+- `KASEYA_BMS_MCP_READ_ONLY`, `KASEYA_BMS_NO_LOCAL_DATA`, `KASEYA_BMS_MCP_HTTP_TOKEN`, `KASEYA_BMS_USER_AGENT` and `PRINTING_PRESS_CLIENT_PROFILE` are declared on every install channel.
+
+### Fixed
+- `sync` fills the local store again: list responses wrapped in the BMS envelope are unwrapped, lookup tables stay in the default sync, and the local partition names stay the ones earlier versions used (tickets under `servicedesk`, opportunities under `crm`), so an existing store keeps working.
+- `sync` no longer filters on a creation or open date, so a ticket closed after the last sync is no longer kept as open; each sync reads the whole resource.
+- `workload` and `contract-burn` key technicians and contracts by id, so two records with the same name are no longer merged.
+- Ticket status words are read as whole words: "Unresolved" is not read as resolved, and "Cancelled - No Charge" is read as closed.
+- A `--dry-run` sends nothing to Kaseya BMS, and a `--dry-run` with `--output` leaves the named file untouched.
+- `doctor` checks the BMS API root rather than reporting a placeholder address.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

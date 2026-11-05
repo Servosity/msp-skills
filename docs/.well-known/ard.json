@@ -421,6 +421,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cloudally",
+      "displayName": "CloudAlly",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
+      "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "What is the latest backup status of every mailbox and site across all my CloudAlly customers?",
+        "Which customer accounts do I manage?",
+        "Switch into this customer's account.",
+        "Which backup tasks does this customer have?",
+        "What state is every entity of this backup task in?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cloudally.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -478,7 +498,7 @@
       "displayName": "ConnectWise Control",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
-      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `stale screenconnect agents`, `connectwise control user access review`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
       "tags": [
         "Remote Access"
       ],
@@ -986,6 +1006,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:keeper",
+      "displayName": "Keeper Admin and MSP Console",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "description": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "How is every client doing on 2FA, weak passwords and BreachWatch?",
+        "Which clients have users without 2FA, admins first?",
+        "What changed since the last posture run, by client and by user?",
+        "Which invites went stale, and who is inactive or locked?",
+        "Which managed company does this user belong to?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/keeper.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:knowbe4",
       "displayName": "KnowBe4",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -1369,7 +1409,7 @@
       ],
       "representativeQueries": [
         "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?",
-        "What do we owe vendors, and when is it due?",
+        "What do we owe vendors, and how overdue is it?",
         "Which overdue invoices should I chase first?",
         "Where does our cash stand across accounts, AR, and AP?",
         "What net cash movement is scheduled over the next 4 weeks?"
@@ -1956,6 +1996,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/zammad.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:zoom-phone",
+      "displayName": "Zoom Phone",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "description": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "tags": [
+        "Telephony"
+      ],
+      "representativeQueries": [
+        "Which users, common areas and sites have a missing or unverified emergency address?",
+        "Which phone numbers are unassigned, pending, or still held by an inactive user?",
+        "Which desk phones are offline, unassigned or on drifted firmware, by site?",
+        "Which external callers missed us this week and have not been called back?",
+        "Which IVR keys point at nothing, and which call queues have nobody to answer?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/zoom-phone.md"
       }
     }
   ]

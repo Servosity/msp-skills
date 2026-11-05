@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - 2026-11-05
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.2.** The MCP server's HTTP mode refuses to start without a bearer token of 32 or more characters and accepts only loopback browser origins unless you list more in `ABNORMAL_MCP_HTTP_ALLOWED_ORIGINS`. New optional switches, declared on every install channel: `ABNORMAL_MCP_READ_ONLY=1` exposes only read tools, `ABNORMAL_NO_LOCAL_DATA=1` keeps no local copy of API responses.
+- **The API token is only ever sent to the configured Abnormal API host** (the US host by default, or the one in `ABNORMAL_BASE_URL`); a redirect to any other host is refused.
+- **MCP write tools preview first.** `abnormal_execute`, `remediate_watch` and `import` show what they would send and run only when called with `confirm: true`.
+- **Credentials are protected by the shared credential kit.** Output, files, the local store, MCP results and requests to other hosts are checked as whole streams, so a token split across two exported records or reflected in a decoded form no longer gets through; a message that would carry one is withheld whole. A `--stdin` body is held as a credential, and `feedback --stdin` is refused: pass the note as an argument.
+- **`triage` hides nothing.** A threat whose synced messages are all remediated, or whose newest message is older than `--since`, is now listed after the open in-window threats instead of being dropped, because a synced threat detail may not hold every message of the campaign. Each item carries `remediated` and `in_window`; `--include-remediated` ranks remediated threats by score.
+
+### Fixed
+- `abnormal-mcp --transport http` without `ABNORMAL_MCP_HTTP_TOKEN` now prints why it will not start (the message was lost before the process exited).
+- `employee-risk` and `vendor-risk` reported no open cases even when cases were open: they now read each case's detail, and a case detail that cannot be read is reported as a failure instead of "no match".
+- `doctor` probes the real API host instead of treating the default US host as a placeholder.
+- Synced threats, cases, campaigns and vendor cases keep one row per record again, and a threat's detail keeps one row per message.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

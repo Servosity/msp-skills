@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `BETTERSTACK_API_TOKEN` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `betterstack-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `BETTERSTACK_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/betterstack/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +91,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`betterstack-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `BETTERSTACK_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `BETTERSTACK_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export BETTERSTACK_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+betterstack-mcp --transport http
+```
+
+Set `BETTERSTACK_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -119,8 +128,6 @@ betterstack-cli monitors list --per-page 250 --json
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Cross-resource analytics the API can't answer
 - **`fleet`**  -  One-screen health of the whole Better Stack account: monitors up/down/paused, heartbeats, open incidents, and who's on call now.
@@ -200,7 +207,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Find unprotected monitors
 
 ```bash
@@ -244,6 +250,81 @@ Surfaces the monitors generating the most incidents so you can tune alert thresh
 ## Usage
 
 Run `betterstack-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `BETTERSTACK_CONFIG_DIR`, `BETTERSTACK_DATA_DIR`, `BETTERSTACK_STATE_DIR`, or `BETTERSTACK_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `BETTERSTACK_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export BETTERSTACK_HOME=/srv/betterstack
+betterstack-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:BETTERSTACK_HOME = "C:\ProgramData\betterstack"
+betterstack-cli doctor
+```
+
+Under `BETTERSTACK_HOME=/srv/betterstack`, the four dirs resolve to `/srv/betterstack/config`, `/srv/betterstack/data`, `/srv/betterstack/state`, and `/srv/betterstack/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:BETTERSTACK_HOME = "C:\srv\betterstack"
+betterstack-cli doctor
+```
+
+Under `$env:BETTERSTACK_HOME = "C:\srv\betterstack"`, the four dirs resolve to `C:\srv\betterstack\config`, `C:\srv\betterstack\data`, `C:\srv\betterstack\state`, and `C:\srv\betterstack\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "betterstack": {
+      "command": "betterstack-mcp",
+      "env": {
+        "BETTERSTACK_HOME": "/srv/betterstack"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `BETTERSTACK_DATA_DIR` overrides an explicit `--home` for that kind. Use `BETTERSTACK_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `BETTERSTACK_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `betterstack-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `betterstack-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `betterstack-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `BETTERSTACK_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `BETTERSTACK_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -338,6 +419,85 @@ Public status pages
 - **`betterstack-cli status-pages list`** - List status pages
 
 
+### coverage
+
+
+- **`betterstack-cli coverage`** - Find monitors with no escalation policy or no alert channel  -  the ones that will go down silently and page no one.
+
+
+### down
+
+
+- **`betterstack-cli down`** - Focused triage list of monitors currently down or degraded, joined to their open incidents and whether anyone is actually paged for each.
+
+
+### flapping
+
+
+- **`betterstack-cli flapping`** - Rank monitors by how many incidents they generated in a window to surface the noisy, flapping, or misconfigured ones.
+
+
+### fleet
+
+
+- **`betterstack-cli fleet`** - One-screen health of the whole Better Stack account: monitors up/down/paused, heartbeats, open incidents, and who's on call now.
+
+
+### group-health
+
+
+- **`betterstack-cli group-health`** - Per-group health rollup: monitor and heartbeat up/down counts plus open incidents for every monitor group and heartbeat group.
+
+
+### heartbeat-risk
+
+
+- **`betterstack-cli heartbeat-risk`** - Rank heartbeats by risk: tight period+grace windows, paused-but-expected, and non-up status.
+
+
+### mttr
+
+
+- **`betterstack-cli mttr`** - Mean time to acknowledge and resolve, computed across incidents over a window and broken down by monitor.
+
+
+### oncall-gaps
+
+
+- **`betterstack-cli oncall-gaps`** - Detect on-call calendars with nobody currently on call.
+
+
+### statuspage-audit
+
+
+- **`betterstack-cli statuspage-audit`** - Flags status pages showing operational while a backing monitor has an open incident, and status-page resources pointing at missing or paused monitors.
+
+
+### triage
+
+
+- **`betterstack-cli triage`** - Open incidents ranked by age and acknowledgement state  -  never-acknowledged first  -  joined to the affected monitor.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`betterstack-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`betterstack-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`betterstack-cli learnings list`** - Inspect taught rows
+- **`betterstack-cli learnings forget <query>`** - Undo a teach
+- **`betterstack-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`betterstack-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`betterstack-cli teach-pattern`** - Install a query/resource template up front
+- **`betterstack-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `BETTERSTACK_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `betterstack-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -346,9 +506,8 @@ betterstack-cli heartbeat-groups list
 
 # JSON for scripting and agents
 betterstack-cli heartbeat-groups list --json
-
 # Filter to specific fields
-betterstack-cli heartbeat-groups list --json --select id,name,status
+betterstack-cli heartbeat-groups list --json --select id,name,sort_index
 
 # Dry run  -  show the request without sending
 betterstack-cli heartbeat-groups list --dry-run
@@ -357,21 +516,23 @@ betterstack-cli heartbeat-groups list --dry-run
 betterstack-cli heartbeat-groups list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Freshness
 
@@ -427,9 +588,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/betterstack-cli/config.toml`
+Run `betterstack-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/betterstack-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\betterstack-cli\config.toml` on Windows; `--home`, `BETTERSTACK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `BETTERSTACK_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `BETTERSTACK_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -440,6 +603,13 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `betterstack-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The bearer token (`Authorization: Bearer <token>`) and every API request go only to the scheme, host and port of the configured base URL (`https://uptime.betterstack.com/api/v2`, or `BETTERSTACK_BASE_URL`). A redirect to any other host is refused, so the token never reaches it.
+- Any output, file or MCP result that would repeat `BETTERSTACK_API_TOKEN`, the stored token, or a credential-named value from a response (an escalation policy's `incident_token`, a monitor's `auth_password`) prints "[text withheld: it repeated a secret value this program holds]" in its place, in any encoding. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the token from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that changes something in Better Stack (every create, update and delete tool, `incidents_acknowledge`, `incidents_resolve`, `import`) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -453,3 +623,4 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **401 Unauthorized on every call**  -  Set BETTERSTACK_API_TOKEN to a valid Uptime API token (Settings → API tokens), then re-run `doctor`.
 - **fleet/coverage/mttr return empty or 'run sync first'**  -  Run `betterstack-cli sync` to populate the local mirror before querying analytics.
 - **List command only shows 50 rows**  -  Pass `--per-page 250` (the API max) or `--page N`; the `sync` command walks every page automatically.
+- **A report says the last sync did not finish, or that a resource was never synced**  -  The local store holds only part of that resource, so the report refuses to answer from it. Run the sync command the message prints (it names the resource), then run the report again.

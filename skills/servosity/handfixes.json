@@ -1,7 +1,7 @@
 {
  "slug": "servosity",
  "doc": "docs/reprint-survival.md",
- "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug. 2026-08-17 (4.30.3 reprint): the admin-only-endpoints entry gained asserts for two surfaces the 4.24.0 ledger did not cover - cli/internal/cli/channel_workflow.go (the workflow sync resource list) and cli/internal/cli/root_test.go (the 4.30 declared-API-surface conformance test, which FAILS the build if a declared path has no Cobra command). The 4.30.3 reprint reintroduced the endpoints on both and the ledger did not catch them; they are pinned now.",
+ "_comment": "servosity is a SPECIAL case: it is engine-swapped from the servosity-msp mint via a staging strip + de-msp rename ritual that is RE-APPLIED on every reprint, so most of its divergence from a stock print is re-derived, not lost. These entries pin the load-bearing engine-swap invariants so a NAIVE reprint (one that bypassed the ritual) is caught. NOTE: a full reprint-diff would surface more; this records the auth/identity invariants that matter most. Issue #78 (bare SERVOSITY_MSP_TOKEN lacked the required 'Token ' DRF auth-scheme prefix -> HTTP 403 on every data endpoint) is FIXED in AuthHeader() and pinned below; the servosity-msp engine still emits a bare token, so a reprint that bypassed re-applying this prefix would reintroduce the bug. 2026-08-17 (4.30.3 reprint): the admin-only-endpoints entry gained asserts for two surfaces the 4.24.0 ledger did not cover - cli/internal/cli/channel_workflow.go (the workflow sync resource list) and cli/internal/cli/root_test.go (the 4.30 declared-API-surface conformance test, which FAILS the build if a declared path has no Cobra command). The 4.30.3 reprint reintroduced the endpoints on both and the ledger did not catch them; they are pinned now. secret-echo-decoded-funnel retired 2026-11-03: replaced by the shared credential kit (credkit-wiring), so no entry remains for it.",
  "handfixes": [
   {
    "id": "msp-token-auth-plumbing",
@@ -770,172 +770,10 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/servosity-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/servosity-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/servosity-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 2,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "credential-header-values-masked",
-   "summary": "Credential-classed request header values (the X-Servosity-Mfa code on MFA-gated endpoints, any credential-named config.headers entry) are masked in every shown server text like the token, including a short code echoed inside nested encodings",
+   "summary": "Credential-classed request header values (the X-Servosity-Mfa code on MFA-gated endpoints, any credential-named config.headers entry) are masked in every shown server text like the token, as written and in the single-layer encodings, so an error keeps its status line and message. The shared credential kit withholds whatever a mask misses, in any encoding the contract names, at the output (credkit-wiring).",
    "status": "active",
-   "why": "The generated maskCredentialText masks only the auth token family. This connector sends a 6-digit MFA code as X-Servosity-Mfa on the encryption-key and restore endpoints and copies operator config.headers onto every request, so an API error that echoed the code (literally, base64, or nested such as %2531%2532... for 123456) printed a live second factor in the CLI error and the MCP tool result. holdCredentialHeaders records each credential-classed header value the client sends, credentialHeaderSecrets adds config.headers secrets, isCredentialHeader also matches run-together names (X-AuthToken, X-Apikey) through credentialHeaderFragments, forceEncoded masks the encoded forms of values below minEncodedSecretLen, and a bounded decode walk (credentialTextReveals over values of 4 to 7 characters) withholds a short value that survives every single-layer mask. client.go is generated, so a reprint restores the token-only masks. The shared secret_funnel.go stays byte-identical; the short-value walk lives in client.go only. Codex round 1 found the walk stopped after five decode layers (a code base64-encoded six times leaked). cliutil.FunnelEchoesShort reuses the shared funnel's decoding steps breadth-first with no depth limit under its fail-closed work cap, with the code's own base64 and hex forms as needles, since those steps only decode runs long enough for an 8-character secret. Codex round 2: the walk now also runs this client's own decoders (credentialDecodeVariants: full-width folding, rot13, UTF-16 views), and the status line the withhold keeps is checked with the same walk.",
+   "why": "The generated maskCredentialText masks only the auth token family. This connector sends a 6-digit MFA code as X-Servosity-Mfa on the encryption-key and restore endpoints and copies operator config.headers onto every request, so an API error that echoed the code printed a live second factor. holdCredentialHeaders records each credential-classed header value the client sends, credentialHeaderSecrets adds config.headers secrets, isCredentialHeader also matches run-together names (X-AuthToken, X-Apikey) through credentialHeaderFragments, and forceEncoded masks the encoded forms of values below minEncodedSecretLen. client.go is generated, so a reprint restores the token-only masks. The bounded short-value decode walk this entry used to pin is replaced by the shared credential kit; internal/credwire/open_classes_leak_test.go TestShortHeldValueInEncodedForms proves the short code in encoded forms on the built binaries.",
    "asserts": [
     {
      "file": "cli/internal/client/client.go",
@@ -968,56 +806,8 @@
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "if len(shortHeaderSecrets) > 0 && shortCredentialEchoed(masked, shortHeaderSecrets) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "const minShortDecodedSecretLen = 4",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
      "file": "cli/internal/client/redirect_credentials_test.go",
      "contains": "func TestErrorBodyMasksAnEchoedMFAHeader(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/mfa_nested_echo_test.go",
-     "contains": "func TestErrorBodyMasksANestedEncodedMFAHeader(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/mfa_nested_echo_test.go",
-     "contains": "func TestShortHeaderWalkLeavesUnrelatedErrorsAlone(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_short.go",
-     "contains": "func FunnelEchoesShort(text string, secrets []string, minLen int, extra ...func(string) []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelEchoesShort(text, secrets, minShortDecodedSecretLen, credentialDecodeVariants)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func withholdShortCredentialText(text string, secrets []string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/mfa_nested_echo_test.go",
-     "contains": "func TestErrorBodyMasksAShortHeaderUnderUnpaddedBase64(t *testing.T) {",
      "min_count": 1,
      "code_only": true
     }
@@ -1613,6 +1403,407 @@
    ]
   },
   {
+   "id": "issues-watch-events",
+   "class": "webhooks",
+   "summary": "Servosity issue changes as events before Servosity has webhooks: `issues watch` (issues_watch.go) polls every page of the partner issue list read-only, re-reads an active issue that left it to learn archived or ignored, and records servosity.issue.created/updated/archived/ignored/reactivated rows in a vendor_events table (store/vendor_events.go, the zammad connector's table and row shape) beside an issue_watch_state snapshot (store/issue_watch.go), both created from extras.go; `events list` and the read-only MCP tool events_list read it by cursor. recordIssueObservations is the one seam a future signed Servosity webhook receiver calls. Wired by the init hook in issues_watch.go.",
+   "why": "Damien GO 2026-10-27: Servosity has no webhooks yet, so a polling bridge whose store a future issue webhook plugs into (fleet/state/plan-2026-10-27/webhooks.md sections 2 and 4). None of it is in the spec, so a reprint regenerates none of it: every file is hand-written with no DO NOT EDIT marker, wired through the generator's registerNovelCommand hook, and the one edit to a generated file (extras.go migrations) is pinned here. It polls /resellers/{id}/issues/ because partner tokens are refused /issues/, /issues/archived/ and /issues/ignored/ (admin-only, PR #178 and the 2026-05-22 live acceptance), so it never calls the two admin-only lists. That list holds ACTIVE issues only (servosity-api api_v1/views/reseller.py issues), so an active issue that leaves it is re-read with GET /issues/{id}/ and an ignored one is re-read at most hourly (it can still be archived by prune_issues or archive_by_hash); archived is final. It sends only GETs, keeps only allowlisted shapes (ids as sent, integers, the Issue model's enum values, re-written timestamps; never the description, names or comments), withholds any issue whose kept fields repeat a held credential (ApplyIssueWatch wraps each write in a savepoint; the credential kit's SQL driver refuses the statement, that write and its events roll back alone, the rest of the poll applies, and Withheld counts it), applies a poll only when the store's generation (issue_watch_generation, read with the records before the API is called and bumped by every commit) is unchanged, so a watcher paused mid-poll never deletes, overwrites or resurrects a record another watcher changed meanwhile, even one that changed back (absent, present, absent), and each keep and forget is also a compare-and-swap on the record it read (a conditional INSERT, UPDATE or DELETE whose events land only if it applied), drops a read older than the recorded one (updated_at, then last_seen_at), needs a complete list for the baseline, passes every error line through the kit at stderr, backs off on failures and stops on a refused token. issues watch is mcp:hidden (a long-running loop that writes the local store); events list is mcp:read-only.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "func newIssuesWatchCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "func newEventsCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\", \"pp:data-source\": \"live\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "Annotations: map[string]string{\"mcp:read-only\": \"true\", \"pp:data-source\": \"local\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "data, err := c.GetNoCache(ctx, listPath, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "if !triageIssueIDPattern.MatchString(id) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "not_contains": "\"/issues/archived/"
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "not_contains": "\"/issues/ignored/"
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "not_contains": "DO NOT EDIT"
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchRecordsEachTransition(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/issues_watch_test.go",
+     "contains": "func TestMCPEventsListReadOnlyAndWatchHidden(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/vendor_events.go",
+     "contains": "func (s *Store) VendorEventsSince(ctx context.Context, since int64, eventType string, limit int)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/vendor_events.go",
+     "not_contains": "DO NOT EDIT"
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "func (s *Store) ApplyIssueWatch(ctx context.Context, mark string, setMark bool, at string, gen int64,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "not_contains": "DO NOT EDIT"
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, vendorEventsMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, issueWatchMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "Severity: oneOf(r.Severity, issueSeverities)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "if known && (json.Unmarshal([]byte(prevJSON), &prev) != nil || issueOlder(cur, prev.watchIssue)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "if (complete && p.State == \"ACTIVE\") || (p.State == \"IGNORED\" && p.CheckedAt < stale) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "if res.Baseline && !complete {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssueObservationsDropStaleReads(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchBaselineNeedsTheWholeList(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchRereadFailures(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "`DELETE FROM issue_watch_state WHERE issue_id = ? AND data = ?`, w.ID, w.Expect)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "`UPDATE issue_watch_state SET data = ? WHERE issue_id = ? AND data = ?`, w.Data, w.ID, w.Expect)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "ON CONFLICT(issue_id) DO NOTHING`, w.ID, w.Data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchTwoWatchersNeverClobber(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "`CREATE TABLE IF NOT EXISTS issue_watch_generation (",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "if err := s.db.QueryRowContext(ctx, `SELECT gen FROM issue_watch_generation WHERE id = 1`).Scan(&snap.Gen); err != nil &&",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "ON CONFLICT(id) DO UPDATE SET gen = excluded.gen`, gen+1); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "db.ApplyIssueWatch(ctx, issueWatchSource, source == \"poll\", checked, snap.Gen,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchStaleReadNeverResurrectsAForgottenIssue(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "func recordIssueObservations(ctx context.Context, db *store.Store, source string, snap store.IssueWatchSnapshot, observed []watchIssue, forget []string, complete bool, now time.Time) (issueWatchResult, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "res, err := recordIssueObservations(ctx, db, \"poll\", prevRaw, observed, forget, complete, now)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch.go",
+     "contains": "res.Events, res.Stale, res.Withheld, res.Cursor = applied.Added, applied.Stale, applied.Withheld, applied.Cursor",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "if current != gen {\n\t\treturn IssueWatchApplied{Stale: len(writes), Cursor: cursor}, nil\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "case errors.Is(err, credkit.ErrWithheld):\n\t\t\tout.Withheld++",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "tx.ExecContext(ctx, `SAVEPOINT issue_write`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/issue_watch.go",
+     "contains": "tx.ExecContext(ctx, `ROLLBACK TO issue_write`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issues_watch_test.go",
+     "contains": "func TestIssuesWatchKeepsOnlyAllowlistedFields(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestHeldMFACodeEqualToAnIssueIntegerField(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestHeldValueEqualToAnIssueIDInAnotherCase(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. A store of operator-named text that repeats a held credential is refused by the shared credential kit at each sink: profiles.json, the journal, teach.log, learnings.jsonl, feedback.jsonl (file writes) and the learn tables (its SQL driver), as credkit-wiring pins. journal_credential_hardening_test.go drives each path and fails if a credential reaches any file under the test home.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-run tools/maintainer/apply_journal_hardening.py --slug <slug>, then route its sinks through the kit, not its refusal checks.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n\tlearn.JournalInvocation(learn.JournalEntry{\n\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "drf-page-pagination",
+   "status": "active",
+   "summary": "--all on a Django REST Framework page-number list follows next until it is null, never asks for the page after the last one, refuses a walk that ends with fewer rows than the envelope's count ({\"event\":\"truncated\",\"fetched\":N,\"count\":M} on stderr and exit 6), and keeps that count in the output as meta.total_count. attention --refresh re-sends every query parameter of the issues next link (page or cursor) and fails rather than counting a partial book. drf_pagination_test.go proves it against a fake DRF server: 27 rows, 10 per page, every listed list command in the JSON and agent shapes, sync plus backup-facts and stale-backups, attention, and the two truncation cases.",
+   "why": "The Servosity API pages lists the DRF way: count, num_pages, next (a full URL or null), previous, results, and 404 {\"detail\":\"Invalid page.\"} for a page past the last one. Press 4.34.0 generates every list with paginationType page and no next_cursor_path, so paginatedGet followed next to the last page, then its page+1 heuristic asked for one more and the DRF 404 failed the whole --all; an older build (servosity-pp-cli 1.0.0) instead stopped after page 1 with exit 0 and stripped the count, so a caller could not tell rows were missing. attention's own loop followed only a cursor parameter, so a page-number next link ended the walk after page 1. A reprint that drops these edits regresses silently; these asserts and TestDRF* fail.",
+   "spec_encode_followup": "Press-side: infer DRF page-number pagination from a list response schema carrying count, next (uri, nullable) and results, follow next to null, and guard the fetched rows against count. The press's internal spec has next_cursor_path, but this Swagger 2 spec produced next_cursor_path \"\" on every list, and nothing in a spec expresses the count guard or keeping the count, so this hand-fix stays after any spec annotation.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if n, ok := drfEnvelopeCount(obj); ok {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "present && nextAdvance == \"\" && hasMoreField == \"\" && (rawJSONNull(rawNext)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if page > 1 && drfCount >= 0 && strings.Contains(err.Error(), \"HTTP 404\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if walkFromStart && drfCount > len(allItems) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "fmt.Fprintf(os.Stderr, `{\"event\":\"truncated\",\"fetched\":%d,\"count\":%d}`+\"\\n\", len(allItems), drfCount)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "\"meta\": map[string]any{\"total_count\": drfCount}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/attention.go",
+     "not_contains": "cursor := u.Query().Get(\"cursor\")"
+    },
+    {
+     "file": "cli/internal/cli/drf_pagination_test.go",
+     "contains": "func TestDRFAllNeverTruncatesSilently(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/drf_pagination_test.go",
+     "contains": "func TestDRFAllFollowsEveryPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "chatgpt-desktop-local-web-unsupported",
    "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
@@ -1662,6 +1853,716 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's earlier credential layer: the funnel, its short-value walk, held_exact, held_persist, held_configured and sent_credentials are gone (retire reason: replaced by the shared credential kit). internal/credwire/declarations.go holds the one credkit.Declarations literal. credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: the client's sends (OutboundGuard around the one Do), feedback, deliver and probe clients through credkit.Transport; the response caches, journal, teach logs, learnings, feedback, export, downloads, QBR output, profiles and AtomicWritePrivateFile through credkit file writes; every SQLite handle through credsql (credkit-sqlite-every-handle); MCP tools through credkit.MCPTools, stdio through MCPIn and MCPOut, HTTP through MCPHTTP (credkit-mcphttp-outermost); the MCP CLI shell-out and the QBR PDF render through credkit.RunCommand; terminal checks through credkit.Terminal. The credentials store and config file are credential sources, listed in Declarations.Files, and are written by AtomicWriteCredentialFile outside the kit as the declared exemption. The kit starts no child with a credential in its argv or environment, so RunCLICommand hands the environment's token to a mirrored tool's child on stdin behind the hidden --credentials-stdin flag (Declarations.StdinFlags); mcpChildEnviron drops the secret variables. Kept outside the kit, by judgment: lock files, the empty SQLite journal file, the .data-db-owner marker and the fingerprint key (constant or random bytes), the journal's torn-tail newline repair, and os.Rename or os.Link of a file the kit just wrote. Vendor secret fields a read returns on purpose (an encryption key, a stored credential's password, an MFA code, --reveal-token) are NOT response fields: secret-family-never-persisted keeps them off disk and away from an MCP agent without a confirm, and holding them would withhold the read a person asked for. The run profile store (profiles.json) is a credential source: loadProfileStore holds every value under a declared credential flag's name (any key case, each duplicate key) before the store is parsed (cliutil.HoldProfileStore, over cliutil.CredentialFlags, which TestCredentialFlagsMatchCliutil keeps equal to Declarations.CredentialFlags); TestProfileCredentialFlagValuesAreHeld drives profile show, use and list.",
+   "why": "Codex round 2 of this branch and the pre-adoption reviews found credential paths the connector's own layer did not close: a held 6-digit MFA code equal to an issue's integer field, an id in another case, short values in encoded forms, values containing a separator, and Cobra parse errors printed before anything was held. internal/credwire/open_classes_leak_test.go builds both binaries and drives each with the reviewer's input; all failed on the pre-adoption head (.review/seen/open-classes-failing-preadopt.log). A reprint regenerates the mains, client.go, store.go and the other generated sink files and drops these routes silently (the build stays green); these asserts and the leak tests fail if it does.",
+   "spec_encode_followup": "Press-side: the generator should emit the credkit wiring (Start and Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools, MCPIn, MCPOut, MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "SecretEnv:     []string{\"SERVOSITY_MSP_TOKEN\", \"SERVOSITY_MSP_MCP_HTTP_TOKEN\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:        []string{cliutil.CredentialStdinFlag},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "not_contains": "server.ServeStdio(s)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "return credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "cliutil.AtomicWritePrivateFile("
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/qbr.go",
+     "contains": "credkit.Create(outPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/qbr_all.go",
+     "contains": "credkit.Create(outPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/qbrreport/qbrreport.go",
+     "contains": "credkit.Create(tmpPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/qbrreport/qbrreport.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "args = append([]string{cliutil.CredentialStdinFlag}, args...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cliutil.IsSecretEnvEntry(entry)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.ReadCredentialStdin()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credential_stdin.go",
+     "contains": "const CredentialStdinFlag = \"--credentials-stdin\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "funnelCommandErrors"
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestShortHeldValueInEncodedForms(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestShortHeldValueWithASeparator(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestParseErrorsPrintedBeforeTheProgramHoldsAnything(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_leak_test.go",
+     "contains": "func TestMirroredToolAuthenticatesWithTheEnvironmentToken(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestServerAnswerEchoingTheToken(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestSecretEnvNamesMatchDeclarations(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/qbrreport/qbrreport.go",
+     "contains": "credkit.WriteFile(outPath, pdf, 0o644)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/qbrreport/qbrreport.go",
+     "not_contains": "\"--print-to-pdf=\"+outPath"
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "cliutil.HoldProfileStore(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStore(data []byte) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle the program opens goes through credkit.SQLDriver: internal/credsql (hand-written) registers the one driver, credsql.Driver, as modernc.org/sqlite behind the kit, and every sql.Open in store.go and platform/migration.go names it, store.OpenReadOnly included. The MCP sql tool's 4 MiB value cap, which used sqlite.Limit on modernc's own connection, is now a DSN parameter (_length_limit) that a connection hook on the inner driver applies to each connection as it opens, before the kit wraps it; store.OpenReadOnlyValueCapped and openMCPReadOnlyStore(path, maxValueBytes) carry it. The read-only open forces its first connection with \"select 1\" (the statement modernc's Ping runs), since the kit's connection does not forward Ping and the immutable=1 fallback depends on that first open failing.",
+   "why": "The contract makes statement text and bound values a sink of their own, reads included. internal/credwire/surfaces_leak_test.go TestMCPSQLStatementWithheldAtSQLite drives a statement carrying a held value through the real MCP binary. A reprint regenerates store.go, migration.go and tools.go and would restore the bare driver and sqlite.Limit silently.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting rather than sqlite.Limit on a held connection.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves. requireBearerAuthWithLimits is: a preflight that writes nothing (mcpHTTPPreflight: the bearer verdict, and for an authenticated body a bounded, deadline-limited read into memory), then credkit.MCPHTTP around a gate that writes the refusal (401 with WWW-Authenticate, 413, 408, 400) through the kit's writer, else the MCP handler. A refused request reaches the kit as a clone with no header, trailer or body, so nothing a caller sends without the bearer can mark the kit's acquisition unknown and silence the server; a request expecting 100-continue keeps its body unread for the kit's own 417. The old hijacking rejectMCPHTTPRequest is gone: the kit takes the connection over and closes it.",
+   "why": "Refusals answered outside the kit would carry a piece of a held bearer token that contains their fixed text. internal/credwire/mcphttp_leak_test.go drives each refusal through the real binary and checks a refused request cannot silence the server. main.go is generated; a reprint restores the outer refusals silently.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "r.Header = http.Header{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "r.Body = http.NoBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "not_contains": ".Hijack()"
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-origin-allowlist",
+   "class": "mcp-http",
+   "status": "active",
+   "summary": "servosity-mcp --transport http refuses (403 forbidden origin) a request whose Origin header is present, is not loopback and is not listed in SERVOSITY_MSP_MCP_HTTP_ALLOWED_ORIGINS, before the bearer check; a request with no Origin is accepted. The allowlist is read at startup (loadAllowedHTTPOrigins) and an invalid entry stops the server. The origin parser and allowlist are the current press template's, ported into this engine-swapped main.go.",
+   "why": "The engine-swapped main.go predates the template's origin guard, so a browser page on any origin could reach the server once it held the bearer; the verify gate's mcp-http check failed on a foreign Origin answered 200. cmd/servosity-mcp/http_auth_test.go (TestMCPHTTPInitializeRejectsForeignOrigin, TestMCPHTTPOriginGuard and the parser tests) fails if the guard is dropped.",
+   "spec_encode_followup": "Press-side: none; the template already generates this. It is pinned here because servosity's main.go is carried across reprints by the engine-swap ritual, not regenerated.",
+   "asserts": [
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "const httpAllowedOriginsEnvVar = \"SERVOSITY_MSP_MCP_HTTP_ALLOWED_ORIGINS\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "allowedOrigins, err := loadAllowedHTTPOrigins()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/main.go",
+     "contains": "return mcpHTTPRefusal{http.StatusForbidden, \"forbidden origin\"}, true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/servosity-mcp/http_auth_test.go",
+     "contains": "func TestMCPHTTPInitializeRejectsForeignOrigin(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-reads-held-before-parse",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every read of the connector's config file or credentials store, at startup or later (the MCP server reloads them on every tool call), holds every value in it with credkit.Hold before the file is parsed: config.go's parseConfigData and cliutil's two credentials-store parses first call cliutil.HoldConfigFile (internal/cliutil/credkit_hold.go, hand-written). That is a whole-file tokenizer (no size cutoff; quoted, unterminated and multi-line strings, bare words, inline tables, lines the parser rejects) fed to the kit with its source spellings, then, when the file parses, each decoded leaf. base_url, ca_cert, tls_server_name, token_expiry and client_id (cliutil.NotCredentials) are left unheld when their value is one plain scalar, and base_url still gives up its password and query values; internal/credwire declares exactly those keys as config: Identifiers, and a test keeps the two lists equal.",
+   "why": "The kit's startup capture never sees a file written later. internal/credwire/surfaces_leak_test.go TestMCPConfigReloadHoldsBeforeParse rewrites the file under a running server with a value the TOML parser overflows on and checks its diagnostic never shows it. A reprint regenerates config.go and credentials.go and drops the calls silently.",
+   "spec_encode_followup": "Press-side: generate a pre-parse hold hook in the config loader, or route every config read through the kit, so runtime reloads are held by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "for _, v := range scanConfigValues(string(data)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.Hold(credkit.Source(source), v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ReadPaths(configPath string) ([]string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestMCPConfigReloadHoldsBeforeParse(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestIdentifiersMatchNotCredentials(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "not_contains": "if v == \"\" || v == \"true\" || v == \"false\" || strings.IndexFunc"
+    }
+   ]
+  },
+  {
+   "id": "store-open-skips-current-schema",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "store.migrate returns early when the file already carries this schema: PRAGMA user_version equals StoreSchemaVersion and PRAGMA application_id equals migrationStamp, a CRC of the schema version, every migration's text and the parent-key map. The stamp is written last, inside the migration transaction. A reprint or upgrade that changes any of those runs the migrations once; a bare file or an older one runs them as before.",
+   "why": "The press re-runs every idempotent migration on every read-write open: over a thousand statements across this connector's 140 tables. The credential kit checks each one at the SQL sink, which took a store-touching command from 0.18 s to 12 to 15 s and every fresh-store unit test past the package's 10-minute timeout. With the stamp the same command takes 0.5 s after its first run. Kit note: .review/kit-findings.md records the per-statement cost. store.go is generated; a reprint drops this silently and these asserts fail.",
+   "spec_encode_followup": "Press-side: skip the idempotent migration pass when a schema fingerprint on the file matches, for every connector; the cost is a fixed one on each open even before the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if current == StoreSchemaVersion && migrationStampCurrent(ctx, conn, stamp) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "fmt.Sprintf(`PRAGMA application_id = %d`, stamp)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func migrationStamp(migrations []string) int64 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/migration_stamp_test.go",
+     "contains": "func TestMigrationsRunOnlyWhenTheStampDiffers(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-json-only-bounded",
+   "status": "active",
+   "summary": "sync and workflow archive never treat a binary or non-JSON endpoint as a resource: the download installer endpoint is out of sync's lists and refused by name before any request; under sync, a redirect off the API's origin is not followed, a successful response whose Content-Type is not JSON is refused with its body unread at the client, a body past the client's size cap is refused, and each is a named sync_warning (non_json_response, redirect_off_origin, response_too_large); sync also gives a warned_resources entry in its summary and a non-zero exit under --strict.",
+   "why": "A plain sync never finished: GET /download/servosity-one-windows/ redirects (302) to a large Windows installer, which was wrapped in a base64 envelope and stored as one row, and the credential kit's check of that one unit grew to tens of gigabytes. The press generates every GET as a sync resource when its response has no schema. client.go and sync.go are regenerated by a reprint, so the resource comes back and the guard goes; these asserts and TestPlainSyncSkipsBinaryResources (built binary, held token) fail.",
+   "spec_encode_followup": "Press-side: the Swagger 2 spec gives /download/servosity-one-windows/ an empty 200 and the global produces application/json, the same as JSON reads such as /stats/ and /users/, so nothing in it can exclude the endpoint. Add a per-operation produces or an x-sync-exclude to the spec, and generate a Content-Type refusal in the sync fetcher. The kit reads a body whole, to its 64 MiB limit, inside its RoundTrip when ResponseFields are declared, so stopping a same-origin binary before any byte needs a kit hook.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"/download/servosity-one-windows/\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "ctx = client.WithJSONOnlyResponses(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := refuseBinaryEndpointSync(resources); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if reason, ok := syncBodyRefusalReason(err); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncWarnedSummaryField(warnedResources)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if strict && len(refusedResources) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if refusal := refuseNonJSONResponse(ctx, resp); refusal != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.CheckRedirect = jsonOnlyCheckRedirect(ctx, httpClient.CheckRedirect)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "errors.Is(err, ErrOffOriginRedirect)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/sync_response.go",
+     "contains": "func refuseNonJSONResponse(ctx context.Context, resp *http.Response) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/sync_response.go",
+     "contains": "func jsonOnlyCheckRedirect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_body_guard.go",
+     "contains": "func syncBodyRefusalReason(err error) (string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_nonjson_test.go",
+     "contains": "func TestPlainSyncSkipsResourceThatRedirectsToBinary(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/surfaces_leak_test.go",
+     "contains": "func TestPlainSyncSkipsBinaryResources(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "all-default-page-size",
+   "status": "active",
+   "summary": "--all on a page-number list sends page_size=100 when the operator gave no --page-size, as sync does; an explicit --page-size, including 0, is kept.",
+   "why": "Press 4.34.0 generates each list with a default page size of 0, so --all sent no page_size and the server paged 10 rows at a time. The value goes on the wire only: paginatedGet's pageSize stays 0, so the server's next link still ends the walk and a server capping below 100 loses no rows. A reprint regenerates helpers.go and drops it; TestAllSendsDefaultPageSize fails.",
+   "spec_encode_followup": "Press-side: pass the sync page size as the generated defaultPageSize, keeping next-link termination for page-number lists.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if _, given := clean[limitParam]; limitParam != \"\" && !given && pageSize == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_nonjson_test.go",
+     "contains": "func TestAllSendsDefaultPageSize(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_nonjson_test.go",
+     "contains": "func TestAllSurvivesServerCapBelowDefault(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

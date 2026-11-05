@@ -185,7 +185,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most Kaseya BMS integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many approved billable hours are unbilled across every client this month" or "which contracts are most burned down heading into renewal" - and the BMS API's 1,500-requests-per-hour-per-endpoint limit punishes you for asking it live.
+Most Kaseya BMS integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many approved billable hours are unbilled across every client this month" or "which contracts are most burned down heading into renewal" - and the BMS API's 500-requests-per-hour-per-endpoint limit punishes you for asking it live.
 
 This skill syncs Kaseya BMS into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `workload` (open tickets joined with hours logged per technician) and `contract-burn` (time logs routed through their tickets' contracts) join across tickets, time logs, and contracts - work a stateless API wrapper can't do.
 
@@ -223,7 +223,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Will this hit my Kaseya BMS API rate limits?
 
-Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (`--data-source auto`), so day-to-day questions cost **zero** API calls; you only spend the budget when you `sync` or explicitly query live with `--data-source live`.
+Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (`--data-source auto`), so day-to-day questions cost **zero** API calls; you only spend the budget when you `sync` or explicitly query live with `--data-source live`.
 
 ### Do I need to be a Kaseya customer, and how do I authenticate?
 

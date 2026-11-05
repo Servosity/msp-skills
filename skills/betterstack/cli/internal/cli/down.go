@@ -31,13 +31,18 @@ type downReport struct {
 	UnackedCount  int        `json:"unacknowledged_count"`
 	UnpagedCount  int        `json:"pages_nobody_count"`
 	OnCallCovered bool       `json:"someone_on_call_now"`
+	// OtherOpen counts the open incidents this board does not list (a
+	// heartbeat's, a paused or unsynced monitor's, one with no source): down
+	// lists monitors, so they are named beside the list rather than read as
+	// nothing open (Codex r1 class heartbeat-incidents-omitted).
+	OtherOpen int `json:"open_incidents_not_listed"`
 }
 
 // buildDownReport joins down/degraded monitors to their open incidents and
 // paging posture. A monitor is on the board when its status counts as down OR
 // it has at least one open incident (status can lag the incident stream).
 func buildDownReport(monitors []monitorRow, incidents []incidentRow, onCalls []onCallRow) downReport {
-	openBySource := openIncidentsBySource(incidents)
+	idx := indexOpenIncidents(incidents)
 	covered := false
 	for _, oc := range onCalls {
 		if oc.OnCallUsers > 0 {
@@ -47,7 +52,7 @@ func buildDownReport(monitors []monitorRow, incidents []incidentRow, onCalls []o
 	}
 	items := make([]downItem, 0)
 	for _, m := range monitors {
-		open := openBySource[m.ID]
+		open := idx.byMonitor[m.ID]
 		if m.Paused || (!monitorDown(m.Status) && len(open) == 0) {
 			continue
 		}
@@ -83,8 +88,9 @@ func buildDownReport(monitors []monitorRow, incidents []incidentRow, onCalls []o
 		}
 		return items[i].Name < items[j].Name
 	})
-	rep := downReport{Items: items, OnCallCovered: covered}
+	rep := downReport{Items: items, OnCallCovered: covered, OtherOpen: idx.open}
 	for _, it := range items {
+		rep.OtherOpen -= it.OpenIncidents
 		rep.DownCount++
 		if !it.Acknowledged && it.OpenIncidents > 0 {
 			rep.UnackedCount++
@@ -141,6 +147,10 @@ func newNovelDownCmd(flags *rootFlags) *cobra.Command {
 				return flags.printJSON(cmd, rep)
 			}
 			if len(rep.Items) == 0 {
+				if rep.OtherOpen > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "No monitor is down, but %d open incident(s) are not on this board (heartbeats, paused or unsynced monitors; see `triage` and `group-health`).\n", rep.OtherOpen)
+					return nil
+				}
 				fmt.Fprintln(cmd.OutOrStdout(), "Nothing is down: no monitors in a down state and no open incidents in the local mirror.")
 				return nil
 			}
@@ -158,6 +168,9 @@ func newNovelDownCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := flags.printTable(cmd, []string{"ID", "MONITOR", "STATUS", "OPEN", "ACKED", "PAGES"}, rows); err != nil {
 				return err
+			}
+			if rep.OtherOpen > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "\n%d more open incident(s) are not on this board (heartbeats, paused or unsynced monitors; see `triage` and `group-health`).\n", rep.OtherOpen)
 			}
 			if !rep.OnCallCovered {
 				fmt.Fprintln(cmd.OutOrStdout(), "\nwarning: no on-call calendar currently has anyone on call (see `oncall-gaps`).")

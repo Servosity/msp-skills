@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T21:01:26.934584Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "abnormal",
+  "display_name": "Abnormal Security",
+  "cli_name": "abnormal-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:4352b5a2083b76ac7dc92adbe4839c790f4edefefcff30755baaa4422875b048",
+  "run_id": "20261028-142200-363376ef",
+  "category": "monitoring",
+  "description": "The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
+  "mcp_binary": "abnormal-pp-mcp",
+  "mcp_tool_count": 67,
+  "mcp_ready": "full",
+  "api_version": "1.4.3",
+  "auth_type": "bearer_token",
+  "auth_preference": "BearerAuth",
+  "auth_env_vars": [
+    "ABNORMAL_API_TOKEN"
+  ],
+  "auth_key_url": "https://portal.abnormalsecurity.com/home/settings/integrations",
+  "novel_features": [
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters."
+    },
+    {
+      "name": "Fire-and-confirm remediation",
+      "command": "remediate-watch",
+      "description": "Remediate a threat or case and block until Abnormal reports the action reached a terminal state, with a typed exit code and receipt."
+    },
+    {
+      "name": "Weekly reporting snapshot",
+      "command": "report-snapshot",
+      "description": "Pull the key dashboard aggregations — attacks seen, attacks stopped, impersonation breakdowns, trending attacks — into one client-ready table or CSV."
+    },
+    {
+      "name": "Employee risk profile",
+      "command": "employee-risk",
+      "description": "One account-takeover risk picture per employee: profile, Genome identity analysis, 30-day login pattern, and open cases naming them."
+    },
+    {
+      "name": "Vendor risk profile",
+      "command": "vendor-risk",
+      "description": "One vendor-email-compromise picture per vendor: details, recent activity, and open vendor cases."
+    },
+    {
+      "name": "Mock-data smoke test",
+      "command": "smoke",
+      "description": "Verify token, base URL (US/EU), and IP allowlist reachability using Abnormal's vendor-supplied test payloads — without touching real tenant data."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters."
+    },
+    {
+      "name": "Fire-and-confirm remediation",
+      "command": "remediate-watch",
+      "description": "Remediate a threat or case and block until Abnormal reports the action reached a terminal state, with a typed exit code and receipt."
+    },
+    {
+      "name": "Weekly reporting snapshot",
+      "command": "report-snapshot",
+      "description": "Pull the key dashboard aggregations — attacks seen, attacks stopped, impersonation breakdowns, trending attacks — into one client-ready table or CSV."
+    },
+    {
+      "name": "Employee risk profile",
+      "command": "employee-risk",
+      "description": "One account-takeover risk picture per employee: profile, Genome identity analysis, 30-day login pattern, and open cases naming them."
+    },
+    {
+      "name": "Vendor risk profile",
+      "command": "vendor-risk",
+      "description": "One vendor-email-compromise picture per vendor: details, recent activity, and open vendor cases."
+    },
+    {
+      "name": "Mock-data smoke test",
+      "command": "smoke",
+      "description": "Verify token, base URL (US/EU), and IP allowlist reachability using Abnormal's vendor-supplied test payloads — without touching real tenant data."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 98.80952380952381,
+    "passed": 83,
+    "total": 84,
+    "failed": 1,
+    "data_pipeline": true,
+    "verdict": "WARN"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

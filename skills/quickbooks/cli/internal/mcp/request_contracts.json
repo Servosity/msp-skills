@@ -251,7 +251,7 @@
     "additionalProperties": true,
     "properties": {
       "changed-since": {
-        "description": "RFC3339 timestamp; returns objects changed at/after this time",
+        "description": "RFC3339 timestamp; returns objects changed at/after this time (e.g. 2026-01-01T00:00:00Z)",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "changedSince"
@@ -948,7 +948,7 @@
         "x-location": "query"
       },
       "query": {
-        "description": "QBO SELECT statement",
+        "description": "QBO SELECT statement (e.g. select * from Customer maxresults 10)",
         "type": "string",
         "x-location": "query"
       }

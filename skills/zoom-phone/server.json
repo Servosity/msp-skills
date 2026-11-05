@@ -1,0 +1,108 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/zoom-phone-mcp",
+  "title": "Zoom Phone MCP",
+  "description": "Zoom Phone admin API plus E911, call routing and desk phone audits across client accounts",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/zoom-phone/zoom-phone-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/zoom-phone"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/zoom-phone-v0.1.0/zoom-phone-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ZOOM_PHONE_ACCOUNT_ID",
+          "description": "Set the ZOOM_PHONE_ACCOUNT_ID credential for the Zoom MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ZOOM_PHONE_CLIENT_ID",
+          "description": "Set the ZOOM_PHONE_CLIENT_ID credential for the Zoom MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ZOOM_PHONE_CLIENT_SECRET",
+          "description": "Set the ZOOM_PHONE_CLIENT_SECRET credential for the Zoom MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ZOOM_PHONE_BASE_URL",
+          "description": "Base URL for the Zoom Phone API. Leave the prefilled default.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.zoom.us/v2"
+        },
+        {
+          "name": "ZOOM_PHONE_TOKEN_URL",
+          "description": "Token endpoint the Server-to-Server OAuth exchange posts to. Leave the prefilled default.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://zoom.us/oauth/token"
+        },
+        {
+          "name": "ZOOM_PHONE_OAUTH_SCOPE",
+          "description": "Optional. Leave blank: a Zoom Server-to-Server OAuth token carries the scopes added to the app.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. It does not select a Zoom account. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ZOOM_PHONE_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to refuse every write and every secret-returning read. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZOOM_PHONE_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. The audits that read the local mirror then report nothing assessed. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZOOM_PHONE_MCP_UPLOAD_ROOT",
+          "description": "Optional. A folder MCP file uploads (audio library files) may be read from by path. Leave blank: uploads then take base64 file content and the server reads no local path.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZOOM_PHONE_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Zoom requests. Leave blank to use the built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZOOM_PHONE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

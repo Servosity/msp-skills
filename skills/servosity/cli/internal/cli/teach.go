@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 	"servosity-msp-pp-cli/internal/learn"
 	"servosity-msp-pp-cli/internal/learn/entities"
 	"servosity-msp-pp-cli/internal/learn/lookups"
@@ -125,7 +126,7 @@ func writeTeachErrLog(line string) {
 	}
 	_ = cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
@@ -148,7 +149,7 @@ func appendLearningsAudit(entry map[string]any) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
@@ -206,9 +207,9 @@ func scrubLogFile(path, rawQuery, queryHash string) error {
 		return nil
 	}
 	if len(kept) == 0 {
-		return os.WriteFile(path, nil, 0o600)
+		return credkit.WriteFile(path, nil, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	return os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600)
+	return credkit.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func logLineMatchesQuery(line, rawQuery, queryHash string) bool {
@@ -371,7 +372,7 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				return writeDryRun(cmd.OutOrStdout(), flags, "teach")
 			}
 			if strings.TrimSpace(query) == "" {
-				writeTeachErrLog(fmt.Sprintf("teach: missing --query (args=%v resources=%v)", args, resources))
+				writeTeachErrLog(fmt.Sprintf("teach: missing --query (%d args, %d resources)", len(args), len(resources))) // Hand-fix (handfixes.json journal-credential-hardening): no raw argument reaches teach.log
 				return silentCodeErr(2)
 			}
 			if len(resources) == 0 {

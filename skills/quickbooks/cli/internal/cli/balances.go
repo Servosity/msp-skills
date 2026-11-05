@@ -19,7 +19,9 @@ func newNovelBalancesCmd(flags *rootFlags) *cobra.Command {
 		Short: "Cash & balance snapshot across accounts, customers, and vendors (offline)",
 		Long: "One view of bank/AR/AP account balances (rolled up by account type) plus total\n" +
 			"customer receivables and total vendor payables. Spans three entity types, so it\n" +
-			"is only possible once they coexist in the local store. Run `sync` first.",
+			"is only possible once they coexist in the local store. With multicurrency on,\n" +
+			"balances that span currencies are given per currency under by_currency and\n" +
+			"the headline totals are null: no figure sums two currencies. Run `sync` first.",
 		Example:     "  quickbooks-cli balances --agent\n  quickbooks-cli balances --json | jq '.bank_total'",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
