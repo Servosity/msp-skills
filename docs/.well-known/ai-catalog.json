@@ -426,6 +426,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cloudally",
+      "displayName": "CloudAlly",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
+      "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "What is the latest backup status of every mailbox and site across all my CloudAlly customers?",
+        "Which customer accounts do I manage?",
+        "Switch into this customer's account.",
+        "Which backup tasks does this customer have?",
+        "What state is every entity of this backup task in?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cloudally.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

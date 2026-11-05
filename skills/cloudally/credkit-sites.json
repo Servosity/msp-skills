@@ -1,0 +1,348 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/auth_cloudally_refresh.go",
+   "func": "cloudallyAuthPost",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the http.Client built two lines below, whose Transport is client.GuardedTransport(): credkit.Transport around a clone of the default transport"
+  },
+  {
+   "file": "internal/cli/auth_cloudally_refresh.go",
+   "func": "cloudallyAuthPost",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is client.GuardedTransport(), credkit.Transport around a clone of the default transport, through the client.OutboundGuard seam the in-process tests replace"
+  },
+  {
+   "file": "internal/cli/auth_cloudally_refresh.go",
+   "func": "cloudallyAuthPost",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_login.go",
+   "func": "loadAuthContext",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads auth-context.json, a credential file credwire.credentialFiles names, so Start held its partner tokens before this read; the bytes are only decoded into authContext"
+  },
+  {
+   "file": "internal/cli/auth_login.go",
+   "func": "newAuthLoginCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_login.go",
+   "func": "newAuthLoginCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_use_account.go",
+   "func": "newAuthUseAccountCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_use_account.go",
+   "func": "runUseAccountPartner",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_use_account.go",
+   "func": "runUseAccountPartner",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_use_account.go",
+   "func": "writeUseAccountResult",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/cli/auth_use_account.go",
+   "func": "writeUseAccountResult",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
+  },
+  {
+   "file": "internal/client/credkit_transport.go",
+   "func": "guardTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "this is the routing itself: tr is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and the guarded transport is set only as the Transport of the connector's own http.Client literals"
+  },
+  {
+   "file": "internal/client/credkit_transport.go",
+   "func": "guardTransport",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "this is the routing itself: tr is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and the guarded transport is set only as the Transport of the connector's own http.Client literals"
+  },
+  {
+   "file": "internal/client/credkit_transport.go",
+   "func": "guardTransport",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "this is the routing itself: tr is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and the guarded transport is set only as the Transport of the connector's own http.Client literals"
+  },
+  {
+   "file": "internal/client/credkit_transport.go",
+   "func": "guardTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "this is the routing itself: tr is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and the guarded transport is set only as the Transport of the connector's own http.Client literals"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store, use-account sidecar and run profile files credentialFiles names, inside Start, and the bytes go only to credkit.HoldBody"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is no credential file Start holds"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by an http.Client whose Transport is credkit.Transport (client.OutboundGuard) around a plain transport (the client two lines below)"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is guardTransport or client.GuardedTransport(): credkit.Transport (client.OutboundGuard) around a plain transport clone"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by an http.Client whose Transport is credkit.Transport (client.OutboundGuard) around a plain transport (the client two lines below)"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is guardTransport or client.GuardedTransport(): credkit.Transport (client.OutboundGuard) around a plain transport clone"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "newHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is guardTransport or client.GuardedTransport(): credkit.Transport (client.OutboundGuard) around a plain transport clone"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is guardTransport or client.GuardedTransport(): credkit.Transport (client.OutboundGuard) around a plain transport clone"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streaming clone's transport is set to guardTransport(clone of the inner transport) or OutboundGuard(base transport): credkit.Transport either way"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "OutboundGuard is credkit.Transport in production; only in-process unit tests swap it for the identity"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "Client.doInternal",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by an http.Client whose Transport is credkit.Transport (client.OutboundGuard) around a plain transport: c.HTTPClient from newHTTPClient, or its StreamingHTTPClient clone"
+  },
+  {
+   "file": "internal/cliutil/probe.go",
+   "func": "ProbeReachable",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "no caller in this program; with no client it sends through a client whose Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/profile.go",
+   "func": "saveProfileStore",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is no credential file Start holds"
+  },
+  {
+   "file": "internal/cli/jobs.go",
+   "func": "newJobsPruneCmd",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is no credential file Start holds"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "StoreJournalOffset",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is no credential file Start holds"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty temporary file only to reserve a private name; its content is written through credkit.WriteFile before the rename"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is no credential file Start holds"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty temporary marker only to reserve a private name; its content is written through credkit.WriteFile before the link"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "links the marker written through credkit.WriteFile into place; the destination is the data-db owner marker, no credential file"
+  },
+  {
+   "file": "internal/platform/ratelimit.go",
+   "func": "acquireLedgerLock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "O_EXCL creates the lock file and closes it at once without writing; the timestamp is written through credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "openExportOutput",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "every byte of the export is written through credkit.NewWriter wrapped around this file (newExportCmd)"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "isTerminal",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hands the file to credkit.Terminal, which only reports whether the stream was a terminal; it writes nothing"
+  }
+ ]
+}

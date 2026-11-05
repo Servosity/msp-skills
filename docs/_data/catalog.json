@@ -1,5 +1,5 @@
 {
-  "count": 96,
+  "count": 97,
   "connectors": [
     {
       "slug": "abnormal",
@@ -273,6 +273,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/cisco-umbrella/"
+    },
+    {
+      "slug": "cloudally",
+      "display_name": "CloudAlly",
+      "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/cloudally/"
     },
     {
       "slug": "connectsecure",
