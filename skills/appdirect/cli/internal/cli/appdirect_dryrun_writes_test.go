@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"appdirect-pp-cli/internal/cliutil/testenv"
 )
 
 // appdirect handfix dry-run-changes-nothing (press-traps s6): a --dry-run
@@ -16,9 +18,8 @@ import (
 // the stored credentials, and `export --output f --dry-run` replaced f with
 // the preview.
 func TestDryRunChangesNoLocalFile(t *testing.T) {
-	dir := t.TempDir()
+	dir := testenv.Isolate(t)
 	t.Setenv("APPDIRECT_HOME", dir)
-	t.Setenv("HOME", dir)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(dir, "data"))
 	t.Setenv("APPDIRECT_BASE_URL", "http://127.0.0.1:9")
