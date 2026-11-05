@@ -63,7 +63,7 @@ func paymentInvoiceLinks(invoices, payments []map[string]any) []payLink {
 	}
 	var links []payLink
 	for _, pay := range payments {
-		payDate, ok := ParseDate(Str(pay, "TxnDate"))
+		payDate, ok := dateOf(Str(pay, "TxnDate"))
 		if !ok {
 			continue
 		}
@@ -78,11 +78,11 @@ func paymentInvoiceLinks(invoices, payments []map[string]any) []payLink {
 				if !ok {
 					continue
 				}
-				invDate, ok := ParseDate(Str(inv, "TxnDate"))
+				invDate, ok := dateOf(Str(inv, "TxnDate"))
 				if !ok {
 					continue
 				}
-				days := payDate.Sub(invDate).Hours() / 24
+				days := float64(daysFrom(invDate, payDate))
 				if days < 0 {
 					days = 0
 				}
@@ -141,12 +141,12 @@ func CustomerProfitability(invoices, payments, customers []map[string]any, limit
 	}
 	for _, inv := range invoices {
 		a := get(Nested(inv, "CustomerRef", "value"), Nested(inv, "CustomerRef", "name"))
-		a.row.Invoiced += Num(inv, "TotalAmt")
-		a.row.OpenBalance += Num(inv, "Balance")
+		a.row.Invoiced += HomeAmount(inv, "TotalAmt").Home
+		a.row.OpenBalance += HomeAmount(inv, "Balance").Home
 	}
 	for _, pay := range payments {
 		a := get(Nested(pay, "CustomerRef", "value"), Nested(pay, "CustomerRef", "name"))
-		a.row.Paid += Num(pay, "TotalAmt")
+		a.row.Paid += HomeAmount(pay, "TotalAmt").Home
 	}
 	for _, l := range paymentInvoiceLinks(invoices, payments) {
 		a := get(l.CustomerID, l.CustomerName)
@@ -207,17 +207,20 @@ type DSOReport struct {
 
 // DSO computes Days Sales Outstanding = (open AR balance ÷ credit sales over
 // the trailing window) × window days, plus realized average days-to-pay from
-// payment→invoice links. Zero credit sales yields DSO 0 (reported, not NaN).
+// payment→invoice links. The window is windowDays calendar dates ending today
+// (in now's zone). Zero credit sales yields DSO 0 (reported, not NaN).
 func DSO(invoices, payments []map[string]any, windowDays int, now time.Time) DSOReport {
 	if windowDays <= 0 {
 		windowDays = 90
 	}
 	rep := DSOReport{AsOf: now.Format("2006-01-02"), WindowDays: windowDays}
-	cutoff := now.AddDate(0, 0, -windowDays)
+	today := todayOf(now)
 	for _, inv := range invoices {
-		rep.ARBalance += Num(inv, "Balance")
-		if d, ok := ParseDate(Str(inv, "TxnDate")); ok && !d.Before(cutoff) && !d.After(now) {
-			rep.CreditSales += Num(inv, "TotalAmt")
+		rep.ARBalance += HomeAmount(inv, "Balance").Home
+		if d, ok := dateOf(Str(inv, "TxnDate")); ok {
+			if age := daysFrom(d, today); age >= 0 && age < windowDays {
+				rep.CreditSales += HomeAmount(inv, "TotalAmt").Home
+			}
 		}
 	}
 	rep.ARBalance = round2(rep.ARBalance)
@@ -304,37 +307,37 @@ func CashForecast(invoices, bills []map[string]any, weeks int, now time.Time) Fo
 		we := ws.AddDate(0, 0, 6)
 		rep.Rows[i] = ForecastWeek{WeekStart: ws.Format("2006-01-02"), WeekEnd: we.Format("2006-01-02")}
 	}
+	today := todayOf(now)
 	place := func(items []map[string]any, inflow bool) {
 		for _, it := range items {
-			bal := Num(it, "Balance")
-			if bal <= 0 {
+			m := HomeAmount(it, "Balance")
+			if !m.Open() {
 				continue
 			}
-			due, ok := ParseDate(Str(it, "DueDate"))
+			bal := m.Home
+			due, ok := dateOf(Str(it, "DueDate"))
 			if !ok {
-				due, ok = ParseDate(Str(it, "TxnDate"))
+				due, ok = dateOf(Str(it, "TxnDate"))
 				if !ok {
 					continue
 				}
 			}
+			days := daysFrom(today, due)
 			switch {
-			case due.Before(day):
+			case days < 0:
 				if inflow {
 					rep.OverdueInflows += bal
 				} else {
 					rep.OverdueOutflows += bal
 				}
-			case due.After(day.AddDate(0, 0, weeks*7-1)):
+			case days >= weeks*7:
 				if inflow {
 					rep.BeyondInflows += bal
 				} else {
 					rep.BeyondOutflows += bal
 				}
 			default:
-				idx := int(due.Sub(day).Hours() / 24 / 7)
-				if idx >= weeks {
-					idx = weeks - 1
-				}
+				idx := days / 7
 				if inflow {
 					rep.Rows[idx].Inflows += bal
 				} else {
@@ -402,6 +405,9 @@ func CheckJournalEntries(entries []map[string]any) JECheckReport {
 			if det == nil {
 				continue
 			}
+			// Every line of one entry is in that entry's currency, and the
+			// check compares lines of one entry only, so the amounts are
+			// read as written (no cross-currency sum).
 			amt := Num(line, "Amount")
 			switch Str(det, "PostingType") {
 			case "Debit":
@@ -530,7 +536,7 @@ func Reconcile(payments, customers, vendors, journalEntries, invoices, bills, it
 	inactiveItem := inactiveIDs(items)
 	var refs []InactiveRef
 	for _, inv := range invoices {
-		if Num(inv, "Balance") <= 0 {
+		if !HomeAmount(inv, "Balance").Open() {
 			continue
 		}
 		if cid := Nested(inv, "CustomerRef", "value"); cid != "" {
@@ -551,7 +557,7 @@ func Reconcile(payments, customers, vendors, journalEntries, invoices, bills, it
 		}
 	}
 	for _, bill := range bills {
-		if Num(bill, "Balance") <= 0 {
+		if !HomeAmount(bill, "Balance").Open() {
 			continue
 		}
 		if vid := Nested(bill, "VendorRef", "value"); vid != "" {
@@ -697,5 +703,214 @@ func AgingDelta(prev, curr AgingSnapshot) AgingDeltaReport {
 		}
 		return rep.Changes[i].Name < rep.Changes[j].Name
 	})
+	return rep
+}
+
+// --- AP payment-run list ----------------------------------------------------------
+
+// DueBillRow is one open bill inside the payment-run window.
+type DueBillRow struct {
+	ID             string  `json:"id"`
+	DocNumber      string  `json:"doc_number"`
+	Vendor         string  `json:"vendor"`
+	VendorID       string  `json:"vendor_id"`
+	Balance        float64 `json:"balance"`
+	DueDate        string  `json:"due_date"`
+	DaysUntilDue   int     `json:"days_until_due"` // negative = overdue
+	Overdue        bool    `json:"overdue"`
+	Currency       string  `json:"currency,omitempty"`
+	ForeignBalance float64 `json:"foreign_balance,omitempty"`
+}
+
+// DueVendorRow totals one vendor's bills inside the window.
+type DueVendorRow struct {
+	Vendor   string  `json:"vendor"`
+	VendorID string  `json:"vendor_id"`
+	Total    float64 `json:"total"`
+	Bills    int     `json:"bills"`
+}
+
+// BillsDueReport is the payment-run view: what is owed by the end of the window.
+type BillsDueReport struct {
+	AsOf         string         `json:"as_of"`
+	WindowDays   int            `json:"window_days"`
+	TotalDue     float64        `json:"total_due"`
+	OverdueTotal float64        `json:"overdue_total"`
+	BillCount    int            `json:"bill_count"`
+	ByVendor     []DueVendorRow `json:"by_vendor"`
+	Bills        []DueBillRow   `json:"bills"`
+	// Undated lists open bills whose due date (and transaction date) could
+	// not be read: they cannot be placed in or out of the window, so they are
+	// shown here instead of being guessed into either side.
+	Undated []DueBillRow `json:"undated"`
+}
+
+// calendarDaysUntil is the whole calendar days from today (in now's zone) to
+// the date written in s; ok is false when s is not a date.
+func calendarDaysUntil(s string, now time.Time) (int, bool) {
+	d, ok := dateOf(s)
+	if !ok {
+		return 0, false
+	}
+	return daysFrom(todayOf(now), d), true
+}
+
+// BillsDue returns every open bill (Balance > 0) due within windowDays of now,
+// including all overdue ones, earliest due date first, with a per-vendor total
+// (largest first). A bill with no DueDate falls back to its TxnDate, as QBO
+// does for terms-less bills. Amounts are home currency (HomeAmount); a foreign
+// bill's row also carries its currency and the balance as written in it.
+func BillsDue(bills []map[string]any, windowDays int, now time.Time) BillsDueReport {
+	if windowDays < 0 {
+		windowDays = 0
+	}
+	y, m, d := now.Date()
+	day := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	rep := BillsDueReport{AsOf: day.Format("2006-01-02"), WindowDays: windowDays, ByVendor: []DueVendorRow{}, Bills: []DueBillRow{}, Undated: []DueBillRow{}}
+	vendors := map[string]*DueVendorRow{}
+	for _, b := range bills {
+		m := HomeAmount(b, "Balance")
+		if !m.Open() {
+			continue
+		}
+		bal := m.Home
+		due := Str(b, "DueDate")
+		if due == "" {
+			due = Str(b, "TxnDate")
+		}
+		row := DueBillRow{
+			ID:        Str(b, "Id"),
+			DocNumber: Str(b, "DocNumber"),
+			Vendor:    Nested(b, "VendorRef", "name"),
+			VendorID:  Nested(b, "VendorRef", "value"),
+			Balance:   bal,
+			DueDate:   due,
+
+			Currency:       m.Currency,
+			ForeignBalance: m.Foreign,
+		}
+		days, ok := calendarDaysUntil(due, now)
+		if !ok {
+			rep.Undated = append(rep.Undated, row)
+			continue
+		}
+		if days > windowDays {
+			continue
+		}
+		row.DaysUntilDue = days
+		row.Overdue = days < 0
+		rep.Bills = append(rep.Bills, row)
+		rep.TotalDue += bal
+		if row.Overdue {
+			rep.OverdueTotal += bal
+		}
+		key := row.VendorID + "\x00" + row.Vendor
+		v := vendors[key]
+		if v == nil {
+			v = &DueVendorRow{Vendor: row.Vendor, VendorID: row.VendorID}
+			vendors[key] = v
+		}
+		v.Total += bal
+		v.Bills++
+	}
+	sort.Slice(rep.Bills, func(i, j int) bool {
+		if rep.Bills[i].DaysUntilDue != rep.Bills[j].DaysUntilDue {
+			return rep.Bills[i].DaysUntilDue < rep.Bills[j].DaysUntilDue
+		}
+		return rep.Bills[i].ID < rep.Bills[j].ID
+	})
+	sort.Slice(rep.Undated, func(i, j int) bool { return rep.Undated[i].ID < rep.Undated[j].ID })
+	for _, v := range vendors {
+		v.Total = round2(v.Total)
+		rep.ByVendor = append(rep.ByVendor, *v)
+	}
+	sort.Slice(rep.ByVendor, func(i, j int) bool {
+		if rep.ByVendor[i].Total != rep.ByVendor[j].Total {
+			return rep.ByVendor[i].Total > rep.ByVendor[j].Total
+		}
+		return rep.ByVendor[i].VendorID+rep.ByVendor[i].Vendor < rep.ByVendor[j].VendorID+rep.ByVendor[j].Vendor
+	})
+	rep.BillCount = len(rep.Bills)
+	rep.TotalDue = round2(rep.TotalDue)
+	rep.OverdueTotal = round2(rep.OverdueTotal)
+	return rep
+}
+
+// --- Unsent invoices --------------------------------------------------------------
+
+// UnsentInvoiceRow is one open invoice QuickBooks has no record of delivering.
+type UnsentInvoiceRow struct {
+	ID             string  `json:"id"`
+	DocNumber      string  `json:"doc_number"`
+	Customer       string  `json:"customer"`
+	CustomerID     string  `json:"customer_id"`
+	Balance        float64 `json:"balance"`
+	TxnDate        string  `json:"txn_date"`
+	DueDate        string  `json:"due_date"`
+	EmailStatus    string  `json:"email_status"`
+	PrintStatus    string  `json:"print_status"`
+	HasBillEmail   bool    `json:"has_bill_email"`
+	Currency       string  `json:"currency,omitempty"`
+	ForeignBalance float64 `json:"foreign_balance,omitempty"`
+}
+
+// UnsentInvoicesReport lists billed-but-undelivered revenue.
+type UnsentInvoicesReport struct {
+	Count        int                `json:"count"`
+	TotalBalance float64            `json:"total_balance"`
+	Invoices     []UnsentInvoiceRow `json:"invoices"`
+	// StatusUnreported counts open invoices whose record carries no
+	// EmailStatus at all: delivery is unknown, so they are neither listed as
+	// unsent nor treated as sent.
+	StatusUnreported int `json:"status_unreported"`
+}
+
+// UnsentInvoices returns open invoices (Balance > 0) that QuickBooks has
+// neither emailed (EmailStatus is not "EmailSent") nor printed (PrintStatus is
+// not "PrintComplete"), largest balance first. EmailStatus and PrintStatus are
+// QBO's documented Invoice delivery fields (NotSet | NeedToSend | EmailSent and
+// NotSet | NeedToPrint | PrintComplete).
+func UnsentInvoices(invoices []map[string]any) UnsentInvoicesReport {
+	rep := UnsentInvoicesReport{Invoices: []UnsentInvoiceRow{}}
+	for _, it := range invoices {
+		m := HomeAmount(it, "Balance")
+		if !m.Open() {
+			continue
+		}
+		bal := m.Home
+		email, reported := it["EmailStatus"].(string)
+		if !reported || strings.TrimSpace(email) == "" {
+			rep.StatusUnreported++
+			continue
+		}
+		printStatus := Str(it, "PrintStatus")
+		if strings.EqualFold(email, "EmailSent") || strings.EqualFold(printStatus, "PrintComplete") {
+			continue
+		}
+		rep.Invoices = append(rep.Invoices, UnsentInvoiceRow{
+			ID:           Str(it, "Id"),
+			DocNumber:    Str(it, "DocNumber"),
+			Customer:     Nested(it, "CustomerRef", "name"),
+			CustomerID:   Nested(it, "CustomerRef", "value"),
+			Balance:      bal,
+			TxnDate:      Str(it, "TxnDate"),
+			DueDate:      Str(it, "DueDate"),
+			EmailStatus:  email,
+			PrintStatus:  printStatus,
+			HasBillEmail: strings.TrimSpace(Nested(it, "BillEmail", "Address")) != "",
+
+			Currency:       m.Currency,
+			ForeignBalance: m.Foreign,
+		})
+		rep.TotalBalance += bal
+	}
+	sort.Slice(rep.Invoices, func(i, j int) bool {
+		if rep.Invoices[i].Balance != rep.Invoices[j].Balance {
+			return rep.Invoices[i].Balance > rep.Invoices[j].Balance
+		}
+		return rep.Invoices[i].ID < rep.Invoices[j].ID
+	})
+	rep.Count = len(rep.Invoices)
+	rep.TotalBalance = round2(rep.TotalBalance)
 	return rep
 }

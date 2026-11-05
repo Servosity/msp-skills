@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:14:34.268075Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-24T22:33:34.905495Z",
+  "printing_press_version": "4.34.0",
   "api_name": "quickbooks",
   "display_name": "QuickBooks Online",
   "cli_name": "quickbooks-pp-cli",
@@ -18,21 +18,22 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
-  "spec_path": "quickbooks-spec.yaml",
+  "spec_path": "spec.yaml",
   "spec_format": "internal",
-  "spec_checksum": "sha256:699e07877a1b766fcd77676d62d696dd6f4a4a2e072b92ad4005bb0adb7d6fd2",
-  "run_id": "20260606-084135",
+  "spec_checksum": "sha256:67c16647ff3bdbf873e911b4807583bcd56049173093e2ff35da88641e6f1957",
+  "run_id": "20261024-174828-274c6b65",
   "category": "other",
-  "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
+  "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
   "mcp_binary": "quickbooks-pp-mcp",
   "mcp_tool_count": 38,
   "mcp_ready": "full",
   "api_version": "0.1.0",
   "auth_type": "bearer_token",
+  "auth_preference": "oauth2",
   "auth_env_vars": [
     "QUICKBOOKS_ACCESS_TOKEN"
   ],
-  "auth_description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer <token>`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token. Also set the\ncompany scope via QUICKBOOKS_REALM_ID (+ QUICKBOOKS_ENVIRONMENT=production|sandbox)\nor the full QUICKBOOKS_BASE_URL. Required scope: com.intuit.quickbooks.accounting.\n",
+  "auth_description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer \u003ctoken\u003e`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token. Also set the\ncompany scope via QUICKBOOKS_REALM_ID (+ QUICKBOOKS_ENVIRONMENT=production|sandbox)\nor the full QUICKBOOKS_BASE_URL. Required scope: com.intuit.quickbooks.accounting.\n",
   "novel_features": [
     {
       "name": "AR aging buckets",
@@ -45,7 +46,7 @@
       "description": "The payables mirror of AR aging: open bills bucketed by age and rolled up by vendor, so you know what's due and when."
     },
     {
-      "name": "Cash & balance snapshot",
+      "name": "Cash \u0026 balance snapshot",
       "command": "balances",
       "description": "One view of bank/AR/AP account balances plus total customer receivables and total vendor payables."
     },
@@ -57,7 +58,7 @@
     {
       "name": "Unapplied payments leak",
       "command": "payments unapplied",
-      "description": "Payments with money received but not applied to any invoice \u2014 a reconciliation leak that quietly distorts AR."
+      "description": "Payments with money received but not applied to any invoice — a reconciliation leak that quietly distorts AR."
     },
     {
       "name": "Top customers by balance",
@@ -72,12 +73,12 @@
     {
       "name": "Vendor spend over a window",
       "command": "vendors spend",
-      "description": "Total billed per vendor over a date window, ranked \u2014 see where the money goes."
+      "description": "Total billed per vendor over a date window, ranked — see where the money goes."
     },
     {
       "name": "Aging delta vs last sync",
       "command": "aging-delta",
-      "description": "See what changed in receivables and payables since the previous sync \u2014 who slipped an aging bucket and whose balance grew."
+      "description": "See what changed in receivables and payables since the previous sync — who slipped an aging bucket and whose balance grew."
     },
     {
       "name": "Customer profitability / net position",
@@ -87,7 +88,7 @@
     {
       "name": "Days Sales Outstanding",
       "command": "dso",
-      "description": "Rolling DSO plus per-customer average days-to-pay \u2014 the headline collections-efficiency KPI."
+      "description": "Rolling DSO plus per-customer average days-to-pay — the headline collections-efficiency KPI."
     },
     {
       "name": "Cash-flow due-date forecast",
@@ -103,6 +104,113 @@
       "name": "Unbalanced journal-entry check",
       "command": "journal-entries check",
       "description": "Flag journal entries whose debit and credit lines don't net to zero or that touch suspense accounts."
+    },
+    {
+      "name": "AP payment-run list",
+      "command": "bills due",
+      "description": "Open bills due in the next N days (and any already overdue), sorted by due date with a per-vendor total, so the weekly payment run is one list."
+    },
+    {
+      "name": "Unsent-invoice leak",
+      "command": "invoices unsent",
+      "description": "Open invoices QuickBooks has not emailed to the customer (EmailStatus NeedToSend or NotSet), ranked by balance: billed but never delivered."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "AR aging buckets",
+      "command": "ar-aging",
+      "description": "See exactly who owes you and how overdue, bucketed 0-30 / 31-60 / 61-90 / 90+ and rolled up by customer."
+    },
+    {
+      "name": "AP aging buckets",
+      "command": "ap-aging",
+      "description": "The payables mirror of AR aging: open bills bucketed by age and rolled up by vendor, so you know what's due and when."
+    },
+    {
+      "name": "Cash \u0026 balance snapshot",
+      "command": "balances",
+      "description": "One view of bank/AR/AP account balances plus total customer receivables and total vendor payables."
+    },
+    {
+      "name": "Stale-invoice collection list",
+      "command": "invoices stale",
+      "description": "Overdue invoices older than N days, ranked by age times balance so the biggest, oldest debts surface first."
+    },
+    {
+      "name": "Unapplied payments leak",
+      "command": "payments unapplied",
+      "description": "Payments with money received but not applied to any invoice — a reconciliation leak that quietly distorts AR."
+    },
+    {
+      "name": "Top customers by balance",
+      "command": "customers top",
+      "description": "Rank customers by outstanding balance (or lifetime invoiced) to see concentration and collection focus."
+    },
+    {
+      "name": "Duplicate name-list detection",
+      "command": "dupes customers",
+      "description": "Fuzzy-match customers (or vendors) by display name and email to catch duplicate records before they fragment AR/AP."
+    },
+    {
+      "name": "Vendor spend over a window",
+      "command": "vendors spend",
+      "description": "Total billed per vendor over a date window, ranked — see where the money goes."
+    },
+    {
+      "name": "Aging delta vs last sync",
+      "command": "aging-delta",
+      "description": "See what changed in receivables and payables since the previous sync — who slipped an aging bucket and whose balance grew."
+    },
+    {
+      "name": "Customer profitability / net position",
+      "command": "customer-profitability",
+      "description": "Per-customer net position: total invoiced minus payments received, open balance, and average days-to-pay, ranked across the whole book."
+    },
+    {
+      "name": "Days Sales Outstanding",
+      "command": "dso",
+      "description": "Rolling DSO plus per-customer average days-to-pay — the headline collections-efficiency KPI."
+    },
+    {
+      "name": "Cash-flow due-date forecast",
+      "command": "cash-forecast",
+      "description": "Projected net cash movement by week: expected invoice inflows minus bill outflows bucketed by due date over the next N weeks."
+    },
+    {
+      "name": "Reconcile / close health check",
+      "command": "reconcile",
+      "description": "One month-end hygiene sweep: unapplied payments, duplicate names, unbalanced journal entries, and inactive records on open transactions in a single findings list."
+    },
+    {
+      "name": "Unbalanced journal-entry check",
+      "command": "journal-entries check",
+      "description": "Flag journal entries whose debit and credit lines don't net to zero or that touch suspense accounts."
+    },
+    {
+      "name": "AP payment-run list",
+      "command": "bills due",
+      "description": "Open bills due in the next N days (and any already overdue), sorted by due date with a per-vendor total, so the weekly payment run is one list."
+    },
+    {
+      "name": "Unsent-invoice leak",
+      "command": "invoices unsent",
+      "description": "Open invoices QuickBooks has not emailed to the customer (EmailStatus NeedToSend or NotSet), ranked by balance: billed but never delivered."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 55,
+    "total": 55,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
 }

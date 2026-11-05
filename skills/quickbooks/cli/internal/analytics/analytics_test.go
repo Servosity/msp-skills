@@ -193,14 +193,14 @@ func TestBalances(t *testing.T) {
 	customers := decodeMany(t, `{"Id":"1","Balance":"1200"}`, `{"Id":"2","Balance":"300"}`)
 	vendors := decodeMany(t, `{"Id":"1","Balance":"700"}`)
 	rep := Balances(accounts, customers, vendors, now)
-	if rep.BankTotal != 5000 {
-		t.Errorf("bank = %v, want 5000", rep.BankTotal)
+	if *rep.BankTotal != 5000 {
+		t.Errorf("bank = %v, want 5000", *rep.BankTotal)
 	}
-	if rep.CustomerReceivables != 1500 {
-		t.Errorf("AR = %v, want 1500", rep.CustomerReceivables)
+	if *rep.CustomerReceivables != 1500 {
+		t.Errorf("AR = %v, want 1500", *rep.CustomerReceivables)
 	}
-	if rep.VendorPayables != 700 {
-		t.Errorf("AP = %v, want 700", rep.VendorPayables)
+	if *rep.VendorPayables != 700 {
+		t.Errorf("AP = %v, want 700", *rep.VendorPayables)
 	}
 	if rep.AccountsByType["Bank"] != 5000 {
 		t.Errorf("by_type Bank = %v", rep.AccountsByType["Bank"])

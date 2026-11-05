@@ -179,6 +179,15 @@ These capabilities aren't available in any other tool for this API.
   servosity-cli triage --company 4421 --ignore 550e8400-e29b-41d4-a716-446655440000 --comment 'scheduled outage' --dry-run
   ```
 
+- **`issues watch`**  -  Poll the partner issue list (read-only) and record each new, changed, archived, ignored or reactivated issue as an event; `events list --since <cursor>` reads them. Servosity has no issue webhooks yet, so this is the bridge.
+
+  _Use when an agent or script should react to new or changed issues without opening the portal._
+
+  ```bash
+  servosity-cli issues watch --once --json
+  servosity-cli events list --since 0 --type servosity.issue.created --json
+  ```
+
 ### Disaster recovery
 - **`restore-queue watch`**  -  Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.
 
@@ -297,6 +306,23 @@ servosity-cli restore-queue watch --interval 30s --json
 ```
 
 Emits NDJSON, one tick per line. Pipe to `tee dr-event.log` to capture the timeline of every queue change for the post-mortem.
+
+### Issue changes as events
+
+Servosity has no issue webhooks yet, so `issues watch` polls your reseller's issue list and records each change in a local event table.
+
+```bash
+# Keep running; the first poll records a baseline and no events
+servosity-cli issues watch --interval 5m
+# Read what changed; pass the returned cursor as --since next time
+servosity-cli events list --since 0 --json
+```
+
+- Every page of `GET /resellers/{id}/issues/` is read each poll (partner tokens are refused `/issues/`, `/issues/archived/` and `/issues/ignored/`). That list holds active issues only, so an active issue that leaves it is re-read with `GET /issues/{id}/` to learn whether it was archived or ignored, and an ignored issue is re-read at most hourly to catch it being archived or changed (at most 50 re-reads a poll, oldest first). An issue that answers 404 or 403 is no longer yours and is dropped silently; an archived issue is never re-read.
+- Events: `servosity.issue.created`, `servosity.issue.updated` (state, severity, priority, `updated_at` or `last_seen_at` changed), `servosity.issue.archived`, `servosity.issue.ignored` and `servosity.issue.reactivated`. Each is `{eventId, name, timestamp, data, cursor, source}`; `data` holds issue, company and backup ids and triage fields, never the description or comments.
+- Only GET requests are sent. `--interval` is at least 1m (default 5m). The first poll must read every page before it records the baseline. A read older than the recorded one is ignored, and a poll records nothing if another watcher recorded anything after it read the store, so two watchers on one store cannot roll an issue back or bring a forgotten one back. A failed poll, or a failed re-read, waits twice as long each time, at most an hour; a refused token stops the watch. `--once` polls once and exits.
+- Only ids, numbers, the issue model's own values (state, severity, audience) and timestamps are kept; an issue whose kept fields repeat a credential the CLI sends or holds (the token, an MFA code or another credential header, at any length and in any case) is not recorded at all.
+- Over MCP, `events_list` reads the recorded events (read-only, no Servosity call). `issues watch` is CLI-only.
 
 ## Usage
 
@@ -642,6 +668,7 @@ Manage issues
 
 - **`servosity-cli issues list`** - List
 - **`servosity-cli issues read`** - Read
+- **`servosity-cli issues watch`** - Poll the partner issue list and record each change as an event (read-only on Servosity; CLI only)
 
 ### report-subscriptions
 
@@ -739,6 +766,12 @@ Pass `token` and `password` to set the user's password.
 
 
 - **`servosity-cli email-draft`** - Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).
+
+
+### events
+
+
+- **`servosity-cli events list`** - List the issue events `issues watch` recorded after a cursor (`--since`), oldest first; `--type` narrows to one event, `--limit` caps the page. Local, no Servosity call.
 
 
 ### failure-clusters

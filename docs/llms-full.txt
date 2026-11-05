@@ -849,6 +849,42 @@ A: It is built to stay inside them. Token requests are limited to 20 a minute, s
 
 Governance: The skill reads Umbrella deployments, policies, destination lists, reports, Investigate data and MSP customer records, and keeps a local store for offline questions; credential values are withheld from its output and never kept in the SQLite store; the key, secret and bearer token are saved to an owner-only, unencrypted credentials.toml until auth logout. It can also create, change and delete networks, sites, destination lists, tunnels, users and customer records, and it can change API keys and set tunnel credentials you chose. It refuses five actions, because Umbrella returns a new secret only once and this program withholds it: api-keys create, api-keys refresh, s3-bucket-keys, tunnels add with no secret of your own and tunnels update-credentials with auto-rotate or no secret of your own. Do those in the Umbrella dashboard. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes and anything that changes a credential.
 
+### CloudAlly (Backup/DR)
+
+Page: [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
+
+Ask your AI about CloudAlly SaaS backup for Microsoft 365 and Google Workspace: the latest backup status of every customer, one customer's backup tasks and their entities, running or pausing backups, users, billing and restore jobs, all through CloudAlly's Management API v2 from one CLI and MCP server.
+
+Outcomes (question -> command your AI agent runs):
+- What is the latest backup status of every mailbox and site across all my CloudAlly customers? -> cloudally-cli distributor-accounts backup-statuses --all
+- Which customer accounts do I manage? -> cloudally-cli distributor-accounts list --all
+- Switch into this customer's account. -> cloudally-cli auth use-account 5f1c2a
+- Which backup tasks does this customer have? -> cloudally-cli tasks list --type BACKUP --all
+- What state is every entity of this backup task in? -> cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status
+- How are all of this account's tasks doing? -> cloudally-cli user status --all
+- Which restore jobs are running or finished? -> cloudally-cli tasks list --type RESTORE
+- What are this month's bills across my resellers? -> cloudally-cli distributor-resellers all-bills
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cloudally-mcp speaks HTTP natively: set CLOUDALLY_MCP_HTTP_TOKEN, run `cloudally-mcp --transport http`, and serve its /mcp endpoint (http://127.0.0.1:7777/mcp by default) over HTTPS behind an authenticating proxy that signs ChatGPT in with OAuth and adds the bearer header the server requires. ChatGPT cannot send a fixed bearer token, so a bare tunnel gets HTTP 401. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter the CloudAlly API client id and secret once and run `cloudally-cli auth login --partner`.
+Q: What credentials does it need?
+A: A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands and `auth use-account` need the partner login.
+Q: Can it change or delete my customers' backups?
+A: It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every command takes --dry-run to show the request first, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools.
+Q: Is my CloudAlly data safe?
+A: Your data stays on your machine. The CLI, MCP server and local store are all local, and the MCP server runs over stdio unless you start it with --transport http. Credentials are never bundled or transmitted by MSP Skills.
+Q: Can it download mailbox archives?
+A: Not reliably. The documented export call (recovery export and its distributor and reseller variants) answers 200 with an empty body and creates no job on the live API (seen 2026-10-15). Use the CloudAlly portal for downloads.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: This connector can start restores into live customer mailboxes and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. Every command previews with --dry-run, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
+
 ### connect-tool (Meta)
 
 Page: [connect-tool](https://msp-skills.compoundingteams.com/skills/connect-tool.md)
@@ -2554,7 +2590,7 @@ Ask your books a question and get the answer, not a CSV export. The skill syncs 
 
 Outcomes (question -> command your AI agent runs):
 - Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? -> quickbooks-cli ar-aging --agent
-- What do we owe vendors, and when is it due? -> quickbooks-cli ap-aging --agent
+- What do we owe vendors, and how overdue is it? -> quickbooks-cli ap-aging --agent
 - Which overdue invoices should I chase first? -> quickbooks-cli invoices stale --days 30 --agent
 - Where does our cash stand across accounts, AR, and AP? -> quickbooks-cli balances --agent
 - What net cash movement is scheduled over the next 4 weeks? -> quickbooks-cli cash-forecast --weeks 4 --agent
@@ -2568,7 +2604,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my QuickBooks Online data safe?
@@ -2580,7 +2616,7 @@ A: Rarely. The only API-heavy step is the one-time sync that mirrors your compan
 Q: Do I need to be an Intuit partner to use it?
 A: No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required.
 
-Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.
+Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials come from the environment or from the local credentials file that `auth set-token` and `auth refresh` write, and are never logged.
 
 ### QuoteWerks (CRM)
 
@@ -2962,6 +2998,7 @@ Outcomes (question -> command your AI agent runs):
 - Build the backup section of Acme's QBR as a PDF -> servosity-cli qbr "Acme Co" --out acme-q1.pdf
 - Quarter-end: every client's QBR backup report in one pass -> servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/
 - Watch every client's restore queue during a DR event -> servosity-cli restore-queue watch
+- Which issues are new or changed since my agent last looked? -> servosity-cli events list --since 0 --json
 - Does my Servosity bill match what I invoice my clients? -> servosity-cli bill --reconcile invoices.csv
 - Which hosts are below 7-year retention or outside the recovery guarantee? -> servosity-cli retention-audit --min 7YEAR
 - What one root cause is behind this month's backup failures? -> servosity-cli failure-clusters --top 10
@@ -2979,6 +3016,8 @@ Q: What credentials do I need?
 A: A Servosity partner API token from the partner portal. Set SERVOSITY_MSP_TOKEN in your environment or run servosity-cli auth set-token. The token carries your reseller scope - the CLI sees exactly the clients your Servosity account sees, nothing more.
 Q: Can this change anything in my Servosity account?
 A: The day-to-day surface is read-only. The write surface is issue triage (triage --ignore / --archive / --reactivate / --comment) and import, plus raw create/update/delete subcommands under the API resource groups. --dry-run is an opt-in preview, not a default - the recommended agent policy is preview, approve, then run. Restores and backup configuration stay in the dashboard.
+Q: Can my agent hear about new Servosity issues?
+A: Yes. Servosity does not send webhooks yet, so servosity-cli issues watch polls your issue list read-only (every 5 minutes by default) and records each new, changed, archived, ignored or reactivated issue as an event. Your agent reads them with servosity-cli events list --since <cursor> or the read-only MCP tool events_list, which costs no Servosity call. Events carry ids and triage fields, never issue text.
 Q: Is it fast enough for the morning sweep?
 A: After a sync, the fleet views (attention, drift, stale-backups, backup-facts, qbr) read the local store - instant and offline. Pass --refresh when you want a live pull; restore-queue watch polls live by design.
 Q: Do I need to be a Servosity partner?

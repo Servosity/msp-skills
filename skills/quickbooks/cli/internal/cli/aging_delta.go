@@ -96,7 +96,7 @@ func newNovelAgingDeltaCmd(flags *rootFlags) *cobra.Command {
 			"slipped a bucket). Do NOT use it for the current point-in-time aging picture;\n" +
 			"use 'ar-aging' or 'ap-aging' instead. Run `sync` first.",
 		Example:     "  quickbooks-cli aging-delta --agent\n  quickbooks-cli aging-delta --no-save --json | jq '.report.changes'",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:local-write": "true"}, // it records a snapshot in the local store unless --no-save
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

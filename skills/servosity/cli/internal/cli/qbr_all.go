@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"servosity-msp-pp-cli/internal/credkit"
 	"servosity-msp-pp-cli/internal/qbrreport"
 	"servosity-msp-pp-cli/internal/store"
 )
@@ -156,7 +157,7 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 					// outPath is built from the operator's --out dir plus a
 					// sanitized company slug; a local report write to a
 					// user-chosen path, not attacker-controlled inclusion.
-					f, ferr := os.Create(outPath) // #nosec G304 -- operator-controlled --out path
+					f, ferr := credkit.Create(outPath) // Hand-fix (handfixes.json credkit-wiring)
 					if ferr == nil {
 						werr = qbrreport.RenderMarkdown(report, f)
 						_ = f.Close()
@@ -164,7 +165,7 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 						werr = ferr
 					}
 				case "html":
-					f, ferr := os.Create(outPath) // #nosec G304 -- operator-controlled --out path
+					f, ferr := credkit.Create(outPath) // Hand-fix (handfixes.json credkit-wiring)
 					if ferr == nil {
 						werr = qbrreport.RenderHTML(report, f)
 						_ = f.Close()

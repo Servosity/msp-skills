@@ -16,13 +16,6 @@ Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the QuickBooks Online skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `quickbooks-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `quickbooks-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `quickbooks-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -155,9 +148,10 @@ quickbooks-cli doctor
 ```
 
 `doctor` confirms the credentials and company scope work before you run anything that
-touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`. Have a refresh token instead of a live access token? `quickbooks-cli
-auth refresh` mints a fresh one (set `QUICKBOOKS_CLIENT_ID`, `QUICKBOOKS_CLIENT_SECRET`,
-and `QUICKBOOKS_REFRESH_TOKEN`).
+touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`. Have a refresh token instead of a live access token? Set `QUICKBOOKS_CLIENT_ID`, `QUICKBOOKS_CLIENT_SECRET`,
+and `QUICKBOOKS_REFRESH_TOKEN`: every command and the MCP server then refresh the access
+token on their own (before it expires, and once after a 401), saving the refresh token
+QuickBooks rotates to. `quickbooks-cli auth refresh` refreshes on demand.
 
 
 ## What this skill does
@@ -167,13 +161,14 @@ Sync your company once, then ask:
 | Question your MSP keeps asking | Command |
 | --- | --- |
 | Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? | `quickbooks-cli ar-aging --agent` |
-| What do we owe vendors, and when is it due? | `quickbooks-cli ap-aging --agent` |
+| What do we owe vendors, and how overdue is it? | `quickbooks-cli ap-aging --agent` |
 | Which overdue invoices should I chase first? | `quickbooks-cli invoices stale --days 30 --agent` |
 | Where does our cash stand across accounts, AR, and AP? | `quickbooks-cli balances --agent` |
 | What net cash movement is scheduled over the next 4 weeks? | `quickbooks-cli cash-forecast --weeks 4 --agent` |
 | What is our DSO, and who are the slowest payers? | `quickbooks-cli dso --agent` |
 | Are the books clean enough to close this month? | `quickbooks-cli reconcile --agent` |
 | Who slipped an aging bucket since our last check? | `quickbooks-cli aging-delta --agent` |
+| What were profit, balances and cash flow, month by month this quarter? | `quickbooks-cli report cash-flow --start 2026-01-01 --end 2026-03-31 --columns month --agent` (also `report pnl`, `report balance-sheet`) |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -203,7 +198,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `quickbooks-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `quickbooks-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `quickbooks-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `quickbooks-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -241,7 +236,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Write (routine) | `invoices` / `bills` / `payments` / `customers` / `vendors` / `accounts` / `items` / `journal-entries` `create` and `update` (16 commands), plus bulk `import` | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | `invoices delete`, `bills delete`, `payments delete`, `journal-entries delete` (hard deletes) | Human-in-the-loop only |
 
-The strongest control is the **scope you grant the QuickBooks Online credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+QuickBooks Online's accounting scope grants read and write together, so there is no read-only credential to issue. The strongest controls are `QUICKBOOKS_MCP_READ_ONLY=1` on the MCP server (it lists only read-only tools) and your agent's approval policy for CLI writes. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

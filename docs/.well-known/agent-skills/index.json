@@ -149,6 +149,13 @@
       "digest": "sha256:c8b47110f2555c4971cd93c973ed6d5f3c13cb7f62d42ef0d449de99060d7681"
     },
     {
+      "name": "cloudally",
+      "type": "skill-md",
+      "description": "Use when the user asks about CloudAlly SaaS backup of Microsoft 365 or Google Workspace through the Management API v2: partner, reseller and customer accounts, backup tasks and their status, running or pausing backups, users, billing and recovery (restore) jobs. Trigger phrases: `which CloudAlly backups are failing`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `restore a CloudAlly mailbox`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
+      "digest": "sha256:1caa4cb68900bc873c7c5bd049d99702a8fdc1bd3508b3935b135b07cae2a566"
+    },
+    {
       "name": "connect-tool",
       "type": "skill-md",
       "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",
@@ -487,9 +494,9 @@
     {
       "name": "quickbooks",
       "type": "skill-md",
-      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
+      "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks. Trigger phrases: `who owes us money`, `ar aging`, `what do we owe`, `overdue invoices in quickbooks`, `sync quickbooks`, `quickbooks cash position`, `use quickbooks`, `run quickbooks`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/SKILL.md",
-      "digest": "sha256:f56a0dbe208ed3c3eeb44145b6b0e4cf57876613947ae25bb437029898bacae2"
+      "digest": "sha256:c104e3d2fc05711b9f80828fbf07057ab8fef919e9dcf473e3adb69ddb4ca20e"
     },
     {
       "name": "quotewerks",
@@ -566,7 +573,7 @@
       "type": "skill-md",
       "description": "Use when the user asks where their attention is needed across Servosity clients, which backups went stale, what changed since yesterday, to build QBR backup reports, draft stale-backup follow-up emails, watch restore queues during a DR event, reconcile the Servosity bill against client invoicing, find unprovisioned agents, audit retention tiers against a required minimum, or group this month's backup failures by root cause. Wraps the Servosity partner API plus a local fleet mirror with snapshot history. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `servosity retention audit`, `cluster servosity backup failures`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/SKILL.md",
-      "digest": "sha256:a22490945fbbe32de57f20a50bdd4e063cb72b48d760e87c453605ae60933cc3"
+      "digest": "sha256:3f623bd0c7073b12ff2a9b88e3ed80bfbe6cb13743e385c3b60e76a55620c00e"
     },
     {
       "name": "sherweb",

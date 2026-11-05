@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"servosity-msp-pp-cli/internal/credkit"
 	"servosity-msp-pp-cli/internal/qbrreport"
 	"servosity-msp-pp-cli/internal/store"
 )
@@ -131,7 +131,7 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 				if outPath != "" {
 					// outPath is the operator's --out flag: a local report
 					// destination, not attacker-controlled file inclusion.
-					f, ferr := os.Create(outPath) // #nosec G304 -- operator-controlled --out path
+					f, ferr := credkit.Create(outPath) // Hand-fix (handfixes.json credkit-wiring)
 					if ferr != nil {
 						return fmt.Errorf("create --out: %w", ferr)
 					}
@@ -140,7 +140,7 @@ Reads from the local sync store. Run 'servosity-cli sync' first.`,
 				}
 				return qbrreport.RenderMarkdown(report, w)
 			case "html":
-				f, ferr := os.Create(outPath) // #nosec G304 -- operator-controlled --out path
+				f, ferr := credkit.Create(outPath) // Hand-fix (handfixes.json credkit-wiring)
 				if ferr != nil {
 					return fmt.Errorf("create --out: %w", ferr)
 				}

@@ -4,6 +4,49 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.15] - 2026-11-05
+
+### Changed
+- Describe the changes in this release.
+
+## [0.2.0] - unreleased
+
+Fixes #491, #492, #493.
+
+### Security
+- The learn journal keeps no typed text that could be a credential. `QUICKBOOKS_LEARN_SESSION` is stored as a hash, sessions still group, `argv_shape` records only flag names the command declares, a mistyped flag is kept as a placeholder and a hash, so a correction is only learned when the CLI suggested the flag, and `teach.log` records argument counts, not arguments.
+- **Rebuilt on Printing Press 4.34.0** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server now splits reads from writes: `quickbooks_read` calls read-only endpoints (`query.run` and every entity list, all served by `GET /query`), and `quickbooks_execute` returns a preview of a state-changing call until the agent passes `confirm: true`. `quickbooks-mcp --transport http` refuses to start without `QUICKBOOKS_MCP_HTTP_TOKEN`, answers only requests that send `Authorization: Bearer <token>`, binds `127.0.0.1:7777` by default and needs `--tls-cert`/`--tls-key` for any other address. `QUICKBOOKS_MCP_READ_ONLY=1` lists only read-only tools.
+- Every credential this program holds (the environment, the config file, the credentials store, a token answer, a password or credential query value inside `base_url` or an endpoint variable, and a saved profile's value under a credential flag or `base-url`) reaches no output, file, local store or other host. This is the shared credential kit: output that repeats one, or an 8-character piece of one, in any encoding the kit reads, is withheld whole with a notice. Read every URL on its own, so a link with no credential is left alone.
+- A request that a redirect sends to another host carries none of the configured `[headers]`. A credential is sent only over `https`, and only to the base URL, the QuickBooks API hosts or, for the OAuth client and refresh token, Intuit's token endpoint. `QUICKBOOKS_BASE_URL` over plain `http` with a credential is refused, and `QUICKBOOKS_TOKEN_URL` may name only Intuit's endpoint or the base URL's origin.
+- `profile save` refuses a webhook URL and any value under a credential flag. `profile show` and `profile use` show a webhook an earlier release saved as `webhook:<saved, not shown>`; it still delivers. No message names a webhook or feedback URL, whose path is its key.
+- `quickbooks-cli auth refresh` sends the client secret and refresh token only to an `https` token URL, never follows a redirect, and shows only the HTTP status and the standard OAuth error code when the token endpoint refuses.
+- The automatic token refresh (below) holds every value of the token answer as it is read, refused answers included, so a new access or refresh token reaches no output, and a token endpoint's error body is reduced to the HTTP status and the standard OAuth error code. Only the tokens are saved (a client secret set only in the environment is not copied to disk), through a temporary file in the same directory (created exclusively, mode 0600, flushed to disk, then renamed), and the refresh's lock file refuses a symlink.
+
+- A credential is bound only to the base URL the command uses: a default or legacy config it does not read, an overridden `--config` or `--home`, a config the program distrusts, or the server a credentials store was saved for no longer widens where it may go, and the other QuickBooks API host is no longer open by default.
+- A `--stdin` body is held before anything prints, on a `--dry-run` preview as on a send. The body is held whole, so output that repeats any of it is withheld, a create's response included: the request is still sent, so check the record before retrying, or use `--body-json` to see the response. `feedback --stdin` now refuses and asks for the note as an argument, since a held note could never reach the ledger. A saved profile's value under a credential flag or `base-url` is held from the start of the run, and a credential field in an MCP call is held before the tool answers.
+- A credential inside `QUICKBOOKS_TOKEN_URL` or `QUICKBOOKS_FEEDBACK_ENDPOINT` is held before the startup refusal can print it, also when the parameter name is percent-encoded. A webhook or feedback error no longer prints the URL.
+
+### Added
+- `report cash-flow`: the Statement of Cash Flows, with the same period flags as `report pnl` (`--start`, `--end`, `--month`, `--cash`; accrual by default). `metrics` holds net cash from operating, investing and financing activities, the net cash change, and cash at the beginning and end of the period (each null when the report has no such line); `metrics_by_column` repeats them per column. A read-only MCP tool (`report_cash_flow`). (#491)
+- `--columns total|month|quarter` on `report pnl`, `report balance-sheet` and `report cash-flow`: one amount per period, with each column's title and dates in `columns[]`. `report balance-sheet --start` sets the first period for a balance per period end. (#493)
+- Every report returns `rows[]`: each header, line and total in QuickBooks' order with `kind` (header, account or total), `depth`, `parent` and per-column `amounts`, so a group total is told apart from an account and the layout QuickBooks shows can be rebuilt. `--raw` prints QuickBooks' own Header/Columns/Rows JSON. The existing `accounts`, `summaries` and `metrics` fields are unchanged. (#493)
+- `bills due`: open bills due in the next `--days` days (default 7) plus every overdue bill, earliest first, with per-vendor totals. Bills with no due date are listed under `undated`.
+- `invoices unsent`: open invoices QuickBooks has neither emailed nor printed, largest balance first, with `has_bill_email`. Invoices that report no `EmailStatus` are counted in `status_unreported`.
+- `QUICKBOOKS_MCP_READ_ONLY`, `QUICKBOOKS_NO_LOCAL_DATA`, `QUICKBOOKS_MCP_HTTP_TOKEN` and `QUICKBOOKS_USER_AGENT` are declared on every install channel (Claude Desktop bundle, MCP Registry, manual config).
+
+### Fixed
+- The access token is refreshed automatically: before a request when it is missing or expires within 60 seconds, and once after a 401 (a second 401 is returned, never looped). QuickBooks rotates the refresh token on refresh; the new access token, refresh token and expiry are saved to the credential store before the request is retried, and a refresh whose tokens cannot be saved fails the request rather than going ahead. Concurrent refreshes (a CLI run and the MCP server, or several requests at once) take one cross-process lock, so they make one token call between them and the rest use the token it saved. The new tokens are saved to the credentials file the credentials were read from (a `--config` profile keeps its own). The stored refresh token is used before `QUICKBOOKS_REFRESH_TOKEN`, which is tried when the stored one is rejected. `auth refresh` runs the same locked refresh. (#492)
+- `auth set-token`, `auth login` and `auth logout` with `--config` use the credentials store a token refresh of that profile uses, under its lock: a token set by hand lands where the next run looks, and a logout signs out that profile and no other.
+- A token refresh that stops after saving the rotated tokens and before rewriting an older config file that still holds credentials no longer brings those older credentials back on the next run. An edit to that config file afterwards still takes precedence.
+- `sync` finishes cleanly on an entity with no records and on a book whose size is an exact multiple of 1,000. QuickBooks answers both with an empty `QueryResponse`; a `Fault` in the answer still fails that entity.
+- Money totals in a multi-currency book use the home-currency amount (the home field, else amount times `ExchangeRate`). `balances` returns `by_currency` and leaves the cross-currency totals null when the records span more than one currency; `customers top` ranks within each currency; rows carry `currency` and `foreign_balance` when foreign. Single-currency books are unchanged.
+- The local mirror is named for the QuickBooks company (the Intuit host and realm), so it is still there after an access-token refresh, for the CLI and the MCP server alike. Each company keeps its own mirror. A base URL that names no company (no `/v3/company/<realm>`) uses the unclaimed `data.db` and never claims it, so the next run with the realm still finds the books an earlier release synced.
+- Due dates and aging are counted in calendar days in your own time zone, and `report balance-sheet` defaults to today's local date.
+- The MCP server's `search` and `sql` tools read the same local file as the CLI when `QUICKBOOKS_DB_PATH` is set.
+
+### Removed
+- `export <resource>`. QuickBooks Online serves its lists only through `/query`, so the command could not return data. Use `<resource> list --json`, or `sync` then `search` or `sql`.
+
 ## [0.1.14] - 2026-10-23
 
 ### Security

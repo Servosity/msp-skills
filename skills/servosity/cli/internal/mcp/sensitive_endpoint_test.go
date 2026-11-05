@@ -109,7 +109,7 @@ func TestMCPReadOnlyStoreRefusesPrePurgeSchema(t *testing.T) {
 		t.Fatalf("close raw store: %v", err)
 	}
 
-	db, toolErr := openMCPReadOnlyStore(dbPath)
+	db, toolErr := openMCPReadOnlyStore(dbPath, 0)
 	if db != nil {
 		db.Close()
 		t.Fatal("MCP opened a pre-purge store")
