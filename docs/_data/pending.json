@@ -511,11 +511,11 @@
     "released_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9"
   },
   "rocketcyber": {
-    "state": "up-to-date",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "rocketcyber-v0.1.7",
-    "current_hash": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068",
-    "released_hash": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068"
+    "current_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
+    "released_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6"
   },
   "rootly": {
     "state": "up-to-date",
