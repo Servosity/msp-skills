@@ -1961,6 +1961,16 @@
         "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
       ],
       "reason": "google-workspace credential kit wiring (hand-written), reviewed 2026-11-04 (Codex round 1 APPROVED). readRegular stats and reads a credential source the program reads anyway (its config, credential store, service-account keys, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/autotask/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "autotask's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04, byte-identical to apple-business's bound declaration (same digest). It differs from the fleet template only in writing the owner marker through the credential kit. Both flagged reads open markerPath (<data.db>.owner) next to the CLI's own store in its resolved data directory; no MCP, API or tenant input reaches the path."
     }
   ]
 }
