@@ -1834,6 +1834,16 @@
       "reason": "eset-protect's copy of the press's claimLegacyUnscopedDB, reviewed 2026-11-04. The fleet precedent holds for the template's declaration; this one differs only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     },
     {
+      "file": "skills/dropsuite/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "dropsuite's copy of the press's claimLegacyUnscopedDB (press 4.34.2 print), reviewed 2026-11-04, byte-identical to apple-business's reviewed copy (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
+    },
+    {
       "file": "cli/internal/cliutil/filelock.go",
       "rule": "G304",
       "bind": "decl",
@@ -2215,6 +2225,25 @@
       ],
       "press": "4.34.2",
       "reason": "hand-written credential kit wiring, reviewed 2026-11-03. Reads a config, credential store or TLS key file the operator named on their own command line, regular files only, only to hold its values at startup; nothing it reads is shown. MCP refuses those flags (check_mcp_file_flags.py)."
+    },
+    {
+      "file": "skills/appdirect/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:61d118badef2c63b8a349093218ef4094156840463e085815fd12eaa0b23afb9"
+      ],
+      "press": "4.34.2",
+      "reason": "appdirect only, press 4.34.2 template, reviewed 2026-10-28 on the appdirect reprint. Declaration resourceWritePaths maps resource group names to AppDirect API paths; gosec's credential pattern matches the 'pw' inside the group name 'appwise' (-> /appwise/v2/data). Values are endpoint paths, not secrets."
+    },
+    {
+      "file": "skills/appdirect/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
+      ],
+      "reason": "appdirect only, same reviewed declaration as the zammad entry. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/appdirect/handfixes.json)."
     }
   ]
 }

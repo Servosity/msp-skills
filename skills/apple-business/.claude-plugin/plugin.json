@@ -1,6 +1,6 @@
 {
   "name": "apple-business",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
   "author": {
     "name": "Servosity",
