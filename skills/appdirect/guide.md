@@ -961,6 +961,27 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `appdirect-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+### Keeping credentials off disk (optional)
+
+By default the connector caches the token it mints in `credentials.toml` (mode 0600) so the next
+command does not have to mint another one. Set `APPDIRECT_NO_CONFIG_WRITE=1` to turn that
+off: nothing is written, and each run mints a fresh token instead. Use it when
+your secrets live in Keychain, Windows Credential Manager, or any launcher that
+injects them as environment variables at process start, and you do not want a
+copy on disk.
+
+| What changes | With `APPDIRECT_NO_CONFIG_WRITE=1` |
+| --- | --- |
+| Token cache | Not written. A fresh token is minted per invocation. |
+| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
+| `auth logout` | Still clears stored credentials. The erase is not a credential write. |
+| MCP server | Honours the same variable, so a Claude Desktop install gets no token cache either. |
+
+Set it in the shell for CLI use, or through the install prompt of the same name
+for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
+turns it on. See issue #270.
+
+
 ## Credential safety
 
 - Every API request and the bearer token go only to the scheme, host and port of `APPDIRECT_BASE_URL` (default `https://marketplace.appdirect.com/api`). The client ID and secret go only to the token URL: `APPDIRECT_TOKEN_URL`, else `/oauth2/token` on your marketplace's own host, so a reseller marketplace mints from itself, never from AppDirect's. A redirect to any other host is refused, so a credential never reaches it.
