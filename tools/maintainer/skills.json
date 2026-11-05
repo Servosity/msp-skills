@@ -130,6 +130,29 @@
         "issue_url": null
       }
     },
+    "apple-business": {
+      "system": "Apple Business (Apple Business Manager): devices, MDM server assignments, AppleCare coverage, Activation Lock, users and audit events across every client org",
+      "status": "beta",
+      "cli_binary": "apple-business-cli",
+      "mcp_binary": "apple-business-mcp",
+      "vendor": "Apple",
+      "vendor_trademark_owner": "Apple Inc",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Apple Business",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "has_video": true,
+      "cli_hash": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "atera": {
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",
@@ -842,10 +865,10 @@
       "category": "Security",
       "display_name": "Google Workspace",
       "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
-      "cli_hash": "sha256:c85b9491aa2cb85b36b07ab723d02080643306076ad7ddfd7d6c829bd74e48e9",
+      "cli_hash": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:440afe492ffac9cf73d840e7cd50dd1021e3d248ba9855a1c883e192dec903fc",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1357,6 +1380,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "netsapiens": {
+      "system": "White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain",
+      "status": "beta",
+      "cli_binary": "netsapiens-cli",
+      "mcp_binary": "netsapiens-mcp",
+      "vendor": "NetSapiens",
+      "vendor_trademark_owner": "Crexendo, Inc",
+      "first_party": false,
+      "category": "Telephony",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "has_video": true,
+      "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "ninjaone": {
@@ -2114,6 +2160,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "warranty": {
+      "system": "Dell, Lenovo and Apple device warranty lookups",
+      "status": "beta",
+      "cli_binary": "warranty-cli",
+      "mcp_binary": "warranty-mcp",
+      "vendor": "Dell, Lenovo and Apple",
+      "vendor_trademark_owner": "Dell Inc., Lenovo and Apple Inc",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "has_video": true,
+      "cli_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "watchguard": {

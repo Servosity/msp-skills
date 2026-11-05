@@ -1,0 +1,186 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T02:37:51.678617Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "apple-business",
+  "display_name": "Apple Business",
+  "cli_name": "apple-business-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:e7e065a4e3b341a10272e32c2fa8ddd0fa51b81a3a2a370d6562603808b6f581",
+  "run_id": "20261027-195032-eca1a8f3",
+  "category": "devices",
+  "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+  "mcp_binary": "apple-business-pp-mcp",
+  "mcp_tool_count": 57,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "appleOAuth",
+  "auth_env_vars": [
+    "APPLE_BUSINESS_CLIENT_ID",
+    "APPLE_BUSINESS_PRIVATE_KEY",
+    "APPLE_BUSINESS_KEY_ID"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "APPLE_BUSINESS_CLIENT_ID",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "API account Client ID, e.g. BUSINESSAPI.\u003cuuid\u003e."
+    },
+    {
+      "name": "APPLE_BUSINESS_PRIVATE_KEY",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "ES256 private key for the API account: PEM text or a path to the downloaded .pem file."
+    },
+    {
+      "name": "APPLE_BUSINESS_KEY_ID",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "Key ID shown for the API account's private key (JWT kid header)."
+    }
+  ],
+  "auth_key_url": "https://support.apple.com/guide/business/axm33189f66a",
+  "novel_features": [
+    {
+      "name": "Device lookup by any identifier",
+      "command": "devices lookup",
+      "description": "One row per device with its org record, assigned MDM server, AppleCare and Activation Lock, by serial (live) or by MAC, IMEI, EID or order number (needs sync first)."
+    },
+    {
+      "name": "Assign devices to an MDM server by name",
+      "command": "devices assign",
+      "description": "Assign or move serials to a device management service by name; with --wait, poll the activity and verify every serial landed."
+    },
+    {
+      "name": "Unassign devices from their current MDM server",
+      "command": "devices unassign",
+      "description": "Remove serials from whatever device management service they are on now, one activity per server; with --wait, verify each."
+    },
+    {
+      "name": "Per-device enrichment fan-out",
+      "command": "devices enrich",
+      "description": "Fetch AppleCare coverage, Activation Lock status and the serial-to-server map for every synced device into the local store, resumable."
+    },
+    {
+      "name": "AppleCare expiry and coverage-gap report",
+      "command": "applecare expiring",
+      "description": "Devices whose AppleCare ends within a window (or, with --uncovered, with no active coverage), with optional counts by order, family, server or org. Needs sync and devices enrich --applecare."
+    },
+    {
+      "name": "Unassigned devices with root-cause diagnosis",
+      "command": "devices unassigned",
+      "description": "Org-owned devices not assigned to any MDM server, with days since it joined the org and a flag when no server defaults their product family. Needs sync of devices and mdm_servers."
+    },
+    {
+      "name": "Activation Lock exposure report",
+      "command": "devices locked",
+      "description": "Devices currently Activation Locked, user locks by default, with the owner when built-in device management data is synced. Needs devices enrich --activation-lock."
+    },
+    {
+      "name": "Audit change digest",
+      "command": "audit-events digest",
+      "description": "A readable change log over a relative window: one flattened row per event, newest first, plus per-category counts."
+    },
+    {
+      "name": "Cross-customer rollup",
+      "command": "fleet summary",
+      "description": "One row of counts per customer org: devices, unassigned, AppleCare expiring and uncovered, user-locked, stale MDM servers, sync age. Each org needs sync and devices enrich under its own API account."
+    },
+    {
+      "name": "MDM server health",
+      "command": "mdm-servers health",
+      "description": "Each MDM server's status, device count, days since it last connected to Apple and its default product families, flagging stale servers (ACTIVE, owns devices, silent past --stale) and INACTIVE or DELETED servers that still own devices."
+    },
+    {
+      "name": "Audit actor rollup",
+      "command": "audit-events actors",
+      "description": "Who made changes over a relative window: one row per actor (admin user or API account, grouped by actor id) with event counts, non-success outcomes, categories and event types."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Device lookup by any identifier",
+      "command": "devices lookup",
+      "description": "One row per device with its org record, assigned MDM server, AppleCare and Activation Lock, by serial (live) or by MAC, IMEI, EID or order number (needs sync first)."
+    },
+    {
+      "name": "Assign devices to an MDM server by name",
+      "command": "devices assign",
+      "description": "Assign or move serials to a device management service by name; with --wait, poll the activity and verify every serial landed."
+    },
+    {
+      "name": "Unassign devices from their current MDM server",
+      "command": "devices unassign",
+      "description": "Remove serials from whatever device management service they are on now, one activity per server; with --wait, verify each."
+    },
+    {
+      "name": "Per-device enrichment fan-out",
+      "command": "devices enrich",
+      "description": "Fetch AppleCare coverage, Activation Lock status and the serial-to-server map for every synced device into the local store, resumable."
+    },
+    {
+      "name": "AppleCare expiry and coverage-gap report",
+      "command": "applecare expiring",
+      "description": "Devices whose AppleCare ends within a window (or, with --uncovered, with no active coverage), with optional counts by order, family, server or org. Needs sync and devices enrich --applecare."
+    },
+    {
+      "name": "Unassigned devices with root-cause diagnosis",
+      "command": "devices unassigned",
+      "description": "Org-owned devices not assigned to any MDM server, with days since it joined the org and a flag when no server defaults their product family. Needs sync of devices and mdm_servers."
+    },
+    {
+      "name": "Activation Lock exposure report",
+      "command": "devices locked",
+      "description": "Devices currently Activation Locked, user locks by default, with the owner when built-in device management data is synced. Needs devices enrich --activation-lock."
+    },
+    {
+      "name": "Audit change digest",
+      "command": "audit-events digest",
+      "description": "A readable change log over a relative window: one flattened row per event, newest first, plus per-category counts."
+    },
+    {
+      "name": "Cross-customer rollup",
+      "command": "fleet summary",
+      "description": "One row of counts per customer org: devices, unassigned, AppleCare expiring and uncovered, user-locked, stale MDM servers, sync age. Each org needs sync and devices enrich under its own API account."
+    },
+    {
+      "name": "MDM server health",
+      "command": "mdm-servers health",
+      "description": "Each MDM server's status, device count, days since it last connected to Apple and its default product families, flagging stale servers (ACTIVE, owns devices, silent past --stale) and INACTIVE or DELETED servers that still own devices."
+    },
+    {
+      "name": "Audit actor rollup",
+      "command": "audit-events actors",
+      "description": "Who made changes over a relative window: one row per actor (admin user or API account, grouped by actor id) with event counts, non-success outcomes, categories and event types."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 88,
+    "total": 88,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 92,
+      "grade": "A",
+      "total": 92
+    }
+  }
+}

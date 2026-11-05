@@ -83,6 +83,16 @@ func leaverIssues(f *leaverFinding) {
 	}
 }
 
+// leaverAdminRoleCount counts the admin role assignments a user holds,
+// including roles held through a group: directory_v1.json
+// roleAssignments.list excludes those unless includeIndirectRoleAssignments
+// is true (it defaults to false and needs userKey). Hand-fix (handfixes.json
+// leavers-counts-group-derived-admin-roles).
+func leaverAdminRoleCount(ctx context.Context, c *client.Client, t gwsTenant, userID string) (int, error) {
+	return countItems(ctx, c, "/admin/directory/v1/customer/"+url.PathEscape(t.customer())+"/roleassignments",
+		map[string]string{"userKey": userID, "includeIndirectRoleAssignments": "true"}, "items")
+}
+
 func countItems(ctx context.Context, c *client.Client, path string, params map[string]string, key string) (int, error) {
 	raw, err := listAll(ctx, c, path, params, key, 0)
 	return len(raw), err
@@ -242,7 +252,7 @@ func newNovelLeaversCmd(flags *rootFlags) *cobra.Command {
 					if f.Groups, err = countItems(ctx, c, "/admin/directory/v1/groups", map[string]string{"userKey": u.ID, "maxResults": "200"}, "groups"); err != nil {
 						return nil, fmt.Errorf("%s groups: %w", u.PrimaryEmail, err)
 					}
-					if f.AdminRoles, err = countItems(ctx, c, "/admin/directory/v1/customer/"+url.PathEscape(t.customer())+"/roleassignments", map[string]string{"userKey": u.ID}, "items"); err != nil {
+					if f.AdminRoles, err = leaverAdminRoleCount(ctx, c, t, u.ID); err != nil {
 						return nil, fmt.Errorf("%s role assignments: %w", u.PrimaryEmail, err)
 					}
 					if f.OAuthTokens, err = countItems(ctx, c, "/admin/directory/v1/users/"+id+"/tokens", nil, "items"); err != nil {

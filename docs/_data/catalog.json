@@ -1,5 +1,5 @@
 {
-  "count": 86,
+  "count": 89,
   "connectors": [
     {
       "slug": "abnormal",
@@ -65,6 +65,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/appdirect/"
+    },
+    {
+      "slug": "apple-business",
+      "display_name": "Apple Business",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "category": "MDM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/apple-business/"
     },
     {
       "slug": "atera",
@@ -665,6 +678,19 @@
       "url": "/skills/nerdio/"
     },
     {
+      "slug": "netsapiens",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "category": "Telephony",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/netsapiens/"
+    },
+    {
       "slug": "ninjaone",
       "display_name": "NinjaOne",
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
@@ -1066,6 +1092,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "warranty",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/warranty/"
     },
     {
       "slug": "watchguard",

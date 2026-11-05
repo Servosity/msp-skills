@@ -1,0 +1,206 @@
+{
+ "config_types": [
+  "internal/config.Config"
+ ],
+ "sites": [
+  {
+   "file": "internal/cli/abm_common.go",
+   "func": "readSerials",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a list of device serial numbers the operator names with --file, not a credential file; check_mcp_file_flags.py proves an MCP call cannot name it"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinHTTPClient",
+   "what": "convert:apple-business-pp-cli/internal/cli.pinnedTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the transport the client already has; internal/client and cliutil.OAuthTokenHTTPClient send through cliutil.OutboundGuard(that transport), so the kit stays outermost and this pin only narrows it. http.DefaultTransport is the nil fallback under the same guard"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinHTTPClient",
+   "what": "generic:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the transport the client already has; internal/client and cliutil.OAuthTokenHTTPClient send through cliutil.OutboundGuard(that transport), so the kit stays outermost and this pin only narrows it. http.DefaultTransport is the nil fallback under the same guard"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinHTTPClient",
+   "what": "generic:sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the transport the client already has; internal/client and cliutil.OAuthTokenHTTPClient send through cliutil.OutboundGuard(that transport), so the kit stays outermost and this pin only narrows it. http.DefaultTransport is the nil fallback under the same guard"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the transport the client already has; internal/client and cliutil.OAuthTokenHTTPClient send through cliutil.OutboundGuard(that transport), so the kit stays outermost and this pin only narrows it. http.DefaultTransport is the nil fallback under the same guard"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinHTTPClient",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the transport the client already has; internal/client and cliutil.OAuthTokenHTTPClient send through cliutil.OutboundGuard(that transport), so the kit stays outermost and this pin only narrows it. http.DefaultTransport is the nil fallback under the same guard"
+  },
+  {
+   "file": "internal/cli/apple_guard.go",
+   "func": "pinnedTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the inner hop of the same chain: every request reaches this RoundTrip through credkit.Transport"
+  },
+  {
+   "file": "internal/client/apple_assertion.go",
+   "func": "loadAppleSigningKey",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the private key file the operator named; HoldPrivateKeyRef holds its contents on the next line and at Start (credwire.credentialFiles)"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "HoldPrivateKeyRef",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "this read is the hold: the contents go straight to credkit.Hold and are returned to no one"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "HoldProfileStoreFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "this read is the hold: the contents go straight to credkit.Hold and are returned to no one"
+  },
+  {
+   "file": "internal/config/apple_business_scope.go",
+   "func": "ReconcileAppleAccount",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads whether the account variables are set, to choose the account; every one is classified in the Declarations",
+   "names": [
+    "APPLE_BUSINESS_CLIENT_ID",
+    "APPLE_BUSINESS_PRIVATE_KEY",
+    "APPLE_BUSINESS_KEY_ID",
+    "APPLE_BUSINESS_BASE_URL",
+    "APPLE_BUSINESS_TOKEN_URL"
+   ]
+  },
+  {
+   "file": "internal/config/apple_business_scope.go",
+   "func": "configFileAccount",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the CLI's own config or credential store, which credwire.credentialFiles names, so Start holds it first; HoldConfigFile holds it again on read"
+  },
+  {
+   "file": "internal/config/apple_business_scope.go",
+   "func": "loginFileAccount",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the CLI's own config or credential store, which credwire.credentialFiles names, so Start holds it first; HoldConfigFile holds it again on read"
+  },
+  {
+   "file": "internal/config/apple_business_scope.go",
+   "func": "readLogin",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the CLI's own config or credential store, which credwire.credentialFiles names, so Start holds it first; HoldConfigFile holds it again on read"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens through the kit's SQLDriver connector; the checker's before-Start path is the driver registration, which runs no query"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "opens through the kit's SQLDriver connector; the checker's before-Start path is the driver registration, which runs no query"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped token during Start to hold it, then hands it back on a private pipe the command reads; nothing is written to an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped token during Start to hold it, then hands it back on a private pipe the command reads; nothing is written to an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped token during Start to hold it, then hands it back on a private pipe the command reads; nothing is written to an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped token during Start to hold it, then hands it back on a private pipe the command reads; nothing is written to an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped --stdin body during Start to hold its credential fields, then hands it back on a private pipe the command reads; nothing is written to any output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped --stdin body during Start to hold its credential fields, then hands it back on a private pipe the command reads; nothing is written to any output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped --stdin body during Start to hold its credential fields, then hands it back on a private pipe the command reads; nothing is written to any output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the piped --stdin body during Start to hold its credential fields, then hands it back on a private pipe the command reads; nothing is written to any output"
+  }
+ ]
+}

@@ -15,8 +15,13 @@ func TestGoogleListEnvelopeRules(t *testing.T) {
 	if googleListPageIsEmpty("transfers", json.RawMessage(`{"kind":"k","dataTransfers":[{"id":"1"}]}`)) {
 		t.Fatal("a page with items is not empty")
 	}
-	if googleListPageIsEmpty("customer", empty) || googleListPageIsEmpty("transfers", json.RawMessage(`{"etag":"x"}`)) {
-		t.Fatal("only synced Google list resources with a kind qualify")
+	if googleListPageIsEmpty("customer", empty) {
+		t.Fatal("only synced Google list resources qualify")
+	}
+	// DataTransfersListResponse requires no field: a kind-less page without
+	// items is still an empty list, not a record (google-list-empty-page-continues).
+	if !googleListPageIsEmpty("transfers", json.RawMessage(`{"etag":"x"}`)) {
+		t.Fatal("a kind-less transfers page without items is an empty list")
 	}
 	if !googleListEnvelopeEnded(json.RawMessage(`{"kind":"admin#directory#users","users":[{"id":"1"}]}`)) {
 		t.Fatal("no nextPageToken is the last page")

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/warranty-mcp",
+  "title": "Dell, Lenovo and Apple MCP",
+  "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/warranty/warranty-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/warranty"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/warranty-v0.1.0/warranty-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WARRANTY_DELL_CLIENT_ID",
+          "description": "Set the WARRANTY_DELL_CLIENT_ID credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_DELL_CLIENT_SECRET",
+          "description": "Set the WARRANTY_DELL_CLIENT_SECRET credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_LENOVO_CLIENT_KEY",
+          "description": "Set the WARRANTY_LENOVO_CLIENT_KEY credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_APPLE_CLIENT_ID",
+          "description": "Set the WARRANTY_APPLE_CLIENT_ID credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_APPLE_KEY_ID",
+          "description": "Set the WARRANTY_APPLE_KEY_ID credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_APPLE_PRIVATE_KEY",
+          "description": "Set the WARRANTY_APPLE_PRIVATE_KEY credential for the Dell, Lenovo and Apple MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_BASE_URL",
+          "description": "Optional. Overrides the Dell API root, and your Dell credential is sent to this host. Leave blank to use Dell's production URL.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WARRANTY_TOKEN_URL",
+          "description": "Optional. Overrides the Dell token endpoint, and your Dell client ID and secret are sent to this host. Leave blank to use Dell's.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WARRANTY_OAUTH_SCOPE",
+          "description": "Optional. Scope sent when minting a Dell token. Leave blank unless Dell told you to set one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WARRANTY_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WARRANTY_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WARRANTY_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on vendor requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WARRANTY_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

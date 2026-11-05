@@ -28,6 +28,10 @@ appdirect:
   vendor: "AppDirect"
   example_command: "Reconcile billing across every company?"
 
+apple-business:
+  vendor: "Apple Business"
+  example_command: "Which devices never got assigned to an MDM server?"
+
 atera:
   vendor: "Atera"
   example_command: "Which customers am I managing but not billing?"
@@ -231,6 +235,10 @@ nerdio:
   vendor: "Nerdio Manager"
   example_command: "Which customer has autoscale turned off?"
 
+netsapiens:
+  vendor: "NetSapiens"
+  example_command: "Which clients are over their seat limits?"
+
 ninjaone:
   vendor: "NinjaOne"
   example_command: "Which clients are below 95% patched?"
@@ -355,6 +363,10 @@ unifi-network:
 veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
+
+warranty:
+  vendor: "Device Warranty"
+  example_command: "Which devices go out of warranty this quarter?"
 
 watchguard:
   vendor: "WatchGuard"

@@ -1247,8 +1247,9 @@ func TestDeliverWebhookLabelsAndRedirects(t *testing.T) {
 			t.Fatalf("plain-http feedback to a remote host must be refused (%s): %v", ep, err)
 		}
 	}
-	// A 302 after the POST (Apps Script web apps) drops the body and is
-	// followed on https or loopback; the delivery succeeds.
+	// A 302 after the POST (Apps Script web apps) is not followed (press
+	// 4.35.1: no request goes anywhere but the configured webhook); it is
+	// reported so the operator sees the endpoint answered with a redirect.
 	var gets int
 	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -1258,8 +1259,8 @@ func TestDeliverWebhookLabelsAndRedirects(t *testing.T) {
 		http.Redirect(w, r, "/echo", http.StatusFound)
 	}))
 	defer final.Close()
-	if err := deliverWebhook(final.URL+"/macros/s/ID/exec", []byte(`{}`), false); err != nil || gets != 1 {
-		t.Fatalf("a 302 to a GET must be followed: %v (gets=%d)", err, gets)
+	if err := deliverWebhook(final.URL+"/macros/s/ID/exec", []byte(`{}`), false); err == nil || gets != 0 || !strings.Contains(err.Error(), "redirects are not followed") {
+		t.Fatalf("a 302 must be reported, never followed: %v (gets=%d)", err, gets)
 	}
 }
 

@@ -237,7 +237,8 @@ func saveTenantRegistry(reg *tenantRegistry) error {
 	if err != nil {
 		return err
 	}
-	return cliutil.AtomicWritePrivateFile(path, data, 0o600, 0o700)
+	// tenants.toml is a credential source (Files), written outside the kit.
+	return cliutil.AtomicWriteCredentialFile(path, data, 0o600, 0o700)
 }
 
 func (r *tenantRegistry) find(name string) (gwsTenant, bool) {
@@ -456,7 +457,7 @@ func googleQuotaExceeded(msg string) bool {
 func authSetupHint() string {
 	reg, err := loadTenantRegistry()
 	if err != nil || len(reg.Tenants) == 0 {
-		return "\n      Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\""
+		return "\n      Set one of: " + cliutil.EnvAssignHint(true, "GOOGLE_WORKSPACE_TOKEN", "your-token-here") + " or " + cliutil.EnvAssignHint(true, "ADMIN_ACCESS_TOKEN", "your-token-here")
 	}
 	t, err := selectedTenant()
 	if err != nil || t == nil {
@@ -487,6 +488,9 @@ func tenantTokenSource(t gwsTenant, scopes []string) (oauth2.TokenSource, error)
 	}
 	// Keyed to the key's content too: a rotated key must not keep refreshing
 	// through a token source built from the old one in a long-running server.
+	// The key's private_key and private_key_id are held before anything can
+	// print them (handfixes.json credkit-wiring).
+	cliutil.HoldBody(keyJSON)
 	keySum := sha256.Sum256(keyJSON)
 	cacheKey := t.Name + "|" + t.Admin + "|" + strings.Join(scopes, " ") + "|" + hex.EncodeToString(keySum[:8])
 	if ts, ok := tokenSources.Load(cacheKey); ok {
@@ -512,11 +516,22 @@ func tenantTokenSource(t gwsTenant, scopes []string) (oauth2.TokenSource, error)
 	}
 	// The token source outlives one request, so it gets its own bounded
 	// HTTP client instead of a caller context: a stalled token endpoint
-	// cannot hold a fan-out worker forever.
-	tokCtx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Timeout: 30 * time.Second})
+	// cannot hold a fan-out worker forever. It never follows a redirect.
+	// The grant goes through the credential kit's outbound guard
+	// (cliutil.OutboundGuard is credkit.Transport), which holds the assertion and
+	// the answer's access_token (handfixes.json credkit-wiring).
+	tokCtx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseTokenRedirect, Transport: cliutil.OutboundGuard(nil)})
 	ts := oauth2.ReuseTokenSource(nil, cfg.TokenSource(tokCtx))
 	tokenSources.Store(cacheKey, ts)
 	return ts, nil
+}
+
+// refuseTokenRedirect keeps the signed assertion on the pinned token URL. Go
+// replays a POST body on 307/308, so following any redirect from the token
+// endpoint would send the assertion (a credential) to the Location host.
+// Hand-fix (handfixes.json token-grant-never-follows-redirect).
+func refuseTokenRedirect(req *http.Request, _ []*http.Request) error {
+	return fmt.Errorf("the token endpoint redirected to %s://%s; redirects are not followed", req.URL.Scheme, req.URL.Host)
 }
 
 func mintTenantToken(ctx context.Context, t gwsTenant, scopes []string) (string, error) {
@@ -531,6 +546,7 @@ func mintTenantToken(ctx context.Context, t gwsTenant, scopes []string) (string,
 	if err != nil {
 		return "", authErr(fmt.Errorf("tenant %s: minting token as %s: %w%s", t.Name, t.Admin, err, dwdHint(err)))
 	}
+	cliutil.Hold("minted:tenant-token", tok.AccessToken)
 	return tok.AccessToken, nil
 }
 
@@ -602,6 +618,7 @@ func refreshingAuthHeader(ts oauth2.TokenSource) func() string {
 		if err != nil || tok.AccessToken == "" {
 			return ""
 		}
+		cliutil.Hold("minted:tenant-token", tok.AccessToken)
 		return "Bearer " + tok.AccessToken
 	}
 }
