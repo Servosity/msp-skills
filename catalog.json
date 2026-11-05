@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-04",
+  "generated_at": "2026-11-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -720,7 +720,7 @@
       "skill_path": "skills/google-workspace",
       "cli_binary": "google-workspace-cli",
       "mcp_binary": "google-workspace-mcp",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Google Workspace",
