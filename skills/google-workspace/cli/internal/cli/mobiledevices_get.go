@@ -50,7 +50,7 @@ func newMobiledevicesGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProjection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection))
 				}
 			}
 			path := "/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}"

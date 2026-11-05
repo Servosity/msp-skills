@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("google-workspace_search",
-			mcplib.WithDescription("Search the google-workspace API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the google-workspace API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("google-workspace_read",
+			mcplib.WithDescription("Call one read-only google-workspace API endpoint by its endpoint_id (from google-workspace_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use google-workspace_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by google-workspace_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("google-workspace_execute",
-			mcplib.WithDescription("Execute one google-workspace API endpoint by its endpoint_id (from google-workspace_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by google-workspace_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing google-workspace API endpoint by its endpoint_id (from google-workspace_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use google-workspace_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by google-workspace_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -125,6 +152,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "actorIpAddress", WireName: "actorIpAddress"}, {PublicName: "agentInfoFilter", WireName: "agentInfoFilter"}, {PublicName: "applicationInfoFilter", WireName: "applicationInfoFilter"}, {PublicName: "customerId", WireName: "customerId"}, {PublicName: "deviceFilter", WireName: "deviceFilter"}, {PublicName: "endTime", WireName: "endTime"}, {PublicName: "eventName", WireName: "eventName"}, {PublicName: "filters", WireName: "filters"}, {PublicName: "groupIdFilter", WireName: "groupIdFilter"}, {PublicName: "includeSensitiveData", WireName: "includeSensitiveData"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "networkInfoFilter", WireName: "networkInfoFilter"}, {PublicName: "orgUnitID", WireName: "orgUnitID"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "resourceDetailsFilter", WireName: "resourceDetailsFilter"}, {PublicName: "startTime", WireName: "startTime"}, {PublicName: "statusFilter", WireName: "statusFilter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("activities", "list", "Retrieves a list of activities for a specific customer's account and application such as the Admin console application", "/admin/reports/v1/activity/users/{userKey}/applications/{applicationName}"),
 	},
@@ -137,6 +165,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "actorIpAddress", WireName: "actorIpAddress"}, {PublicName: "customerId", WireName: "customerId"}, {PublicName: "endTime", WireName: "endTime"}, {PublicName: "eventName", WireName: "eventName"}, {PublicName: "filters", WireName: "filters"}, {PublicName: "groupIdFilter", WireName: "groupIdFilter"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orgUnitID", WireName: "orgUnitID"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "startTime", WireName: "startTime"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("activities", "watch", "Start receiving notifications for account activities. For more information, see Receiving Push Notifications.", "/admin/reports/v1/activity/users/{userKey}/applications/{applicationName}/watch"),
 	},
@@ -149,6 +178,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("admin-channels", "stop", "Stop watching resources through this channel.", "/admin/reports_v1/channels/stop"),
 	},
@@ -161,6 +191,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("applications", "get", "Retrieves information about an application for the given application ID.", "/admin/datatransfer/v1/applications/{applicationId}"),
 	},
@@ -173,6 +204,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("applications", "list", "Lists the applications available for data transfer for a customer.", "/admin/datatransfer/v1/applications"),
 	},
@@ -185,6 +217,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asps", "delete", "Deletes an ASP issued by a user.", "/admin/directory/v1/users/{userKey}/asps/{codeId}"),
 	},
@@ -197,6 +230,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asps", "get", "Gets information about an ASP issued by a user.", "/admin/directory/v1/users/{userKey}/asps/{codeId}"),
 	},
@@ -209,6 +243,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asps", "list", "Lists the ASPs issued by a user.", "/admin/directory/v1/users/{userKey}/asps"),
 	},
@@ -221,6 +256,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("channels", "stop", "Stops watching resources through this channel.", "/admin/directory_v1/channels/stop"),
 	},
@@ -233,6 +269,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "action", "Use [BatchChangeChromeOsDeviceStatus](https://developers.google.", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{resourceId}/action"),
 	},
@@ -245,6 +282,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "projection", WireName: "projection"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "get", "Retrieves a Chrome OS device's properties.", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{deviceId}"),
 	},
@@ -257,6 +295,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeChildOrgunits", WireName: "includeChildOrgunits"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "orgUnitPath", WireName: "orgUnitPath"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "projection", WireName: "projection"}, {PublicName: "query", WireName: "query"}, {PublicName: "sortOrder", WireName: "sortOrder"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "list", "Retrieves a paginated list of Chrome OS devices within an account.", "/admin/directory/v1/customer/{customerId}/devices/chromeos"),
 	},
@@ -269,6 +308,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "orgUnitPath", WireName: "orgUnitPath"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "moveDevicesToOu", "Moves or inserts multiple Chrome OS devices to an organizational unit. You can move up to 50 devices at once.", "/admin/directory/v1/customer/{customerId}/devices/chromeos/moveDevicesToOu"),
 	},
@@ -281,6 +321,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "projection", WireName: "projection"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "patch", "Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{deviceId}"),
 	},
@@ -293,6 +334,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "projection", WireName: "projection"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("chromeosdevices", "update", "Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{deviceId}"),
 	},
@@ -305,6 +347,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "batchChangeStatus", "Changes the status of a batch of ChromeOS devices.", "/admin/directory/v1/customer/{customerId}/devices/chromeos:batchChangeStatus"),
 	},
@@ -317,6 +360,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "includeChildOrgunits", WireName: "includeChildOrgunits"}, {PublicName: "orgUnitPath", WireName: "orgUnitPath"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "countChromeOsDevices", "Counts ChromeOS devices matching the request.", "/admin/directory/v1/customer/{customerId}/devices/chromeos:countChromeOsDevices"),
 	},
@@ -329,6 +373,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "issueCommand", "Issues a command for the device to execute.", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{deviceId}:issueCommand"),
 	},
@@ -341,6 +386,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "get", "Gets command data a specific command issued to the device.", "/admin/directory/v1/customer/{customerId}/devices/chromeos/{deviceId}/commands/{commandId}"),
 	},
@@ -353,6 +399,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "parameters", WireName: "parameters"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customerUsageReports", "get", "Retrieves a report which is a collection of properties and statistics for a specific customer's account.", "/admin/reports/v1/usage/dates/{date}"),
 	},
@@ -365,6 +412,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "get", "Retrieves a customer.", "/admin/directory/v1/customers/{customerKey}"),
 	},
@@ -377,6 +425,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "patch", "Patches a customer.", "/admin/directory/v1/customers/{customerKey}"),
 	},
@@ -389,6 +438,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "update", "Updates a customer.", "/admin/directory/v1/customers/{customerKey}"),
 	},
@@ -401,6 +451,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batchCreatePrintServers", "Creates multiple print servers.", "/admin/directory/v1/customers/{customersId}/chrome/printServers:batchCreatePrintServers"),
 	},
@@ -413,6 +464,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batchDeletePrintServers", "Deletes multiple print servers.", "/admin/directory/v1/customers/{customersId}/chrome/printServers:batchDeletePrintServers"),
 	},
@@ -425,6 +477,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "create", "Creates a print server.", "/admin/directory/v1/customers/{customersId}/chrome/printServers"),
 	},
@@ -437,6 +490,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "delete", "Deletes a print server.", "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}"),
 	},
@@ -449,6 +503,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "get", "Returns a print server's configuration.", "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}"),
 	},
@@ -461,6 +516,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "orgUnitId", WireName: "orgUnitId"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "list", "Lists print server configurations.", "/admin/directory/v1/customers/{customersId}/chrome/printServers"),
 	},
@@ -473,6 +529,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "updateMask", WireName: "updateMask"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "patch", "Updates a print server's configuration.", "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}"),
 	},
@@ -485,6 +542,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batchCreatePrinters", "Creates printers under given Organization Unit.", "/admin/directory/v1/customers/{customersId}/chrome/printers:batchCreatePrinters"),
 	},
@@ -497,6 +555,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batchDeletePrinters", "Deletes printers in batch.", "/admin/directory/v1/customers/{customersId}/chrome/printers:batchDeletePrinters"),
 	},
@@ -509,6 +568,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "create", "Creates a printer under given Organization Unit.", "/admin/directory/v1/customers/{customersId}/chrome/printers"),
 	},
@@ -521,6 +581,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "delete", "Deletes a `Printer`.", "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"),
 	},
@@ -533,6 +594,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "get", "Returns a `Printer` resource (printer's config).", "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"),
 	},
@@ -545,6 +607,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "orgUnitId", WireName: "orgUnitId"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "list", "List printers configs.", "/admin/directory/v1/customers/{customersId}/chrome/printers"),
 	},
@@ -557,6 +620,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "listPrinterModels", "Lists the supported printer models.", "/admin/directory/v1/customers/{customersId}/chrome/printers:listPrinterModels"),
 	},
@@ -569,6 +633,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "clearMask", WireName: "clearMask"}, {PublicName: "updateMask", WireName: "updateMask"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "patch", "Updates a `Printer` resource.", "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"),
 	},
@@ -581,6 +646,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domainAliases", "delete", "Deletes a domain Alias of the customer.", "/admin/directory/v1/customer/{customer}/domainaliases/{domainAliasName}"),
 	},
@@ -593,6 +659,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domainAliases", "get", "Retrieves a domain alias of the customer.", "/admin/directory/v1/customer/{customer}/domainaliases/{domainAliasName}"),
 	},
@@ -605,6 +672,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domainAliases", "insert", "Inserts a domain alias of the customer.", "/admin/directory/v1/customer/{customer}/domainaliases"),
 	},
@@ -617,6 +685,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "parentDomainName", WireName: "parentDomainName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domainAliases", "list", "Lists the domain aliases of the customer.", "/admin/directory/v1/customer/{customer}/domainaliases"),
 	},
@@ -629,6 +698,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domains", "delete", "Deletes a domain of the customer.", "/admin/directory/v1/customer/{customer}/domains/{domainName}"),
 	},
@@ -641,6 +711,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domains", "get", "Retrieves a domain of the customer.", "/admin/directory/v1/customer/{customer}/domains/{domainName}"),
 	},
@@ -653,6 +724,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domains", "insert", "Inserts a domain of the customer.", "/admin/directory/v1/customer/{customer}/domains"),
 	},
@@ -665,6 +737,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("domains", "list", "Lists the domains of the customer.", "/admin/directory/v1/customer/{customer}/domains"),
 	},
@@ -677,6 +750,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "filters", WireName: "filters"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "parameters", WireName: "parameters"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("entityUsageReports", "get", "Retrieves a report which is a collection of properties and statistics for entities used by users within the account.", "/admin/reports/v1/usage/{entityType}/{entityKey}/dates/{date}"),
 	},
@@ -689,6 +763,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "delete", "Deletes a group.", "/admin/directory/v1/groups/{groupKey}"),
 	},
@@ -701,6 +776,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "get", "Retrieves a group's properties.", "/admin/directory/v1/groups/{groupKey}"),
 	},
@@ -713,6 +789,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "insert", "Creates a group.", "/admin/directory/v1/groups"),
 	},
@@ -725,6 +802,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customer", WireName: "customer"}, {PublicName: "domain", WireName: "domain"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "query", WireName: "query"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "userKey", WireName: "userKey"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "list", "Retrieves all groups of a domain or of a user given a userKey (paginated).", "/admin/directory/v1/groups"),
 	},
@@ -737,6 +815,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "patch", "Updates a group's properties. This method supports [patch semantics](https://developers.google.", "/admin/directory/v1/groups/{groupKey}"),
 	},
@@ -749,6 +828,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "update", "Updates a group's properties.", "/admin/directory/v1/groups/{groupKey}"),
 	},
@@ -761,6 +841,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "delete", "Removes an alias.", "/admin/directory/v1/groups/{groupKey}/aliases/{alias}"),
 	},
@@ -773,6 +854,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "insert", "Adds an alias for the group.", "/admin/directory/v1/groups/{groupKey}/aliases"),
 	},
@@ -785,6 +867,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "list", "Lists all aliases for a group.", "/admin/directory/v1/groups/{groupKey}/aliases"),
 	},
@@ -797,6 +880,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "delete", "Revoke a license.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/user/{userId}"),
 	},
@@ -809,6 +893,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "get", "Get a specific user's license by product SKU.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/user/{userId}"),
 	},
@@ -821,6 +906,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "insert", "Assign a license.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/user"),
 	},
@@ -833,6 +919,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "listForProduct", "List all users assigned licenses for a specific product SKU.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/users"),
 	},
@@ -845,6 +932,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "listForProductAndSku", "List all users assigned licenses for a specific product SKU.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/users"),
 	},
@@ -857,6 +945,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "patch", "Reassign a user's product SKU with a different SKU in the same product. This method supports patch semantics.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/user/{userId}"),
 	},
@@ -869,6 +958,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenseAssignments", "update", "Reassign a user's product SKU with a different SKU in the same product.", "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/sku/{skuId}/user/{userId}"),
 	},
@@ -881,6 +971,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "delete", "Removes a member from a group.", "/admin/directory/v1/groups/{groupKey}/members/{memberKey}"),
 	},
@@ -893,6 +984,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "get", "Retrieves a group member's properties.", "/admin/directory/v1/groups/{groupKey}/members/{memberKey}"),
 	},
@@ -905,6 +997,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "hasMember", "Checks whether the given user is a member of the group.", "/admin/directory/v1/groups/{groupKey}/hasMember/{memberKey}"),
 	},
@@ -917,6 +1010,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "insert", "Adds a user to the specified group.", "/admin/directory/v1/groups/{groupKey}/members"),
 	},
@@ -929,6 +1023,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeDerivedMembership", WireName: "includeDerivedMembership"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "roles", WireName: "roles"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "list", "Retrieves a paginated list of all members in a group. This method times out after 60 minutes.", "/admin/directory/v1/groups/{groupKey}/members"),
 	},
@@ -941,6 +1036,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "patch", "Updates the membership properties of a user in the specified group.", "/admin/directory/v1/groups/{groupKey}/members/{memberKey}"),
 	},
@@ -953,6 +1049,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("members", "update", "Updates the membership of a user in the specified group.", "/admin/directory/v1/groups/{groupKey}/members/{memberKey}"),
 	},
@@ -965,6 +1062,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mobiledevices", "action", "Takes an action that affects a mobile device. For example, remotely wiping a device.", "/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}/action"),
 	},
@@ -977,6 +1075,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mobiledevices", "delete", "Removes a mobile device.", "/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}"),
 	},
@@ -989,6 +1088,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "projection", WireName: "projection"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mobiledevices", "get", "Retrieves a mobile device's properties.", "/admin/directory/v1/customer/{customerId}/devices/mobile/{resourceId}"),
 	},
@@ -1001,6 +1101,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "projection", WireName: "projection"}, {PublicName: "query", WireName: "query"}, {PublicName: "sortOrder", WireName: "sortOrder"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("mobiledevices", "list", "Retrieves a paginated list of all user-owned mobile devices for an account.", "/admin/directory/v1/customer/{customerId}/devices/mobile"),
 	},
@@ -1013,6 +1114,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "delete", "Removes an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
@@ -1025,6 +1127,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "get", "Retrieves an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
@@ -1037,6 +1140,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "insert", "Adds an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits"),
 	},
@@ -1049,6 +1153,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "orgUnitPath", WireName: "orgUnitPath"}, {PublicName: "type", WireName: "type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "list", "Retrieves a list of all organizational units for an account.", "/admin/directory/v1/customer/{customerId}/orgunits"),
 	},
@@ -1061,6 +1166,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "patch", "Updates an organizational unit. This method supports [patch semantics](https://developers.google.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
@@ -1073,6 +1179,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orgunits", "update", "Updates an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
@@ -1085,6 +1192,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("privileges", "list", "Retrieves a paginated list of all privileges for a customer.", "/admin/directory/v1/customer/{customer}/roles/ALL/privileges"),
 	},
@@ -1097,6 +1205,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reseller-customers", "get", "Gets a customer account.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}"),
 	},
@@ -1109,6 +1218,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerAuthToken", WireName: "customerAuthToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reseller-customers", "insert", "Orders a new customer's account.", "https://reseller.googleapis.com/apps/reseller/v1/customers"),
 	},
@@ -1121,6 +1231,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reseller-customers", "patch", "Updates a customer account's settings. This method supports patch semantics.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}"),
 	},
@@ -1133,6 +1244,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reseller-customers", "update", "Updates a customer account's settings.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}"),
 	},
@@ -1145,6 +1257,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resellernotify", "getwatchdetails", "Returns all the details of the watch corresponding to the reseller.", "https://reseller.googleapis.com/apps/reseller/v1/resellernotify/getwatchdetails"),
 	},
@@ -1157,6 +1270,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "serviceAccountEmailAddress", WireName: "serviceAccountEmailAddress"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resellernotify", "register", "Registers a Reseller for receiving notifications.", "https://reseller.googleapis.com/apps/reseller/v1/resellernotify/register"),
 	},
@@ -1169,6 +1283,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "serviceAccountEmailAddress", WireName: "serviceAccountEmailAddress"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resellernotify", "unregister", "Unregisters a Reseller for receiving notifications.", "https://reseller.googleapis.com/apps/reseller/v1/resellernotify/unregister"),
 	},
@@ -1181,6 +1296,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "delete", "Deletes a building.", "/admin/directory/v1/customer/{customer}/resources/buildings/{buildingId}"),
 	},
@@ -1193,6 +1309,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "get", "Retrieves a building.", "/admin/directory/v1/customer/{customer}/resources/buildings/{buildingId}"),
 	},
@@ -1205,6 +1322,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "coordinatesSource", WireName: "coordinatesSource"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "insert", "Inserts a building.", "/admin/directory/v1/customer/{customer}/resources/buildings"),
 	},
@@ -1217,6 +1335,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "list", "Retrieves a list of buildings for an account.", "/admin/directory/v1/customer/{customer}/resources/buildings"),
 	},
@@ -1229,6 +1348,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "coordinatesSource", WireName: "coordinatesSource"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "patch", "Patches a building.", "/admin/directory/v1/customer/{customer}/resources/buildings/{buildingId}"),
 	},
@@ -1241,6 +1361,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "coordinatesSource", WireName: "coordinatesSource"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "update", "Updates a building.", "/admin/directory/v1/customer/{customer}/resources/buildings/{buildingId}"),
 	},
@@ -1253,6 +1374,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "delete", "Deletes a calendar resource.", "/admin/directory/v1/customer/{customer}/resources/calendars/{calendarResourceId}"),
 	},
@@ -1265,6 +1387,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "get", "Retrieves a calendar resource.", "/admin/directory/v1/customer/{customer}/resources/calendars/{calendarResourceId}"),
 	},
@@ -1277,6 +1400,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "insert", "Inserts a calendar resource.", "/admin/directory/v1/customer/{customer}/resources/calendars"),
 	},
@@ -1289,6 +1413,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "query", WireName: "query"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "list", "Retrieves a list of calendar resources for an account.", "/admin/directory/v1/customer/{customer}/resources/calendars"),
 	},
@@ -1301,6 +1426,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "patch", "Patches a calendar resource.", "/admin/directory/v1/customer/{customer}/resources/calendars/{calendarResourceId}"),
 	},
@@ -1313,6 +1439,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "update", "Updates a calendar resource.", "/admin/directory/v1/customer/{customer}/resources/calendars/{calendarResourceId}"),
 	},
@@ -1325,6 +1452,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "delete", "Deletes a feature.", "/admin/directory/v1/customer/{customer}/resources/features/{featureKey}"),
 	},
@@ -1337,6 +1465,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "get", "Retrieves a feature.", "/admin/directory/v1/customer/{customer}/resources/features/{featureKey}"),
 	},
@@ -1349,6 +1478,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "insert", "Inserts a feature.", "/admin/directory/v1/customer/{customer}/resources/features"),
 	},
@@ -1361,6 +1491,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "list", "Retrieves a list of features for an account.", "/admin/directory/v1/customer/{customer}/resources/features"),
 	},
@@ -1373,6 +1504,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "patch", "Patches a feature.", "/admin/directory/v1/customer/{customer}/resources/features/{featureKey}"),
 	},
@@ -1385,6 +1517,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "rename", "Renames a feature.", "/admin/directory/v1/customer/{customer}/resources/features/{oldName}/rename"),
 	},
@@ -1397,6 +1530,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("resources", "update", "Updates a feature.", "/admin/directory/v1/customer/{customer}/resources/features/{featureKey}"),
 	},
@@ -1409,6 +1543,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roleAssignments", "delete", "Deletes a role assignment.", "/admin/directory/v1/customer/{customer}/roleassignments/{roleAssignmentId}"),
 	},
@@ -1421,6 +1556,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roleAssignments", "get", "Retrieves a role assignment.", "/admin/directory/v1/customer/{customer}/roleassignments/{roleAssignmentId}"),
 	},
@@ -1433,6 +1569,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roleAssignments", "insert", "Creates a role assignment.", "/admin/directory/v1/customer/{customer}/roleassignments"),
 	},
@@ -1445,6 +1582,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeIndirectRoleAssignments", WireName: "includeIndirectRoleAssignments"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "roleId", WireName: "roleId"}, {PublicName: "userKey", WireName: "userKey"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roleAssignments", "list", "Retrieves a paginated list of all roleAssignments.", "/admin/directory/v1/customer/{customer}/roleassignments"),
 	},
@@ -1457,6 +1595,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "delete", "Deletes a role.", "/admin/directory/v1/customer/{customer}/roles/{roleId}"),
 	},
@@ -1469,6 +1608,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "get", "Retrieves a role.", "/admin/directory/v1/customer/{customer}/roles/{roleId}"),
 	},
@@ -1481,6 +1621,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "insert", "Creates a role.", "/admin/directory/v1/customer/{customer}/roles"),
 	},
@@ -1493,6 +1634,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "list", "Retrieves a paginated list of all the roles in a domain.", "/admin/directory/v1/customer/{customer}/roles"),
 	},
@@ -1505,6 +1647,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "patch", "Patches a role.", "/admin/directory/v1/customer/{customer}/roles/{roleId}"),
 	},
@@ -1517,6 +1660,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("roles", "update", "Updates a role.", "/admin/directory/v1/customer/{customer}/roles/{roleId}"),
 	},
@@ -1529,6 +1673,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "delete", "Deletes a schema.", "/admin/directory/v1/customer/{customerId}/schemas/{schemaKey}"),
 	},
@@ -1541,6 +1686,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "get", "Retrieves a schema.", "/admin/directory/v1/customer/{customerId}/schemas/{schemaKey}"),
 	},
@@ -1553,6 +1699,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "insert", "Creates a schema.", "/admin/directory/v1/customer/{customerId}/schemas"),
 	},
@@ -1565,6 +1712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "list", "Retrieves all schemas for a customer.", "/admin/directory/v1/customer/{customerId}/schemas"),
 	},
@@ -1577,6 +1725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "patch", "Patches a schema.", "/admin/directory/v1/customer/{customerId}/schemas/{schemaKey}"),
 	},
@@ -1589,6 +1738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("schemas", "update", "Updates a schema.", "/admin/directory/v1/customer/{customerId}/schemas/{schemaKey}"),
 	},
@@ -1601,6 +1751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "activate", "Activates a subscription previously suspended by the reseller.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/activate"),
 	},
@@ -1613,6 +1764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "changePlan", "Updates a subscription plan.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/changePlan"),
 	},
@@ -1625,6 +1777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "changeRenewalSettings", "Updates a user license's renewal settings. This is applicable for accounts with annual commitment plans only.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/changeRenewalSettings"),
 	},
@@ -1637,6 +1790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "changeSeats", "Updates a subscription's user license settings.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/changeSeats"),
 	},
@@ -1649,6 +1803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "deletionType", WireName: "deletionType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "delete", "Cancels, suspends, or transfers a subscription to direct.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}"),
 	},
@@ -1661,6 +1816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "get", "Gets a specific subscription.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}"),
 	},
@@ -1673,6 +1829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "action", WireName: "action"}, {PublicName: "customerAuthToken", WireName: "customerAuthToken"}, {PublicName: "sourceSkuId", WireName: "sourceSkuId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "insert", "Creates or transfer a subscription.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions"),
 	},
@@ -1685,6 +1842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerAuthToken", WireName: "customerAuthToken"}, {PublicName: "customerId", WireName: "customerId"}, {PublicName: "customerNamePrefix", WireName: "customerNamePrefix"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "list", "Lists of subscriptions managed by the reseller.", "https://reseller.googleapis.com/apps/reseller/v1/subscriptions"),
 	},
@@ -1697,6 +1855,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "startPaidService", "Immediately move a 30-day free trial subscription to a paid service subscription.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/startPaidService"),
 	},
@@ -1709,6 +1868,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "suspend", "Suspends an active subscription.", "https://reseller.googleapis.com/apps/reseller/v1/customers/{customerId}/subscriptions/{subscriptionId}/suspend"),
 	},
@@ -1721,6 +1881,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tokens", "delete", "Deletes all access tokens issued by a user for an application.", "/admin/directory/v1/users/{userKey}/tokens/{clientId}"),
 	},
@@ -1733,6 +1894,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tokens", "get", "Gets information about an access token issued by a user.", "/admin/directory/v1/users/{userKey}/tokens/{clientId}"),
 	},
@@ -1745,6 +1907,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tokens", "list", "Returns the set of tokens specified user has issued to 3rd party applications.", "/admin/directory/v1/users/{userKey}/tokens"),
 	},
@@ -1757,6 +1920,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("transfers", "get", "Retrieves a data transfer request by its resource ID.", "/admin/datatransfer/v1/transfers/{dataTransferId}"),
 	},
@@ -1769,6 +1933,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("transfers", "insert", "Inserts a data transfer request. See the [Transfer parameters](https://developers.google.", "/admin/datatransfer/v1/transfers"),
 	},
@@ -1781,6 +1946,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "newOwnerUserId", WireName: "newOwnerUserId"}, {PublicName: "oldOwnerUserId", WireName: "oldOwnerUserId"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "status", WireName: "status"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("transfers", "list", "Lists the transfers for a customer by source user, destination user, or status.", "/admin/datatransfer/v1/transfers"),
 	},
@@ -1793,6 +1959,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("twoStepVerification", "turnOff", "Turns off 2-Step Verification for user.", "/admin/directory/v1/users/{userKey}/twoStepVerification/turnOff"),
 	},
@@ -1805,6 +1972,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customerId", WireName: "customerId"}, {PublicName: "filters", WireName: "filters"}, {PublicName: "groupIdFilter", WireName: "groupIdFilter"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orgUnitID", WireName: "orgUnitID"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "parameters", WireName: "parameters"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("userUsageReport", "get", "Retrieves a report which is a collection of properties and statistics for a set of users with the account.", "/admin/reports/v1/usage/users/{userKey}/dates/{date}"),
 	},
@@ -1817,6 +1985,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "createGuest", "Create a guest user with access to a [subset of Workspace capabilities](https://support.google.com/a/answer/16558545).", "/admin/directory/v1/users:createGuest"),
 	},
@@ -1829,6 +1998,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "delete", "Deletes a user.", "/admin/directory/v1/users/{userKey}"),
 	},
@@ -1841,6 +2011,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customFieldMask", WireName: "customFieldMask"}, {PublicName: "projection", WireName: "projection"}, {PublicName: "viewType", WireName: "viewType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "get", "Retrieves a user.", "/admin/directory/v1/users/{userKey}"),
 	},
@@ -1853,6 +2024,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "resolveConflictAccount", WireName: "resolveConflictAccount"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "insert", "Creates a user.", "/admin/directory/v1/users"),
 	},
@@ -1865,6 +2037,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customFieldMask", WireName: "customFieldMask"}, {PublicName: "customer", WireName: "customer"}, {PublicName: "domain", WireName: "domain"}, {PublicName: "event", WireName: "event"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "projection", WireName: "projection"}, {PublicName: "query", WireName: "query"}, {PublicName: "showDeleted", WireName: "showDeleted"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "viewType", WireName: "viewType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "list", "Retrieves a paginated list of either deleted users or all users in a domain.", "/admin/directory/v1/users"),
 	},
@@ -1877,6 +2050,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "makeAdmin", "Makes a user a super administrator.", "/admin/directory/v1/users/{userKey}/makeAdmin"),
 	},
@@ -1889,6 +2063,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "patch", "Updates a user using patch semantics.", "/admin/directory/v1/users/{userKey}"),
 	},
@@ -1901,6 +2076,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "signOut", "Signs a user out of all web and device sessions and reset their sign-in cookies.", "/admin/directory/v1/users/{userKey}/signOut"),
 	},
@@ -1913,6 +2089,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "undelete", "Undeletes a deleted user.", "/admin/directory/v1/users/{userKey}/undelete"),
 	},
@@ -1925,6 +2102,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "update", "Updates a user.", "/admin/directory/v1/users/{userKey}"),
 	},
@@ -1937,6 +2115,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "customFieldMask", WireName: "customFieldMask"}, {PublicName: "customer", WireName: "customer"}, {PublicName: "domain", WireName: "domain"}, {PublicName: "event", WireName: "event"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "pageToken", WireName: "pageToken"}, {PublicName: "projection", WireName: "projection"}, {PublicName: "query", WireName: "query"}, {PublicName: "showDeleted", WireName: "showDeleted"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "viewType", WireName: "viewType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "watch", "Watches for changes in users list.", "/admin/directory/v1/users/watch"),
 	},
@@ -1949,6 +2128,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "delete", "Removes an alias.", "/admin/directory/v1/users/{userKey}/aliases/{alias}"),
 	},
@@ -1961,6 +2141,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "insert", "Adds an alias.", "/admin/directory/v1/users/{userKey}/aliases"),
 	},
@@ -1973,6 +2154,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "event", WireName: "event"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "list", "Lists all aliases for a user.", "/admin/directory/v1/users/{userKey}/aliases"),
 	},
@@ -1985,6 +2167,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "event", WireName: "event"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "watch", "Watches for changes in users list.", "/admin/directory/v1/users/{userKey}/aliases/watch"),
 	},
@@ -1997,6 +2180,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "delete", "Removes the user's photo.", "/admin/directory/v1/users/{userKey}/photos/thumbnail"),
 	},
@@ -2009,6 +2193,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "get", "Retrieves the user's photo.", "/admin/directory/v1/users/{userKey}/photos/thumbnail"),
 	},
@@ -2021,6 +2206,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "patch", "Adds a photo for the user. This method supports [patch semantics](https://developers.google.", "/admin/directory/v1/users/{userKey}/photos/thumbnail"),
 	},
@@ -2033,6 +2219,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "update", "Adds a photo for the user.", "/admin/directory/v1/users/{userKey}/photos/thumbnail"),
 	},
@@ -2045,6 +2232,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("verificationCodes", "generate", "Generates new backup verification codes for the user.", "/admin/directory/v1/users/{userKey}/verificationCodes/generate"),
 	},
@@ -2057,6 +2245,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("verificationCodes", "invalidate", "Invalidates the current backup verification codes for the user.", "/admin/directory/v1/users/{userKey}/verificationCodes/invalidate"),
 	},
@@ -2069,6 +2258,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("verificationCodes", "list", "Returns the current set of valid backup verification codes for the specified user.", "/admin/directory/v1/users/{userKey}/verificationCodes"),
 	},
@@ -2118,6 +2308,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -2215,7 +2409,24 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 // codeOrchResourceNames maps endpoints whose Google selector is one resource
@@ -2240,6 +2451,10 @@ var codeOrchResourceNames = map[string][2]string{
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -2250,8 +2465,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call google-workspace_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -2325,11 +2541,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -2354,8 +2591,50 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call google-workspace_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call google-workspace_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -2398,14 +2677,24 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		// Hand-fix (handfixes.json auth-hints-name-the-tenant): the CLI's
 		// tenant-aware hint, for 401/403 here too.
 		return mcplib.NewToolResultError(err.Error() + cli.AuthErrorHint(err)), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -2472,6 +2761,200 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }
 
 // codeOrchBindRemainingPathVars substitutes every {name} still in path with

@@ -115,15 +115,24 @@ func extractResourcePage(data json.RawMessage, config resourceReadConfig) ([]jso
 		return nil, "", false
 	}
 	if config.responsePath != "" {
-		if payload, ok := responsePayloadAtPath(data, config.responsePath); ok {
+		payload, present := responsePayloadAtPath(data, config.responsePath)
+		if present {
 			if items, ok := resourceJSONArray(payload); ok {
 				next, hasMore := resourcePagination(data, envelope, config)
 				return items, next, hasMore
 			}
-		} else if _, google := envelope["kind"]; google {
-			// Hand-fix (handfixes.json export-google-list-paging): Google
-			// omits the items array on an empty list.
-			return []json.RawMessage{}, "", false
+		}
+		if !present || isJSONNull(payload) {
+			// Hand-fix (handfixes.json export-google-list-paging,
+			// google-list-empty-page-continues): a configured list page whose
+			// items array is omitted or null is an empty page, never a record.
+			// Its schema requires no field, so kind is not consulted: only
+			// nextPageToken decides whether another page follows.
+			next, hasMore := resourcePagination(data, envelope, config)
+			if next == "" {
+				next = googleListNextPageToken(data)
+			}
+			return []json.RawMessage{}, next, hasMore || next != ""
 		}
 	}
 	for _, key := range []string{"data", "results", "items", "records", "nodes", "entries", "features", "Data", "Results", "Items", "Records", "Nodes", "Entries", "Features"} {

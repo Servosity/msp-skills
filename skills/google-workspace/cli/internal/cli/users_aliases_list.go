@@ -49,7 +49,7 @@ func newUsersAliasesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEvent {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvent, "event", allowedEvent)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvent, "event", allowedEvent))
 				}
 			}
 			path := "/admin/directory/v1/users/{userKey}/aliases"

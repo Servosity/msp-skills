@@ -5,13 +5,18 @@
 package main
 
 import (
-	"os"
-
 	"google-workspace-pp-cli/internal/cli"
+	"google-workspace-pp-cli/internal/credkit"
+	"google-workspace-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credwire.RestoreFeedbackStdin() // Hand-fix (handfixes.json credkit-wiring): feedback --stdin keeps its body
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

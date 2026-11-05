@@ -1,11 +1,5 @@
 # Google Workspace MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the Google Workspace MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -14,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `google-workspace-mcp` directly on your machine
 - no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio, the Gemini app) need a remote server, which msp-skills does not
-support yet; see **Remote agents** below.
+support yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -42,9 +36,10 @@ Every variable in the `env` blocks below is optional and can stay blank, except
 | Variable | Set it when |
 | --- | --- |
 | `GOOGLE_WORKSPACE_TENANT` | More than one tenant is registered. The raw API execute tool and the `sql`, `search`, and `context` tools take no tenant argument and use this one; without it `sql` and `search` refuse to answer. Use a name from `tenants list`. |
-| `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `export`, `tenants test`, `tenants remove`, `workflow archive`, `learnings forget`, and `learnings reject`, and refuses every non-GET API call. (`import` is never exposed over MCP: it reads a local file.) `true` or `yes` are ignored. |
+| `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `export`, `tenants test`, `tenants remove`, `workflow archive`, the raw API execute tool, and every tool that writes the local learning store (`teach`, `teach-pattern`, `teach-lookup`, `teach-playbook`, `playbook amend`, `learnings confirm`, `learnings forget`, and `learnings reject`), so only reads reach Google. (`import` is never exposed over MCP: it reads a local file.) `true` or `yes` are ignored. |
 | `GOOGLE_WORKSPACE_TOKEN` | You manage ONE organization without registering tenants: an OAuth access token with Admin SDK scopes. `ADMIN_ACCESS_TOKEN` is an alternate name for it. Not used once tenants are registered (a call with no tenant selected is refused), so leave it blank then. |
-| `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http`, which is paused for now (see the remote section below). |
+| `GOOGLE_WORKSPACE_NO_LOCAL_DATA` | You want no local copy of Google data: exactly `1` sends every read to the API, turns the response cache off, writes nothing new to the local store, and refuses `sync` and `workflow archive`. |
+| `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http` (the remote section below). At least 32 characters. |
 | `GOOGLE_WORKSPACE_BASE_URL`, `GOOGLE_WORKSPACE_USER_AGENT`, `PRINTING_PRESS_CLIENT_PROFILE` | Testing against a mock server or overriding the User-Agent; `PRINTING_PRESS_CLIENT_PROFILE` has no effect for this connector. Leave blank. |
 
 ---
@@ -68,6 +63,7 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "GOOGLE_WORKSPACE_TENANT": "",
         "GOOGLE_WORKSPACE_MCP_READ_ONLY": "1",
+        "GOOGLE_WORKSPACE_NO_LOCAL_DATA": "",
         "GOOGLE_WORKSPACE_TOKEN": "",
         "ADMIN_ACCESS_TOKEN": "",
         "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
@@ -97,7 +93,7 @@ add the server once to Codex's `~/.codex/config.toml` (a
 `[mcp_servers.google-workspace]` table with `command = "google-workspace-mcp"` and
 an `env` table); the desktop app reads that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -117,6 +113,7 @@ Configuration**) and add:
       "env": {
         "GOOGLE_WORKSPACE_TENANT": "",
         "GOOGLE_WORKSPACE_MCP_READ_ONLY": "1",
+        "GOOGLE_WORKSPACE_NO_LOCAL_DATA": "",
         "GOOGLE_WORKSPACE_TOKEN": "",
         "ADMIN_ACCESS_TOKEN": "",
         "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
@@ -145,6 +142,7 @@ Claude Desktop:
       "env": {
         "GOOGLE_WORKSPACE_TENANT": "",
         "GOOGLE_WORKSPACE_MCP_READ_ONLY": "1",
+        "GOOGLE_WORKSPACE_NO_LOCAL_DATA": "",
         "GOOGLE_WORKSPACE_TOKEN": "",
         "ADMIN_ACCESS_TOKEN": "",
         "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
@@ -158,29 +156,46 @@ Claude Desktop:
 ```
 
 Restart Gemini CLI; the Google Workspace tools appear in its tool list. (The **Gemini app /
-web** is remote-only - see the remote section below.)
+web** needs a remote server - see **Web-only AI apps** below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `google-workspace-mcp` running in HTTP mode.
-Do not run HTTP mode with this build (see the security note at the top of this
-page), and do not put this server behind a tunnel or reverse proxy. If your team
-works in one of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `google-workspace-mcp` locally (see
 above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until
+`GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` is set to at least 32 characters; every request
+must send `Authorization: Bearer <token>`. Any address other than loopback also
+needs TLS. `GOOGLE_WORKSPACE_MCP_READ_ONLY=1` is strongly recommended for anything
+reachable from outside your machine:
 
 ```bash
-# GOOGLE_WORKSPACE_MCP_HTTP_TOKEN=<a long random secret> GOOGLE_WORKSPACE_MCP_READ_ONLY=1 google-workspace-mcp --transport http
+export GOOGLE_WORKSPACE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+GOOGLE_WORKSPACE_MCP_READ_ONLY=1 google-workspace-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+```powershell
+$env:GOOGLE_WORKSPACE_MCP_HTTP_TOKEN = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+$env:GOOGLE_WORKSPACE_MCP_READ_ONLY = "1"
+google-workspace-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+```
+
+The endpoint is `https://<host>:7777/mcp`. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat the token like a password** - whoever
+holds it can call every tool with your clients' Google Workspace delegation.
 
 ---
 
