@@ -469,9 +469,9 @@
     "released_hash": "sha256:7b3ff5c941c1664ba6eb0271748a11ff83f857844de61645279990ba9a1859b0"
   },
   "prtg": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "prtg-v0.1.0",
     "current_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
     "released_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab"
   },
