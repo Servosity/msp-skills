@@ -483,10 +483,10 @@
     "released_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab"
   },
   "quickbooks": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.14",
     "latest_tag": "quickbooks-v0.1.14",
-    "current_hash": "sha256:9356ad23d29b9a046c31c539e948b51974f03f068ba4db71af09d635ceef20a1",
+    "current_hash": "sha256:a20ad9a69719003e0418fa1ad1db66ff509df91722a08dbadbb448782eab8dd2",
     "released_hash": "sha256:9356ad23d29b9a046c31c539e948b51974f03f068ba4db71af09d635ceef20a1"
   },
   "quotewerks": {
