@@ -273,9 +273,9 @@
     "released_hash": null
   },
   "gradient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "gradient-v0.1.8",
+    "latest_tag": "gradient-v0.1.9",
     "current_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
     "released_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db"
   },
