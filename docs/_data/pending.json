@@ -574,11 +574,11 @@
     "released_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52"
   },
   "servosity": {
-    "state": "binary-pending",
-    "version": "0.6.12",
+    "state": "version-pending",
+    "version": "0.6.13",
     "latest_tag": "servosity-v0.6.12",
     "current_hash": "sha256:f9a5e91a13c03b5378e5be14262760669cf3df75ac1583fa07afa456f9fc5950",
-    "released_hash": "sha256:b54b5c5bf7e63bf7142fed1059bbe44d4ee25f61c8817b35d52d51fffe2b1a4c"
+    "released_hash": "sha256:f9a5e91a13c03b5378e5be14262760669cf3df75ac1583fa07afa456f9fc5950"
   },
   "sherweb": {
     "state": "up-to-date",
@@ -672,11 +672,11 @@
     "released_hash": "sha256:11bfccb83ad66e7eb8d86183d3498bbd74af7341d13324810f015dae79c91b72"
   },
   "warranty": {
-    "state": "binary-pending",
-    "version": "0.1.0",
+    "state": "version-pending",
+    "version": "0.1.1",
     "latest_tag": "warranty-v0.1.0",
     "current_hash": "sha256:9e7f2eeabb2b7875aff3bc70c5ac38f7bc465c2ddc85aabe0ac1a72497b4bf4f",
-    "released_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0"
+    "released_hash": "sha256:9e7f2eeabb2b7875aff3bc70c5ac38f7bc465c2ddc85aabe0ac1a72497b4bf4f"
   },
   "watchguard": {
     "state": "up-to-date",
