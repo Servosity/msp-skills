@@ -12,7 +12,7 @@
       "name": "abnormal",
       "source": "./skills/abnormal",
       "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "abnormal",

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Changed
 - **Rebuilt on CLI Printing Press 4.34.2.** The MCP server's HTTP mode refuses to start without a bearer token of 32 or more characters and accepts only loopback browser origins unless you list more in `ABNORMAL_MCP_HTTP_ALLOWED_ORIGINS`. New optional switches, declared on every install channel: `ABNORMAL_MCP_READ_ONLY=1` exposes only read tools, `ABNORMAL_NO_LOCAL_DATA=1` keeps no local copy of API responses.

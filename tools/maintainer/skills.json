@@ -15,8 +15,8 @@
       "tagline": "Triage Abnormal email threats, confirm remediations, and pull client-ready security reports from your terminal.",
       "cli_hash": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:d553731f02ec318ca7403ee9fa916be3aed8c54e215d2a4db1a4ae98b9446f3d",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:d33ab4a20eac9ab2d68c9fe2956bc75d001c14731d0b35f05efb00818f49522d",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
