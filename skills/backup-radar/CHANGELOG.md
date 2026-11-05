@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.3] - 2026-11-05
 
 ### Changed
 - Rebuilt on cli-printing-press 4.34.2, the press release behind advisory [GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c). MCP HTTP mode now sets request size and time limits, plain HTTP is allowed only on a loopback address, and any other address needs `--tls-cert` and `--tls-key`. See mcp-install.md for the HTTP mode reference.
