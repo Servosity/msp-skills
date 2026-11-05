@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -29,10 +30,13 @@ than a strict worklog-minus-invoice diff. See README "Known Gaps".`,
   superops-cli unbilled
   superops-cli unbilled --client Acme --since 2026-05-01 --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "unbilled")
 			}
 			var since time.Time
 			if strings.TrimSpace(flagSince) != "" {
@@ -47,11 +51,11 @@ than a strict worklog-minus-invoice diff. See README "Known Gaps".`,
 				return err
 			}
 			defer db.Close()
-			worklogs, err := queryRecs(db, "worklogs")
+			worklogs, err := loadRecs(cmd, db, "worklogs")
 			if err != nil {
 				return err
 			}
-			tickets, err := queryRecs(db, "tickets")
+			tickets, err := loadRecs(cmd, db, "tickets")
 			if err != nil {
 				return err
 			}

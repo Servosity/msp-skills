@@ -53,6 +53,36 @@
           "description": "Your tenant subdomain (SuperOps: Settings > MSP Information). Sent as the CustomerSubdomain header on every call; requests without it are rejected.",
           "isRequired": true,
           "isSecret": false
+        },
+        {
+          "name": "SUPEROPS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SUPEROPS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to save no API data locally: sync and workflow archive are refused and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SUPEROPS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "SUPEROPS_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to SuperOps. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

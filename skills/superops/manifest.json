@@ -18,7 +18,12 @@
         "SUPEROPS_API_TOKEN": "${user_config.superops_api_token}",
         "SUPEROPS_BASE_URL": "${user_config.superops_base_url}",
         "SUPEROPS_REGION": "${user_config.superops_region}",
-        "SUPEROPS_SUBDOMAIN": "${user_config.superops_subdomain}"
+        "SUPEROPS_SUBDOMAIN": "${user_config.superops_subdomain}",
+        "SUPEROPS_MCP_READ_ONLY": "${user_config.superops_mcp_read_only}",
+        "SUPEROPS_NO_LOCAL_DATA": "${user_config.superops_no_local_data}",
+        "SUPEROPS_MCP_HTTP_TOKEN": "${user_config.superops_mcp_http_token}",
+        "SUPEROPS_USER_AGENT": "${user_config.superops_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -49,6 +54,41 @@
       "description": "Data-centre region your tenant lives in: us or eu. The wrong region answers with an authentication error.",
       "required": false,
       "default": "us"
+    },
+    "superops_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep the write tools (they still need confirm).",
+      "required": false,
+      "sensitive": false
+    },
+    "superops_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to save no API data locally: sync and workflow archive are refused and the response cache is off. The local-mirror commands still read a store that already exists and never create one. Leave blank to keep the local mirror.",
+      "required": false,
+      "sensitive": false
+    },
+    "superops_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "superops_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to SuperOps. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "sensitive": true,
+      "required": false
     }
   },
   "compatibility": {
@@ -59,11 +99,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:37:08.461331Z",
-    "spec_checksum": "sha256:75c960f532ac96efb29a77b04304be15626dfca8c78be0092351be6ed34748fb",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-26T22:54:59.809899Z",
+    "spec_checksum": "sha256:cc863c63a449c27d52347b8bae543555f7641dd83a839f1221133a47095c6196",
     "spec_format": "internal"
   }
 }

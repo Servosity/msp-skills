@@ -16,12 +16,16 @@ Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that 
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `SUPEROPS_MCP_HTTP_TOKEN` is set to a random token of at
+> least 32 characters, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your SuperOps credentials, including tools that change
+> your tenant, so treat it like a password, and set `SUPEROPS_MCP_READ_ONLY=1` on
+> a remote host that only needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
@@ -34,7 +38,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `superops-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `superops-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `superops-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -174,7 +178,7 @@ that token is allowed to do.
 Beyond the views: every SuperOps PSA+RMM entity - tickets, assets, alerts, clients,
 sites, users, contracts, invoices, worklogs, technicians, service items, IT docs, KB -
 is a typed `list`/`get` subcommand, and `raw query` runs any GraphQL read the typed
-commands don't wrap. Every command is also available as an MCP tool.
+commands don't wrap. The commands are also available as MCP tools.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -205,13 +209,13 @@ These views are computed from what the SuperOps list API actually exposes, and t
 
 - `unbilled` surfaces **billable** logged time per client, not a strict worklog-minus-invoice diff - the API carries no per-entry "already billed" flag.
 - `at-risk-assets` and `alert-coverage` use an **unresolved alert** as the proxy for "currently causing pain," because the asset-to-ticket link is absent from the list payloads.
-- `context-ticket` bundles the synced ticket, its worklogs, client, and SLA; conversation and note threads are fetched live with `superops-cli tickets <id>`.
+- `context-ticket` bundles the synced ticket, its worklogs, client, and SLA; conversation and note threads are not included; read them in the SuperOps console or with `superops-cli raw query`.
 
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `superops-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `superops-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `superops-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `superops-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -235,7 +239,7 @@ Yes. The US host is the default; set `SUPEROPS_REGION=eu` to target the EU host 
 
 ### Can it create or update tickets?
 
-The typed commands are **read-only** by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`). Pair it with `--dry-run` to preview the exact GraphQL request, and keep a human in the loop. `raw query` is the read-only counterpart.
+The typed commands are **read-only** by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`). Without `--yes` it prints the exact GraphQL request and sends nothing; add `--yes` to send. Over MCP, `raw_mutation` can only preview (the MCP server never passes `--yes`), and GraphQL variables go inline in the document because the separate `vars` field is not offered there. `raw query` is the read-only counterpart and refuses any document that is not a query. Keep a human in the loop for every send.
 
 ### Will this replace my SuperOps console?
 
@@ -250,10 +254,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | every typed command + `raw query` - `sla-watch`, `client-360`, `at-risk-assets`, `alert-coverage`, `unbilled`, `stale-tickets`, `tickets list`, `assets list`, `search`, `sync` | Allow |
-| Write (mutation escape hatch) | `raw mutation` - the only write path; wraps what the read-only typed commands don't cover (`createTicket`, `updateTicket`, `resolveAlerts`) | Preview with `--dry-run`, then a reviewed write |
+| Write (mutation escape hatch) | `raw mutation` - the only write path; wraps what the read-only typed commands don't cover (`createTicket`, `updateTicket`, `resolveAlerts`). Sends only with `--yes`; over MCP it can only preview | Preview first (the default), then a reviewed `--yes` send |
 | Destructive | no typed destructive command exists; a delete would be an explicit destructive GraphQL operation run through `raw mutation` | Human-in-the-loop only |
 
-Every typed command is **read-only**; the binary's one path to remote change is `raw mutation`, and `--dry-run` prints the exact GraphQL request without sending it. Put the gate in your agent's policy: preview, show the request, get approval, then run.
+Every typed command is **read-only**; the binary's one path to remote change is `raw mutation`, which prints the exact GraphQL request and sends nothing unless you add `--yes`. Over MCP it can only preview, so an agent connected over MCP cannot send a mutation. Put the remaining gate in your policy: preview, show the request, get approval, then run with `--yes`.
 
 The strongest control is the **scope you grant the SuperOps credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
