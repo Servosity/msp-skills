@@ -41,11 +41,14 @@ func init() {
 	})
 }
 
+// avananLoginResult is the ALLOWLIST of what `auth login` may print. The
+// application ID, the client secret and the minted token are credentials
+// (threat model), so none of them is a field here and none can reach any
+// output mode.
 type avananLoginResult struct {
 	Scheme    string `json:"scheme"`
 	Host      string `json:"host"`
 	Region    string `json:"region,omitempty"`
-	AppID     string `json:"app_id"`
 	ExpiresAt string `json:"expires_at"`
 	Saved     bool   `json:"saved"`
 }
@@ -94,6 +97,10 @@ inspect existing auth state; use 'auth status' instead.
 			"pp:typed-exit-codes": "0,2",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Credentials handed in as flags are held from the moment the
+			// command has them, before any error path can repeat them. The
+			// token this command mints is held by the transport (Mint).
+			cliutil.Hold("config:client_secret", appID, secret)
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 && cliutil.IsVerifyEnv() {
 				// Bare help probe under the verifier: no credentials exist in
 				// the sandbox, so short-circuit rather than fail on a network
@@ -178,7 +185,6 @@ inspect existing auth state; use 'auth status' instead.
 				Scheme:    "legacy-signed",
 				Host:      req.URL.Host,
 				Region:    region,
-				AppID:     cfg.AvananAppID(),
 				ExpiresAt: expiry.UTC().Format(time.RFC3339),
 			}
 			if avanansig.IsInfinityHost(req.URL.Host) {
@@ -205,11 +211,31 @@ inspect existing auth state; use 'auth status' instead.
 		},
 	}
 
-	cmd.Flags().StringVar(&appID, "app-id", "", "Avanan application ID (defaults to AVANAN_APP_ID)")
-	cmd.Flags().StringVar(&secret, "secret", "", "Avanan client secret (defaults to AVANAN_CLIENT_SECRET)")
+	cmd.Flags().Var(heldFlag{&appID}, "app-id", "Avanan application ID (defaults to AVANAN_APP_ID)")
+	cmd.Flags().Var(heldFlag{&secret}, "secret", "Avanan client secret (defaults to AVANAN_CLIENT_SECRET)")
 	cmd.Flags().StringVar(&region, "region", "", "Region to authenticate against: "+
 		strings.Join(append(avanansig.Regions(), avanansig.InfinityRegions()...), ", "))
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "API base URL to authenticate against, for gateways with no region code (defaults to AVANAN_BASE_URL)")
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "API base URL to authenticate against, for gateways with no region code (defaults to AVANAN_BASE_URL). A gateway outside *.avanan.net and *.portal.checkpoint.com also needs AVANAN_BASE_URL or base_url in the config set to it")
 	cmd.Flags().BoolVar(&save, "save", false, "Also persist the application ID and secret, not just the session token")
 	return cmd
 }
+
+// heldFlag is a string flag whose value is a credential: Set holds it with
+// the process-wide holder (cliutil.FunnelHold) the moment Cobra parses it,
+// before any command code, usage text or error path can repeat it.
+type heldFlag struct{ v *string }
+
+func (f heldFlag) String() string {
+	if f.v == nil {
+		return ""
+	}
+	return *f.v
+}
+
+func (f heldFlag) Set(s string) error {
+	cliutil.Hold("flag:--secret", s)
+	*f.v = s
+	return nil
+}
+
+func (f heldFlag) Type() string { return "string" }

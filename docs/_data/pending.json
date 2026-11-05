@@ -288,10 +288,10 @@
   },
   "hubspot": {
     "state": "up-to-date",
-    "version": "0.2.4",
-    "latest_tag": "hubspot-v0.2.4",
-    "current_hash": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116",
-    "released_hash": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116"
+    "version": "0.2.5",
+    "latest_tag": "hubspot-v0.2.5",
+    "current_hash": "sha256:574361f40252fcb246a7dd7518772d798540af0244ef715d6529dcfae63aad98",
+    "released_hash": "sha256:574361f40252fcb246a7dd7518772d798540af0244ef715d6529dcfae63aad98"
   },
   "hudu": {
     "state": "up-to-date",
@@ -469,9 +469,9 @@
     "released_hash": "sha256:7b3ff5c941c1664ba6eb0271748a11ff83f857844de61645279990ba9a1859b0"
   },
   "prtg": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "prtg-v0.1.0",
     "current_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
     "released_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab"
   },
@@ -600,6 +600,13 @@
     "latest_tag": "syncro-v0.1.7",
     "current_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5",
     "released_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5"
+  },
+  "synology": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "synology-v0.1.0",
+    "current_hash": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd",
+    "released_hash": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd"
   },
   "tactical-rmm": {
     "state": "up-to-date",

@@ -1,0 +1,240 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-24T22:22:32.838661Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "hubspot",
+  "display_name": "HubSpot",
+  "cli_name": "hubspot-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "internal",
+  "spec_checksum": "sha256:f529cc01f227b2d7c2f8ba12882b80cc52514d9c603f5c79c220c41540855e96",
+  "run_id": "20261024-171821-059c6f80",
+  "category": "sales-and-crm",
+  "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
+  "mcp_binary": "hubspot-pp-mcp",
+  "mcp_tool_count": 232,
+  "mcp_ready": "full",
+  "api_version": "v4",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearer_auth",
+  "auth_env_vars": [
+    "HUBSPOT_ACCESS_TOKEN"
+  ],
+  "auth_key_url": "https://app.hubspot.com/private-apps",
+  "novel_features": [
+    {
+      "name": "Stale objects",
+      "command": "stale",
+      "description": "Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline."
+    },
+    {
+      "name": "Owner load",
+      "command": "owner-load",
+      "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report."
+    },
+    {
+      "name": "Pipeline health",
+      "command": "pipeline-health",
+      "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date), and the oldest-stuck deal — one query for a sales-ops dashboard. Closed Lost weighted at probability 0, Closed Won at 1.0."
+    },
+    {
+      "name": "Nurture queue",
+      "command": "nurture queue",
+      "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns."
+    },
+    {
+      "name": "Top deals by opportunity score",
+      "command": "deals top",
+      "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns."
+    },
+    {
+      "name": "Per-meeting property history",
+      "command": "meetings history",
+      "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields) — when each value was set, by whom, and from what source."
+    },
+    {
+      "name": "Meetings ever-had query",
+      "command": "meetings ever-had",
+      "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since changed."
+    },
+    {
+      "name": "Monthly meeting status report",
+      "command": "meetings status-report",
+      "description": "Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set."
+    },
+    {
+      "name": "Sync with property history",
+      "command": "sync --with-history",
+      "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts, companies when scoped to those). Persists per-property snapshots into the shared hubspot_property_history table."
+    },
+    {
+      "name": "Engagements of",
+      "command": "engagements of",
+      "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company."
+    },
+    {
+      "name": "Note signal extraction",
+      "command": "notes signals",
+      "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-deal signal counts with the source note id."
+    },
+    {
+      "name": "Since",
+      "command": "since",
+      "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta."
+    },
+    {
+      "name": "Nurture mine",
+      "command": "nurture-mine",
+      "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list, computed across local SQLite."
+    },
+    {
+      "name": "Bulk update from CSV with schema validation",
+      "command": "contacts bulk-update",
+      "description": "Apply a CSV of property changes to many contacts at once, pre-validating each row against HubSpot's property schema (types, picklists) before any mutation."
+    },
+    {
+      "name": "Deal velocity / time-in-stage",
+      "command": "deals velocity",
+      "description": "Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history — find where deals rot."
+    },
+    {
+      "name": "Lifecycle-stage funnel",
+      "command": "contacts funnel",
+      "description": "One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios."
+    },
+    {
+      "name": "Orphaned / dead-owner deals",
+      "command": "deals unowned",
+      "description": "Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure — the hygiene gap owner-load can't see."
+    },
+    {
+      "name": "Post-win re-engagement (win-back)",
+      "command": "contacts win-back",
+      "description": "Contacts attached to a Closed Won deal but with no engagement in N days — the customer-expansion and re-engage list."
+    },
+    {
+      "name": "Weighted forecast by close-month",
+      "command": "deals forecast",
+      "description": "Probability-weighted pipeline forecast bucketed by close-date month — the canonical GM revenue question, answered offline."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Stale objects",
+      "command": "stale",
+      "description": "Find contacts or deals with no engagement in N days, scoped by owner or pipeline stage — instantly, offline."
+    },
+    {
+      "name": "Owner load",
+      "command": "owner-load",
+      "description": "Open deals per rep per pipeline stage with $ totals, count, and oldest-deal age — the Monday-morning sales-lead report."
+    },
+    {
+      "name": "Pipeline health",
+      "command": "pipeline-health",
+      "description": "Per-stage rollup of count, $ total, $ at risk (idle deals near their close date), and the oldest-stuck deal — one query for a sales-ops dashboard. Closed Lost weighted at probability 0, Closed Won at 1.0."
+    },
+    {
+      "name": "Nurture queue",
+      "command": "nurture queue",
+      "description": "Ranked 'who to contact today' list scored by stale-days × deal amount × stage probability, with the rationale exposed as columns."
+    },
+    {
+      "name": "Top deals by opportunity score",
+      "command": "deals top",
+      "description": "Composite-ranked top-N deals by (signal × amount × stage-probability × inverse-days-since-contact) with the score breakdown exposed as columns."
+    },
+    {
+      "name": "Per-meeting property history",
+      "command": "meetings history",
+      "description": "Show the full timeline of property changes for a single meeting (outcome, title, owner, custom fields) — when each value was set, by whom, and from what source."
+    },
+    {
+      "name": "Meetings ever-had query",
+      "command": "meetings ever-had",
+      "description": "Find every meeting whose given property was EVER set to a given value within a date range — even if it has since changed."
+    },
+    {
+      "name": "Monthly meeting status report",
+      "command": "meetings status-report",
+      "description": "Composes the meetings ever-had query into the canonical monthly-report shape: every meeting that touched the given status in the given month, with owner, title, current status, and the timestamp of the original status set."
+    },
+    {
+      "name": "Sync with property history",
+      "command": "sync --with-history",
+      "description": "Opt-in sync flag that requests propertiesWithHistory for the named properties on meetings (and on deals, contacts, companies when scoped to those). Persists per-property snapshots into the shared hubspot_property_history table."
+    },
+    {
+      "name": "Engagements of",
+      "command": "engagements of",
+      "description": "Unified chronological timeline of every call, email, meeting, note, and task touching a contact, deal, or company."
+    },
+    {
+      "name": "Note signal extraction",
+      "command": "notes signals",
+      "description": "Scan note bodies for buying / lost signals (meeting scheduled, budget approved, no response, competitor chosen) and emit per-deal signal counts with the source note id."
+    },
+    {
+      "name": "Since",
+      "command": "since",
+      "description": "What changed across contacts, deals, and engagements since a given timestamp — agent-friendly cross-object delta."
+    },
+    {
+      "name": "Nurture mine",
+      "command": "nurture-mine",
+      "description": "Surface the contacts assigned to you that have gone cold but still have open deals — the daily 'who do I call' list, computed across local SQLite."
+    },
+    {
+      "name": "Bulk update from CSV with schema validation",
+      "command": "contacts bulk-update",
+      "description": "Apply a CSV of property changes to many contacts at once, pre-validating each row against HubSpot's property schema (types, picklists) before any mutation."
+    },
+    {
+      "name": "Deal velocity / time-in-stage",
+      "command": "deals velocity",
+      "description": "Per-deal days-in-current-stage and per-stage median/p90 dwell time, computed from dealstage change history — find where deals rot."
+    },
+    {
+      "name": "Lifecycle-stage funnel",
+      "command": "contacts funnel",
+      "description": "One-shot funnel table of contacts per lifecycle stage (subscriber → lead → MQL → SQL → opportunity → customer) with stage-to-stage conversion ratios."
+    },
+    {
+      "name": "Orphaned / dead-owner deals",
+      "command": "deals unowned",
+      "description": "Open deals with no owner or owned by a deactivated rep, with per-stage dollar exposure — the hygiene gap owner-load can't see."
+    },
+    {
+      "name": "Post-win re-engagement (win-back)",
+      "command": "contacts win-back",
+      "description": "Contacts attached to a Closed Won deal but with no engagement in N days — the customer-expansion and re-engage list."
+    },
+    {
+      "name": "Weighted forecast by close-month",
+      "command": "deals forecast",
+      "description": "Probability-weighted pipeline forecast bucketed by close-date month — the canonical GM revenue question, answered offline."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 180,
+    "total": 180,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

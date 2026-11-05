@@ -19,6 +19,7 @@ import (
 	"avanan-pp-cli/internal/avanansig"
 	"avanan-pp-cli/internal/cliutil"
 	"avanan-pp-cli/internal/config"
+	"avanan-pp-cli/internal/credkit"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -26,6 +27,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,7 +53,15 @@ type AvananTransport struct {
 	mu     sync.Mutex
 	token  string
 	expiry time.Time
+	// issued is every session token this transport has held, including ones
+	// since discarded, so an error body echoing any of them is masked.
+	issued []string
 }
+
+// OutboundGuard is the credential kit's transport. A variable so in-process
+// tests, which run no credkit.Start and so have no declared origins, can stand
+// up loopback servers; the built binaries are the proof of the guard itself.
+var OutboundGuard = credkit.Transport
 
 // InstallAvananAuth wraps a client's transport with Avanan request signing.
 // Registered as a client hook so it applies to every constructed client.
@@ -65,7 +76,10 @@ func InstallAvananAuth(c *Client) error {
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	t := &AvananTransport{base: base, cfg: c.Config}
+	// Hand-fix (handfixes.json credkit-wiring): the kit's guard sits inside the
+	// signer, so it sees the signed headers, the handshakes and every redirect hop.
+	t := &AvananTransport{base: OutboundGuard(base), cfg: c.Config}
+	t.holdRuntime()
 	if c.Config != nil && c.Config.AvananToken != "" {
 		t.token = c.Config.AvananToken
 		// Prefer the expiry `auth login` persisted. Fabricating now+TTL for a
@@ -80,6 +94,41 @@ func InstallAvananAuth(c *Client) error {
 	}
 	c.HTTPClient.Transport = t
 	return nil
+}
+
+// holdRuntime holds with the credential kit every credential this transport has
+// or obtains, the moment it has it and before any request carrying it is sent:
+// the configured app id, client secret and stored session token (here on every
+// call, so a token loaded from the config or credentials file is covered however
+// the transport was built and however the config changed since), every session
+// token either handshake mints (mint, and again on adoption), and the legacy
+// handshake signature (mintLegacy).
+func (t *AvananTransport) holdRuntime(obtained ...string) {
+	cliutil.Hold("minted:session-token", obtained...)
+	if t.cfg != nil {
+		cliutil.Hold("config:unclassified", t.cfg.AvananAppId, t.cfg.ClientSecret, t.cfg.AvananToken)
+	}
+}
+
+// adoptToken makes tok the cached session token. It is held first, and stays
+// in issued after it is discarded so maskErrorBody keeps masking its echo.
+func (t *AvananTransport) adoptToken(tok string, expiry time.Time) {
+	t.holdRuntime(tok)
+	t.mu.Lock()
+	t.token, t.expiry = tok, expiry
+	t.issued = append(t.issued, tok)
+	t.mu.Unlock()
+}
+
+// holdsCredential reports whether this transport would attach any credential
+// material to a request.
+func (t *AvananTransport) holdsCredential() bool {
+	if t.cfg != nil && (t.cfg.AvananAppId != "" || t.cfg.ClientSecret != "" || t.cfg.AvananToken != "") {
+		return true
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.token != ""
 }
 
 // credentialsConfigured reports whether the app-id/secret pair needed to mint
@@ -139,8 +188,65 @@ func (t *AvananTransport) authorizeHost(u *url.URL) error {
 		got, want)
 }
 
-// RoundTrip signs and dispatches a single request.
+// RoundTrip signs and dispatches a single request. Every non-2xx body it
+// hands back has passed through maskErrorBody, and every body, any status,
+// through withholdHeldBody. A request for an auth endpoint is refused: its
+// answer is a session token, which only mint may receive (and hold), never a
+// command, a redirect or a caller of the client as data.
 func (t *AvananTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isAuthEndpoint(req.URL.Path) {
+		return nil, fmt.Errorf("avanan: refusing a request for the auth endpoint %s: session tokens are minted by the transport, never fetched as data", req.URL.Path)
+	}
+	resp, err := t.roundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	return t.maskErrorBody(resp)
+}
+
+// inflated decodes a Content-Encoding the server chose itself, as the client
+// does before it prints a body, so the transport's checks read those bytes and
+// not the compressed ones. The header is dropped once decoded.
+func inflated(resp *http.Response, body []byte) []byte {
+	if enc := resp.Header.Get("Content-Encoding"); enc != "" {
+		if decoded, err := decodeContentEncoding(enc, body); err == nil {
+			resp.Header.Del("Content-Encoding")
+			return decoded
+		}
+	}
+	return body
+}
+
+// maskErrorBody rewrites a non-2xx body so no credential this transport holds
+// or has issued (app id, secret, stored token, every minted session token)
+// reaches an error sink in any encoding the client's masker knows. The client
+// masks only the credentials in Config; a minted token lives only here.
+func (t *AvananTransport) maskErrorBody(resp *http.Response) (*http.Response, error) {
+	if resp == nil || resp.Body == nil || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return resp, nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("avanan: reading response body: %w", err)
+	}
+	t.mu.Lock()
+	creds := append([]string{t.token}, t.issued...)
+	t.mu.Unlock()
+	if t.cfg != nil {
+		creds = append(creds, t.cfg.AvananAppId, t.cfg.ClientSecret, t.cfg.AvananToken)
+	}
+	masked := []byte((*Client)(nil).maskCredentialText(string(body), creds...))
+	resp.Body = io.NopCloser(bytes.NewReader(masked))
+	resp.ContentLength = int64(len(masked))
+	resp.Header.Del("Content-Length")
+	return resp, nil
+}
+
+func (t *AvananTransport) roundTrip(req *http.Request) (*http.Response, error) {
+	// Before anything can send: the configured credentials are held.
+	t.holdRuntime()
+
 	// A RoundTripper must not mutate the request it is handed.
 	r := req.Clone(req.Context())
 
@@ -148,6 +254,15 @@ func (t *AvananTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// endpoint and the signature are all derived from it.
 	if err := t.authorizeHost(r.URL); err != nil {
 		return nil, err
+	}
+	// The transport is where credentials are attached (signature, app id,
+	// stored or minted session token), so it enforces the plaintext rule for
+	// everything it attaches. The generated client's own guard keys off
+	// AuthHeader() (the app id) alone and misses a token-only config.
+	if t.holdsCredential() {
+		if err := plaintextCredentialError(r.URL, true); err != nil {
+			return nil, err
+		}
 	}
 
 	infinity := avanansig.IsInfinityHost(r.URL.Host)
@@ -164,6 +279,11 @@ func (t *AvananTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	resp, err := t.base.RoundTrip(r)
 	if err != nil {
+		return nil, err
+	}
+	// The envelope check runs before the 401 retry so an envelope-level 401
+	// is retried exactly like an HTTP one.
+	if resp, err = applyEnvelopeStatus(resp); err != nil {
 		return nil, err
 	}
 
@@ -190,9 +310,82 @@ func (t *AvananTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		drainAndClose(resp)
 		t.applyAuth(retry, fresh, infinity)
-		return t.base.RoundTrip(retry)
+		retried, err := t.base.RoundTrip(retry)
+		if err != nil {
+			return nil, err
+		}
+		return applyEnvelopeStatus(retried)
 	}
 
+	return resp, nil
+}
+
+// EnvelopeCodeFailed is the one rule for reading Avanan's vendor status.
+//
+// Every response is {responseEnvelope:{responseCode,...}, responseData}, and
+// the vendor reports the real outcome in responseCode (spec components.schemas
+// ResponseEnvelope); 0 and 200 are the success values the API uses. Anything
+// else is a failure, whatever the HTTP status said.
+func EnvelopeCodeFailed(code int) bool {
+	return code != 0 && code != http.StatusOK
+}
+
+// envelopeResponseCode extracts responseEnvelope.responseCode. ok is false when
+// the body carries no envelope code at all. A code that is present but not a
+// number is reported as a failure (-1): any failure signal wins.
+func envelopeResponseCode(body []byte) (code int, ok bool) {
+	var probe struct {
+		ResponseEnvelope *struct {
+			ResponseCode json.RawMessage `json:"responseCode"`
+		} `json:"responseEnvelope"`
+	}
+	if err := json.Unmarshal(body, &probe); err != nil || probe.ResponseEnvelope == nil {
+		return 0, false
+	}
+	raw := strings.TrimSpace(string(probe.ResponseEnvelope.ResponseCode))
+	if raw == "" || raw == "null" {
+		return 0, false
+	}
+	raw = strings.Trim(raw, `"`)
+	if f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64); err == nil && f == float64(int(f)) {
+		return int(f), true
+	}
+	return -1, true
+}
+
+// applyEnvelopeStatus turns an HTTP 2xx whose envelope reports failure into a
+// non-2xx response, so every caller - generated commands, the MCP executor,
+// hand-written commands - sees the vendor's verdict through the one status
+// check it already makes. The body is preserved byte for byte. A vendor code
+// that is a valid HTTP error status is used as-is; any other failing code
+// becomes 502, since the upstream answered but did not succeed.
+func applyEnvelopeStatus(resp *http.Response) (*http.Response, error) {
+	if resp == nil || resp.Body == nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resp, nil
+	}
+	if ct := strings.ToLower(resp.Header.Get("Content-Type")); ct != "" && !strings.Contains(ct, "json") && !strings.HasPrefix(ct, "text/") {
+		return resp, nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("avanan: reading response body: %w", err)
+	}
+	body = inflated(resp, body)
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+	resp.Header.Del("Content-Length")
+	code, ok := envelopeResponseCode(body)
+	if !ok || !EnvelopeCodeFailed(code) {
+		return resp, nil
+	}
+	status := code
+	if status < 400 || status > 599 {
+		status = http.StatusBadGateway
+	}
+	resp.StatusCode = status
+	resp.Status = fmt.Sprintf("%d %s", status, http.StatusText(status))
+	resp.Header.Set("X-Avanan-Envelope-Response-Code", strconv.Itoa(code))
 	return resp, nil
 }
 
@@ -233,6 +426,7 @@ func (t *AvananTransport) applyAuth(r *http.Request, token string, infinity bool
 
 	r.Header.Set("x-av-app-id", appID)
 	r.Header.Set("x-av-date", date)
+	// Held by the kit's transport, per request: credwire declares this header.
 	r.Header.Set("x-av-sig", avanansig.Sign(reqID, appID, date, requestString, t.cfg.ClientSecret))
 
 	if token != "" {
@@ -247,6 +441,22 @@ func (t *AvananTransport) applyAuth(r *http.Request, token string, infinity bool
 
 func isHandshakePath(path string) bool {
 	return strings.HasSuffix(strings.TrimSuffix(path, "/"), "/auth")
+}
+
+// isAuthEndpoint reports whether p names either handshake endpoint (legacy
+// .../auth, Infinity .../auth/external) however it is spelled: any case, dot
+// segments, doubled or trailing slashes.
+func isAuthEndpoint(p string) bool {
+	p = strings.ToLower(path.Clean("/" + p))
+	return strings.HasSuffix(p, "/auth") || strings.HasSuffix(p, "/auth/external")
+}
+
+// holdAuthAnswer holds the token an auth answer carries the moment it is
+// read, before any status, envelope or parse check can turn the answer into
+// an error: a token the server issued is a credential whether or not this
+// handshake goes on to use it.
+func (t *AvananTransport) holdAuthAnswer(body []byte) {
+	t.holdRuntime(extractLegacyToken(body))
 }
 
 // ensureToken returns a usable session token, minting one if the cache is
@@ -282,9 +492,7 @@ func (t *AvananTransport) ensureToken(r *http.Request, infinity bool) (string, e
 		return "", err
 	}
 
-	t.mu.Lock()
-	t.token, t.expiry = tok, expiry
-	t.mu.Unlock()
+	t.adoptToken(tok, expiry)
 	return tok, nil
 }
 
@@ -312,11 +520,34 @@ func (t *AvananTransport) mint(r *http.Request, infinity bool) (string, time.Tim
 		return "", time.Time{}, fmt.Errorf("avanan: configured base URL %q is not a usable absolute URL", t.cfg.BaseURL)
 	}
 	baseURL := &url.URL{Scheme: cfgURL.Scheme, Host: cfgURL.Host}
-	httpClient := &http.Client{Transport: t.base, Timeout: 30 * time.Second}
-	if infinity {
-		return t.mintInfinity(r, httpClient, baseURL)
+	// The handshake carries the credential itself (the Infinity access key in
+	// the body, a replayable signature on legacy hosts) and runs on its own
+	// client, outside the generated client's guards. So it enforces them
+	// here: never over plaintext to a non-loopback host, and never through a
+	// redirect - a 307 would replay the body to whatever host Location names.
+	// No redirect appears anywhere in the vendor's handshake.
+	if err := plaintextCredentialError(baseURL, true); err != nil {
+		return "", time.Time{}, fmt.Errorf("avanan auth handshake: %w", err)
 	}
-	return t.mintLegacy(r, httpClient, baseURL)
+	httpClient := &http.Client{
+		Transport: t.base,
+		Timeout:   30 * time.Second,
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			return fmt.Errorf("refusing to follow a redirect to %s: the auth handshake carries the credential and is never redirected", req.URL.Host)
+		},
+	}
+	mintOn := t.mintLegacy
+	if infinity {
+		mintOn = t.mintInfinity
+	}
+	tok, expiry, err := mintOn(r, httpClient, baseURL)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	// Held the moment it exists: before it is cached, returned to Mint's
+	// caller, or attached to any request.
+	t.holdRuntime(tok)
+	return tok, expiry, nil
 }
 
 // mintLegacy performs the signed GET /v1.0/auth handshake. The response is the
@@ -332,12 +563,17 @@ func (t *AvananTransport) mintLegacy(r *http.Request, httpClient *http.Client, b
 	}
 	reqID := uuid.NewString()
 	date := avanansig.FormatDate(time.Now())
+	// The handshake carries no token, so this signature is the credential on
+	// this leg (replayable within the vendor's clock window): held before it
+	// is sent.
+	sig := avanansig.Sign(reqID, t.cfg.AvananAppId, date, "", t.cfg.ClientSecret)
+	t.holdRuntime(sig)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("x-av-req-id", reqID)
 	req.Header.Set("x-av-token", "")
 	req.Header.Set("x-av-app-id", t.cfg.AvananAppId)
 	req.Header.Set("x-av-date", date)
-	req.Header.Set("x-av-sig", avanansig.Sign(reqID, t.cfg.AvananAppId, date, "", t.cfg.ClientSecret))
+	req.Header.Set("x-av-sig", sig)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -345,16 +581,25 @@ func (t *AvananTransport) mintLegacy(r *http.Request, httpClient *http.Client, b
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		// Status and a fixed diagnostic only. The body answers a request that
+		// carried the credential, so it is never rendered: an echo in any
+		// encoding would otherwise reach stderr or an MCP result.
+		return "", time.Time{}, fmt.Errorf(
+			"avanan auth handshake failed (HTTP %d)\ncheck AVANAN_APP_ID and AVANAN_CLIENT_SECRET, and confirm they were issued for this region (%s)",
+			resp.StatusCode, baseURL.Host)
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("avanan auth handshake: reading response: %w", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", time.Time{}, fmt.Errorf(
-			"avanan auth handshake failed (HTTP %d): %s\ncheck AVANAN_APP_ID and AVANAN_CLIENT_SECRET, and confirm they were issued for this region (%s)",
-			resp.StatusCode, t.scrub(truncate(string(body), 300)), baseURL.Host)
-	}
+	t.holdAuthAnswer(body)
 
+	// An envelope-form answer that reports failure is not a token, whatever
+	// responseData holds.
+	if code, ok := envelopeResponseCode(body); ok && EnvelopeCodeFailed(code) {
+		return "", time.Time{}, fmt.Errorf("avanan auth handshake failed (responseCode %d)\ncheck AVANAN_APP_ID and AVANAN_CLIENT_SECRET, and confirm they were issued for this region (%s)", code, baseURL.Host)
+	}
 	token := extractLegacyToken(body)
 	if token == "" {
 		return "", time.Time{}, fmt.Errorf("avanan auth handshake: no token in response from %s", authURL.String())
@@ -422,15 +667,17 @@ func (t *AvananTransport) mintInfinity(r *http.Request, httpClient *http.Client,
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		// Status and a fixed diagnostic only; see mintLegacy.
+		return "", time.Time{}, fmt.Errorf(
+			"avanan infinity auth failed (HTTP %d)\ncheck AVANAN_APP_ID (client id) and AVANAN_CLIENT_SECRET (access key)",
+			resp.StatusCode)
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("avanan infinity auth: reading response: %w", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", time.Time{}, fmt.Errorf(
-			"avanan infinity auth failed (HTTP %d): %s\ncheck AVANAN_APP_ID (client id) and AVANAN_CLIENT_SECRET (access key)",
-			resp.StatusCode, t.scrub(truncate(string(body), 300)))
-	}
+	t.holdAuthAnswer(body)
 
 	var parsed struct {
 		Data struct {
@@ -439,7 +686,9 @@ func (t *AvananTransport) mintInfinity(r *http.Request, httpClient *http.Client,
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return "", time.Time{}, fmt.Errorf("avanan infinity auth: parsing response: %w", err)
+		// A fixed message: the decoder's error quotes the value it choked on,
+		// which can be the token.
+		return "", time.Time{}, errors.New("avanan infinity auth: the response is not the documented token shape")
 	}
 	if parsed.Data.Token == "" {
 		return "", time.Time{}, errors.New("avanan infinity auth: no token in response")
@@ -460,6 +709,7 @@ func (t *AvananTransport) mintInfinity(r *http.Request, httpClient *http.Client,
 // expiry. Used by `auth login` to persist a token without going through a data
 // request first.
 func (t *AvananTransport) Mint(req *http.Request) (string, time.Time, error) {
+	t.holdRuntime()
 	if !t.credentialsConfigured() {
 		return "", time.Time{}, errors.New("AVANAN_APP_ID and AVANAN_CLIENT_SECRET must both be set")
 	}
@@ -468,9 +718,7 @@ func (t *AvananTransport) Mint(req *http.Request) (string, time.Time, error) {
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	t.mu.Lock()
-	t.token, t.expiry = tok, expiry
-	t.mu.Unlock()
+	t.adoptToken(tok, expiry)
 	return tok, expiry, nil
 }
 
@@ -508,28 +756,4 @@ func drainAndClose(resp *http.Response) {
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
-}
-
-// scrub removes credential material from text that came off the wire before it
-// is interpolated into an error. The Infinity handshake POSTs
-// {"accessKey": <secret>}, and a gateway that echoes the offending field on a
-// 400 would otherwise print the secret to stderr.
-func (t *AvananTransport) scrub(text string) string {
-	text = strings.TrimSpace(text)
-	if t == nil || t.cfg == nil {
-		return text
-	}
-	for _, secret := range []string{t.cfg.ClientSecret, t.cfg.AvananToken, t.token} {
-		if len(secret) >= 6 {
-			text = strings.ReplaceAll(text, secret, "***redacted***")
-		}
-	}
-	return text
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "..."
 }

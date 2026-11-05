@@ -17,7 +17,7 @@ import (
 // the contacts_* novel tests.
 func seedContact(t *testing.T, s *store.Store, id string, props map[string]any, createdAt time.Time) {
 	t.Helper()
-	data, err := json.Marshal(map[string]any{"id": id, "properties": props})
+	data, err := json.Marshal(map[string]any{"id": id, "properties": nbAsSynced(props)})
 	if err != nil {
 		t.Fatalf("marshal contact %s: %v", id, err)
 	}

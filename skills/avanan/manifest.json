@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "avanan-mcp",
   "display_name": "Avanan",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
   "author": {
     "name": "Servosity Inc."
@@ -20,7 +20,10 @@
         "AVANAN_CLIENT_SECRET": "${user_config.avanan_client_secret}",
         "AVANAN_TOKEN": "${user_config.avanan_token}",
         "AVANAN_USER_AGENT": "${user_config.avanan_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "AVANAN_MCP_READ_ONLY": "${user_config.avanan_mcp_read_only}",
+        "AVANAN_NO_LOCAL_DATA": "${user_config.avanan_no_local_data}",
+        "AVANAN_MCP_HTTP_TOKEN": "${user_config.avanan_mcp_http_token}"
       }
     }
   },
@@ -64,6 +67,27 @@
       "title": "Client profile",
       "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
       "required": false
+    },
+    "avanan_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "avanan_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "avanan_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -74,11 +98,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.30.2",
+  "printing_press_version": "4.34.0",
   "press_provenance": {
-    "printing_press_version": "4.30.2",
-    "generated_at": "2026-08-15T03:04:59.193735187Z",
-    "spec_checksum": "sha256:53aa7bbffcb89d1db74e26cee79e817a7410b611ae2cb7937fb42b16288b5930",
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-27T14:48:37.300791Z",
+    "spec_checksum": "sha256:cbff6e2a35f1e2527f16404c171673ece33b8601b23fb790a0ca680f693c193e",
     "spec_format": "openapi3"
   }
 }

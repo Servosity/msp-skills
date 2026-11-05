@@ -17,7 +17,7 @@ import (
 // properties and an explicit created_at. Shared across the deals_* novel tests.
 func seedDeal(t *testing.T, s *store.Store, id string, props map[string]any, createdAt time.Time) {
 	t.Helper()
-	data, err := json.Marshal(map[string]any{"id": id, "properties": props})
+	data, err := json.Marshal(map[string]any{"id": id, "properties": nbAsSynced(props)})
 	if err != nil {
 		t.Fatalf("marshal deal %s: %v", id, err)
 	}
@@ -48,10 +48,12 @@ func TestQueryDealsVelocity_HappyPath(t *testing.T) {
 	seedDeal(t, s, "d1", map[string]any{
 		"dealname": "Acme Renewal", "amount": "10000",
 		"dealstage": "qualifiedtobuy", "pipeline": "default",
+		"hs_lastmodifieddate": "2026-01-01T00:00:00Z",
 	}, now.Add(-100*24*time.Hour))
 	seedDeal(t, s, "d2", map[string]any{
 		"dealname": "Beta Expansion", "amount": "5000",
 		"dealstage": "appointmentscheduled", "pipeline": "default",
+		"hs_lastmodifieddate": "2026-01-01T00:00:00Z",
 	}, now.Add(-50*24*time.Hour))
 	// closed won — must be excluded even with history present.
 	seedDeal(t, s, "d3", map[string]any{
@@ -59,16 +61,18 @@ func TestQueryDealsVelocity_HappyPath(t *testing.T) {
 		"dealstage": "closedwon", "pipeline": "default",
 	}, now.Add(-5*24*time.Hour))
 
-	hist := func(id string, ts time.Time) {
+	// Each deal's newest dealstage history entry is its current stage; a
+	// history value that is not the current stage leaves the deal unknown.
+	hist := func(id, stage string, ts time.Time) {
 		if err := s.UpsertPropertyHistoryBatch(ctx, "deals", id, []store.PropertyHistoryEntry{
-			{Property: "dealstage", Value: "x", Timestamp: ts},
+			{Property: "dealstage", Value: stage, Timestamp: ts, SnapshotAt: now.Format(time.RFC3339)},
 		}); err != nil {
 			t.Fatalf("seed history %s: %v", id, err)
 		}
 	}
-	hist("d1", now.Add(-40*24*time.Hour))
-	hist("d2", now.Add(-10*24*time.Hour))
-	hist("d3", now.Add(-2*24*time.Hour))
+	hist("d1", "qualifiedtobuy", now.Add(-40*24*time.Hour))
+	hist("d2", "appointmentscheduled", now.Add(-10*24*time.Hour))
+	hist("d3", "closedwon", now.Add(-2*24*time.Hour))
 
 	cmd := newNovelDealsVelocityCmd(&rootFlags{})
 	cmd.SetContext(ctx)

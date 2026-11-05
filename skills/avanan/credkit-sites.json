@@ -1,0 +1,516 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/avanan_action_wait.go",
+   "func": "avananActionWait",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_action_wait.go",
+   "func": "avananPrintActionWait",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_action_wait.go",
+   "func": "avananPrintActionWait",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_action_wait.go",
+   "func": "avananPrintActionWait",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_auth.go",
+   "func": "newAvananAuthLoginCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_auth.go",
+   "func": "newAvananAuthLoginCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_auth.go",
+   "func": "newAvananAuthLoginCmd",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "only transport.Mint reads it; the handshake client sends on t.base, the kit's guard"
+  },
+  {
+   "file": "internal/cli/avanan_auth.go",
+   "func": "newAvananAuthLoginCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "newNovelExceptionsAuditCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "newNovelExceptionsFindCmd",
+   "what": "fmt.Fprintf",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "newNovelExceptionsFindCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "newNovelExceptionsFindCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "runExceptionsAudit",
+   "what": "fmt.Fprintf",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "runExceptionsAudit",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_exceptions.go",
+   "func": "runExceptionsAudit",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_localdata.go",
+   "func": "hintMirrorFreshness",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_localdata.go",
+   "func": "loadResources",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command after main's credkit.Start, on a handle the store opens through the credsql driver the kit wraps"
+  },
+  {
+   "file": "internal/cli/avanan_localdata.go",
+   "func": "openMirror",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_localdata.go",
+   "func": "openMirror",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_mirror.go",
+   "func": "newAvananMirrorCmd",
+   "what": "fmt.Fprintf",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_mirror.go",
+   "func": "newAvananMirrorCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_msp_fleet.go",
+   "func": "newNovelMspFleetCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_msp_fleet.go",
+   "func": "newNovelMspFleetCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_msp_fleet.go",
+   "func": "newNovelMspFleetCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_set_token.go",
+   "func": "newAuthSetTokenCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/avanan_set_token.go",
+   "func": "newAuthSetTokenCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/campaign.go",
+   "func": "newNovelCampaignCmd",
+   "what": "fmt.Fprintf",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/campaign.go",
+   "func": "newNovelCampaignCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/campaign.go",
+   "func": "newNovelCampaignCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "newNovelRemediateCmd",
+   "what": "fmt.Fprintf",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "newNovelRemediateCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "newNovelRemediateCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "recordActionLog",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "writeRemediateDryRun",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "writeRemediateDryRun",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/remediate.go",
+   "func": "writeRemediateDryRun",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/timeline.go",
+   "func": "newNovelTimelineCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/timeline.go",
+   "func": "newNovelTimelineCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/timeline.go",
+   "func": "newNovelTimelineCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "fmt.Fprintf",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "printBuckets",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a cobra RunE after main's credkit.Start: this file's init only registers a closure that builds the command inside RootCmd, and the kit's output layer is installed by then"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mint",
+   "what": "avanan-pp-cli/internal/client.AvananTransport.mintInfinity",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "called after Start with a client whose Transport is t.base, the kit's guard"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mint",
+   "what": "avanan-pp-cli/internal/client.AvananTransport.mintLegacy",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "called after Start with a client whose Transport is t.base, the kit's guard"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mint",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "Transport is t.base, which InstallAvananAuth built with OutboundGuard, a name for credkit.Transport that in-process tests replace"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mintInfinity",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the handshake client mint builds on t.base, the kit's guard, and only after Start"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mintInfinity",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the handshake client mint builds on t.base, the kit's guard"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mintLegacy",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the handshake client mint builds on t.base, the kit's guard, and only after Start"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.mintLegacy",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the handshake client mint builds on t.base, the kit's guard"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "AvananTransport.roundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "t.base is OutboundGuard(base), so every signed request passes the kit's guard"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "InstallAvananAuth",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the call is OutboundGuard, a variable holding credkit.Transport that in-process tests replace"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "InstallAvananAuth",
+   "what": "convert:avanan-pp-cli/internal/client.AvananTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the signer sits outside the kit's guard on purpose, so the guard sees the signed headers"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "InstallAvananAuth",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the signer wraps OutboundGuard(base), so the kit's guard sees every request it sends"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "InstallAvananAuth",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the base handed straight to OutboundGuard, which is credkit.Transport, two lines below"
+  },
+  {
+   "file": "internal/client/avanan_transport.go",
+   "func": "drainAndClose",
+   "what": "io.Copy",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "copies a discarded response body to io.Discard; nothing is written"
+  },
+  {
+   "file": "internal/cliutil/avanan_config_hold.go",
+   "func": "AtomicWriteCheckedFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates an empty temporary file; its bytes are written by credkit.WriteFile before it is renamed into place"
+  },
+  {
+   "file": "internal/config/avanan_config.go",
+   "func": "HoldCredentials",
+   "what": "reflect",
+   "count": 18,
+   "kind": "exempt",
+   "reason": "reads Config's fields and their toml tags to hold credential values; it writes nothing and reaches no command, client or transport"
+  },
+  {
+   "file": "internal/config/avanan_config.go",
+   "func": "holdConfigBytes",
+   "what": "reflect",
+   "count": 9,
+   "kind": "exempt",
+   "reason": "reads Config's fields and their toml tags to hold credential values; it writes nothing and reaches no command, client or transport"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/mcp/request_contract.go",
+   "func": "loadRequestContracts",
+   "what": "builtin.panic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "panics on a corrupt embedded contract at init, with a message that carries the JSON error and no input or credential"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeFeedbackStdin",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin, writes nothing: credkit.Start calls it through Declarations.Files to take a feedback --stdin note off stdin before the kit reads it; os.Stdin is an input here, never an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeFeedbackStdin",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin, writes nothing: credkit.Start calls it through Declarations.Files to take a feedback --stdin note off stdin before the kit reads it; os.Stdin is an input here, never an output"
+  }
+ ]
+}

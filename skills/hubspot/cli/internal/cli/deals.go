@@ -16,7 +16,7 @@ func newNovelDealsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "deals",
 		Short:       "Work with deals",
 		Example:     "  hubspot-cli deals forecast --pipeline default --json",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelDealsForecastCmd(flags))

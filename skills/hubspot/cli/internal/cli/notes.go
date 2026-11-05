@@ -16,7 +16,7 @@ func newNovelNotesCmd(flags *rootFlags) *cobra.Command {
 		Use:         "notes",
 		Short:       "Cross-object intelligence",
 		Example:     "  hubspot-cli notes signals --pipeline default --since 30d --json",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelNotesSignalsCmd(flags))

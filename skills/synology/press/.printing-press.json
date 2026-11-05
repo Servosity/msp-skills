@@ -1,0 +1,195 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T21:05:18.246552Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "synology",
+  "display_name": "Synology DSM + Active Backup for Business",
+  "cli_name": "synology-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_source": "community",
+  "spec_checksum": "sha256:9dae59bfe9e0be1a61a4760cf850a6e0ca6ad9a1802f488d315c10dbbb1c9f02",
+  "run_id": "20261027-102148-de535b02",
+  "category": "devices",
+  "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+  "mcp_binary": "synology-pp-mcp",
+  "mcp_tool_count": 32,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "session_handshake",
+  "auth_env_vars": [
+    "SYNOLOGY_ACCOUNT",
+    "SYNOLOGY_PASSWORD",
+    "SYNOLOGY_DEVICE_ID",
+    "SYNOLOGY_OTP_CODE"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "SYNOLOGY_ACCOUNT",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": false,
+      "description": "DSM account name used for the SYNO.API.Auth login"
+    },
+    {
+      "name": "SYNOLOGY_PASSWORD",
+      "kind": "auth_flow_input",
+      "required": true,
+      "sensitive": true,
+      "description": "DSM account password; sent in the login request body, never stored by the CLI"
+    },
+    {
+      "name": "SYNOLOGY_DEVICE_ID",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": true,
+      "description": "Trusted-device token (did) from a previous two-factor login, used instead of a one-time code"
+    },
+    {
+      "name": "SYNOLOGY_OTP_CODE",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": true,
+      "description": "Six-digit one-time code for the first login of a two-factor account"
+    }
+  ],
+  "auth_title": "DSM account",
+  "auth_description": "A DSM account on the NAS (an administrator, or an account granted the Active Backup for Business application). Two-factor accounts use a trusted-device token.",
+  "novel_features": [
+    {
+      "name": "Fleet status rollup",
+      "command": "fleet status",
+      "description": "One row per client NAS with backup outcomes, stale devices, worst storage state and sync age; exits 6 when any NAS is warning, critical or unknown (--no-fail exits 0)."
+    },
+    {
+      "name": "ABB failures",
+      "command": "abb failures",
+      "description": "Every Active Backup task across the fleet whose latest run in a window failed, partially succeeded, was canceled, or never ran."
+    },
+    {
+      "name": "Stale protection",
+      "command": "abb stale",
+      "description": "Protected PCs, servers and VMs whose last successful backup is older than a threshold, or that never succeeded."
+    },
+    {
+      "name": "Per-NAS fleet sync",
+      "command": "fleet sync",
+      "description": "Mirror ABB job status and storage health from every NAS registered with fleet add into one local database, each NAS with its own login."
+    },
+    {
+      "name": "Fleet storage health",
+      "command": "fleet health",
+      "description": "Degraded or crashed volumes and pools, disks with bad SMART status, hot disks and nearly full volumes across every NAS, with days-to-full when history exists."
+    },
+    {
+      "name": "Failed-task triage",
+      "command": "abb triage",
+      "description": "Why one ABB task failed: its newest non-success run, its detail lines and the ABB log from that window, errors first. Live call to one NAS; DSM returns log types and parameters, not message text."
+    },
+    {
+      "name": "Device lookup",
+      "command": "abb device",
+      "description": "Find a machine by host name across every NAS and see which task protects it, its last success and its recent runs."
+    },
+    {
+      "name": "Backup trend",
+      "command": "abb trend",
+      "description": "Per task or device: run count, success rate, median and p90 duration, and an overrun flag when the latest run is far slower than usual."
+    },
+    {
+      "name": "Protection dropped",
+      "command": "abb unprotected",
+      "description": "Devices and tasks that dropped out of Active Backup protection across the fleet: a machine removed from its task, a task deleted, or a task whose schedule is off while it still holds devices; exits 6 when any exist or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    },
+    {
+      "name": "Volume runway",
+      "command": "fleet capacity",
+      "description": "Every volume on every NAS with used percent, growth per day and days until full from retained storage snapshots, soonest first; exits 6 when a volume fills inside the horizon (default 30 days), a volume's capacity is unknown, or a NAS's storage cannot be read (--no-fail exits 0)."
+    },
+    {
+      "name": "Change-rate anomaly",
+      "command": "abb change-rate",
+      "description": "Devices whose newest good backup moved far more data than their own median (a mass file change) or nothing at all for several runs in a row, across the fleet; exits 6 when any device is flagged or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet status rollup",
+      "command": "fleet status",
+      "description": "One row per client NAS with backup outcomes, stale devices, worst storage state and sync age; exits 6 when any NAS is warning, critical or unknown (--no-fail exits 0)."
+    },
+    {
+      "name": "ABB failures",
+      "command": "abb failures",
+      "description": "Every Active Backup task across the fleet whose latest run in a window failed, partially succeeded, was canceled, or never ran."
+    },
+    {
+      "name": "Stale protection",
+      "command": "abb stale",
+      "description": "Protected PCs, servers and VMs whose last successful backup is older than a threshold, or that never succeeded."
+    },
+    {
+      "name": "Per-NAS fleet sync",
+      "command": "fleet sync",
+      "description": "Mirror ABB job status and storage health from every NAS registered with fleet add into one local database, each NAS with its own login."
+    },
+    {
+      "name": "Fleet storage health",
+      "command": "fleet health",
+      "description": "Degraded or crashed volumes and pools, disks with bad SMART status, hot disks and nearly full volumes across every NAS, with days-to-full when history exists."
+    },
+    {
+      "name": "Failed-task triage",
+      "command": "abb triage",
+      "description": "Why one ABB task failed: its newest non-success run, its detail lines and the ABB log from that window, errors first. Live call to one NAS; DSM returns log types and parameters, not message text."
+    },
+    {
+      "name": "Device lookup",
+      "command": "abb device",
+      "description": "Find a machine by host name across every NAS and see which task protects it, its last success and its recent runs."
+    },
+    {
+      "name": "Backup trend",
+      "command": "abb trend",
+      "description": "Per task or device: run count, success rate, median and p90 duration, and an overrun flag when the latest run is far slower than usual."
+    },
+    {
+      "name": "Protection dropped",
+      "command": "abb unprotected",
+      "description": "Devices and tasks that dropped out of Active Backup protection across the fleet: a machine removed from its task, a task deleted, or a task whose schedule is off while it still holds devices; exits 6 when any exist or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    },
+    {
+      "name": "Volume runway",
+      "command": "fleet capacity",
+      "description": "Every volume on every NAS with used percent, growth per day and days until full from retained storage snapshots, soonest first; exits 6 when a volume fills inside the horizon (default 30 days), a volume's capacity is unknown, or a NAS's storage cannot be read (--no-fail exits 0)."
+    },
+    {
+      "name": "Change-rate anomaly",
+      "command": "abb change-rate",
+      "description": "Devices whose newest good backup moved far more data than their own median (a mass file change) or nothing at all for several runs in a row, across the fleet; exits 6 when any device is flagged or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 45,
+    "total": 45,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 90,
+      "grade": "A",
+      "total": 90
+    }
+  }
+}

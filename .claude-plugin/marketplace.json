@@ -132,13 +132,11 @@
     {
       "name": "avanan",
       "source": "./skills/avanan",
-      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.11",
+      "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "avanan",
-        "email security",
-        "phishing",
         "security",
         "msp",
         "mcp",
@@ -454,8 +452,8 @@
     {
       "name": "hubspot",
       "source": "./skills/hubspot",
-      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.2.4",
+      "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
+      "version": "0.2.5",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -1508,6 +1506,21 @@
         "prtg",
         "paessler",
         "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "synology",
+      "source": "./skills/synology",
+      "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "synology",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

@@ -1,5 +1,5 @@
 {
-  "count": 94,
+  "count": 95,
   "connectors": [
     {
       "slug": "abnormal",
@@ -1079,6 +1079,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/syncro/"
+    },
+    {
+      "slug": "synology",
+      "display_name": "Synology",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/synology/"
     },
     {
       "slug": "tactical-rmm",

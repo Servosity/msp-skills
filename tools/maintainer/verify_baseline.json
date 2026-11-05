@@ -44,12 +44,6 @@
    "read-only",
    "local-data"
   ],
-  "avanan": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "aws-billing": [
    "mcp-http",
    "read-only",
@@ -160,11 +154,6 @@
   ],
   "halopsa": [
    "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "hubspot": [
    "write-gating",
    "read-only",
    "local-data"

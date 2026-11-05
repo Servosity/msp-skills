@@ -4,6 +4,39 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - 2026-11-05
+
+### Security
+- **Rebuilt on CLI Printing Press 4.34.0** ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `AVANAN_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The default stdio transport is unchanged. Dependencies: `mark3labs/mcp-go` v0.57.0, `golang.org/x/text` v0.42.0.
+- Every credential the CLI and the MCP server hold is withheld from every output by the shared credential kit, whatever its source: the config file (including its `[headers]` table), the credentials file, environment variables, the `auth login` flags, session tokens either one mints or re-mints, and the MCP HTTP token. Stdout and stderr, every MCP tool result, `--deliver` copies, run receipts, the response cache, the local store, the job ledger, feedback log, teach logs, saved profiles and the learn journal all check each write: a write that repeats a credential is replaced by a withheld notice or not stored. Short values are withheld too, so a short credential or `[headers]` value can withhold more output than strictly needed.
+- Vendor error bodies are masked for every credential the client holds, including session tokens it obtained itself. The token handshake refuses plain `http://` to any non-loopback host, never follows a redirect, and reports only the status, never the vendor's response body. `auth login` output no longer includes the application ID.
+- A credentials-file value replaced by an environment variable is withheld as well, and so is a session token in a handshake answer that the CLI then rejects. The CLI and the MCP server never request the auth endpoints as data, including through a redirect.
+- A held credential is found in base64, base32 or hex, ROT13, JSON, HTML or percent escapes, including one encoding inside another. The CLI and the MCP server refuse to send a held credential to any host other than the configured Avanan API, and start no child process that carries one in its arguments or environment. Credentials in every config and credentials file a run could select (including one under `--home` or the last of several `--config` flags, even after a `--` taken as a flag value), written in any TOML form, and in a malformed or legacy file (TOML escapes decoded), are held when the program starts, so an early error such as a mistyped flag cannot print one.
+- A value under a credential flag or `base-url` in `profiles.json` is withheld from every output, every duplicate and nested value included, and from a file that does not parse.
+- The credential fields of an `import` record or a typed `--stdin` body are withheld from the `--dry-run` preview.
+- A `--stdin` body is held whole before anything prints, so a preview or a result that repeats it is withheld.
+- `feedback --stdin` records its note again; a held credential pasted into it is still withheld.
+- The learn journal stores `AVANAN_LEARN_SESSION` hashed, records flag names the command does not declare as `<undeclared>`, and withholds a whole entry that repeats a held credential.
+
+### Changed
+- A saved run profile keeps only output, data-source and read-filter flags: `profile save` refuses any other, and a credential, base URL, `--deliver` sink or `--yes` left in `profiles.json` by an older version or a hand edit is ignored. Run `auth login` with the credential directly.
+- Credentials go only to the base URL the run really uses: `auth login --region` or `--base-url`, then `AVANAN_BASE_URL`, then the selected config. A vendor host beside it no longer counts.
+- `remediate` refuses to send anything without `--yes`; `--dry-run` previews the request. A restore counts as applied only when Avanan reports it restored or the message moves out of quarantine.
+- `msp fleet` reads the tenant list: run `avanan-cli sync --resources msp-tenants` (was `--resources msp`). In `sync`, `msp` now mirrors MSP partners and the new `msp-usage` mirrors usage.
+- `import --dry-run` is now the global `--dry-run` flag; the same spelling still works.
+- `msp list-tenants`, `list-users`, `list-daily-usages` and `list-monthly-usages` no longer offer `--request-data-msp-id` or `--request-data-scroll-id`: neither flag was ever sent.
+- New: `local-data` and `local-data purge` (shows, then with `--yes` erases, this machine's local store, cache and learn journal), `AVANAN_MCP_READ_ONLY=1` (read-only MCP tools) and `AVANAN_NO_LOCAL_DATA=1` (no local copy of responses).
+
+### Fixed
+- An HTTP 200 whose `responseEnvelope.responseCode` reports a failure is now a failure in every command and MCP tool, not a success.
+- `action post-entity --wait` and `action post-event --wait` poll every task Avanan returns and exit non-zero when a target has no task, never finishes, or fails. `remediate --wait` does the same per target.
+- `mirror` fails, and records nothing as fresh, when any resource is incomplete. It now mirrors the spam blacklist (ten exception tables), drops exceptions Avanan no longer lists, and `exceptions find` / `exceptions audit` ask you to re-run `mirror` when the store holds rows from an older version.
+- `exceptions find` matches domains on label boundaries (`example.com` no longer matches `badexample.com`), keeps every selector of a multi-field exception, and `exceptions audit` compares entries within one tenant only.
+- `campaign` counts recipients from the `to`, `recipients`, `cc` and `bcc` arrays; `msp fleet` reports real seat counts; `doctor` treats the default US gateway as configured.
+- `remediate --event` sends the event action field Avanan's event endpoint expects (`eventActionName`).
+- With `AVANAN_NO_LOCAL_DATA=1`, `mirror` refuses like `sync`, and `remediate` keeps no local action log.
+- A gzip-compressed HTTP 200 whose envelope reports a failure is now a failure as well.
+
 ## [0.1.11] - 2026-10-23
 
 ### Fixed

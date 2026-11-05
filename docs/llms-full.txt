@@ -389,15 +389,15 @@ Outcomes (question -> command your AI agent runs):
 - Is this domain, sender, URL, or hash already excepted anywhere? -> avanan-cli exceptions find example.com
 - Which of our exceptions contradict each other or have not matched any traffic in the mirrored window? -> avanan-cli exceptions audit
 - Which tenant is over its seat count or having an unusual detection week? -> avanan-cli msp fleet
-- Quarantine this batch and tell me the real per-message outcome, not just that a task started. -> avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait
+- Quarantine this batch and tell me the real per-message outcome, not just that a task started. -> avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait --yes
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Avanan application ID and client secret once.
 Q: Is my Avanan data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server uses stdio by default, so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message.
 Q: Will this hit my Avanan API rate limits?
 A: The skill syncs once into a local SQLite mirror, then answers most questions from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync.
 Q: Do I need an MSP account, or does this work on a single tenant?
@@ -1537,16 +1537,16 @@ MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI 
 Outcomes (question -> command your AI agent runs):
 - Which open deals have gone cold with no engagement in the last three weeks? -> hubspot-cli stale deals --days 21 --owner me
 - Which of my contacts haven't been touched in a month? -> hubspot-cli stale contacts --days 30 --owner me
-- What's my pipeline health right now - per-stage count, dollars, and what's at risk? -> hubspot-cli pipeline-health --idle-days 14
+- What's my pipeline health right now - per-stage count, dollars, and what's at risk? -> hubspot-cli pipeline-health default --idle-days 14
 - How is the open-deal load spread across my reps? -> hubspot-cli owner-load --pipeline default
 - Who should I call today, ranked by stale-days, deal size, and stage? -> hubspot-cli nurture queue --owner me --top 20
-- Which are my top deals by composite score (signal, amount, stage, recency)? -> hubspot-cli deals top --top 5 --owner me
+- Which are my top deals by composite score (amount, stage probability, recency)? -> hubspot-cli deals top --top 5 --owner me
 - What's the full activity trail for a specific deal - every call, email, meeting, note, and task? -> hubspot-cli engagements of deal:456 --since 90d
 - Which meetings were ever Scheduled in a given month, even after they flipped to Completed or No Show? -> hubspot-cli meetings status-report --status scheduled --month 2026-04
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my HubSpot data safe?
@@ -1560,7 +1560,7 @@ A: No partnership is required. You create a HubSpot Private App access token fro
 Q: Does it work with HubSpot's free CRM?
 A: It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill.
 
-Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
+Governance: The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN from the environment or a token saved with hubspot-cli auth set-token in the CLI's own credentials file - never logged or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Every command that changes the portal refuses to run, and sends nothing, unless it gets --yes (send) or --dry-run (preview); contacts bulk-update needs --yes up to 100 rows and the digest confirm above that. An agent that can run the CLI can pass --yes, so keep the approval step in its policy. The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.
 
 ### Hudu (Documentation)
 
@@ -3174,6 +3174,48 @@ Q: Will this replace my Syncro portal?
 A: No. It reads from your Syncro account and is for the cross-customer questions and bulk analysis the portal makes tedious. You still run tickets, billing, and RMM day-to-day in Syncro; this is the fast lane for the questions an owner keeps re-asking.
 
 Governance: The skill is read-first: reporting, rollups, and cross-entity views can't change anything in Syncro. Mutating commands (create/update/delete tickets, invoices, customers, and the like) send immediately unless you pass `--dry-run` to preview first, so the safe agent policy is read plus previewed writes, with a human approving anything that creates, updates, or deletes. The CLI can only ever do what the API token you supply is scoped to do.
+
+### Synology (Backup/DR)
+
+Page: [Synology](https://msp-skills.compoundingteams.com/skills/synology.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/install.sh)
+
+Ask your AI which client PCs and servers missed last night's Active Backup, which have not had a good backup in three days, and which NAS volumes are degraded or nearly full, and get one answer across every client NAS. DSM answers one NAS at a time in its own web UI. This logs in to each NAS you register, mirrors its Active Backup jobs and storage health into one local database, and answers from there.
+
+Outcomes (question -> command your AI agent runs):
+- Is every client NAS OK? One row per NAS with backup outcomes, stale devices, worst storage state and sync age. -> synology-cli fleet status
+- Which Active Backup jobs failed, partially failed or never ran in the last 24 hours? -> synology-cli abb failures --since 24h
+- Which machines dropped out of protection in the last 30 days: removed from a task, task deleted, or schedule turned off? -> synology-cli abb unprotected --since 30d
+- Which PCs, servers and VMs have had no successful backup in 36 hours, or never had one? -> synology-cli abb stale --older-than 36h
+- Which volumes, pools or disks are degraded, failing, hot or nearly full, and how many days until full? -> synology-cli fleet health --full-pct 85 --disk-temp 55
+- Which volumes fill within the next 30 days at their current growth rate? -> synology-cli fleet capacity --horizon 30d
+- Which task protects BOB-LAPTOP, when did it last back up, and what happened on its recent runs? -> synology-cli abb device "BOB-LAPTOP"
+- Why did the Office PCs task fail? Show the failed run's error lines and the log from that window. -> synology-cli abb triage "Office PCs" --nas acme
+- Which tasks have the lowest success rate, or ran far longer than usual last time? -> synology-cli abb trend --since 30d
+- Which machines' newest backup moved far more data than usual, or nothing at all for three runs? -> synology-cli abb change-rate --since 30d
+- Which Hyper Backup tasks does a client's NAS run (live, the NAS in SYNOLOGY_BASE_URL), and to what kind of destination? -> synology-cli hyperbackup tasks
+- Who is in the administrators group on one client's NAS (live, the NAS in SYNOLOGY_BASE_URL)? -> synology-cli group members --group administrators
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and synology-mcp speaks HTTP natively: set SYNOLOGY_MCP_HTTP_TOKEN to a long random value, run `synology-mcp --transport http`, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client NAS once with `synology-cli fleet add` and set its login in environment variables.
+Q: How do I check 40 client NAS units, not just one?
+A: Register each one: `synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp" --tls-fingerprint <sha256> --check`, with the certificate fingerprint checked in DSM (`--pin-cert` only displays the one the NAS presents, to compare). Its login comes from SYNOLOGY_ACME_ACCOUNT and SYNOLOGY_ACME_PASSWORD (or the prefix you pass with --env-prefix), so no password is stored in the registry. `fleet sync` then logs in to every NAS, four at a time by default, and `fleet status` gives one row per client. One unreachable NAS is recorded and does not stop the others.
+Q: Our NAS accounts use two-factor sign-in. Does that work?
+A: Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NAME>_OTP_CODE for a fleet NAS). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again.
+Q: My NAS uses DSM's self-signed certificate. Will it connect?
+A: Yes, without turning verification off. `fleet add --tls-fingerprint <sha256>` pins the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards (`fleet add --pin-cert` only displays the fingerprint the NAS presents, to compare with DSM's Control Panel > Security > Certificate first); for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control. When a NAS renews its certificate, check the new fingerprint in DSM, then re-pin with that value: `synology-cli fleet add <name> --tls-fingerprint <sha256>` keeps the address and mirrored history.
+Q: Can it change my clients' NAS units?
+A: Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add --dry-run. Everything else reads. Set SYNOLOGY_MCP_READ_ONLY=1 and the MCP server drops every command that is not read-only.
+Q: Is my Synology data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local mirror are all local. DSM passwords are read from environment variables and never written to disk; the fleet registry holds only each NAS's URL, client name, certificate setting and the names of its env vars. Credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout): in a terminal they send immediately unless you add --dry-run, and over MCP they return a preview until called with confirm true, so have a human approve them. Registering a NAS (fleet add) decides where its password is sent, so it is CLI only and never offered to an agent; SYNOLOGY_MCP_READ_ONLY=1 drops every non-read-only tool from the MCP server.
 
 ### Tactical RMM (RMM)
 

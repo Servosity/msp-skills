@@ -1,0 +1,128 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T14:48:37.300791Z",
+  "printing_press_version": "4.34.0",
+  "api_name": "avanan",
+  "display_name": "Avanan",
+  "cli_name": "avanan-pp-cli",
+  "creator": {
+    "handle": "geekbrownbear",
+    "name": "Abhi Saini"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "geekbrownbear",
+  "printer": "geekbrownbear",
+  "printer_name": "Abhi Saini",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "docs",
+  "spec_checksum": "sha256:cbff6e2a35f1e2527f16404c171673ece33b8601b23fb790a0ca680f693c193e",
+  "run_id": "20261026-184431-66fbe33e",
+  "category": "monitoring",
+  "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
+  "mcp_binary": "avanan-pp-mcp",
+  "mcp_tool_count": 57,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "avananToken",
+  "auth_env_vars": [
+    "AVANAN_APP_ID",
+    "AVANAN_CLIENT_SECRET",
+    "AVANAN_TOKEN"
+  ],
+  "novel_features": [
+    {
+      "name": "Shift triage",
+      "command": "triage",
+      "description": "See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume."
+    },
+    {
+      "name": "Campaign clustering",
+      "command": "campaign",
+      "description": "Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated."
+    },
+    {
+      "name": "Message timeline",
+      "command": "timeline",
+      "description": "Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear."
+    },
+    {
+      "name": "Exception lookup",
+      "command": "exceptions find",
+      "description": "Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once."
+    },
+    {
+      "name": "Exception audit",
+      "command": "exceptions audit",
+      "description": "Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window."
+    },
+    {
+      "name": "MSP fleet",
+      "command": "msp fleet",
+      "description": "One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume."
+    },
+    {
+      "name": "Remediate",
+      "command": "remediate",
+      "description": "Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Shift triage",
+      "command": "triage",
+      "description": "See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume."
+    },
+    {
+      "name": "Campaign clustering",
+      "command": "campaign",
+      "description": "Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated."
+    },
+    {
+      "name": "Message timeline",
+      "command": "timeline",
+      "description": "Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear."
+    },
+    {
+      "name": "Exception lookup",
+      "command": "exceptions find",
+      "description": "Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once."
+    },
+    {
+      "name": "Exception audit",
+      "command": "exceptions audit",
+      "description": "Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window."
+    },
+    {
+      "name": "MSP fleet",
+      "command": "msp fleet",
+      "description": "One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume."
+    },
+    {
+      "name": "Remediate",
+      "command": "remediate",
+      "description": "Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 82,
+    "total": 82,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

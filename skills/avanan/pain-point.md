@@ -39,12 +39,12 @@ from the local mirror, after the fact.
 This is the quiet one. Avanan spreads allow and block exceptions across seven
 security engines - anti-phishing, spam, anomaly, click-time protection,
 anti-malware, URL reputation, and DLP - each with its own path shape, its own ID
-scheme, and its own delete semantics, across nine exception tables. The published
+scheme, and its own delete semantics, across ten exception tables. The published
 spec does not even document the sectool families; they exist in the reference site
 and in shipping XSOAR code. Nothing in the product answers "is this domain excepted
 anywhere", so allowlist requests get granted a second time, get contradicted by a
 block in a different engine, and never get cleaned up. `avanan-cli exceptions find`
-asks all nine tables at once, and `avanan-cli exceptions audit` flags the entries
+asks all ten tables at once, and `avanan-cli exceptions audit` flags the entries
 that contradict each other, the exact duplicates, and the ones that have not
 matched traffic in the mirrored window.
 
