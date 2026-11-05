@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.14] - unreleased
+## [0.1.14] - 2026-11-05
 
 ### Security
 - Credential protection now runs on the shared credential kit (`internal/credkit`), which replaces this connector's own holder, output check and decoded matching. What changes for you: anything about to leave the program that carries a held credential is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`, on standard output and error, MCP responses over stdio and HTTP, local files, the local store, outbound requests and child processes. A saved profile, cache entry, receipt, delivered file, feedback row or jobs row that would carry one is not written. The learn journal and teach log keep the kit's notice in place of a row that would carry one, instead of a row with the field blanked.
