@@ -228,11 +228,6 @@
    "read-only",
    "local-data"
   ],
-  "pax8": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "pipedrive": [
    "mcp-http",
    "write-gating",
