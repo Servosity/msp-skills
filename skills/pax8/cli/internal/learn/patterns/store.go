@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // Default confidence floor for an inferred pattern. Mirrors the
@@ -121,6 +123,9 @@ func Upsert(db *sql.DB, p Pattern) (int64, bool, error) {
 	}
 	if strings.TrimSpace(p.Source) == "" {
 		p.Source = SourceInferred
+	}
+	if err := heldguard.Refuse(p.QueryTemplate, p.ResourceTemplate, p.ResourceType, p.Venue, p.Strategy, p.EntityKind, p.Source, p.ExampleQuery, p.ExampleResource); err != nil {
+		return 0, false, fmt.Errorf("patterns.Upsert: %w", err) // pax8 handfix (journal-credential-hardening): refused, never written
 	}
 
 	now := time.Now().UTC()

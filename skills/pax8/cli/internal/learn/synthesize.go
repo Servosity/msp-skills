@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"pax8-pp-cli/internal/learn/heldguard"
 	"pax8-pp-cli/internal/store"
 )
 
@@ -277,6 +278,9 @@ func SynthesizePlaybookCandidate(s *store.Store, queryFamily, sessionKey string)
 		return store.CandidateRow{}, false, fmt.Errorf("synthesis: marshal payload: %w", err)
 	}
 	payload := string(payloadBytes)
+	if heldguard.Held(queryFamily, payload, ep.commandPath) {
+		return store.CandidateRow{}, false, nil // pax8 handfix (journal-credential-hardening): never stored, a non-event like every other abort
+	}
 
 	row, inserted, err := s.DeriveCandidate(
 		store.CandidateClassPlaybookCandidate,

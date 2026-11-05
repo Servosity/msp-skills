@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // The invocation journal records one entry per CLI invocation in dated
@@ -168,12 +169,13 @@ var JournalHarnessSessionEnvVars = []string{
 }
 
 // JournalSessionKey returns the session key for this invocation: the
-// explicit LEARN_SESSION override when set, else a hashed harness
+// explicit LEARN_SESSION override when set (hashed under "o:", pax8
+// handfix journal-credential-hardening), else a hashed harness
 // session identifier so sibling tool calls share a key even when each
 // has a different parent process, else a parent-pid lineage string.
 func JournalSessionKey() string {
 	if v := strings.TrimSpace(os.Getenv(journalSessionEnvVar)); v != "" {
-		return v
+		return "o:" + hashHarnessSession(v) // pax8 handfix (journal-credential-hardening): hashed like a harness id, never raw
 	}
 	if hashed := journalHashedHarnessSession(); hashed != "" {
 		return hashed
@@ -237,6 +239,7 @@ func JournalInvocation(entry JournalEntry) {
 	if entry.QueryFamily == "" && len(entry.UnresolvedEntities) == 0 {
 		entry.QueryFamily, entry.UnresolvedEntities = takeJournalLearnContext()
 	}
+	entry.FailedFlag = journalOpaqueFailedFlag(entry.FailedFlag, entry.SuggestedFlag) // pax8 handfix (journal-credential-hardening)
 	if err := AppendJournalEntry(entry); err != nil {
 		journalWarnOnce.Do(func() {
 			fmt.Fprintf(os.Stderr, "warning: learn journal write skipped: %v\n", err)
@@ -266,6 +269,9 @@ func AppendJournalEntry(entry JournalEntry) error {
 	line, err := json.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("journal: marshal: %w", err)
+	}
+	if err := heldguard.Refuse(string(line)); err != nil { // pax8 handfix (journal-credential-hardening): refused whole, never written
+		return fmt.Errorf("journal: entry %w", err)
 	}
 	p := filepath.Join(dir, journalSegmentNameFor(time.Now()))
 	if err := repairJournalSegmentTail(p); err != nil {
@@ -489,12 +495,19 @@ func StoreJournalOffset(offset JournalOffset) error {
 // int, str, or bool. isBoolFlag, when non-nil, resolves whether a flag
 // takes no value (the Cobra caller passes a registry lookup); when nil
 // a conservative heuristic consumes the next non-dash token as the
-// value. Positional tokens are never recorded.
-func JournalArgvShape(args []string, isBoolFlag func(name string) bool) map[string]string {
+// value. Positional tokens are never recorded. pax8 handfix
+// (journal-credential-hardening): only a flag name the invoked command
+// declares is kept (isDeclared, else journalFlagDeclared); any other is
+// recorded as journalUndeclaredFlag, and nothing after "--" is read.
+func JournalArgvShape(args []string, isBoolFlag func(name string) bool, isDeclared ...func(name string) bool) map[string]string {
+	declared := journalFlagDeclared(isBoolFlag, isDeclared) // pax8 handfix (journal-credential-hardening)
 	shape := map[string]string{}
 	for i := 0; i < len(args); i++ {
 		tok := args[i]
-		if !strings.HasPrefix(tok, "-") || tok == "-" || tok == "--" {
+		if tok == "--" {
+			break // pax8 handfix (journal-credential-hardening): every token after "--" is an operand
+		}
+		if !strings.HasPrefix(tok, "-") || tok == "-" {
 			continue
 		}
 		name := strings.TrimLeft(tok, "-")
@@ -512,6 +525,10 @@ func JournalArgvShape(args []string, isBoolFlag func(name string) bool) map[stri
 			i++
 		}
 		if name == "" {
+			continue
+		}
+		if !declared(name) {
+			shape[journalUndeclaredFlag] = journalClassRedacted // pax8 handfix (journal-credential-hardening): a name the command does not declare is never kept
 			continue
 		}
 		switch {

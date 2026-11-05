@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"pax8-pp-cli/internal/cliutil"
+	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // teachLogStateDirName is the per-user state directory name.
@@ -107,6 +108,9 @@ func appendTeachLogEntry(entry TeachLogEntry) error {
 	line, err := json.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("teach log: marshal: %w", err)
+	}
+	if err := heldguard.Refuse(string(line)); err != nil { // pax8 handfix (journal-credential-hardening): refused, never written
+		return fmt.Errorf("teach log: %w", err)
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateTeachLogIfNeeded(p)

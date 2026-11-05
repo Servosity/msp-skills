@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // SourcePreseed is the provenance tag preseed writes into
@@ -177,6 +179,9 @@ func RunWith(ctx context.Context, db *sql.DB, opts RunOpts) (int, error) {
 func insertOne(ctx context.Context, db *sql.DB, row PreseedRow) (bool, error) {
 	if row.ResourceID == "" || row.QueryPattern == "" || row.ResourceType == "" {
 		return false, nil
+	}
+	if err := heldguard.Refuse(append([]string{row.QueryPattern, row.ResourceID, row.ResourceType, row.Venue, row.Source}, row.Entities...)...); err != nil {
+		return false, err // pax8 handfix (journal-credential-hardening): refused, never written
 	}
 	source := row.Source
 	if source == "" {

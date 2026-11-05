@@ -144,8 +144,12 @@ func TestJournal_SessionKeyFromEnv(t *testing.T) {
 		t.Fatalf("version: %v", err)
 	}
 	entries := readAllJournalEntries(t)
-	if len(entries) != 1 || entries[0].SessionKey != "session-abc123" {
-		t.Errorf("session_key = %+v, want session-abc123", entries)
+	// pax8 handfix (journal-credential-hardening): the override is stored hashed, never raw.
+	if len(entries) != 1 || entries[0].SessionKey != "o:93da339544719ff4" {
+		t.Errorf("session_key = %+v, want o:93da339544719ff4 (the hashed override)", entries)
+	}
+	if strings.Contains(journalRawBytes(t), "session-abc123") {
+		t.Error("the raw LEARN_SESSION value must not appear anywhere in the journal")
 	}
 }
 
@@ -180,8 +184,12 @@ func TestJournal_LearnSessionOverridesHarness(t *testing.T) {
 		t.Fatalf("version: %v", err)
 	}
 	entries := readAllJournalEntries(t)
-	if len(entries) != 1 || entries[0].SessionKey != "session-abc123" {
-		t.Errorf("LEARN_SESSION must win over harness id; got %+v", entries)
+	// pax8 handfix (journal-credential-hardening): the override wins, stored hashed.
+	if len(entries) != 1 || entries[0].SessionKey != "o:93da339544719ff4" {
+		t.Errorf("LEARN_SESSION must win over harness id, hashed; got %+v", entries)
+	}
+	if strings.Contains(journalRawBytes(t), "session-abc123") {
+		t.Error("the raw LEARN_SESSION value must not appear anywhere in the journal")
 	}
 	if strings.Contains(journalRawBytes(t), "harness-should-lose") {
 		t.Error("raw harness session id must not appear when LEARN_SESSION is set")
@@ -207,8 +215,9 @@ func TestJournal_UnknownFlagJournalsFailedFlagAndSuggestion(t *testing.T) {
 		t.Fatalf("want 1 entry, got %d", len(entries))
 	}
 	e := entries[0]
-	if e.FailedFlag != "--jso" {
-		t.Errorf("failed_flag = %q, want --jso", e.FailedFlag)
+	// pax8 handfix (journal-credential-hardening): the typed name is never kept; an opaque identity pairs the correction.
+	if !strings.HasPrefix(e.FailedFlag, "--<undeclared>:") || strings.Contains(e.FailedFlag, "jso") {
+		t.Errorf("failed_flag = %q, want --<undeclared>:<hash of the typed name>", e.FailedFlag)
 	}
 	if e.SuggestedFlag != "--json" {
 		t.Errorf("suggested_flag = %q, want --json", e.SuggestedFlag)
@@ -325,8 +334,12 @@ func TestJournal_TokenBearingFlagIsRedacted(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("want 1 entry, got %d", len(entries))
 	}
-	if got := entries[0].ArgvShape["api-token"]; got != "redacted" {
-		t.Errorf("argv_shape[api-token] = %q, want redacted", got)
+	// pax8 handfix (journal-credential-hardening): --api-token is not declared, so only the placeholder is recorded.
+	if got := entries[0].ArgvShape["<undeclared>"]; got != "redacted" {
+		t.Errorf("argv_shape[<undeclared>] = %q, want redacted", got)
+	}
+	if _, ok := entries[0].ArgvShape["api-token"]; ok {
+		t.Errorf("an undeclared flag name reached the journal: %v", entries[0].ArgvShape)
 	}
 	if raw := journalRawBytes(t); strings.Contains(raw, "sekretvalue123") {
 		t.Errorf("token value leaked into journal:\n%s", raw)
@@ -360,6 +373,8 @@ func TestJournal_UnknownCommandRecordsNoPositionalTokens(t *testing.T) {
 func TestJournalArgvShape_Classes(t *testing.T) {
 	boolFlags := map[string]bool{"json": true, "compact": true}
 	lookup := func(name string) bool { return boolFlags[name] }
+	// pax8 handfix (journal-credential-hardening): every name the cases use is declared but undeclared-x.
+	declared := func(name string) bool { return name != "undeclared-x" }
 	cases := []struct {
 		name string
 		args []string
@@ -385,10 +400,20 @@ func TestJournalArgvShape_Classes(t *testing.T) {
 			args: []string{"list", "things", "--compact"},
 			want: map[string]string{"compact": "bool"},
 		},
+		{
+			name: "undeclared names are only a placeholder",
+			args: []string{"--undeclared-x", "s3cr3t", "--limit", "3"},
+			want: map[string]string{"<undeclared>": "redacted", "limit": "int"},
+		},
+		{
+			name: "nothing after the end of flags is a flag",
+			args: []string{"--limit", "3", "--", "--undeclared-x", "--json"},
+			want: map[string]string{"limit": "int"},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := learn.JournalArgvShape(tc.args, lookup)
+			got := learn.JournalArgvShape(tc.args, lookup, declared)
 			if len(got) != len(tc.want) {
 				t.Fatalf("shape = %v, want %v", got, tc.want)
 			}
@@ -406,6 +431,23 @@ func TestJournalArgvShape_Classes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestJournalArgvShape_WithoutDeclaredLookup (pax8 handfix (journal-credential-hardening)): a caller
+// that passes no declared-flag lookup keeps only the names its registry
+// isBoolFlag answers true for, and records every other name as the
+// placeholder; with no lookup at all, no name is kept.
+func TestJournalArgvShape_WithoutDeclaredLookup(t *testing.T) {
+	boolFlags := map[string]bool{"json": true}
+	lookup := func(name string) bool { return boolFlags[name] }
+	got := learn.JournalArgvShape([]string{"--json", "--limit", "3", "--Zq7f3a9c0e5b1d42xJhW"}, lookup)
+	want := map[string]string{"json": "bool", "<undeclared>": "redacted"}
+	if len(got) != len(want) || got["json"] != "bool" || got["<undeclared>"] != "redacted" {
+		t.Errorf("shape = %v, want %v", got, want)
+	}
+	if got := learn.JournalArgvShape([]string{"--json", "--limit", "3"}, nil); len(got) != 1 || got["<undeclared>"] != "redacted" {
+		t.Errorf("shape with no lookup = %v, want only the placeholder", got)
 	}
 }
 

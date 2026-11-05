@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"pax8-pp-cli/internal/learn/entities"
+	"pax8-pp-cli/internal/learn/heldguard"
 )
 
 // EntityResolver looks up a token in entity_lookups to find its
@@ -252,6 +253,9 @@ func scanPlaybookFamiliesByFold(ctx context.Context, db *sql.DB, cfg *entities.C
 func rekeyPlaybookFamily(ctx context.Context, db *sql.DB, row PlaybookFamilyRow, family string) PlaybookFamilyRow {
 	if row.QueryFamily == family {
 		return row
+	}
+	if heldguard.Held(family) {
+		return row // pax8 handfix (journal-credential-hardening): a held key is never written; the row keeps its old one
 	}
 	if _, err := db.ExecContext(ctx,
 		`UPDATE learning_playbooks SET query_family = ? WHERE id = ?`,
