@@ -445,7 +445,7 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 Q: Will this run up my Cost Explorer bill?
 A: No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull.
 Q: Do I need the aws CLI installed?
-A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 Q: Does it work from a member account, or only the payer?
 A: Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach.
 Q: Can it change anything in my AWS account?

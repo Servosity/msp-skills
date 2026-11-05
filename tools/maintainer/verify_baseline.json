@@ -21,11 +21,6 @@
    "read-only",
    "local-data"
   ],
-  "aws-billing": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "axcient": [
    "mcp-http",
    "read-only",
