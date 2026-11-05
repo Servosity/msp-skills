@@ -912,7 +912,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.11",
+      "version": "0.6.12",
       "category": "backup-dr",
       "tags": [
         "servosity",
