@@ -414,11 +414,19 @@ func (m *matcher) check(unit []byte) verdict {
 // It may report a document no later write can continue (one open where an
 // inner view ends): that keeps more context, never less.
 func (m *matcher) checkOpen(unit []byte) (verdict, bool) {
+	v, open, _, _ := m.checkWork(unit)
+	return v, open
+}
+
+// checkWork is checkOpen and the work the check did: the decoded bytes it
+// drew from the budget and the raw deflate output it drew from its own (the
+// tests that hold ordinary output's work linear in its size).
+func (m *matcher) checkWork(unit []byte) (_ verdict, _ bool, decoded, deflated int64) {
 	if m == nil || len(unit) == 0 {
-		return clean, false
+		return clean, false, 0, 0
 	}
 	if len(unit) > maxUnit {
-		return exhausted, false
+		return exhausted, false, 0, 0
 	}
 	m.prepare()
 	c := &closure{m: m}
@@ -427,6 +435,7 @@ func (m *matcher) checkOpen(unit []byte) (verdict, bool) {
 	c.done, c.seen = setPool.Get().(*stripedSet), setPool.Get().(*stripedSet)
 	c.done.init(2 * len(unit)) // about two inputs per byte: rarely regrown
 	c.seen.init(len(unit) / 16)
+	b0, d0 := c.budget.Load(), c.deflLeft.Load()
 	c.fresh(unit, false, 0)
 	defer c.release()
 	// Level by level: every part of a level is matched and decoded (its
@@ -436,7 +445,7 @@ func (m *matcher) checkOpen(unit []byte) (verdict, bool) {
 	for depth := 1; len(level) > 0 && c.ok(); depth++ {
 		level = c.step(level, depth)
 	}
-	return c.verdict(), c.open.Load()
+	return c.verdict(), c.open.Load(), b0 - c.budget.Load(), d0 - c.deflLeft.Load()
 }
 
 // task is one part's decoders of one family, or all of them.
