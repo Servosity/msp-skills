@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-04",
+  "generated_at": "2026-11-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -862,7 +862,7 @@
       "skill_path": "skills/hubspot",
       "cli_binary": "hubspot-cli",
       "mcp_binary": "hubspot-mcp",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "HubSpot",
