@@ -153,11 +153,6 @@
    "read-only",
    "local-data"
   ],
-  "google-workspace": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "gradient": [
    "mcp-http",
    "read-only",
@@ -396,10 +391,6 @@
   ],
   "xero": [
    "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "zammad": [
    "read-only",
    "local-data"
   ]

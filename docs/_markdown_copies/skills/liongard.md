@@ -137,7 +137,7 @@ Yes - you use your own Liongard instance and access keys, so the skill only reac
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](https://msp-skills.compoundingteams.com/skills/hudu.md) · [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](https://msp-skills.compoundingteams.com/skills/hudu.md) · [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md) · [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
 
 ## Status
 

@@ -11,7 +11,7 @@ import (
 func newMobiledevicesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "mobiledevices",
-		Short:       "List, get, create, and delete mobiledevices",
+		Short:       "List, get, and delete mobiledevices",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

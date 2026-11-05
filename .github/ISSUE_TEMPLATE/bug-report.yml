@@ -26,6 +26,7 @@ body:
         - action1
         - afi
         - appdirect
+        - apple-business
         - atera
         - autotask
         - auvik
@@ -35,6 +36,7 @@ body:
         - backup-radar
         - betterstack
         - bitdefender
+        - blackpoint
         - blumira
         - cipp
         - cisco-duo
@@ -51,6 +53,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
+        - exchange-online
         - fortinet
         - google-workspace
         - gradient
@@ -67,9 +70,11 @@ body:
         - liongard
         - maxio
         - microsoft-graph
+        - mimecast
         - mspbots
         - n-central
         - nerdio
+        - netsapiens
         - ninjaone
         - pagerduty
         - pandadoc
@@ -101,6 +106,7 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - warranty
         - watchguard
         - wordpress
         - xero

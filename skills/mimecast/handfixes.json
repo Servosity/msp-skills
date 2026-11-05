@@ -1,0 +1,695 @@
+{
+ "slug": "mimecast",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint, host pin, secret funnel and store redaction. internal/credwire/declarations.go holds the one Declarations literal and shows the kit the base URL config.Load resolves; each main starts with credkit.Start and ends with credkit.Exit; every API, token, probe, webhook and feedback request goes through credkit.Transport (client.OutboundGuard); minted tokens and the stdin token are held with credkit.Hold; every journal, teach, feedback, jobs, profile, cache and download write goes through the kit; the MCP server runs credkit.MCPTools, MCPIn and MCPOut; the CLI child of an MCP tool runs through credkit.RunCommand. Retires secret-echo-decoded-funnel and mimecast-one-holder-one-chokepoint, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements fleet_handfixes.json backs). The response cache stays off (mimecast-response-cache-off).",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. The kit also closes the factory's open round-2 P1 (an unknown MCP tool echoing a password only its own arguments carry), which the connector-only funnel could not.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Declarations from the auth spec, Start and Exit in each main, kit sinks in the file, HTTP, SQL and MCP templates).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"MIMECAST_MCP_HTTP_TOKEN\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:       []string{\"--stdin\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdProfileStoresUnder(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ReadPaths(configPath string) ([]string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = OutboundGuard(c.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:access_token\", tokenResp.AccessToken)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "os.WriteFile("
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"minted:access_token\", tok.AccessToken)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_seam_test.go",
+     "contains": "client.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPPreviewHoldsFreshPasswords(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPUnknownToolNeverEchoesStdio(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPUnknownToolNeverEchoesHTTP(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPLocalWriteNeedsConfirm(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitSavedProfileCredentialsAreHeld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/kit_classes_test.go",
+     "contains": "func TestKitCredentialsReachTheSelectedConfigBase(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestShownBaseIsTheConfigTheProgramUses(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, err := credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "not_contains": "os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)"
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included, which runs \"select 1\" because the kit's connection does not forward Ping. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter (store.OpenReadOnlyValueCapped).",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a bearer holding the refusal's text would get a piece of itself back.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/mimecast-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  },
+  {
+   "id": "mimecast-response-cache-off",
+   "class": "data-at-rest",
+   "status": "active",
+   "summary": "Every Mimecast client runs with the HTTP response cache off (a client hook sets c.NoCache), so no vendor answer is written to disk outside the local store. Carried over from mimecast-one-holder-one-chokepoint when the kit replaced the rest of it.",
+   "why": "Mimecast answers carry journaling passwords and message metadata; the store is the one local copy the operator syncs on purpose.",
+   "spec_encode_followup": "Press-side: a spec flag that turns the response cache off for a connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mimecast_guard.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Every mirrored MCP tool that can change Mimecast state (held release-safe, held purge-sender, import, and any command added later) previews and sends only with confirm set to boolean true, the contract mimecast_execute has. held purge-sender previews by itself until --yes (mimecast:sends-with-yes); held release-safe previews with its own --plan (mimecast:preview-flag); anything else previews with the root --dry-run. The preview drops the caller's value for its own preview flag, because the mirror passes a string \"false\" as --flag=false after it. Fail closed: only read-only tools run without confirm. Commands that write only the CLI's own files (mcp:local-write, mirrorLocalOnlyCommands: jobs prune, learnings, teach, export, sync) need confirm too and preview by echoing their arguments, because --dry-run does not stop a file write; a read-only tool's write flags (mcp:read-only-unless-flags, held triage --new) need confirm. A local write (the CLI's own files) previews by running the mirrored command with --help: Cobra answers it after parsing and before any hook or RunE, so the mirror still refuses a blocked file flag by name and writes nothing.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. held release-safe releases without --yes on the CLI (P2 by Damien GO cli-confirm), so over MCP it was a write without confirm. Ported from prtg (mcp-mirror-write-confirm) with the string-false bypass closed; the black-box test drives the four cases.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/mimecast_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command, cliPath func() (string, error)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/mimecast_confirm.go",
+     "contains": "preview = previewWith(\"dry-run\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/held_release_safe.go",
+     "contains": "\"mimecast:preview-flag\": \"plan\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/held_purge_sender.go",
+     "contains": "\"mimecast:sends-with-yes\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/held_triage.go",
+     "contains": "\"mcp:read-only-unless-flags\": \"new\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/mimecast_confirm.go",
+     "contains": "gate = confirmWhenFlagged(writeFlags, gate, send)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/mimecast_confirm.go",
+     "contains": "preview = previewWith(\"help\")",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-account-code-injection",
+   "class": "api-truth",
+   "summary": "Delegate access: MIMECAST_ACCOUNT_CODE is sent as meta.accountCode on the classic /api/ envelope endpoints (client.go doInternal calls mimecastInjectAccountCode before the body marshal).",
+   "why": "Carried from the 4.33.5 print's patch record (.printing-press-patches/mimecast-account-code-injection.json).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client_mimecast.go",
+     "contains": "func mimecastInjectAccountCode",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "body = mimecastInjectAccountCode(body)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-function-failure",
+   "class": "api-truth",
+   "summary": "Mimecast reports function failures as HTTP 200 with fail[]; the client turns them into an APIError (mimecastFunctionFailure before the 2xx JSON return).",
+   "why": "Carried from the 4.33.5 print's patch record (.printing-press-patches/mimecast-function-failure.json).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client_mimecast.go",
+     "contains": "func mimecastFunctionFailure",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "mimecastFunctionFailure(respBody, readOnlyIntent || method == http.MethodGet)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-partial-failure",
+   "class": "api-truth",
+   "summary": "A partial fail[] next to data[] is reported, not read as a clean answer (detectPartialFailure calls mimecastPartialFailure).",
+   "why": "Carried from the 4.33.5 print's patch record (.printing-press-patches/mimecast-partial-failure.json).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mimecast_envelope.go",
+     "contains": "func mimecastPartialFailure",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "mimecastPartialFailure(top)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-mcp-descriptions",
+   "class": "mcp-quality",
+   "summary": "code_orch endpoint summaries carry the mcp-descriptions.json overrides (what the body takes), not the spec's role-permission boilerplate.",
+   "why": "Carried from the 4.33.5 print (mcp-descriptions.json in the library). Two summaries stand for the set.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "List archive search log entries in a time range. Body: data=[{start,end,query}], all optional.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "List archive searches run by admins and users. Body: data=[{query}], optional.",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-create-alias-on-destructive-post",
+   "class": "write-safety",
+   "summary": "held release, archive-logs searches and remediation bulk carry no \"create\" alias.",
+   "why": "The press assigns alias \"create\" to every POST, so `held create` released held messages and `remediation create` remediated messages behind the most innocent verb (verify_all row 'no destructive create alias').",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/held_release.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/archive_logs_searches.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/remediation_bulk.go",
+     "not_contains": "[]string{\"create\"}"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "summary": "doctor probes a real GET endpoint with the real credential, names the base-URL variable for a placeholder, and calls a 404 at the probe a wrong base URL, instead of printing 'present, not verified' and calling any answer at / reachable.",
+   "why": "doctor is the command every guide tells an operator to run to confirm the connector works; the press 4.34.2 render could not tell a working install from an expired credential or a wrong base URL (tools/maintainer/check_doctor_truth.py, issue #282). Same fleet fix as ninjaone; doctor.go is wired by replay_handfixes.py (recipe doctor-verdict).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-read-only-workflows-write-nothing",
+   "class": "write-safety",
+   "summary": "held release-audit and senders suggest, which the MCP server exposes as read-only tools (no confirm), write nothing under the MCP server or with MIMECAST_NO_LOCAL_DATA=1: an existing workflow store is opened read-only (owner still checked), a missing one reads as empty, and the live window is merged in memory.",
+   "why": "Codex round 1 (2026-11-04): a read-only MCP tool created the workflow database and cached release logs without confirm, also under MIMECAST_MCP_READ_ONLY=1, and ignored MIMECAST_NO_LOCAL_DATA. Proven by TestReadOnlyWorkflowsWriteNothing (seen failing first).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mimecast_store.go",
+     "contains": "func openReadOnlyWorkflowStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/held_release_audit.go",
+     "contains": "openReadOnlyWorkflowStore(ctx, flags, dbPath, mcAccountCode(accountCode))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/senders_suggest.go",
+     "contains": "openReadOnlyWorkflowStore(ctx, flags, dbPath, mcAccountCode(accountCode))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/held_release_audit.go",
+     "not_contains": "openAccountStore("
+    },
+    {
+     "file": "cli/internal/cli/senders_suggest.go",
+     "not_contains": "openAccountStore("
+    },
+    {
+     "file": "cli/internal/cli/mimecast_readonly_store_test.go",
+     "contains": "func TestReadOnlyWorkflowsWriteNothing(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-purge-account-stores",
+   "class": "local-data",
+   "summary": "local-data purge also finds the per-delegated-account workflow stores (data-<hash>-account-<code>.db and their sidecars).",
+   "why": "Codex round 1 P2 (one-line fix): MIMECAST_ACCOUNT_CODE stores were left behind by purge --yes. Proven by TestPurgeFindsAccountStores.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/local_data.go",
+     "contains": "(-account-[0-9A-Za-z_-]+)?",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mimecast-token-bound-to-client",
+   "class": "wrong-tenant",
+   "summary": "A stored OAuth token is used only by the client it was minted for: Load drops a stored token whose saved client ID (none included) differs from the configured one, and SaveTokens keeps a token minted for an environment client that is not the file's client in memory only, so it is never saved under another client.",
+   "why": "Adversarial round 1 (2026-11-04): two Mimecast API apps (one per customer) in one HOME, for example two MCP server entries, shared credentials.toml; the second app sent the first app's bearer for up to 30 minutes and every read and write acted on the first customer's tenant. Proven by TestStoredTokenIsUsedOnlyByItsClient (seen failing first). Codex round 2 (2026-11-04): SaveTokens restored the file's client ID beside the environment client's new token, and env-only logins saved ownerless tokens the guard skipped; proven by TestStoredTokenNeverServesAnotherClient (login A, env B, then A; env B then env A) on the built binary, seen failing first.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "storedToken, tokenClient := cfg.AccessToken, cfg.ClientID",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if storedToken != \"\" && cfg.AccessToken == storedToken && cfg.ClientID != tokenClient {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/mimecast_token_owner_test.go",
+     "contains": "func TestStoredTokenIsUsedOnlyByItsClient(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if clientID != \"\" && c.envOverrides[\"ClientID\"] && c.fileConfig != nil && c.fileConfig.ClientID != clientID {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mimecastblackbox/token_owner_test.go",
+     "contains": "func TestStoredTokenNeverServesAnotherClient(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

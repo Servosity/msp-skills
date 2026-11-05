@@ -1,0 +1,140 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/import.go",
+   "func": "newNovelImportCmd",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the operator's device list, named on the command line and refused over MCP: not a credential file"
+  },
+  {
+   "file": "internal/cli/lookup.go",
+   "func": "newNovelLookupCmd",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the operator's serial list, named on the command line and refused over MCP: not a credential file"
+  },
+  {
+   "file": "internal/client/apple_assertion.go",
+   "func": "applePEM",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Apple private key file the environment names: client.HoldAppleCredentials, which Files calls, holds its key material before any output"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "InstallGuard",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "InstallGuard",
+   "what": "convert:warranty-pp-cli/internal/client.guardTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "InstallGuard",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "InstallGuard",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "KitClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "KitClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "KitClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent through OutboundGuard, which is credkit.Transport around the base transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "appleTokenSource.Token",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by s.http, whose Transport is the OutboundGuard transport from InstallGuard, and it runs after Start: only a command's request calls it"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "appleTokenSource.Token",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by s.http, whose Transport is the OutboundGuard transport from InstallGuard, and it runs after Start: only a command's request calls it"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "guardTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "t.base is the OutboundGuard transport InstallGuard wraps, which is credkit.Transport"
+  },
+  {
+   "file": "internal/client/warranty_guard.go",
+   "func": "sharedAppleSource",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "base is the OutboundGuard transport InstallGuard passes in, which is credkit.Transport"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config file or run profile store read only to hold what it carries, before any output; the bytes reach nothing but credkit.Hold"
+  }
+ ]
+}

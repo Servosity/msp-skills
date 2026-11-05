@@ -11,7 +11,7 @@ import (
 func newCustomerDevicesChromeosCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "devices-chromeos",
-		Short:       "Get and create devices chromeos for customer",
+		Short:       "Get devices chromeos for customer",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

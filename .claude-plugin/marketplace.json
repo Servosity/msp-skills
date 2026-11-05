@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "huntress",
@@ -689,7 +689,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -1082,7 +1082,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "psa",
       "tags": [
         "zammad",
@@ -1127,8 +1127,8 @@
     {
       "name": "google-workspace",
       "source": "./skills/google-workspace",
-      "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
-      "version": "0.1.3",
+      "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1350,6 +1350,100 @@
       "tags": [
         "saas-alerts",
         "saas alerts",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "blackpoint",
+      "source": "./skills/blackpoint",
+      "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "blackpoint",
+        "blackpoint cyber",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "mimecast",
+      "source": "./skills/mimecast",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "mimecast",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "netsapiens",
+      "source": "./skills/netsapiens",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
+      "version": "0.1.0",
+      "category": "telephony",
+      "tags": [
+        "netsapiens",
+        "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "apple-business",
+      "source": "./skills/apple-business",
+      "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+      "version": "0.1.0",
+      "category": "mdm",
+      "tags": [
+        "apple-business",
+        "apple",
+        "mdm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "warranty",
+      "source": "./skills/warranty",
+      "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "warranty",
+        "dell, lenovo and apple",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "exchange-online",
+      "source": "./skills/exchange-online",
+      "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "exchange-online",
+        "microsoft exchange online",
         "security",
         "msp",
         "mcp",

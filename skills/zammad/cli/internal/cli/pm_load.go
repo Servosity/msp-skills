@@ -1,10 +1,16 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-carried: emitted by cli-printing-press 4.28.0 (project-management workflow template); the 4.32.5 profiler classes Zammad as the "content" archetype and no longer emits it. Kept so the shipped `load` surface survives the reprint (see handfixes.json: pm-workflow-commands-carried).
+//
+// Rewritten on Zammad's ticket model (Codex round 1 on the 4.34.0 reprint,
+// 2026-10-24). The template counted every synced resource as a work item, so
+// each user, group and state became "(unassigned)" work, and it read the
+// owner as a raw id, so Zammad's unassigned owner (id 1) showed as agent "1".
+// It now counts active tickets per owner, named from the synced users.
 
 package cli
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"sort"
 
@@ -18,9 +24,9 @@ func newLoadCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "load",
-		Short: "Show workload distribution per assignee",
-		Long: `Analyze locally synced data to show how many items are assigned to each
-person. Helps identify overloaded team members and unbalanced workload.`,
+		Short: "Show open-ticket workload per owner",
+		Long: `Count the locally synced active tickets (new, open or pending) owned by
+each agent. Helps identify overloaded team members and unbalanced workload.`,
 		Example: `  # Show workload distribution
   zammad-cli load
 
@@ -29,121 +35,29 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 
   # Output as JSON
   zammad-cli load --json`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// pp:data-source local
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dbPath == "" {
-				dbPath = defaultDBPath("zammad-cli")
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
-
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			if dryRunOK(flags) {
+				return nil
+			}
+			db, err := openNovelStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'zammad-cli sync' first.", err)
+				return err
 			}
 			defer db.Close()
-
-			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
-
-			// Build user name lookup from synced users
-			userNames := map[string]string{}
-			userRows, err := db.Query(`SELECT data FROM resources WHERE resource_type = 'users'`)
-			if err == nil {
-				defer userRows.Close()
-				for userRows.Next() {
-					var userData []byte
-					if userRows.Scan(&userData) != nil {
-						continue
-					}
-					var u map[string]any
-					if json.Unmarshal(userData, &u) != nil {
-						continue
-					}
-					uid := ""
-					if id, ok := u["id"]; ok {
-						uid = fmt.Sprintf("%v", id)
-					}
-					if uid == "" {
-						continue
-					}
-					for _, nk := range []string{"name", "displayName", "display_name"} {
-						if n, ok := u[nk]; ok && n != nil {
-							userNames[uid] = fmt.Sprintf("%v", n)
-							break
-						}
-					}
-				}
+			maybeEmitSyncHints(cmd, db, "tickets", flags.maxAge)
+			if err := novelRequireSynced(db, "tickets", false); err != nil {
+				return err
 			}
 
-			rows, err := db.Query(`SELECT id, resource_type, data FROM resources`)
+			entries, total, err := buildTicketLoad(db)
 			if err != nil {
-				return fmt.Errorf("querying items: %w", err)
+				return err
 			}
-			defer rows.Close()
-
-			type loadEntry struct {
-				Assignee string `json:"assignee"`
-				Count    int    `json:"count"`
-			}
-
-			counts := make(map[string]int)
-			total := 0
-			for rows.Next() {
-				var id, resType string
-				var data []byte
-				if err := rows.Scan(&id, &resType, &data); err != nil {
-					continue
-				}
-				_ = id
-				_ = resType
-
-				var obj map[string]any
-				if err := json.Unmarshal(data, &obj); err != nil {
-					continue
-				}
-
-				assignee := ""
-				for _, key := range []string{"assigneeId", "assignee_id", "assignee", "ownerId", "owner_id", "owner"} {
-					v, ok := obj[key]
-					if !ok || v == nil {
-						continue
-					}
-					// Handle nested object: {id: "...", name: "Sheldon"}
-					if m, ok := v.(map[string]any); ok {
-						for _, nameKey := range []string{"name", "displayName", "display_name"} {
-							if n, ok := m[nameKey]; ok && n != nil {
-								assignee = fmt.Sprintf("%v", n)
-								break
-							}
-						}
-						if assignee == "" {
-							if aid, ok := m["id"]; ok {
-								assignee = fmt.Sprintf("%v", aid)
-							}
-						}
-					} else {
-						// Flat string — try to resolve from user lookup
-						raw := fmt.Sprintf("%v", v)
-						if name, ok := userNames[raw]; ok {
-							assignee = name
-						} else {
-							assignee = raw
-						}
-					}
-					break
-				}
-				if assignee == "" || assignee == "<nil>" {
-					assignee = "(unassigned)"
-				}
-
-				counts[assignee]++
-				total++
-			}
-
-			var entries []loadEntry
-			for k, v := range counts {
-				entries = append(entries, loadEntry{Assignee: k, Count: v})
-			}
-			sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
-
 			shown := entries
 			if limit > 0 && len(shown) > limit {
 				shown = shown[:limit]
@@ -162,11 +76,11 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 			}
 
 			if len(entries) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No items found. Run sync first.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No active tickets found.")
 				return nil
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Workload Distribution (%d total items, showing %d):\n\n", total, len(shown))
+			fmt.Fprintf(cmd.OutOrStdout(), "Workload Distribution (%d active tickets, showing %d owners):\n\n", total, len(shown))
 			fmt.Fprintf(cmd.OutOrStdout(), "%-40s %s\n", "ASSIGNEE", "COUNT")
 			fmt.Fprintf(cmd.OutOrStdout(), "%-40s %s\n", "--------", "-----")
 			for _, entry := range shown {
@@ -177,7 +91,67 @@ person. Helps identify overloaded team members and unbalanced workload.`,
 	}
 
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
-	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum entries to show")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum entries to show (0 means all)")
 
 	return cmd
+}
+
+type loadEntry struct {
+	Assignee string `json:"assignee"`
+	Count    int    `json:"count"`
+}
+
+// buildTicketLoad counts active tickets per owner (Zammad's owner id 1, or no
+// owner, is "(unassigned)"), largest first, and returns the total.
+func buildTicketLoad(db *store.Store) ([]loadEntry, int, error) {
+	states, err := loadZammadStateCatalog(db)
+	if err != nil {
+		return nil, 0, err
+	}
+	names, err := loadZammadAgentNames(db)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := db.Query(`SELECT CAST(owner_id AS TEXT), CAST(state_id AS TEXT) FROM tickets`)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying tickets: %w", err)
+	}
+	defer rows.Close()
+	type agg struct {
+		name  string
+		count int
+	}
+	byOwner := make(map[string]*agg)
+	total := 0
+	for rows.Next() {
+		var ownerID, stateID sql.NullString
+		if err := rows.Scan(&ownerID, &stateID); err != nil {
+			return nil, 0, fmt.Errorf("scanning tickets: %w", err)
+		}
+		if !zammadStateActive(zammadStateForID(states, stateID).Kind) {
+			continue
+		}
+		key := zammadOwnerID(ownerID)
+		a := byOwner[key]
+		if a == nil {
+			a = &agg{name: zammadAgentName(ownerID, names)}
+			byOwner[key] = a
+		}
+		a.count++
+		total++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("reading tickets: %w", err)
+	}
+	entries := make([]loadEntry, 0, len(byOwner))
+	for _, a := range byOwner {
+		entries = append(entries, loadEntry{Assignee: a.name, Count: a.count})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].Count != entries[j].Count {
+			return entries[i].Count > entries[j].Count
+		}
+		return entries[i].Assignee < entries[j].Assignee
+	})
+	return entries, total, nil
 }

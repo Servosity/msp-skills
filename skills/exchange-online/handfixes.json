@@ -1,0 +1,1072 @@
+{
+ "slug": "exchange-online",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand. internal/credwire/declarations.go holds the one Declarations literal; credkit.Start is the first statement of each main and credkit.Exit the last; the API client goes through credkit.Transport under the origin pin; feedback, deliver and the doctor probe are built on it; every file write except the 0600 credential store and config.toml goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption, listed in Declarations.Files); children run through credkit.RunCommand. Retired, reason replaced by the shared credential kit: secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, mcp-protocol-messages-withheld, network-sinks-withheld.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. Origins: only the base URL the run really uses. A credential goes nowhere else, the MCP HTTP bearers go nowhere at all, and Files lists only the run's own config, because the first base_url listed becomes the allowed origin: a discovered default under an explicit selection, another --home and a store recording an issued base URL are held, not listed. Tests: internal/exoblackbox (built binaries over TLS against a stub that echoes every credential), TestFilesListOnlyWhatTheRunReads, TestReadPathsCoversEveryFileLoadReads.",
+   "spec_encode_followup": "Press-side: emit the credkit wiring from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"EXCHANGE_ONLINE_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:EXCHANGE_ONLINE_MCP_HTTP_TOKEN\", Allowed: nil},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestFilesListOnlyWhatTheRunReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ConsultedPaths() ([]string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold_test.go",
+     "contains": "func TestReadPathsCoversEveryFileLoadReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(holdToolArguments),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_outbound.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "next := cliutil.OutboundGuard(c.HTTPClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_test.go",
+     "contains": "func TestCmdletTransportUnderTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_test.go",
+     "contains": "func TestRealisticListingsSurviveUnwithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/writers_test.go",
+     "contains": "func TestEveryHTTPClientGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "installOutputChokepoint"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "funnelCommandErrors"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "(args=%v)"
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "base = credkit.Transport(http.DefaultTransport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestOutboundSendersRefuseAHeldTokenAndFollowNoRedirect(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestStartupMalformedOrLegacyConfig(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestMCPRefusedHTTPStartPrintsItsReason(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "not_contains": "os.Exit(run())"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, nil, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldRequestCredentials(params, bodyBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the MCP sql tool's read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Closes credential-split-across-sql-bindings: a held value split across two bound values of one statement is one unit to the driver. Replaces the connector-only WithholdingSQLiteDriver.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "source, err := sql.Open(credsql.Driver, readOnlySQLiteDSN(sourcePath))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestCredentialSplitAcrossBindingsIsRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/exoblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-every-file-write",
+   "class": "raw-file-write-past-kit",
+   "status": "active",
+   "summary": "No handle from a raw open writes a byte past the credential kit. The lock file stays empty; the journal's lines and repair newline go through credkit.AppendFile; the fingerprint key through credkit.WriteFile. TestEveryFileWriteGoesThroughTheKit walks every function's handles with go/ast, so a raw Write, io.Copy, Fprint or a handle stored behind an interface fails it.",
+   "why": "A scan of raw opens alone allows a handle that then writes. A response holding a one-character credential would otherwise put that byte in a lock file, past the kit. A reprint re-emits these writers; these asserts and the scan catch it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "not_contains": "f.Write([]byte{0})"
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "root.OpenFile(filepath.Base(lockPath), os.O_CREATE|os.O_RDWR, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "f.Write([]byte{'\\n'})"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "not_contains": "file.Write(key)"
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(path, key, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/writers_test.go",
+     "contains": "func rawHandleWrites(t *testing.T, files map[string]string) []handleWrite {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/writers_test.go",
+     "contains": "func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Every credential a response carries is held before any command reads the body, then replaced by name so a listing stays readable. The name rule is one shared walker over response bodies, request bodies, MCP arguments and --stdin bodies, any depth, every spelling. A mask is judged by shape only. No Exchange cmdlet property in the spec matches a credential name, so mailbox names, GUIDs, UPNs and Identity are never held.",
+   "why": "The kit withholds a whole unit that repeats a held value, so a body carrying a credential member would print nothing if the member were not replaced first; the kit holds declared names only, the walker also holds duplicate members and every document in a body. responseHoldTripper reads each response under the client size cap and decodes it as the client will (client/exo_decode.go is kept for this: the kit does not do name-rule replacement). Tests: TestResponseCredentialsHeldAndReplacedByName, TestRedactBodyAndHoldByName, TestRealisticListingsSurviveUnwithheld.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "cliutil.HoldCredentialFields(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "cliutil.RedactBody(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/exo_decode.go",
+     "contains": "func DecodeBody(encoding string, body []byte) ([]byte, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/exchange-online-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(holdToolArguments),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/exo_secrets.go",
+     "contains": "n := normalizedFieldName(name)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/exo_secrets.go",
+     "contains": "type duplicateMembers []map[string]any",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/exo_secrets_test.go",
+     "contains": "func TestCredentialNamesMatchInEverySpelling(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_rules_test.go",
+     "contains": "func TestResponseCredentialsHeldAndReplacedByName(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal writes through the kit, EXCHANGE_ONLINE_LEARN_SESSION is hashed under its own prefix, argv_shape and failed_flag record only flag names the invoked command declares (any other is a placeholder), and teach_playbook's error log counts arguments rather than repeating them.",
+   "why": "A mistyped flag can be a pasted token, and a session label can be anything the harness set: both reached the journal file as written.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestJournalHoldsNoCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "A run profile holds no credential: a credential-named flag value is dropped when profiles.json loads, and credwire holds the file's values before output.",
+   "why": "Kit item 8c. profiles.json is written by the program but can be edited by hand, and its values become flags on later runs. Tests: TestRunProfileKeepsNoCredential.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if credentialLikeRunProfileFlag(flag) || cliutil.SecretProfileKey(flag) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStoreFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_test.go",
+     "contains": "func TestRunProfileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor probes a read-only cmdlet (Get-AcceptedDomain, POST /adminapi/beta/<tenant>/InvokeCommand) with the real credential. 401 is rejected, 403 limited, 404 a base URL that is not the Exchange API (naming EXCHANGE_ONLINE_BASE_URL), instead of calling any HTTP response reachable and never checking the credential. Every verdict word prints in clear.",
+   "why": "doctor is the command every doc tells an operator to run, and it could not tell a working install from a broken one. A cmdlet API has no GET to probe, so the generic walk does not apply; a token's own tid names the tenant, and an opaque token probes the zero GUID.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorFinishVerdicts(cmd.Context(), c, cfg, reachErr, report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/exo_doctor.go",
+     "contains": "const doctorProbeCmdlet = \"Get-AcceptedDomain\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_doctor.go",
+     "contains": "func doctorFinishVerdicts(ctx context.Context, c *client.Client, cfg *config.Config, reachErr error, report map[string]any) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestDoctorShowsVerdictInClear(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-named-this-run-wins",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A token named on this run (EXCHANGE_ONLINE_TOKEN) wins over a stored auth_header, on a write, on both binaries.",
+   "why": "The generated AuthHeader prefers a stored header, so an operator rotating a key by environment kept sending the old one. Under the kit that is also a refused send. Test: TestNamedTokenWinsOverAStoredOne.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"ExchangeOnlineToken\"] && c.ExchangeOnlineToken != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_test.go",
+     "contains": "func TestNamedTokenWinsOverAStoredOne(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-held-before-output",
+   "class": "stdin-held-late",
+   "status": "active",
+   "summary": "Before anything prints, credwire holds a key pasted on the auth set-token line, the piped set-token value, and the credential fields of a --stdin body, and gives the program the same bytes on a new os.Stdin. It does not use the kit's StdinFlags: those hold every line of a body, so a pretty-printed body stops the program and a one-line body withholds its own preview.",
+   "why": "Kit item 8a. A parser error repeats what it was given before the command reads the pipe. Test: TestStdinHeldBeforeTheFirstByte.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdPipedToken(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdStdinBody(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdSetTokenArguments(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var setTokenFlags = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestSetTokenFlagsMatchTheCommand(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestErrorsPrintOnceAndNeverShowTheKey(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_test.go",
+     "contains": "func TestStdinHeldBeforeTheFirstByte(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func asksForHelp(args []string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestHelpDoesNotWaitForAnOpenPipe(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "exo-cmdlet-transport",
+   "class": "auth-wire",
+   "summary": "Exchange admin endpoints are cmdlet RPC over POST: the spec writes each cmdlet as <surface path>#<Cmdlet>, and a client hook turns the fragment plus the command's body into {\"CmdletInput\":{\"CmdletName\":...,\"Parameters\":...}}, routes with X-AnchorMailbox, sends Accept-Encoding identity, follows @odata.nextLink pages on the same origin only, and returns the merged value rows. A query the shared client appended after the fragment (the read tool's properties, carried as $select) is moved to the real query string.",
+   "why": "The spec cannot express a cmdlet envelope (net/http never sends a URL fragment); without the hook every command POSTs the bare parameters to the wrong body shape. Sources: learn.microsoft.com/exchange/reference/admin-api-get-started and CIPP-API New-ExoRequest.ps1. Hand file internal/cli/exo_transport.go, installed by exo_guard.go's registerClientHook UNDER the origin pin (the envelope transport wraps the pinned one, so every page it sends is pinned). Tests: internal/cli/exo_transport_test.go, TestOriginPinCoversEveryCmdletPage.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "input := map[string]any{\"CmdletName\": cmdlet}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "next, err := sameOrigin(req.URL, pageBody.Next)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "out.Header.Set(\"Accept-Encoding\", \"identity\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "return installEXOTransport(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport_test.go",
+     "contains": "func Test",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "cmdlet, fragmentQuery, _ := strings.Cut(req.URL.EscapedFragment(), \"?\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport_test.go",
+     "contains": "func TestEXOMovesAQueryOffTheFragment(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestReadAcceptsProperties(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "generated-command-examples",
+   "class": "docs",
+   "summary": "30 generated endpoint commands carry a runnable Example (tenant GUID plus the cmdlet's identity flags); which.go WhyItMatters lines no longer stop at \"v2.\"; helpers.go drops the dead retainCLIQueryParams pair.",
+   "why": "Press 4.34.x emits an Example only when every input has one; cmdlet parameters are body flags with no spec example, so dogfood's example coverage and the agent-facing help need these. Carried from the 4.33.5 print (polish). Re-applied by tools/apply_handfixes.sh (handfix-4342/generated-hand-edits.patch); a reprint that drops them shows in dogfood example coverage and in these asserts.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/quarantine_release.go",
+     "contains": "--release-to-all\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/folder_permissions_add.go",
+     "contains": "--access-rights Reviewer\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mobile_devices_wipe.go",
+     "contains": "--account-only\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "WhyItMatters: \"Organization MailTips settings and limits (Admin API v2.0).\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/mailboxes_list.go",
+     "contains": "--agent --select UserPrincipalName,RecipientTypeDetails,ForwardingSmtpAddress\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestMailboxesListExampleShowsItsColumns(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-every-write-needs-confirm",
+   "class": "write-safety",
+   "summary": "The press spec (withheld from this repo) carries x-pp-mutation on every operation: false on the 39 Get-* cmdlets, true on the 21 others (Set, Add, Remove, Enable, Disable, Release, Delete, Clear). Every endpoint is a POST, so the cmdlet verb, not the method, classifies reads: exchange-online_read serves the Get-* cmdlets (also under EXCHANGE_ONLINE_MCP_READ_ONLY=1) and refuses the rest, and exchange-online_execute previews every write until confirm is boolean true.",
+   "why": "Spec-encoded, so it survives a reprint by construction. Work order blocker: MCP read-only mode blocked reads until reads were classified by cmdlet verb; press 4.34.2 honours x-pp-mutation natively (the create alias on read POSTs is gone too). TestEveryStateChangingCmdletNeedsConfirm (internal/mcp/exo_writes_confirm_test.go) checks the generated endpoint table by verb. The spec is not vendored here, so the asserts read the generated endpoint table in internal/mcp/code_orch.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   true,",
+     "min_count": 21
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   false,",
+     "min_count": 39
+    },
+    {
+     "file": "cli/internal/mcp/exo_writes_confirm_test.go",
+     "contains": "func TestEveryStateChangingCmdletNeedsConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request, redirect hop and @odata.nextLink page goes only to the scheme, host and port of the configured API base URL (EXCHANGE_ONLINE_BASE_URL, default https://outlook.office365.com); anything else is refused before it is resolved, dialled or given the bearer token.",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/exo_guard.go, registered with registerClientHook, so every CLI, novel fan-out and MCP client gets it), installed under the cmdlet transport so its nextLink pages are pinned too (the transport's own sameOrigin check stays). Byte-exact ASCII-folded origins; a host with a non-ASCII byte never matches. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestOriginPinCoversEveryCmdletPage, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origins: origins, next: responseHoldTripper{next: next}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "not_contains": "func init() { registerClientHook(installEXOTransport) }"
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw cmdlet bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (exo_guard.go); TestOriginPinCoversEveryCmdletPage asserts it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values at any depth, whether or not anything held them, so a mailbox row stays a row. A record that cannot be decoded is stored as {}. A held value anywhere else in a statement is the kit's SQL driver's to refuse (credkit-sqlite-every-handle).",
+   "why": "Work order: no credential in files. The kit refuses a statement that repeats a held value, but it does not know a credential-named member nothing held: the strip keeps those out of rows. Covered by TestStoreRedactsCredentialMembersByName and TestNoCredentialInAnyWrittenFile (.db files scanned).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/exo_secrets_test.go",
+     "contains": "func TestStoreRedactsCredentialMembersByName(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Mirrored MCP tools that can change Exchange state (offboard, any later non-read-only command) preview and send only with confirm: true; offboard's preview is its own --plan (reads the mailbox, reports each step done or pending, changes nothing). The preview owns its flag: a caller argument naming it (plan, dry-run) is dropped from the preview whatever its value (Codex review r1 class preview-overridable-by-argument: plan \"false\" followed the injected --plan and the preview sent). A refused argument is an error naming it, with no note telling the caller to send it.",
+   "why": "Press 4.34.2 gates exchange-online_execute on confirm, but the Cobra-tree mirror registered offboard with no confirm: an MCP call converted a mailbox to shared, hid it, removed devices and granted access at once. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/exo_confirm.go), called from RegisterTools after RegisterAll, wraps every mirrored tool that is not read-only, mcp:local-write or local-only; the exo:preview-flag annotation names a command's own boolean read-only flag as its preview. Only boolean true sends; confirm is never forwarded. Tests: TestRegisteredMirroredWritesNeedConfirm, TestPreviewFlagRunsThePlan, TestMirroredWriteNeedsBooleanConfirm, TestMCPWritesNeedConfirm (black-box).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "\"exo:preview-flag\": \"plan\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/exo_confirm_registered_test.go",
+     "contains": "for _, name := range []string{\"offboard\"} {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm.go",
+     "contains": "preview, owned = run(\"--\"+pf), []string{pf, \"dry-run\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm.go",
+     "contains": "delete(planArgs, k)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm_test.go",
+     "contains": "func TestPreviewArgumentsCannotOverrideThePreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/review_r1_test.go",
+     "contains": "func TestMCPPreviewCannotBeTurnedOffByAnArgument(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm.go",
+     "contains": "if res != nil && !res.IsError {",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/exo_confirm_test.go",
+     "contains": "func TestRefusedPreviewNamesTheFlagAndIsNoPreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/kit_classes_test.go",
+     "contains": "func TestMCPConfirmPreviews(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "access-map-trustee-object-ids",
+   "class": "wrong-result",
+   "summary": "access-map counts a trustee the cmdlet rendered by any identifier the user carries (address, name, alias, GUID, ExternalDirectoryObjectId, DistinguishedName, Identity), through the one identifier check recipient.answers.",
+   "why": "Codex review r1 (class trustee-object-id-unmatched): Exchange Online renders GrantSendOnBehalfTo as GUIDs unless the display-name switch is used (vendor-docs/psref/get-distributiongroup.md -IncludeGrantSendOnBehalfToWithDisplayNames; Get-Mailbox has the same switch), and the trustee prefilter accepted only addresses and names, so a real SendOnBehalf grant was missing from both access and ambiguous. Hand file internal/cli/access_map.go. Test: TestAccessMapMatchesTrusteeObjectIDs.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/access_map.go",
+     "contains": "if !t.me.addrs[smtpOf(s)] && !t.me.answers(s) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_novel_test.go",
+     "contains": "func TestAccessMapMatchesTrusteeObjectIDs(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-tls-skip-env",
+   "class": "auth-wire",
+   "summary": "Exchange Online is Microsoft-hosted with a public certificate, so the generated EXCHANGE_ONLINE_SKIP_TLS_VERIFY read is removed: no environment value can turn off certificate checks for the admin token. The explicit --insecure flag stays.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "EXCHANGE_ONLINE_SKIP_TLS_VERIFY"
+    }
+   ],
+   "status": "active",
+   "why": "The admin token authorizes mailbox and permission changes; a stray environment value must not expose it to an on-path host. Same reasoning as the fortinet and unifi-network carve-outs, with no self-hosted audience to serve."
+  },
+  {
+   "id": "forwarding-audit-mcp-read-only",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "The MCP forwarding_audit tool is a pure read: --sweep is dropped from its schema and rejected as an argument, and inbox_rules_sweep is the one tool that sweeps. The CLI keeps --sweep.",
+   "why": "A sweep writes the local store. With sweep off the tool only sends Get-* cmdlets, and every Exchange call is a POST, so the read-only gate cannot tell them from writes; one read tool in both modes also leaves the CLI and MCP surfaces with one clear rule.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/forwarding_audit.go",
+     "contains": "\"mcp:write-flags\": \"sweep\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/forwarding_audit.go",
+     "contains": "\"mcp:read-only\": \"true\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "request-read-as-the-kit-reads-it",
+   "class": "unencoded-query-kills-the-run",
+   "status": "active",
+   "summary": "Every request this connector sends reaches the credential kit in the one form the kit reads: cliutil.KitReadableRequest rewrites the query to canonical pairs with the same decoded values and fails that one call, aloud and with no retry, for a query that cannot be decoded, a body-coding header, a Content-Type other than JSON, a URL with no host, or a server-written user name or password. The origin pin runs it on every API request, redirect hops included; deliver and feedback run it on the URL they are given. The cmdlet transport normalizes the first request and each @odata.nextLink through cliutil.CanonicalQuery, and the repeat guard compares the normalized link.",
+   "why": "The kit answers any other request by marking every value unknown, so every later unit on every sink is dropped: the run exits with nothing printed and an MCP server stops answering. A literal $ in @odata.nextLink is ordinary OData, so real tenants send what killed the run. Tests: internal/exoblackbox/query_class_test.go (each input through the built binaries, seen failing first) and internal/cliutil/kit_readable_test.go (the kit itself as the oracle).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/kit_readable.go",
+     "contains": "func CanonicalQuery(raw string) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kit_readable.go",
+     "contains": "func KitReadableRequest(req *http.Request) (*http.Request, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "out, err := cliutil.KitReadableRequest(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_guard.go",
+     "contains": "req.URL.User.String() != via[0].URL.User.String()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "if u.RawQuery, err = cliutil.CanonicalQuery(u.RawQuery); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "if next.RawQuery, err = cliutil.CanonicalQuery(next.RawQuery); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "key := pageKey(next)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exo_transport.go",
+     "contains": "next.User.String() != orig.User.String()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if req, err = cliutil.KitReadableRequest(req); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "if req, err = cliutil.KitReadableRequest(req); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if errors.Is(err, cliutil.ErrUnreadableRequest) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/query_class_test.go",
+     "contains": "func TestNextLinkQueryFormsListEveryPage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/query_class_test.go",
+     "contains": "func TestNextLinkOverMCPReturnsBothPagesAndTheServerStaysUp(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/exoblackbox/query_class_test.go",
+     "contains": "func TestRepeatGuardSeesThroughEncoding(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kit_readable_test.go",
+     "contains": "func TestCanonicalQueryIsWhatTheKitReads(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "saved-token-wins",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A token saved by auth set-token (any SaveTokens call) replaces a stored online_token, which AuthHeader ranks above access_token.",
+   "why": "The generated SaveTokens left a stored online_token in place, so set-token reported success while the next run sent the older token. Test: TestSavedTokenOutranksOlderStoredSlots.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.fileConfig.ExchangeOnlineToken = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/exo_saved_token_wins_test.go",
+     "contains": "func TestSavedTokenOutranksOlderStoredSlots(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-file-private-before-bytes",
+   "class": "credential-file-perms",
+   "status": "active",
+   "summary": "The credential store and config writer checks the new temporary file is private before writing any credential bytes, and refuses otherwise.",
+   "why": "A directory with an inherited ACL that lets another user read new files got the token written and published; the permission check ran only afterwards. Test: TestCredentialFileRefusedUnderAnInheritedReadACL (darwin). The generated Windows test TestSaveCredentialsVerifiesWrittenFile asserted the published file; it now asserts the refusal and no file.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := VerifyCredsPerms(tmpPath); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/exo_credential_acl_darwin_test.go",
+     "contains": "func TestCredentialFileRefusedUnderAnInheritedReadACL(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "contains": "want a refusal before writing",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,5 +1,5 @@
 {
-  "count": 84,
+  "count": 90,
   "connectors": [
     {
       "slug": "abnormal",
@@ -65,6 +65,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/appdirect/"
+    },
+    {
+      "slug": "apple-business",
+      "display_name": "Apple Business",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "category": "MDM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/apple-business/"
     },
     {
       "slug": "atera",
@@ -182,6 +195,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/bitdefender/"
+    },
+    {
+      "slug": "blackpoint",
+      "display_name": "Blackpoint Cyber",
+      "tagline": "Blackpoint Cyber CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant view of open detections, stale agents and coverage gaps.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/blackpoint/"
     },
     {
       "slug": "blumira",
@@ -392,6 +418,19 @@
       "url": "/skills/domotz/"
     },
     {
+      "slug": "exchange-online",
+      "display_name": "Exchange Online",
+      "tagline": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/exchange-online/"
+    },
+    {
       "slug": "fortinet",
       "display_name": "Fortinet",
       "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
@@ -600,6 +639,19 @@
       "url": "/skills/microsoft-graph/"
     },
     {
+      "slug": "mimecast",
+      "display_name": "Mimecast",
+      "tagline": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/mimecast/"
+    },
+    {
       "slug": "mspbots",
       "display_name": "MSPbots",
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
@@ -637,6 +689,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/nerdio/"
+    },
+    {
+      "slug": "netsapiens",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "category": "Telephony",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/netsapiens/"
     },
     {
       "slug": "ninjaone",
@@ -1040,6 +1105,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "warranty",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/warranty/"
     },
     {
       "slug": "watchguard",

@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - 2026-11-04
+
+### Fixed
+- **Pages of incident reports are no longer refused as a credential echo.** On 0.1.11 a page of five or more ordinary incident reports (`incident-reports list --all`, and the `incident-reports` and `accounts_incident_reports` resources in `sync`) failed with "text withheld: it repeated a secret value this program holds" although no credential was in it: the check ran out of work on a long page and withheld it the same way it withholds a real echo. A successful JSON answer is now checked in small pieces cut only between values, so every value is still checked whole and an answer that does repeat a credential is still refused (reported by @Xenith-B, #495).
+
 ## [0.1.11] - 2026-10-27
 
 ### Changed

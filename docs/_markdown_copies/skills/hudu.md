@@ -135,7 +135,7 @@ Mostly. Audits and search run over whatever you've synced, so they work with any
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md) · [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [IT Glue](https://msp-skills.compoundingteams.com/skills/itglue.md) · [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md) · [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
 
 ## Status
 

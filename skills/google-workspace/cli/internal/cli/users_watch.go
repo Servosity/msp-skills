@@ -55,7 +55,7 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEvent {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvent, "event", allowedEvent)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvent, "event", allowedEvent))
 				}
 			}
 			if cmd.Flags().Changed("order-by") {
@@ -68,7 +68,7 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validOrderBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrderBy, "order-by", allowedOrderBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrderBy, "order-by", allowedOrderBy))
 				}
 			}
 			if cmd.Flags().Changed("projection") {
@@ -81,7 +81,7 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProjection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProjection, "projection", allowedProjection))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -94,7 +94,7 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("view-type") {
@@ -107,7 +107,7 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validViewType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagViewType, "view-type", allowedViewType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagViewType, "view-type", allowedViewType))
 				}
 			}
 			if !stdinBody {
@@ -281,16 +281,13 @@ func newUsersWatchCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
