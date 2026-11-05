@@ -357,11 +357,11 @@
     "released_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf"
   },
   "keeper": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9",
-    "released_hash": null
+    "released_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9"
   },
   "knowbe4": {
     "state": "up-to-date",
