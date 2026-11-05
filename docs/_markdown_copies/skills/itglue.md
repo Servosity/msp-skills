@@ -145,7 +145,7 @@ No. The CLI reads, and creates or updates contacts, passwords, configurations, a
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](https://msp-skills.compoundingteams.com/skills/hudu.md) · [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](https://msp-skills.compoundingteams.com/skills/hudu.md) · [Liongard](https://msp-skills.compoundingteams.com/skills/liongard.md) · [PandaDoc](https://msp-skills.compoundingteams.com/skills/pandadoc.md) · [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
 
 ## Status
 

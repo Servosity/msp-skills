@@ -1,0 +1,106 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/cisco-umbrella-mcp",
+  "title": "Cisco Umbrella MCP",
+  "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cisco-umbrella/cisco-umbrella-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/cisco-umbrella"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cisco-umbrella-v0.1.0/cisco-umbrella-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CISCO_UMBRELLA_API_KEY",
+          "description": "Set the CISCO_UMBRELLA_API_KEY credential for the Cisco Umbrella MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_UMBRELLA_API_SECRET",
+          "description": "Set the CISCO_UMBRELLA_API_SECRET credential for the Cisco Umbrella MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_UMBRELLA_ORG_ID",
+          "description": "Optional. Child org ID to act on from an MSP or Multi-org parent key (the same as --org). Leave blank to act on the key's own organization.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_BASE_URL",
+          "description": "Optional. Leave blank to use https://api.umbrella.com. Set it only to point at a different host, such as a test server; credentials then go to that host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_TOKEN_URL",
+          "description": "Optional. Leave blank to use https://api.umbrella.com/auth/v2/token. It must be on the API host; a token URL on any other host is refused.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_OAUTH_SCOPE",
+          "description": "Optional. Scope sent with the token request. Leave blank: an Umbrella key already carries the scopes it was created with.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_UMBRELLA_MCP_UPLOAD_ROOT",
+          "description": "Optional. Leave blank. Reserved for MCP file uploads: no Cisco Umbrella MCP tool in this release takes a file, so the server never opens a local path and this setting has no effect.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_UMBRELLA_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on Umbrella requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank; pick a customer with CISCO_UMBRELLA_ORG_ID instead.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1466 @@
+{
+ "slug": "kaseya-vsa",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. First print press 4.33.5 (run 20261014-221524-7be03dd9); first release on press 4.34.2 (run 20261027-140746-e245c063). Credential-less: no vendor tenant; behaviour proven against a mock built from Kaseya's public api.vsax.net reference.",
+ "handfixes": [
+  {
+   "id": "sync-dependents-devices-notifications-only",
+   "summary": "Dependent sync fans out only to devices_notifications; custom-field values, applied policies and scope usage are never synced",
+   "why": "VSA custom-field values are where MSPs keep secrets (BitLocker keys, client passwords): the press emits per-parent dependents for devices/organizations/sites/groups custom fields, which would copy them into the local SQLite store. devices_appliedpolicies rows have no stable ID (PolicyType repeats per device), so every device 'consumed N, stored 0' and failed the whole sync. scope_usage is one call per scope for data no command reads. The explicit list commands still read all of these live. Re-apply: cli-factory/kaseya-vsa/tools/apply_handfixes.py. Press 4.34.2 already skips scripts_executions and generates the $.parent_id reconcile scope.",
+   "status": "active",
+   "spec_encode_followup": "a per-dependent sync opt-out (x-pp-sync: false on the sub-collection) in the press",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "kaseya-vsa handfix: dependent sync limited to devices_notifications",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"devices_notifications\", ParentTable: \"devices\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"devices_customfields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"organization_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"site_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"group_custom_fields\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"devices_appliedpolicies\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"scope_usage\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"scripts_executions\""
+    }
+   ]
+  },
+  {
+   "id": "root-display-name",
+   "summary": "Root help says 'Kaseya VSA 10 CLI', not the title-cased slug 'Kaseya Vsa CLI'",
+   "why": "root.go.tmpl renders {{humanName .Name}} and ignores the spec's x-display-name 'Kaseya VSA 10' (still true on press 4.34.2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Kaseya VSA 10 CLI",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Kaseya Vsa CLI"
+    }
+   ]
+  },
+  {
+   "id": "select-example-names-real-fields",
+   "summary": "The global --select help example names fields assets list returns, never AssetInfo",
+   "why": "The template's example (--select AntivirusEnabled,AntivirusUpToDate,AssetInfo) names AssetInfo, which assets list never returns without include=AssetInfo (the CLI warns 'matched no fields') and which carries the Windows product key.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "(e.g. --select Identifier,Name,AntivirusEnabled)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "AntivirusUpToDate,AssetInfo"
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "summary": "Mirrored MCP tools that can change VSA state preview and run only with confirm: true Commands that write only the CLI's own local files (teach, sync, export, workflow archive) preview until confirm too.",
+   "why": "Press 4.34.2 gates kaseya-vsa_execute on confirm, but the Cobra-tree mirror registers scripts_run_wait and tasks_run_wait (which start scripts and tasks on managed devices) and import with no confirm: an agent call ran POST /automation/scripts/{id}/run at once. RequireConfirmForMirroredWrites (hand file) wraps every mirrored tool that is not read-only, not mcp:local-write and not sync/export/workflow archive, so a command added later is gated by default. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child. CI check_mcp_file_flags (PR #488): the preview returned before the shell-out handler's argument-name check, so a host-file flag (--config, --receipt-file, --audit-dir, ...) was dropped silently instead of refused, and no ordinary flag reached the CLI. The gate now refuses any argument the tool schema does not declare, naming it, before it previews or runs, and builds the preview by running the command with the root --dry-run (the VSA client sends nothing in dry-run), so ordinary flags reach the CLI; a command whose --dry-run is not the root flag gets a preview that runs nothing. Test: TestMirroredWritePreviewDryRunsAndRefusesUndeclared (fails with the gate reverted). Codex review r1 [P1]: boolean true for a flag that takes a value (client-profile: true) became a bare --client-profile that read the forced --dry-run as its value, so the preview of learnings forget deleted rows; the gate refuses boolean true for any flag without a no-value default, with or without confirm.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "args[\"confirm\"].(bool)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kaseya_confirm_registered_test.go",
+     "contains": "\"scripts_run_wait\", \"tasks_run_wait\", \"import\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "validateMCPArgumentNames(rest, declared)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "dry[\"dry-run\"] = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "cmd.Flag(\"dry-run\") == rootDryRun",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm_test.go",
+     "contains": "func TestMirroredWritePreviewDryRunsAndRefusesUndeclared(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "contains": "if v == true && takesValue[k] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kaseya_confirm.go",
+     "not_contains": "isMCPLocalWrite("
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitLocalWriteToolsNeedConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "summary": "Every API request and redirect hop goes only to the configured scheme, host and port; anything else is refused before it is resolved, dialled or given a credential",
+   "why": "Codex review r1 [P1] (2026-10-27): sync --path-context server=<host> (also on the MCP sync tool) rewrote the {server} template after the client was built, so the operator's Basic header went to that host. r2 [P1], same class: the first pin lowercased with Unicode rules, so --path-context server=İ.example.com compared equal to i.example.com while the transport dialled xn--i-9bb.example.com; and the generated CheckRedirect resolved an off-origin hop in DNS before the transport pin ran, so a Location whose label carried the hex-encoded secret leaked it through a DNS query. Structural fix (orchestrator order): one origin, resolved from configuration when the client is built, compared byte-for-byte with ASCII-only case folding (a host holding any non-ASCII byte never matches); originPinTripper refuses every other request and the same check runs FIRST in CheckRedirect, before the generated redirect guard, so nothing is resolved, dialled or credentialed. Registered on every CLI and MCP client through registerClientHook. To use another server, set KASEYA_VSA_SERVER (an IDN tenant host must be given in its xn-- form). Tests (seen failing first, r2-pin-seen-failing.log): TestR2PinRefusesUnicodeLookalikeHost, TestR2RedirectRefusedBeforeAnyDNSLookup, TestR2PathContextLookalikeNeverResolves, TestR1SyncPathContextCannotMoveTheAPIHost; prove_r2.sh reverts each half alone.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origin: origin, next: next, kitRefuses: templatedHostOutsideVSAX(c.BaseURL, origin)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "if origin == \"\" || normalizedOrigin(req.URL) != origin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "!isASCII(u.Scheme) || !isASCII(u.Host)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r2_test.go",
+     "contains": "func TestR2RedirectRefusedBeforeAnyDNSLookup(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r2_test.go",
+     "contains": "func TestR2PinRefusesUnicodeLookalikeHost(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "summary": "The on-disk HTTP response cache is off for every API client",
+   "why": "Codex review r1 [P1] class 'secret-bearing values persisted on disk': the 5-minute response cache wrote raw VSA bodies (custom-field GlobalValue/DefaultValue, webhook SecretKey, the asset Product Key) to files under the cache dir. The local store strips them (store-never-keeps-secrets); raw bodies must not sit in cache files either. Set in the same client hook as api-origin-pinned. Test: TestR1SecretValuesNeverReachDisk fails with this line removed (prove_r1.sh).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "summary": "Every store write strips secret-bearing VSA fields before resources, typed columns and FTS",
+   "why": "Codex review r1 [P1]: syncing custom_fields stored the documented GlobalValue/DefaultValue (vendor-docs/api.vsax.net.html#get-all-custom-fields), and the write-through cache stored them, the webhook SecretKey and the asset Product Key from live reads. mergeIncomingResourceData is the single path every store write takes (sync batches, typed upserts, write-through, keep-richer merge), so it returns withoutStoredSecrets(...): exact keys DefaultValue/GlobalValue/CustomFieldValue/SecretKey and Value/Values, plus any key containing secret/password/passwd/passphrase/apikey/privatekey/productkey/licensekey/recoverykey/credential, at any depth. Test: TestR1SecretValuesNeverReachDisk (fails with the store.go call reverted alone). r2 [P1], same class: bare value keys matched only as 'Value'/'Values', so a lowercase \"value\" survived. Structural fix: every key matches case-insensitively (the press's generic store tests moved their fixtures from \"value\" to \"label\" in internal/store/upsert_batch_test.go), and the same pass is the store's side of the output chokepoint: any string or key that repeats a held credential in any decoded form (cliutil.HeldEchoes) is withheld, and a record that still repeats one is stored as {}. Test: internal/kaseyablackbox TestNoCredentialInAnyWrittenFile scans every file the program writes after a battery of CLI and MCP runs against a server that echoes the credential in seven encodings (seen failing first, r2-bb-seen-failing.log). Review r1 (2026-10-28) [P1-A] class credential-persisted-via-ids: a record's ID or parent ID was extracted before withoutStoredSecrets ran, so an ID repeating the token secret reached resources.id, resources_fts.id and the typed table, and sync cursors, scope keys and the learn tables had no check. Structural fix: the read-write handle (OpenWithContext) opens through withholdingSQLiteDriver (internal/store/kaseya_withhold_driver.go), which wraps modernc.org/sqlite and checks every bound string or []byte of every statement except SELECT and DELETE with cliutil.HeldEchoes; a statement that would persist a held value reports zero rows changed and is not run (one stderr warning, no value in it), so the record is skipped whole and the rest of the batch is stored. Tests (seen failing first, r1-A-stored-id-seen-failing.log): internal/store TestR1AHeldValueNeverReachesAnyStoreColumn (every store write entry point, raw and ROT13, then the database files scanned) and internal/kaseyablackbox TestR1ReviewHeldIDNeverStored (sync against a server returning the secret as an organization Id).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "func withoutStoredSecrets(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "\"value\":            true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "if isStoredSecretKey(k) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "json.RawMessage(`{\"id\": \"ip\", \"label\": \"10.0.0.1\"}`)"
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "json.RawMessage(`{\"id\":\"spaced\",\"label\":\"Phase 2 residential\"}`)"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_r1a_test.go",
+     "contains": "func TestR1AHeldValueNeverReachesAnyStoreColumn(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_secrets.go",
+     "contains": "\"headers\":          true,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-text-masked",
+   "summary": "Hand-written commands mask credentials in any text they build from a response",
+   "why": "Codex review r1 [P1]: scripts/tasks run-wait echoed a run response with no execution ID raw into the error, bypassing the client's credential masking (a body carrying the token secret printed it in full, through the CLI and the confirmed MCP tool). bodyForError masks before truncating, and failureText masks every per-section failure string (devices brief, tasks run-wait), both through Client.MaskCredentials, which is the client's own every-encoding masker. Test: TestR1RunWaitErrorsNeverEchoTheSecret (fails with the mask removed).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/kaseya_mask.go",
+     "contains": "return c.maskCredentialText(text)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scripts_run_wait.go",
+     "contains": "bodyForError(c, raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "contains": "bodyForError(c, raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "contains": "failureText(c, err)",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/devices_brief.go",
+     "contains": "failureText(c, err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tasks_run_wait.go",
+     "not_contains": "Error: err.Error()"
+    },
+    {
+     "file": "cli/internal/cli/devices_brief.go",
+     "not_contains": "Error: err.Error()"
+    }
+   ]
+  },
+  {
+   "id": "no-env-tls-verify-off",
+   "class": "credential-sent-to-another-host",
+   "summary": "No environment variable turns TLS certificate verification off; tests trust their server through KASEYA_VSA_CA_CERT",
+   "why": "The press config reads KASEYA_VSA_SKIP_TLS_VERIFY, which the env-schema gate would make an install prompt on every channel: one tick would send the VSA 10 API token over unverified TLS. VSA 10 is hosted with publicly trusted certificates; a private CA goes in KASEYA_VSA_CA_CERT and the CLI keeps the explicit --insecure flag. Test: TestNoEnvSwitchDisablesTLSVerification fails with the env read restored. A reprint restores the read; this entry catches it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "KASEYA_VSA_SKIP_TLS_VERIFY"
+    },
+    {
+     "file": "cli/internal/config/kaseya_tls_env_test.go",
+     "contains": "func TestNoEnvSwitchDisablesTLSVerification"
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/blackbox_test.go",
+     "contains": "\"KASEYA_VSA_CA_CERT=\" + testCAFile(t, host)"
+    },
+    {
+     "file": "cli/internal/cli/kaseya_r1_test.go",
+     "contains": "t.Setenv(\"KASEYA_VSA_CA_CERT\", testCAFile(t, host))"
+    }
+   ]
+  },
+  {
+   "id": "chrome-transport-plain-http-h1",
+   "class": "wrong-result",
+   "summary": "The Chrome transport serves a plain-http base URL over HTTP/1.1 instead of failing on h2",
+   "why": "Press 4.34.2 chrome.go sent every request to its h2-over-TLS transport first; an http:// base URL failed with 'http2: unencrypted HTTP/2 not enabled', so no read or confirmed write reached a plain-http endpoint (verify-msp-skills features 2 and 4). https requests are unchanged. Wired from the client hook in a hand file, so chrome.go stays the template file. Test: TestPlainHTTPBaseURLIsServed fails with the hook call removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/kaseya_plain_http.go",
+     "contains": "func ServePlainHTTPOverH1(hc *http.Client)"
+    },
+    {
+     "file": "cli/internal/cli/kaseya_guard.go",
+     "contains": "client.ServePlainHTTPOverH1(c.HTTPClient)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kaseyablackbox/kaseya_exit_test.go",
+     "contains": "func TestPlainHTTPBaseURLIsServed"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "wrong-result",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial the shipped placeholder server, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "Press 4.34.2 doctor printed 'present, not verified' in every state, called an HTML page at / 'reachable', and never named KASEYA_VSA_BASE_URL when the shipped placeholder server was in force, so it could not tell a working install from a broken one. The fleet helper (cli/internal/cli/doctor_verdict.go, as on acronis) is wired by replay_handfixes.py recipe doctor-verdict. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedTemplate(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedTemplate(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every client, feedback, webhook and probe request goes through credkit.Transport; every file write except the connector's own 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes; the {server} template base URL is allowed with https://*.vsax.net and kaseya_guard keeps the exact origin pin.",
+   "why": "The hand-wired funnel (cliutil/kaseya_*.go, store/kaseya_withhold_driver.go, the mcp and cli secret_funnel files) duplicated what the kit now owns for every connector. One contract, one matcher and one set of sinks replace them, and a matcher fix reaches this connector by vendoring.",
+   "spec_encode_followup": "Press-side: the generator should emit the credkit wiring (Start/Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools/MCPIn/MCPOut/MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"KASEYA_VSA_MCP_HTTP_TOKEN\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://*.vsax.net\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "resp, err := sendClient.Do(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitSuccessBodyCredentialNeverShownOrCached(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitParsedHeaderCredentialNeverShown(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitConfigParseErrorNeverShowsCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitLearningLogsNeverPersistCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitStartupOutputNeverShowsMalformedConfigCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdSetCredentialsArgs(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_ledger_test.go",
+     "contains": "func TestR1CEveryFileAndNetworkSinkIsRouted(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "judgeChromeExtras(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"config:vsa_token_secret\", args[1])",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitProxyConnectPassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitChromeHeadersAreJudgedWithTheRequest(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitOwnerMarkerPassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_chrome_kit.go",
+     "contains": "func judgeChromeExtras(req *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{'\\n'})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{0})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.NewWriter(file, credkit.SinkFile).Write(key)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFlags:  []string{\"--headers\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:       []string{\"--stdin\"},",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "chrome-connect-through-kit",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "chromeProxyCONNECT sends its CONNECT exchange through the credential kit: the request as it is written is judged first, and what the proxy answers is held before the program sees it. The file's G402 entry in tools/maintainer/security_suppressions.json is bound to these bytes (owner approved 2026-11-03).",
+   "why": "The transport wrote the CONNECT itself, outside every kit sink, so judging a copy missed the User-Agent Go adds and the proxy's own response (a Set-Cookie value printed by the error that carries the status line).",
+   "spec_encode_followup": "Press-side: have the chrome template's chromeProxyCONNECT send through the outbound guard when the connector carries the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "OutboundGuard(chromeConnectExchange{conn, br}).RoundTrip(connect.WithContext(ctx))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/chrome.go",
+     "not_contains": "connect.Write(conn)"
+    },
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "Header: http.Header{\"User-Agent\": {\"Go-http-client/1.1\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_chrome_kit.go",
+     "contains": "func (x chromeConnectExchange) RoundTrip(req *http.Request) (*http.Response, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kitclasses_leak_test.go",
+     "contains": "func TestKitProxyConnectResponseIsHeld"
+    },
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "proxy CONNECT returned %d\", resp.StatusCode",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_chrome_kit.go",
+     "contains": "return nil, errChromeProxyAnswer",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kitclasses_leak_test.go",
+     "contains": "func TestKitProxyConnectParseErrorCarriesNothing"
+    }
+   ]
+  },
+  {
+   "id": "preview-writes-nothing",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "sync --dry-run stops before the store opens, as workflow archive's does, so an unconfirmed MCP preview of a local writer creates and migrates nothing.",
+   "why": "The confirm gate previews by running the command with --dry-run, and sync opened its writable store first: a preview created the database and could run a one-way migration on an existing one. check_mcp_file_flags needs the previewed flags to reach the CLI, so the CLI stops rather than the gate skipping it. TestKitUnconfirmedPreviewChangesNothing walks every gated tool.",
+   "spec_encode_followup": "Press-side: generate the same dry-run stop at the top of sync, as the template already does for workflow archive.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return writeDryRun(cmd.OutOrStdout(), flags, \"sync\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kitclasses_leak_test.go",
+     "contains": "func TestKitUnconfirmedPreviewChangesNothing"
+    }
+   ]
+  },
+  {
+   "id": "read-only-tools-change-nothing",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "An MCP child refuses local writes from its first instruction, a flag that fails to parse included, until the parsed command turns out to be one that may write the store (not mcp:read-only, a GET or doctor). Under the refusal the store opens read-only and keeps its file modes, nothing is created or migrated, and the learn journal, audit log and teach log are not written. With no store yet the command says to run sync. The MCP server process itself refuses the same local writes (cliutil.MarkMCPServer): it answers read tools and unconfirmed previews in-process, so it sweeps no expired cache file, claims or adopts no legacy store, and creates no state directory; its writes go to the vendor or through a CLI child.",
+   "why": "A read-only annotation skips the confirm gate, but learnings stats pruned aged rows and other readers created or migrated the store, tightened its modes and appended to local logs, all from an unconfirmed MCP call. TestKitReadOnlyToolsChangeNothing walks every read-only mirrored tool on a fresh home and on a loose store holding an aged row, comparing bytes, modes and times. TestKitReadOnlyChildParseFailureWritesNothing runs every command with a flag it rejects.",
+   "spec_encode_followup": "Press-side: open the store read-only in commands the template annotates mcp:read-only, and stop pruning from learnings stats.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.AllowChildWrites(commandMayWriteStore(cmd))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if cliutil.WritesRefused() || noLearnActive(flags)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "if cliutil.WritesRefused() {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "if cliutil.WritesRefused() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return openWritesRefused(ctx, dbPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/kaseya_writes_refused.go",
+     "contains": "func openWritesRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_writes_refused.go",
+     "contains": "func WritesRefused() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kitclasses_leak_test.go",
+     "contains": "func TestKitReadOnlyToolsChangeNothing"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func hardenSQLiteFiles(dbPath string) {\n\tif cliutil.WritesRefused() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit3_classes_test.go",
+     "contains": "func TestKitReadOnlyChildParseFailureWritesNothing"
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "cliutil.MarkMCPServer()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kaseya_writes_refused.go",
+     "contains": "return mcpServer.Load() || IsMCPChildEnv() && !childWritesAllowed.Load()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return defaultDBScopeState.claimSuppressed || cliutil.WritesRefused()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.WritesRefused() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "if !cliutil.WritesRefused() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit4_classes_test.go",
+     "contains": "func TestKitMCPReadAndPreviewChangeNoLocalFile"
+    }
+   ]
+  },
+  {
+   "id": "body-credential-fields",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every JSON request body client.do builds, and every stdin body the kit's startup read does not reach (a terminal's --stdin, import --input -, read once the command is known), is held with credkit.HoldBody before anything prints: every duplicate key, every line, and every word of bytes that are no document. The --dry-run and MCP confirm previews mask the declared credential fields (client.PreviewMasked, display only) so the rest of the body stays readable; the kit withholds any preview that still carries a held value.",
+   "why": "The kit's startup read of a --stdin body skips a terminal, and a handler's own parse error can name what it rejects (a number float64 cannot hold). The connector's own body parser lost a duplicate key's first member and stopped at an import comment; credkit.HoldBody (#519) replaced it. TestKitBodyParseErrorNeverPrintsCredentialField and TestKitPreviewNeverPrintsCredentialField run each way a body arrives.",
+   "spec_encode_followup": "Press-side: have the generated dry-run preview omit fields the connector declares as credentials.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody(bodyBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "previewBody := previewBytes(bodyBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.dryRun(method, targetURL, path, params, previewBody,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/kaseya_preview.go",
+     "contains": "func PreviewMasked(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit3_classes_test.go",
+     "contains": "func TestKitPreviewNeverPrintsCredentialField"
+    },
+    {
+     "file": "cli/internal/credwire/kit3_classes_test.go",
+     "contains": "func TestKitBodyParseErrorNeverPrintsCredentialField"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err := holdStdinBody(cmd); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_stdin_hold.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "client.PreviewMasked(previewBody)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "url-credentials-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A password or query value inside a declared URL source is held with credkit.HoldURL from startup or the point it is read: KASEYA_VSA_SERVER, KASEYA_VSA_FEEDBACK_ENDPOINT and KASEYA_VSA_BASE_URL (with or without a scheme), and --deliver (argv and a saved profile). A credential in a --deliver or feedback URL is therefore not sent to that host: the kit refuses it. A URL inside a non-credential field (a webhook's Url, template_vars.server) is free text, which contract section 1 does not name, and is not scanned.",
+   "why": "These inputs are identifiers or plain flags, so nothing held the credential inside them, and a dry-run preview, a URL parse error or profile save printed or persisted it. The connector's own URL parser was replaced by credkit.HoldURL (#519). TestKitURLInputsNeverPrintTheirCredential runs each input.",
+   "spec_encode_followup": "Press-side: treat every URL-valued flag and environment variable as a source of URL credentials.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "HoldDeliverURL(spec)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.HoldURL(\"url:deliver\", strings.TrimPrefix(spec, \"webhook:\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"url:KASEYA_VSA_SERVER\", os.Getenv(\"KASEYA_VSA_SERVER\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit3_classes_test.go",
+     "contains": "func TestKitURLInputsNeverPrintTheirCredential"
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter that credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a read-only handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting rather than sqlite.Limit on a held connection.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, \"file:\"+filepath.ToSlash(dbPath)+\"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "SQLiteDriver,"
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "sqlite.Driver"
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestBadLengthLimitRefusesTheOpen(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/sqlsink_leak_test.go",
+     "contains": "func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answered outside it. A token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "r.Header = http.Header{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "r.Body = http.NoBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "contains": "if r.Body == nil || r.Body == http.NoBody || mcpHTTPExpectsContinue(r) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/cmd/kaseya-vsa-mcp/main.go",
+     "not_contains": ".Hijack()"
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit's startup discovery (credentialFiles in internal/credwire/declarations.go) reads the command line as the program does: it builds cli.RootCmd, lets Cobra pick the command and pflag parse its flags, then resolves --config and --home with config.ReadPaths. When argv does not parse it declares every candidate. holdSetCredentialsArgs holds the positional words after set-credentials, which reach the store before any file read.",
+   "why": "A hand argv scanner reads a flag value as a flag, so it can hold the wrong config file, leave the real credential unheld, and let the program persist it.",
+   "spec_encode_followup": "Press-side: generate the declarations' Files from the command tree the CLI executes (or expose a resolved-config-path hook), never a hand argv scan.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if configPath, home, ok := cobraPathFlags(args); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "root := cli.RootCmd()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cmd, rest, err = root.Find(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if err := cmd.ParseFlags(rest); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "files, err := config.ReadPaths(configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "for _, h := range credkit.FlagValues(args, \"--home\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "lastFlagValue"
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "path, explicit, err := resolveConfigPath(configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "legacy, err := LegacyConfigPath()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestCredentialFilesReadsArgvLikeCobra(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestKitStartupConfigDiscoveryHonoursFlagValues(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "if global, err := cliutil.CredentialsFilePath(); err == nil && !slices.Contains(out, global) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitExplicitConfigHoldsTheGlobalStore(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/review_leak_test.go",
+     "contains": "func TestKitSetCredentialsHoldsDashedPositionals(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ConsultedPaths() ([]string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "config.ConsultedPaths()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kitclasses_leak_test.go",
+     "contains": "func TestKitDefaultConfigLendsNoOrigin"
+    }
+   ]
+  },
+  {
+   "id": "config-reads-held-before-parse",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every read of the config file and the credential store after the kit's startup read holds it with the kit's own readers before parsing: config.go's parseConfigData, origin check and legacy scrub, cliutil's credentials read and credwire's consulted defaults call cliutil.HoldConfigFile, which is credkit.HoldBody (declared fields, every duplicate, every word of a file that does not parse) plus credkit.HoldURL on base_url. The MCP server reloads config on every tool call, so a startup capture alone would miss a file rewritten later.",
+   "why": "A TOML overflow diagnostic on a rewritten file carried an unheld value to the MCP client. The connector's own tokenizer was replaced by the kit's readers (#519): a hand-written reader of a file that does not parse is not kept beside the kit's.",
+   "spec_encode_followup": "Press-side: generate a pre-parse hold hook in the config loader (or route every config read through the kit), so runtime reloads are held by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(opened.Data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldURL(\"userinfo\", parsed.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold_test.go",
+     "contains": "func TestConfigReadHoldsEveryValueBeforeParse(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold_test.go",
+     "contains": "func TestConfigReadLeavesNonCredentialKeysUnheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold_test.go",
+     "contains": "func TestConfigReadHoldsPunctuationOnlyCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/reload_leak_test.go",
+     "contains": "func TestKitMCPConfigReloadHoldsBeforeParse(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "not_contains": "scanConfigValues"
+    }
+   ]
+  },
+  {
+   "id": "profile-store-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "loadProfileStore holds the saved profile store with credkit.HoldBody as it is read, before it is parsed: a value under a credential flag's name (headers) is held, every duplicate member included, so profile show and list, a parse error and anything a profile feeds print it withheld. The connector has no --base-url flag, so a profile carries no base URL.",
+   "why": "profiles.json is a credential source (brief item 8c) the kit's startup discovery does not read, and profile show printed a saved headers value.",
+   "spec_encode_followup": "Press-side: generate the profile store read through the kit's body reader.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "data := opened.Data\n\tcredkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit4_classes_test.go",
+     "contains": "func TestKitSavedProfileCredentialNeverShown"
+    }
+   ]
+  },
+  {
+   "id": "loose-config-no-tls-or-server",
+   "class": "credential-sent-to-another-host",
+   "summary": "A config file or profile store other users can change cannot weaken TLS (skip_tls_verify, ca_cert, tls_server_name, --insecure, --ca-cert, --tls-server-name) or choose the {server} host through template_vars",
+   "why": "Press config.go cleared only ca_cert and tls_server_name from a group or world writable config, so a file holding just skip_tls_verify = true, with the operator's normal KASEYA_VSA_* environment, sent the Basic token pair over unverified TLS to an on-path attacker; a loose template_vars server sent it to a host the file chose. Every TLS field is now cleared, template_vars is dropped and credentials stay off the default host until KASEYA_VSA_SERVER or KASEYA_VSA_BASE_URL names the server. A run profile sets root flags, so profile.go refuses a profiles.json other users can change, judged on the same open file as its bytes. TestConfigFieldsReviewedForLooseFiles fails when Config gains a persisted field nobody reviewed for loose files. Tests: TestLoad_LooseConfigCannotWeakenTLS, TestLoad_LooseConfigCannotChooseServer and TestLooseProfileStoreIsRefused fail with the press code restored.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "\tc.SkipTLSVerify = false\n\tc.CACert = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.untrustedServerRoute = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "\tc.TemplateVars = nil\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kaseya_loose_tls_test.go",
+     "contains": "func TestLoad_LooseConfigCannotWeakenTLS"
+    },
+    {
+     "file": "cli/internal/config/kaseya_loose_tls_test.go",
+     "contains": "func TestLoad_LooseConfigCannotChooseServer"
+    },
+    {
+     "file": "cli/internal/config/kaseya_loose_tls_test.go",
+     "contains": "func TestConfigFieldsReviewedForLooseFiles"
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "opened, err := cliutil.ReadOpenedConfig(p)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if opened.PermErr != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_loose_profile_test.go",
+     "contains": "func TestLooseProfileStoreIsRefused"
+    }
+   ]
+  },
+  {
+   "id": "loose-config-save-refused",
+   "class": "credential-sent-to-another-host",
+   "summary": "save() refuses to write a config read from a file other users can change, exits non-zero and names chmod 600 <path>; the file and the credentials store stay unchanged",
+   "why": "Loading a group or world writable config drops its base_url and template_vars only in memory, but auth logout or auth set-credentials then rewrote the file owner-only with base_url = https://evil.vsax.net/api/v3 kept, and the next organizations list --no-cache sent the KASEYA_VSA_* Basic token pair to that host. One guard (refuseUnsafeSave) covers every field the file holds, so no per-field list. Test: TestSave_RefusesConfigLoadedFromLooseFile fails with the guard removed, for every saver.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "parsed.unsafeSource = path",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) save() error {\n\tif err := c.refuseUnsafeSave(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kaseya_loose_save_test.go",
+     "contains": "func TestSave_RefusesConfigLoadedFromLooseFile"
+    }
+   ]
+  },
+  {
+   "id": "example-no-fixture-query",
+   "class": "credential-kit",
+   "summary": "The devices publish help example's CallbackUrl carries no key= query, so no non-test file holds a fixture query the kit would refuse",
+   "why": "The press copied the vendor doc example https://admin.revoproject.com/api.php?key=d41d8cd98&action=reset_config into the Cobra Example of devices_publish.go; the kit's fleet test TestKit15FleetRequestsAreWhole fails a non-test file holding a query the kit would refuse. Help text only; no behavior changes.",
+   "spec_encode_followup": "Press-side: drop credential-shaped query parameters from generated Example strings.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/devices_publish.go",
+     "contains": "api.php?action=reset_config",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/devices_publish.go",
+     "not_contains": "api.php?key="
+    }
+   ]
+  }
+ ]
+}

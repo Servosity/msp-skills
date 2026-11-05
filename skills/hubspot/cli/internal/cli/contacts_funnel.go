@@ -100,6 +100,9 @@ type funnelView struct {
 
 func queryContactsFunnel(cmd *cobra.Command, db *store.Store, ownerID string) (funnelView, error) {
 	view := funnelView{Stages: []funnelStage{}}
+	if err := hsRequireCollected(cmd.Context(), db, "contacts funnel", "hubspot-contacts-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return view, err
+	}
 
 	q := `
 SELECT COALESCE(json_extract(data, '$.properties.lifecyclestage'), '') AS stage,

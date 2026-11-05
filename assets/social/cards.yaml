@@ -91,6 +91,10 @@ cisco-duo:
   vendor: "Cisco Duo"
   example_command: "Why is Jane locked out of Duo?"
 
+cisco-umbrella:
+  vendor: "Cisco Umbrella"
+  example_command: "Which clients have roaming computers offline?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
@@ -136,9 +140,21 @@ datto-rmm:
   vendor: "Datto RMM"
   example_command: "Which endpoints across all my clients have gone dark?"
 
+dnsfilter:
+  vendor: "DNSFilter"
+  example_command: "Why is this site blocked for Acme?"
+
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
+
+exchange-online:
+  vendor: "Exchange Online"
+  example_command: "Is any client mail auto-forwarding out?"
+  response_lines:
+    - "2 mailboxes forward outside"
+    - "Outbound policy allows it"
+  outcome_line: "Ask Exchange anything, no PowerShell session."
 
 fortinet:
   vendor: "Fortinet"
@@ -193,6 +209,10 @@ jira-service-management:
 kaseya-bms:
   vendor: "Kaseya BMS"
   example_command: "What's ready to bill, by account?"
+
+kaseya-vsa:
+  vendor: "Kaseya VSA 10"
+  example_command: "Which critical patches are missing everywhere?"
 
 knowbe4:
   vendor: "KnowBe4"
@@ -267,6 +287,10 @@ proxmox:
   vendor: "Proxmox"
   example_command: "Which client VMs lack a verified backup?"
 
+prtg:
+  vendor: "Paessler PRTG"
+  example_command: "What is down across all my clients' PRTG cores?"
+
 quickbooks:
   vendor: "QuickBooks Online"
   example_command: "Which overdue invoices should I chase first?"
@@ -340,6 +364,10 @@ syncro:
   vendor: "Syncro"
   example_command: "Which customers have logged time we never invoiced?"
 
+synology:
+  vendor: "Synology"
+  example_command: "Which client backups failed last night?"
+
 tactical-rmm:
   vendor: "Tactical RMM"
   example_command: "Where do patches and reboots stand across every client?"
@@ -363,6 +391,10 @@ unifi-network:
 veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
+
+warranty:
+  vendor: "Device Warranty"
+  example_command: "Which devices go out of warranty this quarter?"
 
 watchguard:
   vendor: "WatchGuard"

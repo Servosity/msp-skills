@@ -22,7 +22,7 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "nurture-mine",
 		Short:       "Cold contacts owned by you that still have open deals",
-		Long:        `Surface contacts who haven't been contacted in N days but still have an open deal. Reads from the local SQLite mirror.`,
+		Long:        `Surface contacts who haven't been contacted in N days but still have an open deal. Reads from the local SQLite mirror. The open-deal part needs contact-to-deal associations, which this build's sync does not collect: without them every cold contact is listed, not_computed names open_deals, and deal_count, latest_deal_stage and top_deal_amount are null (unknown, not zero).`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example:     `  hubspot-cli nurture-mine --owner me --stale-days 14`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -52,22 +52,32 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			gaps := newHSReportGaps()
+			if source == nurtureNoAssociations {
+				gaps.associationGap(cmd, "open_deals", "every cold contact is listed whether or not it has an open deal, and deal_count, latest_deal_stage and top_deal_amount are null")
+			}
 
 			if flags.asJSON {
-				return flags.printJSON(cmd, map[string]any{
+				return flags.printJSON(cmd, gaps.envelope(map[string]any{
 					"data_source": source,
 					"results":     rows,
-				})
+				}))
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "data_source: %s\n", source)
 			headers := []string{"contact_id", "name", "email", "last_contacted", "days_stale", "deal_count", "latest_deal_stage"}
 			out := make([][]string, 0, len(rows))
 			for _, r := range rows {
+				dealCount, stage := "unknown", "unknown"
+				if r.DealCount != nil {
+					dealCount = fmt.Sprintf("%d", *r.DealCount)
+				}
+				if r.LatestDealStage != nil {
+					stage = *r.LatestDealStage
+				}
 				out = append(out, []string{
 					r.ContactID, r.Name, r.Email, r.LastContacted,
 					fmt.Sprintf("%d", r.DaysStale),
-					fmt.Sprintf("%d", r.DealCount),
-					r.LatestDealStage,
+					dealCount, stage,
 				})
 			}
 			return flags.printTabular(cmd, headers, out)
@@ -75,26 +85,41 @@ func newNovelNurtureMineCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&owner, "owner", "me", "Filter by owner id, email, or 'me'")
 	cmd.Flags().IntVar(&staleDays, "stale-days", 14, "Minimum days since last contact")
-	cmd.Flags().StringVar(&stageUnder, "stage-under", "closedwon", "Treat deals AT or PAST this stage id as closed (excluded)")
+	cmd.Flags().StringVar(&stageUnder, "stage-under", "closedwon", "Also exclude deals in exactly this stage id (closed deals are always excluded)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Max rows")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	return cmd
 }
 
+// nurtureNoAssociations is the data_source of the degraded path: no
+// association rows, so the deal fields are unknown (nil), never zero.
+const nurtureNoAssociations = "local-no-associations"
+
 type nurtureMineRow struct {
-	ContactID       string  `json:"contact_id"`
-	Name            string  `json:"name"`
-	Email           string  `json:"email"`
-	LastContacted   string  `json:"last_contacted"`
-	DaysStale       int64   `json:"days_stale"`
-	DealCount       int64   `json:"deal_count"`
-	LatestDealStage string  `json:"latest_deal_stage"`
-	TopDealAmount   float64 `json:"top_deal_amount"`
+	ContactID       string   `json:"contact_id"`
+	Name            string   `json:"name"`
+	Email           string   `json:"email"`
+	LastContacted   string   `json:"last_contacted"`
+	DaysStale       int64    `json:"days_stale"`
+	DealCount       *int64   `json:"deal_count"`
+	LatestDealStage *string  `json:"latest_deal_stage"`
+	TopDealAmount   *float64 `json:"top_deal_amount"`
 }
 
 func queryNurtureMine(cmd *cobra.Command, db *store.Store, ownerID string, staleDays int, stageUnder string, limit int) ([]nurtureMineRow, string, error) {
-	var assocCount int
-	_ = db.DB().QueryRow(`SELECT COUNT(*) FROM hubspot_associations`).Scan(&assocCount)
+	if err := requireKnownDealStates(cmd.Context(), db, "nurture-mine", ""); err != nil {
+		return nil, "", err
+	}
+	if err := hsRequireCollected(cmd.Context(), db, "nurture-mine", "hubspot-contacts-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return nil, "", err
+	}
+	if err := hsRequireCollected(cmd.Context(), db, "nurture-mine", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return nil, "", err
+	}
+	assocCount, err := hsAssociationCount(db)
+	if err != nil {
+		return nil, "", err
+	}
 	source := "local"
 
 	if assocCount > 0 {
@@ -115,18 +140,23 @@ SELECT * FROM (
      JOIN hubspot_deals_crm d ON a.from_type = 'contacts' AND a.to_type = 'deals'
      WHERE a.from_id = c.id AND a.to_id = d.id
        AND COALESCE(d.archived, 0) = 0
-       AND json_extract(d.data, '$.properties.dealstage') NOT IN ('closedwon', 'closedlost', ?)
+       AND NOT ` + dealClosedSQL("d") + `
+       AND COALESCE(json_extract(d.data, '$.properties.dealstage'), '') NOT IN (?)
     ) AS deal_count,
     (SELECT json_extract(d.data, '$.properties.dealstage') FROM hubspot_associations a
      JOIN hubspot_deals_crm d ON a.from_type = 'contacts' AND a.to_type = 'deals'
      WHERE a.from_id = c.id AND a.to_id = d.id
        AND COALESCE(d.archived, 0) = 0
-     ORDER BY d.updated_at DESC LIMIT 1
+       AND NOT ` + dealClosedSQL("d") + `
+       AND COALESCE(json_extract(d.data, '$.properties.dealstage'), '') NOT IN (?)
+     ORDER BY julianday(d.updated_at) DESC LIMIT 1
     ) AS latest_deal_stage,
     COALESCE((SELECT MAX(CAST(json_extract(d.data, '$.properties.amount') AS REAL)) FROM hubspot_associations a
      JOIN hubspot_deals_crm d ON a.from_type = 'contacts' AND a.to_type = 'deals'
      WHERE a.from_id = c.id AND a.to_id = d.id
        AND COALESCE(d.archived, 0) = 0
+       AND NOT ` + dealClosedSQL("d") + `
+       AND COALESCE(json_extract(d.data, '$.properties.dealstage'), '') NOT IN (?)
     ), 0) AS top_deal_amount
   FROM hubspot_contacts_crm c
   WHERE COALESCE(c.archived, 0) = 0
@@ -135,7 +165,7 @@ SELECT * FROM (
 WHERE days_stale >= ? AND deal_count > 0
 ORDER BY days_stale DESC
 LIMIT ?`
-		rows, err := db.DB().QueryContext(cmd.Context(), q, stageUnder, ownerID, ownerID, staleDays, limit)
+		rows, err := db.DB().QueryContext(cmd.Context(), q, stageUnder, stageUnder, stageUnder, ownerID, ownerID, staleDays, limit)
 		if err != nil {
 			return nil, source, fmt.Errorf("query: %w", err)
 		}
@@ -145,12 +175,13 @@ LIMIT ?`
 			var r nurtureMineRow
 			var lc, stage sql.NullString
 			var amt sql.NullFloat64
-			if err := rows.Scan(&r.ContactID, &r.Name, &r.Email, &lc, &r.DaysStale, &r.DealCount, &stage, &amt); err != nil {
+			var dealCount int64
+			if err := rows.Scan(&r.ContactID, &r.Name, &r.Email, &lc, &r.DaysStale, &dealCount, &stage, &amt); err != nil {
 				return nil, source, err
 			}
 			r.LastContacted = nullStr(lc)
-			r.LatestDealStage = nullStr(stage)
-			r.TopDealAmount = nullF(amt)
+			latest, top := nullStr(stage), nullF(amt)
+			r.DealCount, r.LatestDealStage, r.TopDealAmount = &dealCount, &latest, &top
 			items = append(items, r)
 		}
 		if err := rows.Err(); err != nil {
@@ -159,7 +190,7 @@ LIMIT ?`
 		return items, source, nil
 	}
 
-	source = "local-no-associations"
+	source = nurtureNoAssociations
 	q := `
 SELECT * FROM (
   SELECT c.id,

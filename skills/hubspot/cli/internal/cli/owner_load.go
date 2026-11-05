@@ -39,6 +39,12 @@ func newNovelOwnerLoadCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
 				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
 			}
+			if err := requireKnownDealStates(cmd.Context(), db, "owner-load", pipeline); err != nil {
+				return err
+			}
+			if err := hsRequireCollected(cmd.Context(), db, "owner-load", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 
 			q := `
 SELECT
@@ -52,7 +58,7 @@ FROM hubspot_deals_crm d
 LEFT JOIN hubspot_owners_crm o
   ON owner_id = o.id
 WHERE COALESCE(d.archived, 0) = 0
-  AND stage NOT IN ('closedwon', 'closedlost')
+  AND NOT ` + dealClosedSQL("d") + `
   AND (? = '' OR json_extract(d.data, '$.properties.pipeline') = ?)
 GROUP BY owner_id, stage
 ORDER BY owner_name, stage`

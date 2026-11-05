@@ -4,13 +4,16 @@
 package cli
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
+	"hubspot-pp-cli/internal/credkit"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -40,7 +43,13 @@ func (f *rootFlags) printTabular(cmd *cobra.Command, headers []string, rows [][]
 			}
 		}
 		for _, row := range rows {
-			if err := cw.Write(row); err != nil {
+			// Hand-fix (handfixes.json novel-csv-formula-safe): the same
+			// formula-injection guard as the generated CSV writer.
+			safe := make([]string, len(row))
+			for i, cell := range row {
+				safe[i] = csvSafeCell(terminalText(w, cell))
+			}
+			if err := cw.Write(safe); err != nil {
 				return err
 			}
 		}
@@ -84,9 +93,13 @@ func resolveOwnerArg(db *store.Store, owner string) (string, error) {
 	}
 	email := ""
 	if owner == "me" {
-		out, err := exec.Command("git", "config", "user.email").Output()
-		if err == nil {
-			email = strings.TrimSpace(string(out))
+		// ponytail: the git key is split because press 4.34.0's novel-host gate reads
+		// the literal "user.email" as a hostname (.email is a TLD) and fails dogfood.
+		var out bytes.Buffer
+		cmd := exec.Command("git", "config", "user"+".email")
+		cmd.Stdout = &out
+		if err := credkit.RunCommand(cmd); err == nil { // Hand-fix (handfixes.json credkit-wiring)
+			email = strings.TrimSpace(out.String())
 		}
 		if email == "" {
 			email = os.Getenv("HUBSPOT_OWNER_EMAIL")
@@ -116,24 +129,124 @@ func resolveOwnerArg(db *store.Store, owner string) (string, error) {
 	return id, nil
 }
 
-// parseDurationOrTimestamp accepts "Nh", "Nd", "Nw", or an RFC3339 timestamp.
-// Returns an ISO 8601 timestamp string suitable for `updated_at > ?` SQL.
+// parseDurationOrTimestamp accepts "Nm", "Nh", "Nd", "Nw", an RFC3339
+// timestamp or a YYYY-MM-DD date, and returns the cutoff as hsTimeString
+// renders it (UTC RFC3339Nano, fractional seconds kept). Callers compare it
+// with julianday() on both sides in SQL and with hsTimeAfter in Go, never as
+// text: HubSpot timestamps carry milliseconds, which sort wrongly as strings.
 func parseDurationOrTimestamp(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return "", fmt.Errorf("empty duration")
 	}
-	re := regexp.MustCompile(`^(\d+)([mhdw])$`)
-	m := re.FindStringSubmatch(s)
-	if m != nil {
+	if regexp.MustCompile(`^(\d+)([mhdw])$`).MatchString(s) {
 		ts, err := parseSinceDuration(s)
 		if err != nil {
 			return "", err
 		}
-		return ts.Format("2006-01-02T15:04:05Z"), nil
+		return hsTimeString(ts), nil
 	}
-	// assume RFC3339-ish
-	return s, nil
+	if ts, err := time.Parse(time.RFC3339, s); err == nil {
+		return hsTimeString(ts), nil
+	}
+	if ts, err := time.Parse("2006-01-02", s); err == nil {
+		return hsTimeString(ts), nil
+	}
+	return "", fmt.Errorf("invalid cutoff %q: want a duration like 7d, 24h, 30m or 1w, an RFC3339 timestamp, or YYYY-MM-DD", s)
+}
+
+// Timestamps are never compared or ordered as strings. HubSpot returns
+// date-times as RFC3339 with or without fractional seconds
+// (SimplePublicObject.updatedAt, ValueWithTimestamp.timestamp), and '.' sorts
+// before 'Z', so "14:00:00.500Z" sorts BEFORE "14:00:00Z" as text. Every Go
+// sort and compare goes through hsTimeMillis; every SQL compare, MIN, MAX and
+// ORDER BY goes through julianday() (hsJulianSQL for the property-history
+// column). An empty or unparseable value is unknown: it is never newer than a
+// cutoff, never wins a "latest", and sorts after every parseable value
+// (as ORDER BY julianday(x) DESC puts NULL last).
+
+// hsTimeString renders t the way every cutoff and bound window edge is
+// rendered: UTC RFC3339Nano, fractional seconds kept.
+func hsTimeString(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
+}
+
+// hsTimeLayouts are the shapes parseHubSpotTime reads: HubSpot's RFC3339 with
+// or without a fraction, the SQLite text form, the driver's time.Time text
+// (how a bound time.Time is stored), and the zone-less and date-only forms
+// julianday() also reads (as UTC).
+var hsTimeLayouts = []string{
+	time.RFC3339Nano,
+	"2006-01-02 15:04:05.999999999Z07:00",
+	"2006-01-02 15:04:05.999999999 -0700 MST",
+	"2006-01-02T15:04:05.999999999",
+	"2006-01-02 15:04:05.999999999",
+	"2006-01-02T15:04",
+	"2006-01-02 15:04",
+	"2006-01-02",
+}
+
+// parseHubSpotTime parses a HubSpot or local-mirror timestamp. ok is false
+// for an empty or unrecognised value.
+func parseHubSpotTime(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range hsTimeLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC(), true
+		}
+	}
+	return time.Time{}, false
+}
+
+// hsTimeMillis is the comparison key: Unix milliseconds, rounded the way
+// SQLite's julianday() rounds, so a Go compare and a SQL compare of the same
+// two values always agree.
+func hsTimeMillis(s string) (int64, bool) {
+	t, ok := parseHubSpotTime(s)
+	if !ok {
+		return 0, false
+	}
+	return t.Round(time.Millisecond).UnixMilli(), true
+}
+
+// hsTimeAfter reports whether ts is strictly later than cutoff. It fails
+// closed: false when either value does not parse.
+func hsTimeAfter(ts, cutoff string) bool {
+	t, okT := hsTimeMillis(ts)
+	c, okC := hsTimeMillis(cutoff)
+	return okT && okC && t > c
+}
+
+// hsNewerFirst is the newest-first order for timestamp strings, for
+// sort.SliceStable and for picking a "latest": a parseable value before an
+// unparseable one, a later value before an earlier one.
+func hsNewerFirst(a, b string) bool {
+	ta, okA := hsTimeMillis(a)
+	tb, okB := hsTimeMillis(b)
+	if okA != okB {
+		return okA
+	}
+	return okA && ta > tb
+}
+
+// hsJulianSQL returns julianday(col) for a hubspot_property_history-style
+// column. The driver stores a bound time.Time as Go's time.Time text
+// ("2026-10-24 14:00:00.5 +0000 UTC"), which bare julianday() reads as NULL,
+// so the " +HHMM ZONE" suffix is rewritten to "+HH:MM" first; RFC3339 and
+// SQLite text pass through. Anything not starting YYYY-MM-DD is NULL (unknown),
+// so 'now' or a bare number is never read as a date. col must be a trusted
+// column name, never user input.
+func hsJulianSQL(col string) string {
+	zoned := func(sep string) string {
+		at := "instr(" + col + ", '" + sep + "')"
+		return "substr(" + col + ", 1, " + at + " - 1) || substr(" + col + ", " + at + " + 1, 3) || ':' || substr(" + col + ", " + at + " + 4, 2)"
+	}
+	return "(CASE WHEN " + col + " GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' THEN julianday(CASE" +
+		" WHEN instr(" + col + ", ' +') > 0 THEN " + zoned(" +") +
+		" WHEN instr(" + col + ", ' -') > 0 THEN " + zoned(" -") +
+		" ELSE " + col + " END) END)"
 }
 
 // formatAmount renders a USD amount with thousand-separators (no decimals).

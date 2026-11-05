@@ -1,0 +1,242 @@
+{
+  "api_name": "warranty",
+  "base_url": "https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5",
+  "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "WARRANTY_DELL_CLIENT_ID",
+      "WARRANTY_DELL_CLIENT_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "WARRANTY_DELL_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "WARRANTY_DELL_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://techdirect.dell.com/portal/AboutAPIs.aspx"
+  },
+  "tier_routing": {
+    "tiers": {
+      "apple": {
+        "base_url": "https://api-business.apple.com/v1",
+        "auth": {
+          "type": "none"
+        }
+      },
+      "lenovo": {
+        "base_url": "https://supportapi.lenovo.com/v2.5",
+        "auth": {
+          "type": "api_key",
+          "header": "ClientID",
+          "in": "header",
+          "env_vars": [
+            "WARRANTY_LENOVO_CLIENT_KEY"
+          ],
+          "env_var_specs": [
+            {
+              "name": "WARRANTY_LENOVO_CLIENT_KEY",
+              "kind": "per_call",
+              "required": true,
+              "sensitive": true,
+              "inferred": true
+            }
+          ]
+        },
+        "allow_cross_host_auth": true
+      }
+    }
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "apple_coverage",
+      "description": "Returns every coverage line for the device: limited warranty, AppleCare+ or AppleCare+ for Business, with status, payment type, start and end dates and renewal flags. Required: id. (public)",
+      "method": "GET",
+      "path": "/orgDevices/{id}/appleCareCoverage",
+      "tier": "apple",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Device serial number (e.g. C02XG0FDH7JY)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "apple_get",
+      "description": "Returns the device's model, product family, part and order numbers, order date and the date it was added to the organization. Required: id. (public)",
+      "method": "GET",
+      "path": "/orgDevices/{id}",
+      "tier": "apple",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Device serial number (e.g. C02XG0FDH7JY)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "apple_list",
+      "description": "Lists every device the organization enrolls through Automated Device Enrollment, with serial number, model, product family and order date. Pages with meta.paging.nextCursor. Optional: limit, cursor. Returns array of AppleOrgDevice. (public)",
+      "method": "GET",
+      "path": "/orgDevices",
+      "tier": "apple",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Devices per page, at most 1000 (e.g. 100)"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta.paging.nextCursor of the previous page"
+        }
+      ]
+    },
+    {
+      "name": "dell_entitlements",
+      "description": "Returns one record per service tag with ship date, product line and every entitlement line (start, end, service level). Tags the gateway cannot match come back with invalid true and no entitlements. Required: servicetags.",
+      "method": "GET",
+      "path": "/asset-entitlements",
+      "params": [
+        {
+          "name": "servicetags",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated Dell service tags, 1 to 100 per call (e.g. 1ABC234,5DEF678)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "dell_summary",
+      "description": "Returns the asset header, entitlements and shipped components for a single service tag. Required: servicetag.",
+      "method": "GET",
+      "path": "/asset-entitlement-components",
+      "params": [
+        {
+          "name": "servicetag",
+          "type": "string",
+          "location": "query",
+          "description": "One Dell service tag (e.g. 1ABC234)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lenovo_contract",
+      "description": "Returns the contract description and dates and every covered product with its serial, machine type, SLA, status and coverage dates. Required: id.",
+      "method": "GET",
+      "path": "/Contract/{id}",
+      "tier": "lenovo",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Lenovo contract code (e.g. 4400123456)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lenovo_offering",
+      "description": "Returns the localized name, description, type, delivery, category and duration for a warranty SDF code such as the ID on a warranty line. Required: id.",
+      "method": "GET",
+      "path": "/warranty/{id}",
+      "tier": "lenovo",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Warranty SDF code (e.g. 5WS0E97124)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "lenovo_warranty",
+      "description": "Returns the product, ship and purchase dates, in-warranty flag, warranty lines and contract lines for the serial. Use lookup for several serials. ErrorCode 100 means no warranty data; 101 means several machines share the serial, so pass SERIAL.MACHINETYPE. Required: Serial.",
+      "method": "GET",
+      "path": "/warranty",
+      "tier": "lenovo",
+      "params": [
+        {
+          "name": "Serial",
+          "type": "string",
+          "location": "query",
+          "description": "Lenovo serial number, or SERIAL.MACHINETYPE when the serial alone is ambiguous (e.g. PF1ABCDE)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Per-client lifecycle forecast",
+      "command": "lifecycle",
+      "description": "Per client: devices covered now, expired, unverified (no coverage data yet), coverage ending in each of the next quarters, and devices past an age threshold."
+    },
+    {
+      "name": "Stale-first mirror refresh",
+      "command": "recheck",
+      "description": "Re-check serials already in the mirror: never-checked first, then coverage ending soon, then stale; each vendor's batch size and pace respected, vendors without credentials skipped."
+    },
+    {
+      "name": "Devices the mirror cannot vouch for",
+      "command": "unresolved",
+      "description": "Every device whose coverage the report cannot speak for, each with one reason: vendor unknown, vendor not configured, ambiguous, invalid, not found, not in the Apple organization, lookup error, never checked, stale or duplicated."
+    },
+    {
+      "name": "Seed a client from its Apple Business org",
+      "command": "apple-pull",
+      "description": "Load one client's Apple devices from its Apple Business organization (needs that organization's WARRANTY_APPLE_* account; exits 10 without it) and see what is new, gone, or missing from the RMM import."
+    },
+    {
+      "name": "Serial lookup across vendors",
+      "command": "lookup",
+      "description": "Warranty for one or more serials, vendor detected from the serial or named, normalized to one coverage-line shape and saved to the mirror; vendors without credentials are reported as vendor_unconfigured, not called."
+    },
+    {
+      "name": "Client-tagged serial import",
+      "command": "import",
+      "description": "Load a CSV or JSON device export (serial, optional manufacturer, model, hostname) into the mirror under a client name; CLI only, not available over MCP."
+    },
+    {
+      "name": "Expiry report",
+      "command": "report",
+      "description": "Devices out of warranty or expiring within N days, per client, from the mirror."
+    },
+    {
+      "name": "Coverage change events",
+      "command": "events list",
+      "description": "Coverage expiring, expired and changed events after a cursor, once each."
+    }
+  ]
+}

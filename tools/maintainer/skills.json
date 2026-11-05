@@ -505,6 +505,28 @@
       },
       "install_auth_hint": "Then set your Meraki API key: `export MERAKI_DASHBOARD_API_KEY=<your-api-key>` (Dashboard > My profile > API access; it reaches every org the generating admin can see), set `CISCO_MERAKI_BASE_URL` only for a regional dashboard, and check the Credentials line of `cisco-meraki-cli doctor`"
     },
+    "cisco-umbrella": {
+      "system": "Cisco Umbrella DNS-layer security: destination lists, policies, deployments, reports, Investigate and MSP child orgs through the Umbrella v2 API",
+      "status": "beta",
+      "cli_binary": "cisco-umbrella-cli",
+      "mcp_binary": "cisco-umbrella-mcp",
+      "vendor": "Cisco Umbrella",
+      "vendor_trademark_owner": "Cisco Systems, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Cisco Umbrella",
+      "has_video": true,
+      "cli_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",
@@ -806,6 +828,29 @@
         "issue_url": null
       }
     },
+    "dnsfilter": {
+      "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
+      "status": "beta",
+      "cli_binary": "dnsfilter-cli",
+      "mcp_binary": "dnsfilter-mcp",
+      "vendor": "DNSFilter",
+      "vendor_trademark_owner": "DNSFilter, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "DNSFilter",
+      "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "has_video": true,
+      "cli_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "domotz": {
       "system": "Domotz network monitoring and device discovery platform",
       "status": "beta",
@@ -829,6 +874,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "exchange-online": {
+      "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
+      "status": "beta",
+      "cli_binary": "exchange-online-cli",
+      "mcp_binary": "exchange-online-mcp",
+      "vendor": "Microsoft Exchange Online",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Exchange Online",
+      "tagline": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "has_video": true,
+      "cli_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "fortinet": {
@@ -959,15 +1027,15 @@
       "cli_binary": "hubspot-cli",
       "mcp_binary": "hubspot-mcp",
       "vendor": "HubSpot",
-      "vendor_trademark_owner": "HubSpot, Inc.",
+      "vendor_trademark_owner": "HubSpot, Inc",
       "first_party": false,
       "category": "CRM",
       "display_name": "HubSpot",
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
-      "cli_hash": "sha256:bb561635e397aaa01e70ea449b86df286093cad9368b4ff0a91cfbecf196ba2f",
+      "cli_hash": "sha256:62294c5bb6c625bf6ca36a72b1c627cdcf69f7a903b05a14d27c3e6c069f00f9",
       "template_version": 3,
-      "version": "0.2.4",
-      "cli_hash_at_release": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116",
+      "version": "0.2.5",
+      "cli_hash_at_release": "sha256:574361f40252fcb246a7dd7518772d798540af0244ef715d6529dcfae63aad98",
       "has_video": true,
       "featured": 3,
       "install_auth_hint": "Then authenticate per the README",
@@ -1139,6 +1207,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "kaseya-vsa": {
+      "system": "Kaseya VSA 10 RMM - devices, patches, software inventory, scripts, tasks, and alerts",
+      "status": "beta",
+      "cli_binary": "kaseya-vsa-cli",
+      "mcp_binary": "kaseya-vsa-mcp",
+      "vendor": "Kaseya VSA",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Kaseya VSA 10",
+      "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "has_video": true,
+      "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "knowbe4": {
@@ -1581,6 +1672,29 @@
         "evidence": null
       }
     },
+    "prtg": {
+      "system": "PRTG Network Monitor (API v2): sensors, devices, groups, probes, alarms, channels and fleet views across every client's PRTG core",
+      "status": "beta",
+      "cli_binary": "prtg-cli",
+      "mcp_binary": "prtg-mcp",
+      "vendor": "PRTG",
+      "vendor_trademark_owner": "Paessler GmbH",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "PRTG Network Monitor",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "has_video": true,
+      "cli_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "quickbooks": {
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "live-verified",
@@ -2015,6 +2129,29 @@
         "issue_url": null
       }
     },
+    "synology": {
+      "system": "Synology DSM NAS units and Active Backup for Business (ABB): backup tasks, job results, storage pools, volumes and disk SMART health",
+      "status": "beta",
+      "cli_binary": "synology-cli",
+      "mcp_binary": "synology-mcp",
+      "vendor": "Synology",
+      "vendor_trademark_owner": "Synology Inc",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Synology",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "has_video": true,
+      "cli_hash": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "tactical-rmm": {
       "system": "Self-hosted Tactical RMM: agent triage, patch posture, fleet-wide queries, and cohort script execution",
       "status": "beta",
@@ -2160,6 +2297,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "warranty": {
+      "system": "Dell, Lenovo and Apple device warranty lookups",
+      "status": "beta",
+      "cli_binary": "warranty-cli",
+      "mcp_binary": "warranty-mcp",
+      "vendor": "Dell, Lenovo and Apple",
+      "vendor_trademark_owner": "Dell Inc., Lenovo and Apple Inc",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "has_video": true,
+      "cli_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "watchguard": {

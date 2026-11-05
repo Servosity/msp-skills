@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T21:27:18.924237Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "prtg",
+  "display_name": "PRTG Network Monitor",
+  "cli_name": "prtg-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_url": "https://www.paessler.com/support/prtg/api/v2/oas/prtg.api.yaml",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:1b57031245c6da8f6929adfe8fc56b6436a5004ff5e7226a2aa37e79a594112b",
+  "run_id": "20261027-153346-829448e4",
+  "category": "monitoring",
+  "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+  "mcp_binary": "prtg-pp-mcp",
+  "mcp_tool_count": 125,
+  "mcp_ready": "full",
+  "api_version": "2.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "Bearer",
+  "auth_env_vars": [
+    "PRTG_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "server"
+  ],
+  "endpoint_template_env_overrides": {
+    "server": "PRTG_SERVER"
+  },
+  "endpoint_template_var_defaults": {
+    "server": "prtg.example.com"
+  },
+  "auth_key_url": "https://www.paessler.com/support/prtg/api/v2/overview/index.html#apikey",
+  "novel_features": [
+    {
+      "name": "Fleet alarms",
+      "command": "fleet alarms",
+      "description": "See every down, warning and unusual sensor across all of your clients' PRTG cores in one list: worst state first (down, warning, unusual, acknowledged), then higher priority, then oldest."
+    },
+    {
+      "name": "Fleet status",
+      "command": "fleet status",
+      "description": "One row per client core with reachability and sensor counts by state, worst first."
+    },
+    {
+      "name": "Fleet handoff",
+      "command": "fleet handoff",
+      "description": "What changed across all cores since a point in time: new alarms, recoveries, and new acknowledgements or pauses with who and why."
+    },
+    {
+      "name": "Fleet silenced",
+      "command": "fleet silenced",
+      "description": "Everything someone paused or acknowledged across all cores, with who, when, until when and why, flagging indefinite ones left too long."
+    },
+    {
+      "name": "Fleet drift",
+      "command": "fleet drift",
+      "description": "PRTG estate hygiene across cores: versions behind your newest core, expiring licenses or maintenance, sensor overuse, disconnected probes, rejected API keys and unreachable servers."
+    },
+    {
+      "name": "Fleet acknowledge",
+      "command": "fleet ack",
+      "description": "Acknowledge matching down sensors on every core at once with a ticket message; previews per core and sends only with --yes (the API key needs the Acknowledge access level)."
+    },
+    {
+      "name": "Fleet maintenance pause",
+      "command": "fleet pause",
+      "description": "Pause matching devices, groups, sensors or probes on every core for a maintenance window; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet maintenance resume",
+      "command": "fleet resume",
+      "description": "Resume matching objects on every core after maintenance and optionally trigger an immediate scan; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet sync",
+      "description": "Refresh the offline mirror of every registered core in one run, each into its own isolated store."
+    },
+    {
+      "name": "Fleet exec",
+      "command": "fleet exec",
+      "description": "Run any read-only API v2 query on every core and get one merged table with a core column."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet alarms",
+      "command": "fleet alarms",
+      "description": "See every down, warning and unusual sensor across all of your clients' PRTG cores in one list: worst state first (down, warning, unusual, acknowledged), then higher priority, then oldest."
+    },
+    {
+      "name": "Fleet status",
+      "command": "fleet status",
+      "description": "One row per client core with reachability and sensor counts by state, worst first."
+    },
+    {
+      "name": "Fleet handoff",
+      "command": "fleet handoff",
+      "description": "What changed across all cores since a point in time: new alarms, recoveries, and new acknowledgements or pauses with who and why."
+    },
+    {
+      "name": "Fleet silenced",
+      "command": "fleet silenced",
+      "description": "Everything someone paused or acknowledged across all cores, with who, when, until when and why, flagging indefinite ones left too long."
+    },
+    {
+      "name": "Fleet drift",
+      "command": "fleet drift",
+      "description": "PRTG estate hygiene across cores: versions behind your newest core, expiring licenses or maintenance, sensor overuse, disconnected probes, rejected API keys and unreachable servers."
+    },
+    {
+      "name": "Fleet acknowledge",
+      "command": "fleet ack",
+      "description": "Acknowledge matching down sensors on every core at once with a ticket message; previews per core and sends only with --yes (the API key needs the Acknowledge access level)."
+    },
+    {
+      "name": "Fleet maintenance pause",
+      "command": "fleet pause",
+      "description": "Pause matching devices, groups, sensors or probes on every core for a maintenance window; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet maintenance resume",
+      "command": "fleet resume",
+      "description": "Resume matching objects on every core after maintenance and optionally trigger an immediate scan; previews per core and sends only with --yes (Write access level)."
+    },
+    {
+      "name": "Fleet sync",
+      "command": "fleet sync",
+      "description": "Refresh the offline mirror of every registered core in one run, each into its own isolated store."
+    },
+    {
+      "name": "Fleet exec",
+      "command": "fleet exec",
+      "description": "Run any read-only API v2 query on every core and get one merged table with a core column."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 126,
+    "total": 126,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 98,
+      "grade": "A",
+      "total": 98
+    }
+  }
+}

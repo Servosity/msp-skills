@@ -1,0 +1,12 @@
+{
+  "sites": [
+    {"file": "cmd/hubspot-mcp/hs_tls_key_hold.go", "func": "hsHoldTLSKey", "what": "os.DirFS", "count": 1, "kind": "exempt",
+     "reason": "reads the --tls-key file only to hold its key material with the kit"},
+    {"file": "internal/cliutil/credkit_hold.go", "func": "ReadRegular", "what": "os.DirFS", "count": 1, "kind": "exempt",
+     "reason": "reads a credential file or a run profile store only to hold its values; Declarations.Files leaves them out so a base_url there cannot set the allowed origin"},
+    {"file": "internal/cli/contacts_bulk_update.go", "func": "readCSVBulkRows", "what": "os.Open", "count": 1, "kind": "exempt",
+     "reason": "reads the CSV the user names as bulk input, never a credential file"},
+    {"file": "internal/credsql/credsql.go", "func": "applyLengthLimit", "what": "database/sql.OpenDB", "count": 2, "kind": "exempt",
+     "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"}
+  ]
+}

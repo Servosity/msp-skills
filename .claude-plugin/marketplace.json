@@ -454,8 +454,8 @@
     {
       "name": "hubspot",
       "source": "./skills/hubspot",
-      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.2.4",
+      "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
+      "version": "0.2.5",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -1413,6 +1413,116 @@
         "apple-business",
         "apple",
         "mdm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "warranty",
+      "source": "./skills/warranty",
+      "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "warranty",
+        "dell, lenovo and apple",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "exchange-online",
+      "source": "./skills/exchange-online",
+      "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "exchange-online",
+        "microsoft exchange online",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "dnsfilter",
+      "source": "./skills/dnsfilter",
+      "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "dnsfilter",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "kaseya-vsa",
+      "source": "./skills/kaseya-vsa",
+      "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "kaseya-vsa",
+        "kaseya vsa",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "cisco-umbrella",
+      "source": "./skills/cisco-umbrella",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "cisco-umbrella",
+        "cisco umbrella",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "prtg",
+      "source": "./skills/prtg",
+      "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+      "version": "0.1.0",
+      "category": "network-monitoring",
+      "tags": [
+        "prtg",
+        "paessler",
+        "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "synology",
+      "source": "./skills/synology",
+      "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "synology",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

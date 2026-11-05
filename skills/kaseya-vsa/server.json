@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/kaseya-vsa-mcp",
+  "title": "Kaseya VSA 10 MCP",
+  "description": "Kaseya VSA 10 API, plus a local fleet mirror for patch, health and software questions across clients",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/kaseya-vsa/kaseya-vsa-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/kaseya-vsa"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/kaseya-vsa-v0.1.0/kaseya-vsa-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KASEYA_VSA_SERVER",
+          "description": "Your VSA 10 instance host name, for example yourcompany.vsax.net (no https://).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KASEYA_VSA_TOKEN_ID",
+          "description": "VSA 10 API token ID (Administration > Configuration > API Access).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "KASEYA_VSA_TOKEN_SECRET",
+          "description": "VSA 10 API token secret, shown once when the token is created.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "KASEYA_VSA_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KASEYA_VSA_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KASEYA_VSA_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KASEYA_VSA_BASE_URL",
+          "description": "Optional. The full VSA 10 API base URL, https://<server>/api/v3, instead of KASEYA_VSA_SERVER. Leave blank to build it from KASEYA_VSA_SERVER.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KASEYA_VSA_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on VSA 10 requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
