@@ -271,6 +271,15 @@ def dsm_answer(params: dict) -> dict:
     return {"success": True, "data": {}}
 
 
+def vcenter_session_login(command: str, target: str) -> bool:
+    """A vSphere Automation API login: POST /api/session (vSphere 7.0 U2 and
+    later). vCenter answers 201 with the session id as a bare JSON string, and
+    its clients read the id from that string; a generic {} is no session. Only
+    an origin-form target counts, so a proxy-style target naming another host
+    stays the egress refusal above."""
+    return command == "POST" and target.partition("?")[0] == "/api/session"
+
+
 class FakeVendor:
     def __init__(self, log: Path, egress_log: Path, tls: tuple[str, str] | None = None):
         self.lock = threading.Lock()
@@ -318,6 +327,8 @@ class FakeVendor:
                     # and its client refuses a host that does not (it sends no
                     # login until SYNO.API.Info lists SYNO.API.Auth).
                     return self._reply(200, dsm_answer(dsm))
+                if vcenter_session_login(self.command, self.path):
+                    return self._reply(201, "verify-fake-vcenter-session")
                 if self.command == "GET":
                     return self._reply(200, [])
                 return self._reply(200, {})
@@ -1267,6 +1278,7 @@ def self_test() -> int:
               + "; ".join(f"{k} {v[0]}" for k, v in got.items()) + (" (token leaked into the record)" if leaked else ""))
     bad += redaction_self_test()
     bad += dsm_self_test()
+    bad += vcenter_self_test()
     bad += kit_tls_self_test()
     print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
     return 0 if not bad else 1
@@ -1390,6 +1402,42 @@ def dsm_self_test() -> int:
                 bad += not ok
                 kind = "DSM envelope" if isinstance(got, dict) and "success" in got else f"generic reply {got}"
                 print(f"  [{'PASS' if ok else 'FAIL'}] fake vendor {method} {target} ({ctype}): {kind}")
+        finally:
+            vendor.stop()
+    return bad
+
+
+def vcenter_self_test() -> int:
+    """The fake vendor answers a vSphere Automation API login with a bare JSON
+    string session id (201) and every other request exactly as before."""
+    cases = [  # (method, request target, expected status, expected reply)
+        ("POST", "/api/session", 201, "verify-fake-vcenter-session"),
+        ("POST", "/api/session?x=1", 201, "verify-fake-vcenter-session"),
+        ("GET", "/api/session", 200, []),
+        ("DELETE", "/api/session", 200, {}),
+        ("POST", "/api/sessions", 200, {}),
+        ("POST", "/proxy/api/session", 200, {}),
+        ("POST", "/rest/com/vmware/cis/session", 200, {}),
+        ("GET", "/api/vcenter/vm", 200, []),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory(prefix="verify-vcenter-") as td:
+        d = Path(td)
+        vendor = FakeVendor(d / "vendor-requests.jsonl", d / "egress-attempts.jsonl")
+        try:
+            for method, target, want_status, want in cases:
+                conn = http.client.HTTPConnection("127.0.0.1", vendor.srv.server_address[1], timeout=10)
+                try:
+                    conn.request(method, target, body=b"" if method == "POST" else None)
+                    resp = conn.getresponse()
+                    status, got = resp.status, json.loads(resp.read() or b"null")
+                except (OSError, http.client.HTTPException, ValueError) as e:
+                    status, got = 0, f"no reply: {type(e).__name__}"
+                finally:
+                    conn.close()
+                ok = status == want_status and got == want
+                bad += not ok
+                print(f"  [{'PASS' if ok else 'FAIL'}] fake vendor {method} {target}: {status} {got!r}")
         finally:
             vendor.stop()
     return bad
