@@ -205,11 +205,6 @@
    "read-only",
    "local-data"
   ],
-  "mspbots": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "n-central": [
    "mcp-http",
    "read-only",

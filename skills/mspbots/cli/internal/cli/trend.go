@@ -91,7 +91,7 @@ Capture snapshots first with 'snapshot'.`, "\n"),
 				return fmt.Errorf("listing snapshots: %w", err)
 			}
 			if len(snaps) == 0 {
-				return notFoundErr(fmt.Errorf("alias %q has no snapshots; run 'mspbots-cli snapshot %s' first", alias, alias))
+				return notFoundErr(fmt.Errorf("snapshots of alias %q not found; run 'mspbots-cli snapshot %s' first", alias, alias))
 			}
 			// SnapshotsForAlias returns newest-first; series read oldest-first.
 			points := make([]trendPoint, 0, len(snaps))

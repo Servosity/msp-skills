@@ -641,10 +641,9 @@
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
       "version": "0.1.6",
-      "category": "analytics",
+      "category": "msp",
       "tags": [
         "mspbots",
-        "analytics",
         "msp",
         "mcp",
         "claude-code",
