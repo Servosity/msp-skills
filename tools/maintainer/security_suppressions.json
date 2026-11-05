@@ -2155,6 +2155,46 @@
       ],
       "press": "4.34.2",
       "reason": "threecx fleet runner: re-executes only this CLI (fleet.SelfExecutable = os.Executable) once per registered PBX; argv is built by childArgs from fixed literals plus request paths validated as plain XAPI paths (validated again in the child by cleanXAPIPath); the PBX is a registry-validated name in THREECX_PBX; the environment is scrubbed per PBX (fleet.Scrub) and its secret goes down the kit's held-set pipe; no shell."
+    },
+    {
+      "file": "skills/datto-saas/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "press 4.34 template declaration, reviewed 2026-11-03; the file carries the credential kit's hand edits, so its whole-file template binding no longer matches. It reads and writes the data.db.owner marker beside the connector's own store under the operator's data directory; no MCP argument can name that directory (check_mcp_file_flags.py)."
+    },
+    {
+      "file": "skills/datto-saas/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:57a7b65dac3d053261cb0bf817ca841f2080feec4cba715bb24defabc352e924"
+      ],
+      "press": "4.34.2",
+      "reason": "press template declaration with one hand edit, reviewed 2026-11-03: the tail repair's newline goes through the credential kit. The path is a segment of the connector's own learn journal under its state directory, never an MCP argument (check_mcp_file_flags.py)."
+    },
+    {
+      "file": "skills/datto-saas/cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:905ef0d62e497fcb2d7b7df19b8999d24ed541a131e119bcda0029a9a089b025"
+      ],
+      "press": "4.34.2",
+      "reason": "press template declaration with one hand edit, reviewed 2026-11-03: the lock file's NUL byte goes through the credential kit. The path is <file>.lock beside a CLI state file, 0600, never an MCP argument (check_mcp_file_flags.py)."
+    },
+    {
+      "file": "skills/datto-saas/cli/internal/cliutil/credkit_hold.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:bb7de54687e8369c05f399cd777bb036c61db39d89bf337b0b221c922fabd1ed"
+      ],
+      "press": "4.34.2",
+      "reason": "hand-written credential kit wiring, reviewed 2026-11-03. Reads a config, credential store or TLS key file the operator named on their own command line, regular files only, only to hold its values at startup; nothing it reads is shown. MCP refuses those flags (check_mcp_file_flags.py)."
     }
   ]
 }
