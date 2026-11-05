@@ -378,9 +378,9 @@
     "released_hash": "sha256:1c41ffd23925ad4a62ccfffd6490226c17aca5a22c18703d07578ffe3ce726a8"
   },
   "mimecast": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "mimecast-v0.1.0",
     "current_hash": "sha256:d40c9814278ed95b4ee6096c60cf0ef8a6c4ee9a5bfac4b2ab50edcba360dc41",
     "released_hash": "sha256:d40c9814278ed95b4ee6096c60cf0ef8a6c4ee9a5bfac4b2ab50edcba360dc41"
   },
