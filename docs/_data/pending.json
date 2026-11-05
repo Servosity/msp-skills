@@ -378,11 +378,11 @@
     "released_hash": "sha256:62f9075a272dffedd1a0fa1c8ae2ca460407398b7581a0448a01f60ed6ad4dc6"
   },
   "liongard": {
-    "state": "binary-pending",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "liongard-v0.1.7",
     "current_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1",
-    "released_hash": "sha256:7f809cd3644bc2ec54c1699690b7a3cde7e2125354c6428d35cacfd3afdfc801"
+    "released_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1"
   },
   "maxio": {
     "state": "up-to-date",
@@ -623,9 +623,9 @@
     "released_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5"
   },
   "synology": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "synology-v0.1.0",
+    "latest_tag": "synology-v0.1.1",
     "current_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895",
     "released_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895"
   },
