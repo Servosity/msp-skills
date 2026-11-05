@@ -1,77 +1,25 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-carried: emitted by cli-printing-press 4.28.0 (project-management workflow template); the 4.32.5 profiler classes Zammad as the "content" archetype and no longer emits it. Kept so the shipped `stale` surface survives the reprint (see handfixes.json: pm-workflow-commands-carried).
+//
+// Rewritten on Zammad's ticket model (Codex round 1 on the 4.34.0 reprint,
+// 2026-10-24). The template scanned every synced resource (users, groups,
+// states, closed tickets) and compared RFC 3339 timestamps as TEXT, so a value
+// written in another UTC offset than the cutoff was misjudged by up to a day.
+// It now reads active tickets only and compares instants.
 
 package cli
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"zammad-pp-cli/internal/store"
 )
-
-// staleTimestampFields lists every JSON key the press considers a
-// modification timestamp when looking for stale items. Order matters:
-// the WHERE/ORDER BY and the Go-side scan iterate this list in order,
-// so the first key present on a row wins. Includes the historical
-// updatedAt/updated_at pair plus variants commonly seen in mainstream
-// APIs (Asana modified_at, Notion last_edited_time, Stripe updated, etc.)
-// so a `stale` query against any of them returns real data instead of
-// silently empty results.
-var staleTimestampFields = []string{
-	"updatedAt",
-	"updated_at",
-	"updatedDate",
-	"modifiedAt",
-	"modified_at",
-	"lastModified",
-	"last_modified",
-	"lastEditedTime",
-	"last_edited_time",
-	"updated",
-	"last_updated",
-}
-
-// buildStaleTimestampPredicate emits SQL clauses that match a row whose
-// modification timestamp is older than cutoff and sort rows by the
-// earliest non-null timestamp the row exposes.
-//
-// Each field needs two placeholders because the JSON value can be a
-// text RFC 3339 string (most APIs: Asana modified_at, Notion
-// last_edited_time, etc.) or a numeric Unix epoch (Stripe `updated`).
-// SQLite's type-class ordering puts numbers unconditionally below text,
-// so without a typeof gate a numeric `updated` would always satisfy
-// `... < <text-cutoff>` and every Stripe row would falsely show stale.
-// The caller binds (cutoffStr, cutoffEpoch) per field in order.
-//
-// The ORDER BY uses COALESCE rather than a multi-column sort because
-// SQLite places NULLs first under ASC, so a multi-column list would
-// float rows from APIs that don't populate the leading field above
-// rows that do, breaking the oldest-first guarantee in any mixed-API
-// store. Within a single API the value type is consistent, so COALESCE
-// produces stable per-API chronological ordering; mixed-type stores
-// still group by type-class but stay deterministic.
-//
-// Centralising the field list keeps WHERE / ORDER BY / in-Go scan in
-// lockstep.
-func buildStaleTimestampPredicate() (whereClause, orderClause string, placeholderPairs int) {
-	whereParts := make([]string, 0, len(staleTimestampFields))
-	coalesceArgs := make([]string, 0, len(staleTimestampFields))
-	for _, f := range staleTimestampFields {
-		extract := fmt.Sprintf("json_extract(data, '$.%s')", f)
-		whereParts = append(whereParts, fmt.Sprintf(
-			"((typeof(%s) = 'text' AND %s < ?) OR (typeof(%s) IN ('integer','real') AND %s < ?))",
-			extract, extract, extract, extract,
-		))
-		coalesceArgs = append(coalesceArgs, extract)
-	}
-	return strings.Join(whereParts, " OR "),
-		"COALESCE(" + strings.Join(coalesceArgs, ", ") + ") ASC",
-		len(whereParts)
-}
 
 func newStaleCmd(flags *rootFlags) *cobra.Command {
 	var days int
@@ -81,126 +29,47 @@ func newStaleCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "stale",
-		Short: "Find items with no updates in N days",
-		Long: `Scan locally synced data for items that have not been updated within
-the specified number of days. Useful for identifying forgotten or blocked work.`,
-		Example: `  # Find items not updated in 30 days (default)
+		Short: "Find open tickets with no updates in N days",
+		Long: `Scan the locally synced tickets for active ones (new, open or pending)
+that have not been updated within the given number of days. Useful for
+finding forgotten or blocked work. --team matches a group id or name.`,
+		Example: `  # Find tickets not updated in 30 days (default)
   zammad-cli stale
 
-  # Find items not updated in 14 days
+  # Find tickets not updated in 14 days
   zammad-cli stale --days 14
 
-  # Filter by team
-  zammad-cli stale --days 7 --team backend
+  # Filter by team (Zammad group id or name)
+  zammad-cli stale --days 7 --team "2nd Level"
 
   # Output as JSON
   zammad-cli stale --days 30 --json`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// pp:data-source local
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dbPath == "" {
-				dbPath = defaultDBPath("zammad-cli")
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
-
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			if days < 0 {
+				return usageErr(fmt.Errorf("--days must be non-negative"))
+			}
+			db, err := openNovelStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'zammad-cli sync' first.", err)
+				return err
 			}
 			defer db.Close()
-
-			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
-
-			cutoffTime := time.Now().AddDate(0, 0, -days)
-			cutoffStr := cutoffTime.Format(time.RFC3339)
-			cutoffEpoch := cutoffTime.Unix()
-
-			whereClause, orderClause, n := buildStaleTimestampPredicate()
-			query := "SELECT id, resource_type, data FROM resources WHERE (" + whereClause + ")"
-			qArgs := make([]any, 0, n*2+4)
-			for i := 0; i < n; i++ {
-				qArgs = append(qArgs, cutoffStr, cutoffEpoch)
+			maybeEmitSyncHints(cmd, db, "tickets", flags.maxAge)
+			if err := novelRequireSynced(db, "tickets", false); err != nil {
+				return err
 			}
 
-			if team != "" {
-				query += ` AND (json_extract(data, '$.teamId') = ? OR json_extract(data, '$.team_id') = ? OR json_extract(data, '$.team') = ?)`
-				qArgs = append(qArgs, team, team, team)
-			}
-
-			query += " ORDER BY " + orderClause
-
-			// Get total count first
-			countQuery := "SELECT COUNT(*) FROM (" + query + ")"
-			var totalCount int
-			countRow, countErr := db.Query(countQuery, qArgs...)
-			if countErr == nil {
-				defer countRow.Close()
-				if countRow.Next() {
-					countRow.Scan(&totalCount)
-				}
-			}
-
-			query += ` LIMIT ?`
-			qArgs = append(qArgs, limit)
-
-			rows, err := db.Query(query, qArgs...)
+			items, err := buildStaleTickets(db, days, team, time.Now())
 			if err != nil {
-				return fmt.Errorf("querying stale items: %w", err)
+				return err
 			}
-			defer rows.Close()
-
-			type staleItem struct {
-				ID           string `json:"id"`
-				ResourceType string `json:"resource_type"`
-				Title        string `json:"title,omitempty"`
-				UpdatedAt    string `json:"updated_at,omitempty"`
-				DaysSince    int    `json:"days_since"`
-			}
-
-			var items []staleItem
-			now := time.Now()
-			for rows.Next() {
-				var id, resType string
-				var data []byte
-				if err := rows.Scan(&id, &resType, &data); err != nil {
-					continue
-				}
-				var obj map[string]any
-				if err := json.Unmarshal(data, &obj); err != nil {
-					continue
-				}
-
-				title := ""
-				for _, key := range []string{"title", "name", "subject", "summary"} {
-					if v, ok := obj[key]; ok {
-						title = fmt.Sprintf("%v", v)
-						break
-					}
-				}
-
-				updatedAt := ""
-				daysSince := days
-				for _, key := range staleTimestampFields {
-					if v, ok := obj[key]; ok {
-						updatedAt = fmt.Sprintf("%v", v)
-						switch ts := v.(type) {
-						case string:
-							if t, err := time.Parse(time.RFC3339, ts); err == nil {
-								daysSince = int(now.Sub(t).Hours() / 24)
-							}
-						case float64:
-							// JSON numbers decode to float64 (Stripe-style Unix epoch seconds).
-							daysSince = int(now.Sub(time.Unix(int64(ts), 0)).Hours() / 24)
-						}
-						break
-					}
-				}
-
-				items = append(items, staleItem{
-					ID:           id,
-					ResourceType: resType,
-					Title:        title,
-					UpdatedAt:    updatedAt,
-					DaysSince:    daysSince,
-				})
+			totalCount := len(items)
+			if limit > 0 && len(items) > limit {
+				items = items[:limit]
 			}
 
 			if wantsMachineOutput(flags) {
@@ -216,14 +85,14 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 			}
 
 			if len(items) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No stale items found.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No stale tickets found.")
 				return nil
 			}
 
 			if totalCount > len(items) {
-				fmt.Fprintf(cmd.OutOrStdout(), "Found %d stale items (showing first %d, no update in %d+ days):\n\n", totalCount, len(items), days)
+				fmt.Fprintf(cmd.OutOrStdout(), "Found %d stale tickets (showing first %d, no update in %d+ days):\n\n", totalCount, len(items), days)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Found %d stale items (no update in %d+ days):\n\n", len(items), days)
+				fmt.Fprintf(cmd.OutOrStdout(), "Found %d stale tickets (no update in %d+ days):\n\n", len(items), days)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-8s %s\n", "ID", "TYPE", "DAYS", "TITLE")
 			fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-8s %s\n", "----", "----", "----", "-----")
@@ -239,9 +108,133 @@ the specified number of days. Useful for identifying forgotten or blocked work.`
 	}
 
 	cmd.Flags().IntVar(&days, "days", 30, "Number of days without update to consider stale")
-	cmd.Flags().StringVar(&team, "team", "", "Filter by team identifier")
+	cmd.Flags().StringVar(&team, "team", "", "Filter by team: a Zammad group id or group name")
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
-	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum items to show")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum tickets to show (0 means all)")
 
 	return cmd
+}
+
+type staleItem struct {
+	ID           string `json:"id"`
+	ResourceType string `json:"resource_type"`
+	Title        string `json:"title,omitempty"`
+	UpdatedAt    string `json:"updated_at,omitempty"`
+	DaysSince    int    `json:"days_since"`
+	updated      time.Time
+}
+
+// buildStaleTickets returns the active tickets whose last update (or creation,
+// when no update time was synced) is more than days before now, oldest first.
+// Timestamps are parsed and compared as instants, never as text.
+func buildStaleTickets(db *store.Store, days int, team string, now time.Time) ([]staleItem, error) {
+	states, err := loadZammadStateCatalog(db)
+	if err != nil {
+		return nil, err
+	}
+	groups, err := loadZammadGroupNames(db)
+	if err != nil {
+		return nil, err
+	}
+	team = strings.TrimSpace(team)
+	rows, err := db.Query(`SELECT id, title, CAST(state_id AS TEXT), CAST(group_id AS TEXT), created_at, updated_at FROM tickets`)
+	if err != nil {
+		return nil, fmt.Errorf("querying tickets: %w", err)
+	}
+	defer rows.Close()
+	threshold := time.Duration(days) * 24 * time.Hour
+	items := make([]staleItem, 0)
+	for rows.Next() {
+		var id, title, stateID, groupID, createdAt, updatedAt sql.NullString
+		if err := rows.Scan(&id, &title, &stateID, &groupID, &createdAt, &updatedAt); err != nil {
+			return nil, fmt.Errorf("scanning tickets: %w", err)
+		}
+		if !id.Valid || strings.TrimSpace(id.String) == "" {
+			continue
+		}
+		if !zammadStateActive(zammadStateForID(states, stateID).Kind) {
+			continue
+		}
+		if team != "" && !zammadGroupMatches(groupID, groups, team) {
+			continue
+		}
+		raw := updatedAt.String
+		updated, ok := parseZammadTime(raw)
+		if !ok {
+			raw = createdAt.String
+			if updated, ok = parseZammadTime(raw); !ok {
+				continue
+			}
+		}
+		if !zammadOlderThan(now, updated, threshold) {
+			continue
+		}
+		items = append(items, staleItem{
+			ID:           id.String,
+			ResourceType: "tickets",
+			Title:        title.String,
+			UpdatedAt:    raw,
+			DaysSince:    zammadAgeDays(now, updated),
+			updated:      updated,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading tickets: %w", err)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if !items[i].updated.Equal(items[j].updated) {
+			return items[i].updated.Before(items[j].updated)
+		}
+		return zammadNumericLess(items[i].ID, items[j].ID)
+	})
+	return items, nil
+}
+
+// loadZammadGroupNames maps group id to name from the synced groups.
+func loadZammadGroupNames(db *store.Store) (map[string]string, error) {
+	rows, err := db.Query(`SELECT id, name FROM groups`)
+	if err != nil {
+		if strings.Contains(err.Error(), "no such table") {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("querying groups: %w", err)
+	}
+	defer rows.Close()
+	names := make(map[string]string)
+	for rows.Next() {
+		var id, name sql.NullString
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("scanning groups: %w", err)
+		}
+		if id.Valid {
+			names[strings.TrimSpace(id.String)] = strings.TrimSpace(name.String)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading groups: %w", err)
+	}
+	return names, nil
+}
+
+// zammadGroupMatches reports whether a ticket's group is team, given as a
+// group id or a group name (case-insensitive).
+func zammadGroupMatches(groupID sql.NullString, groups map[string]string, team string) bool {
+	id := strings.TrimSpace(groupID.String)
+	if !groupID.Valid || id == "" {
+		return false
+	}
+	if id == team {
+		return true
+	}
+	return strings.EqualFold(groups[id], team)
+}
+
+// zammadNumericLess orders ids numerically when both are numbers.
+func zammadNumericLess(left, right string) bool {
+	l, lErr := strconv.ParseInt(left, 10, 64)
+	r, rErr := strconv.ParseInt(right, 10, 64)
+	if lErr == nil && rErr == nil {
+		return l < r
+	}
+	return left < right
 }

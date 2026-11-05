@@ -1,0 +1,2291 @@
+{
+  "api_name": "kaseya-vsa",
+  "base_url": "https://{server}/api/v3",
+  "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {KASEYA_VSA_TOKEN_ID}:{KASEYA_VSA_TOKEN_SECRET}",
+    "env_vars": [
+      "KASEYA_VSA_TOKEN_ID",
+      "KASEYA_VSA_TOKEN_SECRET"
+    ],
+    "env_var_specs": [
+      {
+        "name": "KASEYA_VSA_TOKEN_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "VSA 10 API token ID (Administration \u003e Configuration \u003e API Access)."
+      },
+      {
+        "name": "KASEYA_VSA_TOKEN_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "VSA 10 API token secret, shown once when the token is created."
+      }
+    ],
+    "key_url": "https://help.vsa10.kaseya.com/help/Content/2-Administration/configuration/api.htm"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "assets_get-device",
+      "description": "Returns the assets for a specific device. Required: deviceId. Optional: include.",
+      "method": "GET",
+      "path": "/assets/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The identifier of the device.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "List of sections to include Example: include=AvailableUpdates,InstalledUpdates,Security,AssetInfo,LocalIpAddresses"
+        }
+      ]
+    },
+    {
+      "name": "assets_list",
+      "description": "Returns a list of assets. Sync requests include=Tags,Updates,AvailableUpdates,Security,IpAddresses,Disks,InstalledSoftware,LocalIpAddresses (every section this endpoint offers except AssetInfo, which carries the Windows product key). Optional: top, skip, filter (plus 2 more).",
+      "method": "GET",
+      "path": "/assets",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: Identifier, Name, GroupName, Description, ... Example: $filter=GroupName eq 'My Org - My Site - My Group'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: Identifier, Name, GroupName, Description, ... Example: $orderby=Name"
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "List of sections to include Example: include=AvailableUpdates,Security,AssetInfo,LocalIpAddresses"
+        }
+      ]
+    },
+    {
+      "name": "audit_logs_list",
+      "description": "Returns a list of audit log entries. Optional: top, skip, filter (plus 2 more).",
+      "method": "GET",
+      "path": "/auditlogs",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 2 147 483 647. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=year(AuditLogRecordDateTime) gt 2025 and startsWith(EventDescription,'Execute automation ad-hoc script')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=AuditLogRecordId desc"
+        },
+        {
+          "name": "count",
+          "wire_name": "$count",
+          "type": "bool",
+          "location": "query",
+          "description": "OData option to request TotalCount Example: $count=true"
+        }
+      ]
+    },
+    {
+      "name": "custom_field_usage_get",
+      "description": "Returns a list of places where the Custom Field is used. Organizations, Sites, Groups, Devices, Scopes that are inaccessible to the API token are not displayed in the response. Required: customFieldId. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/customfields/{customFieldId}/usage",
+      "params": [
+        {
+          "name": "customFieldId",
+          "type": "int",
+          "location": "path",
+          "description": "customFieldId path parameter.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=50"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Default value: 0 Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=UsageContextType eq 'Scope'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=UsageContextType asc, ContextItemId asc"
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_assign",
+      "description": "Assigns a VSA 10 Custom Field. Required: customFieldId, ContextItemId, ContextType. Optional: UseDefaultValue, Value. Returns the new CustomFieldsAssignResponse.",
+      "method": "POST",
+      "path": "/customfields/{customFieldId}/assign",
+      "params": [
+        {
+          "name": "customFieldId",
+          "type": "int",
+          "location": "path",
+          "description": "customFieldId path parameter.",
+          "required": true
+        },
+        {
+          "name": "ContextItemId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the related context item.",
+          "required": true
+        },
+        {
+          "name": "ContextType",
+          "type": "string",
+          "location": "body",
+          "description": "The target context type. Possible values: Organization, Site, Group, Device.",
+          "required": true
+        },
+        {
+          "name": "UseDefaultValue",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the default value from the Custom Field settings will be utilized."
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "The Custom Field value to be assigned. This field is required if UseDefaultValue is false."
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_get",
+      "description": "Returns the custom field details. Required: customFieldId.",
+      "method": "GET",
+      "path": "/customfields/{customFieldId}",
+      "params": [
+        {
+          "name": "customFieldId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Custom Field ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_list",
+      "description": "Returns a list of Custom Fields. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/customFields",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Contexts/any(p: p eq 'Global') and ExpirationDate eq null"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_unassign",
+      "description": "Unassigns a VSA 10 Custom Field. Required: customFieldId, ContextItemId, ContextType. Returns the new CustomFieldsUnassignResponse.",
+      "method": "POST",
+      "path": "/customfields/{customFieldId}/unassign",
+      "params": [
+        {
+          "name": "customFieldId",
+          "type": "int",
+          "location": "path",
+          "description": "customFieldId path parameter.",
+          "required": true
+        },
+        {
+          "name": "ContextItemId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the related context item.",
+          "required": true
+        },
+        {
+          "name": "ContextType",
+          "type": "string",
+          "location": "body",
+          "description": "Target context type. Possible values: Organization, Site, Group, Device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_update-assigned",
+      "description": "Updates the Value of a VSA 10 Custom Field. Required: customFieldId, ContextItemId, ContextType. Optional: UseDefaultValue, Value. Returns the updated CustomFieldsUpdateAssignedResponse.",
+      "method": "PUT",
+      "path": "/customfields/{customFieldId}/updateAssigned",
+      "params": [
+        {
+          "name": "customFieldId",
+          "type": "int",
+          "location": "path",
+          "description": "customFieldId path parameter.",
+          "required": true
+        },
+        {
+          "name": "ContextItemId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the related context item.",
+          "required": true
+        },
+        {
+          "name": "ContextType",
+          "type": "string",
+          "location": "body",
+          "description": "The target context type. Possible values: Organization, Site, Group, Device.",
+          "required": true
+        },
+        {
+          "name": "UseDefaultValue",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the default value from the Custom Field settings will be utilized."
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "location": "body",
+          "description": "The Custom Field value to be updated. This field is required if UseDefaultValue is false."
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Returns the device details. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/{deviceId}",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the device identifier.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get-antivirus",
+      "description": "Returns the antivirus status of a device. Required: deviceId.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/antivirus",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Returns a list of devices. Optional: scopeId, top, skip (plus 3 more).",
+      "method": "GET",
+      "path": "/devices",
+      "params": [
+        {
+          "name": "scopeId",
+          "type": "int",
+          "location": "query",
+          "description": "Returns devices only from the specified Scope. Example: scopeId=123"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 2 147 483 647. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: Identifier, Name, GroupId, GroupName, IsAgentInstalled, IsMdmEnrolled, SiteId, SiteName, OrganizationId, OrganizationName. Example: $filter=contains(tolower(GroupName), 'mygroup')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: Identifier, Name, GroupId, GroupName, IsAgentInstalled, IsMdmEnrolled, SiteId, SiteName, OrganizationId, OrganizationName. Example: $orderby=GroupId desc"
+        },
+        {
+          "name": "count",
+          "wire_name": "$count",
+          "type": "bool",
+          "location": "query",
+          "description": "OData option to request TotalCount Example: $count=true"
+        }
+      ]
+    },
+    {
+      "name": "devices_list-applied-policies",
+      "description": "Returns a list of policies and profiles applied to a device. Required: deviceId. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/{deviceId}/appliedpolicies",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the device identifier.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=PolicyType eq 'Device Configuration'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=PolicyType"
+        }
+      ]
+    },
+    {
+      "name": "devices_list-custom-fields",
+      "description": "Returns the device custom fields. Required: deviceId. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/devices/{deviceId}/customfields",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the device identifier.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: Id, Name, Value, Type. Example: $filter=contains(tolower(Name), 'Custom')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: Id, Name, Value, Type. Example: $orderby=Type"
+        }
+      ]
+    },
+    {
+      "name": "devices_list-notifications",
+      "description": "Return the device notifications. Required: deviceId. Optional: top, skip, filter (plus 2 more). Returns array of DevicesListNotificationsItem.",
+      "method": "GET",
+      "path": "/devices/{deviceId}/notifications",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the device identifier.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 2 147 483 647. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: Id, Message, DateTime, Priority. Example: $filter=contains(tolower(Message), 'free space')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: Id, Message, DateTime, Priority. Example: $orderby=Priority"
+        },
+        {
+          "name": "count",
+          "wire_name": "$count",
+          "type": "bool",
+          "location": "query",
+          "description": "OData option to request TotalCount Example: $count=true"
+        }
+      ]
+    },
+    {
+      "name": "devices_move",
+      "description": "Moves a Device to a different Group. Required: deviceId, GroupId. Returns the updated DevicesMoveResponse.",
+      "method": "PUT",
+      "path": "/devices/{deviceId}/move",
+      "params": [
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "Device Identifier.",
+          "required": true
+        },
+        {
+          "name": "GroupId",
+          "type": "int",
+          "location": "body",
+          "description": "Target Group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_publish",
+      "description": "Publish registers or updates a VSA 10 Device instance. Required: GroupId, InstanceId. Optional: Contents, Description, Name (plus 2 more). Returns the new DevicesPublishResponse.",
+      "method": "POST",
+      "path": "/devices",
+      "params": [
+        {
+          "name": "Contents",
+          "type": "array",
+          "location": "body",
+          "description": "Data used to create the details view."
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Instance description. Shows under the instance name. (maximum 255 characters)"
+        },
+        {
+          "name": "GroupId",
+          "type": "int",
+          "location": "body",
+          "description": "Group ID of the instance.",
+          "required": true
+        },
+        {
+          "name": "InstanceId",
+          "type": "string",
+          "location": "body",
+          "description": "Unique instance identifier. (maximum 100 characters)",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the instance. (maximum 100 characters)"
+        },
+        {
+          "name": "NextRefreshIntervalMinutes",
+          "type": "int",
+          "location": "body",
+          "description": "Marks the instance as offline if the Publish method is not called again after the specified interval. Zero disables the offline counter."
+        },
+        {
+          "name": "NotifyWhenOffline",
+          "type": "string",
+          "location": "body",
+          "description": "If the next refresh interval was specified, a notification will be sent if the instance goes offline for an extended period of time."
+        }
+      ]
+    },
+    {
+      "name": "endpoint_protection_get-policy",
+      "description": "Returns the details of the endpoint protection policy. Required: policyId.",
+      "method": "GET",
+      "path": "/endpointprotection/policies/{policyId}",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the endpoint protection policy.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "environment_get",
+      "description": "Returns environment information for the instance.",
+      "method": "GET",
+      "path": "/environment",
+      "params": []
+    },
+    {
+      "name": "group_custom_fields_list",
+      "description": "Return the group custom fields. Required: groupId. Optional: top, skip, filter (plus 1 more). Returns array of GroupCustomFieldsListItem.",
+      "method": "GET",
+      "path": "/groups/{groupId}/customfields",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the group ID.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Type eq 'Text'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name"
+        }
+      ]
+    },
+    {
+      "name": "groups_create",
+      "description": "Creates a new Group within a Site. Required: Name, ParentId. Optional: Notes. Returns the new GroupsCreateResponse.",
+      "method": "POST",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Group Name. (maximum 255 characters)",
+          "required": true
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Group Notes."
+        },
+        {
+          "name": "ParentId",
+          "type": "int",
+          "location": "body",
+          "description": "Parent Site ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Deletes a Group. Required: groupId. Returns the GroupsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/groups/{groupId}",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "Group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get",
+      "description": "Returns the group details. Required: groupId.",
+      "method": "GET",
+      "path": "/groups/{groupId}",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the group ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_get-package",
+      "description": "Returns the Name and Download URL for Group install package. Rate limit: 600 requests per hour. Required: groupId, packageType (default: windows_agent_x64).",
+      "method": "GET",
+      "path": "/groups/{groupId}/package/{packageType}",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the group ID.",
+          "required": true
+        },
+        {
+          "name": "packageType",
+          "type": "string",
+          "location": "path",
+          "description": "Type of install package. Allowed values: windows_agent_x64, windows_agent_x86",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "Returns a list of active (not deleted) groups. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/groups",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=PsaIntegrationType eq 'AutoTask' and contains(Name, 'MyGroup')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "groups_update",
+      "description": "Update a Group. Required: groupId, Name. Optional: Notes. Returns the updated GroupsUpdateResponse.",
+      "method": "PUT",
+      "path": "/groups/{groupId}",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "path",
+          "description": "Group ID.",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Group Name. (maximum 255 characters)",
+          "required": true
+        },
+        {
+          "name": "Notes",
+          "type": "string",
+          "location": "body",
+          "description": "Group Notes."
+        }
+      ]
+    },
+    {
+      "name": "notifications_create",
+      "description": "Creates a device notification. Required: InstanceId, Title. Optional: Message, Priority. Returns the new NotificationsCreateResponse.",
+      "method": "POST",
+      "path": "/notifications",
+      "params": [
+        {
+          "name": "InstanceId",
+          "type": "string",
+          "location": "body",
+          "description": "Identifier of the instance that triggered the notification. (maximum 100 characters)",
+          "required": true
+        },
+        {
+          "name": "Message",
+          "type": "string",
+          "location": "body",
+          "description": "Notification message appears in the Notification Detail view. Defaults to the title field. (maximum 5000 characters)"
+        },
+        {
+          "name": "Priority",
+          "type": "string",
+          "location": "body",
+          "description": "Possible values: Low, Normal, Elevated, Critical. Defaults to Normal."
+        },
+        {
+          "name": "Title",
+          "type": "string",
+          "location": "body",
+          "description": "Notification title that is displayed in the PUSH notification.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "notifications_delete",
+      "description": "Deletes a specific notification. Required: notificationId. Optional: completePsaTicket. Returns the NotificationsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/notifications/{notificationId}",
+      "params": [
+        {
+          "name": "notificationId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the notification identifier",
+          "required": true
+        },
+        {
+          "name": "completePsaTicket",
+          "type": "bool",
+          "location": "query",
+          "description": "Controls whether to automatically complete/resolve the associated PSA ticket when deleting a notification. Default value: false Example: completePsaTicket=true"
+        }
+      ]
+    },
+    {
+      "name": "notifications_get",
+      "description": "Returns the notification details. Required: notificationId.",
+      "method": "GET",
+      "path": "/notifications/{notificationId}",
+      "params": [
+        {
+          "name": "notificationId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the notification identifier",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "notifications_list",
+      "description": "Returns the device notifications. Optional: top, skip, filter (plus 2 more).",
+      "method": "GET",
+      "path": "/notifications",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 2 147 483 647. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: Id, Message, DateTime, Priority. Example: $filter=contains(tolower(Message), 'free space')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: Id, Message, DateTime, Priority. Example: $orderby=Priority"
+        },
+        {
+          "name": "count",
+          "wire_name": "$count",
+          "type": "bool",
+          "location": "query",
+          "description": "OData option to request TotalCount Example: $count=true"
+        }
+      ]
+    },
+    {
+      "name": "organization_custom_fields_list",
+      "description": "Return the organization custom fields. Required: organizationId. Optional: top, skip, filter (plus 1 more). Returns array of OrganizationCustomFieldsListItem.",
+      "method": "GET",
+      "path": "/organizations/{organizationId}/customfields",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the organization ID.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Type eq 'Text'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name"
+        }
+      ]
+    },
+    {
+      "name": "organizations_create",
+      "description": "Creates a new Organization. Required: Name. Optional: Access, PsaMapping, Type. Returns the new OrganizationsCreateResponse.",
+      "method": "POST",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "Access",
+          "type": "array",
+          "location": "body",
+          "description": "List of teams with desired access level to the organization. If not specified, no teams will be having access to the organization."
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Organization Name. (maximum 255 characters)",
+          "required": true
+        },
+        {
+          "name": "PsaMapping",
+          "type": "string",
+          "location": "body",
+          "description": "PSA Company mapping settings."
+        },
+        {
+          "name": "Type",
+          "type": "string",
+          "location": "body",
+          "description": "Organization Type. Possible values: Internal, Customer. Default value is Internal."
+        }
+      ]
+    },
+    {
+      "name": "organizations_delete",
+      "description": "Deletes an Organization. Required: organizationId. Returns the OrganizationsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/organizations/{organizationId}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "Organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Returns the organization details. Required: organizationId.",
+      "method": "GET",
+      "path": "/organizations/{organizationId}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "Returns a list of organizations. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/organizations",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=PsaIntegrationType eq 'AutoTask' and contains(Name, 'myorg')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "organizations_update",
+      "description": "Updates an Organization. Required: organizationId, Name. Optional: Access, Type. Returns the updated OrganizationsUpdateResponse.",
+      "method": "PUT",
+      "path": "/organizations/{organizationId}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "Organization ID.",
+          "required": true
+        },
+        {
+          "name": "Access",
+          "type": "array",
+          "location": "body",
+          "description": "List of teams which access to the organization needs to be changed. If not specified, access to the organization will not be changed."
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Organization Name. (maximum 255 characters)",
+          "required": true
+        },
+        {
+          "name": "Type",
+          "type": "string",
+          "location": "body",
+          "description": "Organization Type. Possible values: Internal, Customer. Default value is Internal."
+        }
+      ]
+    },
+    {
+      "name": "patch_management_get-global-rules",
+      "description": "Returns the global rules for patch management. The global rules get automatically applied ahead of all policy rules and are evaluated in a top-down order.",
+      "method": "GET",
+      "path": "/patchmanagement/globalrules",
+      "params": []
+    },
+    {
+      "name": "patch_management_get-policy",
+      "description": "Returns the details of the patch management policy. Required: policyId.",
+      "method": "GET",
+      "path": "/patchmanagement/policies/{policyId}",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the Patch Management Policy.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "rate_limits_get",
+      "description": "Returns rate limits information.",
+      "method": "GET",
+      "path": "/ratelimits",
+      "params": []
+    },
+    {
+      "name": "scope_usage_get",
+      "description": "Returns a list of places where the Scope is used. Required: scopeId. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/scopes/{scopeId}/usage",
+      "params": [
+        {
+          "name": "scopeId",
+          "type": "int",
+          "location": "path",
+          "description": "scopeId path parameter.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Default value: 0 Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=UsageContextType eq 'Task'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=UsageContextType asc, ContextItemId asc"
+        }
+      ]
+    },
+    {
+      "name": "scopes_get",
+      "description": "Returns the scope details. Required: scopeId.",
+      "method": "GET",
+      "path": "/scopes/{scopeId}",
+      "params": [
+        {
+          "name": "scopeId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Scope ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scopes_list",
+      "description": "Returns a list of Scopes. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/scopes",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=contains(Description, 'My Scope')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "scripts_get",
+      "description": "Returns the automation script details. Required: scriptId.",
+      "method": "GET",
+      "path": "/automation/scripts/{scriptId}",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "The value of the Script ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_get-execution",
+      "description": "Returns the details of a script execution. Note that execution details may not be available if the device is offline. Required: scriptId, deviceId, executionId.",
+      "method": "GET",
+      "path": "/automation/scripts/{scriptId}/device/{deviceId}/executions/{executionId}",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the script.",
+          "required": true
+        },
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        },
+        {
+          "name": "executionId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the script execution.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scripts_list",
+      "description": "Returns a list of automation scripts. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/automation/scripts",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Platforms/any(p: p eq 'Linux') and IsBuiltIn"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "scripts_list-executions",
+      "description": "Returns script executions for the specified device. Note that executions may not be available if the device is offline. Required: scriptId, deviceId. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/automation/scripts/{scriptId}/device/{deviceId}/executions",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the script.",
+          "required": true
+        },
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The identifier of the device.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=20"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=20"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. See below for filterable properties. Example: $filter=State eq 'Successful'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. See below for sortable properties. Example: $orderby=StartTime desc"
+        }
+      ]
+    },
+    {
+      "name": "scripts_run",
+      "description": "Runs a specific automation script. Required: scriptId, DeviceIdentifier. Optional: Variables, WebhookUrl. Returns the new ScriptsRunResponse.",
+      "method": "POST",
+      "path": "/automation/scripts/{scriptId}/run",
+      "params": [
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "Id of the script to run.",
+          "required": true
+        },
+        {
+          "name": "DeviceIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "Identifiers of the devices where the automation script will run. The device must be online.",
+          "required": true
+        },
+        {
+          "name": "Variables",
+          "type": "array",
+          "location": "body",
+          "description": "List of overrides for Script Input Variables."
+        },
+        {
+          "name": "WebhookUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Target URL. It should start with 'http://' or 'https://' protocol. (maximum 2000 characters)"
+        }
+      ]
+    },
+    {
+      "name": "site_custom_fields_list",
+      "description": "Return the Site custom fields. Required: siteId. Optional: top, skip, filter (plus 1 more). Returns array of SiteCustomFieldsListItem.",
+      "method": "GET",
+      "path": "/sites/{siteId}/customfields",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Site ID.",
+          "required": true
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Type eq 'Text'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name"
+        }
+      ]
+    },
+    {
+      "name": "sites_create",
+      "description": "Creates a new Site within an Organization. Required: Name, ParentId. Optional: ContactInformation. Returns the new SitesCreateResponse.",
+      "method": "POST",
+      "path": "/sites",
+      "params": [
+        {
+          "name": "contact-information-address1",
+          "wire_name": "ContactInformation.Address1",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Address Line 1."
+        },
+        {
+          "name": "contact-information-address2",
+          "wire_name": "ContactInformation.Address2",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Address Line 2."
+        },
+        {
+          "name": "contact-information-city",
+          "wire_name": "ContactInformation.City",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's city."
+        },
+        {
+          "name": "contact-information-contact-name",
+          "wire_name": "ContactInformation.ContactName",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's name."
+        },
+        {
+          "name": "contact-information-country-code",
+          "wire_name": "ContactInformation.CountryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's country code."
+        },
+        {
+          "name": "contact-information-email",
+          "wire_name": "ContactInformation.Email",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's email."
+        },
+        {
+          "name": "contact-information-fax",
+          "wire_name": "ContactInformation.Fax",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's fax number."
+        },
+        {
+          "name": "contact-information-phone",
+          "wire_name": "ContactInformation.Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's phone number."
+        },
+        {
+          "name": "contact-information-zip",
+          "wire_name": "ContactInformation.Zip",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Zip code."
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Site Name. (maximum 255 characters)",
+          "required": true
+        },
+        {
+          "name": "ParentId",
+          "type": "int",
+          "location": "body",
+          "description": "Parent Organization ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_delete",
+      "description": "Deletes a Site. Required: siteId. Returns the SitesDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/sites/{siteId}",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "int",
+          "location": "path",
+          "description": "Site ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_get",
+      "description": "Returns the Site details. Required: siteId.",
+      "method": "GET",
+      "path": "/sites/{siteId}",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Site ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sites_list",
+      "description": "Returns a list of Sites. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/sites",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=PsaIntegrationType eq 'AutoTask' and contains(Name, 'myorg')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "sites_update",
+      "description": "Updates a Site. Required: siteId, Name. Optional: ContactInformation. Returns the updated SitesUpdateResponse.",
+      "method": "PUT",
+      "path": "/sites/{siteId}",
+      "params": [
+        {
+          "name": "siteId",
+          "type": "int",
+          "location": "path",
+          "description": "Site ID.",
+          "required": true
+        },
+        {
+          "name": "contact-information-address1",
+          "wire_name": "ContactInformation.Address1",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Address Line 1."
+        },
+        {
+          "name": "contact-information-address2",
+          "wire_name": "ContactInformation.Address2",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Address Line 2."
+        },
+        {
+          "name": "contact-information-city",
+          "wire_name": "ContactInformation.City",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's city."
+        },
+        {
+          "name": "contact-information-contact-name",
+          "wire_name": "ContactInformation.ContactName",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's name."
+        },
+        {
+          "name": "contact-information-country-code",
+          "wire_name": "ContactInformation.CountryCode",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's country code."
+        },
+        {
+          "name": "contact-information-email",
+          "wire_name": "ContactInformation.Email",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's email."
+        },
+        {
+          "name": "contact-information-fax",
+          "wire_name": "ContactInformation.Fax",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's fax number."
+        },
+        {
+          "name": "contact-information-phone",
+          "wire_name": "ContactInformation.Phone",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's phone number."
+        },
+        {
+          "name": "contact-information-zip",
+          "wire_name": "ContactInformation.Zip",
+          "type": "string",
+          "location": "body",
+          "description": "Contact's Zip code."
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Site Name. (maximum 255 characters)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get",
+      "description": "Returns the task details. Required: taskId.",
+      "method": "GET",
+      "path": "/automation/tasks/{taskId}",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "int",
+          "location": "path",
+          "description": "Task ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-execution",
+      "description": "Returns the status of a task execution. Required: executionId.",
+      "method": "GET",
+      "path": "/automation/tasks/executions/{executionId}",
+      "params": [
+        {
+          "name": "executionId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the task execution.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_get-execution-script-output",
+      "description": "Returns the output from a script executed as part of a task on a specific device. Required: executionId, deviceId, scriptId.",
+      "method": "GET",
+      "path": "/automation/tasks/executions/{executionId}/devices/{deviceId}/scripts/{scriptId}",
+      "params": [
+        {
+          "name": "executionId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the task execution.",
+          "required": true
+        },
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        },
+        {
+          "name": "scriptId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the script.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_list",
+      "description": "Returns a list of automation tasks. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/automation/tasks",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=contains(Description, 'My Task')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "tasks_list-execution-devices",
+      "description": "Returns the execution status for devices on which the task has been executed. Required: executionId. Optional: includeFailed, includeSuccessful, top (plus 3 more).",
+      "method": "GET",
+      "path": "/automation/tasks/executions/{executionId}/devices",
+      "params": [
+        {
+          "name": "executionId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the task execution.",
+          "required": true
+        },
+        {
+          "name": "includeFailed",
+          "type": "string",
+          "location": "query",
+          "description": "Include devices where the task execution has failed. Defaults to true. Example: false"
+        },
+        {
+          "name": "includeSuccessful",
+          "type": "string",
+          "location": "query",
+          "description": "Include devices where the task execution was successful. Defaults to true. Example: false"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=ExecutionState eq 'Successful' and contains(Description, 'Windows')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=ExecutionState"
+        }
+      ]
+    },
+    {
+      "name": "tasks_list-execution-scripts",
+      "description": "Returns a list of scripts that were executed as part of a task on a specific device. Required: executionId, deviceId.",
+      "method": "GET",
+      "path": "/automation/tasks/executions/{executionId}/devices/{deviceId}/scripts",
+      "params": [
+        {
+          "name": "executionId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the task execution.",
+          "required": true
+        },
+        {
+          "name": "deviceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the device.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_run",
+      "description": "Runs a specific automation task. Required: taskId. Optional: DeviceIdentifiers, WebhookUrl. Returns the new TasksRunResponse.",
+      "method": "POST",
+      "path": "/automation/tasks/{taskId}/run",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "int",
+          "location": "path",
+          "description": "Id of the task to run.",
+          "required": true
+        },
+        {
+          "name": "DeviceIdentifiers",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Identifiers of the devices where the automation task will be executed. If the identifiers are not specified the task will be executed on the configured scope."
+        },
+        {
+          "name": "WebhookUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Target URL. It should start with 'http://' or 'https://' protocol. (maximum 2000 characters)"
+        }
+      ]
+    },
+    {
+      "name": "webhooks_create",
+      "description": "Creates a Notification Webhook. Required: Name, Priorities, Url. Optional: Description, Headers, Language (plus 1 more). Returns the new WebhooksCreateResponse.",
+      "method": "POST",
+      "path": "/notifications/webhooks",
+      "params": [
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Description. (maximum 255 characters)"
+        },
+        {
+          "name": "Headers",
+          "type": "object",
+          "location": "body",
+          "description": "List of additional headers sent to the Target URL. (maximum 4000 characters)"
+        },
+        {
+          "name": "Language",
+          "type": "string",
+          "location": "body",
+          "description": "Language of Notifications title and message send through webhook. Available values: en, de. Default: en"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Name. (maximum 100 characters)",
+          "required": true
+        },
+        {
+          "name": "OrganizationIds",
+          "type": "array",
+          "location": "body",
+          "description": "List of Organization IDs used to limit the scope of Notifications. The scope is not limited if Organization IDs are null."
+        },
+        {
+          "name": "Priorities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of Notification Priorities that are sent through the Webhook. Available values: Low, Normal, Elevated, Critical",
+          "required": true
+        },
+        {
+          "name": "Url",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Target URL. It should start with 'http://' or 'https://' protocol. (maximum 2000 characters)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhooks_delete",
+      "description": "Deletes a Specific Notification Webhook. Required: webhookId. Returns the WebhooksDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/notifications/webhooks/{webhookId}",
+      "params": [
+        {
+          "name": "webhookId",
+          "type": "int",
+          "location": "path",
+          "description": "Notification Webhook ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhooks_get",
+      "description": "Returns the notification webhook details. Required: webhookId.",
+      "method": "GET",
+      "path": "/notifications/webhooks/{webhookId}",
+      "params": [
+        {
+          "name": "webhookId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Notification Webhook ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhooks_list",
+      "description": "Returns a list of Notification Webhooks. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/notifications/webhooks",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=Priorities/any(p: p eq 'Elevated')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=Name asc"
+        }
+      ]
+    },
+    {
+      "name": "webhooks_regenerate-secret-key",
+      "description": "Re-generates a Notification Webhook Secret Key. This will cause the previous Secret Key to become outdated, and it will be replaced by a new one in the calculation of the x-hmac-signature header when sending a Notification Message to the Webhook URL. Required: webhookId. Returns the new WebhooksRegenerateSecretKeyResponse.",
+      "method": "POST",
+      "path": "/notifications/webhooks/{webhookId}/regeneratesecretkey",
+      "params": [
+        {
+          "name": "webhookId",
+          "type": "int",
+          "location": "path",
+          "description": "Notification Webhook ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "webhooks_update",
+      "description": "Updates a Notification Webhook. Required: webhookId, Name, Priorities, Url. Optional: Description, Headers, Language (plus 1 more). Returns the updated WebhooksUpdateResponse.",
+      "method": "PUT",
+      "path": "/notifications/webhooks/{webhookId}",
+      "params": [
+        {
+          "name": "webhookId",
+          "type": "int",
+          "location": "path",
+          "description": "The value of the Notification Webhook ID.",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Description. (maximum 255 characters)"
+        },
+        {
+          "name": "Headers",
+          "type": "object",
+          "location": "body",
+          "description": "List of additional headers sent to the Target URL. (maximum 4000 characters)"
+        },
+        {
+          "name": "Language",
+          "type": "string",
+          "location": "body",
+          "description": "Language of Notifications title and message send through webhook. Available values: en, de. Default: en"
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Name. (maximum 100 characters)",
+          "required": true
+        },
+        {
+          "name": "OrganizationIds",
+          "type": "array",
+          "location": "body",
+          "description": "List of Organization IDs used to limit the scope of Notifications. The scope is not limited if Organization IDs are null."
+        },
+        {
+          "name": "Priorities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of Notification Priorities that are sent through the Webhook. Available values: Low, Normal, Elevated, Critical",
+          "required": true
+        },
+        {
+          "name": "Url",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook Target URL. It should start with 'http://' or 'https://' protocol. (maximum 2000 characters)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflows_cancel-executions",
+      "description": "Cancels specified workflow executions. Required: ExecutionIds. Returns the new WorkflowsCancelExecutionsResponse.",
+      "method": "POST",
+      "path": "/automation/workflows/executions/cancel",
+      "params": [
+        {
+          "name": "ExecutionIds",
+          "type": "array",
+          "location": "body",
+          "description": "Identifiers of automation workflow executions that will be cancelled.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflows_get",
+      "description": "Returns the workflow details. Required: workflowId.",
+      "method": "GET",
+      "path": "/automation/workflows/{workflowId}",
+      "params": [
+        {
+          "name": "workflowId",
+          "type": "int",
+          "location": "path",
+          "description": "Workflow ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflows_get-execution",
+      "description": "Returns the details of a workflow execution. Required: executionId.",
+      "method": "GET",
+      "path": "/automation/workflows/executions/{executionId}",
+      "params": [
+        {
+          "name": "executionId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the workflow execution.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workflows_list",
+      "description": "Returns a list of workflows. Optional: top, skip, filter (plus 2 more).",
+      "method": "GET",
+      "path": "/automation/workflows",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 2 147 483 647. Example: $top=100"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=100"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. Filterable properties: see below. Example: $filter=TriggerSubType eq 'Manual'"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. Sortable properties: see below. Example: $orderby=UpdatedAt desc"
+        },
+        {
+          "name": "count",
+          "wire_name": "$count",
+          "type": "bool",
+          "location": "query",
+          "description": "OData option to request TotalCount Example: $count=true"
+        }
+      ]
+    },
+    {
+      "name": "workflows_list-executions",
+      "description": "Returns running workflow executions and the latest completed workflow executions. Optional: top, skip, filter (plus 1 more).",
+      "method": "GET",
+      "path": "/automation/workflows/executions",
+      "params": [
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return, limited to 100. Default value: 100 Example: $top=20"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Starting position. Example: $skip=20"
+        },
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filters. See below for filterable properties. Example: $filter=ConstantVariableOverrides/any(v: v/Name eq 'filePath')"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "OData sorting. See below for sortable properties. Example: $orderby=CreatedAt desc"
+        }
+      ]
+    },
+    {
+      "name": "workflows_run",
+      "description": "Runs a specific automation workflow. Required: workflowId. Optional: ConstantVariableOverrides, DeviceIdentifiers, WebhookUrl. Returns the new WorkflowsRunResponse.",
+      "method": "POST",
+      "path": "/automation/workflows/{workflowId}/run",
+      "params": [
+        {
+          "name": "workflowId",
+          "type": "int",
+          "location": "path",
+          "description": "Id of the workflow to run.",
+          "required": true
+        },
+        {
+          "name": "ConstantVariableOverrides",
+          "type": "array",
+          "location": "body",
+          "description": "A list of variables to override in the Workflow. Only variables registered as a separate 'Get Device Value' step with a Constant value can be overridden."
+        },
+        {
+          "name": "DeviceIdentifiers",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Identifiers for the devices where the automation workflow will be executed. If not specified, the workflow will be executed on the configured scope."
+        },
+        {
+          "name": "WebhookUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Webhook target URL. It should start with 'http://' or 'https://' protocol. (maximum 2000 characters)"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health exceptions",
+      "command": "health",
+      "description": "From the synced local mirror (run sync first), list devices across every client that are offline, have antivirus off or stale, firewall or UAC off, low disk, or high CPU or memory; rows are fail or unknown, with scanned and per-check counts."
+    },
+    {
+      "name": "Patch exposure rollup",
+      "command": "patch-exposure",
+      "description": "From the synced local mirror (run sync first), rank pending OS updates across all clients by KB, client, or device, filtered by severity, CVSS, KB, or CVE."
+    },
+    {
+      "name": "Fleet software inventory",
+      "command": "software",
+      "description": "From the synced local mirror (run sync first), find which devices run an application, its version spread, devices below a version, or devices missing it."
+    },
+    {
+      "name": "One-device digest",
+      "command": "devices brief",
+      "description": "Get one device's online state, notification counts, security posture, disks, pending-update counts by severity, antivirus, policies, and recent audit activity from six live API calls."
+    },
+    {
+      "name": "Script run-and-wait",
+      "command": "scripts run-wait",
+      "description": "Run an automation script on a managed device (starts immediately, no confirmation) and get its exit code and output when it finishes."
+    },
+    {
+      "name": "Task run-and-collect",
+      "command": "tasks run-wait",
+      "description": "Run a saved task on chosen devices (starts immediately, no confirmation) or attach to a running execution, and collect per-device, per-script exit codes and output."
+    },
+    {
+      "name": "Audit activity digest",
+      "command": "audit-logs digest",
+      "description": "From the synced local mirror (run sync first), see who did what in the tenant over a time window, with audit categories and event types decoded to names."
+    }
+  ]
+}

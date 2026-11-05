@@ -1,0 +1,157 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/kaseya-bms/
+
+# The Kaseya BMS MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Kaseya US LLC.
+
+**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+
+Yes - there is an MCP server for Kaseya BMS. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Kaseya BMS to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+Run the Kaseya BMS service desk, contracts, and billing from your terminal - or let your AI agent do it. Ask in plain English which queues are underwater, which tickets are going stale, who's overloaded, how much of each contract you've burned, and what billable time is sitting unbilled - and get the answer instantly from a local mirror, without exporting a single report.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/kaseya-bms/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/kaseya-bms)
+
+## Instead of clicking through Kaseya BMS, just ask
+
+**Instead of** Export the morning ticket list to Excel and pivot it by queue to find where the backlog is building.
+**just ask:** *"Which queues are underwater this morning, and how many tickets are going stale?"*
+Your agent runs: `kaseya-bms-cli queue-health --agent`
+
+**Instead of** Run the unbilled-time report, export it, and reconcile approved billable hours per client by hand before invoicing.
+**just ask:** *"How many approved billable hours are sitting unbilled per client right now?"*
+Your agent runs: `kaseya-bms-cli unbilled --agent`
+
+**Instead of** Click through each technician's board to work out who has bandwidth for the next escalation.
+**just ask:** *"Who's overloaded and who can take the next ticket?"*
+Your agent runs: `kaseya-bms-cli workload --agent`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/kaseya-bms/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Which queues are underwater and what's going stale before standup? | `kaseya-bms-cli queue-health --agent` |
+| Which open tickets haven't been touched in a week, oldest first? | `kaseya-bms-cli stale-tickets --days 7 --agent` |
+| Who's overloaded and who can take the next ticket? | `kaseya-bms-cli workload --agent` |
+| How much of each contract have we burned this quarter? | `kaseya-bms-cli contract-burn --window-days 90 --agent` |
+| What approved billable time is ready to invoice, by account? | `kaseya-bms-cli unbilled --agent` |
+| What's the open sales pipeline by stage, and which deals have slipped? | `kaseya-bms-cli pipeline --agent` |
+| Find every ticket mentioning a phrase across the whole tenant | `kaseya-bms-cli search "VPN outage"` |
+| Sync the tenant into a local mirror for instant offline queries | `kaseya-bms-cli sync` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/kaseya-bms/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/kaseya-bms/guide.md).
+
+## What makes this one different
+
+Most Kaseya BMS integrations proxy each question into a live API call against the 1,500-per-hour-per-endpoint limit - fine for one record, but it falls over the moment you ask a fleet-wide or month-end question. This skill syncs the tenant into a local SQLite mirror with full-text search, so aggregate questions - queue health, contract burn, unbilled hours, weighted pipeline - are answered by one local join: instant, offline, and the agent sees the answer, not the raw data.
+
+The BMS console and its reports are built for clicking through one screen at a time; this skill answers the cross-entity questions the grid won't compute - per-contract burn, unbilled hours by account, weighted pipeline with slipped-deal flags - from your terminal or your AI agent, and complements the portal rather than replacing it.
+
+## The pain this closes
+
+- MSPs on r/msp and MSPGeek repeatedly call BMS reporting the weak spot: the questions you ask every morning - queue backlog, aging tickets, who's overloaded - mean exporting grids to Excel and pivoting them by hand.
+- Month-end billing is the other recurring complaint: pulling approved-but-unbilled time per client out of BMS for the invoice run is a manual export-and-reconcile chore, and the API's 1,500-requests-per-hour-per-endpoint limit punishes any tool that asks the question live every time.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.ps1 | iex
+```
+
+After install, authenticate once with your Kaseya BMS credentials, then verify with `kaseya-bms-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | All 243 read commands plus the analytics rollups: queue-health, stale-tickets, unbilled, pipeline, servicedesk get-ticket, search | Allow |
+| Write (routine) | 124 create/update commands across the service desk, CRM, finance, and projects: servicedesk post-ticket, servicedesk assign-ticket, crm post-account, finance mark-invoices-as-sent, plus import | Preview with --dry-run, then a reviewed write |
+| Credential / security | Commands that return or store secrets: integrations get-itgpassword-value, integrations get-vsa-access-info, security refresh-token, auth login | Human-in-the-loop only |
+| Destructive | 21 delete commands: servicedesk delete-ticket, crm delete-contact, system delete-attachment | Human-in-the-loop only |
+| Admin | The 75-command admin group: webhooks, workflows, services, K1 access control, Teams channels | Operator-only, not for agents |
+
+The skill reads everything - tickets, CRM, contracts, finance, projects - and can create and update records across the service desk, CRM, finance, and projects, so keep an autonomous agent to reads plus previewed (--dry-run) writes with a human approving each write. Deletes, the back-office 'admin' group, and any command that returns stored credentials (ITGlue or VSA access info) are human-in-the-loop only. The strongest control is the scope of the BMS API user you authenticate as. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/kaseya-bms/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for Kaseya BMS?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Kaseya BMS, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Kaseya BMS MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `KASEYA_BMS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `KASEYA_BMS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way kaseya-bms-mcp runs, and shares MCP configuration with Codex: add kaseya-bms-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+
+### Is my Kaseya BMS data safe?
+
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### Will this hit my Kaseya BMS API rate limits?
+
+Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
+
+### Do I need to be a Kaseya customer, and how do I authenticate?
+
+Yes - you need a Kaseya BMS tenant and an API user. The skill authenticates as that user with 'kaseya-bms-cli auth login' (your BMS username, password, and tenant name), and can only do what that user is permitted to do. You can also paste a pre-minted JWT via KASEYA_BMS_TOKEN.
+
+### Will this replace my Kaseya BMS portal?
+
+No. It's a faster path for the questions you ask every day - queue health, unbilled time, pipeline - and for letting an AI agent drive the service desk. The BMS portal stays your system of record.
+
+## More PSA connectors
+
+Run more than one PSA tool, or comparing options? These connectors work the same way: [Autotask PSA](https://msp-skills.compoundingteams.com/skills/autotask.md) · [ConnectWise PSA (Manage)](https://msp-skills.compoundingteams.com/skills/connectwise-manage.md) · [HaloPSA](https://msp-skills.compoundingteams.com/skills/halopsa.md) · [Jira Service Management](https://msp-skills.compoundingteams.com/skills/jira-service-management.md) · [SuperOps](https://msp-skills.compoundingteams.com/skills/superops.md) · [Syncro](https://msp-skills.compoundingteams.com/skills/syncro.md) · [Zammad](https://msp-skills.compoundingteams.com/skills/zammad.md)
+
+## Status
+
+Beta. Validated against the Kaseya BMS API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

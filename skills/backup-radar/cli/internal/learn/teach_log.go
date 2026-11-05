@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"backup-radar-pp-cli/internal/cliutil"
+	"backup-radar-pp-cli/internal/credkit"
 )
 
 // teachLogStateDirName is the per-user state directory name.
@@ -110,12 +111,8 @@ func appendTeachLogEntry(entry TeachLogEntry) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateTeachLogIfNeeded(p)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-		if err != nil {
-			return fmt.Errorf("teach log: open %s: %w", p, err)
-		}
-		defer f.Close()
-		if _, err := f.Write(append(line, '\n')); err != nil {
+		// Hand-fix (handfixes.json credkit-wiring): one record, appended through the credential kit.
+		if err := credkit.AppendFile(p, append(line, '\n'), 0o600); err != nil {
 			return fmt.Errorf("teach log: write: %w", err)
 		}
 		return nil

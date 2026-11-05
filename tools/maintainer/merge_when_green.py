@@ -28,7 +28,10 @@ What it does, in order
  4. Rebases onto current origin/main. Registry and derived-file conflicts go
     through resolve_registry.py; any other conflict stops the run (no
     --ours/--theirs, ever). Registries git merged cleanly are still verified per
-    entry, and the derived files are regenerated and re-checked.
+    entry, and the derived files are regenerated and re-checked. .coderabbit.yaml,
+    which gen_coderabbit_config.py writes whole from the tree, is regenerated
+    when its --check fails (a conflict on it takes main's copy first); if that
+    generator fails or touches any other file, the run stops.
  5. Pushes with --force-with-lease pinned to the head it started from.
  6. Waits for EVERY check on that exact commit: every workflow run for the SHA,
     every check run, every commit status (CodeRabbit posts one), and the
@@ -59,6 +62,24 @@ What it does, in order
     base and its tree the green tree; if main moved inside the call it reports
     the race and what the intervening commits touched (exit 7).
 
+One exception: main moved only in other connectors
+---------------------------------------------------
+When the head is already one green commit on an older main commit B, and
+every commit in B..M (M = main now) touches only skills/<slug>/ of connectors
+the PR does not touch, or files the catalog bot regenerates whole (README.md
+only in its generated regions), or .coderabbit.yaml (which every connector
+merge rewrites; its generator must confirm it on the merged tree), and none of
+those paths is one the PR touches,
+and the PR itself changes only its own connector directories, generated files,
+its own registry entries, its own media and .coderabbit.yaml, it merges that
+head onto M WITHOUT a rebase or a new CI run. It rebuilds the merged tree (M
+plus exactly the head's change) in its private worktree, requires the
+generators (and .coderabbit.yaml's generator) to agree with it, and after the merge proves
+the merge commit sits on M with exactly that tree. It says so: "merged on M
+without re-run: B..M touched only <slugs>". tools/, .github/, any other root or
+shared file, the registries, a merge commit on main, a symlink, or anything it
+cannot classify means the usual rebase and re-run.
+
 Review approvals
 ----------------
 `approve` records (head SHA, base SHA, change fingerprint). An approval stays
@@ -72,8 +93,8 @@ current across a rebase only when both hold:
     hand-written parts only (generator-owned regions masked with the
     generator's own patterns). Only files a generator writes WHOLE from
     sources (catalog.json, docs/_data/catalog.json, docs/llms*.txt, each
-    connector's docs/skills/<slug>.md) are left out, because this tool
-    regenerates and re-checks them on the commit it merges;
+    connector's docs/skills/<slug>.md, .coderabbit.yaml) are left out, because
+    this tool regenerates and re-checks them on the commit it merges;
   * main's new commits since the approval's base touch nothing under the
     connector's directory, nothing in release_matrix.py's shared machinery list,
     no directory the branch's other files live in, no hand-written part of a
@@ -133,6 +154,14 @@ TOOL_FILES = ("merge_when_green.py", "resolve_registry.py", "release_matrix.py",
               "build-catalog.py")  # build-catalog.py: its patterns define what the review masks hide
 TOOLS_DIR = Path(__file__).resolve().parent
 
+# .coderabbit.yaml is written whole from the tree by gen_coderabbit_config.py
+# (ci_guards check 7 fails a stale one). Every connector merge can change it, so
+# a rebased commit regenerates it, like the catalog files, and it is left out of
+# the review fingerprint: what lands is always the generator's output for that
+# exact tree, re-checked before the push.
+CODERABBIT_GEN = "tools/maintainer/gen_coderabbit_config.py"
+CODERABBIT_CONFIG = ".coderabbit.yaml"
+
 
 def _read_tool(f: str) -> str | None:
     p = TOOLS_DIR / f
@@ -145,7 +174,7 @@ def _read_tool(f: str) -> str | None:
 LOADED_TOOLS = {f: _read_tool(f) for f in TOOL_FILES}
 rr._form_options_re()  # build-catalog.py's masks, loaded together with that snapshot
 
-FINGERPRINT_VERSION = "msp-skills-change-fingerprint/2"
+FINGERPRINT_VERSION = "msp-skills-change-fingerprint/3"  # 3: .coderabbit.yaml left out (regenerated)
 FLAKE_RERUNS = 2
 PUSH_LAG_READS, PUSH_LAG_SLEEP_S = 30, 2  # GitHub's PR API trails a branch push by seconds
 UNKNOWN_RERUNS = 1
@@ -211,6 +240,13 @@ class Git:
                           env=self.env or os.environ)
         return p.stdout.decode("utf-8", "surrogateescape") if p.returncode == 0 else None
 
+    def feed(self, data: bytes, *args: str, cwd: Path | None = None) -> None:
+        """A git call that reads `data` on stdin (bounded like every other)."""
+        p = self._bounded(["git", *args], cwd=str(cwd or self.repo), input=data, capture_output=True,
+                          env=self.env or os.environ)
+        if p.returncode != 0:
+            raise Stop(EXIT_ERROR, f"git {' '.join(args)} failed: {p.stderr.decode('utf-8', 'replace')[-800:]}")
+
     def is_ancestor(self, a: str, b: str) -> bool:
         return self.run("merge-base", "--is-ancestor", a, b, check=False).returncode == 0
 
@@ -249,6 +285,10 @@ def _pages(git: Git, *revs: str) -> set[str]:
     return out
 
 
+def _has_coderabbit_gen(git: Git, rev: str) -> bool:
+    return git.run("cat-file", "-e", f"{rev}:{CODERABBIT_GEN}", check=False).returncode == 0
+
+
 def fingerprint(git: Git, base: str, head: str) -> str:
     """sha256 over the change `git diff base...head`, byte-exact for every byte
     a person wrote:
@@ -258,10 +298,11 @@ def fingerprint(git: Git, base: str, head: str) -> str:
       * README.md and the issue forms: a diff of their HAND-WRITTEN parts (the
         generator-owned regions masked out with the generator's own patterns);
       * left out entirely only what a generator writes whole from sources:
-        catalog.json, docs/_data/catalog.json, docs/llms*.txt and each
-        registered connector's docs/skills/<slug>.md. This tool regenerates
-        and re-checks those on the commit it merges, so no hand edit to them
-        can land. Any other file under docs/skills/ (including the page of a
+        catalog.json, docs/_data/catalog.json, docs/llms*.txt, each
+        registered connector's docs/skills/<slug>.md, and .coderabbit.yaml
+        (when the tree carries its generator). This tool regenerates and
+        re-checks those on the commit it merges, so no hand edit to them can
+        land. Any other file under docs/skills/ (including the page of a
         connector the change removes or makes markdown-only, which nothing
         regenerates any more) is an ordinary file."""
     mb = git.out("merge-base", base, head)
@@ -273,6 +314,8 @@ def fingerprint(git: Git, base: str, head: str) -> str:
     for p in paths:
         if p in rr.REGISTRY_FILES or p in rr.PARTIAL_DERIVED or rr.is_full_derived(p, pages):
             continue
+        if p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, head):
+            continue  # regenerated from the tree and --check'ed on the commit this tool merges
         literal.append(p)
     for reg in rr.REGISTRY_FILES:
         if reg not in paths:
@@ -332,6 +375,8 @@ def footprint(git: Git, base: str, head: str) -> Footprint:
                 fp.authored_partial.add(p)
         elif rr.is_full_derived(p, pages) or p in rr.RELEASE_DERIVED:
             continue
+        elif p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, head):
+            continue
         elif len(parts) > 1:
             fp.dep_prefixes.add("/".join(parts[:-1]) + "/")
         else:
@@ -375,6 +420,8 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
                 hits.append(f"main changed hand-written parts of {p}, which this change also edits")
         elif rr.is_full_derived(p, pages) or p in rr.RELEASE_DERIVED:
             continue
+        elif p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, new_base):
+            continue
         elif p in fp.dep_files or any(p.startswith(x) for x in fp.dep_prefixes):
             hits.append(f"main changed {p} (beside a file this change edits)")
     for reg in rr.REGISTRY_FILES:
@@ -392,6 +439,175 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
         for s in sorted(rr.registry_slugs(changed) & fp.slugs):
             hits.append(f"main changed the {reg} entry for {s}")
     return hits
+
+
+# --------------------------------------------------------------------------- #
+# Merging on a newer main without a re-run (the disjoint-base exception)
+# --------------------------------------------------------------------------- #
+#
+# Normally a green head is merged only onto the exact main it was validated on,
+# and the merge must carry the head's own tree. When main has moved, that costs
+# a rebase and a full CI re-run. This is the ONE exception, gated narrowly and
+# failing closed: the head is a single commit whose parent B is on main; every
+# commit in B..M (M = main now) is an ordinary commit that touches only
+# skills/<slug>/ of connectors the PR does not touch, or a file the catalog bot
+# regenerates whole (catalog.json, docs/_data/catalog.json, docs/_data/pending.json,
+# docs/llms*.txt, docs/.well-known/*, docs/_markdown_copies/**, the docs/skills
+# page of a registered connector), README.md with only its generated regions
+# changed, or .coderabbit.yaml when M carries its generator (every connector
+# merge rewrites it; the generator must confirm it on the rebuilt merged tree);
+# and none of those paths is one the PR touches. The PR's own change
+# must be confined too, because a PR that changes shared code was never
+# validated against main's newer connector files: its connector directories,
+# generated files (the issue forms only in their generated dropdown), its own
+# connectors' registry entries (never a registry-wide field), its own
+# docs/assets/{social,video}/<slug>/ media, and .coderabbit.yaml, which its
+# generator must confirm on the merged tree. Everything else (tools/, .github/,
+# any other root or shared file, a registry on main, a merge commit on main, a
+# symlink or submodule) means a re-run as before. Those generated files are the ones
+# catalog.yml commits to main on its own after every merge (`derived=` there);
+# the registries and the issue forms it also writes stay excluded, because they
+# live under tools/ and .github/. A generated file is not trusted by name: the
+# merged tree is rebuilt locally and the generators must leave it unchanged.
+
+@dataclass
+class DisjointMove:
+    base: str = ""  # B: the head's only parent
+    main: str = ""  # M
+    reasons: list[str] = field(default_factory=list)  # why it must re-run; empty means it may skip the re-run
+    pr_dirs: set[str] = field(default_factory=set)
+    main_slugs: set[str] = field(default_factory=set)
+    main_generated: set[str] = field(default_factory=set)
+
+    def note(self) -> str:
+        what = ", ".join(sorted(self.main_slugs))
+        gen = ", ".join(sorted(self.main_generated)[:6]) + (", ..." if len(self.main_generated) > 6 else "")
+        touched = (what + (f" and generated catalog files ({gen})" if gen else "")) if what else \
+            f"generated catalog files ({gen})"
+        return (f"merged on {self.main[:12]} without re-run: {self.base[:12]}..{self.main[:12]} "
+                f"touched only {touched}")
+
+
+MEDIA_PREFIXES = ("docs/assets/social/", "docs/assets/video/")  # docs/assets/<kind>/<slug>/...
+
+
+def _generated_catalog_file(git: Git, old: str, new: str, p: str, pages: set[str]) -> bool:
+    """`p` is a file the catalog bot rewrites whole, or README.md or an issue
+    form whose hand-written parts are identical at `old` and `new`."""
+    if rr.is_full_derived(p, pages) or p in rr.RELEASE_DERIVED:
+        return True
+    if p in rr.PARTIAL_DERIVED:
+        return rr.mask_generated(p, git.show(old, p)) == rr.mask_generated(p, git.show(new, p))
+    return False
+
+
+def _registry_reasons(git: Git, b: str, head: str, p: str, dirs: set[str]) -> list[str]:
+    """A PR may change a registry only in the entries of its own connectors
+    (their directory is one it changes), never a registry-wide field."""
+    try:
+        changed = rr.changed_entries(p, git.show(b, p), git.show(head, p))
+    except rr.UnknownFormat as exc:
+        return [f"the PR's {p} cannot be compared per entry ({exc})"]
+    try:
+        skills = json.loads(git.show(head, rr.SKILLS_JSON) or "{}").get("skills", {})
+    except ValueError:
+        skills = {}
+    out = [f"the PR changes the registry-wide {k} in {p}" for k in sorted(changed)
+           if k.startswith("top:") or k == "header"]
+    for slug in sorted(rr.registry_slugs(changed)):
+        meta = skills.get(slug) if isinstance(skills, dict) else None
+        if slug not in dirs and ((meta or {}).get("source_dir") if isinstance(meta, dict) else None) not in dirs:
+            out.append(f"the PR changes the {p} entry for {slug}, a connector whose directory it does not change")
+    return out
+
+
+def _odd_modes(git: Git, a: str, b: str) -> list[str]:
+    """Paths changed between a and b that become (or stop being) a symlink or a
+    submodule: never merged without a re-run."""
+    raw = git.raw("diff-tree", "-r", "-z", "--no-renames", "--no-commit-id", a, b)
+    toks = raw.split(b"\0")
+    odd = []
+    for i in range(0, len(toks) - 1, 2):
+        if not toks[i]:
+            break
+        meta = toks[i].decode("ascii", "replace").lstrip(":").split(" ")
+        if len(meta) < 5 or {meta[0], meta[1]} & {"120000", "160000"}:
+            odd.append(os.fsdecode(toks[i + 1]))
+    return odd
+
+
+def disjoint_move(git: Git, head: str, main: str) -> DisjointMove:
+    """Whether `head`, green on its parent B, may merge onto `main` (M) without
+    a re-run. Every condition fails closed: an empty `reasons` is the only yes."""
+    mv = DisjointMove(main=main)
+    parents = git.out("rev-list", "--parents", "-n", "1", head).split()[1:]
+    if len(parents) != 1:
+        mv.reasons.append("the head is not a single commit with one parent")
+        return mv
+    b = mv.base = parents[0]
+    if b == main:
+        mv.reasons.append("the head is already on main's tip")
+        return mv
+    if not git.is_ancestor(b, main):
+        mv.reasons.append(f"the head's parent {b[:12]} is not on main")
+        return mv
+    pr_paths = changed_paths(git, b, head)
+    if not pr_paths:
+        mv.reasons.append("the head changes nothing")
+        return mv
+    pr_set = set(pr_paths)
+    pages = _pages(git, head)
+    registries, media = [], []
+    for p in pr_paths:
+        parts = p.split("/")
+        if parts[0] == "skills" and len(parts) >= 3:
+            mv.pr_dirs.add(parts[1])
+        elif p in rr.REGISTRY_FILES:
+            registries.append(p)  # per entry, below
+        elif p == CODERABBIT_CONFIG:
+            continue  # generated from the tree: its generator must pass on the rebuilt merged tree
+        elif p.startswith(MEDIA_PREFIXES) and len(parts) >= 5:
+            media.append((p, parts[3]))  # its own connector's media only, below
+        elif not _generated_catalog_file(git, b, head, p, pages):
+            mv.reasons.append(f"the PR changes {p}, outside its connector directory and the generated catalog files")
+    mv.reasons += [f"the PR changes {p}, media of a connector whose directory it does not change"
+                   for p, d in media if d not in mv.pr_dirs]
+    for p in registries:
+        mv.reasons += _registry_reasons(git, b, head, p, mv.pr_dirs)
+    mv.reasons += [f"the PR changes {p} to or from a symlink or submodule" for p in _odd_modes(git, b, head)]
+    if mv.reasons:
+        return mv
+    merges = git.out("rev-list", "--merges", f"{b}..{main}").split()
+    if merges:
+        mv.reasons.append(f"main's commits since {b[:12]} include a merge commit ({merges[0][:12]})")
+        return mv
+    own_pages = {f"{pre}{d}.md" for d in mv.pr_dirs for pre in ("docs/skills/", "docs/_markdown_copies/skills/")}
+    main_pages = _pages(git, main)
+    gen_at_main = _has_coderabbit_gen(git, main)
+    for c in git.out("rev-list", "--reverse", f"{b}..{main}").split():
+        for q in changed_paths(git, f"{c}^", c):
+            parts = q.split("/")
+            where = f"main's {c[:12]} changed {q}"
+            if q in pr_set:
+                mv.reasons.append(f"{where}, which the PR also changes")
+            elif parts[0] == "skills" and len(parts) >= 3:
+                if parts[1] in mv.pr_dirs:
+                    mv.reasons.append(f"{where}, in the PR's connector directory")
+                else:
+                    mv.main_slugs.add(parts[1])
+            elif q in own_pages:
+                mv.reasons.append(f"{where}, the generated page of the PR's connector")
+            elif q.startswith((".github/", "tools/")):
+                mv.reasons.append(f"{where}: shared tooling or workflows")
+            elif q == CODERABBIT_CONFIG and gen_at_main:
+                mv.main_generated.add(q)  # written whole from the tree; _disjoint_tree --check's the merged tree
+            elif _generated_catalog_file(git, f"{c}^", c, q, main_pages):
+                mv.main_generated.add(q)
+            else:
+                mv.reasons.append(f"{where}: not another connector's directory or a generated catalog file")
+        mv.reasons += [f"main's {c[:12]} changed {p} to or from a symlink or submodule"
+                       for p in _odd_modes(git, f"{c}^", c)]
+    return mv
 
 
 def approval_status(git: Git, appr: dict, base: str, head: str) -> tuple[bool, list[str]]:
@@ -1073,6 +1289,25 @@ class Merger:
             self._wait_for_catalog_bot()
             self._fetch(branch)
             base = self.git.out("rev-parse", f"refs/remotes/{o.remote}/main")
+            disjoint = self._try_disjoint(current, base, required)
+            if disjoint is not None:
+                mv, tree = disjoint
+                self.say(f"==> {mv.note()}: the green head's change goes onto {base[:12]} as is. This is the one "
+                         "narrowly gated exception to merging only a tree identical to the green head; anything "
+                         "it could not classify would have re-run CI")
+                if o.dry_run:
+                    self.say(f"==> [dry run] would merge #{o.pr} with --match-head-commit {current[:12]} onto "
+                             f"{base[:12]} and prove the merged tree is {tree[:12]}")
+                    return EXIT_OK
+                verdicts = self._final_gate(current, base, required, branch)
+                if verdicts is None:
+                    self._count_rebase()
+                    continue
+                outcome = self._merge(current, base, verdicts, required, expected_tree=tree, note=mv.note())
+                if outcome == "retry":
+                    self._count_rebase()
+                    continue
+                return outcome
             new = self._prepare(current, base, pr.get("title") or branch)
             ok, missing = self._approvals(base, new, record=False)
             if missing:
@@ -1223,6 +1458,8 @@ class Merger:
             changed = rr.regenerate_and_stage(wt, self.say, self.o.generators, trusted_rev=base)
         except RuntimeError as exc:
             raise Stop(EXIT_CONFLICT, f"regenerating derived files failed: {exc}")
+        if self._regenerate_coderabbit(wt):
+            changed = [*changed, CODERABBIT_CONFIG]
         if changed:
             g.run("commit", "-q", "--amend", "--no-edit", cwd=wt)
             self.say(f"==> regenerated derived files into the commit: {', '.join(changed)}")
@@ -1236,6 +1473,36 @@ class Merger:
         if g.out("merge-base", new, base) != base:
             raise Stop(EXIT_ERROR, "the prepared commit is not on current origin/main")
         return new
+
+    def _regenerate_coderabbit(self, wt: Path) -> bool:
+        """Rewrite .coderabbit.yaml with the tree's own generator when its
+        --check says it is stale (after a rebase, main's connectors change
+        it), and stage it. Only that one file: if the generator fails, or
+        changes or creates anything else, the run stops as on any conflict
+        it will not resolve. True when the file was rewritten."""
+        if not (wt / CODERABBIT_GEN).is_file():
+            return False
+
+        def gen(*args: str) -> subprocess.CompletedProcess:
+            return rr.run_bounded([sys.executable, "-I", CODERABBIT_GEN, *args], cwd=str(wt), capture_output=True,
+                                  text=True, timeout=_bound(self.git.remaining))
+        if gen("--check").returncode == 0:
+            return False
+        before = {(xy, path) for xy, path in rr._porcelain(wt)}
+        p = gen()
+        if p.returncode != 0:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_GEN} failed while regenerating a stale {CODERABBIT_CONFIG}: "
+                                      + _printable((p.stdout + p.stderr).strip())[-400:])
+        touched = sorted({path for xy, path in rr._porcelain(wt) if (xy, path) not in before
+                          and (xy == "??" or xy[1] != " ")} - {CODERABBIT_CONFIG})
+        if touched:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_GEN} changed more than {CODERABBIT_CONFIG} ("
+                                      + ", ".join(touched[:10]) + "); nothing was pushed")
+        self.git.run("add", "--", CODERABBIT_CONFIG, cwd=wt)
+        if gen("--check").returncode != 0:
+            raise Stop(EXIT_CONFLICT, f"{CODERABBIT_CONFIG} is still stale after regenerating it")
+        self.say(f"==> {CODERABBIT_CONFIG} was stale on the rebased tree; regenerated with {CODERABBIT_GEN}")
+        return True
 
     def _squash(self, head: str, mb: str, title: str, commits: list[str]) -> str:
         g = self.git
@@ -1272,6 +1539,19 @@ class Merger:
         if not rr.unmerged(wt):
             g.run("rebase", "--abort", cwd=wt, check=False)
             raise Stop(EXIT_CONFLICT, f"the rebase stopped without a conflict: {p.stdout.strip()[-400:]} {p.stderr.strip()[-400:]}")
+        conflicts = rr.unmerged(wt)
+        if CODERABBIT_CONFIG in conflicts and (wt / CODERABBIT_GEN).is_file() and 2 in conflicts[CODERABBIT_CONFIG]:
+            # Generated whole from the tree: take main's copy (ours, in a rebase); _prepare regenerates it.
+            g.run("checkout", "--ours", "--", CODERABBIT_CONFIG, cwd=wt)
+            g.run("add", "--", CODERABBIT_CONFIG, cwd=wt)
+            self.say(f"==> {CODERABBIT_CONFIG} conflicted: took main's copy; it is regenerated below")
+            if not rr.unmerged(wt):
+                c = g.run("rebase", "--continue", cwd=wt, check=False, env_extra=env)
+                if c.returncode != 0:
+                    g.run("rebase", "--abort", cwd=wt, check=False)
+                    raise Stop(EXIT_CONFLICT, f"the rebase did not continue after taking main's {CODERABBIT_CONFIG}: "
+                                              f"{c.stdout.strip()[-300:]} {c.stderr.strip()[-300:]}")
+                return
         self.say("==> the rebase conflicted; handing it to resolve_registry.py")
         rc = rr.resolve(wt, main_side="ours", regen=True, out=lambda s: self.say("    " + s),
                         generators=self.o.generators)
@@ -1285,6 +1565,93 @@ class Merger:
             g.run("rebase", "--abort", cwd=wt, check=False)
             raise Stop(EXIT_CONFLICT, f"the rebase did not continue after resolving: {c.stdout.strip()[-300:]} "
                                       f"{c.stderr.strip()[-300:]}")
+
+    # -- the disjoint-base exception ----------------------------------------- #
+    def _try_disjoint(self, head: str, main: str, required: list[str]) -> tuple[DisjointMove, str] | None:
+        """(classification, the tree the merge must produce) when `head` may
+        merge onto `main` without a re-run, else None (the usual rebase and
+        re-run). See disjoint_move for the rule; on top of it the head must be
+        green right now on its own base, the approvals current for `main`, and
+        the merged tree, rebuilt here, unchanged by the generators. Anything
+        that fails or cannot be read means None."""
+        mv = disjoint_move(self.git, head, main)
+        if mv.reasons:
+            if mv.base and mv.base != main and not mv.reasons[0].startswith("the head"):
+                self.say("==> main moved since the head's base; re-running CI: " + "; ".join(mv.reasons[:3])
+                         + (f" (+{len(mv.reasons) - 3} more)" if len(mv.reasons) > 3 else ""))
+            return None
+        ok, missing = self._approvals(main, head, record=False)
+        if not ok:
+            self.say("==> the disjoint main move cannot skip the re-run: approvals not current ("
+                     + "; ".join(missing) + ")")
+            return None
+        pending, failed = self._evaluate(self.gh.snapshot(head), required)
+        if pending or failed:
+            self.say(f"==> main moved only in other connectors, but the head's checks are not all green on its base "
+                     f"{mv.base[:12]} ({len(pending)} pending, {len(failed)} failed); re-running CI")
+            return None
+        try:
+            tree = self._disjoint_tree(mv, head)
+        except (Stop, RuntimeError, OSError, ValueError) as exc:
+            self.say(f"==> main moved only in other connectors, but the merged tree did not check out ({exc}); "
+                     "re-running CI")
+            return None
+        if self.o.dry_run:  # a preview reads; the wait below can re-run a flaky job
+            return mv, tree
+        if self._wait_for_checks(head, mv.base, required) != "green":
+            return None
+        return mv, tree
+
+    def _disjoint_tree(self, mv: DisjointMove, head: str) -> str:
+        """The tree GitHub's squash merge of `head` onto M must produce: M with
+        exactly the head's changed paths taken from the head (no path is on
+        both sides, so there is nothing to merge). Built in the private
+        worktree, then the repo's generators must change nothing in it."""
+        g = self.git
+        wt = self._ensure_worktree(mv.main)
+        raw = g.raw("diff-tree", "-r", "-z", "--no-renames", "--no-commit-id", mv.base, head)
+        toks = raw.split(b"\0")
+        info, present, gone = [], [], []
+        for i in range(0, len(toks) - 1, 2):
+            if not toks[i]:
+                break
+            _om, nm, _os, ns, status = toks[i].decode("ascii").lstrip(":").split(" ")[:5]
+            path = toks[i + 1]
+            if status.startswith("D"):
+                info.append(b"0 " + b"0" * len(ns) + b"\t" + path)
+                gone.append(path)
+            else:
+                info.append(f"{nm} {ns}\t".encode() + path)
+                present.append(path)
+        g.feed(b"\0".join(info) + b"\0", "update-index", "-z", "--index-info", cwd=wt)
+        if present:
+            g.feed(b"\0".join(present) + b"\0", "checkout-index", "-f", "-z", "--stdin", cwd=wt)
+        for path in gone:
+            f = wt / os.fsdecode(path)
+            if f.is_symlink() or f.is_file():
+                f.unlink()
+        tree = g.out("write-tree", cwd=wt)
+        if set(changed_paths(g, mv.main, tree)) != set(changed_paths(g, mv.base, head)):
+            raise RuntimeError("the rebuilt tree differs from main in other paths than the head's change")
+        if g.raw("diff", "--name-only", head, tree, "--", *[f":(literal){os.fsdecode(p)}" for p in present + gone]):
+            raise RuntimeError("the rebuilt tree does not carry the head's change byte for byte")
+        changed = rr.regenerate_and_stage(wt, self.say, self.o.generators, trusted_rev=mv.main)
+        if changed:
+            raise RuntimeError("the generators change the merged tree: " + ", ".join(changed[:5]))
+        probs = rr.recheck(wt, None, self.o.generators)
+        if probs:
+            raise RuntimeError("re-check failed: " + "; ".join(probs)[:400])
+        if (wt / CODERABBIT_GEN).is_file():  # ci_guards' check that .coderabbit.yaml matches the tree
+            p = rr.run_bounded([sys.executable, "-I", CODERABBIT_GEN, "--check"], cwd=str(wt), capture_output=True,
+                               text=True, timeout=_bound(g.remaining))
+            if p.returncode != 0:
+                raise RuntimeError(f"{CODERABBIT_GEN} --check failed on the merged tree: "
+                                   + (p.stdout + p.stderr).strip()[-300:])
+        dirty = [ln for ln in g.run("status", "--porcelain", cwd=wt).stdout.splitlines()
+                 if ln[:2] == "??" or ln[1:2] != " "]
+        if dirty or g.out("write-tree", cwd=wt) != tree:
+            raise RuntimeError("the private worktree is not clean after the generators ran: " + "; ".join(dirty[:3]))
+        return tree
 
     # -- approvals ---------------------------------------------------------- #
     def _approvals(self, base: str, head: str, record: bool) -> tuple[bool, list[str]]:
@@ -1567,7 +1934,8 @@ class Merger:
             return "; coderabbit: not read"
         return f"; coderabbit on {sha[:12]}: {seen[1]} ({seen[2]})"
 
-    def _merge(self, sha: str, base: str, verdicts: list[list[str]], required: list[str]) -> int | str:
+    def _merge(self, sha: str, base: str, verdicts: list[list[str]], required: list[str],
+               expected_tree: str | None = None, note: str | None = None) -> int | str:
         """One merge attempt, never a blind retry, straight after _final_gate.
         GitHub's merge call can pin the head (--match-head-commit) but not the
         base, and this repository's protection is not strict, so PROVE
@@ -1606,7 +1974,7 @@ class Merger:
             raise Stop(EXIT_RACE_RED, f"the merge call succeeded but the PR still reads {pr.get('state')}: "
                                       "unverified; stop the chain and check main by hand")
         try:
-            return self._prove_merge(pr, sha, base, verdicts, required)
+            return self._prove_merge(pr, sha, base, verdicts, required, expected_tree, note)
         except Stop as stop:
             if stop.code in (EXIT_RACE, EXIT_RACE_RED):
                 raise
@@ -1616,7 +1984,11 @@ class Merger:
             raise Stop(EXIT_RACE_RED, f"merged #{o.pr}, but proving the merge did not complete "
                                       f"({type(exc).__name__}: {str(exc)[:300]}): stop the chain and check main by hand")
 
-    def _prove_merge(self, pr: dict, sha: str, base: str, verdicts: list[list[str]], required: list[str]) -> int:
+    def _prove_merge(self, pr: dict, sha: str, base: str, verdicts: list[list[str]], required: list[str],
+                     expected_tree: str | None = None, note: str | None = None) -> int:
+        """`expected_tree`/`note`: the disjoint-base exception, where the merge
+        must sit on `base` (main, not the head's parent) with the tree rebuilt
+        by _disjoint_tree instead of the head's own."""
         o = self.o
         merge = ((pr.get("mergeCommit") or {}).get("oid")) or ""
         self.git.run("fetch", "-q", "--no-tags", o.remote, f"+refs/heads/main:refs/remotes/{o.remote}/main")
@@ -1630,7 +2002,13 @@ class Merger:
                                       "stop the chain; nothing may be tagged or released from main until its CI on "
                                       f"{merge[:12]} is green")
         parent = self.git.out("rev-parse", f"{merge}^1")
-        same_tree = self.git.out("rev-parse", f"{merge}^{{tree}}") == self.git.out("rev-parse", f"{sha}^{{tree}}")
+        want = expected_tree or self.git.out("rev-parse", f"{sha}^{{tree}}")
+        same_tree = self.git.out("rev-parse", f"{merge}^{{tree}}") == want
+        if parent == base and same_tree and note:
+            self.say(f"MERGED #{o.pr} as {merge[:12]}: {note}; its tree is main's {base[:12]} plus exactly the "
+                     f"green head {sha[:12]}'s change, as rebuilt and checked before the call"
+                     + self._coderabbit_note(sha))
+            return EXIT_OK
         if parent == base and same_tree:
             self.say(f"MERGED #{o.pr} as {merge[:12]}: on the validated base {base[:12]}, tree identical to "
                      f"the green head {sha[:12]}" + self._coderabbit_note(sha))
@@ -2212,7 +2590,21 @@ class FakeGitHub:
         if self._git("rev-parse", f"refs/heads/{self.branch}") != sha:
             return False, "Head branch was modified. Review and try the merge again (head does not match)."
         main = self._git("rev-parse", "refs/heads/main")
-        tree = self._git("rev-parse", f"{sha}^{{tree}}")
+        # As GitHub's squash: the head's change merged onto main as it is now
+        # (a tree-level three-way merge; a path changed on both sides refuses).
+        mb = self._git("merge-base", main, sha)
+        idx = self.origin.parent / f"fake-merge-index-{self.merge_calls}"
+        ienv = {**self.env, "GIT_INDEX_FILE": str(idx)}
+        try:
+            subprocess.run(["git", "--git-dir", str(self.origin), "read-tree", "-m", "-i", "--aggressive",
+                            mb, main, sha], capture_output=True, env=ienv, check=True)
+            w = subprocess.run(["git", "--git-dir", str(self.origin), "write-tree"], capture_output=True, text=True,
+                               env=ienv)
+        finally:
+            idx.unlink(missing_ok=True)
+        if w.returncode != 0:
+            return False, "Merge conflict between base and head."
+        tree = w.stdout.strip()
         p = subprocess.run(["git", "--git-dir", str(self.origin), "commit-tree", tree, "-p", main, "-m",
                             f"{self.title} (#{n})"], capture_output=True, text=True, env=self.env, check=True)
         self._git("update-ref", "refs/heads/main", p.stdout.strip(), main)
@@ -2531,6 +2923,227 @@ def _self_test() -> int:
                                                out=lambda s: None, allow_stale_tools=True) == EXIT_REFUSED,
                "evidence carrying a [P1] finding is refused as an approval")
 
+        # T8a: main moved only in other connectors (and generated files): merged without a re-run.
+        print("disjoint main move: merged on the newer main without a re-run, or re-run:")
+
+        def disjoint_case(main_edit: Callable[[Path], None], pr_extra: Callable[[Path], None] | None = None,
+                          require: tuple[str, ...] = ("codex",), setup: Callable[[Path], None] | None = None):
+            origin, work, _b = world()
+            if setup:
+                main_commit(work, setup, "setup")
+            sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+            (work / "skills/alpha/SKILL.md").write_text("# alpha\n\nline one\nFIXED\nline three\n")
+            if pr_extra:
+                pr_extra(work)
+            sh("git", "add", "-A", cwd=work)
+            sh("git", "commit", "-q", "-s", "-m", "fix alpha docs", cwd=work)
+            sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+            sh("git", "checkout", "-q", "main", cwd=work)
+            head = sh("git", "rev-parse", "fix/alpha", cwd=work)
+            fake = FakeGitHub(origin, env, 40, "fix/alpha", "fix alpha docs", green)
+            approve(work, fake, head)
+            main_edit(work)
+            m = origin_rev(origin, "refs/heads/main")
+            rc, logs = merger(work, fake, require=require)
+            return origin, work, head, m, fake, rc, logs
+
+        def skipped(logs: list[str]) -> bool:
+            return any(s.startswith("MERGED") and "without re-run" in s for s in logs)
+
+        def delta_docs(w: Path) -> None:
+            main_commit(w, lambda x: (x / "skills/delta/SKILL.md").write_text("# delta\nchanged on main\n"),
+                        "delta: docs")
+
+        def bot_commit(w: Path, readme_too: bool = True) -> None:
+            def edit(x: Path) -> None:
+                (x / "catalog.json").write_text((x / "catalog.json").read_text().replace("TODAY", "TOMORROW"))
+                if readme_too:
+                    (x / "README.md").write_text((x / "README.md").read_text().replace("TODAY", "TOMORROW"))
+            main_commit(w, edit, "chore: regenerate derived files [bot]")
+
+        origin, work, head, m, fake, rc, logs = disjoint_case(delta_docs)
+        merged = fake.merge_oid or ""
+        expect(rc == 0 and skipped(logs) and any("touched only delta" in s for s in logs)
+               and not any("pushed" in s for s in logs) and origin_rev(origin, "refs/heads/fix/alpha") == head,
+               f"main moved only in another connector: merged without a re-run, nothing pushed (rc={rc})")
+        expect(bool(merged) and origin_rev(origin, f"{merged}^1") == m
+               and "changed on main" in sh("git", "--git-dir", str(origin), "show", "main:skills/delta/SKILL.md",
+                                           cwd=tmp)
+               and "FIXED" in sh("git", "--git-dir", str(origin), "show", "main:skills/alpha/SKILL.md", cwd=tmp),
+               "the merge sits on the newer main and carries both main's change and the PR's")
+        expect(any("carried" in s for s in logs), "the approval carried onto the newer main")
+
+        origin, work, head, m, fake, rc, logs = disjoint_case(lambda w: (delta_docs(w), bot_commit(w)))
+        expect(rc == 0 and skipped(logs)
+               and any("generated catalog files (README.md, catalog.json)" in s for s in logs),
+               f"plus a catalog-bot commit the generators reproduce: merged without a re-run (rc={rc})")
+        def own_entry(x: Path, slug: str = "alpha", key: str | None = None) -> None:
+            reg = json.loads((x / rr.SKILLS_JSON).read_text())
+            if key:
+                reg[key] = "changed"
+            else:
+                reg["skills"][slug]["tagline"] = f"{slug} does new things"
+            (x / rr.SKILLS_JSON).write_text(json.dumps(reg, indent=2, ensure_ascii=True) + "\n")
+            for gen in rr.GENERATORS:
+                subprocess.run([sys.executable, gen], cwd=str(x), check=True, env=env)
+
+        def own_media(x: Path, slug: str = "alpha") -> None:
+            (x / f"docs/assets/social/{slug}").mkdir(parents=True, exist_ok=True)
+            (x / f"docs/assets/social/{slug}/card.png").write_bytes(b"\x89PNG fixture\n")
+
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            delta_docs, pr_extra=lambda x: (own_entry(x), own_media(x)))
+        expect(rc == 0 and skipped(logs) and "alpha does new things" in sh(
+            "git", "--git-dir", str(origin), "show", "main:docs/llms.txt", cwd=tmp),
+               f"a PR that also changes its own registry entry, the generated files and its own media: merged "
+               f"without a re-run (rc={rc})")
+        # A stand-in for gen_coderabbit_config.py: .coderabbit.yaml lists every skills/*/GEN.go.
+        cr_gen = ("import pathlib, sys\nroot = pathlib.Path(__file__).resolve().parents[2]\n"
+                  "gens = sorted(root.glob('skills/*/GEN.go'))\n"
+                  "want = ''.join(f'- {p.relative_to(root).as_posix()}\\n' for p in gens)\n"
+                  "cfg = root / '.coderabbit.yaml'\n"
+                  "if '--check' in sys.argv:\n    sys.exit(0 if cfg.read_text() == want else 1)\n"
+                  "cfg.write_text(want)\n")
+
+        def cr_setup(x: Path) -> None:
+            (x / CODERABBIT_GEN).write_text(cr_gen)
+            subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+
+        def gen_go(x: Path, slug: str, regen: bool) -> None:
+            (x / f"skills/{slug}/GEN.go").write_text("package main\n")
+            if regen:
+                subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+
+        origin, work, head, m, fake, rc, logs = disjoint_case(delta_docs, pr_extra=lambda x: gen_go(x, "alpha", True),
+                                                              setup=cr_setup)
+        expect(rc == 0 and skipped(logs), f"a PR that regenerates .coderabbit.yaml, which its generator confirms on "
+                                          f"the merged tree: merged without a re-run (rc={rc})")
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            lambda w: main_commit(w, lambda x: gen_go(x, "delta", False), "delta gen"),
+            pr_extra=lambda x: gen_go(x, "alpha", True), setup=cr_setup, require=())
+        expect(not skipped(logs) and any("gen_coderabbit_config.py --check failed on the merged tree" in s
+                                         for s in logs),
+               f"main's connector change that the PR's .coderabbit.yaml does not account for: re-run (rc={rc})")
+        # Every connector merge on main rewrites .coderabbit.yaml (merge_when_green regenerates it).
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            lambda w: main_commit(w, lambda x: gen_go(x, "delta", True), "delta gen, config regenerated"),
+            setup=cr_setup)
+        expect(rc == 0 and skipped(logs) and any("generated catalog files (.coderabbit.yaml)" in s for s in logs)
+               and sh("git", "--git-dir", str(origin), "show", f"main:{CODERABBIT_CONFIG}", cwd=tmp)
+               == "- skills/delta/GEN.go",
+               f"main's connector merge that also regenerated .coderabbit.yaml: merged without a re-run (rc={rc})")
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            lambda w: main_commit(w, lambda x: gen_go(x, "delta", True), "delta gen, config regenerated"),
+            pr_extra=lambda x: gen_go(x, "alpha", True), setup=cr_setup, require=())
+        expect(rc == 0 and not skipped(logs) and any("pushed" in s for s in logs)
+               and any("re-running CI" in s and ".coderabbit.yaml, which the PR also changes" in s for s in logs)
+               and sh("git", "--git-dir", str(origin), "show", f"main:{CODERABBIT_CONFIG}", cwd=tmp)
+               == "- skills/alpha/GEN.go\n- skills/delta/GEN.go",
+               f"main and the PR both rewrote .coderabbit.yaml: re-run, regenerated on the rebase (rc={rc})")
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            lambda w: main_commit(w, lambda x: (x / CODERABBIT_CONFIG).write_text("- hand edit\n"), "hand edit"),
+            setup=cr_setup, require=())
+        expect(not skipped(logs) and any("--check failed on the merged tree" in s for s in logs),
+               f"main's .coderabbit.yaml that its generator does not reproduce: re-run (rc={rc})")
+        origin, work, head, m, fake, rc, logs = disjoint_case(
+            lambda w: main_commit(w, lambda x: (x / CODERABBIT_CONFIG).write_text("- no generator\n"), "cfg"),
+            require=())
+        expect(not skipped(logs) and any("re-running CI" in s and "changed .coderabbit.yaml: not another" in s
+                                         for s in logs),
+               f"main changed .coderabbit.yaml on a tree without its generator: re-run (rc={rc})")
+        # A dry run of the disjoint path only reads: a check that turns flaky after the first read is not re-run.
+        origin, work, _b = world()
+        sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+        (work / "skills/alpha/SKILL.md").write_text("# alpha\n\nline one\nFIXED\nline three\n")
+        sh("git", "commit", "-q", "-s", "-am", "fix alpha docs", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        head = sh("git", "rev-parse", "HEAD", cwd=work)
+        delta_docs(work)
+
+        def turn_flaky(f: FakeGitHub, sha: str, n: int) -> None:
+            if n >= 2:
+                f.cache = {}
+                f.responder = lambda s, name, a: ("failure", LOG_FLAKE) if a == 1 else ("success", LOG_OK)
+        fake = FakeGitHub(origin, env, 41, "fix/alpha", "fix alpha docs", green, on_snapshot=turn_flaky)
+        rc, logs = merger(work, fake, require=(), dry_run=True)
+        expect(rc == 0 and fake.reruns == [] and fake.merged is None
+               and any("[dry run] would merge" in s and "onto" in s for s in logs)
+               and origin_rev(origin, "refs/heads/fix/alpha") == head,
+               f"a dry run of the disjoint path re-runs nothing, pushes nothing, merges nothing (rc={rc})")
+        origin, work, head, m, fake, rc, logs = disjoint_case(lambda w: bot_commit(w, readme_too=False), require=())
+        expect(rc == 0 and fake.merged is not None and not skipped(logs) and any("pushed" in s for s in logs)
+               and any("generators change the merged tree" in s for s in logs),
+               f"a generated file the generators do not reproduce is not trusted by name: re-run (rc={rc})")
+
+        why = {"main changed a file under tools/": "changed tools/maintainer/notes.txt",
+               "main changed a file under .github/": "changed .github/CODEOWNERS",
+               "main changed a shared root file": "changed Makefile",
+               "main changed a shared docs file": "changed docs/guide.md",
+               "main changed another file in the PR's connector directory": "in the PR's connector directory",
+               "main renamed another connector's file into the PR's directory": "skills/alpha/MOVED.md, in the PR's",
+               "main changed a generated file the PR also changes": "which the PR also changes",
+               "the PR changes hand-written README prose": "the PR changes README.md",
+               "the PR itself changes a shared file": "the PR changes docs/guide.md",
+               "the PR changes another connector's registry entry": "entry for delta",
+               "the PR changes a registry-wide field": "registry-wide top:owner",
+               "the PR adds another connector's media": "docs/assets/social/delta/card.png"}
+        for label, edit, extra in (
+                ("main changed a file under tools/", lambda w: main_commit(
+                    w, lambda x: (x / "tools/maintainer/notes.txt").write_text("shared\n"), "tools"), None),
+                ("main changed a file under .github/", lambda w: main_commit(
+                    w, lambda x: (x / ".github").mkdir(exist_ok=True)
+                    or (x / ".github/CODEOWNERS").write_text("* @o\n"),
+                    "github"), None),
+                ("main changed a shared root file", lambda w: main_commit(
+                    w, lambda x: (x / "Makefile").write_text("all:\n"), "root"), None),
+                ("main changed a shared docs file", lambda w: main_commit(
+                    w, lambda x: (x / "docs/guide.md").write_text("new first line\n"
+                                                                  + (x / "docs/guide.md").read_text()),
+                    "docs"), None),
+                ("main changed another file in the PR's connector directory", lambda w: main_commit(
+                    w, lambda x: (x / "skills/alpha/cli/main.go").write_text('package main\n\nconst name = "z"\n'),
+                    "alpha code"), None),
+                ("main renamed another connector's file into the PR's directory", lambda w: main_commit(
+                    w, lambda x: (x / "skills/delta/SKILL.md").rename(x / "skills/alpha/MOVED.md"), "move"), None),
+                ("main changed a generated file the PR also changes", bot_commit,
+                 lambda x: [(x / f).write_text((x / f).read_text().replace("TODAY", "PRDAY"))
+                            for f in ("catalog.json", "README.md")]),
+                ("the PR changes hand-written README prose", delta_docs,
+                 lambda x: (x / "README.md").write_text((x / "README.md").read_text()
+                                                        .replace("Outro prose.", "Outro prose, PR."))),
+                ("the PR itself changes a shared file", delta_docs,
+                 lambda x: (x / "docs/guide.md").write_text((x / "docs/guide.md").read_text() + "PR line\n")),
+                ("the PR changes another connector's registry entry", delta_docs,
+                 lambda x: own_entry(x, "delta")),
+                ("the PR changes a registry-wide field", delta_docs, lambda x: own_entry(x, key="owner")),
+                ("the PR adds another connector's media", delta_docs, lambda x: own_media(x, "delta"))):
+            origin, work, head, m, fake, rc, logs = disjoint_case(edit, pr_extra=extra, require=())
+            expect(rc == 0 and fake.merged is not None and not skipped(logs) and any("pushed" in s for s in logs)
+                   and any("re-running CI" in s and why[label] in s for s in logs),
+                   f"{label}: re-run, as before, and the reason names it (rc={rc})")
+
+        origin, work, _b = world()
+        g = Git(work, env)
+        b0 = sh("git", "rev-parse", "HEAD", cwd=work)
+        sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+        (work / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n")
+        sh("git", "commit", "-q", "-s", "-am", "fix", cwd=work)
+        h0 = sh("git", "rev-parse", "HEAD", cwd=work)
+        sh("git", "checkout", "-q", "-b", "side", b0, cwd=work)
+        (work / "skills/delta/SKILL.md").write_text("# delta\nside\n")
+        sh("git", "commit", "-q", "-s", "-am", "side", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        sh("git", "merge", "-q", "--no-ff", "-m", "merge side", "side", cwd=work)
+        mv = disjoint_move(g, h0, sh("git", "rev-parse", "HEAD", cwd=work))
+        expect(any("merge commit" in r for r in mv.reasons), "a merge commit on main means a re-run")
+        sh("git", "checkout", "-q", "fix/alpha", cwd=work)
+        (work / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED twice\n")
+        sh("git", "commit", "-q", "-s", "-am", "fix 2", cwd=work)
+        mv = disjoint_move(g, sh("git", "rev-parse", "HEAD", cwd=work), sh("git", "rev-parse", "main", cwd=work))
+        expect(any("is not on main" in r for r in mv.reasons),
+               "a head whose parent is not a main commit (two unsquashed commits) means a re-run")
+        sh("git", "checkout", "-q", "main", cwd=work)
+
         # T8b: content a generator does not reproduce keeps its fingerprint.
         print("approvals and generated files:")
         for label, edit in (
@@ -2605,6 +3218,82 @@ def _self_test() -> int:
         rc, logs = merger(work, fake)
         expect(rc == EXIT_CONFLICT and outside.read_text() == "someone's file\n" and fake.merged is None,
                "a catalog.json turned into a symlink after approval is refused; its target is never written")
+
+        # T8b1c: .coderabbit.yaml is regenerated on the rebased tree, and only it.
+        print(".coderabbit.yaml regenerated after the rebase:")
+        cr_gen = ("import pathlib, sys\nroot = pathlib.Path(__file__).resolve().parents[2]\n"
+                  "gens = sorted(root.glob('skills/*/GEN.go'))\n"
+                  "want = ''.join(f'- {p.relative_to(root).as_posix()}\\n' for p in gens)\n"
+                  "cfg = root / '.coderabbit.yaml'\n"
+                  "if '--check' in sys.argv:\n    sys.exit(0 if cfg.is_file() and cfg.read_text() == want else 1)\n"
+                  "if (root / 'cr-fail').exists():\n    sys.exit(2)\n"
+                  "if (root / 'cr-touch').exists():\n    (root / 'docs/guide.md').write_text('touched\\n')\n"
+                  "cfg.write_text(want)\n")
+
+        def cr_world() -> tuple[Path, Path]:
+            origin, work, _b = world()
+
+            def setup(x: Path) -> None:
+                (x / CODERABBIT_GEN).write_text(cr_gen)
+                subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+            main_commit(work, setup, "coderabbit generator")
+            return origin, work
+
+        def gen_go(x: Path, slug: str, regen: bool = True) -> None:
+            (x / f"skills/{slug}/GEN.go").write_text("package main\n")
+            if regen:
+                subprocess.run([sys.executable, CODERABBIT_GEN], cwd=str(x), check=True, env=env)
+
+        def cr_pr(work: Path, edit: Callable[[Path], None]) -> str:
+            sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+            edit(work)
+            sh("git", "add", "-A", cwd=work)
+            sh("git", "commit", "-q", "-s", "-m", "alpha change", cwd=work)
+            sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+            sh("git", "checkout", "-q", "main", cwd=work)
+            return sh("git", "rev-parse", "fix/alpha", cwd=work)
+
+        def main_cr(origin: Path) -> str:
+            return sh("git", "--git-dir", str(origin), "show", f"main:{CODERABBIT_CONFIG}", cwd=tmp)
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: gen_go(x, "alpha"))
+        fake = FakeGitHub(origin, env, 33, "fix/alpha", "alpha change", green)
+        approve(work, fake, head)
+        main_commit(work, lambda x: gen_go(x, "delta"), "delta: a generated file")
+        rc, logs = merger(work, fake)
+        expect(rc == 0 and main_cr(origin) == "- skills/alpha/GEN.go\n- skills/delta/GEN.go"
+               and any("took main's copy" in s for s in logs) and any("regenerated with" in s for s in logs)
+               and any("carried" in s for s in logs),
+               f"both sides regenerated it (a conflict): main's copy, regenerated, approval carried, merged (rc={rc})")
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: (x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"))
+        fake = FakeGitHub(origin, env, 34, "fix/alpha", "alpha change", green)
+        approve(work, fake, head)
+        main_commit(work, lambda x: gen_go(x, "delta", regen=False), "delta: generated file, config stale")
+        rc, logs = merger(work, fake)
+        expect(rc == 0 and main_cr(origin) == "- skills/delta/GEN.go" and any("regenerated with" in s for s in logs),
+               f"stale on the rebased tree with no conflict: regenerated into the commit, merged (rc={rc})")
+
+        origin, work = cr_world()
+        head = cr_pr(work, lambda x: ((x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"),
+                                      (x / CODERABBIT_CONFIG).write_text("- skills/alpha/SKILL.md\n")))
+        fake = FakeGitHub(origin, env, 35, "fix/alpha", "alpha change", green)
+        rc, logs = merger(work, fake, require=())
+        expect(rc == 0 and "SKILL.md" not in main_cr(origin) and any("regenerated with" in s for s in logs),
+               f"a hand edit to .coderabbit.yaml never reaches main: the generator's output does (rc={rc})")
+
+        for label, marker in (("the generator also changes another file: stops, nothing pushed (exit 3)", "cr-touch"),
+                              ("the generator fails: stops, nothing pushed (exit 3)", "cr-fail")):
+            origin, work = cr_world()
+            head = cr_pr(work, lambda x: (x / "skills/alpha/SKILL.md").write_text("# alpha\nFIXED\n"))
+            fake = FakeGitHub(origin, env, 36, "fix/alpha", "alpha change", green)
+            main_commit(work, lambda x, mk=marker: ((x / mk).write_text("x\n"), gen_go(x, "delta", regen=False)),
+                        "delta: stale config and a marker")
+            rc, logs = merger(work, fake, require=())
+            expect(rc == EXIT_CONFLICT and fake.merged is None and origin_rev(origin, "refs/heads/fix/alpha") == head
+                   and any(CODERABBIT_GEN in s for s in logs), f"{label} (rc={rc})")
 
         # T8b2: a page nothing regenerates any more is reviewed content.
         origin, work, _b = world()

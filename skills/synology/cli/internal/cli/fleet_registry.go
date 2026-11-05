@@ -1,0 +1,590 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// HAND-AUTHORED. fleet add / list / remove: the per-NAS registry.
+// pp:data-source local
+
+package cli
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"synology-pp-cli/internal/dsm"
+	"synology-pp-cli/internal/fleet"
+)
+
+// addFleetRegistryCommands runs from newRootCmd, not from an init function: nothing
+// that can write may run or be referenced before credkit.Start (credkit_verify rule 2).
+func addFleetRegistryCommands(root *cobra.Command, flags *rootFlags) {
+	fleetCmd, _, err := root.Find([]string{"fleet"})
+	if err != nil || fleetCmd == nil || fleetCmd.Name() != "fleet" {
+		return
+	}
+	addNovelCommandIfAbsent(fleetCmd, newFleetAddCmd(flags))
+	addNovelCommandIfAbsent(fleetCmd, newFleetListCmd(flags))
+	addNovelCommandIfAbsent(fleetCmd, newFleetRemoveCmd(flags))
+}
+
+type fleetAddResult struct {
+	NAS            fleet.NAS       `json:"nas"`
+	Updated        bool            `json:"updated,omitempty"` // the name was already registered
+	Changes        []fleetChange   `json:"changes,omitempty"` // every field the add changed on a registered NAS
+	Repinned       bool            `json:"repinned,omitempty"`
+	PreviousPin    string          `json:"previous_tls_fingerprint,omitempty"`
+	RegistryPath   string          `json:"registry_path"`
+	EnvVars        map[string]bool `json:"env_vars_set"`
+	CheckedLogin   bool            `json:"checked_login,omitempty"`
+	ABBAvailable   *bool           `json:"abb_available,omitempty"`
+	HyperBackupAPI *bool           `json:"hyper_backup_available,omitempty"`
+	Warning        string          `json:"warning,omitempty"`
+}
+
+// fleetChange is one field a re-add changed on a registered NAS: url (shown
+// as a display address), client, env_prefix, tls_fingerprint or insecure.
+type fleetChange struct {
+	Field string `json:"field"`
+	From  any    `json:"from"`
+	To    any    `json:"to"`
+}
+
+// registryChanges lists the fields that differ between a registered NAS and
+// what a re-add will save.
+func registryChanges(prev, next fleet.NAS) []fleetChange {
+	var out []fleetChange
+	add := func(field string, from, to any) {
+		if from != to {
+			out = append(out, fleetChange{Field: field, From: from, To: to})
+		}
+	}
+	add("url", dsm.DisplayAddress(prev.URL), dsm.DisplayAddress(next.URL))
+	add("client", prev.Client, next.Client)
+	add("env_prefix", prev.EnvPrefix, next.EnvPrefix)
+	add("tls_fingerprint", prev.TLSFingerprint, next.TLSFingerprint)
+	add("insecure", prev.Insecure, next.Insecure)
+	return out
+}
+
+func newFleetAddCmd(flags *rootFlags) *cobra.Command {
+	var nasURL, client, envPrefix, fingerprint string
+	var pinCert, insecure, check bool
+	cmd := &cobra.Command{
+		Use:   "add <name>",
+		Short: "Register a client NAS: its URL, client name and the env-var prefix holding its login",
+		Long: strings.Trim(`
+Register a client NAS for the fleet commands. The login is never stored: the
+NAS reads <prefix>_ACCOUNT, <prefix>_PASSWORD and, for two-factor accounts,
+<prefix>_DEVICE_ID (or a one-time <prefix>_OTP_CODE) from the environment.
+The prefix defaults to SYNOLOGY_<NAME>.
+
+Running fleet add again on a registered name changes only what you pass:
+--url, --client, --env-prefix, --insecure and the certificate pin keep their
+registered values otherwise, and the output lists every field that changed.
+'fleet add <name> --check' checks a registered NAS without --url. A new
+--url for a NAS with a pinned certificate is refused: a new address is a new
+NAS (fleet remove, then fleet add with --tls-fingerprint).
+
+Most NAS units serve DSM's self-signed certificate: pin it with
+--tls-fingerprint <sha256>, the SHA-256 fingerprint you checked in DSM
+(Control Panel > Security > Certificate), and the CLI verifies exactly that
+certificate afterwards. --pin-cert only displays: it reads the certificate
+the address presents right now and prints its fingerprint, where to compare
+it in DSM and the --tls-fingerprint command that pins it. It saves nothing
+and sends no request, because whatever answers at the address could be a
+man-in-the-middle; it cannot be combined with --check or any setting.
+--check performs a test login and reports whether Active Backup for Business
+is installed.
+
+Re-pin a registered NAS after it renewed its certificate (DSM's self-signed
+one, or Let's Encrypt every ~90 days): check the new fingerprint in DSM, then
+run 'fleet add <name> --tls-fingerprint <that value>'. The NAS keeps its
+address, client, env-var prefix and mirrored history; only the pin changes.
+A different --url is refused there: a new address is a new NAS (fleet
+remove, then fleet add).
+
+Registry administration is operator-only: fleet add and fleet remove are not
+MCP tools.`, "\n"),
+		Example: strings.Trim(`
+  synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp"
+  synology-cli fleet add acme --url https://192.168.10.5:5001 --pin-cert
+  synology-cli fleet add acme --url https://192.168.10.5:5001 --tls-fingerprint <sha256-checked-in-DSM> --check
+  synology-cli fleet add lab --url https://10.0.0.20:5001 --env-prefix LAB_NAS --tls-fingerprint <sha256-checked-in-DSM>
+  synology-cli fleet add acme --tls-fingerprint <sha256-checked-in-DSM>`, "\n"),
+		// mcp:hidden: an MCP caller must never choose the address (and the
+		// env-var prefix, so which password) a login is sent to.
+		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "pp:happy-args": "name=acme;--url=https://nas.acme.example:5001;--dry-run"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
+				return cmd.Help()
+			}
+			if dryRunOK(flags) {
+				if nasURL != "" {
+					if _, err := fleet.OriginURL(nasURL); err != nil {
+						return usageErr(fmt.Errorf("--url: %w", err)) // never preview an address carrying a password
+					}
+				}
+				return writeDryRun(cmd.OutOrStdout(), flags, "fleet add")
+			}
+			if len(args) != 1 {
+				_ = cmd.Usage()
+				return usageErr(fmt.Errorf("a NAS name is required, for example: fleet add acme --url https://nas.acme.example:5001"))
+			}
+			name := strings.ToLower(args[0])
+			if !fleet.ValidName(name) {
+				return usageErr(fmt.Errorf("NAS name %q must be lowercase letters, digits, '.', '_' or '-'", args[0]))
+			}
+			// A registered name keeps its address without --url (checked under
+			// the registry lock below); a new NAS needs --url.
+			repin := fingerprint != "" // --pin-cert returned above: it never pins
+			origin := ""
+			if cmd.Flags().Changed("url") || nasURL != "" {
+				var err error
+				if origin, err = fleet.OriginURL(nasURL); err != nil {
+					return usageErr(fmt.Errorf("--url: %w", err))
+				}
+			}
+			explicitPrefix := cmd.Flags().Changed("env-prefix")
+			if envPrefix == "" {
+				envPrefix = fleet.DefaultEnvPrefix(name)
+			}
+			if pinCert && fingerprint != "" {
+				return usageErr(fmt.Errorf("--pin-cert and --tls-fingerprint both set; use one"))
+			}
+			if pinCert {
+				// --pin-cert is display-only: nothing it reads is saved or
+				// trusted, so no setting and no login may ride along.
+				for _, f := range []string{"check", "client", "env-prefix", "insecure"} {
+					if cmd.Flags().Changed(f) {
+						return usageErr(fmt.Errorf("--pin-cert only displays the certificate fingerprint and saves nothing, so it cannot be combined with --%s: compare the fingerprint in DSM (Control Panel > Security > Certificate), then pass --%s with --tls-fingerprint <the value you checked>", f, f))
+					}
+				}
+			}
+			if strings.HasPrefix(origin, "http://") {
+				if pinCert || fingerprint != "" {
+					return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
+				}
+				dsm.WarnPlainHTTP(origin) // the same once-per-NAS warning every login prints
+			}
+			if pinCert {
+				return showCertFingerprint(cmd, flags, name, origin)
+			}
+			// Validate the pin as typed: "sha256/" or ":" normalizes to nothing
+			// and must not silently register an unpinned NAS.
+			if fingerprint != "" {
+				if err := dsm.ApplyTLS(&tls.Config{}, fingerprint, false); err != nil {
+					return usageErr(err)
+				}
+			}
+			n := fleet.NAS{Name: name, URL: origin, Client: client, EnvPrefix: envPrefix,
+				TLSFingerprint: dsm.NormalizeFingerprint(fingerprint), Insecure: insecure}
+			// The registry lock is held for the whole add, --check login included:
+			// a concurrent add waits, so names and credential prefixes are
+			// validated against the registry as it will be saved, and no
+			// password is sent for a registration that would then be refused.
+			_, _, path, err := fleetNAS(flags)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := boundCtx(cmd.Context(), flags)
+			defer cancel()
+			var prev fleet.NAS
+			var replacing bool
+			res := fleetAddResult{}
+			err = fleet.UpdateRegistry(path, func(r *fleet.Registry) error {
+				registered, exists := r.Get(n.Name)
+				keptPrefix := false
+				switch {
+				case exists:
+					// Re-adding a registered NAS changes only what the caller
+					// passed: address, client, credential prefix, the pin and
+					// --insecure keep their registered values otherwise (a
+					// silently reset prefix would send another env var's
+					// password to this address).
+					moved := origin != "" && origin != registered.URL
+					if moved && repin {
+						return movedRepinErr(n.Name, registered.URL, origin)
+					}
+					if moved && registered.TLSFingerprint != "" {
+						return usageErr(fmt.Errorf("NAS %q is registered at %s with a pinned certificate; a new address is a different NAS and the pin does not carry over: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --tls-fingerprint <sha256-checked-in-DSM>' ('--pin-cert' instead of '--tls-fingerprint' only displays the fingerprint the address presents, to compare in DSM)", n.Name, dsm.DisplayAddress(registered.URL), n.Name, n.Name, dsm.DisplayAddress(origin)))
+					}
+					if origin == "" {
+						n.URL = registered.URL
+					}
+					if !cmd.Flags().Changed("client") {
+						n.Client = registered.Client
+					}
+					if !explicitPrefix {
+						n.EnvPrefix, keptPrefix = registered.EnvPrefix, true
+					}
+					if !repin {
+						n.TLSFingerprint = registered.TLSFingerprint
+					}
+					if !cmd.Flags().Changed("insecure") {
+						n.Insecure = registered.Insecure
+					}
+					if repin {
+						// Re-pin: same NAS, new certificate; the mirror rows stay,
+						// because they are tied to the unchanged address.
+						if !strings.HasPrefix(n.URL, "https://") {
+							return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
+						}
+						res.Repinned, res.PreviousPin = true, registered.TLSFingerprint
+					}
+				case n.URL == "":
+					return notRegisteredErr(n.Name)
+				}
+				// A kept prefix was accepted when the NAS was registered.
+				if err := prefixClash(r, n, explicitPrefix || keptPrefix); err != nil {
+					return err
+				}
+				if n.TLSFingerprint != "" {
+					if err := dsm.ApplyTLS(&tls.Config{}, n.TLSFingerprint, false); err != nil {
+						return usageErr(err)
+					}
+				}
+				res.NAS, res.EnvVars = n, n.EnvStatus()
+				if check {
+					info, warn, err := checkNAS(ctx, flags, n)
+					if err != nil {
+						return err
+					}
+					res.CheckedLogin, res.Warning = true, warn
+					if warn != "" {
+						fmt.Fprintln(cmd.ErrOrStderr(), "warning:", warn)
+					}
+					abb, hb := info[fleet.PathABBTasks], info[fleet.PathHyperBackupTasks]
+					res.ABBAvailable, res.HyperBackupAPI = &abb, &hb
+				}
+				prev, replacing = r.Get(n.Name)
+				if replacing {
+					res.Updated, res.Changes = true, registryChanges(prev, n)
+				}
+				r.Put(n)
+				return nil
+			})
+			if err != nil {
+				var ce *cliError
+				if As(err, &ce) {
+					return err
+				}
+				return configErr(err)
+			}
+			if replacing && prev.URL != n.URL {
+				// The mirror still holds the old NAS's rows; reports read them as
+				// not synced (URL mismatch) and the next sync replaces them in the
+				// same transaction that commits the new data.
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: %s now points at %s; its mirrored history from %s is replaced on the next sync\n", n.Name, dsm.DisplayAddress(n.URL), dsm.DisplayAddress(prev.URL))
+			}
+			res.RegistryPath = path
+			res.NAS.URL = dsm.DisplayAddress(res.NAS.URL) // output only; the registry keeps the address as registered
+			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				return printJSONFiltered(cmd.OutOrStdout(), res, flags)
+			}
+			if res.Repinned {
+				old := res.PreviousPin
+				if old == "" {
+					old = "(none)"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "re-pinned %s (%s): %s -> %s\n", n.Name, dsm.DisplayAddress(n.URL), old, n.TLSFingerprint)
+			}
+			if res.Updated {
+				fmt.Fprintf(cmd.OutOrStdout(), "updated %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
+				if len(res.Changes) == 0 {
+					fmt.Fprintln(cmd.OutOrStdout(), "  no field changed")
+				}
+				for _, ch := range res.Changes {
+					fmt.Fprintf(cmd.OutOrStdout(), "  changed %s: %s -> %s\n", ch.Field, fleetChangeValue(ch.From), fleetChangeValue(ch.To))
+				}
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "registered %s (%s) in %s\n", n.Name, dsm.DisplayAddress(n.URL), path)
+			}
+			for k, set := range res.EnvVars {
+				state := "set"
+				if !set {
+					state = "NOT SET"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %s\n", k, state)
+			}
+			if res.ABBAvailable != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "  login ok; Active Backup for Business API: %v\n", *res.ABBAvailable)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nasURL, "url", "", "NAS address with scheme and port, for example https://192.168.1.50:5001")
+	cmd.Flags().StringVar(&client, "client", "", "MSP client name shown in fleet reports")
+	cmd.Flags().StringVar(&envPrefix, "env-prefix", "", "Env-var prefix for this NAS's login (<prefix>_ACCOUNT, <prefix>_PASSWORD, <prefix>_DEVICE_ID); default SYNOLOGY_<NAME>")
+	cmd.Flags().BoolVar(&pinCert, "pin-cert", false, "Display the SHA-256 fingerprint of the certificate the NAS presents, to compare in DSM before pinning it with --tls-fingerprint; saves nothing")
+	cmd.Flags().StringVar(&fingerprint, "tls-fingerprint", "", "SHA-256 fingerprint of the NAS certificate to pin (hex, colons allowed)")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "Skip TLS verification for this NAS (prefer --tls-fingerprint)")
+	cmd.Flags().BoolVar(&check, "check", false, "Log in now and report whether Active Backup for Business and Hyper Backup APIs are available")
+	return cmd
+}
+
+func movedRepinErr(name, registered, origin string) error {
+	return usageErr(fmt.Errorf("NAS %q is registered at %s; re-pinning keeps that address and refuses --url %s (a different address is a different NAS: run 'synology-cli fleet remove %s', then 'synology-cli fleet add %s --url %s --tls-fingerprint <sha256-checked-in-DSM>')", name, dsm.DisplayAddress(registered), dsm.DisplayAddress(origin), name, name, dsm.DisplayAddress(origin)))
+}
+
+func notRegisteredErr(name string) error {
+	return usageErr(fmt.Errorf("--url: %s is not registered; a new NAS needs its address, for example: fleet add %s --url https://<nas>:5001 --tls-fingerprint <sha256-checked-in-DSM>", name, name))
+}
+
+// dsmCertificatePage is where DSM shows its certificate's fingerprint.
+const dsmCertificatePage = "Control Panel > Security > Certificate"
+
+// certFingerprintResult is fleet add --pin-cert's output.
+type certFingerprintResult struct {
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	Registered bool   `json:"registered"`
+	Presented  string `json:"presented_tls_fingerprint"`
+	Saved      bool   `json:"saved"`
+	CompareIn  string `json:"compare_in"`
+	PinCommand string `json:"pin_command"`
+}
+
+// showCertFingerprint is fleet add --pin-cert. Whoever answers at the address
+// can present any certificate (trust on first use), so it never pins: it
+// reads the certificate (a TLS handshake, no request, no credential), prints
+// its fingerprint, where to compare it in DSM and the --tls-fingerprint
+// command that pins it, and saves nothing. Every stored pin comes from
+// --tls-fingerprint or SYNOLOGY_TLS_FINGERPRINT, a value the operator checked.
+func showCertFingerprint(cmd *cobra.Command, flags *rootFlags, name, origin string) error {
+	_, reg, _, err := fleetNAS(flags)
+	if err != nil {
+		return err
+	}
+	registered, exists := reg.Get(name)
+	target := origin
+	switch {
+	case exists && origin != "" && origin != registered.URL:
+		return movedRepinErr(name, registered.URL, origin)
+	case exists:
+		target = registered.URL
+	case origin == "":
+		return notRegisteredErr(name)
+	}
+	if !strings.HasPrefix(target, "https://") {
+		return usageErr(errors.New("a certificate pin needs an https:// --url; plain HTTP has no certificate"))
+	}
+	ctx, cancel := boundCtx(cmd.Context(), flags)
+	defer cancel()
+	fp, err := dsm.FetchFingerprint(ctx, target)
+	if err != nil {
+		return apiErr(fmt.Errorf("reading the NAS certificate: %w", err))
+	}
+	addr := dsm.DisplayAddress(target)
+	pin := "synology-cli fleet add " + name
+	if !exists {
+		pin += " --url " + shellWord(addr)
+	}
+	pin += " --tls-fingerprint " + fp
+	res := certFingerprintResult{Name: name, URL: addr, Registered: exists, Presented: fp, CompareIn: dsmCertificatePage, PinCommand: pin}
+	if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+		return printJSONFiltered(cmd.OutOrStdout(), res, flags)
+	}
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "%s (%s) presented a certificate with SHA-256 fingerprint\n  %s\n", name, addr, fp)
+	fmt.Fprintf(w, "Nothing was saved and no request was sent. Compare that value with the fingerprint DSM shows (%s). If it matches, pin it:\n  %s\n", dsmCertificatePage, pin)
+	fmt.Fprintln(w, "(add --client, --env-prefix or --check to that command as needed). If it does not match, do not pin it: something else is answering at that address.")
+	return nil
+}
+
+// shellWord quotes s for a POSIX shell unless it is plainly safe (an IPv6
+// address's brackets are a glob in zsh).
+func shellWord(s string) string {
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._:/-", r)) {
+			return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+		}
+	}
+	return s
+}
+
+// fleetChangeValue renders a changed field's value for the human output.
+func fleetChangeValue(v any) string {
+	if s, ok := v.(string); ok && s == "" {
+		return "(none)"
+	}
+	return fmt.Sprint(v)
+}
+
+// prefixClash refuses a NAS whose credential prefix another NAS already uses,
+// unless --env-prefix chose it deliberately.
+func prefixClash(r *fleet.Registry, n fleet.NAS, explicit bool) error {
+	for _, other := range r.NAS {
+		if other.Name != n.Name && other.EnvPrefix == n.EnvPrefix && !explicit {
+			return usageErr(fmt.Errorf("NAS %q already uses credential prefix %s; pass --env-prefix to choose another (or the same one deliberately)", other.Name, n.EnvPrefix))
+		}
+	}
+	return nil
+}
+
+// checkNAS logs in and asks SYNO.API.Info for the backup APIs. warn reports a
+// trusted-device token that could not be cached (the next login needs a code).
+func checkNAS(ctx context.Context, flags *rootFlags, n fleet.NAS) (info map[string]bool, warn string, err error) {
+	if !n.Credentials().Complete() {
+		return nil, "", authErr(fmt.Errorf("set %s_ACCOUNT and %s_PASSWORD before --check", n.EnvPrefix, n.EnvPrefix))
+	}
+	c, err := dsmClient(flags, n)
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() { _ = c.Logout(context.Background()) }()
+	info, err = apiInfo(ctx, c, fleet.PathABBTasks, fleet.PathHyperBackupTasks)
+	if err != nil {
+		return nil, "", redactErr(c, authErr(fmt.Errorf("login check against %s failed: %w", dsm.DisplayAddress(n.URL), err)))
+	}
+	if c.DeviceIDErr != nil {
+		warn = "could not cache the trusted-device token; the next login will need a one-time code again: " + c.DeviceIDErr.Error()
+	}
+	return info, warn, nil
+}
+
+type fleetListRow struct {
+	Name           string          `json:"name"`
+	Client         string          `json:"client,omitempty"`
+	URL            string          `json:"url"`
+	EnvPrefix      string          `json:"env_prefix"`
+	EnvVars        map[string]bool `json:"env_vars_set"`
+	TLS            string          `json:"tls"`
+	LastSyncAt     int64           `json:"last_sync_at,omitempty"`
+	LastSyncError  string          `json:"last_sync_error,omitempty"`
+	ImplicitConfig bool            `json:"implicit_config,omitempty"`
+}
+
+// ReportIdentity is what --quiet prints for the row.
+func (r fleetListRow) ReportIdentity() string { return r.Name }
+
+func newFleetListCmd(flags *rootFlags) *cobra.Command {
+	var dbPath string
+	cmd := &cobra.Command{
+		Use:         "list",
+		Short:       "List registered NAS units, which credential env vars are set, TLS mode and last sync",
+		Example:     "  synology-cli fleet list --agent",
+		Annotations: map[string]string{"mcp:read-only": "true"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "fleet list")
+			}
+			list, reg, _, err := fleetNAS(flags)
+			if err != nil {
+				return err
+			}
+			rows := make([]fleetListRow, 0, len(list))
+			path, err := fleetDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			db, closeDB, err := openFleetRead(cmd.Context(), path, false)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+			states := map[string]fleet.SyncState{}
+			if db != nil {
+				if states, err = fleet.LoadSyncStates(cmd.Context(), db); err != nil && !strings.Contains(err.Error(), "no such table") {
+					return err
+				}
+			}
+			for _, n := range list {
+				st := states[n.Name]
+				rows = append(rows, fleetListRow{Name: n.Name, Client: n.Client, URL: dsm.DisplayAddress(n.URL), EnvPrefix: n.EnvPrefix,
+					EnvVars: n.EnvStatus(), TLS: fleetTLSMode(n), LastSyncAt: st.SucceededAt, LastSyncError: st.Error,
+					ImplicitConfig: len(reg.NAS) == 0})
+			}
+			if len(rows) == 0 && wantsHumanTable(cmd.OutOrStdout(), flags) {
+				noFleetHint(cmd.ErrOrStderr())
+			}
+			return printFleetRows(cmd, flags, rows, "no NAS registered")
+		},
+	}
+	cmd.Flags().StringVar(&dbPath, "db", "", "Fleet mirror path (default <data dir>/fleet.db)")
+	return cmd
+}
+
+// fleetTLSMode names how a NAS's connection is protected. Plain http:// has
+// no TLS at all, so it never reads as "verified" (or pinned/insecure, which
+// are https:// modes).
+func fleetTLSMode(n fleet.NAS) string {
+	switch {
+	case !strings.HasPrefix(strings.ToLower(n.URL), "https://"):
+		return "none (plain http)"
+	case n.TLSFingerprint != "":
+		return "pinned"
+	case n.Insecure:
+		return "insecure"
+	}
+	return "verified"
+}
+
+func newFleetRemoveCmd(flags *rootFlags) *cobra.Command {
+	var keepData bool
+	var dbPath string
+	// mcp:hidden: registry administration is operator-only (see fleet add).
+	cmd := &cobra.Command{
+		Use:         "remove <name>",
+		Short:       "Unregister a NAS and delete its rows from the local mirror",
+		Example:     "  synology-cli fleet remove acme",
+		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "pp:happy-args": "name=acme;--dry-run"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
+				return cmd.Help()
+			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "fleet remove")
+			}
+			if len(args) != 1 {
+				_ = cmd.Usage()
+				return usageErr(fmt.Errorf("a NAS name is required"))
+			}
+			_, _, path, err := fleetNAS(flags)
+			if err != nil {
+				return err
+			}
+			name := strings.ToLower(args[0])
+			purged := false
+			// Unregister and purge under the registry lock, so a concurrent
+			// re-add of the same name cannot lose the rows its sync writes.
+			if err := fleet.UpdateRegistry(path, func(r *fleet.Registry) error {
+				if !r.Remove(name) {
+					return notFoundErr(fmt.Errorf("no registered NAS named %q", args[0]))
+				}
+				if keepData {
+					return nil
+				}
+				p, err := fleetDBPath(dbPath)
+				if err != nil {
+					return err
+				}
+				if _, statErr := os.Stat(p); statErr != nil {
+					return nil
+				}
+				s, err := openFleetWrite(cmd.Context(), p)
+				if err != nil {
+					return err
+				}
+				defer s.Close()
+				if err := fleet.PurgeNAS(cmd.Context(), s.DB(), name); err != nil {
+					return err
+				}
+				purged = true
+				return nil
+			}); err != nil {
+				var ce *cliError
+				if As(err, &ce) {
+					return err
+				}
+				return configErr(err)
+			}
+			return printJSONFiltered(cmd.OutOrStdout(), map[string]any{"removed": name, "mirror_purged": purged}, flags)
+		},
+	}
+	cmd.Flags().BoolVar(&keepData, "keep-data", false, "Keep the NAS's rows in the local mirror")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Fleet mirror path (default <data dir>/fleet.db)")
+	return cmd
+}

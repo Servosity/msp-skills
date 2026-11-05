@@ -2,6 +2,12 @@
 
 ## Binding the user's real Chrome
 
+**OpenCLI 2.x syntax.** From 2.0 the session is a flag, not a positional argument:
+`opencli browser bind --session <slug>`, `opencli browser eval --session <slug> "<js>"`.
+The positional form below is rejected as an unknown command, and `doctor` prints a JSON
+envelope (`data.daemonRunning`, `data.extensionConnected`) instead of `[OK]` lines. The
+helpers read `opencli --version` and build either shape; `find` takes `--css` from 1.8.
+
 ```bash
 opencli doctor                          # want [OK] Daemon + [OK] Extension connected
 opencli browser <slug> bind             # bind the CURRENTLY FOCUSED Chrome tab/window
@@ -58,6 +64,8 @@ opencli browser <slug> extract                       # page text as markdown (na
 **Never** for secrets: `eval` a secret node yourself, `network`, `console`, `get url`, a
 clipboard read, or a screenshot of a revealed value. Capture via
 `grab_secret.py`/`oauth_login.py`.
+
+A native click into a hidden background window fails on OpenCLI 2.x ("Native input requires a visible browser page"); `guard_click.py` then falls back to a page-script click on the same single-match selector and prints `click_path=native` or `click_path=page-script (...)`.
 
 ### The clipboard gotcha (verified)
 

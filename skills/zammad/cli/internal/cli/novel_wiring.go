@@ -15,23 +15,25 @@
 //     They are carried as hand files (pm_*.go) so the shipped surface and the
 //     MCP tools of the same names survive the reprint.
 //
-// registerNovelCommand is the generator's own extension point: hooks run
-// after every generated parent is attached, from init, without editing the
-// generated root.go, so this wiring survives a force regeneration.
+// root.go calls wireHandBuiltCommands after every generated parent is
+// attached. Not the generator's registerNovelCommand hook from init: the
+// credential kit requires that nothing able to reach output runs before
+// credkit.Start.
 
 package cli
 
 import "github.com/spf13/cobra"
 
-func init() {
-	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
-		if articles := findChildCommand(root, "articles"); articles != nil {
-			addNovelCommandIfAbsent(articles, newNovelArticlesSyncCmd(flags))
-		}
-		addNovelCommandIfAbsent(root, newStaleCmd(flags))
-		addNovelCommandIfAbsent(root, newOrphansCmd(flags))
-		addNovelCommandIfAbsent(root, newLoadCmd(flags))
-	})
+func wireHandBuiltCommands(root *cobra.Command, flags *rootFlags) {
+	if articles := findChildCommand(root, "articles"); articles != nil {
+		addNovelCommandIfAbsent(articles, newNovelArticlesSyncCmd(flags))
+	}
+	addNovelCommandIfAbsent(root, newStaleCmd(flags))
+	addNovelCommandIfAbsent(root, newOrphansCmd(flags))
+	addNovelCommandIfAbsent(root, newLoadCmd(flags))
+	// Webhooks instead of polling (webhooks.go, webhooks_listen.go).
+	addNovelCommandIfAbsent(root, newWebhooksCmd(flags))
+	addNovelCommandIfAbsent(root, newEventsCmd(flags))
 }
 
 // findChildCommand returns the direct child of parent named name, or nil.

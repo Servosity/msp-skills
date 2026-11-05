@@ -14,7 +14,7 @@ faqs:
   - q: "How do I connect Claude to NinjaOne?"
     a: "Install this free NinjaOne MCP server, give it the client ID and secret of a NinjaOne API app, and Claude can answer questions about your NinjaOne tenant in plain English. It runs on your own machine and works in Claude Desktop and Claude Code.\n\n1. In NinjaOne, create an API app (OAuth2 client credentials) under **Administration > Apps > API** and copy its client ID and client secret. If you sign in to NinjaOne somewhere other than `app.ninjarmm.com`, also set `NINJAONE_BASE_URL` and `NINJAONE_TOKEN_URL` (in Claude Desktop, the API base URL and OAuth2 token URL fields) to your region, for example `https://eu.ninjarmm.com` and `https://eu.ninjarmm.com/ws/oauth/token`.\n2. **Claude Desktop:** download the NinjaOne `.mcpb` from the [releases page](https://github.com/servosity/msp-skills/releases?q=ninjaone), open **Claude Desktop > Settings > Extensions**, select the file, and enter the values it asks for.\n3. **Claude Code:** run `/plugin marketplace add Servosity/msp-skills`, then `/plugin install ninjaone@msp-skills`.\n4. **Any other agent, or a terminal:** run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ninjaone/install.sh)` on macOS or Linux, or `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ninjaone/install.ps1 | iex` in Windows PowerShell, then wire it into your agent with the [agent setup guide](https://github.com/Servosity/msp-skills/blob/main/skills/ninjaone/mcp-install.md). Check the credentials on macOS or Linux with `NINJAONE_CLIENT_ID=<value> NINJAONE_CLIENT_SECRET=<value> NINJAONE_OAUTH_SCOPE=<value> ninjaone-cli doctor`, or in Windows PowerShell with `$env:NINJAONE_CLIENT_ID=\"<value>\"; $env:NINJAONE_CLIENT_SECRET=\"<value>\"; $env:NINJAONE_OAUTH_SCOPE=\"<value>\"; ninjaone-cli doctor`.\n5. Run `ninjaone-cli sync` once (or ask Claude to sync NinjaOne) so the local copy has your data, then ask Claude: \"Which clients are below 95% patch compliance right now?\"\n\nOther ways to connect the two include community MCP servers such as [WYRE's ninjaone-mcp](https://github.com/WYRE-AI/ninjaone-mcp) and [Lungshot's NinjaOneMCP](https://github.com/Lungshot/NinjaOneMCP), and hosted connector services such as [Truto](https://truto.one/integrations/detail/ninjaone) and [MCPBundles](https://www.mcpbundles.com/skills/ninjaone-rmm). This one differs in two ways: it keeps a local SQLite copy of your estate, so fleet-wide questions (patch compliance by client, endpoints with no backup) are answered from the local copy without calling the API again; and it ships as prebuilt binaries (the MCP server and its companion CLI) for macOS, Linux, and Windows, so running it outside Claude Desktop needs no Node.js or Docker. An MSP has also confirmed it against a production NinjaOne tenant ([receipt](https://github.com/Servosity/msp-skills/issues/145))."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on Plus, Pro, Team, Business, Enterprise and Education plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host ninjaone-mcp in HTTP mode: it refuses to start until NINJAONE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way ninjaone-mcp runs, and shares MCP configuration with Codex: add ninjaone-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my NinjaOne data safe?"
@@ -98,6 +98,8 @@ Most NinjaOne integrations and MCP servers proxy each question into a live API c
 
 It complements NinjaOne rather than replacing it: the console stays best for real-time monitoring, remote control, and remediation, while this skill brings your estate to whichever AI agent you already use and answers the cross-fleet rollups - joined across every organization - that NinjaOne's per-org reporting does not compose in a single view today.
 
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=ninjaone&utm_content=docs)
+
 ## The pain this closes
 
 - NinjaOne is strong at real-time per-device monitoring, but its built-in reporting is not consistently executive-ready and client-facing rollups often need effort or a third-party BI overlay (Flamingo, NinjaOne Review, 2026) - so "which clients are behind on patches" still means running a per-org report and re-totaling it by hand.
@@ -111,7 +113,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -166,7 +168,7 @@ Other ways to connect the two include community MCP servers such as [WYRE's ninj
 
 ### Does this work with ChatGPT?
 
-Yes, on Plus, Pro, Team, Business, Enterprise and Education plans. ChatGPT connects only to remote MCP servers over HTTPS, so you host ninjaone-mcp in HTTP mode: it refuses to start until NINJAONE_MCP_HTTP_TOKEN is set, every request must send that token as a bearer header, and any address other than loopback also needs --tls-cert and --tls-key. The connector works only if its authentication settings can send that bearer token. Step-by-step in the install guide.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way ninjaone-mcp runs, and shares MCP configuration with Codex: add ninjaone-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -199,7 +201,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ## More RMM connectors
 
-Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Auvik](/skills/auvik/) · [ConnectWise Automate](/skills/connectwise-automate/) · [ConnectWise RMM](/skills/connectwise-rmm/) · [Datto RMM](/skills/datto-rmm/) · [ImmyBot](/skills/immybot/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [Tactical RMM](/skills/tactical-rmm/)
+Run more than one RMM tool, or comparing options? These connectors work the same way: [Action1](/skills/action1/) · [Atera](/skills/atera/) · [Auvik](/skills/auvik/) · [ConnectWise Automate](/skills/connectwise-automate/) · [ConnectWise RMM](/skills/connectwise-rmm/) · [Datto RMM](/skills/datto-rmm/) · [ImmyBot](/skills/immybot/) · [Kaseya VSA 10](/skills/kaseya-vsa/) · [Level](/skills/levelio/) · [N-able N-central](/skills/n-central/) · [Nerdio Manager](/skills/nerdio/) · [Tactical RMM](/skills/tactical-rmm/)
 
 ## Status
 

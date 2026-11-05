@@ -148,7 +148,10 @@ MACHINERY = (
     "tools/maintainer/check_mcp_gate.py",
     "tools/maintainer/check_mcp_file_flags.py",
     "tools/maintainer/mcp_file_flags/",
+    "tools/maintainer/credkit_verify/",
     "tools/maintainer/check_doctor_truth.py",
+    # How those harnesses serve a credential-kit adopter over TLS.
+    "tools/maintainer/kit_tls.py",
     # The black-box class harness and its three class tests run in each build
     # matrix row (class_harness.py --slug). A change to any of them changes what
     # "verified" means for every connector, so it re-tests the whole fleet. The
@@ -189,12 +192,15 @@ DERIVED_EXACT = (
     "README.md",
     "docs/llms.txt",
     "docs/llms-full.txt",
+    "docs/.well-known/agent-skills/index.json",
+    "docs/.well-known/ard.json",
+    "docs/.well-known/ai-catalog.json",
     "docs/_data/catalog.json",
     "docs/_data/pending.json",
     ".github/ISSUE_TEMPLATE/it-works.yml",
     ".github/ISSUE_TEMPLATE/bug-report.yml",
 )
-DERIVED_PREFIX = ("docs/skills/",)
+DERIVED_PREFIX = ("docs/skills/", "docs/_markdown_copies/")
 
 # The registry is an INPUT to the matrix, not machinery: a change to one
 # slug's entry (binary names, source_dir, markdown_only) re-builds THAT slug,
@@ -525,11 +531,14 @@ def _self_test() -> int:
         (".github/workflows/catalog.yml", False),
         (".github/workflows/live-verified.yml", False),
         ("tools/maintainer/check_doctor_truth.py", True),
+        ("tools/maintainer/kit_tls.py", True),
         ("tools/maintainer/check_handfixes.py", True),
         ("tools/maintainer/check_mcp_gate.py", True),
         ("tools/maintainer/check_mcp_file_flags.py", True),
         ("tools/maintainer/mcp_file_flags/engine.go", True),
         ("tools/maintainer/mcp_file_flags/testdata/fixture/cli/cli.go", True),
+        ("tools/maintainer/credkit_verify/check.go", True),
+        ("tools/maintainer/credkit_verify/testdata/base/cli/internal/cli/cli.go", True),
         ("tools/maintainer/check_cli_claims.py", True),
         ("tools/maintainer/verify_gate.py", True),
         (".claude/skills/verify-msp-skills/scripts/verify.py", True),

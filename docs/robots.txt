@@ -3,6 +3,8 @@
 # ChatGPT, Claude, Perplexity, Gemini, and Copilot is the point.
 
 User-agent: *
+# Content Signals (https://contentsignals.org): search, answers and training are all welcome.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
 Sitemap: https://msp-skills.compoundingteams.com/sitemap.xml

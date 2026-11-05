@@ -34,8 +34,13 @@ What it starts, in order, all owned by this run:
 2. A fake vendor on `127.0.0.1:<ephemeral>` (in-process). Every base-URL and
    host variable from `manifest.json` points at it; every credential variable
    gets an inert stand-in value. It answers GET with `[]`, a JSON-RPC body
-   with a JSON-RPC result, a token request with a stand-in token, anything
-   else with `{}`, and logs each request.
+   with a JSON-RPC result, a token request with a stand-in token, a Synology
+   DSM WebAPI call (a `/webapi/` path with `api=SYNO.*`) in DSM's envelope,
+   anything else with `{}`, and logs each request. For a connector that adopted
+   the credential kit (it has `cli/internal/credkit/`) the vendor serves https
+   with a certificate made for the run, trusted through `<PREFIX>_CA_CERT` and
+   `SSL_CERT_FILE`, because the kit refuses to send a credential over plain http.
+   A connector without the kit gets plain http and no new variable.
 3. An egress guard. macOS: every driven process runs under `sandbox-exec`
    with a profile that refuses non-loopback connections; the run first proves
    it (a sandboxed connect to `192.0.2.1` and `2001:db8::1` must fail with

@@ -5,11 +5,11 @@ description: "Install MSP Skills in Claude Cowork by pasting one prompt. Cowork 
 permalink: /integrations/cowork/
 faqs:
   - q: "Does Claude Cowork support HaloPSA?"
-    a: "Yes. Paste a one-paragraph prompt into Cowork and it detects your shell, runs the installer, walks authentication, and confirms. Or use Cowork's Settings > Customize > Connectors UI to add the HaloPSA MCP server as a remote connector. Either path works."
+    a: "Yes. Paste a one-paragraph prompt into Cowork and it detects your shell, runs the installer, walks authentication, and confirms. MSP Skills connectors run locally, so this paste-prompt path is the one to use."
   - q: "What is Claude Cowork?"
     a: "Anthropic's desktop agent product, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell commands on your behalf when you ask it to and exposes a Settings > Connectors UI for MCP servers."
   - q: "Does Cowork support MCP?"
-    a: "Yes - both as a shell-executing agent (paste a prompt that runs the install script) and as an MCP host via Settings > Customize > Connectors. The Composio-style 'connect via URL' pattern is documented for remote/HTTPS MCP servers."
+    a: "Yes - both as a shell-executing agent (paste a prompt that runs the install script) and as an MCP host via Settings > Customize > Connectors. The Composio-style 'connect via URL' pattern is for remote/HTTPS MCP servers. MSP Skills connectors run locally, so use the paste-prompt path."
   - q: "Do I need to pay for Cowork?"
     a: "Cowork itself follows Anthropic's standard Claude pricing - you pay for Claude usage the same way you would for Claude Desktop or Claude Code. MSP Skills itself is free."
 ---
@@ -32,7 +32,7 @@ Cowork detects your shell, runs the installer, walks authentication, and confirm
 
 ## Alternative: MCP Connector path
 
-Cowork also supports remote/HTTPS MCP servers via its Settings > Customize > Connectors UI - that's the Composio pattern documented for HubSpot and similar integrations. **For MSP Skills' local stdio binaries, the paste-prompt above is the simpler path.** If you want to expose the MCP server over HTTPS instead (e.g. for team-wide access from a shared host), follow the remote-agent section of the skill's `mcp-install.md`: most binaries serve Streamable HTTP themselves with `--transport http` at the `/mcp` path, and the stdio-only ones go behind a `supergateway` bridge.
+Cowork also supports remote/HTTPS MCP servers via its Settings > Customize > Connectors UI - that's the Composio pattern documented for HubSpot and similar integrations. **MSP Skills connectors run locally over stdio, so use the paste-prompt above.** Don't run a connector in HTTP mode or put it behind a tunnel to use the Connectors URL path: our [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to until each connector is reprinted.
 
 ## Use the skill
 
@@ -47,7 +47,7 @@ Cowork reads the SKILL.md (it sits at `~/.claude/skills/halopsa/SKILL.md` after 
 ## What's next
 
 - **Try a real workflow.** Bring your tenant + your hardest cross-client question to a free [Build Session](https://compoundingteams.com/build-sessions).
-- **Switching agents?** Same skills work in [Claude Desktop](/integrations/claude-desktop/), [Claude Code](/integrations/claude-code/), [Codex CLI](/integrations/codex/), and [ChatGPT (Plus/Pro+)](/integrations/chatgpt/) - no reinstall needed.
+- **Switching agents?** Same skills work in [Claude Desktop](/integrations/claude-desktop/), [Claude Code](/integrations/claude-code/), [Codex CLI](/integrations/codex/), and [the ChatGPT desktop app](/integrations/chatgpt/) - no reinstall needed.
 - **Want a different platform?** [Request a Skill →](/requesting-a-skill/).
 
 [← Back to main install](/#install-in-60-seconds)

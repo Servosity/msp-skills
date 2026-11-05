@@ -1,6 +1,8 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel command scaffold. Implement the RunE body before shipping.
 // generate --force preserves implemented bodies; untouched TODO scaffolds may refresh.
+// pp:data-source live
+// The command calls the Zammad API directly; it never reads the local store.
 
 package cli
 
@@ -19,11 +21,16 @@ func newNovelTicketNoteCmd(flags *rootFlags) *cobra.Command {
 	var flagSubject string
 
 	cmd := &cobra.Command{
-		Use:         "note <ticket_id>",
-		Short:       "Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults.",
-		Example:     "  zammad-cli ticket note 12345 --body \"Investigated, awaiting logs\" --internal --dry-run",
-		Annotations: map[string]string{"mcp:read-only": "false"},
+		Use:     "note <ticket_id>",
+		Short:   "Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults.",
+		Example: "  zammad-cli ticket note 12345 --body \"Investigated, awaiting logs\" --internal --dry-run",
+		// mcp:hidden: a vendor write over MCP goes through zammad_execute, which
+		// previews until confirm is true (Codex round 1 on the 4.34.0 publish).
+		Annotations: map[string]string{"mcp:read-only": "false", "mcp:hidden": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "live"); err != nil {
+				return err
+			}
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
 			}

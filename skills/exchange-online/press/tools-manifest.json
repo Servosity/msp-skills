@@ -1,0 +1,2067 @@
+{
+  "api_name": "exchange-online",
+  "base_url": "https://outlook.office365.com",
+  "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "EXCHANGE_ONLINE_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "EXCHANGE_ONLINE_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://learn.microsoft.com/en-us/exchange/reference/admin-api-authentication"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accepted_domains_list",
+      "description": "List accepted domains and their routing type (Admin API v2.0). Runs the Get-AcceptedDomain cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/AcceptedDomain with body {'CmdletInput':{'CmdletName':'Get-AcceptedDomain','Parameters':\u003cflags\u003e}}. Returns DomainName, DomainType (Authoritative, InternalRelay, ExternalRelay), Name, Id, Identity, Guid. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-accepted-domain. Required: tenantId. Optional: properties, Identity, ResultSize.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/AcceptedDomain#Get-AcceptedDomain",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Accepted domain name (contoso.com) or GUID. Omit to list all."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "anti_phish_policies_list",
+      "description": "List anti-phishing policies. Runs the Get-AntiPhishPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-AntiPhishPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoAntiPhishPolicies.ps1#L23 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-antiphishpolicy. Required: tenantId. Optional: properties. Returns array of AntiPhishPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-AntiPhishPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "audit_config_get",
+      "description": "Audit configuration, including UnifiedAuditLogIngestionEnabled. Runs the Get-AdminAuditLogConfig cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-AdminAuditLogConfig','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoAdminAuditLogConfig.ps1#L22 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPStandards/Public/Standards/Invoke-CIPPStandardAuditLog.ps1#L53 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-adminauditlogconfig. Required: tenantId. Optional: properties. Returns array of AuditConfigGetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-AdminAuditLogConfig",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "auto_reply_get",
+      "description": "A mailbox's automatic reply (out of office) state, audience, messages and window. Runs the Get-MailboxAutoReplyConfiguration cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MailboxAutoReplyConfiguration','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Get-CIPPOutOfOffice.ps1#L11 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailboxautoreplyconfiguration. Required: tenantId, Identity. Optional: properties. Returns array of AutoReplyGetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MailboxAutoReplyConfiguration",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "auto_reply_set",
+      "description": "Turn automatic replies on, off or scheduled, and set the messages. Runs the Set-MailboxAutoReplyConfiguration cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Set-MailboxAutoReplyConfiguration','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPOutOfoffice.ps1#L70 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailboxautoreplyconfiguration. Required: tenantId, Identity. Optional: AutoReplyState, EndTime, ExternalAudience (plus 3 more). Returns array of AutoReplySetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Set-MailboxAutoReplyConfiguration",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AutoReplyState",
+          "type": "string",
+          "location": "body",
+          "description": "Reply state; omit to change only the other fields."
+        },
+        {
+          "name": "EndTime",
+          "type": "string",
+          "location": "body",
+          "description": "Scheduled end (date-time)."
+        },
+        {
+          "name": "ExternalAudience",
+          "type": "string",
+          "location": "body",
+          "description": "Who outside the organization gets replies."
+        },
+        {
+          "name": "ExternalMessage",
+          "type": "string",
+          "location": "body",
+          "description": "Reply body for external senders (HTML allowed); null clears it."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "InternalMessage",
+          "type": "string",
+          "location": "body",
+          "description": "Reply body for senders inside the organization (HTML allowed); null clears it."
+        },
+        {
+          "name": "StartTime",
+          "type": "string",
+          "location": "body",
+          "description": "Scheduled start (date-time)."
+        }
+      ]
+    },
+    {
+      "name": "blocked_senders_list",
+      "description": "List users blocked from sending mail (restricted after outbound spam). Runs the Get-BlockedSenderAddress cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-BlockedSenderAddress','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Administration/Invoke-ListRestrictedUsers.ps1#L16 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-blockedsenderaddress. Required: tenantId. Optional: properties. Returns array of BlockedSendersListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-BlockedSenderAddress",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "blocked_senders_remove",
+      "description": "Unblock a restricted sender. Runs the Remove-BlockedSenderAddress cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-BlockedSenderAddress','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Administration/Invoke-ExecRemoveRestrictedUser.ps1#L26 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-blockedsenderaddress. Required: tenantId, SenderAddress. Returns array of BlockedSendersRemoveItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-BlockedSenderAddress",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "SenderAddress",
+          "type": "string",
+          "location": "body",
+          "description": "The blocked user's email address.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "client_access_list",
+      "description": "Per-mailbox client protocols: EWS, OWA, MAPI, IMAP, POP, ActiveSync, SMTP AUTH. Runs the Get-CASMailbox cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-CASMailbox','Parameters':\u003cflags\u003e}}. SmtpClientAuthenticationDisabled null means the mailbox inherits the org default (see transport-config). Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheCASMailboxes.ps1#L24 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-casmailbox. Required: tenantId. Optional: properties, Identity, ResultSize. Returns array of ClientAccessListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-CASMailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. Omit to list all."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "client_access_set",
+      "description": "Turn client protocols on or off for one mailbox. Runs the Set-CASMailbox cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Set-CASMailbox','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/BEC/Invoke-CIPPBecContainment.ps1#L248 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPBaselines/Public/Executors/Invoke-CIPPBaselineDisableBasicAuthSMTP.ps1#L32 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-casmailbox. Required: tenantId, Identity. Optional: ActiveSyncEnabled, EwsEnabled, ImapEnabled (plus 4 more). Returns array of ClientAccessSetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Set-CASMailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "ActiveSyncEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Exchange ActiveSync."
+        },
+        {
+          "name": "EwsEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Exchange Web Services."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "ImapEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "IMAP4."
+        },
+        {
+          "name": "MAPIEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "MAPI (Outlook desktop)."
+        },
+        {
+          "name": "OWAEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Outlook on the web."
+        },
+        {
+          "name": "PopEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "POP3."
+        },
+        {
+          "name": "SmtpClientAuthenticationDisabled",
+          "type": "bool",
+          "location": "body",
+          "description": "true disables authenticated SMTP submission for the mailbox, false enables it, null returns it to the organization setting."
+        }
+      ]
+    },
+    {
+      "name": "distribution_groups_add-member",
+      "description": "Add a member to a distribution or mail-enabled security group. Runs the Add-DistributionGroupMember cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Add-DistributionGroupMember','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Add-CIPPGroupMember.ps1#L64 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/add-distributiongroupmember. Required: tenantId, Identity, Member. Optional: BypassSecurityGroupManagerCheck. Returns array of DistributionGroupsAddMemberItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Add-DistributionGroupMember",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "BypassSecurityGroupManagerCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow the change without being a group owner (CIPP sends true)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Group name, email address or GUID.",
+          "required": true
+        },
+        {
+          "name": "Member",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient to add (optional in the cmdlet only for pipeline input; required for a direct call).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "distribution_groups_list",
+      "description": "List distribution and mail-enabled security groups. Runs the Get-DistributionGroup cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-DistributionGroup','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Get-CIPPGroupType.ps1#L71 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-distributiongroup. Required: tenantId. Optional: properties, Identity, ResultSize. Returns array of DistributionGroupsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-DistributionGroup",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Group name, email address or GUID. Omit to list all."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "distribution_groups_remove-member",
+      "description": "Remove a member from a distribution or mail-enabled security group. Runs the Remove-DistributionGroupMember cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-DistributionGroupMember','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPGroupMember.ps1#L72 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-distributiongroupmember. Required: tenantId, Identity, Member. Optional: BypassSecurityGroupManagerCheck. Returns array of DistributionGroupsRemoveMemberItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-DistributionGroupMember",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "BypassSecurityGroupManagerCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow the change without being a group owner (CIPP sends true)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Group name, email address or GUID.",
+          "required": true
+        },
+        {
+          "name": "Member",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient to remove (optional in the cmdlet only for pipeline input; required for a direct call).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "dkim_list",
+      "description": "DKIM signing configuration per domain (enabled state, selector CNAMEs). Runs the Get-DkimSigningConfig cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-DkimSigningConfig','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoDkimSigningConfig.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-dkimsigningconfig. Required: tenantId. Optional: properties. Returns array of DkimListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-DkimSigningConfig",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "domains_list",
+      "description": "List accepted domains through the cmdlet route (works where the v2.0 preview is not enabled). Runs the Get-AcceptedDomain cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-AcceptedDomain','Parameters':\u003cflags\u003e}}. Same rows as accepted-domains list (DomainName, DomainType, Default, ...). Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoAcceptedDomains.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-accepteddomain. Required: tenantId. Optional: properties, Identity. Returns array of DomainsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-AcceptedDomain",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Domain name or GUID. Omit to list all."
+        }
+      ]
+    },
+    {
+      "name": "dynamic_group_members_list",
+      "description": "List the computed members of a dynamic distribution group (Admin API v2.0). Runs the Get-DynamicDistributionGroupMember cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/DynamicDistributionGroupMember with body {'CmdletInput':{'CmdletName':'Get-DynamicDistributionGroupMember','Parameters':\u003cflags\u003e}}. Same member shape as group-members list. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-dynamic-distribution-group-member. Required: tenantId, Identity. Optional: properties, ResultSize. Returns array of DynamicGroupMembersListItem.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/DynamicDistributionGroupMember#Get-DynamicDistributionGroupMember",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Dynamic distribution group name, email address or GUID.",
+          "required": true
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "folder_permissions_add",
+      "description": "Grant a user permissions on a mailbox folder (Admin API v2.0). Runs the Add-MailboxFolderPermission cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/MailboxFolderPermission with body {'CmdletInput':{'CmdletName':'Add-MailboxFolderPermission','Parameters':\u003cflags\u003e}}. Returns 200 on success, usually with no body. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox-folder-permission. Required: tenantId, AccessRights, Identity, User. Optional: SharingPermissionFlags.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/MailboxFolderPermission#Add-MailboxFolderPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Role (Owner, Editor, Reviewer, ...) or granular rights (CreateItems, FolderVisible, ...).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Folder as \u003cmailbox\u003e:\u003cFolderPath\u003e, for example alex@contoso.com:Calendar.",
+          "required": true
+        },
+        {
+          "name": "SharingPermissionFlags",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Calendar only: ViewPrivateItems and/or ReceiveCopiesOfMeetingMessages."
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Grantee: UPN, email address, Default or Anonymous.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "folder_permissions_list",
+      "description": "List permissions on a mailbox folder (Admin API v2.0). Runs the Get-MailboxFolderPermission cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/MailboxFolderPermission with body {'CmdletInput':{'CmdletName':'Get-MailboxFolderPermission','Parameters':\u003cflags\u003e}}. Returns Identity, FolderName, User, AccessRights, SharingPermissionFlags, IsValid, ObjectState. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox-folder-permission. Required: tenantId, Identity. Optional: properties, ResultSize.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/MailboxFolderPermission#Get-MailboxFolderPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Folder as \u003cmailbox\u003e:\u003cFolderPath\u003e, for example alex@contoso.com:Calendar.",
+          "required": true
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "folder_permissions_remove",
+      "description": "Remove a user's permissions from a mailbox folder (Admin API v2.0). Runs the Remove-MailboxFolderPermission cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/MailboxFolderPermission with body {'CmdletInput':{'CmdletName':'Remove-MailboxFolderPermission','Parameters':\u003cflags\u003e}}. Returns 200 on success, usually with no body. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox-folder-permission. Required: tenantId, Identity, User. Optional: SendNotificationToUser.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/MailboxFolderPermission#Remove-MailboxFolderPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Folder as \u003cmailbox\u003e:\u003cFolderPath\u003e, for example alex@contoso.com:Calendar.",
+          "required": true
+        },
+        {
+          "name": "SendNotificationToUser",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify the grantee of the change (staged rollout)."
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Grantee whose permission is removed.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "folder_permissions_set",
+      "description": "Change a user's permissions on a mailbox folder (Admin API v2.0). Runs the Set-MailboxFolderPermission cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/MailboxFolderPermission with body {'CmdletInput':{'CmdletName':'Set-MailboxFolderPermission','Parameters':\u003cflags\u003e}}. Returns 200 on success, usually with no body. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox-folder-permission. Required: tenantId, AccessRights, Identity, User. Optional: SendNotificationToUser, SharingPermissionFlags.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/MailboxFolderPermission#Set-MailboxFolderPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Role (Owner, Editor, Reviewer, ...) or granular rights (CreateItems, FolderVisible, ...).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Folder as \u003cmailbox\u003e:\u003cFolderPath\u003e, for example alex@contoso.com:Calendar.",
+          "required": true
+        },
+        {
+          "name": "SendNotificationToUser",
+          "type": "bool",
+          "location": "body",
+          "description": "Notify the grantee of the change (staged rollout)."
+        },
+        {
+          "name": "SharingPermissionFlags",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Calendar only: ViewPrivateItems and/or ReceiveCopiesOfMeetingMessages."
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Grantee: UPN, email address, Default or Anonymous.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "group_members_list",
+      "description": "List the members of a distribution group (Admin API v2.0). Runs the Get-DistributionGroupMember cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/DistributionGroupMember with body {'CmdletInput':{'CmdletName':'Get-DistributionGroupMember','Parameters':\u003cflags\u003e}}. Includes hidden recipients. Returns Identity, Alias, EmailAddresses, PrimarySmtpAddress, DisplayName, FirstName, LastName, Name, RecipientType, RecipientTypeDetails, HiddenFromAddressListsEnabled. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-distribution-group-member. Required: tenantId, Identity. Optional: properties, ResultSize.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/DistributionGroupMember#Get-DistributionGroupMember",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Distribution group name, email address or GUID.",
+          "required": true
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "inbound_connectors_list",
+      "description": "List inbound mail connectors. Runs the Get-InboundConnector cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-InboundConnector','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Transport/Invoke-ListExchangeConnectors.ps1#L16 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-inboundconnector. Required: tenantId. Optional: properties. Returns array of InboundConnectorsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-InboundConnector",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "inbox_rules_list",
+      "description": "List a mailbox's inbox rules (forward, redirect, delete and move actions included). Runs the Get-InboxRule cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-InboxRule','Parameters':\u003cflags\u003e}}. The request is routed (X-AnchorMailbox) to the mailbox named by Mailbox. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPActivityTriggers/Public/Entrypoints/Activity Triggers/Push-GetMailboxRulesBatch.ps1#L26 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-inboxrule. Required: tenantId, Mailbox. Optional: properties, IncludeHidden. Returns array of InboxRulesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-InboxRule",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "IncludeHidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Include hidden inbox rules (attackers use them to stay out of Outlook's rule list)."
+        },
+        {
+          "name": "Mailbox",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. The cmdlet makes this optional; this CLI requires it because it also routes the call.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inbox_rules_remove",
+      "description": "Delete one inbox rule. Runs the Remove-InboxRule cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-InboxRule','Parameters':\u003cflags\u003e}}. CIPP routes this call to the rule owner's mailbox; pass --mailbox so the CLI does the same. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPMailboxRule.ps1#L27 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-inboxrule. Required: tenantId, Identity. Optional: Mailbox. Returns array of InboxRulesRemoveItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-InboxRule",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Rule Identity as returned by inbox-rules list.",
+          "required": true
+        },
+        {
+          "name": "Mailbox",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox that owns the rule; also routes the request."
+        }
+      ]
+    },
+    {
+      "name": "mail_contacts_list",
+      "description": "List mail contacts. Runs the Get-MailContact cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MailContact','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoMailContacts.ps1#L34 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailcontact. Required: tenantId. Optional: properties, ResultSize. Returns array of MailContactsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MailContact",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "mailbox_folders_list",
+      "description": "List a mailbox's folders with item counts, sizes and folder types (find a localized Calendar folder). Runs the Get-MailboxFolderStatistics cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MailboxFolderStatistics','Parameters':\u003cflags\u003e}}. Each row carries Name, FolderPath and FolderType; the Calendar folder's Name is localized. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPActivityTriggers/Public/Entrypoints/Activity Triggers/Mailbox Permissions/Push-GetCalendarPermissionsBatch.ps1#L66 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Resources/Invoke-EditRoomMailbox.ps1#L104 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailboxfolderstatistics. Required: tenantId, Identity. Optional: properties, FolderScope. Returns array of MailboxFoldersListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MailboxFolderStatistics",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "FolderScope",
+          "type": "string",
+          "location": "body",
+          "description": "Only folders of this kind, for example Calendar, Inbox, SentItems."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mailbox_permissions_add",
+      "description": "Grant a user FullAccess (or other rights) to a mailbox. Runs the Add-MailboxPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Add-MailboxPermission','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPMailboxPermission.ps1#L38 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/add-mailboxpermission. Required: tenantId, AccessRights, Identity, User. Optional: AutoMapping, InheritanceType. Returns array of MailboxPermissionsAddItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Add-MailboxPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Rights to grant, normally FullAccess.",
+          "required": true
+        },
+        {
+          "name": "AutoMapping",
+          "type": "bool",
+          "location": "body",
+          "description": "Auto-add the mailbox to the trustee's Outlook."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "InheritanceType",
+          "type": "string",
+          "location": "body",
+          "description": "Inheritance scope; CIPP sends All."
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Trustee who receives the permission.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mailbox_permissions_list",
+      "description": "List mailbox-level permissions (FullAccess and others) on a mailbox. Runs the Get-MailboxPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MailboxPermission','Parameters':\u003cflags\u003e}}. Includes inherited and self (NT AUTHORITYSELF) entries; filter on IsInherited and User. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CippExtensions/Public/Extension Functions/Sync-CippExtensionData.ps1#L202 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailboxpermission. Required: tenantId, Identity. Optional: properties, User. Returns array of MailboxPermissionsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MailboxPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Only entries for this trustee."
+        }
+      ]
+    },
+    {
+      "name": "mailbox_permissions_remove",
+      "description": "Remove a user's FullAccess (or other rights) from a mailbox. Runs the Remove-MailboxPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-MailboxPermission','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPMailboxPermission.ps1#L49 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-mailboxpermission. Required: tenantId, AccessRights, Identity, User. Returns array of MailboxPermissionsRemoveItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-MailboxPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Rights to remove, normally FullAccess.",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "User",
+          "type": "string",
+          "location": "body",
+          "description": "Trustee whose permission is removed.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mailbox_stats_get",
+      "description": "Mailbox size and item counts (primary or archive). Runs the Get-MailboxStatistics cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MailboxStatistics','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPAlerts/Public/Alerts/Get-CIPPAlertArchiveQuota.ps1#L65 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailboxstatistics. Required: tenantId, Identity. Optional: properties, Archive. Returns array of MailboxStatsGetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MailboxStatistics",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Archive",
+          "type": "bool",
+          "location": "body",
+          "description": "Return statistics for the archive mailbox."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mailboxes_list",
+      "description": "List mailboxes with type, forwarding, hold and archive state. Runs the Get-Mailbox cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-Mailbox','Parameters':\u003cflags\u003e}}. Use --properties to cut the ~40 KB per-mailbox payload, e.g. --properties UserPrincipalName,RecipientTypeDetails,ForwardingSmtpAddress,ForwardingAddress,DeliverToMailboxAndForward. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/New-CIPPUserTask.ps1#L126 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPStandards/Public/Standards/Invoke-CIPPStandardDisableSharedMailbox.ps1#L60 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPAlerts/Public/Alerts/Get-CIPPAlertArchiveQuota.ps1#L46 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mailbox. Required: tenantId. Optional: properties, Archive, Filter (plus 3 more). Returns array of MailboxesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-Mailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Archive",
+          "type": "bool",
+          "location": "body",
+          "description": "Only mailboxes with an archive."
+        },
+        {
+          "name": "Filter",
+          "type": "string",
+          "location": "body",
+          "description": "OPATH filter, for example RecipientTypeDetails -eq 'SharedMailbox'."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. Omit to list all."
+        },
+        {
+          "name": "RecipientTypeDetails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only these mailbox types, for example UserMailbox, SharedMailbox, RoomMailbox, EquipmentMailbox."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "mailboxes_set",
+      "description": "Change a mailbox: convert type (Shared, Regular, Room, Equipment), set or clear forwarding, hide from the address list. Runs the Set-Mailbox cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Set-Mailbox','Parameters':\u003cflags\u003e}}. To clear forwarding, send nulls through --stdin as CIPP does: {'Identity':'alex@contoso.com','ForwardingSmtpAddress':null,'ForwardingAddress':null,'DeliverToMailboxAndForward':false}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPMailboxType.ps1#L15 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPForwarding.ps1#L62 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailbox. Required: tenantId, Identity. Optional: DeliverToMailboxAndForward, ForwardingAddress, ForwardingSmtpAddress (plus 2 more). Returns array of MailboxesSetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Set-Mailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "DeliverToMailboxAndForward",
+          "type": "bool",
+          "location": "body",
+          "description": "Keep a copy in the mailbox while forwarding."
+        },
+        {
+          "name": "ForwardingAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Forward to this recipient inside the tenant; null clears it. Takes precedence over ForwardingSmtpAddress."
+        },
+        {
+          "name": "ForwardingSmtpAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Forward to this external SMTP address; null clears it. Ignored by Exchange when ForwardingAddress is also set."
+        },
+        {
+          "name": "HiddenFromAddressListsEnabled",
+          "type": "bool",
+          "location": "body",
+          "description": "Hide (true) or show (false) the mailbox in the global address list."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "Type",
+          "type": "string",
+          "location": "body",
+          "description": "Convert the mailbox to this type. Workspace and Desk are cloud-only; a bookable desk also needs New-Place and Set-PlaceV3, which this CLI does not run."
+        }
+      ]
+    },
+    {
+      "name": "malware_policies_list",
+      "description": "List anti-malware policies. Runs the Get-MalwareFilterPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MalwareFilterPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoMalwareFilterPolicies.ps1#L23 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-malwarefilterpolicy. Required: tenantId. Optional: properties. Returns array of MalwarePoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MalwareFilterPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "message_trace_detail",
+      "description": "Delivery events for one traced message and recipient. Runs the Get-MessageTraceDetailV2 cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MessageTraceDetailV2','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Tools/Invoke-ListMessageTrace.ps1#L81 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracedetailv2. Required: tenantId, MessageTraceId, RecipientAddress. Optional: properties. Returns array of MessageTraceDetailItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MessageTraceDetailV2",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "MessageTraceId",
+          "type": "string",
+          "location": "body",
+          "description": "MessageTraceId from message-trace list.",
+          "required": true
+        },
+        {
+          "name": "RecipientAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient email address.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "message_trace_list",
+      "description": "Trace messages by sender, recipient, message ID and date window. Runs the Get-MessageTraceV2 cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MessageTraceV2','Parameters':\u003cflags\u003e}}. No OData paging: rows come newest first, at most ResultSize per query and 10 days per query; for the next rows pass the last row's Received time as EndDate and its RecipientAddress as StartingRecipientAddress. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/BEC/Get-CIPPBecMessageTrace.ps1#L44 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/BEC/Resolve-CIPPBecMessageSubjects.ps1#L55 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracev2. Required: tenantId. Optional: properties, EndDate, MessageId (plus 5 more). Returns array of MessageTraceListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MessageTraceV2",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "EndDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window end (ISO 8601)."
+        },
+        {
+          "name": "MessageId",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Internet Message-ID header values."
+        },
+        {
+          "name": "RecipientAddress",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Recipient email addresses."
+        },
+        {
+          "name": "ResultSize",
+          "type": "int",
+          "location": "body",
+          "description": "Maximum rows per call (CIPP uses up to 5000)."
+        },
+        {
+          "name": "SenderAddress",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Sender email addresses."
+        },
+        {
+          "name": "StartDate",
+          "type": "string",
+          "location": "body",
+          "description": "Window start (ISO 8601). CIPP queries in windows of at most 10 days."
+        },
+        {
+          "name": "StartingRecipientAddress",
+          "type": "string",
+          "location": "body",
+          "description": "Continuation cursor: the RecipientAddress of the last row of the previous query, used together with that row's Received time as EndDate."
+        }
+      ]
+    },
+    {
+      "name": "mobile_devices_list",
+      "description": "List a mailbox's ActiveSync / mobile device partnerships. Runs the Get-MobileDevice cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-MobileDevice','Parameters':\u003cflags\u003e}}. The request is routed (X-AnchorMailbox) to the mailbox named by Mailbox. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPMobileDevice.ps1#L14 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-mobiledevice. Required: tenantId, Mailbox. Optional: properties. Returns array of MobileDevicesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-MobileDevice",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Mailbox",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mobile_devices_remove",
+      "description": "Remove a mobile device partnership (does not wipe the handset). Runs the Remove-MobileDevice cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-MobileDevice','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPMobileDevice.ps1#L21 ; https://github.com/MSPbotsAI/exchange_online_mcp/blob/ee8a6d911665c2161a4d0c4292abc324a636eaae/README.md ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-mobiledevice. Required: tenantId, Identity. Returns array of MobileDevicesRemoveItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-MobileDevice",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Device Identity from mobile-devices list.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mobile_devices_wipe",
+      "description": "Wipe a mobile device (or only the mailbox account on it) the next time it connects. Runs the Clear-MobileDevice cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Clear-MobileDevice','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Clear-CIPPMobileDevice.ps1#L23 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/clear-mobiledevice. Required: tenantId, Identity. Optional: AccountOnly. Returns array of MobileDevicesWipeItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Clear-MobileDevice",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccountOnly",
+          "type": "bool",
+          "location": "body",
+          "description": "Remove only the mailbox data, not the whole device (CIPP always sends true)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Device Identity from mobile-devices list.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_config_get",
+      "description": "Organization MailTips settings and limits (Admin API v2.0). Runs the Get-OrganizationConfig cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/OrganizationConfig with body {'CmdletInput':{'CmdletName':'Get-OrganizationConfig','Parameters':\u003cflags\u003e}}. Takes no parameters. Returns one organization object (MailTipsAllTipsEnabled, MailTipsExternalRecipientsTipsEnabled, MailTipsLargeAudienceThreshold; the full Get-OrganizationConfig output during Preview). Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-organization-config. Required: tenantId. Optional: properties.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/OrganizationConfig#Get-OrganizationConfig",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "org_settings_get",
+      "description": "Full organization configuration, including EwsEnabled, EwsAllowList and EwsApplicationAccessPolicy. Runs the Get-OrganizationConfig cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-OrganizationConfig','Parameters':\u003cflags\u003e}}. The whole Get-OrganizationConfig object; org-config is the documented v2.0 subset. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPStandards/Public/Standards/Invoke-CIPPStandardDisableEWS.ps1#L47 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-organizationconfig. Required: tenantId. Optional: properties. Returns array of OrgSettingsGetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-OrganizationConfig",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "outbound_connectors_list",
+      "description": "List outbound mail connectors. Runs the Get-OutboundConnector cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-OutboundConnector','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Transport/Invoke-ListExchangeConnectors.ps1#L15 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-outboundconnector. Required: tenantId. Optional: properties. Returns array of OutboundConnectorsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-OutboundConnector",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "outbound_spam_policies_list",
+      "description": "List outbound spam policies, including AutoForwardingMode and sending limits. Runs the Get-HostedOutboundSpamFilterPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-HostedOutboundSpamFilterPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoHostedOutboundSpamFilterPolicy.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-hostedoutboundspamfilterpolicy. Required: tenantId. Optional: properties. Returns array of OutboundSpamPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-HostedOutboundSpamFilterPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "quarantine_delete",
+      "description": "Delete quarantined messages. Runs the Delete-QuarantineMessage cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Delete-QuarantineMessage','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Spamfilter/Invoke-ExecQuarantineManagement.ps1#L38 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/delete-quarantinemessage. Required: tenantId, Identity. Optional: Identities. Returns array of QuarantineDeleteItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Delete-QuarantineMessage",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Several message Identities in one call."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Quarantined message Identity (ignored but required when Identities is set).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_list",
+      "description": "List quarantined messages. Runs the Get-QuarantineMessage cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-QuarantineMessage','Parameters':\u003cflags\u003e}}. Pages with Page/PageSize, not ResultSize. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPAlerts/Public/Alerts/Get-CIPPAlertQuarantineReleaseRequests.ps1#L30 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPActivityTriggers/Public/Entrypoints/Activity Triggers/Push-ListMailQuarantineAllTenants.ps1#L25 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-quarantinemessage. Required: tenantId. Optional: properties, EndReceivedDate, Identity (plus 7 more). Returns array of QuarantineListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-QuarantineMessage",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "EndReceivedDate",
+          "type": "string",
+          "location": "body",
+          "description": "Received on or before (ISO 8601)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "One quarantined message Identity."
+        },
+        {
+          "name": "MessageId",
+          "type": "string",
+          "location": "body",
+          "description": "Internet Message-ID header value, angle brackets included."
+        },
+        {
+          "name": "Page",
+          "type": "int",
+          "location": "body",
+          "description": "Page number, from 1."
+        },
+        {
+          "name": "PageSize",
+          "type": "int",
+          "location": "body",
+          "description": "Rows per page, up to 1000."
+        },
+        {
+          "name": "RecipientAddress",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only messages to these recipients."
+        },
+        {
+          "name": "ReleaseStatus",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only messages in these release states, for example Requested, Released, NotReleased."
+        },
+        {
+          "name": "SenderAddress",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only messages from these senders."
+        },
+        {
+          "name": "StartReceivedDate",
+          "type": "string",
+          "location": "body",
+          "description": "Received on or after (ISO 8601). Exchange keeps up to 30 days."
+        }
+      ]
+    },
+    {
+      "name": "quarantine_release",
+      "description": "Release, approve or deny quarantined messages. Runs the Release-QuarantineMessage cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Release-QuarantineMessage','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPHTTP/Public/Entrypoints/HTTP Functions/Email-Exchange/Spamfilter/Invoke-ExecQuarantineManagement.ps1#L40 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/release-quarantinemessage. Required: tenantId, Identity. Optional: ActionType, Identities, ReleaseToAll (plus 1 more). Returns array of QuarantineReleaseItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Release-QuarantineMessage",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "ActionType",
+          "type": "string",
+          "location": "body",
+          "description": "Release action other than a plain release."
+        },
+        {
+          "name": "Identities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Several message Identities in one call."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Quarantined message Identity. With Identities, Exchange requires Identity but ignores it (CIPP sends 000).",
+          "required": true
+        },
+        {
+          "name": "ReleaseToAll",
+          "type": "bool",
+          "location": "body",
+          "description": "Release to every original recipient. Do not combine with User."
+        },
+        {
+          "name": "User",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Recipients the action applies to. Do not combine with ReleaseToAll."
+        }
+      ]
+    },
+    {
+      "name": "quarantine_policies_list",
+      "description": "List quarantine policies (what users may do with quarantined mail). Runs the Get-QuarantinePolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-QuarantinePolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoQuarantinePolicy.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-quarantinepolicy. Required: tenantId. Optional: properties. Returns array of QuarantinePoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-QuarantinePolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "recipients_list",
+      "description": "Look up any mail recipient (mailbox, group, contact, mail user). Runs the Get-Recipient cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-Recipient','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPFolderPermission.ps1#L50 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-recipient. Required: tenantId. Optional: properties, Filter, Identity (plus 1 more). Returns array of RecipientsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-Recipient",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Filter",
+          "type": "string",
+          "location": "body",
+          "description": "OPATH filter, for example DisplayName -eq 'Alex Wilber'."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient identity. Omit to search with Filter."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "remote_domains_list",
+      "description": "List remote domains, including AutoForwardEnabled and TNEF settings. Runs the Get-RemoteDomain cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-RemoteDomain','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoRemoteDomain.ps1#L22 ; https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPStandards/Public/Standards/Invoke-CIPPStandardDisableTNEF.ps1#L47 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-remotedomain. Required: tenantId. Optional: properties, Identity. Returns array of RemoteDomainsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-RemoteDomain",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Remote domain name, for example Default. Omit to list all."
+        }
+      ]
+    },
+    {
+      "name": "safe_attachment_policies_list",
+      "description": "List Defender for Office 365 Safe Attachments policies. Runs the Get-SafeAttachmentPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-SafeAttachmentPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoSafeAttachmentPolicies.ps1#L26 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-safeattachmentpolicy. Required: tenantId. Optional: properties. Returns array of SafeAttachmentPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-SafeAttachmentPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "safe_links_policies_list",
+      "description": "List Defender for Office 365 Safe Links policies. Runs the Get-SafeLinksPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-SafeLinksPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoSafeLinksPolicies.ps1#L42 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-safelinkspolicy. Required: tenantId. Optional: properties. Returns array of SafeLinksPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-SafeLinksPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "send_as_add",
+      "description": "Grant a trustee Send As on a recipient. Runs the Add-RecipientPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Add-RecipientPermission','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Set-CIPPMailboxPermission.ps1#L61 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/add-recipientpermission. Required: tenantId, AccessRights, Identity, Trustee. Returns array of SendAsAddItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Add-RecipientPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Rights to grant: SendAs.",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "Trustee",
+          "type": "string",
+          "location": "body",
+          "description": "Who receives Send As.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "send_as_list",
+      "description": "List Send As permissions on a recipient, or every recipient a trustee can send as. Runs the Get-RecipientPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-RecipientPermission','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPActivityTriggers/Public/Entrypoints/Activity Triggers/Mailbox Permissions/Push-GetMailboxPermissionsBatch.ps1#L35 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-recipientpermission. Required: tenantId. Optional: properties, Identity, ResultSize (plus 1 more). Returns array of SendAsListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-RecipientPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. Omit (with Trustee) to search the whole tenant."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        },
+        {
+          "name": "Trustee",
+          "type": "string",
+          "location": "body",
+          "description": "Only entries for this trustee."
+        }
+      ]
+    },
+    {
+      "name": "send_as_remove",
+      "description": "Remove a trustee's Send As on a recipient. Runs the Remove-RecipientPermission cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Remove-RecipientPermission','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPCore/Public/Remove-CIPPMailboxPermissions.ps1#L76 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/remove-recipientpermission. Required: tenantId, AccessRights, Identity, Trustee. Returns array of SendAsRemoveItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Remove-RecipientPermission",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "AccessRights",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Rights to remove: SendAs.",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID.",
+          "required": true
+        },
+        {
+          "name": "Trustee",
+          "type": "string",
+          "location": "body",
+          "description": "Whose Send As is removed.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "send_on_behalf_list",
+      "description": "List mailboxes with their Send on behalf delegates (Admin API v2.0). Runs the Get-Mailbox cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/Mailbox with body {'CmdletInput':{'CmdletName':'Get-Mailbox','Parameters':\u003cflags\u003e}}. Core properties: Identity, Id, Name, DisplayName, UserPrincipalName, Alias, ExternalDirectoryObjectId, RecipientType, RecipientTypeDetails, EmailAddresses, PrimarySmtpAddress, MaxSendSize, GrantSendOnBehalfTo. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox. Required: tenantId. Optional: properties, Identity, IncludeGrantSendOnBehalfToWithDisplayNames (plus 1 more). Returns array of SendOnBehalfListItem.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/Mailbox#Get-Mailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. Omit to list all mailboxes."
+        },
+        {
+          "name": "IncludeGrantSendOnBehalfToWithDisplayNames",
+          "type": "bool",
+          "location": "body",
+          "description": "Also return GrantSendOnBehalfToWithDisplayNames (staged rollout)."
+        },
+        {
+          "name": "ResultSize",
+          "type": "string",
+          "location": "body",
+          "description": "Maximum rows to return: an integer or Unlimited. The service default is 1000."
+        }
+      ]
+    },
+    {
+      "name": "send_on_behalf_set",
+      "description": "Replace a mailbox's Send on behalf delegate list (Admin API v2.0). Runs the Set-Mailbox cmdlet through the Exchange Online Admin API v2.0 (Preview): POST /adminapi/v2.0/{tenantId}/Mailbox with body {'CmdletInput':{'CmdletName':'Set-Mailbox','Parameters':\u003cflags\u003e}}. Replaces the delegate list, or changes it incrementally with the add/remove object form (Learn Examples 3 and 4). Returns 200 with no body. Sources: https://learn.microsoft.com/en-us/exchange/reference/admin-api-endpoints-mailbox. Required: tenantId, GrantSendOnBehalfTo, Identity.",
+      "method": "POST",
+      "path": "/adminapi/v2.0/{tenantId}/Mailbox#Set-Mailbox",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "GrantSendOnBehalfTo",
+          "type": "string",
+          "location": "body",
+          "description": "Delegates: comma-separated addresses (or a JSON array) replace the whole list; a JSON object such as {'add':['a@contoso.com'],'remove':['b@contoso.com']} changes it incrementally (the CLI adds the #Exchange.GenericHashTable type).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Mailbox to target: UPN, primary SMTP address, alias, name or GUID. The Learn parameter table marks it optional but its body example marks it required; this CLI requires it so a call never targets an unnamed mailbox.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "sharing_policies_list",
+      "description": "List calendar and contact sharing policies. Runs the Get-SharingPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-SharingPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoSharingPolicy.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-sharingpolicy. Required: tenantId. Optional: properties. Returns array of SharingPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-SharingPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "spam_policies_list",
+      "description": "List inbound anti-spam (hosted content filter) policies. Runs the Get-HostedContentFilterPolicy cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-HostedContentFilterPolicy','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoHostedContentFilterPolicy.ps1#L21 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-hostedcontentfilterpolicy. Required: tenantId. Optional: properties. Returns array of SpamPoliciesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-HostedContentFilterPolicy",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "transport_config_get",
+      "description": "Organization transport settings, including the SMTP AUTH default (SmtpClientAuthenticationDisabled). Runs the Get-TransportConfig cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-TransportConfig','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoTransportConfig.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-transportconfig. Required: tenantId. Optional: properties. Returns array of TransportConfigGetItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-TransportConfig",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        }
+      ]
+    },
+    {
+      "name": "transport_rules_disable",
+      "description": "Disable a mail flow rule. Runs the Disable-TransportRule cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Disable-TransportRule','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPBaselines/Public/Executors/Invoke-CIPPBaselineTransportRuleTemplate.ps1#L62 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/disable-transportrule. Required: tenantId, Identity. Returns array of TransportRulesDisableItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Disable-TransportRule",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Rule name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "transport_rules_enable",
+      "description": "Enable a mail flow rule. Runs the Enable-TransportRule cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Enable-TransportRule','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPBaselines/Public/Executors/Invoke-CIPPBaselineTransportRuleTemplate.ps1#L62 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/enable-transportrule. Required: tenantId, Identity. Returns array of TransportRulesEnableItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Enable-TransportRule",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Rule name or GUID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "transport_rules_list",
+      "description": "List mail flow (transport) rules. Runs the Get-TransportRule cmdlet through the InvokeCommand route of the ExchangeOnlineManagement module (undocumented by Microsoft): POST /adminapi/beta/{tenantId}/InvokeCommand with body {'CmdletInput':{'CmdletName':'Get-TransportRule','Parameters':\u003cflags\u003e}}. Sources: https://github.com/KelvinTegelaar/CIPP-API/blob/075913f36b9ab1395d7a9231924c573c40706c18/Modules/CIPPDB/Public/DBCache/Set-CIPPDBCacheExoTransportRules.ps1#L22 ; https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-transportrule. Required: tenantId. Optional: properties, Identity. Returns array of TransportRulesListItem.",
+      "method": "POST",
+      "path": "/adminapi/beta/{tenantId}/InvokeCommand#Get-TransportRule",
+      "params": [
+        {
+          "name": "tenantId",
+          "type": "string",
+          "location": "path",
+          "description": "Customer tenant ID (GUID).",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Server-side $select: comma-separated property names to return (cuts payload size)."
+        },
+        {
+          "name": "Identity",
+          "type": "string",
+          "location": "body",
+          "description": "Rule name or GUID. Omit to list all."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Effective legacy-protocol posture",
+      "command": "ews-posture",
+      "description": "See which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on once org defaults are applied."
+    },
+    {
+      "name": "Offboard to shared with receipt",
+      "command": "offboard",
+      "description": "Run the Exchange side of a leaver in one pass: shared mailbox, GAL hide, mobile device removal, plus auto-reply (--auto-reply), manager FullAccess and Send As (--manager) and forwarding (--forward-to), with a per-step receipt; --plan only reports."
+    },
+    {
+      "name": "Tenant forwarding exposure audit",
+      "command": "forwarding-audit",
+      "description": "List every way mail can auto-forward out of a tenant and whether the outbound spam policy or remote-domain settings block it; inbox rules come from the last 'inbox-rules sweep' unless you pass --sweep."
+    },
+    {
+      "name": "Single-user compromise triage",
+      "command": "bec triage",
+      "description": "Collect compromise evidence for one mailbox: inbox rules, forwarding, restricted-sender status, new mobile devices, outbound mail volume and legacy protocols."
+    },
+    {
+      "name": "Tenant-wide inbox-rule sweep",
+      "command": "inbox-rules sweep",
+      "description": "Pull every mailbox's inbox rules in one tenant and flag the classic attacker rules."
+    },
+    {
+      "name": "Quarantine release-request snapshot",
+      "command": "quarantine snapshot",
+      "description": "Save one tenant's pending quarantine release requests locally so the cross-tenant queue can show them."
+    },
+    {
+      "name": "Cross-tenant release-request queue",
+      "command": "quarantine queue",
+      "description": "One oldest-first queue of quarantine release requests across every tenant saved with 'quarantine snapshot' (run it per tenant first)."
+    },
+    {
+      "name": "Where is my email",
+      "command": "where-is",
+      "description": "Explain why a message did or did not reach a recipient, with the next action to take."
+    },
+    {
+      "name": "Reverse access map",
+      "command": "access-map",
+      "description": "List every mailbox one user can open, send as, or send on behalf of."
+    }
+  ]
+}

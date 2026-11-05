@@ -1,0 +1,158 @@
+# credkit.yml - the shared credential kit (tools/maintainer/credkit).
+#
+# Its contract tests under the race detector, a vet of every platform it ships
+# to, a vet against each mcp-go version the fleet requires, and the contract
+# tests natively on Windows. The connector copies are held byte-identical to
+# the kit by ci_guards guard 11, which runs in ci.yml.
+#
+# Its own workflow, deliberately. The kit feeds no connector build until a
+# connector vendors it (and then guard 11 and that connector's own matrix row
+# cover the copy), so it is not release machinery: a change to the kit must
+# not rebuild all 65 connectors, and a change to a connector must not wait on
+# the kit's ten-minute race suite.
+name: credkit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "tools/maintainer/credkit/**"
+      - "tools/maintainer/vendor_credkit.py"
+      - ".github/workflows/credkit.yml"
+      # The mcp-go versions the vet step builds against come from here.
+      - "skills/*/cli/go.mod"
+  push:
+    branches: [main]
+    paths:
+      - "tools/maintainer/credkit/**"
+      - "tools/maintainer/vendor_credkit.py"
+      - ".github/workflows/credkit.yml"
+      - "skills/*/cli/go.mod"
+  # Weekly, for a toolchain or module drift no path filter sees.
+  schedule:
+    - cron: "0 7 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  credkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Did the kit itself change
+        id: kit
+        shell: bash
+        # A connector PR also triggers this workflow (its go.mod sets the mcp-go
+        # versions the vet steps build against), but its vendored kit is the same
+        # bytes as tools/maintainer/credkit (vendor_credkit.py --check, guard 11),
+        # so rerunning the long contract suites there tests nothing new. They run
+        # when the kit, its vendoring tool or this workflow changes, on the weekly
+        # run, by hand, and whenever this check cannot tell (fails open).
+        run: |
+          changed() { echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}"; head="${{ github.event.pull_request.head.sha }}" ;;
+            push) base="${{ github.event.before }}"; head="${{ github.sha }}" ;;
+            *) changed ;;
+          esac
+          git fetch -q --depth=1 origin "$base" "$head" || changed
+          # A path-scoped --quiet diff: exit 0 means no change, 1 a change, anything else unknown (runs the suites).
+          # No filename parsing, so quoted or renamed paths cannot hide a change.
+          rc=0; git diff --quiet --no-renames "$base" "$head" -- tools/maintainer/credkit tools/maintainer/vendor_credkit.py .github/workflows/credkit.yml || rc=$?
+          [ "$rc" = 0 ] || changed
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit/go.mod
+          cache-dependency-path: tools/maintainer/credkit/go.sum
+
+      # The race suite takes about seven minutes on a fast machine, more on a
+      # shared runner; go test's own ten-minute default is not a kit limit.
+      - name: Contract tests (race detector)
+        if: steps.kit.outputs.changed == 'true'
+        working-directory: tools/maintainer/credkit
+        run: go test -race -count=1 -timeout 45m ./...
+
+      # These tests read connector source and testdata (the fleet checks and the
+      # ordinary corpus), so a connector PR gives them new input: every trigger.
+      - name: Fleet checks over connector code (every trigger)
+        working-directory: tools/maintainer/credkit
+        run: go test -count=1 -timeout 20m -run '^(TestKit15Fleet|TestOrdinaryCorpusIsClean$|TestKit13ConfigBluntRuleQuietOnOrdinaryFiles$)' ./...
+
+      - name: Vet on linux, darwin and windows, amd64 and arm64
+        working-directory: tools/maintainer/credkit
+        run: |
+          for os in linux darwin windows; do
+            for arch in amd64 arm64; do
+              echo "== $os/$arch"
+              GOOS=$os GOARCH=$arch go vet ./...
+            done
+          done
+
+      - name: Builds against every mcp-go version the fleet requires
+        working-directory: tools/maintainer/credkit
+        run: |
+          versions="$(sed -n 's#.*github.com/mark3labs/mcp-go \(v[^ ]*\).*#\1#p' ../../../skills/*/cli/go.mod | sort -u)"
+          [ -n "$versions" ] || { echo "no connector requires mcp-go"; exit 1; }
+          for v in $versions; do
+            echo "== mcp-go $v"
+            # The server package, so its own new dependencies resolve too.
+            go get "github.com/mark3labs/mcp-go/server@$v"
+            go vet ./...
+          done
+
+  # The kit's contract tests run natively on Windows, where the output layer
+  # is SetStdHandle and a handle takeover rather than dup2. Blocking: a
+  # Windows-only failure is a kit bug, and every connector that adopts the
+  # kit runs on Windows too.
+  credkit-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Did the kit itself change
+        id: kit
+        shell: bash
+        # A connector PR also triggers this workflow (its go.mod sets the mcp-go
+        # versions the vet steps build against), but its vendored kit is the same
+        # bytes as tools/maintainer/credkit (vendor_credkit.py --check, guard 11),
+        # so rerunning the long contract suites there tests nothing new. They run
+        # when the kit, its vendoring tool or this workflow changes, on the weekly
+        # run, by hand, and whenever this check cannot tell (fails open).
+        run: |
+          changed() { echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}"; head="${{ github.event.pull_request.head.sha }}" ;;
+            push) base="${{ github.event.before }}"; head="${{ github.sha }}" ;;
+            *) changed ;;
+          esac
+          git fetch -q --depth=1 origin "$base" "$head" || changed
+          # A path-scoped --quiet diff: exit 0 means no change, 1 a change, anything else unknown (runs the suites).
+          # No filename parsing, so quoted or renamed paths cannot hide a change.
+          rc=0; git diff --quiet --no-renames "$base" "$head" -- tools/maintainer/credkit tools/maintainer/vendor_credkit.py .github/workflows/credkit.yml || rc=$?
+          [ "$rc" = 0 ] || changed
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit/go.mod
+          cache-dependency-path: tools/maintainer/credkit/go.sum
+
+      - name: Contract tests (windows/amd64, native)
+        if: steps.kit.outputs.changed == 'true'
+        working-directory: tools/maintainer/credkit
+        run: go test -count=1 -timeout 30m ./...
+
+      - name: Child hand-off, stalled stdout and ordinary corpus, repeated (windows/amd64, native)
+        if: steps.kit.outputs.changed == 'true'
+        working-directory: tools/maintainer/credkit
+        run: go test -count=20 -timeout 40m -run '^(TestContract1ChildGetsTheHeldSet|TestKit3StdoutStalledReaderNeverSplitsAWrite|TestOrdinaryCorpusIsClean)$' .

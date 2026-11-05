@@ -1,0 +1,976 @@
+{
+ "slug": "apple-business",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "apple-client-assertion-mint",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "Token mint and auth login sign an ES256 client assertion (Apple's OAuth for the Apple Business API) instead of HTTP Basic, with the key ID from config or env.",
+   "why": "The client_credentials template has no private_key_jwt mode; Apple refuses HTTP Basic.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "AddAppleClientAssertion(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "client.AddAppleClientAssertion(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/apple_assertion.go",
+     "contains": "func AddAppleClientAssertion(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-novel-parent-shorts",
+   "class": "docs",
+   "status": "active",
+   "summary": "The fleet and applecare novel parents carry real one-line descriptions.",
+   "why": "the press does not generate this; a reprint of the generated file drops it",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "Cross-customer rollups",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/applecare.go",
+     "contains": "Fleet AppleCare coverage reports",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-auth-private-key-help",
+   "class": "docs",
+   "status": "active",
+   "summary": "auth login help says the client-secret slot holds the API account private key (PEM text or a .pem path).",
+   "why": "The generated help calls it a client secret, which Apple does not issue.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "API account private key",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "--client-secret ./private-key.pem",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-one-account-per-run",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "config.Load reconciles one API account per run: store identity is Client ID plus base URL, and every credential field is kept only when its source is provably the active account's.",
+   "why": "The generated store identity drifted after the first mint, so the second sync wrote a new empty store; mixed sources signed as the wrong customer org.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "ReconcileAppleAccount(cfg, explicitConfigFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func ReconcileAppleAccount(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-login-binds-account",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "auth login saves account, key, key ID and token in one transaction, warns when env overrides the login, requires --key-id for a different account, saves a relative key path absolute, and --dry-run exchanges and persists nothing.",
+   "why": "The generated login saves a bare token and loses which customer org it belongs to.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.BindAppleAccount(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "overrides this login on every run",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "--key-id is required when logging in as a different",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "would sign a client assertion",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "config.AbsKeyRef(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-token-in-memory-for-explicit-accounts",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "A minted token is saved only into the login it belongs to (SaveAppleToken); explicit env or config accounts keep it in memory and re-mint once per process. No per-account token cache file exists, and logout has nothing extra to clear.",
+   "why": "A second token file outside the 0600 credentials store is a credential persisted in a file; the 4.33.5 cache is retired.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.SaveAppleToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "not_contains": "account-tokens"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "ClearAccountTokens"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "account-tokens"
+    }
+   ]
+  },
+  {
+   "id": "apple-dry-run-no-mint",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "--dry-run never calls the token endpoint.",
+   "why": "A dry run must not send the private key's assertion anywhere.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "no token mint in dry-run",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "apple-set-token-clears-account",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "auth set-token drops the old account's Client ID, key and key ID so a bare token never re-mints as an old login.",
+   "why": "the press does not generate this; a reprint of the generated file drops it",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.ClearAppleAccount()",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-token-exchange-typed-error",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A token-endpoint transport failure is typed (ErrTokenExchange), so devices lookup never falls back to the local store on a credential failure.",
+   "why": "the press does not generate this; a reprint of the generated file drops it",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ErrTokenExchange, err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/apple_shared.go",
+     "contains": "ErrTokenExchange",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-no-response-cache",
+   "class": "local-store",
+   "status": "active",
+   "summary": "The response cache is off for every read (apple_guard.go registers a client hook that sets NoCache).",
+   "why": "Safety-critical reads (assignment before assign/unassign, Activation Lock) must never be served stale.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/apple_guard.go",
+     "contains": "NoCache",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Every mirrored MCP write, local ones included (export, sync, workflow archive, learnings forget, learnings reject), previews until confirm is boolean true.",
+   "why": "The generated mirror runs writes on any call; an MCP write must not run without confirm.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, mirrorRoot,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/apple_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-mcp-host-path-flags",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Host-path flags on mirrored tools are refused from MCP arguments; all three registrations share one mirrorRoot because cli.RootCmd() builds a fresh tree.",
+   "why": "An MCP tool argument must never read or write a host file.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.MarkHostPathFlags(mirrorRoot)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/apple_confirm.go",
+     "contains": "func MarkHostPathFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "RegisterAll(s, cli.RootCmd(),"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-new-novels-registration",
+   "class": "novel-correctness",
+   "status": "active",
+   "summary": "mdm-servers health and audit-events actors are registered on their generated parents.",
+   "why": "Both parents are generated files, so a reprint drops the commands silently.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mdm_servers.go",
+     "contains": "addNovelCommandIfAbsent(cmd, newNovelMdmServersHealthCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_audit-events.go",
+     "contains": "addNovelCommandIfAbsent(cmd, newNovelAuditEventsActorsCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-docfixes",
+   "class": "docs",
+   "status": "active",
+   "summary": "SKILL.md and guide.md name all three env vars in every MCP snippet, describe the private key correctly, troubleshoot with test -n, and say the CLI keeps no response cache.",
+   "why": "Every press re-render restores the single-var snippet and the five-minute cache line.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "APPLE_BUSINESS_KEY_ID",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "APPLE_BUSINESS_KEY_ID",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint, journal checks and secret funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every client, token, feedback, webhook and probe request goes through credkit.Transport (cliutil.OutboundGuard); every file write except the connector's own 0600 credential store and config file goes through the kit.",
+   "why": "The print's review stopped on five open credential classes whose root cause was a holder that works through a list of sources and spellings: startup-output-bypass, holder-miss-config, holder-miss-headers, holder-strength-exemption, binary-file-bypass. TestOpenClassesStayClosed runs each failing input on the built binaries.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (mains, transport, file sinks, SQLite driver) so a reprint carries it.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: cliutil.PrivateKeySource, Allowed: nil},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_outbound.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = cliutil.OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/apple_assertion.go",
+     "contains": "credkit.Hold(\"minted:client-assertion\", assertion)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/applebusinessblackbox/open_classes_test.go",
+     "contains": "func TestOpenClassesStayClosed(t *testing.T)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-private-key-hold",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "APPLE_BUSINESS_PRIVATE_KEY, config business_private_key and client_secret and --client-secret hold PEM text or a path to the .pem file, so they are Identifiers, and cliutil.HoldPrivateKeyRef holds what each really is under minted:private-key, which may be sent nowhere: the PEM body lines, the body joined, the DER in text forms, or the contents of the file it names.",
+   "why": "Held as written, any 8 characters of a key path (the home directory) withhold every printed path: doctor and auth status print one line (.review/private-key-held-as-written.log) and PEM armor would withhold all text saying private key.",
+   "spec_encode_followup": "Press-side: a credential type for 'a secret or a path to it', held by what it resolves to.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldPrivateKeyRef(ref string)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldPrivateKeyRef(cliutil.EnvOverride(\"APPLE_BUSINESS_PRIVATE_KEY\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.FlagValues(args, \"--client-secret\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/apple_assertion.go",
+     "contains": "cliutil.HoldPrivateKeyRef(raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestIdentifiersMatchTheHold(t *testing.T)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-token-form-order",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The token request form is encoded with grant_type first (client.AppleTokenBody), on both mint paths.",
+   "why": "Sorted, client_assertion leads the body and the kit reads a body's first line as a config line too, so it holds the rest of the form under field:client_assertion. Its 8-character pieces then withhold ordinary output for the rest of the run: business from the scope, the client ID. TestAMintDoesNotHoldTheFormsPublicFields fails on form.Encode(); .review/kit-findings.md has the kit side.",
+   "spec_encode_followup": "Kit-side: read a form body's fields by the form grammar only; then this can go.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/apple_assertion.go",
+     "contains": "func AppleTokenBody(form url.Values) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "encoded := AppleTokenBody(form)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "encoded := client.AppleTokenBody(form)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-stdin-body-fields",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A --stdin request body has its credential fields held before anything prints, previews and --dry-run included (credwire.holdStdinBody), rather than through Declarations.StdinFlags. A body that is not JSON has its lines held. `auth set-token` holds its pipe whole and line by line (holdPipedToken).",
+   "why": "StdinFlags holds every line: a pretty-printed body has a line that is only {, which collides with public text and stops the program (exit 78, no message), and a one-line body withholds its own preview. TestStdinBodyHoldsOnlyItsCredentialFields proves all three.",
+   "spec_encode_followup": "Kit-side: a declaration for a request body on stdin that holds its CredentialFields.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdStdinBody(args []string)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdStdinBody(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdPipedToken(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "StdinFlags: []string"
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap is a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, readOnlySQLiteDSN(targetPath))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included: requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it. TestMCPHTTPLogsPassTheChokepoint covers the logs.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper with a write-free preflight before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/apple-business-mcp/main.go",
+     "contains": "mcpHTTPPreflight",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "read-only-tools-change-nothing",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "An MCP child that the mirror runs for a read-only tool refuses local writes (cliutil.RefuseWrites): the store opens read-only, nothing is created or migrated, and the learn journal, audit log and teach log are not written.",
+   "why": "A read-only annotation skips the confirm gate, so an unconfirmed MCP call must change nothing on the host.",
+   "spec_encode_followup": "Press-side: generate the refusal with the read-only annotation.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/apple_writes_refused.go",
+     "contains": "func RefuseWrites()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/apple_writes_refused.go",
+     "contains": "openWritesRefused",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "cliutil.WritesRefused()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "cliutil.WritesRefused()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setLegacyDBClaimSuppressed(true)"
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A run profile holds no credential: a loaded or saved profile drops every credential-like flag, and each value left in the store is held at startup (cliutil.HoldProfileStoreFile).",
+   "why": "A run profile is plain text a user shares; the kit's Files reads it as a credential source until the filter has been applied.",
+   "spec_encode_followup": "Press-side: generate the profile store with this filter.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credentialLikeRunProfileFlag(flag) || cliutil.SecretProfileKey(flag)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStoreFile(path string) []string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileStoreFile(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-business-host-pin",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "The client sends only to the resolved API base and token URLs, redirects included (pinHTTPClient, inside the kit's transport). A token URL on a third origin is refused by the kit's Origins before anything is sent.",
+   "why": "A vendor answer's redirect must not reach another host, and the kit's origin binding only covers requests that carry a held credential. TestCLIRunLeaksNoCredential (REDIRECTPUB) and TestTokenURLOnAThirdOriginSendsNothing.",
+   "spec_encode_followup": "Press-side: an origin pin as a client option.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/apple_guard.go",
+     "contains": "func pinHTTPClient(hc *http.Client, origins ...string)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apple_guard.go",
+     "contains": "pinHTTPClient(c.HTTPClient, c.BaseURL, tokenURLOf(c.Config))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:client-assertion\", Allowed: []string{appleAccountOrigin, \"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "honest-doctor",
+   "summary": "doctor probes a real GET endpoint with the real credential and classifies the answer by status",
+   "why": "doctor is the command every guide names to confirm a connector works, and the template answered 'present, not verified' and called any answer at / reachable, so a dead key and a wrong base URL read the same as a working install. check_doctor_truth.py proves it both ways. A key-based account with no minted token yet is probed too, through a mint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-env-access-token",
+   "class": "credential-source",
+   "summary": "APPLE_BUSINESS_ACCESS_TOKEN sends a token minted elsewhere as the run's whole identity: it replaces a config's or saved login's account, auth_header and Authorization header, the store is scoped by the token, the key is not read, nothing is minted on a 401 and the token is never saved",
+   "why": "An ES256 key cannot be faked by the install harness, whose stand-in value is not PEM, so without a way to give a bearer no read or confirmed write could reach its fake vendor and the runtime proof could not run. It is also a real need: an operator whose key lives in a vault. Same override as connectsecure and td-synnex; declared in SecretEnv so it is held from startup.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) AccessTokenFromEnv() bool"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cfg.AccessTokenFromEnv() {"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"APPLE_BUSINESS_ACCESS_TOKEN\","
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.useEnvAccessToken(v)"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func (c *Config) useEnvAccessToken(token string)"
+    }
+   ]
+  },
+  {
+   "id": "request-credential-fields-held",
+   "class": "credential-source",
+   "summary": "every request's JSON credential fields and credential query parameters are held before a dry-run preview can print them, and from the raw bytes, so every member of a duplicate key is held",
+   "why": "The kit's Transport holds them once a request is on its way, and a dry run never gets there, so a body from a flag or from import printed its password on stderr.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credwire.HoldRequest(params, bodyBytes)"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func HoldRequest("
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "credwire.HoldRequest(nil, []byte(line))"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdArgBodies(args)"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-pem-one-line",
+   "class": "credential-source",
+   "summary": "PEM text pasted with real newlines is saved on one line",
+   "why": "A multi-line value makes the kit read the whole credentials file imprecisely and hold every string in it, so after a successful login every later run printed only the withheld notice.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func oneLinePEM("
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.AppleBusinessPrivateKey = oneLinePEM(out.AppleBusinessPrivateKey)"
+    }
+   ]
+  },
+  {
+   "id": "logout-removes-the-selected-login",
+   "class": "multi-tenant",
+   "summary": "auth logout removes the shared login only when it holds the account this run kept; under an explicit config it clears that file and nothing else",
+   "why": "Under --config the template deleted the shared credentials file and left the file beside the config in place, so logging out of one customer removed another customer's login and left the selected one usable. Load merges a shared login before the reconcile can drop it, so whether it was applied does not say whose it is; the file itself does.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func (c *Config) removeSelectedLogin() error"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func loginFileAccount(path string)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.removeSelectedLogin()"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.loginAccount = cfg.AppleBusinessClientId"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.ownIdentity = true"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "cannot be read, so nothing shows it is this run's"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-org-config-identity",
+   "class": "multi-tenant",
+   "summary": "an explicit config is one customer's whole saved identity: its saves stay in that 0600 file, and it never falls back to the shared login; auth logout changes nothing while the environment selects an identity no saved login holds; a save keeps the file's routing, writes no route from the environment, and refuses over a loose file that names routing",
+   "why": "The documented way to switch customers is --config <org>.toml. The template moved a login's account out of that file into one shared store and fell back to that store, so two org files acted as whichever customer saved last, including writes, and a logout left the next run acting as another customer. Fourteen template tests in cliutil/credentials_test.go asserted that fallback and sibling store and were removed; TestOrgConfigIsItsWholeIdentity holds the new rule.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persisted.orgConfig()"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if explicit {\n\t\treturn nil\n\t}\n\tvar (\n\t\tcreds *cliutil.Credentials"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func (c *Config) orgConfig() any"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.LogoutRefusal()"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.SavesToOwnFile()"
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "func TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingMissing"
+    },
+    {
+     "file": "cli/internal/applebusinessblackbox/review_inputs_test.go",
+     "contains": "func TestOrgConfigIsItsWholeIdentity"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "func (c *Config) SaveRefusal() error"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL, out.TokenURL = c.fileConfig.BaseURL, c.fileConfig.TokenURL"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "parsed.looseRouting = named || parsed.untrustedCredentialRoute"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.SaveRefusal()"
+    },
+    {
+     "file": "cli/internal/config/apple_business_scope.go",
+     "contains": "!c.envOverrides[explicitAccountMark] && !c.looseRouting"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-changes-no-local-file",
+   "class": "write-safety",
+   "summary": "--dry-run changes no local file on auth logout, auth set-token, export --output and profile delete",
+   "why": "These commands ignored the root flag: a preview deleted the saved login, possibly the only saved key, and truncated an existing backup file with the preview's placeholder.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no credentials removed)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no credentials saved)"
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outputFile = \"\""
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "not deleted)"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-account-status",
+   "class": "auth-wire",
+   "summary": "an account with its key and key ID counts as configured: auth status and doctor report it the way data commands use it",
+   "why": "A saved or environment account mints on first use, so it has no bearer yet, and the template's status read only the bearer: after a successful login under --config, auth status exited 4 and doctor reported missing variables while data commands worked.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.AuthHeader() != \"\" || c.accountCanMint()"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := cfg.CredentialConfigured()"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-mint-retry",
+   "class": "auth-wire",
+   "summary": "a token mint the kit withheld signs a new assertion and tries once more",
+   "why": "About one random ES256 signature in a thousand runs the kit's matcher out of budget, so the request is withheld with no credential in it and auth login or the first request fails. A new signature is a new request, judged again, so a request carrying a credential is still refused both times. Delete this once the kit no longer withholds on those signatures.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "err = c.mintClientCredentialsOnce(ctx, clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "tok, err = mintClientCredentialsTokenOnce(httpClient, tokenURL, clientID, clientSecret, keyID)"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-profile-bodies",
+   "class": "secret-echo",
+   "summary": "a saved profile cannot turn on --stdin, and a JSON value it holds for a body flag has its credential fields held from the bytes",
+   "why": "The hold that reads a request body before any parser keeps only a duplicate key's last member runs from the command line. A profile applying stdin or a JSON flag value later reached the parser unheld, so the first member's credential printed through another field.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "\"home\": true, \"help\": true, \"stdin\": true,"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdStringBodies(cliutil.HoldProfileStoreFile(filepath.Join(dir, \"profiles.json\")))"
+    }
+   ]
+  },
+  {
+   "id": "apple-business-home-is-its-own",
+   "class": "multi-tenant",
+   "summary": "a relocated config dir (--home, APPLE_BUSINESS_HOME, a per-kind or XDG variable) never reads the config under the platform default",
+   "why": "A per-customer home is how an MSP separates tenants. The template read ~/.config/apple-business-cli/config.toml as a legacy file under any relocation, so a fresh customer home acted as the default config's account, and any auth write under it erased that account from the default config. The template test TestAuthWriteScrubsLegacyConfigWhenRelocated asserted the scrub; it is replaced by TestAuthWriteUnderRelocatedHomeLeavesDefaultConfig.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "where.Rung != \"platform-default\""
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func TestAuthWriteUnderRelocatedHomeLeavesDefaultConfig("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "func TestAuthWriteScrubsLegacyConfigWhenRelocated("
+    }
+   ]
+  }
+ ],
+ "_superseded": [
+  {
+   "id": "apple-business-credential-classifier",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "secret-echo-decoded-funnel",
+   "reason": "replaced by the shared credential kit"
+  }
+ ]
+}

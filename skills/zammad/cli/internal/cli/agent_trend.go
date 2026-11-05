@@ -1,6 +1,8 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel command scaffold. Implement the RunE body before shipping.
 // generate --force preserves implemented bodies; untouched TODO scaffolds may refresh.
+// pp:data-source local
+// The command reads only the local store that sync writes.
 
 package cli
 
@@ -23,8 +25,11 @@ func newNovelAgentTrendCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Show whether each agent's current-window ticket flow is growing, shrinking, or flat.",
 		Long:        "Show current and prior opened-versus-closed ticket flow by agent. Historical opens and closes are attributed to each ticket's current owner because the offline snapshot has no per-event ownership history.",
 		Example:     "  zammad-cli agent-trend --weeks 2 --json",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -37,6 +42,9 @@ func newNovelAgentTrendCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer db.Close()
 			maybeEmitSyncHints(cmd, db, "tickets", flags.maxAge)
+			if err := novelRequireSynced(db, "tickets", false); err != nil {
+				return err
+			}
 
 			agentNames, err := loadZammadAgentNames(db)
 			if err != nil {

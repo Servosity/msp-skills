@@ -148,6 +148,16 @@ func IsMCPReadOnlyEnv() bool {
 	return os.Getenv(MCPReadOnlyEnvVar) == "1"
 }
 
+// MCPChildEnvVar marks a process the MCP server spawned to run one CLI
+// command. The value must be exactly "1". Long-running commands treat it
+// like dogfood and return after one unit of work.
+const MCPChildEnvVar = "GOOGLE_WORKSPACE_MCP_CHILD"
+
+// IsMCPChildEnv reports whether this process was spawned by the MCP server.
+func IsMCPChildEnv() bool {
+	return os.Getenv(MCPChildEnvVar) == "1"
+}
+
 // EnvOverride returns the named environment variable, treating an
 // unresolved MCPB `${user_config.*}` placeholder as unset. Hosts that
 // skip optional user_config keys leave the template text in the
@@ -167,8 +177,12 @@ func EffectiveEnv(v string) string {
 }
 
 // UnresolvedUserConfigPlaceholder reports whether v is a complete
-// `${...}` template left in place by an MCPB host.
+// `${...}` template left in place by an MCPB host. Surrounding whitespace
+// does not make it a value: callers trim after this check, so a padded
+// template would otherwise survive as a public "secret". Hand-fix
+// (handfixes.json mcp-http-token-ignores-mcpb-placeholder).
 func UnresolvedUserConfigPlaceholder(v string) bool {
+	v = strings.TrimSpace(v)
 	if len(v) < 3 || !strings.HasPrefix(v, "${") || !strings.HasSuffix(v, "}") {
 		return false
 	}

@@ -34,4 +34,5 @@ A single vendor's AI can only see that vendor's product. The questions that actu
 - The deeper version of this argument: [why msp-skills →](/why/)
 - Is it safe to run? [the Trust Center →](/governance/) · [are MCP servers safe for client data? →](/answers/are-mcp-servers-safe-for-msp-client-data/)
 - New to the term? [what is an MCP server? →](/what-is-an-mcp-server/) · [what is a Claude Code Skill? →](/answers/what-is-a-claude-code-skill/)
+- Comparing your options? [MCP servers for MSPs in 2026, compared →](/answers/mcp-servers-for-msps-2026/)
 - See it on a real tool: [ConnectWise PSA →](/skills/connectwise-manage/) · [Autotask →](/skills/autotask/) · [HaloPSA →](/skills/halopsa/) · [NinjaOne →](/skills/ninjaone/) · [Datto RMM →](/skills/datto-rmm/)

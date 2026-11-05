@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -27,21 +28,24 @@ README "Known Gaps".`,
   superops-cli at-risk-assets
   superops-cli at-risk-assets --client Acme --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "at-risk-assets")
 			}
 			db, err := openStoreForNovel(cmd.Context(), dbPath)
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			assets, err := queryRecs(db, "assets")
+			assets, err := loadRecs(cmd, db, "assets")
 			if err != nil {
 				return err
 			}
-			alerts, err := queryRecs(db, "alerts")
+			alerts, err := loadRecs(cmd, db, "alerts")
 			if err != nil {
 				return err
 			}

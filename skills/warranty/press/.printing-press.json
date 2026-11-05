@@ -1,0 +1,138 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T14:53:02.71237Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "warranty",
+  "display_name": "Device Warranty",
+  "cli_name": "warranty-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "docs",
+  "spec_checksum": "sha256:16d04bca3a5cfdf9a12617f7b5926380493fdff9db728858251c6d8587e45fc6",
+  "run_id": "20261028-051132-49af501c",
+  "category": "devices",
+  "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+  "mcp_binary": "warranty-pp-mcp",
+  "mcp_tool_count": 8,
+  "mcp_public_tool_count": 3,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "dellOAuth",
+  "auth_env_vars": [
+    "WARRANTY_DELL_CLIENT_ID",
+    "WARRANTY_DELL_CLIENT_SECRET",
+    "WARRANTY_LENOVO_CLIENT_KEY",
+    "WARRANTY_APPLE_CLIENT_ID",
+    "WARRANTY_APPLE_KEY_ID",
+    "WARRANTY_APPLE_PRIVATE_KEY"
+  ],
+  "auth_key_url": "https://techdirect.dell.com/portal/AboutAPIs.aspx",
+  "auth_optional": true,
+  "novel_features": [
+    {
+      "name": "Per-client lifecycle forecast",
+      "command": "lifecycle",
+      "description": "Per client: devices covered now, expired, unverified (no coverage data yet), coverage ending in each of the next quarters, and devices past an age threshold."
+    },
+    {
+      "name": "Stale-first mirror refresh",
+      "command": "recheck",
+      "description": "Re-check serials already in the mirror: never-checked first, then coverage ending soon, then stale; each vendor's batch size and pace respected, vendors without credentials skipped."
+    },
+    {
+      "name": "Devices the mirror cannot vouch for",
+      "command": "unresolved",
+      "description": "Every device whose coverage the report cannot speak for, each with one reason: vendor unknown, vendor not configured, ambiguous, invalid, not found, not in the Apple organization, lookup error, never checked, stale or duplicated."
+    },
+    {
+      "name": "Seed a client from its Apple Business org",
+      "command": "apple-pull",
+      "description": "Load one client's Apple devices from its Apple Business organization (needs that organization's WARRANTY_APPLE_* account; exits 10 without it) and see what is new, gone, or missing from the RMM import."
+    },
+    {
+      "name": "Serial lookup across vendors",
+      "command": "lookup",
+      "description": "Warranty for one or more serials, vendor detected from the serial or named, normalized to one coverage-line shape and saved to the mirror; vendors without credentials are reported as vendor_unconfigured, not called."
+    },
+    {
+      "name": "Client-tagged serial import",
+      "command": "import",
+      "description": "Load a CSV or JSON device export (serial, optional manufacturer, model, hostname) into the mirror under a client name; CLI only, not available over MCP."
+    },
+    {
+      "name": "Expiry report",
+      "command": "report",
+      "description": "Devices out of warranty or expiring within N days, per client, from the mirror."
+    },
+    {
+      "name": "Coverage change events",
+      "command": "events list",
+      "description": "Coverage expiring, expired and changed events after a cursor, once each."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Per-client lifecycle forecast",
+      "command": "lifecycle",
+      "description": "Per client: devices covered now, expired, unverified (no coverage data yet), coverage ending in each of the next quarters, and devices past an age threshold."
+    },
+    {
+      "name": "Stale-first mirror refresh",
+      "command": "recheck",
+      "description": "Re-check serials already in the mirror: never-checked first, then coverage ending soon, then stale; each vendor's batch size and pace respected, vendors without credentials skipped."
+    },
+    {
+      "name": "Devices the mirror cannot vouch for",
+      "command": "unresolved",
+      "description": "Every device whose coverage the report cannot speak for, each with one reason: vendor unknown, vendor not configured, ambiguous, invalid, not found, not in the Apple organization, lookup error, never checked, stale or duplicated."
+    },
+    {
+      "name": "Seed a client from its Apple Business org",
+      "command": "apple-pull",
+      "description": "Load one client's Apple devices from its Apple Business organization (needs that organization's WARRANTY_APPLE_* account; exits 10 without it) and see what is new, gone, or missing from the RMM import."
+    },
+    {
+      "name": "Serial lookup across vendors",
+      "command": "lookup",
+      "description": "Warranty for one or more serials, vendor detected from the serial or named, normalized to one coverage-line shape and saved to the mirror; vendors without credentials are reported as vendor_unconfigured, not called."
+    },
+    {
+      "name": "Client-tagged serial import",
+      "command": "import",
+      "description": "Load a CSV or JSON device export (serial, optional manufacturer, model, hostname) into the mirror under a client name; CLI only, not available over MCP."
+    },
+    {
+      "name": "Expiry report",
+      "command": "report",
+      "description": "Devices out of warranty or expiring within N days, per client, from the mirror."
+    },
+    {
+      "name": "Coverage change events",
+      "command": "events list",
+      "description": "Coverage expiring, expired and changed events after a cursor, once each."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 42,
+    "total": 42,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 93,
+      "grade": "A",
+      "total": 93
+    }
+  }
+}

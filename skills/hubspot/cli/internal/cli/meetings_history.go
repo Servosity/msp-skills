@@ -91,7 +91,7 @@ WHERE object_type = 'meetings' AND object_id = ?`
 		q += ` AND property = ?`
 		args = append(args, property)
 	}
-	q += ` ORDER BY timestamp DESC`
+	q += ` ORDER BY ` + hsJulianSQL("timestamp") + ` DESC`
 	rows, err := db.DB().QueryContext(cmd.Context(), q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)

@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/zammad/handfixes.json under the
-// "mcp-filesystem-destination-gate" entry. External test package so it can
+// "zammad-mcp-filesystem-usage-gate" entry. External test package so it can
 // import internal/cli even where internal/cli imports internal/mcp.
 
 package cobratree_test

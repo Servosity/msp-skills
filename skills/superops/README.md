@@ -1,4 +1,4 @@
-# SuperOps + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# SuperOps + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the SuperOps
 > API. Not affiliated with, endorsed by, or sponsored by SuperOps Inc.
@@ -12,38 +12,42 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/superops/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `SUPEROPS_MCP_HTTP_TOKEN` is set to a random token of at
+> least 32 characters, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your SuperOps credentials, including tools that change
+> your tenant, so treat it like a password, and set `SUPEROPS_MCP_READ_ONLY=1` on
+> a remote host that only needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the SuperOps skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `superops-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `superops-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `superops-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `superops-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode asks for no password, listens on every network interface, and can be reached by a web page you open. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -55,7 +59,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `superops-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `SUPEROPS_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.13/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
+[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.14/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -112,9 +116,9 @@ iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/sup
 
 Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update superops@msp-skills`.
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -174,7 +178,7 @@ that token is allowed to do.
 Beyond the views: every SuperOps PSA+RMM entity - tickets, assets, alerts, clients,
 sites, users, contracts, invoices, worklogs, technicians, service items, IT docs, KB -
 is a typed `list`/`get` subcommand, and `raw query` runs any GraphQL read the typed
-commands don't wrap. Every command is also available as an MCP tool.
+commands don't wrap. The commands are also available as MCP tools.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -205,13 +209,13 @@ These views are computed from what the SuperOps list API actually exposes, and t
 
 - `unbilled` surfaces **billable** logged time per client, not a strict worklog-minus-invoice diff - the API carries no per-entry "already billed" flag.
 - `at-risk-assets` and `alert-coverage` use an **unresolved alert** as the proxy for "currently causing pain," because the asset-to-ticket link is absent from the list payloads.
-- `context-ticket` bundles the synced ticket, its worklogs, client, and SLA; conversation and note threads are fetched live with `superops-cli tickets <id>`.
+- `context-ticket` bundles the synced ticket, its worklogs, client, and SLA; conversation and note threads are not included; read them in the SuperOps console or with `superops-cli raw query`.
 
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the SuperOps MCP server in HTTP mode. In this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `superops-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `superops-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -235,7 +239,7 @@ Yes. The US host is the default; set `SUPEROPS_REGION=eu` to target the EU host 
 
 ### Can it create or update tickets?
 
-The typed commands are **read-only** by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`). Pair it with `--dry-run` to preview the exact GraphQL request, and keep a human in the loop. `raw query` is the read-only counterpart.
+The typed commands are **read-only** by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example `createTicket`, `updateTicket`, `resolveAlerts`). Without `--yes` it prints the exact GraphQL request and sends nothing; add `--yes` to send. Over MCP, `raw_mutation` can only preview (the MCP server never passes `--yes`), and GraphQL variables go inline in the document because the separate `vars` field is not offered there. `raw query` is the read-only counterpart and refuses any document that is not a query. Keep a human in the loop for every send.
 
 ### Will this replace my SuperOps console?
 
@@ -250,10 +254,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | every typed command + `raw query` - `sla-watch`, `client-360`, `at-risk-assets`, `alert-coverage`, `unbilled`, `stale-tickets`, `tickets list`, `assets list`, `search`, `sync` | Allow |
-| Write (mutation escape hatch) | `raw mutation` - the only write path; wraps what the read-only typed commands don't cover (`createTicket`, `updateTicket`, `resolveAlerts`) | Preview with `--dry-run`, then a reviewed write |
+| Write (mutation escape hatch) | `raw mutation` - the only write path; wraps what the read-only typed commands don't cover (`createTicket`, `updateTicket`, `resolveAlerts`). Sends only with `--yes`; over MCP it can only preview | Preview first (the default), then a reviewed `--yes` send |
 | Destructive | no typed destructive command exists; a delete would be an explicit destructive GraphQL operation run through `raw mutation` | Human-in-the-loop only |
 
-Every typed command is **read-only**; the binary's one path to remote change is `raw mutation`, and `--dry-run` prints the exact GraphQL request without sending it. Put the gate in your agent's policy: preview, show the request, get approval, then run.
+Every typed command is **read-only**; the binary's one path to remote change is `raw mutation`, which prints the exact GraphQL request and sends nothing unless you add `--yes`. Over MCP it can only preview, so an agent connected over MCP cannot send a mutation. Put the remaining gate in your policy: preview, show the request, get approval, then run with `--yes`.
 
 The strongest control is the **scope you grant the SuperOps credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

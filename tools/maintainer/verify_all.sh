@@ -315,7 +315,8 @@ warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
 echo "== Maintainer gate self-tests (each proved both directions) =="
 for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
          release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
-         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py; do
+         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py \
+         check_env_schema.py check_doctor_truth.py; do
   gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
 done
 gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
@@ -328,6 +329,7 @@ done
 gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
 gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
 gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
+gate "self-test credkit_verify (both directions)" repo "" 0 sh -c 'cd tools/maintainer/credkit_verify && go vet ./... && go test -race -count=1 ./...'
 matrix_sane() {
   python3 tools/maintainer/release_matrix.py \
     | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]'
@@ -767,15 +769,18 @@ llms_idempotent() {
   local bak="$WORK/llms.bak"
   mkdir -p "$bak"
   cp docs/llms.txt "$bak/llms.txt"; cp docs/llms-full.txt "$bak/llms-full.txt"
+  rm -rf "$bak/copies" "$bak/well-known"
+  cp -R docs/_markdown_copies "$bak/copies"; cp -R docs/.well-known "$bak/well-known"
   python3 tools/maintainer/build-llms.py || { echo "build-llms.py failed during the idempotency check"; return 1; }
-  if diff -q docs/llms.txt "$bak/llms.txt" && diff -q docs/llms-full.txt "$bak/llms-full.txt"; then
+  if diff -q docs/llms.txt "$bak/llms.txt" && diff -q docs/llms-full.txt "$bak/llms-full.txt" \
+     && diff -r docs/_markdown_copies "$bak/copies" && diff -r docs/.well-known "$bak/well-known"; then
     return 0
   fi
   echo "llms drift - regenerated; re-run was not a no-op (run build-llms.py and commit)"
   return 1
 }
 gate "catalog + README + docs/_data/catalog.json + docs/skills in sync" repo "" 0 catalog_idempotent
-gate "llms.txt + llms-full.txt in sync" repo "" 0 llms_idempotent
+gate "llms.txt + llms-full.txt + Markdown copies + .well-known in sync" repo "" 0 llms_idempotent
 
 # --------------------------------------------- best effort (local tools) ----
 echo "== Best-effort (warn if a tool is missing locally; CI installs them) =="

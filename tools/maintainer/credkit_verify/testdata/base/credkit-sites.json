@@ -1,0 +1,10 @@
+{
+  "sites": [
+    {"file": "internal/config/config.go", "func": "Load", "what": "os.ReadFile", "count": 1, "kind": "source", "via": "internal/config.Path",
+     "reason": "the config file, which Declarations.Files names"},
+    {"file": "internal/cli/cli.go", "func": "Execute", "what": "net/http.NewRequest", "count": 1, "kind": "exempt",
+     "reason": "sent only by the client built above with credkit.Transport"},
+    {"file": "internal/cli/cli.go", "func": "Execute", "what": "os.OpenFile", "count": 1, "kind": "exempt",
+     "reason": "reads the request body file the user names, never a credential file"}
+  ]
+}

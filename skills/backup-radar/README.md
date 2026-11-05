@@ -1,4 +1,4 @@
-# Backup Radar + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# Backup Radar + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Backup Radar
 > API. Not affiliated with, endorsed by, or sponsored by ScalePad Software Inc.
@@ -16,37 +16,35 @@
 > **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](../servosity) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
 <!-- first-party-note:end -->
 
-Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+<!-- backup-vendor-note:start -->
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=backup-radar&utm_content=readme)
+<!-- backup-vendor-note:end -->
+
+Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
-The six agents MSP owners actually use (ChatGPT is paused until this connector is reprinted, see below):
+The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Backup Radar skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `backup-radar-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `backup-radar-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `backup-radar-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `backup-radar-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -56,7 +54,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Backup Radar MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/backup-radar-v0.1.2/backup-radar-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Backup Radar release on the [releases page](https://github.com/servosity/msp-skills/releases?q=backup-radar).)
+[**Download Backup Radar MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/backup-radar-v0.1.3/backup-radar-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Backup Radar release on the [releases page](https://github.com/servosity/msp-skills/releases?q=backup-radar).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -113,9 +111,9 @@ iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/bac
 
 Claude Desktop `.mcpb` users: download the latest `.mcpb` (top of this section) and re-select it in **Settings > Extensions**. Claude Code plugin users: `/plugin update backup-radar@msp-skills`.
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -200,7 +198,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the Backup Radar MCP server in HTTP mode. In this build HTTP mode checks a token but has no request size or time limits yet, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `backup-radar-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `backup-radar-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -224,7 +222,7 @@ The analysis commands read the local mirror, so the daily API cost is one `sync`
 
 ### Can an AI agent retire backups by mistake?
 
-`backups retire` is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own `--dry-run` preview. `stale` prepares retire bodies with `dry_run: true`, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a `retire_note` instead of a body. Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes the `backups_retire` and `backups_ingest` tools entirely, and `backups_retire` is annotated destructive so hosts ask first.
+`backups retire` is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, `--server-dry-run` (the request is sent and nothing is retired; the global `--dry-run` sends nothing). `stale` prepares retire bodies with `dry_run: true`, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a `retire_note` instead of a body. Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes the `backups_retire` and `backups_ingest` tools entirely, and `backups_retire` is annotated destructive so hosts ask first.
 
 ### Does it work for EU ScalePad tenants?
 
@@ -242,7 +240,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Write (routine) | `backups ingest`, `push`, `import` (post backup results into Backup Radar) | Preview with `--dry-run`, then a reviewed write |
 | Destructive / credential | `backups retire` (removes backups from monitoring; `--close-psa-tickets` closes their tickets), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
-Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes `backups_ingest`, `backups_retire`, `sync`, `export`, `workflow_archive` and the learning-store write tools (`learnings_forget`, `learnings_reject`); the `push` and `import` commands are never exposed over MCP, and flags that read or write local files (`--devices`, `--playbook-file`, `--notes-file`, `--output`, `--db`) are refused from MCP callers.
+Over MCP, `BACKUP_RADAR_MCP_READ_ONLY=1` removes `backups_ingest`, `backups_retire`, `sync`, `export`, `workflow_archive` and the learning-store write tools (`teach`, `teach_pattern`, `teach_lookup`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_forget`, `learnings_reject`); the `push` and `import` commands are never exposed over MCP, and flags that read or write local files (`--devices`, `--playbook-file`, `--notes-file`, `--output`, `--db`) are refused from MCP callers.
 
 The strongest control is the **scope you grant the Backup Radar credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

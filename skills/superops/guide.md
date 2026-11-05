@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `SUPEROPS_API_TOKEN` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `superops-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `SUPEROPS_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS (Intel and Apple Silicon), Windows x64 and Linux x64; for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -72,7 +70,7 @@ If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), i
 
 Install the MCP binary from this CLI's published public-library entry or pre-built release.
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -88,6 +86,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`superops-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SUPEROPS_MCP_HTTP_TOKEN` is set to a random token of at least 32 characters (letters, digits, `-._~+/=`), and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export SUPEROPS_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+superops-mcp --transport http
+```
+
+Set `SUPEROPS_MCP_READ_ONLY=1` (exactly `1`) to list only read-only tools: it removes `raw`, `raw_mutation`, `sync`, `workflow_archive`, `jobs_prune` and the learn-store tools (`teach`, `teach_lookup`, `teach_pattern`, `teach_playbook`, `playbook_amend`, `learnings_confirm`, `learnings_reject`, `learnings_forget`). `raw_query` stays and refuses any document that is not a query.
 
 ## Authentication
 
@@ -115,8 +124,6 @@ superops-cli unbilled --since 2026-05-01
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Cross-entity insight from local state
 - **`sla-watch`**  -  See which open tickets are breaching or about to breach SLA, grouped by technician or client.
 
@@ -125,9 +132,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   superops-cli sla-watch --by tech --window 4h --agent
   ```
-- **`unbilled`**  -  Find logged worklog time that never landed on an invoice, totaled in dollars per client.
+- **`unbilled`**  -  Total billable worklog time per client from the local store, to reconcile against invoices.
 
-  _Reach for this at month-end to surface revenue leaking out of the billing pipeline._
+  _Reach for this at month-end to see where billable time sits before invoicing._
 
   ```bash
   superops-cli unbilled --since 2026-05-01 --agent
@@ -151,9 +158,9 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this before a QBR or escalation to load the full client picture in one command._
 
   ```bash
-  superops-cli client-360 <client> --agent
+  superops-cli client-360 acme --agent
   ```
-- **`stale-tickets`**  -  Open tickets with no conversation, note, or worklog activity in N days.
+- **`stale-tickets`**  -  Open tickets with no ticket update or worklog activity in N days.
 
   _Reach for this to catch neglected tickets before they turn into SLA misses or angry clients._
 
@@ -162,16 +169,15 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native plumbing
-- **`context-ticket`**  -  Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob (conversation/notes fetched live).
+- **`context-ticket`**  -  Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob from the local store.
 
   _Reach for this as an AI triage agent's single read to ground a decision without six round-trips._
 
   ```bash
-  superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name
+  superops-cli context-ticket 12345 --agent --select ticket.subject,ticket.status,worklogs
   ```
 
 ## Recipes
-
 
 ### Morning SLA triage by technician
 
@@ -181,13 +187,13 @@ superops-cli sla-watch --by tech --window 4h
 
 Groups at-risk tickets per tech so the service desk knows where to push first.
 
-### Month-end revenue leak check
+### Month-end billable time per client
 
 ```bash
-superops-cli unbilled --agent --select client.name,worklog.minutes,worklog.amount
+superops-cli unbilled --since 2026-05-01 --agent --select client,billableHours
 ```
 
-Lists unbilled worklog per client with just the fields billing needs.
+Totals billable worklog hours per client with just the fields billing needs.
 
 ### Patch remediation priorities
 
@@ -200,22 +206,97 @@ Endpoints that are both missing critical patches and carrying an active (unresol
 ### Agent context for a ticket
 
 ```bash
-superops-cli context-ticket 12345 --agent --select ticket.subject,ticket.status,client.name,asset.hostName,sla.name
+superops-cli context-ticket 12345 --agent --select ticket.subject,ticket.status,client,sla,worklogs
 ```
 
 Pairs --agent with --select on a deeply nested bundle so an AI agent gets only the fields it needs instead of a multi-KB blob.
 
-### Offline full-text search
+### Idle ticket sweep
 
 ```bash
-superops-cli search 'disk full' --agent
+superops-cli stale-tickets --days 7 --agent
 ```
 
-FTS5 over synced tickets, assets, clients, and KB with no live API call.
+Open tickets with no ticket update or worklog activity in a week, longest idle first.
 
 ## Usage
 
 Run `superops-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `SUPEROPS_CONFIG_DIR`, `SUPEROPS_DATA_DIR`, `SUPEROPS_STATE_DIR`, or `SUPEROPS_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `SUPEROPS_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export SUPEROPS_HOME=/srv/superops
+superops-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:SUPEROPS_HOME = "C:\ProgramData\superops"
+superops-cli doctor
+```
+
+Under `SUPEROPS_HOME=/srv/superops`, the four dirs resolve to `/srv/superops/config`, `/srv/superops/data`, `/srv/superops/state`, and `/srv/superops/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SUPEROPS_HOME = "C:\srv\superops"
+superops-cli doctor
+```
+
+Under `$env:SUPEROPS_HOME = "C:\srv\superops"`, the four dirs resolve to `C:\srv\superops\config`, `C:\srv\superops\data`, `C:\srv\superops\state`, and `C:\srv\superops\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "superops": {
+      "command": "superops-mcp",
+      "env": {
+        "SUPEROPS_HOME": "/srv/superops"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `SUPEROPS_DATA_DIR` overrides an explicit `--home` for that kind. Use `SUPEROPS_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `SUPEROPS_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `superops-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: `sync`, and in `--data-source auto` mode a `<resource>` read, write what they return to the SQLite store in the data directory (`data-<hash>.db`, one per token, subdomain and host; `data.db` only when no token is set); the `list` subcommands (`tickets list` and the others) print without storing, so run `sync` for an offline copy. A record that repeats a credential the CLI holds is never stored: `sync` refuses that page. Each store records the tenant (subdomain and host) that first opened it for writing, which it does only while the file holds no data at all. A store of another tenant, or one that records no tenant, is refused for reading and writing, also when named with `--db`; a store that records no tenant and holds no data is filled by `superops-cli sync` (with the same `--db`), and a local command such as `stale-tickets` claims it for its tenant before reading it. GET responses are cached for five minutes under `http/` in the cache directory, kept apart per token, subdomain and host. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `superops-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `superops-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SUPEROPS_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SUPEROPS_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -309,6 +390,67 @@ Manage worklog time entries
 - **`superops-cli worklogs`** - List worklog entries
 
 
+### alert-coverage
+
+
+- **`superops-cli alert-coverage`** - Partition alerts into open (uncovered) vs resolved, grouped by client.
+
+
+### at-risk-assets
+
+
+- **`superops-cli at-risk-assets`** - List assets missing a critical patch that also have an active (unresolved) alert.
+
+
+### client-360
+
+
+- **`superops-cli client-360`** - One offline bundle of a client plus its sites, users, contracts, open tickets, assets, and open invoices.
+
+
+### context-ticket
+
+
+- **`superops-cli context-ticket`** - Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob from the local store.
+
+
+### sla-watch
+
+
+- **`superops-cli sla-watch`** - See which open tickets are breaching or about to breach SLA, grouped by technician or client.
+
+
+### stale-tickets
+
+
+- **`superops-cli stale-tickets`** - Open tickets with no ticket update or worklog activity in N days.
+
+
+### unbilled
+
+
+- **`superops-cli unbilled`** - Total billable worklog time per client from the local store, to reconcile against invoices.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`superops-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`superops-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`superops-cli learnings list`** - Inspect taught rows
+- **`superops-cli learnings forget <query>`** - Undo a teach
+- **`superops-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`superops-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`superops-cli teach-pattern`** - Install a query/resource template up front
+- **`superops-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `SUPEROPS_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `superops-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -317,9 +459,8 @@ superops-cli alerts
 
 # JSON for scripting and agents
 superops-cli alerts --json
-
 # Filter to specific fields
-superops-cli alerts --json --select id,name,status
+superops-cli alerts --json --select id,message,description
 
 # Dry run  -  show the request without sending
 superops-cli alerts --dry-run
@@ -328,19 +469,21 @@ superops-cli alerts --dry-run
 superops-cli alerts --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only by default** - this CLI does not create, update, delete, publish, send, or mutate remote resources
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -352,9 +495,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/superops-cli/config.toml`
+Run `superops-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/superops-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\superops-cli\config.toml` on Windows; `--home`, `SUPEROPS_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SUPEROPS_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SUPEROPS_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

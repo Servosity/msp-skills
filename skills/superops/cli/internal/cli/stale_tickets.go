@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -25,10 +26,13 @@ child-activity timestamps; this is computed locally over the synced mirror.`,
   superops-cli stale-tickets --days 7
   superops-cli stale-tickets --days 14 --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "stale-tickets")
 			}
 			if flagDays <= 0 {
 				return fmt.Errorf("--days must be a positive integer")
@@ -38,11 +42,11 @@ child-activity timestamps; this is computed locally over the synced mirror.`,
 				return err
 			}
 			defer db.Close()
-			tickets, err := queryRecs(db, "tickets")
+			tickets, err := loadRecs(cmd, db, "tickets")
 			if err != nil {
 				return err
 			}
-			worklogs, err := queryRecs(db, "worklogs")
+			worklogs, err := loadRecs(cmd, db, "worklogs")
 			if err != nil {
 				return err
 			}

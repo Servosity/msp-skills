@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.3] - 2026-11-05
+
+### Changed
+- Rebuilt on cli-printing-press 4.34.2, the press release behind advisory [GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c). MCP HTTP mode now sets request size and time limits, plain HTTP is allowed only on a loopback address, and any other address needs `--tls-cert` and `--tls-key`. See mcp-install.md for the HTTP mode reference.
+- `--dry-run` now sends nothing on every command. The API's own retire preview moved to `backups retire --server-dry-run` (MCP argument `server_dry_run`): it sends the request with `dry_run: true` and retires nothing. A `--stdin` body with `dry_run: true` still asks the API for its preview.
+- GET responses are never cached on disk. `BACKUP_RADAR_NO_LOCAL_DATA=1` (now declared on every install channel) keeps no local copy: reads go to the API, nothing new is written to the store, and `sync` and `workflow archive` refuse to run.
+- `check`, `unwatched`, `stale` and `scorecard` name every collection whose last sync did not finish, so a partial sync is never read as complete.
+
+### Security
+- **Every credential check now runs through the fleet's shared credential kit.** Both keys and the MCP HTTP token are held from startup; any output, file, store write, MCP result or child process that would carry one is replaced by a notice that names the sink. `BACKUP_RADAR_API_KEY` is sent only to the configured v3 host and `BACKUP_RADAR_V2_API_KEY` only to `https://api.backupradar.com`; a request that would carry either anywhere else, over plain http, or across a redirect to another host is refused before it is sent.
+
 ## [0.1.2] - 2026-10-23
 
 ### Changed

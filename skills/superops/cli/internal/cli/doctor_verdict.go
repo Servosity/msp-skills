@@ -11,9 +11,9 @@
 // "FAIL API: unreachable", which reads as "your install is broken" when the real
 // answer is "one environment variable is unset".
 //
-// The three helpers here give doctor a verdict it can defend: refuse to dial a
-// placeholder, probe a real read endpoint with the real credential, and classify
-// the answer by status code instead of by substring.
+// The helpers here give doctor a verdict it can defend: refuse to dial a
+// placeholder, probe the GraphQL API with the real credential, and classify
+// the answer by status code and GraphQL error code instead of by substring.
 //
 // See issue #282 and skills/superops/handfixes.json.
 //
@@ -25,11 +25,14 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"superops-pp-cli/internal/client"
+	"superops-pp-cli/internal/cliutil"
 )
 
 // doctorBaseURLEnv is the environment variable that points this connector at
@@ -46,33 +49,12 @@ const doctorBaseURLEnv = "SUPEROPS_BASE_URL"
 // placeholder and doctor would never dial it. Refusing to check a healthy
 // install is the same class of defect as blessing a broken one, pointed the
 // other way.
-const doctorShippedBaseURL = "https://api.superops.ai"
-
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
 //
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
+// Empty for superops: it ships its real production host (api.superops.ai), so
+// matching it refused every healthy default install and skipped the probe.
+const doctorShippedBaseURL = ""
 
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +63,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -107,7 +89,7 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
 		host = host[:i]
 	}
-	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
+	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "example"} {
 		if host == reserved || strings.HasSuffix(host, "."+reserved) {
 			return true
 		}
@@ -115,136 +97,130 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	return false
 }
 
-// doctorReadProbe walks the Cobra tree for an endpoint-mirror command that is
-// safe and complete to call with no arguments, and returns the API path to
-// probe plus the dotted command path to name in a remedy.
-//
-// Requirements, in order: the leaf mirrors a real endpoint (pp:endpoint), the
-// endpoint is a GET (pp:method) so probing cannot mutate anything, it carries a
-// concrete path (pp:path), its verb is list/get, and it takes no positional
-// arguments. Framework commands like `feedback list` read local files and would
-// recreate the false confidence this probe exists to remove.
-func doctorReadProbe(root *cobra.Command) (apiPath string, cmdPath string) {
-	if root == nil {
-		return "", ""
-	}
-	// Two passes. A list/get leaf makes the nicest remedy line, but insisting on
-	// that verb found nothing at all on 25 connectors whose generated leaves are
-	// named after the vendor's own wording (retrieve, search, describe, show), so
-	// the second pass accepts any GET. pp:method GET plus an argument-free
-	// concrete path is the whole safety guarantee here; the verb name never was.
-	var fallbackAPI, fallbackCmd string
-	var walk func(*cobra.Command, []string)
-	walk = func(cmd *cobra.Command, path []string) {
-		if apiPath != "" {
-			return
-		}
-		for _, child := range cmd.Commands() {
-			childPath := append(append([]string{}, path...), child.Name())
-			if p := doctorProbeableLeaf(child); p != "" {
-				verb := strings.ToLower(strings.SplitN(child.Use, " ", 2)[0])
-				if verb == "list" || verb == "get" {
-					apiPath, cmdPath = p, strings.Join(childPath, " ")
-					return
-				}
-				if fallbackAPI == "" {
-					fallbackAPI, fallbackCmd = p, strings.Join(childPath, " ")
-				}
-			}
-			// Recurse into Hidden parents: printed CLIs hide raw resource
-			// groups to keep --help curated, but their leaves stay runnable.
-			walk(child, childPath)
-			if apiPath != "" {
-				return
-			}
-		}
-	}
-	walk(root, nil)
-	if apiPath == "" {
-		apiPath, cmdPath = fallbackAPI, fallbackCmd
-	}
-	return apiPath, cmdPath
-}
+// doctorGraphQLProbe is the one read doctor sends. SuperOps is a GraphQL API:
+// every call is POST /msp, and the GET paths the spec gives its typed commands
+// are placeholders the API does not serve, so probing one reported a healthy
+// install as a wrong base_url. One ticket page with only listInfo selected is
+// the smallest read every technician token can make.
+const doctorGraphQLProbe = `query($first: Int, $page: Int) { getTicketList(input: {pageSize: $first, page: $page}) { listInfo { totalCount } } }`
 
-// doctorProbeableLeaf returns the leaf's API path when it is safe to probe,
-// or "" when it is not.
-func doctorProbeableLeaf(cmd *cobra.Command) string {
-	if cmd == nil || cmd.Hidden || cmd.HasSubCommands() || !cmd.Runnable() {
-		return ""
-	}
-	if cmd.Annotations["pp:endpoint"] == "" {
-		return ""
-	}
-	// GET only. A probe that could POST is not a health check.
-	if !strings.EqualFold(cmd.Annotations["pp:method"], "GET") {
-		return ""
-	}
-	path := cmd.Annotations["pp:path"]
-	// A templated path needs an id we do not have.
-	if path == "" || !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "{}") {
-		return ""
-	}
-	// Positional path params are advertised in Use as <id> or [id].
-	if strings.ContainsAny(cmd.Use, "<[") {
-		return ""
-	}
-	if cmd.Args == nil {
-		return path
-	}
-	if cmd.Args(cmd, []string{}) != nil {
-		return ""
-	}
-	return path
-}
-
-// doctorProbeCredentials issues ONE authenticated read and writes BOTH the
-// credentials verdict and, when the probe proves the API row was optimistic,
-// a corrected api verdict. client.ProbeGet goes through c.do, which neither
-// reads nor writes the response cache, so a credential revoked server-side
-// cannot be reported healthy from a cached 200.
-//
-// It sets api as well as credentials because the two rows are one fact. The
-// api row is decided by a bare request to the host, which a vendor's marketing
-// page or login redirect answers happily; leaving it green next to a failed
-// credential probe is how an operator reads "reachable" as "working".
+// doctorProbeCredentials issues ONE authenticated GraphQL read and writes BOTH
+// the credentials verdict and, when the probe proves the API row was
+// optimistic, a corrected api verdict. client.Post goes through c.do, which
+// neither reads nor writes the response cache, so a credential revoked
+// server-side cannot be reported healthy from a cached 200. The server's error
+// text is never printed (it can echo what was sent); only its error codes are.
 func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.Command, bin string, report map[string]any) {
 	// Ask the CLIENT whether it has a credential, not the config doctor loaded.
-	// They can disagree - a connector that resolves credentials through a client
-	// profile leaves the client with nothing to send while doctor's own config
-	// still looks populated. Probing anyway produces "valid" from a request that
-	// carried no credential at all, which is the exact false-OK this file exists
-	// to remove. avanan was doing this.
 	if c == nil || c.Config == nil || c.Config.AuthHeader() == "" {
 		report["credentials"] = "ERROR not verified: the client has no credential to send, so any response would say nothing about authentication."
 		return
 	}
-	apiPath, cmdPath := doctorReadProbe(root)
-	if apiPath == "" {
-		report["credentials"] = "WARN not verified: this API exposes no argument-free GET endpoint to probe. Run any read command to confirm the credential works end-to-end."
-		// The api row was decided by a bare request to the host, which a vendor's
-		// marketing page, login redirect or 404 page answers happily. With no
-		// endpoint to probe there is nothing behind that row, so it must not read
-		// as a clean bill of health.
-		report["api"] = "WARN reachable at the transport level only - no argument-free GET endpoint exists to confirm this is the vendor's API or that the credential works."
+	if c.DryRun {
+		report["credentials"] = "not verified (--dry-run sends nothing)"
 		return
 	}
-	status, err := c.ProbeGet(ctx, apiPath)
-	switch {
-	case err == nil:
-		report["credentials"] = fmt.Sprintf("valid (verified with GET %s)", apiPath)
-	case status == 401:
-		report["credentials"] = fmt.Sprintf("ERROR rejected (HTTP 401 from %s) - the credential is invalid, expired, or for a different tenant.", apiPath)
-	case status == 403:
-		report["credentials"] = fmt.Sprintf("scope-limited (HTTP 403 from %s) - the credential is accepted but lacks permission for this endpoint.", apiPath)
-	case status == 404:
-		doctorWrongBaseURL(apiPath, report)
-	case status >= 500:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was never checked.", status, apiPath)
-	case status > 0:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `%s %s` to see the full response.", status, apiPath, bin, cmdPath)
-	default:
-		report["credentials"] = fmt.Sprintf("ERROR not verified: %s", err)
+	if cliutil.IsVerifyEnv() && !cliutil.IsVerifyLiveHTTPEnv() {
+		report["credentials"] = "not verified (PRINTING_PRESS_VERIFY mock mode sends nothing)"
+		return
 	}
+	const probePath = "/msp"
+	body, status, err := c.Post(ctx, probePath, client.GraphQLRequest{Query: doctorGraphQLProbe, Variables: map[string]any{"first": 1, "page": 1}})
+	if err == nil {
+		codes, failed, decodeErr := doctorGraphQLErrorCodes(body)
+		// Hand-fix (handfixes.json credkit-wiring): the denial is read from every code; only the codes shown are withheld.
+		denied, shown := failed && doctorGraphQLDenied(codes), doctorShownCodes(codes)
+		switch {
+		case decodeErr != nil:
+			report["credentials"] = fmt.Sprintf("WARN not verified (POST %s answered with a body that is not a GraphQL response) - check %s points at the API root.", probePath, doctorBaseURLEnv)
+		case denied:
+			report["credentials"] = fmt.Sprintf("ERROR rejected (GraphQL %s from %s) - the credential is invalid, expired, lacks ticket access, or is for a different tenant (check SUPEROPS_SUBDOMAIN).", strings.Join(shown, ","), probePath)
+		case failed:
+			report["credentials"] = fmt.Sprintf("WARN not verified (POST %s returned GraphQL errors%s). Run `%s raw query '{ getTicketList(input: {pageSize: 1}) { listInfo { totalCount } } }'` to see them.", probePath, doctorCodeSuffix(shown), bin)
+		default:
+			report["credentials"] = fmt.Sprintf("valid (verified with POST %s getTicketList)", probePath)
+		}
+		return
+	}
+	switch {
+	case status == 401:
+		report["credentials"] = fmt.Sprintf("ERROR rejected (HTTP 401 from %s) - the credential is invalid, expired, or for a different tenant.", probePath)
+	case status == 403:
+		report["credentials"] = fmt.Sprintf("scope-limited (HTTP 403 from %s) - the credential is accepted but lacks permission for this endpoint.", probePath)
+	case status == 400:
+		report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 400 from %s) - SuperOps rejects requests without a valid tenant; set SUPEROPS_SUBDOMAIN to your subdomain (Settings > MSP Information).", probePath)
+	case status == 404:
+		doctorWrongBaseURL(probePath, report)
+	case status >= 500:
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was not tried.", status, probePath)
+	case status > 0:
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s).", status, probePath)
+	default:
+		report["credentials"] = fmt.Sprintf("ERROR not verified: %s", err.Error())
+	}
+}
+
+// doctorGraphQLErrorCodes decodes a GraphQL response. failed is true when the
+// errors array is non-empty, whatever it says; codes holds only the
+// extensions.code values that are plain identifiers.
+func doctorGraphQLErrorCodes(body []byte) (codes []string, failed bool, err error) {
+	var resp struct {
+		Errors []struct {
+			Extensions struct {
+				Code any `json:"code"`
+			} `json:"extensions"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, false, err
+	}
+	for _, e := range resp.Errors {
+		if code, ok := e.Extensions.Code.(string); ok && doctorPlainCode(code) {
+			codes = append(codes, code)
+		}
+	}
+	return codes, len(resp.Errors) > 0, nil
+}
+
+func doctorPlainCode(code string) bool {
+	if code == "" || len(code) > 40 {
+		return false
+	}
+	for _, r := range code {
+		if !(r == '_' || r == '-' || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
+func doctorGraphQLDenied(codes []string) bool {
+	for _, c := range codes {
+		switch strings.ToUpper(c) {
+		case "FORBIDDEN", "UNAUTHENTICATED", "UNAUTHORIZED", "PERMISSION_DENIED":
+			return true
+		}
+	}
+	return false
+}
+
+// doctorShownCodes is the codes a report may show: a code is vendor text
+// too, and one that repeats a held credential in any form is never shown.
+func doctorShownCodes(codes []string) []string {
+	var shown []string
+	for _, c := range codes {
+		if !cliutil.HeldText(c) {
+			shown = append(shown, c)
+		}
+	}
+	return shown
+}
+
+func doctorCodeSuffix(codes []string) string {
+	if len(codes) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(codes, ",")
 }
 
 // doctorWrongBaseURL records the verdict for a probe that reached a server
@@ -254,19 +230,6 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 // credential is not at fault and must not be blamed, and the api row must stop
 // claiming the connector is reachable in any useful sense.
 func doctorWrongBaseURL(apiPath string, report map[string]any) {
-	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", apiPath)
+	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was not tried.", apiPath)
 	report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not this vendor's API root. Point %s at the API root.", apiPath, doctorBaseURLEnv)
-}
-
-// doctorUnexpectedStatus classifies a credential probe that came back with a
-// status the connector did not anticipate. It replaced a line that read
-// "ok (HTTP %d from %s, but auth was accepted)" and rendered green: a 404 there
-// meant the probe never reached an endpoint that could check the credential, so
-// calling it "ok" turned a misconfigured install into an all-green report.
-func doctorUnexpectedStatus(status int, path string, report map[string]any) {
-	if status == 404 {
-		doctorWrongBaseURL(path, report)
-		return
-	}
-	report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the endpoint did not confirm the credential.", status, path)
 }

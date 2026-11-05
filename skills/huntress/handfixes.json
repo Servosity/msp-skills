@@ -207,7 +207,7 @@
    "id": "secret-echo-decoded-funnel",
    "class": "secret-echo",
    "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts. Codex r2 success-body class (2026-10-24): every successful answer now passes one check, funnelSuccessBody -> successBodyRefused, on every path: each cached read (a refused entry is deleted and the call falls through to a checked live request), the live binary envelope as returned (its content_type header and its text, plus its decoded bytes), and the live JSON/text body; the response cache moved to resources-success-checked and the legacy resources dir an older build served unchecked is removed when a client binds its cache; a body over the funnel's 1 MiB cap fails closed (not JSON: refused; JSON: checked in the existing overlapping windows AND in windows cut only between tokens, so every key, string, number and literal is checked whole, and a token over the cap is refused).",
+   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts. Codex r2 success-body class (2026-10-24): every successful answer now passes one check, funnelSuccessBody -> successBodyRefused, on every path: each cached read (a refused entry is deleted and the call falls through to a checked live request), the live binary envelope as returned (its content_type header and its text, plus its decoded bytes), and the live JSON/text body; the response cache moved to resources-success-checked and the legacy resources dir an older build served unchecked is removed when a client binds its cache; a body over the funnel's 1 MiB cap fails closed (not JSON: refused; JSON: checked in the existing overlapping windows AND in windows cut only between tokens, so every key, string, number and literal is checked whole, and a token over the cap is refused). Issue #495 (2026-11-04): the funnel's work per byte grows with the length it reads, so a whole page of five or more ordinary incident reports spent the budget and was refused as an echo (0.1.11). Every JSON success body is now checked in windows of about 4 KiB cut only between tokens (successBodyTokensEcho with successFunnelWindow): every key, string, number and literal is still checked whole, 8-character pieces are still held, a token over the funnel cap still withholds, and a body that is not JSON is checked whole up to 1 MiB and refused over it. The raw overlapping windows are removed: they cut through tokens and spent the same budget.",
    "status": "active",
    "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
@@ -437,7 +437,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return successBodyWindowsEcho(body) || successBodyTokensEcho(body)",
+     "contains": "return successBodyTokensEcho(body)",
      "min_count": 1,
      "code_only": true
     },
@@ -455,7 +455,19 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "func successBodyWindowsEcho(body []byte) bool {",
+     "contains": "if end-winStart > successFunnelWindow && winEnd > winStart {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_issue495_test.go",
+     "contains": "func TestSuccessFunnelIssue495OrdinaryPageIsReturned(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/success_funnel_issue495_test.go",
+     "contains": "func TestSuccessFunnelIssue495EchoInLargePageIsRefused(t *testing.T) {",
      "min_count": 1,
      "code_only": true
     },
@@ -1685,6 +1697,59 @@
     {
      "file": "cli/internal/mcp/tools.go",
      "not_contains": "finds every agent, org"
+    }
+   ]
+  },
+  {
+   "id": "chatgpt-desktop-local-web-unsupported",
+   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+   "status": "active",
+   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "## ChatGPT desktop app (OpenAI)",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "## ChatGPT (Developer Mode)"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "*Remote* agents (ChatGPT"
+    },
+    {
+     "file": "README.md",
+     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Plus/Pro+"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Developer Mode"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+    },
+    {
+     "file": "page.json",
+     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "not_contains": "connects only to remote"
     }
    ]
   }

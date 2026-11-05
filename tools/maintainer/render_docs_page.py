@@ -22,6 +22,7 @@ Pure stdlib. Invoked automatically by build-catalog.py.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import sys
@@ -29,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import backup_vendor_note  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
 
@@ -307,7 +309,7 @@ def render_page(slug: str) -> Path:
     insteads = "\n".join(
         f"**Instead of** {i['instead']}\n"
         f"**just ask:** *\"{i['say']}\"*\n"
-        + (f"<sub>Your agent runs: <code>{i['cli']}</code></sub>\n" if i.get("cli") else "")
+        + (f"<sub>Your agent runs: <code>{html.escape(i['cli'], quote=False)}</code></sub>\n" if i.get("cli") else "")
         for i in page.get("instead_of_say", [])
     )
     video_section = ""
@@ -334,6 +336,10 @@ def render_page(slug: str) -> Path:
             "this same fleet-wide, local-mirror approach (fleet attention, stale "
             "backups, restores, QBR reporting) to Servosity Backup and DR.\n"
         )
+    # "Comparing backup vendors?" - one source (backup_vendor_note.json), also
+    # written into the README by backup_vendor_note.py. Sits right after the
+    # first-party callout; "" for every connector the note does not apply to.
+    vendor_note = backup_vendor_note.docs_block(slug, entry)
     pains = "\n".join(f"- {p}" for p in page.get("pain_points", []))
     faq_md = "\n".join(f"### {f['q']}\n\n{f['a']}\n" for f in faqs)
     tiers = "\n".join(
@@ -385,7 +391,7 @@ Full command reference at [github.com/{OWNER}/{REPO}/blob/main/skills/{slug}/gui
 {page.get('different_vs_wrappers', '')}
 
 {page.get('different_vs_vendor', '')}
-{first_party_note}
+{first_party_note}{vendor_note}
 ## The pain this closes
 
 {pains}
@@ -397,7 +403,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |

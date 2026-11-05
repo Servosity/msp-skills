@@ -19,7 +19,7 @@
   ],
   "pain_points": [
     "Billing reconciliation is a monthly fire drill: pull a CSV from each vendor, hand-map the fields to your PSA, and hope you caught every seat that drifted. r/msp threads return to it every cycle, and Gradient's own data puts the manual version at up to 90% more time than automating it.",
-    "The only programmatic path Synthesize ships is a PowerShell SDK that wants a script project per integration, so usage pushes end up living in brittle one-off scripts with no record of what was sent or what changed between runs.",
+    "Synthesize ships a PowerShell SDK that wants a script project per integration, so usage pushes end up living in brittle one-off scripts with no record of what was sent or what changed between runs.",
     "Fire-and-forget alerting means you never know whether an alert became a PSA ticket until someone goes looking, and a count push with no audit trail makes 'why did this invoice change?' unanswerable."
   ],
   "outcomes": [
@@ -61,7 +61,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running gradient-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way gradient-mcp runs, and shares MCP configuration with Codex: add gradient-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",

@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -26,10 +27,13 @@ API call answers this — it requires the local join over the synced mirror.`,
   superops-cli sla-watch --by tech --window 4h
   superops-cli sla-watch --by client --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "sla-watch")
 			}
 			window, err := time.ParseDuration(flagWindow)
 			if err != nil {
@@ -44,7 +48,7 @@ API call answers this — it requires the local join over the synced mirror.`,
 				return err
 			}
 			defer db.Close()
-			tickets, err := queryRecs(db, "tickets")
+			tickets, err := loadRecs(cmd, db, "tickets")
 			if err != nil {
 				return err
 			}

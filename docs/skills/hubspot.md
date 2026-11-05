@@ -12,7 +12,7 @@ faqs:
   - q: "Is the HubSpot MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUBSPOT_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `HUBSPOT_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running hubspot-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my HubSpot data safe?"
@@ -38,7 +38,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by HubSpot, Inc..
+> Not affiliated with, endorsed by, or sponsored by HubSpot, Inc.
 
 **✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05. The version it verified was not recorded.
 
@@ -58,7 +58,7 @@ MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI 
 
 **Instead of** Building a saved view per stage, exporting, and summing $ and counts by hand for the pipeline review
 **just ask:** *"What's my pipeline health right now - count, dollars, and what's at risk per stage?"*
-<sub>Your agent runs: <code>hubspot-cli pipeline-health --idle-days 14</code></sub>
+<sub>Your agent runs: <code>hubspot-cli pipeline-health default --idle-days 14</code></sub>
 
 **Instead of** Pulling per-rep deal lists one at a time to see who is overloaded before the Monday sales meeting
 **just ask:** *"How are open deals spread across my reps by stage and dollar value?"*
@@ -77,10 +77,10 @@ MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI 
 | --- | --- |
 | Which open deals have gone cold with no engagement in the last three weeks? | `hubspot-cli stale deals --days 21 --owner me` |
 | Which of my contacts haven't been touched in a month? | `hubspot-cli stale contacts --days 30 --owner me` |
-| What's my pipeline health right now - per-stage count, dollars, and what's at risk? | `hubspot-cli pipeline-health --idle-days 14` |
+| What's my pipeline health right now - per-stage count, dollars, and what's at risk? | `hubspot-cli pipeline-health default --idle-days 14` |
 | How is the open-deal load spread across my reps? | `hubspot-cli owner-load --pipeline default` |
 | Who should I call today, ranked by stale-days, deal size, and stage? | `hubspot-cli nurture queue --owner me --top 20` |
-| Which are my top deals by composite score (signal, amount, stage, recency)? | `hubspot-cli deals top --top 5 --owner me` |
+| Which are my top deals by composite score (amount, stage probability, recency)? | `hubspot-cli deals top --top 5 --owner me` |
 | What's the full activity trail for a specific deal - every call, email, meeting, note, and task? | `hubspot-cli engagements of deal:456 --since 90d` |
 | Which meetings were ever Scheduled in a given month, even after they flipped to Completed or No Show? | `hubspot-cli meetings status-report --status scheduled --month 2026-04` |
 
@@ -105,7 +105,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |
@@ -130,11 +130,11 @@ After install, authenticate once with your HubSpot credentials, then verify with
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | hubspot-cli stale deals --days 21 --owner me; hubspot-cli pipeline-health --idle-days 14; hubspot-cli owner-load --pipeline default; hubspot-cli nurture queue --owner me --top 20; hubspot-cli engagements of deal:456 --since 90d; hubspot-cli since 24h | Allow |
-| Write (routine) | hubspot-cli contacts bulk-update (digest+--confirm gate only above 100 rows; smaller batches send immediately with a bypass warning); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update (raw writes send immediately - no --confirm flag) | Pass --dry-run first to preview; raw writes are NOT gated by default, so require agent-side approval before sending |
-| Destructive / config | hubspot-cli hubspot-deals-crm delete-v3-objects-0-3-deal-id-archive; hubspot-cli hubspot-contacts-crm delete-v3-objects-contacts-contact-id; hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-gdpr-delete | Human-in-the-loop only |
+| Read | hubspot-cli stale deals --days 21 --owner me; hubspot-cli pipeline-health default --idle-days 14; hubspot-cli owner-load --pipeline default; hubspot-cli nurture queue --owner me --top 20; hubspot-cli engagements of deal:456 --since 90d; hubspot-cli since 24h | Allow |
+| Write (routine) | hubspot-cli contacts bulk-update (--yes up to 100 rows, digest and --confirm above that); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update (each needs --yes or --dry-run) | Preview with --dry-run, then a reviewed write with --yes |
+| Destructive / config | hubspot-cli hubspot-deals-crm delete-v3-objects-0-3-deal-id-archive; hubspot-cli hubspot-contacts-crm delete-v3-objects-contacts-contact-id; hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-gdpr-delete | Human-in-the-loop only, explicit --yes |
 
-The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/hubspot/governance.md).
+The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN from the environment or a token saved with hubspot-cli auth set-token in the CLI's own credentials file - never logged or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Every command that changes the portal refuses to run, and sends nothing, unless it gets --yes (send) or --dry-run (preview); contacts bulk-update needs --yes up to 100 rows and the digest confirm above that. An agent that can run the CLI can pass --yes, so keep the approval step in its policy. The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/hubspot/governance.md).
 
 ## Frequently asked questions
 
@@ -148,7 +148,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running hubspot-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

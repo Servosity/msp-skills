@@ -1,0 +1,139 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T20:42:56.233561Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "backup-radar",
+  "display_name": "Backup Radar",
+  "cli_name": "backup-radar-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_url": "https://developer.scalepad.com/openapi/backup-radar-api.json",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:48999220cde2c07a92fa998f5691c7c809f56fbab9c6a350881126a635773e3f",
+  "run_id": "20261028-141619-32a659f7",
+  "category": "monitoring",
+  "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
+  "mcp_binary": "backup-radar-pp-mcp",
+  "mcp_tool_count": 12,
+  "mcp_ready": "full",
+  "api_version": "3.0",
+  "auth_type": "api_key",
+  "auth_preference": "apiKey",
+  "auth_env_vars": [
+    "BACKUP_RADAR_API_KEY",
+    "BACKUP_RADAR_V2_API_KEY"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "BACKUP_RADAR_API_KEY",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "ScalePad API key for the v3 commands (health, devices, backups ingest, backups retire, push). Create one in ScalePad: API tab, New API key. https://developer.scalepad.com/docs/getting-started"
+    },
+    {
+      "name": "BACKUP_RADAR_V2_API_KEY",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Backup Radar API key for the v2 commands (backups list, get, results, filters, inactive, retired, overview). Set it if you use the read-only Backup Radar API v2."
+    }
+  ],
+  "auth_key_url": "https://developer.scalepad.com/docs/getting-started",
+  "novel_features": [
+    {
+      "name": "Morning backup check",
+      "command": "check",
+      "description": "One ranked list of today's failing, silent and at-risk backups, each marked new or ongoing with days in status and open ticket count; uses whichever keys you synced."
+    },
+    {
+      "name": "Who is nobody watching",
+      "command": "unwatched",
+      "description": "Every backup Backup Radar receives but nobody acts on: inactive, unmapped to ScalePad, failing with no ticket, no PSA company, or warnings counted as success by policy. Unmapped needs the v3 key; the other reasons need the v2 key."
+    },
+    {
+      "name": "Cross-vendor coverage diff",
+      "command": "coverage diff",
+      "description": "Compare the devices a backup vendor protects against what Backup Radar monitors and list the gaps in both directions."
+    },
+    {
+      "name": "Retire candidates",
+      "command": "stale",
+      "description": "Backups with no result in N days, grouped by client, with retire request bodies ready to preview; works from either key's synced data."
+    },
+    {
+      "name": "Client compliance scorecard",
+      "command": "scorecard",
+      "description": "In-compliance rate, weekly trend and worst devices for one client, or every client ranked, from up to a year of client health (v3 key); worst devices use synced device history (each sync fetches 90 days; stored days accumulate up to a year)."
+    },
+    {
+      "name": "Device timeline",
+      "command": "timeline",
+      "description": "One device's day-by-day backup story merged from both API generations, with tickets, tags and notes; --live adds each day's v2 results (v2 key)."
+    },
+    {
+      "name": "Validated bulk ingest",
+      "command": "push",
+      "description": "Push flat CSV or JSONL backup results into Backup Radar (v3 key, live write) with local validation and automatic batching under the 10,000-result limit."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Morning backup check",
+      "command": "check",
+      "description": "One ranked list of today's failing, silent and at-risk backups, each marked new or ongoing with days in status and open ticket count; uses whichever keys you synced."
+    },
+    {
+      "name": "Who is nobody watching",
+      "command": "unwatched",
+      "description": "Every backup Backup Radar receives but nobody acts on: inactive, unmapped to ScalePad, failing with no ticket, no PSA company, or warnings counted as success by policy. Unmapped needs the v3 key; the other reasons need the v2 key."
+    },
+    {
+      "name": "Cross-vendor coverage diff",
+      "command": "coverage diff",
+      "description": "Compare the devices a backup vendor protects against what Backup Radar monitors and list the gaps in both directions."
+    },
+    {
+      "name": "Retire candidates",
+      "command": "stale",
+      "description": "Backups with no result in N days, grouped by client, with retire request bodies ready to preview; works from either key's synced data."
+    },
+    {
+      "name": "Client compliance scorecard",
+      "command": "scorecard",
+      "description": "In-compliance rate, weekly trend and worst devices for one client, or every client ranked, from up to a year of client health (v3 key); worst devices use synced device history (each sync fetches 90 days; stored days accumulate up to a year)."
+    },
+    {
+      "name": "Device timeline",
+      "command": "timeline",
+      "description": "One device's day-by-day backup story merged from both API generations, with tickets, tags and notes; --live adds each day's v2 results (v2 key)."
+    },
+    {
+      "name": "Validated bulk ingest",
+      "command": "push",
+      "description": "Push flat CSV or JSONL backup results into Backup Radar (v3 key, live write) with local validation and automatic batching under the 10,000-result limit."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 43,
+    "total": 43,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

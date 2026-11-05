@@ -1,0 +1,996 @@
+{
+ "slug": "warranty",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "warranty-novels",
+   "class": "feature",
+   "status": "active",
+   "summary": "Hand-written novel commands (lookup, import, report, lifecycle, unresolved, recheck, apple-pull, events list) and the internal/warranty package (vendor detection, Dell/Lenovo/Apple response parsing, coverage summary, import parsing, events); events registered by a literal AddCommand so dogfood's walker sees it.",
+   "why": "These files have no generated counterpart; a fresh-base reprint that does not carry them drops every warranty feature while the generated vendor commands still build. The literal AddCommand in root.go is a generated-file edit.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelEventsCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lookup.go",
+     "contains": "func newNovelLookupCmd(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/recheck.go",
+     "contains": "func recheckSelect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apple_pull.go",
+     "contains": "save := mirrorWriteAllowed()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/warranty/vendor.go",
+     "contains": "func DetectVendor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/warranty/coverage.go",
+     "contains": "func Summarize(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/warranty/events.go",
+     "contains": "func Events(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lookup.go",
+     "contains": "\"mcp:read-only\": \"true\", \"mcp:read-only-unless-flags\": \"confirm\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/recheck.go",
+     "contains": "\"mcp:read-only\": \"true\", \"mcp:read-only-unless-flags\": \"confirm\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apple_pull.go",
+     "contains": "\"mcp:read-only\": \"true\", \"mcp:read-only-unless-flags\": \"confirm\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "warranty-store",
+   "class": "data-integrity",
+   "status": "active",
+   "summary": "Separate unscoped mirror data-warranty.db (warranty_devices, warranty_coverage, vendor_events in the zammad shape) registered through store/extras.go; a definitive negative clears coverage; a vendor change clears coverage; change-event ids include the prior check stamp. The generated store's scope includes the Apple organization and the Lenovo key, which live only in the environment.",
+   "why": "The generated store is credential-scoped, so the mirror would move after a token mint; extras.go is the generated hook the press re-renders.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, warrantyMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/warranty.go",
+     "contains": "func definitiveNegative(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/warranty_common.go",
+     "contains": "\"data-warranty.db\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/warranty.go",
+     "contains": "const ClearedFingerprint = \"cleared\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/warranty.go",
+     "contains": "before.Fingerprint, before.LastChecked, ClearedFingerprint",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/warranty_classes_test.go",
+     "contains": "func TestCoverageRecoveryAndVendorChangeRaiseEvents(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/warranty_classes_test.go",
+     "contains": "func TestMCPPreviewWritesNoStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "parts = append(parts, otherVendorScope()...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "identity = append(identity, otherVendorScope()...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/warranty_scope_test.go",
+     "contains": "func TestStoreScopeFollowsEveryVendorIdentity",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "warranty-host-pinning",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "guardTransport: origin allowlist per vendor, cross-origin redirects refused, each vendor's credential header dropped on the way to the others, Apple's bearer added only for Apple's API; guard and kit refusals are terminal (not retried); verify mode pins to the base URL. It wraps credkit.Transport, so the kit judges the request as it leaves.",
+   "why": "The generated client sends tier credentials wherever the request goes; the composite connector talks to three vendors, so a Dell secret must never reach Lenovo or Apple. client.go edits are clobbered by a reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return warrantyGuardRefusal(err) ||",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.BaseURL",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "func InstallGuard(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "base = OutboundGuard(base)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "func pinCredentialHeaders(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "func KitClient(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "errors.Is(err, credkit.ErrWithheld)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "warranty-doctor",
+   "class": "feature",
+   "status": "active",
+   "summary": "doctor reports a vendors block (each vendor configured or exactly what it still needs) without failing the configured ones; agent-context lists the per-vendor env vars. The credentials row comes from one authenticated Dell read (tag 0000000): valid, rejected, scope-limited or wrong base URL, and a refused token mint reads as rejected, not as API unreachable.",
+   "why": "doctor.go and agent_context.go are generated for a single credential; the work order requires doctor to name exactly which vendors are missing. check_doctor_truth.py (issue #282): the generated doctor printed no credentials row for a client-credentials install and called any answer at / reachable, so a working, an expired and a wrong-base install looked the same.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "applyWarrantyDoctor(cmd.Context(), report, cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "envVars = warrantyAgentContextEnvVars()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeDell(cmd.Context(), c, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorMintRefused(reachErr)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/warranty_doctor.go",
+     "contains": "func doctorProbeDell(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/warranty_doctor_test.go",
+     "contains": "func TestDoctorVerdictTracksDell(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "warranty-apple-auth",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "Apple Business bearer minted by hand code from an ES256 client assertion (ported from apple-business), no redirects, minted token bound to Apple's API alone. HoldAppleCredentials holds the key a value names (never its path) and the unique part of the client ID, and TokenForm sends grant_type first so the kit does not hold the rest of the form as a field value. manifest.json carries the optional Apple and Lenovo user_config fields.",
+   "why": "The apple tier is auth none in the spec (the press cannot express the client-assertion grant); manifest.json is regenerated by polish/promote and restored by reapply/manifest_vendors.py. A key path held as a credential would withhold every path sharing its directories, the mirror's included; BUSINESSAPI. held whole would withhold the word Business, which Dell and Apple coverage names carry; a form with a credential field first would withhold the words credentials and business after every mint.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "${user_config.warranty_apple_client_id}",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "${user_config.warranty_lenovo_client_key}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/apple_assertion.go",
+     "contains": "func appleKeyHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "func HoldAppleCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "func TokenForm(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/warranty_guard.go",
+     "contains": "strings.NewReader(TokenForm(form))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "strings.NewReader(TokenForm(params))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "client.HoldAppleCredentials()",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tier-mutex",
+   "class": "build",
+   "status": "active",
+   "summary": "Tier clients share one platform limiter mutex through a pointer (platformLimiterMu *sync.Mutex + platformMu()).",
+   "why": "WithTier copies the client; a value mutex fails go vet copylocks, which fails generate --validate.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "platformLimiterMu *sync.Mutex",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.platformMu().Lock()",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "remint-after-unlock",
+   "class": "correctness",
+   "status": "active",
+   "summary": "A 401 re-mint happens after the token-state lock is released (reminted flag), then the auth header is re-derived.",
+   "why": "Re-minting while holding the lock deadlocked; mint_lock_scan.py flagged the generated shape.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "reminted := false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if reminted {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel. internal/credwire/declarations.go holds the one Declarations literal, binding each vendor's credentials to that vendor's origins; each main starts with credkit.Start and ends with credkit.Exit; every client, feedback, webhook and probe request goes through credkit.Transport; every file write except the connector's own 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes; the mirror's held-value refusal and the journal hardening are the kit's now.",
+   "why": "The hand-wired funnel (cliutil/kaseya_*.go, store/kaseya_withhold_driver.go, the mcp and cli secret_funnel files) duplicated what the kit now owns for every connector. One contract, one matcher and one set of sinks replace them, and a matcher fix reaches this connector by vendoring.",
+   "spec_encode_followup": "Press-side: the generator should emit the credkit wiring (Start/Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools/MCPIn/MCPOut/MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"WARRANTY_MCP_HTTP_TOKEN\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", dellAPI}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:WARRANTY_LENOVO_CLIENT_KEY\", Allowed: []string{lenovoAPI}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "resp, err := KitClient(httpClient).Do(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitArgvCredentialNeverEchoed(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitStartupHoldsEveryConfigForm(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitMintedTokenHeldWhenSavingFails(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitForeignCredentialNeverReachesAnotherVendor(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitOriginMatrix(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitVendorEchoesNeverReachASink(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestKitOrdinaryTextSurvivesTheCredentials(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{0})",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter that credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a read-only handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting rather than sqlite.Limit on a held connection.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, \"file:\"+filepath.ToSlash(dbPath)+\"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "SQLiteDriver,"
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "sqlite.Driver"
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestBadLengthLimitRefusesTheOpen(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/sqlsink_leak_test.go",
+     "contains": "func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answered outside it. A token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "r.Header = http.Header{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "r.Body = http.NoBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "if r.Body == nil || r.Body == http.NoBody || mcpHTTPExpectsContinue(r) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "not_contains": ".Hijack()"
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit's startup discovery (credentialFiles in internal/credwire/declarations.go) returns only the config files of the last --home, or the discovered default; the kit's own --config rule outranks them. Every other candidate any --config or --home could mean, even one that is another flag's value, is held and not returned, as are the run profile stores, so a base_url in a file the program does not read never becomes an allowed origin.",
+   "why": "Holding a file the program does not read is safe, and a scanner that picks one value can read a flag value as a flag; but the kit takes the base URL from the first file it is given, so a file named only for holding widened the origins and let the Dell secret reach another host.",
+   "spec_encode_followup": "Press-side: generate the declarations' Files with every candidate.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "homes := credkit.FlagValues(args, \"--home\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "range credkit.FlagValues(args, \"--config\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldConfigFilePath(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileStoreFile(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestKitStartupConfigDiscoveryHonoursFlagValues",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestUnreadConfigGivesNoOrigin",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestProfileStoreCredentialsAreHeld",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "warranty-mcp-local-writes",
+   "class": "mcp-write-confirm",
+   "status": "active",
+   "summary": "A call over MCP changes this machine's local data only with the boolean confirm: true. cliutil.MCPChildUnconfirmed is the one fact: the MCP server's own process (MarkMCPServer; its typed tools carry no confirm) or a CLI child without the confirmed marker. Under it a command not annotated read-only is refused, an existing store opens read-only (no migration, prune or event), no store is created, no minted token is saved, the mirror is not written, and neither the learnings audit nor the teach log is appended. The server strips an inherited marker in any case and passes confirm as the marker's value; the walker advertises it on writers. WARRANTY_NO_LOCAL_DATA=1 also stops journaling, learning and store creation. The response cache is off for such a call (nothing written, swept or evicted), and data.db is neither claimed nor adopted.",
+   "why": "Host permission hints do not enforce anything. Read tools were creating the journal and SQLite store on a fresh home, pruning and auditing on an existing one, and typed tools in the server process were saving minted tokens, each through a separate gate that the next path missed.",
+   "spec_encode_followup": "Press-side: generate the confirm gate for every mirrored writer.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cliutil.MCPChildEnvVar + \"=\" + cliutil.MCPChildConfirmed",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "mcplib.WithBoolean(\"confirm\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.MCPChildUnconfirmed() && cmd.Annotations[\"mcp:read-only\"] != \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return nil, ErrNoStoreOverMCP",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return nil, ErrNoLocalData",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if cliutil.MCPChildUnconfirmed() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "localDataDisabled()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "os.Getenv(\"WARRANTY_NO_LOCAL_DATA\") == \"1\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcp_local_writes_test.go",
+     "contains": "func TestMCPWriterAsksForConfirm",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcp_local_writes_test.go",
+     "contains": "func TestNoLocalDataWritesNoFiles",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return openReadOnly(ctx, dbPath, 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/warranty-mcp/main.go",
+     "contains": "cliutil.MarkMCPServer()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "if cliutil.MCPChildUnconfirmed() {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "strings.EqualFold(key, cliutil.MCPChildEnvVar)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcp_local_writes_test.go",
+     "contains": "func TestMCPNoToolChangesAnythingWithoutConfirm",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.MCPChildUnconfirmed() {\n\t\tcacheDir = \"\"\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if cliutil.MCPChildUnconfirmed() {\n\t\treturn true\n\t}\n\tdefaultDBScopeState.RLock()",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apple-next-cursor",
+   "class": "correctness",
+   "status": "active",
+   "summary": "Apple's orgDevices list pages with meta.paging.nextCursor: the MCP apple_list page config and the CLI's apple read config both read that path.",
+   "why": "The press set the next-cursor path to a top-level cursor field Apple does not send, so the MCP tool and --all stopped after the first page while devices remained (Apple Get Organization Devices, PagingInformation).",
+   "spec_encode_followup": "Spec: declare the next-cursor response path for the apple tier so the press generates it.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "mcpPageConfig{CursorParam: \"cursor\", NextCursorPath: \"meta.paging.nextCursor\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "limitParam: \"limit\", nextCursorPath: \"meta.paging.nextCursor\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_leak_test.go",
+     "contains": "func TestAppleListOffersTheNextPage",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

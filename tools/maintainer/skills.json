@@ -130,6 +130,29 @@
         "issue_url": null
       }
     },
+    "apple-business": {
+      "system": "Apple Business (Apple Business Manager): devices, MDM server assignments, AppleCare coverage, Activation Lock, users and audit events across every client org",
+      "status": "beta",
+      "cli_binary": "apple-business-cli",
+      "mcp_binary": "apple-business-mcp",
+      "vendor": "Apple",
+      "vendor_trademark_owner": "Apple Inc",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Apple Business",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "has_video": true,
+      "cli_hash": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "atera": {
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",
@@ -209,15 +232,15 @@
       "cli_binary": "avanan-cli",
       "mcp_binary": "avanan-mcp",
       "vendor": "Avanan",
-      "vendor_trademark_owner": "Check Point Software Technologies Ltd.",
+      "vendor_trademark_owner": "Check Point Software Technologies Ltd",
       "first_party": false,
       "category": "Security",
       "display_name": "Avanan",
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
-      "cli_hash": "sha256:d541af75e15f3ddb35b5cd018c67d150bffcf3f08b04dacf2b2f42b0f890855f",
+      "cli_hash": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:8eefe15e797f4a0896f3d6a920ce150247d67e5e7f97337e7093f4247e765aed",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
@@ -294,10 +317,10 @@
       "display_name": "Backup Radar",
       "tagline": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.",
       "has_video": true,
-      "cli_hash": "sha256:25933406e13e90b71c1c2fe886ffb2d2f212c32d9f72871924d7679cad684be0",
+      "cli_hash": "sha256:f1496f23732dcc50b4f928e1c415bcadb560ccede539018f4b1331c65c5b1e32",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -346,6 +369,28 @@
       "template_version": 3,
       "version": "0.1.4",
       "cli_hash_at_release": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "blackpoint": {
+      "system": "Blackpoint Cyber CompassOne MDR: tenants, detections, assets, vulnerabilities, posture and Cloud Response, plus a cross-tenant fleet view",
+      "status": "beta",
+      "cli_binary": "blackpoint-cli",
+      "mcp_binary": "blackpoint-mcp",
+      "vendor": "Blackpoint Cyber",
+      "vendor_trademark_owner": "Blackpoint Cyber",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Blackpoint Cyber",
+      "has_video": true,
+      "cli_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -459,6 +504,28 @@
         "evidence": null
       },
       "install_auth_hint": "Then set your Meraki API key: `export MERAKI_DASHBOARD_API_KEY=<your-api-key>` (Dashboard > My profile > API access; it reaches every org the generating admin can see), set `CISCO_MERAKI_BASE_URL` only for a regional dashboard, and check the Credentials line of `cisco-meraki-cli doctor`"
+    },
+    "cisco-umbrella": {
+      "system": "Cisco Umbrella DNS-layer security: destination lists, policies, deployments, reports, Investigate and MSP child orgs through the Umbrella v2 API",
+      "status": "beta",
+      "cli_binary": "cisco-umbrella-cli",
+      "mcp_binary": "cisco-umbrella-mcp",
+      "vendor": "Cisco Umbrella",
+      "vendor_trademark_owner": "Cisco Systems, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Cisco Umbrella",
+      "has_video": true,
+      "cli_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
@@ -761,6 +828,29 @@
         "issue_url": null
       }
     },
+    "dnsfilter": {
+      "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
+      "status": "beta",
+      "cli_binary": "dnsfilter-cli",
+      "mcp_binary": "dnsfilter-mcp",
+      "vendor": "DNSFilter",
+      "vendor_trademark_owner": "DNSFilter, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "DNSFilter",
+      "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client.",
+      "has_video": true,
+      "cli_hash": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:54eff7a8ed953276ab782654c09005517cde19d4e261725e9982d365b14fbfdb",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "domotz": {
       "system": "Domotz network monitoring and device discovery platform",
       "status": "beta",
@@ -784,6 +874,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "exchange-online": {
+      "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
+      "status": "beta",
+      "cli_binary": "exchange-online-cli",
+      "mcp_binary": "exchange-online-mcp",
+      "vendor": "Microsoft Exchange Online",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Exchange Online",
+      "tagline": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "has_video": true,
+      "cli_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "fortinet": {
@@ -820,10 +933,10 @@
       "category": "Security",
       "display_name": "Google Workspace",
       "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
-      "cli_hash": "sha256:c85b9491aa2cb85b36b07ab723d02080643306076ad7ddfd7d6c829bd74e48e9",
+      "cli_hash": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:440afe492ffac9cf73d840e7cd50dd1021e3d248ba9855a1c883e192dec903fc",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -914,15 +1027,15 @@
       "cli_binary": "hubspot-cli",
       "mcp_binary": "hubspot-mcp",
       "vendor": "HubSpot",
-      "vendor_trademark_owner": "HubSpot, Inc.",
+      "vendor_trademark_owner": "HubSpot, Inc",
       "first_party": false,
       "category": "CRM",
       "display_name": "HubSpot",
       "tagline": "Pipeline health, stale deals, and owner workload for every client by asking.",
-      "cli_hash": "sha256:bb561635e397aaa01e70ea449b86df286093cad9368b4ff0a91cfbecf196ba2f",
+      "cli_hash": "sha256:62294c5bb6c625bf6ca36a72b1c627cdcf69f7a903b05a14d27c3e6c069f00f9",
       "template_version": 3,
-      "version": "0.2.4",
-      "cli_hash_at_release": "sha256:0ddc55537e930f91e0cf35a4e1d1ec9b562c3d1bd5192dbce01fb87d9219d116",
+      "version": "0.2.5",
+      "cli_hash_at_release": "sha256:574361f40252fcb246a7dd7518772d798540af0244ef715d6529dcfae63aad98",
       "has_video": true,
       "featured": 3,
       "install_auth_hint": "Then authenticate per the README",
@@ -979,8 +1092,8 @@
       "tagline": "Triage Huntress incidents and coverage gaps across every client org from one queue.",
       "cli_hash": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:98e5157ba743c15016595b3203718d8f98053f2ff71c6f74b71b4551788284dd",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:63bb5026bcecfbabfacbd404a7f235efaa28e88251779dfff9454d13d70bba65",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1094,6 +1207,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "kaseya-vsa": {
+      "system": "Kaseya VSA 10 RMM - devices, patches, software inventory, scripts, tasks, and alerts",
+      "status": "beta",
+      "cli_binary": "kaseya-vsa-cli",
+      "mcp_binary": "kaseya-vsa-mcp",
+      "vendor": "Kaseya VSA",
+      "vendor_trademark_owner": "Kaseya US LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "Kaseya VSA 10",
+      "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call.",
+      "has_video": true,
+      "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "knowbe4": {
@@ -1218,6 +1354,28 @@
         "issue_url": null
       }
     },
+    "mimecast": {
+      "system": "Mimecast email security (API 2.0)",
+      "status": "beta",
+      "cli_binary": "mimecast-cli",
+      "mcp_binary": "mimecast-mcp",
+      "vendor": "Mimecast",
+      "vendor_trademark_owner": "Mimecast Services Limited",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Mimecast",
+      "has_video": true,
+      "cli_hash": "sha256:74bdfbb7f7212d294450450e25afbaaf743d56010dd5f81bf7f658ad7c8023bd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
@@ -1251,10 +1409,10 @@
       "category": "Analytics",
       "display_name": "MSPbots",
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
-      "cli_hash": "sha256:4116cbaee8f3f31b423b010254c825f94523f6b1fc158db7fe0d181b3f6b1142",
+      "cli_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "template_version": 3,
-      "version": "0.1.6",
-      "cli_hash_at_release": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557",
+      "version": "0.1.7",
+      "cli_hash_at_release": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1315,6 +1473,29 @@
         "issue_url": null
       }
     },
+    "netsapiens": {
+      "system": "White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain",
+      "status": "beta",
+      "cli_binary": "netsapiens-cli",
+      "mcp_binary": "netsapiens-mcp",
+      "vendor": "NetSapiens",
+      "vendor_trademark_owner": "Crexendo, Inc",
+      "first_party": false,
+      "category": "Telephony",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "has_video": true,
+      "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "ninjaone": {
       "system": "NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift",
       "status": "live-verified",
@@ -1328,8 +1509,8 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "cli_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694",
       "template_version": 3,
-      "version": "0.1.21",
-      "cli_hash_at_release": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694",
+      "version": "0.1.22",
+      "cli_hash_at_release": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1491,6 +1672,29 @@
         "evidence": null
       }
     },
+    "prtg": {
+      "system": "PRTG Network Monitor (API v2): sensors, devices, groups, probes, alarms, channels and fleet views across every client's PRTG core",
+      "status": "beta",
+      "cli_binary": "prtg-cli",
+      "mcp_binary": "prtg-mcp",
+      "vendor": "PRTG",
+      "vendor_trademark_owner": "Paessler GmbH",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "PRTG Network Monitor",
+      "tagline": "See every client's PRTG alarms, down sensors and handoffs across all your cores in one command, with safe bulk actions.",
+      "has_video": true,
+      "cli_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "quickbooks": {
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "live-verified",
@@ -1619,10 +1823,10 @@
       "category": "Security",
       "display_name": "RocketCyber",
       "tagline": "Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.",
-      "cli_hash": "sha256:ebf698002eb3445472d8aa100c365d0663000356236aaec79019e01926e34b52",
+      "cli_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:093871ed612c5a92c01dc4998bd734f1285013ce44fcbad8cac1dc9e6b767068",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1878,15 +2082,15 @@
       "cli_binary": "superops-cli",
       "mcp_binary": "superops-mcp",
       "vendor": "SuperOps",
-      "vendor_trademark_owner": "SuperOps Inc.",
+      "vendor_trademark_owner": "SuperOps Inc",
       "first_party": false,
       "category": "PSA",
       "display_name": "SuperOps",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",
-      "cli_hash": "sha256:3493fe417b716709f9e12792a0f61dcaa90e0ee61a11fc606509d27cbb00a3fe",
+      "cli_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e",
       "template_version": 3,
-      "version": "0.1.13",
-      "cli_hash_at_release": "sha256:7d1c02548ab77e9fcf56466d446db77ff32c4abbbc8f95c9b920799b32fbfeb7",
+      "version": "0.1.14",
+      "cli_hash_at_release": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1923,6 +2127,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "synology": {
+      "system": "Synology DSM NAS units and Active Backup for Business (ABB): backup tasks, job results, storage pools, volumes and disk SMART health",
+      "status": "beta",
+      "cli_binary": "synology-cli",
+      "mcp_binary": "synology-mcp",
+      "vendor": "Synology",
+      "vendor_trademark_owner": "Synology Inc",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Synology",
+      "tagline": "Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.",
+      "has_video": true,
+      "cli_hash": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "tactical-rmm": {
@@ -2072,6 +2299,29 @@
         "issue_url": null
       }
     },
+    "warranty": {
+      "system": "Dell, Lenovo and Apple device warranty lookups",
+      "status": "beta",
+      "cli_binary": "warranty-cli",
+      "mcp_binary": "warranty-mcp",
+      "vendor": "Dell, Lenovo and Apple",
+      "vendor_trademark_owner": "Dell Inc., Lenovo and Apple Inc",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "has_video": true,
+      "cli_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "watchguard": {
       "system": "WatchGuard Cloud: Firebox, Endpoint Security (EPDR), ThreatSync, AuthPoint and NDR across every Service Provider managed account",
       "status": "beta",
@@ -2158,10 +2408,10 @@
       "category": "PSA",
       "display_name": "Zammad",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
-      "cli_hash": "sha256:76d64e45ecddc98108a0d3c390effdb98abbfdd552177d536fa4078edcb80aa2",
+      "cli_hash": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:fc7ad403babfda3b89fd0801687c46cef619869b0bbec3f6687854b8ac879d21",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",

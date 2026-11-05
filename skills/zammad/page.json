@@ -69,6 +69,10 @@
     {
       "question": "See the whole Knowledge Base as a tree",
       "command": "zammad-cli kb browse"
+    },
+    {
+      "question": "What changed in Zammad since I last looked, without polling?",
+      "command": "zammad-cli events list --since 0 --json"
     }
   ],
   "different_vs_wrappers": "Most Zammad integrations proxy each question straight into a live API call, so 'who is overloaded' or 'which customers are at risk' is impossible - the API has no endpoint that aggregates across every ticket. This syncs your tickets, articles, organizations, and users into a local mirror, then answers those cross-ticket questions with local joins that are instant, offline, and cost nothing per query.",
@@ -76,7 +80,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running zammad-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way zammad-mcp runs, and shares MCP configuration with Codex: add zammad-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -97,13 +101,17 @@
     {
       "q": "Are the escalation, churn, and feedback signals AI sentiment analysis?",
       "a": "No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own."
+    },
+    {
+      "q": "Can my agent hear about new Zammad tickets without polling?",
+      "a": "Yes. `zammad-cli webhooks register` creates signed Zammad webhooks and triggers, and `zammad-cli webhooks listen` receives them on this machine (127.0.0.1 by default; any other address needs TLS). It verifies every request's signature, drops replays, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down. Your agent reads the events with `events list` or the read-only MCP tool `events_list`. Zammad has to reach the listener, so this fits a self-hosted Zammad on the same server or your LAN."
     }
   ],
   "governance_summary": "Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync",
+      "examples": "agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync, webhooks status, webhooks listen, events list",
       "policy": "Allow"
     },
     {
@@ -113,7 +121,7 @@
     },
     {
       "tier": "Destructive / config",
-      "examples": "tickets delete, kb answer-delete",
+      "examples": "tickets delete, kb answer-delete, webhooks register, webhooks unregister",
       "policy": "Human-in-the-loop only"
     }
   ]

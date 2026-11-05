@@ -1,4 +1,4 @@
-# Avanan + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# Avanan + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Avanan
 > API. Not affiliated with, endorsed by, or sponsored by Check Point.
@@ -8,43 +8,37 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/avanan/">
-    <img src="../../docs/assets/social/avanan/wide-1200x630.png" alt="Avanan skill - preview card" width="600">
+    <img src="../../docs/assets/social/avanan/wide-1200x630.png" alt="Avanan - MCP server and Claude Code Skill" width="600">
   </a>
 </p>
+<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/avanan/">Full skill page</a> - install, outcomes, safety model.</sub></p>
 <!-- media:end -->
 
-Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
-
-> **Security note (until this connector is reprinted).** Do not put this
-> connector behind the `supergateway` bridge or any other stdio-to-HTTP bridge,
-> not even on localhost. The bridge adds no password, so anyone who can reach
-> its port can use the MCP tools with your credentials. Use the default stdio
-> transport. If you set up a bridge or a tunnel for a remote agent, shut it
-> down. A fix is on the way.
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Avanan skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `avanan-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs an HTTPS server, and this stdio-only build would need a stdio-to-HTTP bridge that adds no password. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `avanan-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `avanan-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server. This connector speaks stdio only, so it would need a stdio-to-HTTP bridge that adds no password; that path is paused until the connector is reprinted. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `avanan-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs an HTTPS server, and this stdio-only build would need a stdio-to-HTTP bridge that adds no password. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused remote path as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 ## Install in 60 seconds
 
@@ -103,9 +97,9 @@ iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ava
 
 Claude Code plugin users: `/plugin update avanan@msp-skills`.
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -143,7 +137,7 @@ avanan-cli auth login --region us --save
 avanan-cli doctor
 ```
 
-`doctor` confirms the credentials work, and prints which of the two auth schemes and which regional host it resolved, before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
+`doctor` confirms the credentials work and prints the regional host it resolved, before you run anything that touches data; `auth login` names the auth scheme it used. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 Two properties of Avanan credentials are worth knowing up front:
 
@@ -164,7 +158,7 @@ Most of the cross-tenant answers come from a local mirror. Populate it once:
 
 ```bash
 avanan-cli mirror --since 7d
-avanan-cli sync --resources msp
+avanan-cli sync --resources msp-tenants
 ```
 
 `mirror` and `sync` are read-only against the Avanan API and write to a SQLite file under your own user account. Re-run them whenever you want fresher data. The offline commands (`triage`, `campaign`, `timeline`, `exceptions find`, `exceptions audit`, `msp fleet`) read the mirror only and will report empty results against an unpopulated store rather than silently falling back to a live fan-out.
@@ -179,7 +173,7 @@ avanan-cli sync --resources msp
 | Is this domain, sender, URL, or hash already excepted anywhere? | `avanan-cli exceptions find example.com` |
 | Which of our exceptions contradict each other or have not matched traffic in the mirrored window? | `avanan-cli exceptions audit` |
 | Which tenant is over its seat count or having an unusual week? | `avanan-cli msp fleet` |
-| Quarantine this batch and tell me the real per-message outcome | `avanan-cli remediate quarantine --entity <id> --scope <farm:tenant> --wait` |
+| Quarantine this batch and tell me the real per-message outcome | `avanan-cli remediate quarantine --entity <id> --scope <farm:tenant> --wait --yes` |
 | Is my auth and connectivity actually working? | `avanan-cli doctor` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
@@ -199,7 +193,7 @@ And it implements the request signature correctly. The legacy handshake signs `r
 - The event endpoint hands back detections but never buckets them, so a shift starts by re-scrolling the query you already ran an hour ago. `avanan-cli triage` returns a digest by threat type, severity, and state with the sender domains driving the volume.
 - Nothing groups detections, so telling one phishing run from forty unrelated problems means sorting an export by sender and subject. `avanan-cli campaign` clusters them and shows recipient spread and remediation state.
 - A disputed quarantine spans five lookups across three endpoints, and the task record ages out. `avanan-cli timeline` reconstructs one message's history in order from what the mirror holds and what this CLI submitted, after the fact.
-- Exceptions live in seven engines and nine tables with different path shapes, ID schemes, and delete semantics, and nothing answers "is this already excepted." `avanan-cli exceptions find` asks all of them at once; `avanan-cli exceptions audit` finds the contradictions, duplicates, and entries that have not matched traffic in the mirrored window.
+- Exceptions live in seven engines and ten tables with different path shapes, ID schemes, and delete semantics, and nothing answers "is this already excepted." `avanan-cli exceptions find` asks all of them at once; `avanan-cli exceptions audit` finds the contradictions, duplicates, and entries that have not matched traffic in the mirrored window.
 - Actions are asynchronous and single-scope: the endpoint returns a task ID and rejects a multi-tenant credential with a bare HTTP 400. `avanan-cli remediate` waits for the task, reports the real per-item outcome, and turns that 400 into an error naming the scopes you can actually target.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -208,7 +202,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS. The Avanan MCP server speaks stdio only, so that would mean putting a stdio-to-HTTP bridge in front of it, and the bridge adds no password. Do not set one up or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `avanan-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `avanan-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -220,7 +214,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Avanan data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server speaks stdio only - it opens no network listener. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Message bodies and raw `.eml` files are only fetched when you explicitly ask for a named message. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server uses stdio by default - it opens no network listener unless you start its token-protected HTTP mode. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Message bodies and raw `.eml` files are only fetched when you explicitly ask for a named message. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Will this hit my Avanan API rate limits?
 

@@ -1,0 +1,144 @@
+{
+  "manifest_version": "0.3",
+  "name": "warranty-mcp",
+  "display_name": "Device Warranty",
+  "version": "0.1.0",
+  "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/warranty-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/warranty-mcp",
+      "args": [],
+      "env": {
+        "WARRANTY_DELL_CLIENT_ID": "${user_config.warranty_dell_client_id}",
+        "WARRANTY_DELL_CLIENT_SECRET": "${user_config.warranty_dell_client_secret}",
+        "WARRANTY_LENOVO_CLIENT_KEY": "${user_config.warranty_lenovo_client_key}",
+        "WARRANTY_APPLE_CLIENT_ID": "${user_config.warranty_apple_client_id}",
+        "WARRANTY_APPLE_KEY_ID": "${user_config.warranty_apple_key_id}",
+        "WARRANTY_APPLE_PRIVATE_KEY": "${user_config.warranty_apple_private_key}",
+        "WARRANTY_BASE_URL": "${user_config.warranty_base_url}",
+        "WARRANTY_TOKEN_URL": "${user_config.warranty_token_url}",
+        "WARRANTY_OAUTH_SCOPE": "${user_config.warranty_oauth_scope}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "WARRANTY_MCP_READ_ONLY": "${user_config.warranty_mcp_read_only}",
+        "WARRANTY_NO_LOCAL_DATA": "${user_config.warranty_no_local_data}",
+        "WARRANTY_USER_AGENT": "${user_config.warranty_user_agent}",
+        "WARRANTY_MCP_HTTP_TOKEN": "${user_config.warranty_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "warranty_dell_client_id": {
+      "type": "string",
+      "title": "WARRANTY_DELL_CLIENT_ID",
+      "description": "Optional. Dell TechDirect client ID for the Warranty API (TechDirect, APIs, API Key Management: https://techdirect.dell.com/portal/AboutAPIs.aspx).",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_dell_client_secret": {
+      "type": "string",
+      "title": "WARRANTY_DELL_CLIENT_SECRET",
+      "description": "Optional. Dell TechDirect client secret for the Warranty API.",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_lenovo_client_key": {
+      "type": "string",
+      "title": "WARRANTY_LENOVO_CLIENT_KEY",
+      "description": "Optional. Lenovo eSupport WebAPI ClientID token, issued through your Lenovo account manager or partner representative (https://supportapi.lenovo.com/documentation/).",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_apple_client_id": {
+      "type": "string",
+      "title": "WARRANTY_APPLE_CLIENT_ID",
+      "description": "Optional. Apple Business API account client ID (BUSINESSAPI.uuid), from Settings, API in the customer's Apple Business organization.",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_apple_key_id": {
+      "type": "string",
+      "title": "WARRANTY_APPLE_KEY_ID",
+      "description": "Optional. Key ID shown for the Apple Business API account's private key.",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_apple_private_key": {
+      "type": "string",
+      "title": "WARRANTY_APPLE_PRIVATE_KEY",
+      "description": "Optional. Path to the Apple Business API account's downloaded .pem private key (PEM text also works).",
+      "sensitive": true,
+      "required": false
+    },
+    "warranty_base_url": {
+      "type": "string",
+      "title": "Dell API base URL",
+      "description": "Optional. Overrides the Dell API root, and your Dell credential is sent to this host. Leave blank to use Dell's production URL.",
+      "required": false
+    },
+    "warranty_token_url": {
+      "type": "string",
+      "title": "Dell OAuth2 token URL",
+      "description": "Optional. Overrides the Dell token endpoint, and your Dell client ID and secret are sent to this host. Leave blank to use Dell's.",
+      "required": false
+    },
+    "warranty_oauth_scope": {
+      "type": "string",
+      "title": "Dell OAuth2 scope",
+      "description": "Optional. Scope sent when minting a Dell token. Leave blank unless Dell told you to set one.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "warranty_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false
+    },
+    "warranty_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false
+    },
+    "warranty_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on vendor requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "warranty_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T14:53:02.71237Z",
+    "spec_checksum": "sha256:16d04bca3a5cfdf9a12617f7b5926380493fdff9db728858251c6d8587e45fc6",
+    "spec_format": "openapi3"
+  }
+}

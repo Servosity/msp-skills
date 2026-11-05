@@ -1,6 +1,8 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel command scaffold. Implement the RunE body before shipping.
 // generate --force preserves implemented bodies; untouched TODO scaffolds may refresh.
+// pp:data-source live
+// The command calls the Zammad API directly; it never reads the local store.
 
 package cli
 
@@ -18,8 +20,11 @@ func newNovelKbSearchCmd(flags *rootFlags) *cobra.Command {
 		Use:         "search <query>",
 		Short:       "Search KB answer titles and bodies from the live init bundle.",
 		Example:     "  zammad-cli kb search \"restore\" --json",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "live"); err != nil {
+				return err
+			}
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
 			}

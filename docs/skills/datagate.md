@@ -48,7 +48,7 @@ MSPs and telecom resellers who bill through DataGate normally work through its w
 
 **Instead of** Re-fetching the same customer list from the live API every time you need to look something up
 **just ask:** *"Search DataGate for this customer by name."*
-<sub>Your agent runs: <code>datagate-cli search "<customer name>" --data-source local</code></sub>
+<sub>Your agent runs: <code>datagate-cli search "&lt;customer name&gt;" --data-source local</code></sub>
 
 
 ## What it does
@@ -81,7 +81,7 @@ Works in any of these agents - pick yours:
 | Agent | Quick install |
 | --- | --- |
 | **Claude Desktop** | [Step-by-step →](/integrations/claude-desktop/) |
-| **ChatGPT** (Plus/Pro+) | [Step-by-step →](/integrations/chatgpt/) |
+| **ChatGPT** (desktop app) | [Step-by-step →](/integrations/chatgpt/) |
 | **Claude Code** | [Step-by-step →](/integrations/claude-code/) |
 | **Codex CLI** | [Step-by-step →](/integrations/codex/) |
 | Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](/which-agent/) |

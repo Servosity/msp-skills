@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -27,21 +28,24 @@ a literal "did this alert become a ticket" check. See README "Known Gaps".`,
   superops-cli alert-coverage
   superops-cli alert-coverage --client Acme --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "alert-coverage")
 			}
 			db, err := openStoreForNovel(cmd.Context(), dbPath)
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			alerts, err := queryRecs(db, "alerts")
+			alerts, err := loadRecs(cmd, db, "alerts")
 			if err != nil {
 				return err
 			}
-			assets, err := queryRecs(db, "assets")
+			assets, err := loadRecs(cmd, db, "assets")
 			if err != nil {
 				return err
 			}

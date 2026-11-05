@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:37:08.461331Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-26T22:54:59.809899Z",
+  "printing_press_version": "4.34.0",
   "api_name": "superops",
   "display_name": "SuperOps",
   "cli_name": "superops-pp-cli",
@@ -18,9 +18,10 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
   "spec_format": "internal",
-  "spec_checksum": "sha256:75c960f532ac96efb29a77b04304be15626dfca8c78be0092351be6ed34748fb",
-  "run_id": "20260529-084506",
+  "spec_checksum": "sha256:cc863c63a449c27d52347b8bae543555f7641dd83a839f1221133a47095c6196",
+  "run_id": "20261026-180003-ddd99011",
   "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
   "mcp_binary": "superops-pp-mcp",
   "mcp_tool_count": 19,
@@ -39,7 +40,7 @@
     {
       "name": "Unbilled worklog",
       "command": "unbilled",
-      "description": "Find logged worklog time that never landed on an invoice, totaled in dollars per client."
+      "description": "Total billable worklog time per client from the local store, to reconcile against invoices."
     },
     {
       "name": "Patch + alert risk",
@@ -59,12 +60,65 @@
     {
       "name": "Stale tickets",
       "command": "stale-tickets",
-      "description": "Open tickets with no conversation, note, or worklog activity in N days."
+      "description": "Open tickets with no ticket update or worklog activity in N days."
     },
     {
       "name": "Agent context pack",
       "command": "context-ticket",
-      "description": "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob (conversation/notes fetched live)."
+      "description": "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob from the local store."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "SLA breach board",
+      "command": "sla-watch",
+      "description": "See which open tickets are breaching or about to breach SLA, grouped by technician or client."
+    },
+    {
+      "name": "Unbilled worklog",
+      "command": "unbilled",
+      "description": "Total billable worklog time per client from the local store, to reconcile against invoices."
+    },
+    {
+      "name": "Patch + alert risk",
+      "command": "at-risk-assets",
+      "description": "List assets missing a critical patch that also have an active (unresolved) alert."
+    },
+    {
+      "name": "Alert coverage",
+      "command": "alert-coverage",
+      "description": "Partition alerts into open (uncovered) vs resolved, grouped by client."
+    },
+    {
+      "name": "Client 360",
+      "command": "client-360",
+      "description": "One offline bundle of a client plus its sites, users, contracts, open tickets, assets, and open invoices."
+    },
+    {
+      "name": "Stale tickets",
+      "command": "stale-tickets",
+      "description": "Open tickets with no ticket update or worklog activity in N days."
+    },
+    {
+      "name": "Agent context pack",
+      "command": "context-ticket",
+      "description": "Assemble a ticket plus its worklogs, client, and SLA into one agent-shaped JSON blob from the local store."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 98.11320754716981,
+    "passed": 52,
+    "total": 53,
+    "failed": 1,
+    "data_pipeline": true,
+    "verdict": "WARN"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 92,
+      "grade": "A",
+      "total": 92
+    }
+  }
 }

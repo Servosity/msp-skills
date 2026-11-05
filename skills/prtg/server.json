@@ -1,0 +1,100 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/prtg-mcp",
+  "title": "PRTG Network Monitor MCP",
+  "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/prtg/prtg-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/prtg"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/prtg-v0.1.0/prtg-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PRTG_API_KEY",
+          "description": "API key for your PRTG core (Account Settings > My Account > API Keys).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "PRTG_SERVER",
+          "description": "Your PRTG core's host and API v2 port, for example prtg.example.com:1616.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_FLEET_KEYS",
+          "description": "Optional. name=key pairs (comma-separated) for cores registered with core add; used by the fleet tools.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRTG_CORE",
+          "description": "Optional. Name of a registered core to point every single-core tool at.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_BASE_URL",
+          "description": "Optional. Full API v2 base URL; overrides PRTG_SERVER when set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_SKIP_TLS_VERIFY",
+          "description": "Optional. Set to true only for a PRTG core with a self-signed certificate.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to your PRTG core.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional. Binds the MCP server to one saved client profile.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRTG_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

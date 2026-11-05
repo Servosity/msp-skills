@@ -170,10 +170,12 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import vendor_credkit  # noqa: E402  (local tools/ module; guard 11's drift proof)
 
 ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
@@ -198,9 +200,12 @@ RE_ENV_NAME = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$")
 # (`import . "os"`) drops the qualifier entirely. Neither was seen before.
 BUILTIN_READ_FUNCS = ("Getenv", "LookupEnv")
 
-RE_IMPORT_GROUP = re.compile(r"(?ms)^import\s*\((.*?)^\)")
-RE_IMPORT_SPEC = re.compile(r'(?m)^[\t ]*(?:([A-Za-z_]\w*|\.|_)[\t ]+)?"([^"]+)"')
-RE_IMPORT_ONE = re.compile(r'(?m)^import[\t ]+(?:([A-Za-z_]\w*|\.|_)[\t ]+)?"([^"]+)"')
+# An import path cannot contain ")" (the Go spec forbids it), so a group ends
+# at the first one, on its own line or not. Specs are split by newlines or
+# semicolons, and a path may be a raw string.
+RE_IMPORT_GROUP = re.compile(r"(?ms)(?:^|;)[\t ]*import\s*\(([^)]*)\)")
+RE_IMPORT_SPEC = re.compile(r'(?:^|[;\n])[\t ]*(?:([A-Za-z_]\w*|\.|_)[\t ]+)?(?:"([^"]+)"|`([^`]+)`)')
+RE_IMPORT_ONE = re.compile(r'(?m)(?:^|;)[\t ]*import[\t ]+(?:([A-Za-z_]\w*|\.|_)[\t ]+)?(?:"([^"]+)"|`([^`]+)`)')
 
 
 def os_reader_names(src: str) -> set[str]:
@@ -222,11 +227,122 @@ def os_reader_names(src: str) -> set[str]:
     return names
 
 
+_GO_ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\\": 92, "'": 39, '"': 34}
+RE_GO_IDENT = re.compile(r"[^\W\d]\w*")
+
+
+def go_unquote(lit: str) -> str | None:
+    """The value of a Go string literal (with its quotes), or None."""
+    if len(lit) >= 2 and lit[0] == lit[-1] == "`":
+        return lit[1:-1].replace("\r", "")
+    if len(lit) < 2 or lit[0] != '"' or lit[-1] != '"':
+        return None
+    body, out, i = lit[1:-1], bytearray(), 0
+    while i < len(body):
+        c = body[i]
+        if c != "\\":
+            out += c.encode()
+            i += 1
+            continue
+        e = body[i + 1:i + 2]
+        if e in _GO_ESCAPES:
+            out.append(_GO_ESCAPES[e])
+            i += 2
+        elif e == "x" and re.fullmatch(r"[0-9A-Fa-f]{2}", body[i + 2:i + 4]):
+            out.append(int(body[i + 2:i + 4], 16))
+            i += 4
+        elif e in ("u", "U") and re.fullmatch(r"[0-9A-Fa-f]+", body[i + 2:i + (6 if e == "u" else 10)] or "-"):
+            k = 4 if e == "u" else 8
+            if len(body[i + 2:i + 2 + k]) != k:
+                return None
+            out += chr(int(body[i + 2:i + 2 + k], 16)).encode()
+            i += 2 + k
+        elif re.fullmatch(r"[0-7]{3}", body[i + 1:i + 4]):
+            out.append(int(body[i + 1:i + 4], 8) & 0xFF)
+            i += 4
+        else:
+            return None
+    try:
+        return out.decode()
+    except UnicodeDecodeError:
+        return None
+
+
+def go_imports(src: str) -> list[tuple[str | None, str]] | None:
+    """[(alias or None, import path)] from the import declarations after the
+    package clause, lexed as Go does (any spacing, groups, semicolons, raw or
+    escaped paths, Unicode names). None when the file does not lex as Go: the
+    caller then knows the imports it holds are not all known."""
+    n, i = len(src), 0
+
+    def skip(i: int) -> int:
+        while i < n and src[i] in " \t\r\n;":
+            i += 1
+        return i
+
+    def spec(i: int):
+        alias = None
+        if src[i:i + 1] == ".":
+            alias, i = ".", i + 1
+        else:
+            m = RE_GO_IDENT.match(src, i)
+            if m:
+                alias, i = m.group(0), m.end()
+        i = skip(i)
+        quote = src[i:i + 1]
+        if quote not in ('"', "`"):
+            return None, i
+        j = i + 1
+        while j < n and src[j] != quote:
+            if quote == '"' and src[j] == "\\":
+                j += 1
+            if quote == '"' and src[j:j + 1] == "\n":
+                return None, j
+            j += 1
+        path = go_unquote(src[i:j + 1]) if j < n else None
+        return (None if path is None else (alias, path)), j + 1
+
+    i = skip(i)
+    m = re.compile(r"package[ \t]+([^\W\d]\w*)").match(src, i)
+    if not m:
+        return None
+    i, out = m.end(), []
+    while True:
+        i = skip(i)
+        m = re.compile(r"import(?!\w)").match(src, i)
+        if not m:
+            return out
+        i = skip(m.end())
+        if src[i:i + 1] == "(":
+            i += 1
+            while True:
+                i = skip(i)
+                if src[i:i + 1] == ")":
+                    i += 1
+                    break
+                if i >= n:
+                    return None
+                got, i = spec(i)
+                if got is None:
+                    return None
+                out.append(got)
+        else:
+            got, i = spec(i)
+            if got is None:
+                return None
+            out.append(got)
+
+
 def file_imports(src: str) -> list[tuple[str | None, str]]:
     """[(alias or None, import path)] for every import spec in this FILE."""
-    out = [(m.group(1), m.group(2)) for m in RE_IMPORT_ONE.finditer(src)]
+    lexed = go_imports(src)
+    if lexed is not None:
+        return lexed
+    def path(m):  # an interpreted path may spell itself with escapes ("a\x2fb")
+        return m.group(3) if m.group(2) is None else (as_literal(f'"{m.group(2)}"') or m.group(2))
+    out = [(m.group(1), path(m)) for m in RE_IMPORT_ONE.finditer(src)]
     for group in RE_IMPORT_GROUP.finditer(src):
-        out += [(m.group(1), m.group(2)) for m in RE_IMPORT_SPEC.finditer(group.group(1))]
+        out += [(m.group(1), path(m)) for m in RE_IMPORT_SPEC.finditer(group.group(1))]
     return out
 
 
@@ -355,7 +471,9 @@ def as_literal(expr: str):
     m = RE_STRING_LIT.match(expr.strip())
     if not m:
         return None
-    raw = m.group(1) if m.group(1) is not None else m.group(2)
+    if m.group(1) is None:
+        return m.group(2)  # a raw string: no escapes
+    raw = m.group(1)
     try:
         return raw.encode().decode("unicode_escape")
     except UnicodeDecodeError:  # pragma: no cover - defensive
@@ -530,11 +648,17 @@ def _body_span(src: str, open_paren: int) -> tuple[int, int, int] | None:
     return close_paren, brace, end
 
 
+def read_go_source(path: Path) -> str:
+    """A Go file's text as the compiler sees it. Bytes, not read_text: its
+    newline translation turns a carriage return inside a raw string (which Go
+    drops) into a newline (which Go keeps), so an import path would differ."""
+    return path.read_bytes().decode("utf-8", errors="replace")
+
+
 def parse_package(dirpath: Path, files: list[Path]) -> GoPackage:
     return parse_sources(
         dirpath,
-        [(path, strip_comments(path.read_text(encoding="utf-8", errors="replace")))
-         for path in files],
+        [(path, strip_comments(read_go_source(path))) for path in files],
     )
 
 
@@ -1047,6 +1171,198 @@ def explain_unresolved(expr: str, pkg: GoPackage, env_prefix: str,
     return None
 
 
+# ---------------------------------------------------------------------------
+# The shared credential kit (tools/maintainer/credkit, vendored at
+# cli/internal/credkit)
+# ---------------------------------------------------------------------------
+#
+# The kit reads four kinds of environment variable, and only these (the
+# self-test pins them against the canonical kit, so a kit change that adds a
+# read fails here until this model is updated):
+#
+#   CREDKIT_HELD   the held set a parent passes to a child process it starts
+#   GODEBUG        Go's own; Start leaves GOMAXPROCS alone on Windows when it is set
+#   SYSTEMROOT     passed to a Windows child so it can load system DLLs
+#   HTTP_PROXY, HTTPS_PROXY, ALL_PROXY  (either case) a proxy's user and password,
+#                  held at startup; the host's setting, not the connector's
+#   d.SecretEnv    every name the connector's Declarations literal lists
+#   d.BaseURL.Env  the base-URL variable the connector's Declarations name
+#
+# Those are the kit's own plumbing or the host's, never connector input. The
+# last two are the connector's names: this gate reads them out of the connector's own
+# credkit.Declarations / credkit.BaseURL literals and requires them in the
+# manifest exactly like any read the connector makes itself.
+#
+# The kit package's reads are treated as kit-internal ONLY while its copy is
+# byte-identical to tools/maintainer/credkit (vendor_credkit.carrier_drift, the
+# same proof as ci_guards guard 11). A copy that drifted by one byte is scanned
+# like any other connector package, so an edited kit cannot hide a read.
+KIT_VENDOR_REL = Path("internal") / "credkit"
+KIT_OWN_READS = frozenset({"CREDKIT_HELD", "GODEBUG", "SYSTEMROOT", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"})
+# Every read the canonical kit makes whose name is not a literal, as the scan
+# reports it: (expression, explanation). Pinned by the self-test.
+KIT_PARAM_READS = frozenset({("d", "helper-definition"), ("name", "helper-definition"),
+                             ("d.BaseURL.Env", None)})
+
+
+def is_kit_package_path(path: Path) -> bool:
+    return path.parts[-2:] == KIT_VENDOR_REL.parts
+
+
+def reviewed_kit_dirs(cli_dir: Path) -> set[Path]:
+    """The vendored kit directory, when it is byte-identical to the kit."""
+    d = cli_dir / KIT_VENDOR_REL
+    if d.is_dir() and not d.is_symlink() and not vendor_credkit.carrier_drift(ROOT, d):
+        return {d}
+    return set()
+
+
+def _keyed_fields(body: str) -> dict[str, tuple[str, int]] | None:
+    """{key: (value, offset of the value in body)} of a keyed composite literal
+    body, or None when any element is positional (unkeyed)."""
+    out: dict[str, tuple[str, int]] = {}
+    pos = 0
+    for element in split_top(body, ","):
+        start = pos
+        pos += len(element) + 1
+        if not element.strip():
+            continue
+        kv = split_top(element, ":")
+        if len(kv) < 2 or not RE_IDENT.match(kv[0].strip()):
+            return None
+        value = ":".join(kv[1:])
+        out[kv[0].strip()] = (value.strip(), start + len(kv[0]) + 1 + (len(value) - len(value.lstrip())))
+    return out
+
+
+RE_LIT_BINDING = re.compile(r"(?<![\w.])([^\W\d]\w*)\s*:?=\s*$")
+
+
+def kit_declared_reads(packages: list[GoPackage], kit_ipaths: set[str], prefix: str):
+    """Yield (value, site, reader, expr) for every name the connector's
+    Declarations hand the kit to read (SecretEnv, BaseURL.Env).
+
+    value is an env name or UNRESOLVED. Precise for the one shape the kit
+    documents (a keyed credkit.Declarations literal bound by a package-level
+    var and passed to credkit.Start by that name, its BaseURL a credkit.BaseURL
+    literal and its SecretEnv a []string literal, both written in place) and
+    fail closed for every other shape, because the kit then reads a name this
+    scan cannot see. It is an allowlist: the bound name may appear only as the
+    whole argument of credkit.Start; credkit.Declarations only as a literal and
+    credkit.Start only as a call (a type alias or a function value is
+    unresolved); and any SecretEnv or BaseURL.Env selector, positional literal,
+    dot-imported kit or literal bound anywhere else is unresolved.
+    """
+    every = []
+    for pkg in packages:
+        for path, src in pkg.sources:
+            aliases = {alias or "credkit" for alias, ipath in file_imports(src)
+                       if ipath in kit_ipaths and alias != "_"}
+            try:
+                rel = str(path.relative_to(ROOT))
+            except ValueError:
+                rel = str(path)
+            every.append((pkg, path, src, blank_strings(src), rel, aliases))
+    files = [f for f in every if f[5]]
+    for pkg, path, src, code, rel, aliases in every:
+        if go_imports(src) is None:
+            yield UNRESOLVED, f"{rel}:1", "credkit", "imports this scan cannot lex (the kit may be among them)"
+
+    def site(src: str, rel: str, offset: int) -> str:
+        return f"{rel}:{src.count(chr(10), 0, offset) + 1}"
+
+    bound: dict[str, list[tuple[str, int]]] = {}   # name -> [(rel, offset)] of its binding
+    in_place: set[tuple[str, int]] = set()          # BaseURL literals written in a Declarations literal
+    for pkg, path, src, code, rel, aliases in files:
+        if "." in aliases:
+            yield UNRESOLVED, site(src, rel, 0), "credkit", "dot import of the credential kit"
+        for alias in sorted(aliases - {"."}):
+            q = r"(?<![\w.])" + re.escape(alias) + r"\s*\.\s*"
+            for m in re.finditer(q + r"Declarations\b\s*\{", code):
+                open_brace = m.end() - 1
+                close = match_close(src, open_brace, "{", "}")
+                fields = _keyed_fields(src[open_brace + 1:close]) if close >= 0 else None
+                if fields is None:
+                    yield UNRESOLVED, site(src, rel, m.start()), "credkit.Declarations", "positional or unterminated literal"
+                    continue
+                b = RE_LIT_BINDING.search(code[:m.start()])
+                scope = pkg.func_at(path, m.start())
+                if b and scope is None and not b.group(0).lstrip(b.group(1)).lstrip().startswith(":"):
+                    bound.setdefault(b.group(1), []).append((rel, b.start(1)))
+                else:
+                    yield UNRESOLVED, site(src, rel, m.start()), "credkit.Declarations", "a literal not bound to a package-level var"
+                if "SecretEnv" in fields:
+                    value, off = fields["SecretEnv"]
+                    if not RE_SLICE_LIT.fullmatch(value.strip()):
+                        # A slice held anywhere else can be changed after this
+                        # literal is read; only one written in place is fixed.
+                        yield UNRESOLVED, site(src, rel, open_brace + 1 + off), "credkit.Declarations.SecretEnv", value[:80]
+                    else:
+                        for name in resolve(value, pkg, prefix, scope):
+                            yield name, site(src, rel, open_brace + 1 + off), "credkit.Declarations.SecretEnv", value[:80]
+                if "BaseURL" in fields:
+                    value, off = fields["BaseURL"]
+                    if re.match(q + r"BaseURL\s*\{", value):
+                        in_place.add((rel, open_brace + 1 + off))
+                    else:
+                        yield UNRESOLVED, site(src, rel, open_brace + 1 + off), "credkit.Declarations.BaseURL", value[:80]
+            for m in re.finditer(q + r"(Declarations|Start)\b", code):
+                want = "{" if m.group(1) == "Declarations" else "("
+                if not code[m.end():].lstrip().startswith(want):
+                    yield UNRESOLVED, site(src, rel, m.start()), f"credkit.{m.group(1)}", \
+                        f"credkit.{m.group(1)} used other than as a {'literal' if want == '{' else 'call'}"
+            for m in re.finditer(q + r"BaseURL\b", code):
+                rest = code[m.end():]
+                if (rel, m.start()) not in in_place or not rest.lstrip().startswith("{"):
+                    yield UNRESOLVED, site(src, rel, m.start()), "credkit.BaseURL", "a BaseURL outside the Declarations literal"
+                    continue
+                open_brace = m.end() + (len(rest) - len(rest.lstrip()))
+                close = match_close(src, open_brace, "{", "}")
+                fields = _keyed_fields(src[open_brace + 1:close]) if close >= 0 else None
+                if fields is None:
+                    yield UNRESOLVED, site(src, rel, m.start()), "credkit.BaseURL", "positional or unterminated literal"
+                    continue
+                if "Env" in fields:
+                    value, off = fields["Env"]
+                    # Only a literal: a variable can be rewritten by another
+                    # initializer before this literal is evaluated.
+                    lit = as_literal(value)
+                    yield (UNRESOLVED if lit is None else lit), site(src, rel, open_brace + 1 + off), \
+                        "credkit.BaseURL.Env", value[:80]
+
+    binding_sites = {(rel, off) for sites in bound.values() for rel, off in sites}
+    # The one sanctioned use of a bound name: the whole argument of credkit.Start.
+    start_args: set[tuple[str, int]] = set()
+    for pkg, path, src, code, rel, aliases in every:
+        for alias in sorted(aliases - {"."}):
+            q = r"(?<![\w.])" + re.escape(alias) + r"\s*\.\s*"
+            for m in re.finditer(q + r"Start\s*\(", code):
+                close = match_close(src, m.end() - 1, "(", ")")
+                arg = re.fullmatch(r"\s*(?:[^\W\d]\w*\s*\.\s*)?([^\W\d]\w*)\s*",
+                                   code[m.end():close]) if close >= 0 else None
+                if arg and arg.group(1) in bound:
+                    start_args.add((rel, m.end() + arg.start(1)))
+                else:
+                    yield UNRESOLVED, site(src, rel, m.start()), f"{alias}.Start", \
+                        (src[m.end():close].strip()[:80] if close >= 0 else "") or "no single argument"
+    # Every other use of a bound name - a field write, a multi-assignment, an
+    # address-of, a copy, an argument to anything else - can change what the kit
+    # reads, so it is unresolved. A SecretEnv or BaseURL.Env selector anywhere
+    # is too: the slice can be aliased (names := d.SecretEnv), and a copy of the
+    # Declarations can be changed and handed to the kit some other way.
+    names = "|".join(re.escape(n) for n in sorted(bound))
+    rx = re.compile(r"\.\s*SecretEnv\b|\.\s*BaseURL\s*\.\s*Env\b"
+                    + (r"|(?<![\w])(?P<n>" + names + r")\b" if names else ""))
+    for pkg, path, src, code, rel, aliases in every:
+        for m in rx.finditer(code):
+            if m.groupdict().get("n"):
+                at = (rel, m.start("n"))
+                qual = re.search(r"([^\W\d]\w*)\s*\.\s*$", code[:m.start("n")])
+                if at in binding_sites or at in start_args or (qual and qual.group(1) in aliases):
+                    continue  # the binding, the Start argument, or the kit's own type name
+            yield UNRESOLVED, site(src, rel, m.start()), "credkit Declarations use", src[m.start():m.end()].strip()[:80]
+
+
 def scan_slug(slug: str, rules: dict) -> tuple[dict[str, list[str]], list[Unresolved], str]:
     """Return ({ENV_NAME: [read sites]}, [unresolved reads], env prefix).
 
@@ -1062,15 +1378,24 @@ def scan_slug(slug: str, rules: dict) -> tuple[dict[str, list[str]], list[Unreso
     link_packages(packages)
     guard_whole_slices(packages)
     prefix = env_prefix_for(slug, packages)
-    found, unresolved = scan_packages(packages, prefix, rules)
+    found, unresolved = scan_packages(packages, prefix, rules, reviewed_kit_dirs(cli_dir))
     return found, unresolved, prefix
 
 
-def scan_packages(packages: list[GoPackage], prefix: str,
-                  rules: dict) -> tuple[dict[str, list[str]], list[Unresolved]]:
-    """The scan itself, over an already-parsed package list (filesystem-free)."""
+def scan_packages(packages: list[GoPackage], prefix: str, rules: dict,
+                  kit_dirs: set[Path] | frozenset = frozenset(),
+                  ) -> tuple[dict[str, list[str]], list[Unresolved]]:
+    """The scan itself, over an already-parsed package list (filesystem-free).
+
+    kit_dirs: package directories proven byte-identical to the reviewed
+    credential kit. Their own reads are the kit's (see KIT_OWN_READS); the
+    names they read for the connector come from its Declarations literals.
+    """
     found: dict[str, list[str]] = {}
     unresolved: dict[tuple, Unresolved] = {}
+    kit_ipaths = {go_import_path(p) for p in packages if is_kit_package_path(p.path)}
+    exempt = any(p.path in kit_dirs for p in packages)
+    packages = [p for p in packages if p.path not in kit_dirs]
 
     # Cross-package helpers: an EXPORTED name-as-parameter helper
     # (cli-printing-press 4.32+ `cliutil.EnvOverride(name)`, which is
@@ -1145,10 +1470,57 @@ def scan_packages(packages: list[GoPackage], prefix: str,
                                 found.setdefault(value, [])
                                 if site not in found[value]:
                                     found[value].append(site)
+    if exempt and not any(ipath in kit_ipaths for p in packages for _, src in p.sources
+                          for _, ipath in file_imports(src)):
+        # The kit's own reads are exempt on the promise that its importers'
+        # Declarations are read instead. No importer found means that promise
+        # cannot be kept (a go.mod this scan misread, or an unwired kit).
+        rec = Unresolved("go.mod:1", "credkit", "the reviewed kit is imported by nothing this scan can see", None)
+        unresolved.setdefault(rec.key, rec)
+    if kit_ipaths:
+        for value, site, reader, expr in kit_declared_reads(packages, kit_ipaths, prefix):
+            if value is not UNRESOLVED and RE_ENV_NAME.match(value):
+                found.setdefault(value, [])
+                if site not in found[value]:
+                    found[value].append(site)
+            else:
+                rec = Unresolved(site, reader, expr, None)
+                unresolved.setdefault(rec.key, rec)
     return found, sorted(unresolved.values(), key=lambda u: u.key)
 
 
 RE_PACKAGE_CLAUSE = re.compile(r"(?m)^package\s+([A-Za-z_]\w*)")
+
+
+RE_GO_MOD_TOKEN = re.compile(r'''//.*|"(?:[^"\\]|\\.)*"|`[^`]*`|[()]|(?:(?!//)[^\s()"`])+''')
+
+
+def go_mod_module(text: str) -> str | None:
+    """The module path as go.mod's own grammar reads it (any indentation, a
+    quoted path, a module block, a comment touching the path), or None for
+    anything else, a raw-string path included: Go rejects one. Line-oriented,
+    as that grammar is: no token spans lines."""
+    block = None
+    for line in text.split("\n"):
+        tokens = [t for t in RE_GO_MOD_TOKEN.findall(line) if not t.startswith("//")]
+        if not tokens:
+            continue
+        if block:
+            if block == "module":
+                return go_mod_path(tokens[0]) if len(tokens) == 1 and tokens[0] != ")" else None
+            if tokens == [")"]:
+                block = None
+        elif len(tokens) == 2 and tokens[1] == "(":
+            block = tokens[0]
+        elif tokens[0] == "module":
+            return go_mod_path(tokens[1]) if len(tokens) == 2 else None
+    return None
+
+
+def go_mod_path(token: str) -> str | None:
+    if token[0] == "`":
+        return None
+    return go_unquote(token) if token[0] == '"' else token
 
 
 def go_import_path(pkg: GoPackage) -> str:
@@ -1158,14 +1530,14 @@ def go_import_path(pkg: GoPackage) -> str:
     for parent in [d, *d.parents]:
         gomod = parent / "go.mod"
         try:
-            text = gomod.read_text(encoding="utf-8", errors="replace")
+            text = read_go_source(gomod)
         except OSError:
             continue
-        m = re.search(r"(?m)^module\s+(\S+)", text)
-        if not m:
+        module = go_mod_module(text)
+        if not module:
             return ""
         rel = d.relative_to(parent).as_posix()
-        return m.group(1) if rel == "." else f"{m.group(1)}/{rel}"
+        return module if rel == "." else f"{module}/{rel}"
     return f"fixture/{d.name}"
 
 
@@ -1911,6 +2283,207 @@ _fixture(
 )
 
 
+_KIT_FIXTURE = (
+    'package credkit\nimport "os"\n'
+    'type Declarations struct {\n\tSecretEnv []string\n\tBaseURL BaseURL\n}\n'
+    'type BaseURL struct {\n\tEnv string\n}\n'
+    'func Start(d Declarations) {\n\tfor _, name := range d.SecretEnv {\n\t\tos.LookupEnv(name)\n\t}\n'
+    '\tos.Getenv(d.BaseURL.Env)\n\tos.Getenv("SYSTEMROOT")\n}\n'
+)
+_WIRING = (
+    'package credwire\nimport "fixture/credkit"\n'
+    'var Declarations = credkit.Declarations{\n\tSecretEnv: []string{"COVE_TOKEN"},\n'
+    '\tBaseURL: credkit.BaseURL{\n\t\tEnv: "COVE_BASE_URL",\n\t},\n}\n'
+)
+_MAIN = 'package main\nimport (\n\t"fixture/credkit"\n\t"fixture/credwire"\n)\nfunc main() { credkit.Start(credwire.Declarations) }\n'
+
+# (label, {dir: source}, the kit dir is the reviewed kit, expect_reads, expect_unexplained)
+KIT_SCAN_FIXTURES: list[tuple[str, dict, bool, set[str], set[str]]] = [
+    ("reviewed kit: Declarations names are reads, the kit's own are not",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING, "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: a connector-side undeclared read still fails",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING,
+      "main": _MAIN.replace("func main() {", 'import "os"\nfunc main() { os.Getenv("COVE_PASSWORD");')},
+     True, {"COVE_TOKEN", "COVE_BASE_URL", "COVE_PASSWORD"}, set()),
+    ("drifted kit: its reads are scanned like connector code",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING, "main": _MAIN},
+     False, {"COVE_TOKEN", "COVE_BASE_URL", "SYSTEMROOT"},
+     {"d.BaseURL.Env", "credwire.Declarations", ".SecretEnv", ".BaseURL.Env", "Declarations"}),
+    ("reviewed kit: Start given a mutable copy is unresolved",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING,
+      "main": _MAIN.replace("credkit.Start(credwire.Declarations)",
+                            "d := credwire.Declarations\n\td.SecretEnv = nil\n\tcredkit.Start(d)")},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, {"d", ".SecretEnv", "Declarations"}),
+    ("reviewed kit: a BaseURL built outside the literal is unresolved",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": 'package credwire\nimport "fixture/credkit"\n'
+                  'var b = credkit.BaseURL{Env: "COVE_SECRET"}\n'
+                  'var Declarations = credkit.Declarations{BaseURL: b}\n',
+      "main": _MAIN},
+     True, set(), {"b", "a BaseURL outside the Declarations literal"}),
+    ("reviewed kit: a write through the bound name is unresolved",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING,
+      "main": _MAIN.replace("func main() {", 'func main() { credwire.Declarations.BaseURL.Env = "COVE_SECRET";')},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, {".BaseURL.Env", "Declarations"}),
+    ("reviewed kit: a positional Declarations literal is unresolved",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": 'package credwire\nimport "fixture/credkit"\n'
+                  'var Declarations = credkit.Declarations{nil, credkit.BaseURL{"COVE_SECRET"}}\n',
+      "main": _MAIN},
+     True, set(), {"positional or unterminated literal", "a BaseURL outside the Declarations literal",
+                   "credwire.Declarations"}),
+    ("reviewed kit: a SecretEnv slice read outside the literal is unresolved",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING,
+      "main": _MAIN.replace("func main() {",
+                            'func init() { names := credwire.Declarations.SecretEnv; names[0] = "COVE_PASSWORD" }\n'
+                            "func main() {")},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, {".SecretEnv", "Declarations"}),
+    ("reviewed kit: a SecretEnv that is not an in-place literal is unresolved",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('SecretEnv: []string{"COVE_TOKEN"}', "SecretEnv: names")
+                  + 'var names = []string{"COVE_TOKEN"}\n'
+                    'func init() { names[0] = "COVE_PASSWORD" }\n',
+      "main": _MAIN},
+     True, {"COVE_BASE_URL"}, {"names"}),
+    ("reviewed kit: a multi-assignment through the bound name is unresolved",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": _WIRING,
+      "main": _MAIN.replace("func main() {",
+                            'func init() { credwire.Declarations.BaseURL.Env, _ = "COVE_PASSWORD", 0 }\n'
+                            "func main() {")},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, {".BaseURL.Env", "Declarations"}),
+    ("reviewed kit: a type alias and a Start function value are unresolved",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": 'package credwire\nimport "fixture/credkit"\n'
+                  'type D = credkit.Declarations\n'
+                  'var Start = credkit.Start\n'
+                  'var Declarations = D{SecretEnv: []string{"COVE_PASSWORD"}}\n',
+      "main": 'package main\nimport "fixture/credwire"\nfunc main() { credwire.Start(credwire.Declarations) }\n'},
+     True, set(), {"credkit.Declarations used other than as a literal", "credkit.Start used other than as a call"}),
+    ("reviewed kit: a Declarations literal bound inside a function is unresolved",
+     {"internal/credkit": _KIT_FIXTURE, "credwire": 'package credwire\n',
+      "main": 'package main\nimport "fixture/credkit"\n'
+              'func main() {\n\td := credkit.Declarations{SecretEnv: []string{"COVE_TOKEN"}}\n\tcredkit.Start(d)\n}\n'},
+     True, {"COVE_TOKEN"}, {"a literal not bound to a package-level var", "d"}),
+    ("reviewed kit: a one-line grouped import of the kit is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import ("fixture/credkit")'),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: imports split by semicolons are followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import ( "os"; ck "fixture/credkit" ); var _ = os.Args')
+                         .replace("credkit.", "ck."),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: a raw-string env name keeps its backslash",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('[]string{"COVE_TOKEN"}', '[]string{`COVE\\x5fTOKEN`}'),
+      "main": _MAIN},
+     True, {"COVE_BASE_URL"}, {'[]string{`COVE\\x5fTOKEN`}'}),
+    ("reviewed kit: an import on the line after the keyword is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import\n\t"fixture/credkit"'),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: an escaped kit import path is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import "fixture\\x2fcredkit"'),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: a BaseURL.Env that is not a string literal is unresolved",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('Env: "COVE_BASE_URL"', "Env: baseEnv")
+                  + 'var baseEnv = "COVE_BASE_URL"\n'
+                    'var _ = func() int { baseEnv = "COVE_PASSWORD"; return 0 }()\n',
+      "main": _MAIN},
+     True, {"COVE_TOKEN"}, {"baseEnv"}),
+    ("reviewed kit: a newline-split, escaped kit import with a Unicode alias is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import\n\tćk "fixture/\\x63redkit"')
+                         .replace("credkit.", "ćk."),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: a file whose imports do not lex fails closed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import "fixture/credkit\\q"'),
+      "main": _MAIN},
+     True, set(), {"imports this scan cannot lex (the kit may be among them)", "credwire.Declarations"}),
+    ("reviewed kit: a carriage return inside a raw kit import path is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import `fixture/\rcredkit`'),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+    ("reviewed kit: an aliased kit import is followed",
+     {"internal/credkit": _KIT_FIXTURE,
+      "credwire": _WIRING.replace('import "fixture/credkit"', 'import ck "fixture/credkit"')
+                         .replace("credkit.", "ck."),
+      "main": _MAIN},
+     True, {"COVE_TOKEN", "COVE_BASE_URL"}, set()),
+]
+
+
+def kit_pin_self_test(rules: dict) -> int:
+    """The canonical kit reads exactly what KIT_OWN_READS and KIT_PARAM_READS
+    say. A kit change that adds an environment read fails here, so the model
+    above cannot silently fall behind the kit it vouches for."""
+    kit = ROOT / vendor_credkit.KIT_REL
+    files = [p for p in sorted(kit.glob("*.go")) if not p.name.endswith("_test.go")]
+    pkg = parse_package(kit, files)
+    link_packages([pkg])
+    guard_whole_slices([pkg])
+    found, unresolved = scan_packages([pkg], "COVE", rules)
+    got = (set(found), {(u.expr, u.why) for u in unresolved})
+    ok = got == (set(KIT_OWN_READS), set(KIT_PARAM_READS))
+    print(f"  {'ok  ' if ok else 'BAD '} kit pin: the canonical kit reads {sorted(got[0])} "
+          f"and {sorted(got[1], key=str)}")
+    return 0 if ok else 1
+
+
+def kit_module_self_test(rules: dict) -> int:
+    """The kit's import path follows go.mod as Go reads it, on real files. Every
+    spelling Go accepts binds the connector's Declarations to the exempted kit;
+    a module this scan cannot name reports instead of hiding those reads."""
+    wiring = ('package main\nimport "fixture/internal/credkit"\n'
+              'var Declarations = credkit.Declarations{SecretEnv: []string{"COVE_PASSWORD"}}\n'
+              'func main() { credkit.Start(Declarations); credkit.Exit(0) }\n')
+    seen = {"COVE_PASSWORD"}
+    cases = [
+        ("plain", "module fixture\n", seen, False),
+        ("double-quoted", 'module "fixture"\n', seen, False),
+        ("escaped", 'module "fi\\x78ture"\n', seen, False),
+        ("indented", "  module fixture\n", seen, False),
+        ("tab after the verb, comment after the path", "module\tfixture // the module\n", seen, False),
+        ("comment touching the path", "module fixture//c\n", seen, False),
+        ("block", "module (\n\n\tfixture\n)\n", seen, False),
+        ("a require named module", "require (\n\tmodule v1.0.0\n)\nmodule fixture\n", seen, False),
+        ("after another directive", "go 1.26\n\nmodule fixture\n", seen, False),
+        ("CRLF", "module fixture\r\n\r\ngo 1.26\r\n", seen, False),
+        ("a raw path, which Go rejects", "module `fixture`\n", set(), True),
+        ("a go.mod this scan cannot read", "module fixture extra\n", set(), True),
+        ("no module directive", "go 1.26\n", set(), True),
+    ]
+    failed = 0
+    for label, gomod, expect_reads, expect_unresolved in cases:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            kit = root / "internal" / "credkit"
+            kit.mkdir(parents=True)
+            (root / "go.mod").write_bytes(gomod.encode("utf-8"))
+            (root / "main.go").write_bytes(wiring.encode("utf-8"))
+            (kit / "x.go").write_bytes(_KIT_FIXTURE.encode("utf-8"))
+            pkgs = [parse_package(root, [root / "main.go"]), parse_package(kit, [kit / "x.go"])]
+            link_packages(pkgs)
+            guard_whole_slices(pkgs)
+            found, unresolved = scan_packages(pkgs, "COVE", rules, {kit})
+        got_unresolved = any(u.why is None for u in unresolved)
+        ok = set(found) == expect_reads and got_unresolved == expect_unresolved
+        print(f"  {'ok  ' if ok else 'BAD '} kit module {label}: reads={sorted(found)} "
+              f"unexplained={sorted(u.expr for u in unresolved if u.why is None)}")
+        failed += not ok
+    return failed
+
+
 def scanner_self_test(rules: dict) -> int:
     """Prove the SCANNER both directions: it sees the reads it must see, and it
     REPORTS the ones it cannot resolve instead of dropping them on the floor."""
@@ -1932,6 +2505,32 @@ def scanner_self_test(rules: dict) -> int:
             print(f"        expected reads={sorted(expect_reads)} "
                   f"unexplained={sorted(expect_unexplained)}")
             failed += 1
+    for label, srcs, reviewed, expect_reads, expect_unexplained in KIT_SCAN_FIXTURES:
+        # Each source goes through the same file read a real scan uses, so a
+        # read that changes the bytes (a carriage return) is caught here.
+        with tempfile.TemporaryDirectory() as tmp:
+            texts = {}
+            for d, text in srcs.items():
+                f = Path(tmp) / f"{d.replace('/', '_')}.go"
+                f.write_bytes(text.encode("utf-8"))
+                texts[d] = read_go_source(f)
+        pkgs = [parse_sources(Path(f"/{d}"), [(Path(f"/{d}/x.go"), strip_comments(text))])
+                for d, text in texts.items()]
+        link_packages(pkgs)
+        guard_whole_slices(pkgs)
+        kit_dirs = {Path("/internal/credkit")} if reviewed else set()
+        found, unresolved = scan_packages(pkgs, "COVE", rules, kit_dirs)
+        got_reads = set(found)
+        got_unexplained = {u.expr for u in unresolved if u.why is None}
+        ok = got_reads == expect_reads and got_unexplained == expect_unexplained
+        print(f"  {'ok  ' if ok else 'BAD '} kit scan {label}: reads={sorted(got_reads)} "
+              f"unexplained={sorted(got_unexplained)}")
+        if not ok:
+            print(f"        expected reads={sorted(expect_reads)} "
+                  f"unexplained={sorted(expect_unexplained)}")
+            failed += 1
+    failed += kit_module_self_test(rules)
+    failed += kit_pin_self_test(rules)
     return failed
 
 

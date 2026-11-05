@@ -1,0 +1,464 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/which-agent/
+
+# Which AI agent? Install MSP Skills in any local MCP client.
+
+MSP Skills works with **any AI tool that runs MCP servers on your machine** (MCP is the Model Context Protocol). This page tells you which AI tools speak MCP today, how to install the HaloPSA and Servosity skills in each one that runs them locally, and the gotchas to watch for. Web-only apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) need a remote server, which MSP Skills does not support yet.
+
+Pick the row for your agent and follow that section. If you're not sure what you have, jump to ["I don't know what I have"](https://msp-skills.compoundingteams.com/which-agent/#i-dont-know-what-i-have-yet) at the bottom.
+
+> **All paths assume you already ran the installer** for at least one skill - see the [install section on the homepage](https://msp-skills.compoundingteams.com/#install-in-60-seconds) for the one-liners. The installer drops `halopsa-cli` + `halopsa-mcp` (and / or `servosity-cli` + `servosity-mcp`) into your user `bin` path. After that, this page is purely about pointing your AI agent at those binaries.
+
+## Quick lookup
+
+**The top 6 - the agents MSP owners actually use (self-serve, works today):**
+
+| AI agent | Supports MCP? | Config file or panel | Verified |
+| --- | --- | --- | --- |
+| [Claude Desktop](https://msp-skills.compoundingteams.com/which-agent/#claude-desktop-anthropic) | Yes | `claude_desktop_config.json` | 2026-05-29 |
+| [ChatGPT desktop app](https://msp-skills.compoundingteams.com/which-agent/#chatgpt-openai) | Yes¹ | Settings → MCP servers, or `~/.codex/config.toml` | 2026-11-02 (bundled engine tested; settings screen per OpenAI's docs) |
+| [Codex CLI](https://msp-skills.compoundingteams.com/which-agent/#codex-cli-openai) | Yes | `~/.codex/config.toml` | 2026-05-29 |
+| [Claude Code](https://msp-skills.compoundingteams.com/which-agent/#claude-code-anthropic-cli) | Yes | `claude mcp add ...` | 2026-05-29 |
+| [Claude Cowork](https://msp-skills.compoundingteams.com/which-agent/#claude-cowork-anthropic-desktop-agent) | Yes | paste-prompt (Skill path) | 2026-05-29 |
+| [GitHub Copilot](https://msp-skills.compoundingteams.com/which-agent/#github-copilot-in-vs-code) | Yes (Agent mode) | `mcp.json` (key: `servers`) | 2026-05-29 |
+
+**Microsoft & Google - named, honest paths** (big install base; Gemini CLI runs the local binary you installed, the web-only apps are not supported yet):
+
+| AI agent | Supports MCP? | What it takes | Verified |
+| --- | --- | --- | --- |
+| [Microsoft 365 Copilot / Copilot Studio](https://msp-skills.compoundingteams.com/which-agent/#microsoft-365-copilot--copilot-studio) | Yes³ (remote only) | Not supported by MSP Skills yet: needs a remote server | 2026-05-29 |
+| [Google Gemini](https://msp-skills.compoundingteams.com/which-agent/#google-gemini) | Yes | Gemini CLI: local (like Claude Code). Gemini app: needs a remote server, not supported yet. | 2026-05-29 |
+
+**Skill-native agents (secondary)** - they read this skill's `SKILL.md` directly *and* speak MCP:
+
+| AI agent | Status | Install path | Verified |
+| --- | --- | --- | --- |
+| [Hermes](https://msp-skills.compoundingteams.com/which-agent/#hermes-nous-research) | Yes (via MCP + Skill) | `hermes skills install Servosity/msp-skills/skills/<name>` | 2026-05-29 (paper - install not yet end-to-end tested) |
+| [OpenClaw](https://msp-skills.compoundingteams.com/which-agent/#openclaw) | Yes (GA) | `openclaw skills install git:Servosity/msp-skills/skills/<name>@main` | 2026-05-29 (frontmatter spec match; subdir install path needs final dogfood) |
+
+**Long-tail and developer IDEs:**
+
+| AI agent | Supports MCP? | Config file or panel | Verified |
+| --- | --- | --- | --- |
+| [Cursor](https://msp-skills.compoundingteams.com/which-agent/#cursor) | Yes | `.cursor/mcp.json` | 2026-05-28 |
+| [Windsurf](https://msp-skills.compoundingteams.com/which-agent/#windsurf) | Yes | Cascade → MCP Servers | 2026-05-28 |
+| [Cline](https://msp-skills.compoundingteams.com/which-agent/#cline-vs-code) | Yes | `Ctrl+Shift+M` / `⌘+Shift+M` | 2026-05-28 |
+| [Continue.dev](https://msp-skills.compoundingteams.com/which-agent/#continuedev-vs-code--jetbrains) | Yes (Agent mode) | `config.json` | 2026-05-28 |
+| [Zed](https://msp-skills.compoundingteams.com/which-agent/#zed) | Partial² | `context_servers` in `settings.json` | 2026-05-28 |
+| [JetBrains AI Assistant / Junie](https://msp-skills.compoundingteams.com/which-agent/#jetbrains-ai-assistant--junie) | _Verify_ | _verify_ | _pending_ |
+
+**Or install across all 51+ supported agents at once:**
+
+| Tool | What it installs | Install path | Verified |
+| --- | --- | --- | --- |
+| [`npx skills`](https://msp-skills.compoundingteams.com/which-agent/#install-across-all-your-agents-at-once) | SKILL.md symlinks into every supported agent dir | `npx skills add Servosity/msp-skills` | 2026-05-29 (the [agentskills.io](https://agentskills.io) spec entry point; binary install is a separate step) |
+
+¹ The ChatGPT desktop app runs connectors locally (STDIO), the way Codex does, and shares Codex's MCP configuration. ChatGPT on the web needs a remote (HTTP) server, and MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so it is not supported today.
+² Zed supports MCP Tools and Prompts today, not the full spec. Most MSP Skills functionality works; some advanced features may not.
+³ Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only** - there is no local-stdio path. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so they are not supported yet; a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick there. **GitHub Copilot** (in the top 6) is the Microsoft surface that takes the local binary today.
+
+---
+
+## Claude Desktop (Anthropic)
+
+The Mac / Windows app with a chat window. First-class MCP host - the original.
+
+**Config file:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+**Setup** (Settings → Developer → Edit Config), add the block for HaloPSA and / or Servosity:
+
+```json
+{
+  "mcpServers": {
+    "halopsa": {
+      "command": "halopsa-mcp",
+      "env": {
+        "HALOPSA_TENANT": "<your-tenant>",
+        "HALOPSA_CLIENT_ID": "<your-client-id>",
+        "HALOPSA_CLIENT_SECRET": "<your-client-secret>"
+      }
+    },
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": {
+        "SERVOSITY_MSP_TOKEN": "<your-partner-token>"
+      }
+    }
+  }
+}
+```
+
+**Restart Claude Desktop fully** (quit and reopen). An MCP indicator appears in the bottom-right of the chat input once the server connects. Source: [modelcontextprotocol.io/quickstart/user](https://modelcontextprotocol.io/quickstart/user).
+
+---
+
+## Claude Code (Anthropic CLI)
+
+Skill-capable CLI. Reads `SKILL.md` directly and drives `halopsa-cli` / `servosity-cli`. You don't actually need MCP for Claude Code - just install the skill normally - but you can register the MCP server too if you prefer that interface.
+
+**Skill path (recommended):** the install script symlinks the skill into `~/.claude/skills/`. Restart Claude Code; invoke with `use halopsa` or `use servosity`.
+
+**MCP path (alternative):**
+
+```bash
+claude mcp add halopsa -- halopsa-mcp
+claude mcp add servosity -- servosity-mcp
+claude mcp list   # confirm status
+```
+
+MSP Skills connectors run as local (STDIO) servers; HTTP mode is paused (see [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md)). Source: [code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp).
+
+---
+
+## Claude Cowork (Anthropic desktop agent)
+
+Anthropic's desktop agent, GA'd March 2026. Sits between Claude Desktop (chat UI, no shell) and Claude Code (terminal-native): Cowork runs shell on your behalf when you ask it to, and exposes a Settings > Customize > Connectors UI for MCP servers. For MSP Skills, use the Skill path below: the Connectors UI takes a remote web address, and MSP Skills connectors run locally.
+
+**Skill path (recommended) - paste this into Cowork:**
+
+> Install the HaloPSA Skill and MCP server from Servosity/msp-skills in this agent workspace. If this workspace uses a POSIX shell (macOS, Linux, WSL, or Bash), run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)`. If it uses Windows PowerShell, run `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex`. Then authenticate with `halopsa-cli auth login` and run `halopsa-cli --help` to explore.
+
+(Replace `halopsa` with `servosity` for the Servosity skill.)
+
+Cowork will detect your shell, run the installer, walk authentication, and confirm. No JSON editing, no Connector configuration, no terminal commands you type yourself.
+
+**MCP path (alternative):** Settings > Customize > Connectors > **+** > paste an MCP server URL. This is the canonical Cowork path for remote/HTTPS MCP servers (the Composio integration pattern). MSP Skills' binaries are local stdio, so use the Skill path above for them.
+
+Source: [Composio - HubSpot + Claude Cowork docs](https://composio.dev/toolkits/hubspot/framework/claude-cowork) shows the canonical Cowork install patterns.
+
+---
+
+## Codex CLI (OpenAI)
+
+Skill-capable CLI like Claude Code and Cowork. Reads the same `SKILL.md`. Also supports MCP.
+
+**Skill path (recommended):** the install script registers the skill with Codex; invoke `use halopsa` or `use servosity`.
+
+**MCP path (alternative):** edit `~/.codex/config.toml` (global) or `.codex/config.toml` (project):
+
+```toml
+[mcp_servers.halopsa]
+command = "halopsa-mcp"
+env = { HALOPSA_TENANT = "<your-tenant>", HALOPSA_CLIENT_ID = "<id>", HALOPSA_CLIENT_SECRET = "<secret>" }
+
+[mcp_servers.servosity]
+command = "servosity-mcp"
+env = { SERVOSITY_MSP_TOKEN = "<token>" }
+```
+
+Codex supports stdio + Streamable HTTP, and runs concurrent read-only tools when advertised. Source: [developers.openai.com/codex/mcp](https://developers.openai.com/codex/mcp).
+
+---
+
+## ChatGPT (OpenAI)
+
+**Desktop app - local, like Codex.** The ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers and share MCP configuration on the same machine. So a connector you already added to Codex (`~/.codex/config.toml`, see [Codex CLI](https://msp-skills.compoundingteams.com/which-agent/#codex-cli-openai) above) is available in the desktop app too. To add one in the app: **Settings → MCP servers**, choose **STDIO**, and give the connector's MCP binary as the command (`halopsa-mcp`, or its full path).
+
+On November 2, 2026 we ran our live-verified Zammad connector in local (STDIO) mode through the Codex engine built into the ChatGPT desktop app (v26.1027): it loaded all 38 tools and answered a read-only query. Step-by-step: [ChatGPT setup](https://msp-skills.compoundingteams.com/integrations/chatgpt.md).
+
+**ChatGPT on the web - not supported today.** ChatGPT on the web uses remote MCP tools through plugins and doesn't read local Codex configuration files. Reaching it would mean running a connector in HTTP mode, which [SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely) says not to do until it is reprinted. Use the desktop app, or see [when a hosted gateway is the better pick](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick).
+
+Source: [OpenAI - Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp).
+
+---
+
+## Cursor
+
+AI-first code editor. Native MCP. Stdio, SSE, and Streamable HTTP.
+
+**Config:** `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global).
+
+```json
+{
+  "mcpServers": {
+    "halopsa": {
+      "command": "halopsa-mcp",
+      "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" }
+    },
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": { "SERVOSITY_MSP_TOKEN": "<token>" }
+    }
+  }
+}
+```
+
+Or use the Settings → MCP UI to add it via the panel. Cursor supports config interpolation for env vars. Source: [cursor.com/docs/mcp](https://cursor.com/docs/mcp).
+
+---
+
+## Windsurf
+
+The Cascade panel speaks MCP. Stdio, Streamable HTTP, and SSE. OAuth supported.
+
+**Setup:** Click the **MCP Marketplace** icon in the Cascade panel, or Settings → Cascade → MCP Servers → Add. Use the same `command` / `env` block shape as Claude Desktop.
+
+April 2026 update: OAuth fixes; Streamable HTTP replacing SSE. Source: [docs.windsurf.com/windsurf/cascade/mcp](https://docs.windsurf.com/windsurf/cascade/mcp).
+
+---
+
+## Cline (VS Code)
+
+VS Code extension. Built-in MCP Marketplace.
+
+**Setup:** `Ctrl+Shift+M` (Windows / Linux) or `⌘+Shift+M` (macOS) opens the marketplace. Or click the **MCP Servers** icon → **Configure** tab → add `halopsa` / `servosity` with the `command` + `env` block.
+
+**Windows gotcha:** if Cline reports `spawn npx ENOENT`, wrap the command as `cmd` + `npx` per Cline's docs. MSP Skills' own binaries don't use `npx`, so this only matters if you're also installing Node-based MCP servers alongside.
+
+Source: [docs.cline.bot/mcp/adding-and-configuring-servers](https://docs.cline.bot/mcp/adding-and-configuring-servers).
+
+---
+
+## Continue.dev (VS Code / JetBrains)
+
+Open-source AI assistant. **MCP tools only work in Agent mode.** Stdio, SSE, Streamable HTTP. OAuth + env-var templating.
+
+**Setup:** edit Continue's `config.json` (per-IDE path varies; see Continue docs) and add:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "halopsa",
+      "command": "halopsa-mcp",
+      "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" }
+    },
+    {
+      "name": "servosity",
+      "command": "servosity-mcp",
+      "env": { "SERVOSITY_MSP_TOKEN": "<token>" }
+    }
+  ]
+}
+```
+
+**Switch Continue to Agent mode** in the chat panel for tools to fire. Source: [docs.continue.dev/customize/deep-dives/mcp](https://docs.continue.dev/customize/deep-dives/mcp).
+
+---
+
+## Google Gemini
+
+Google's Gemini comes in two shapes that consume MCP very differently - know which one you have.
+
+**Gemini CLI - local (the self-serve path).** Google's CLI agent speaks MCP natively (Gemini API + SDK + CLI, as of Mar-Apr 2026). This is the local-stdio path, just like Claude Code.
+
+**Setup:** edit `~/.gemini/settings.json` (or the path Gemini CLI prints with `gemini config path`) and add an `mcpServers` block with the same shape as Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "halopsa": {
+      "command": "halopsa-mcp",
+      "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" }
+    },
+    "servosity": {
+      "command": "servosity-mcp",
+      "env": { "SERVOSITY_MSP_TOKEN": "<token>" }
+    }
+  }
+}
+```
+
+Restart Gemini CLI; its tool list includes the MCP tools.
+
+**Gemini app / web - not supported yet.** The Gemini app does not launch a local binary; it needs a remote server. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so don't host a connector over HTTPS or put it behind a tunnel for it. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. For a no-hosting path on Google, use Gemini CLI above.
+
+Google Cloud also offers fully-managed remote MCP servers for Google services - not relevant to MSP Skills, but worth knowing about. Source: [Google Cloud Blog - official MCP support](https://cloud.google.com/blog/products/ai-machine-learning/announcing-official-mcp-support-for-google-services).
+
+---
+
+## GitHub Copilot in VS Code
+
+GA in VS Code 1.102 (July 2025). Most enterprise-ready MCP client by reputation: sandboxing, OAuth, Settings Sync, curated marketplace.
+
+**Critical gotchas:**
+
+1. **Config file is `mcp.json`** (not `settings.json`).
+2. **Root key is `servers`** (NOT `mcpServers` like Claude). Easy to miss.
+3. **Works only in Copilot Agent mode** - pick "Agent" in the Copilot Chat mode dropdown.
+
+```json
+{
+  "servers": {
+    "halopsa": {
+      "type": "stdio",
+      "command": "halopsa-mcp",
+      "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" }
+    },
+    "servosity": {
+      "type": "stdio",
+      "command": "servosity-mcp",
+      "env": { "SERVOSITY_MSP_TOKEN": "<token>" }
+    }
+  }
+}
+```
+
+Or install through the Extensions view: search `@mcp` and install from the gallery. Source: [code.visualstudio.com/docs/copilot/customization/mcp-servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).
+
+> **Note:** "Copilot" is two products. **GitHub Copilot** (this section, the dev IDE) takes the local binary today. **Microsoft 365 Copilot** (the business assistant in Teams/Word/Outlook) is remote-only and not supported yet (below) - don't confuse them.
+
+---
+
+## Microsoft 365 Copilot / Copilot Studio
+
+This is the Copilot most MSPs and their clients actually have - bundled into the Microsoft 365 stack. **Not supported by MSP Skills yet.** Microsoft 365 Copilot, Copilot Studio, and Security Copilot consume MCP over **remote Streamable-HTTP only**, so they need a remote server, not the `halopsa-mcp` / `servosity-mcp` binary you installed. MSP Skills' HTTP mode is paused until each connector is reprinted ([SECURITY.md](https://github.com/Servosity/msp-skills/blob/main/SECURITY.md#handling-credentials-safely)), so don't host a connector over HTTPS or put it behind a tunnel for Copilot.
+
+If your team works in Microsoft 365 Copilot, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list (Conduit documents Microsoft 365 Copilot, [getting started](https://conduit.wyre.ai/docs/getting-started/)). For MSP Skills inside a Microsoft tool today, [GitHub Copilot](https://msp-skills.compoundingteams.com/which-agent/#github-copilot-in-vs-code) (local, in the top 6) works.
+
+The **free / consumer Copilot** (copilot.microsoft.com, Windows Copilot) does not support user-supplied MCP servers at all.
+
+---
+
+## Zed
+
+Calls them "context servers." **Partial MCP support** - Tools and Prompts work today; the full spec is in progress (Zed 1.0 ships agentic editing as first-class).
+
+**Setup:** open the Agent Panel (`Cmd+Shift+A`) → top-right menu → install server extensions. Or edit `settings.json`:
+
+```json
+{
+  "context_servers": {
+    "halopsa": {
+      "command": { "path": "halopsa-mcp", "env": { "HALOPSA_TENANT": "<tenant>", "HALOPSA_CLIENT_ID": "<id>", "HALOPSA_CLIENT_SECRET": "<secret>" } }
+    },
+    "servosity": {
+      "command": { "path": "servosity-mcp", "env": { "SERVOSITY_MSP_TOKEN": "<token>" } }
+    }
+  }
+}
+```
+
+Most MSP Skills tools will appear in Zed's tool list; some advanced features that depend on full-spec MCP may not work yet. Source: [zed.dev/docs/ai/mcp](https://zed.dev/docs/ai/mcp).
+
+---
+
+## JetBrains AI Assistant / Junie
+
+JetBrains reportedly added MCP support in late 2025; we have not yet verified the install path against primary docs. If you use JetBrains AI Assistant or Junie and want MSP Skills support documented here, open an issue with the path you used and we'll add it.
+
+---
+
+## Hermes (Nous Research)
+
+Hermes is Nous Research's autonomous research agent. It speaks MCP natively per the [Nous Research docs](https://hermes-agent.nousresearch.com/docs) and has its own SKILL.md installer for Claude-Code-compatible skills.
+
+**MSP Skills works two ways under Hermes:**
+
+1. **Via MCP** (preferred - same path as Claude Desktop / Cursor). Hermes loads `halopsa-mcp` and `servosity-mcp` as MCP servers via its `mcp_servers:` config. Same env vars (`HALOPSA_TENANT`/`CLIENT_ID`/`CLIENT_SECRET`, `SERVOSITY_MSP_TOKEN`).
+
+2. **Via Skill install** (uses the upstream cli-printing-press template). From the Hermes CLI:
+
+   ```bash
+   hermes skills install servosity/msp-skills/skills/halopsa --force
+   hermes skills install servosity/msp-skills/skills/servosity --force
+   ```
+
+   Inside a Hermes chat session:
+
+   ```
+   /skills install servosity/msp-skills/skills/halopsa --force
+   ```
+
+**Honest status:** the cli-printing-press alignment work for Hermes (PR #655) ships the frontmatter + README install sections, but end-to-end install of a printed CLI from a non-canonical path (i.e. `servosity/msp-skills/...` instead of `mvanhorn/printing-press-library/cli-skills/...`) has not been verified end-to-end by upstream. The MCP path (#1) is the more reliable route until Hermes confirms arbitrary GitHub-path resolution.
+
+---
+
+## OpenClaw
+
+[OpenClaw](https://docs.openclaw.ai) is GA (latest stable as of May 2026). Browser-controlled AI agent with native Skill support (SKILL.md superset of Anthropic's spec) and native MCP. Public skill registry at [ClawHub](https://clawhub.ai).
+
+**One-time setup:** install OpenClaw itself ([install docs](https://docs.openclaw.ai/install)).
+
+```bash
+# macOS / Linux / WSL2
+curl -fsSL https://openclaw.ai/install.sh | bash
+
+# Windows (PowerShell)
+iwr -useb https://openclaw.ai/install.ps1 | iex
+```
+
+**Install MSP Skills' HaloPSA skill:**
+
+```bash
+openclaw skills install git:Servosity/msp-skills/skills/halopsa@main
+```
+
+**Install the Servosity skill:**
+
+```bash
+openclaw skills install git:Servosity/msp-skills/skills/servosity@main
+```
+
+OpenClaw reads each skill's `SKILL.md`, sees the `metadata.openclaw.requires.bins` block (already in our frontmatter via cli-printing-press), and installs the required CLI. Run `openclaw doctor` to confirm the install + env vars.
+
+**Register the MCP servers too** (optional - the Skill path already gives you most of the value):
+
+```bash
+openclaw mcp set halopsa '{"command":"halopsa-mcp"}'
+openclaw mcp set servosity '{"command":"servosity-mcp"}'
+```
+
+See the [OpenClaw MCP CLI docs](https://docs.openclaw.ai/cli/mcp) for the canonical command shape.
+
+**Note on subdirectory install path.** OpenClaw's monorepo subdirectory `git:` syntax for `skills install` is documented in the ClawHub skill-format spec; if `git:Servosity/msp-skills/skills/halopsa@main` does not resolve in your build, fall back to cloning the repo locally and running `openclaw skills install ./msp-skills/skills/halopsa`. We are updating the dogfood receipt in the next release.
+
+---
+
+## Install across all your agents at once
+
+If you run more than one AI agent - Claude Code, Codex, Cursor, Cline, Continue.dev, OpenCode, Windsurf, or any of 51+ others - the `npx skills` CLI installs MSP Skills' SKILL.md files across all of them in one command. It's the canonical install tool for the open [Agent Skills spec](https://agentskills.io) that MSP Skills conforms to.
+
+```bash
+npx skills add Servosity/msp-skills@latest
+```
+
+This symlinks (or copies, if you prefer) `skills/halopsa/SKILL.md` and `skills/servosity/SKILL.md` into every supported agent's skill directory at once. `@latest` pulls the most recently released tag so you don't track a moving `main`. Requires Node.js (which `npx` ships with). After it runs, follow up with the per-skill installer to drop the CLI + MCP binaries on your PATH:
+
+```bash
+# macOS / Linux / WSL
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.sh)
+
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/servosity/install.ps1 | iex
+```
+
+**Why this path is secondary.** Most MSP business owners don't run multiple AI agents and don't have Node.js installed by default. The paste-prompt path at the top of each per-skill README is the simpler primary recommendation. The `npx skills` path shines when:
+
+- You're a senior tech / engineer running 3+ different agents
+- You want spec-conformant SKILL.md registration as a one-shot operation
+- You're already working in the [agentskills.io](https://agentskills.io) ecosystem
+
+**Pin a specific version.** `@latest` follows the most recent release. To pin to an exact commit or tag instead:
+
+```bash
+npx skills add Servosity/msp-skills@<commit-sha-or-tag>
+```
+
+Each skill in this repo is tagged independently (`halopsa-v0.1.0`, `servosity-v0.1.0`, etc.) so per-skill version pinning requires the per-skill installer, not the cross-agent CLI.
+
+---
+
+## I don't know what I have yet
+
+A 30-second triage:
+
+| You typed this and got an AI prompt | You have | Install path |
+| --- | --- | --- |
+| `claude` in a terminal | **Claude Code** | Skill or MCP - see above |
+| `codex` in a terminal | **Codex CLI** | Skill or MCP - see above |
+| `gemini` in a terminal | **Gemini CLI** | MCP - see above |
+| You downloaded Claude Desktop from claude.ai | **Claude Desktop** | MCP - see above |
+| You're chatting in the ChatGPT desktop app | **ChatGPT desktop app** | MCP (local) - see above |
+| You opened Cursor / Windsurf / Cline / VS Code with Copilot | The IDE name above | MCP - see above |
+| You only chat in `claude.ai` or `chatgpt.com` and don't use any of the above | Web-only chat | No install yet - web chat needs a remote server, and MSP Skills' HTTP mode is paused. Claude Desktop or the ChatGPT desktop app is the closest. |
+| You're not sure | - | Open whatever you call up to chat. Check the menu / settings for "MCP" or "Skills." That tells you which family. |
+
+If you're working with an MSP-internal team that set up your AI environment, ask them. If you set it up yourself and don't remember, search your applications folder for "Claude" or "Cursor" or "ChatGPT" - whichever has an app is what you have.
+
+---
+
+_All "Verified" dates reflect the date this document was last confirmed against primary sources. If you find a step that no longer works, please open an issue or send a PR. Last updated: 2026-05-28._

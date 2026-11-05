@@ -19,6 +19,9 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 	migrations := []string{
 		// Add CREATE TABLE IF NOT EXISTS statements here.
 	}
+	// Hand-fix (handfixes.json webhooks-listener): vendor_events for
+	// `webhooks listen` and `events list` (vendor_events.go).
+	migrations = append(migrations, vendorEventsMigrations...)
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {
 			return fmt.Errorf("extra migration failed: %w", err)

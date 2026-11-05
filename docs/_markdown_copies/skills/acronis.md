@@ -1,0 +1,170 @@
+> For AI agents: every page on this site is listed, with links to its Markdown copy, at https://msp-skills.compoundingteams.com/llms.txt. This is the Markdown copy of https://msp-skills.compoundingteams.com/skills/acronis/
+
+# The Acronis Cyber Protect Cloud MCP Server - free, local, built for MSPs
+
+> Independent, open source, inspectable. Every line of code is on GitHub
+> under Apache-2.0 - built for the MSP community, vendor-neutral by design.
+> Not affiliated with, endorsed by, or sponsored by Acronis International GmbH.
+
+**✓ Live-verified by @asterisk79 (MSP)** against a production tenant · 2026-09-11 · [receipt →](https://github.com/Servosity/msp-skills/issues/325). Verified on v0.1.4; the current release has changed since.
+
+Yes - there is an MCP server for Acronis Cyber Protect Cloud. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Acronis Cyber Protect Cloud to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+
+MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI "whose backups failed last night," "which agents went offline," or "where am I billing for protection that isn't running," and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.
+
+New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](https://msp-skills.compoundingteams.com/what-is-an-mcp-server.md)
+
+[Install in 60s →](https://msp-skills.compoundingteams.com/skills/acronis/#install)   [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/acronis)
+
+## Instead of clicking through Acronis Cyber Protect Cloud, just ask
+
+**Instead of** Logging into the Acronis console and opening each customer tenant one at a time to see whose backups failed overnight, because partner-level dashboards only show one tenant at a time
+**just ask:** *"Whose backups failed last night?"*
+Your agent runs: `acronis-cli failures --since 24h`
+
+**Instead of** Keeping a side spreadsheet of which backup agents last checked in, because a silently offline agent is the most common way a backup quietly stops and the console won't page you about it
+**just ask:** *"Which backup agents have gone offline across all my customers?"*
+Your agent runs: `acronis-cli agents stale --older-than 7d`
+
+**Instead of** Exporting per-tenant usage reports at month-end and reconciling them by hand against what each customer is actually billed for
+**just ask:** *"Where am I billing for protection that isn't running?"*
+Your agent runs: `acronis-cli coverage --unprotected`
+
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/acronis/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
+## What it does
+
+| Question your MSP keeps asking | Command your agent runs |
+| --- | --- |
+| Whose backups succeeded, failed, or went stale across every customer last night? | `acronis-cli health` |
+| Show me each failed or missed backup in the last 24 hours, newest first | `acronis-cli failures --since 24h` |
+| Which customers have gone too long without a good backup (SLA breach)? | `acronis-cli freshness --sla 48h --breached` |
+| Which backup agents have silently gone offline across all tenants? | `acronis-cli agents stale --older-than 7d` |
+| Did every customer's agents update after the rollout? | `acronis-cli agents compliance` |
+| Where am I billing for protection that isn't actually running? | `acronis-cli coverage --unprotected` |
+| Which usage has no matching SKU, and which paid SKUs have zero usage? | `acronis-cli reconcile usages` |
+| What grew or shrank in usage between two months? | `acronis-cli usages drift --from 2026-04-01 --to 2026-05-01` |
+| Give me the full picture on one customer before the call | `acronis-cli customer "<TENANT_ID>"` |
+| Which enabled customers are missing users, agents, or offering items? | `acronis-cli tenants audit` |
+
+Full command reference at [github.com/servosity/msp-skills/blob/main/skills/acronis/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/acronis/guide.md).
+
+## What makes this one different
+
+Most Acronis integrations and MCP servers proxy each question into a live API call - fine for one tenant, but a fleet-wide question becomes a token-burning loop of paginated calls, one per customer, behind token exchange and the datacenter-host dance. This skill follows Acronis's own monitoring guidance: it syncs every tenant, agent, and usage metric into a local SQLite mirror, so cross-tenant questions (health, coverage, freshness, reconcile usages) become one offline join - instant, and the AI sees the answer table, not pages of raw JSON.
+
+It complements the Acronis console rather than replacing it: the portal stays best for configuring protection plans and running restores, while this skill brings every customer tenant into one place for the cross-tenant questions - whose backups failed, which agents are offline, where billing and protection diverge - that partner-level dashboards, scoped to a single tenant, can't answer in one view.
+
+> **Also from Servosity.** Backup & DR is Servosity's own field - the first-party [Servosity connector](https://msp-skills.compoundingteams.com/skills/servosity.md) brings this same fleet-wide, local-mirror approach (fleet attention, stale backups, restores, QBR reporting) to Servosity Backup and DR.
+
+> **Comparing backup vendors?** One of our MSP partners told us, "My guys now spend a tenth of the time on backups." Fixing is included in every Servosity co-managed backup plan, and our engineers tell you what they did. [See how co-managed backup works](https://servosity.com/?utm_source=msp-skills&utm_medium=connector-note&utm_campaign=acronis&utm_content=docs)
+
+## The pain this closes
+
+- Acronis's own Management Portal Administrator Guide states that partner-level dashboards and reports work only inside one partner tenant - so the question every MSP asks each morning, "whose backups failed," has no single cross-customer view. You drill into each tenant, or you export and stitch in Excel.
+- A silently offline backup agent is the most common way a backup quietly stops succeeding - the agent just stops checking in, and nobody notices until a restore isn't there. Catching it means knowing which agents across every tenant have gone quiet, which the per-tenant console makes a manual sweep.
+- Acronis's developer monitoring guide tells MSPs that custom multi-tenant monitoring requires fetching each customer tenant's data via the API at intervals and storing it locally - real engineering most MSPs never build, so usage-to-billing reconciliation and backup-SLA reporting fall back to month-end spreadsheets.
+
+## Install
+
+Works in any of these agents - pick yours:
+
+| Agent | Quick install |
+| --- | --- |
+| **Claude Desktop** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-desktop.md) |
+| **ChatGPT** (desktop app) | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/chatgpt.md) |
+| **Claude Code** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/claude-code.md) |
+| **Codex CLI** | [Step-by-step →](https://msp-skills.compoundingteams.com/integrations/codex.md) |
+| Cursor, Windsurf, Cline, Continue, Zed, Copilot, Gemini, Hermes, OpenClaw | [Which agent? →](https://msp-skills.compoundingteams.com/which-agent.md) |
+
+**Quickest path** for everyone else (terminal):
+
+**macOS / Linux:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.ps1 | iex
+```
+
+After install, authenticate once with your Acronis Cyber Protect Cloud credentials, then verify with `acronis-cli --version`.
+
+## Safety model
+
+| Tier | Examples | Recommended agent policy |
+| --- | --- | --- |
+| Read | acronis-cli health; acronis-cli failures --since 24h; acronis-cli freshness --sla 48h --breached; acronis-cli coverage --unprotected; acronis-cli agents stale --older-than 7d; acronis-cli reconcile usages; acronis-cli customer "<TENANT_ID>"; acronis-cli search "acme" | Allow |
+| Write (routine) | acronis-cli tenants create (provision a customer); acronis-cli tenants update (rename or enable/disable); acronis-cli tenants offering-items update (change SKUs); acronis-cli reports (create a report configuration); acronis-cli agent-manager force-agent-update; acronis-cli agent-manager update-agent-update-settings - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Destructive / config | acronis-cli tenants delete; acronis-cli clients delete; acronis-cli agent-manager delete-agent; acronis-cli agent-manager delete-agents; acronis-cli clients create (returns the new client secret); acronis-cli idp revoke-token; acronis-cli idp request-token | Human-in-the-loop only |
+
+The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential from the environment (ACRONIS_BEARER_AUTH) or an OAuth2 client saved by auth login and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, list and get) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion, OAuth-client creation (it returns a secret) and the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/acronis/governance.md).
+
+## Frequently asked questions
+
+### Is there an MCP server for Acronis Cyber Protect Cloud?
+
+Yes - this one. A free, open source MCP server and Claude Code Skill for Acronis Cyber Protect Cloud, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+
+### Is the Acronis Cyber Protect Cloud MCP server safe for client data?
+
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `ACRONIS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `ACRONIS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Does this work with ChatGPT?
+
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way acronis-mcp runs, and shares MCP configuration with Codex: add acronis-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+
+### Do I need to know how to code?
+
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+
+### Is my Acronis data safe?
+
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+
+### What does it cost?
+
+Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+### Will this hit my Acronis API rate limits?
+
+The local mirror exists so reads stop hitting the API. After the first sync, the cross-tenant views (health, coverage, freshness, agents stale, reconcile usages) run against local SQLite with zero API calls. Live calls respect a --rate-limit throttle, and each sync re-reads every resource it mirrors, so schedule it rather than running it before every question.
+
+### Do I need to be an Acronis partner?
+
+Yes. You authenticate with an API client created in your own Acronis Management Portal (an OAuth2 client, or a bearer token), so you need partner or admin access to the tenants you want to reach. The CLI can only see what that API client is scoped to.
+
+### Which datacenter does it point at?
+
+Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-cloud or eu2-cloud), or pass --datacenter on auth login. The CLI builds the correct regional API host from it, so you don't hand-assemble the datacenter URL in every call.
+
+### Will this replace the Acronis console?
+
+No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge.
+
+### When can I trust partner-wide backup rollups?
+
+After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary.
+
+## More Backup/DR connectors
+
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Afi](https://msp-skills.compoundingteams.com/skills/afi.md) · [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md) · [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md) · [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md) · [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md) · [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md) · [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md) · [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md) · [Synology](https://msp-skills.compoundingteams.com/skills/synology.md) · [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
+
+## Status
+
+Live-verified. Confirmed by @asterisk79 (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/325)). Verified on v0.1.4; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+
+Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
+
+---
+
+**Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
+
+Maintained by [Servosity](https://www.servosity.com) for the MSP community. Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press).

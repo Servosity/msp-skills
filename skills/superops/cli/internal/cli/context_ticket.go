@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -20,18 +21,22 @@ client/SLA sub-objects embedded on the ticket into one --select-friendly payload
 an AI triage agent can read in a single call. Accepts a ticketId or displayId.
 
 Note: conversation and note threads are not synced locally (no list resource);
-fetch those live with 'superops-cli tickets get <id>'. See README "Known Gaps".`,
+this command does not include them; read them in the SuperOps console or with
+'superops-cli raw query'. See README "Known Gaps".`,
 		Example: strings.Trim(`
   superops-cli context-ticket 12345 --agent
-  superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name
+  superops-cli context-ticket 12345 --agent --select ticket.subject,ticket.status,worklogs
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:happy-args": "12345"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local", "pp:happy-args": "12345"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if len(args) == 0 {
 				return cmd.Help()
 			}
 			if dryRunOK(flags) {
-				return nil
+				return writeDryRun(cmd.OutOrStdout(), flags, "context-ticket")
 			}
 			id := strings.TrimSpace(args[0])
 			db, err := openStoreForNovel(cmd.Context(), dbPath)
@@ -39,14 +44,17 @@ fetch those live with 'superops-cli tickets get <id>'. See README "Known Gaps".`
 				return err
 			}
 			defer db.Close()
-			tickets, err := queryRecs(db, "tickets")
+			tickets, err := loadRecs(cmd, db, "tickets")
 			if err != nil {
 				return err
 			}
-			worklogs, _ := queryRecs(db, "worklogs")
+			worklogs, err := loadRecs(cmd, db, "worklogs")
+			if err != nil {
+				return err
+			}
 			ctx, ok := buildTicketContext(id, tickets, worklogs)
 			if !ok {
-				return fmt.Errorf("no ticket matching %q in the local store (run 'sync' first, or fetch live with 'tickets get %s')", id, id)
+				return fmt.Errorf("no ticket matching %q in the local store (run 'sync' first, or fetch live with 'superops-cli tickets %s')", id, id)
 			}
 			if flags.asJSON {
 				return printJSONFiltered(cmd.OutOrStdout(), ctx, flags)

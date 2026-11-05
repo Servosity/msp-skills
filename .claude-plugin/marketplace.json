@@ -132,13 +132,11 @@
     {
       "name": "avanan",
       "source": "./skills/avanan",
-      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.11",
+      "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "avanan",
-        "email security",
-        "phishing",
         "security",
         "msp",
         "mcp",
@@ -454,8 +452,8 @@
     {
       "name": "hubspot",
       "source": "./skills/hubspot",
-      "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.2.4",
+      "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
+      "version": "0.2.5",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -485,7 +483,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "huntress",
@@ -642,11 +640,10 @@
       "name": "mspbots",
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
-      "version": "0.1.6",
-      "category": "analytics",
+      "version": "0.1.7",
+      "category": "msp",
       "tags": [
         "mspbots",
-        "analytics",
         "msp",
         "mcp",
         "claude-code",
@@ -689,7 +686,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -840,7 +837,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -960,7 +957,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "psa",
       "tags": [
         "superops",
@@ -1082,7 +1079,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "psa",
       "tags": [
         "zammad",
@@ -1127,8 +1124,8 @@
     {
       "name": "google-workspace",
       "source": "./skills/google-workspace",
-      "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
-      "version": "0.1.3",
+      "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1313,7 +1310,7 @@
       "name": "backup-radar",
       "source": "./skills/backup-radar",
       "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "backup-radar",
@@ -1351,6 +1348,178 @@
         "saas-alerts",
         "saas alerts",
         "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "blackpoint",
+      "source": "./skills/blackpoint",
+      "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "blackpoint",
+        "blackpoint cyber",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "mimecast",
+      "source": "./skills/mimecast",
+      "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "mimecast",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "netsapiens",
+      "source": "./skills/netsapiens",
+      "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
+      "version": "0.1.0",
+      "category": "telephony",
+      "tags": [
+        "netsapiens",
+        "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "apple-business",
+      "source": "./skills/apple-business",
+      "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+      "version": "0.1.0",
+      "category": "mdm",
+      "tags": [
+        "apple-business",
+        "apple",
+        "mdm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "warranty",
+      "source": "./skills/warranty",
+      "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "warranty",
+        "dell, lenovo and apple",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "exchange-online",
+      "source": "./skills/exchange-online",
+      "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "exchange-online",
+        "microsoft exchange online",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "dnsfilter",
+      "source": "./skills/dnsfilter",
+      "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "dnsfilter",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "kaseya-vsa",
+      "source": "./skills/kaseya-vsa",
+      "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "kaseya-vsa",
+        "kaseya vsa",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "cisco-umbrella",
+      "source": "./skills/cisco-umbrella",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "cisco-umbrella",
+        "cisco umbrella",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "prtg",
+      "source": "./skills/prtg",
+      "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+      "version": "0.1.0",
+      "category": "network-monitoring",
+      "tags": [
+        "prtg",
+        "paessler",
+        "network-monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "synology",
+      "source": "./skills/synology",
+      "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "synology",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

@@ -1,0 +1,143 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T02:04:20.586292Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "exchange-online",
+  "display_name": "Exchange Online Admin",
+  "cli_name": "exchange-online-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:ad2ed400822551f3902f8147044dfa67ce7cf7e2c5081cc318abc12b0b22015b",
+  "run_id": "20261027-202637-74f99157",
+  "category": "cloud",
+  "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
+  "mcp_binary": "exchange-online-pp-mcp",
+  "mcp_tool_count": 60,
+  "mcp_ready": "full",
+  "api_version": "2026-10-15",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "EXCHANGE_ONLINE_TOKEN"
+  ],
+  "auth_key_url": "https://learn.microsoft.com/en-us/exchange/reference/admin-api-authentication",
+  "auth_title": "Exchange Online access token",
+  "novel_features": [
+    {
+      "name": "Effective legacy-protocol posture",
+      "command": "ews-posture",
+      "description": "See which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on once org defaults are applied."
+    },
+    {
+      "name": "Offboard to shared with receipt",
+      "command": "offboard",
+      "description": "Run the Exchange side of a leaver in one pass: shared mailbox, GAL hide, mobile device removal, plus auto-reply (--auto-reply), manager FullAccess and Send As (--manager) and forwarding (--forward-to), with a per-step receipt; --plan only reports."
+    },
+    {
+      "name": "Tenant forwarding exposure audit",
+      "command": "forwarding-audit",
+      "description": "List every way mail can auto-forward out of a tenant and whether the outbound spam policy or remote-domain settings block it; inbox rules come from the last 'inbox-rules sweep' unless you pass --sweep."
+    },
+    {
+      "name": "Single-user compromise triage",
+      "command": "bec triage",
+      "description": "Collect compromise evidence for one mailbox: inbox rules, forwarding, restricted-sender status, new mobile devices, outbound mail volume and legacy protocols."
+    },
+    {
+      "name": "Tenant-wide inbox-rule sweep",
+      "command": "inbox-rules sweep",
+      "description": "Pull every mailbox's inbox rules in one tenant and flag the classic attacker rules."
+    },
+    {
+      "name": "Quarantine release-request snapshot",
+      "command": "quarantine snapshot",
+      "description": "Save one tenant's pending quarantine release requests locally so the cross-tenant queue can show them."
+    },
+    {
+      "name": "Cross-tenant release-request queue",
+      "command": "quarantine queue",
+      "description": "One oldest-first queue of quarantine release requests across every tenant saved with 'quarantine snapshot' (run it per tenant first)."
+    },
+    {
+      "name": "Where is my email",
+      "command": "where-is",
+      "description": "Explain why a message did or did not reach a recipient, with the next action to take."
+    },
+    {
+      "name": "Reverse access map",
+      "command": "access-map",
+      "description": "List every mailbox one user can open, send as, or send on behalf of."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Effective legacy-protocol posture",
+      "command": "ews-posture",
+      "description": "See which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on once org defaults are applied."
+    },
+    {
+      "name": "Offboard to shared with receipt",
+      "command": "offboard",
+      "description": "Run the Exchange side of a leaver in one pass: shared mailbox, GAL hide, mobile device removal, plus auto-reply (--auto-reply), manager FullAccess and Send As (--manager) and forwarding (--forward-to), with a per-step receipt; --plan only reports."
+    },
+    {
+      "name": "Tenant forwarding exposure audit",
+      "command": "forwarding-audit",
+      "description": "List every way mail can auto-forward out of a tenant and whether the outbound spam policy or remote-domain settings block it; inbox rules come from the last 'inbox-rules sweep' unless you pass --sweep."
+    },
+    {
+      "name": "Single-user compromise triage",
+      "command": "bec triage",
+      "description": "Collect compromise evidence for one mailbox: inbox rules, forwarding, restricted-sender status, new mobile devices, outbound mail volume and legacy protocols."
+    },
+    {
+      "name": "Tenant-wide inbox-rule sweep",
+      "command": "inbox-rules sweep",
+      "description": "Pull every mailbox's inbox rules in one tenant and flag the classic attacker rules."
+    },
+    {
+      "name": "Quarantine release-request snapshot",
+      "command": "quarantine snapshot",
+      "description": "Save one tenant's pending quarantine release requests locally so the cross-tenant queue can show them."
+    },
+    {
+      "name": "Cross-tenant release-request queue",
+      "command": "quarantine queue",
+      "description": "One oldest-first queue of quarantine release requests across every tenant saved with 'quarantine snapshot' (run it per tenant first)."
+    },
+    {
+      "name": "Where is my email",
+      "command": "where-is",
+      "description": "Explain why a message did or did not reach a recipient, with the next action to take."
+    },
+    {
+      "name": "Reverse access map",
+      "command": "access-map",
+      "description": "List every mailbox one user can open, send as, or send on behalf of."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 99.06542056074767,
+    "passed": 106,
+    "total": 107,
+    "failed": 1,
+    "data_pipeline": true,
+    "verdict": "WARN"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 90,
+      "grade": "A",
+      "total": 90
+    }
+  }
+}

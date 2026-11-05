@@ -16,7 +16,7 @@ func newNovelContactsCmd(flags *rootFlags) *cobra.Command {
 		Use:         "contacts",
 		Short:       "Work with contacts",
 		Example:     "  hubspot-cli contacts bulk-update --from-csv people.csv --map email=Email,lifecyclestage=Stage --dry-run",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelContactsBulkUpdateCmd(flags))

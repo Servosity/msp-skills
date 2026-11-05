@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"google-workspace-pp-cli/internal/client"
+	"google-workspace-pp-cli/internal/credkit"
 	"io"
 	"net/http"
 	"os"
@@ -65,7 +66,7 @@ func appendFeedback(entry FeedbackEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening feedback ledger: %w", err)
 	}
@@ -91,7 +92,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "google-workspace-cli/feedback")
-	httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseRedirect}
+	httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseRedirect, Transport: credkit.Transport(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting feedback to %s: %s", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))
@@ -121,6 +122,10 @@ maintainer sees it.`,
   google-workspace-cli feedback --stdin < notes.txt
   google-workspace-cli feedback list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --dry-run must not append the local ledger or POST upstream.
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "feedback")
+			}
 			var text string
 			if useStdin {
 				data, err := io.ReadAll(cmd.InOrStdin())

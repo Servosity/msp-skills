@@ -6,10 +6,11 @@ it's simpler. Everyone else: pick your agent below.
 
 > **Version note.** The MCP write preview, `CIPP_MCP_READ_ONLY`, token-protected HTTP mode, `local-data purge` and `CIPP_NO_LOCAL_DATA` ship in cipp 0.1.13 and later. Check with `cipp-cli --version`.
 
-**Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
-launch `cipp-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
-Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint; see **Remote agents** below for what this build supports.
+**Two install classes.** *Local* agents (Claude Desktop, the ChatGPT desktop app,
+GitHub Copilot, Gemini CLI) launch `cipp-mcp` directly on your machine - no
+hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
+Studio, the Gemini app) need a remote server, which msp-skills does not support
+yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -53,6 +54,20 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+## ChatGPT desktop app (OpenAI)
+
+The ChatGPT desktop app runs MCP servers locally (STDIO) and shares MCP
+configuration with Codex on the same machine
+([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). Open **Settings**, select
+**MCP servers**, add a server, choose **STDIO**, and give `cipp-mcp` as the
+command (its full path if the app can't find it). The server reads the same
+environment variables as the Claude Desktop block above. To keep them in a file,
+add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.cipp]`
+table with `command = "cipp-mcp"` and an `env` table); the desktop app reads that
+file too.
+
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -115,63 +130,33 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (host the binary over HTTPS first)
+# Web-only AI apps (not supported yet)
 
-Remote agents need `cipp-mcp` reachable over **HTTPS** with a bearer token. Keep
-stdio (the default) for every local agent. HTTP mode serves
-`http://127.0.0.1:7777/mcp` by default and refuses to start until `CIPP_MCP_HTTP_TOKEN` is
-set; every request must send `Authorization: Bearer <token>`. Any address other
-than loopback also needs TLS:
+**Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
+Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
+[hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
+is the better pick; check that your AI app is on the gateway's setup list. The
+ChatGPT desktop app is different: it runs `cipp-mcp` locally (see above).
+
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `CIPP_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
 export CIPP_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
 CIPP_API_KEY=<value> CIPP_BASE_URL=<value> CIPP_NO_CONFIG_WRITE=<value> CIPP_USER_AGENT=<value> CIPP_MCP_READ_ONLY=<value> CIPP_NO_LOCAL_DATA=<value> cipp-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
-The endpoint is `https://<host>:7777/mcp`: register that URL, path included, with
-your agent; it is the path the server documents. The server rejects any request without
-`Authorization: Bearer <token>`, so a remote agent works only if its connector
-settings can send that header; check yours first. **Treat the token like a password** -
-whoever holds it can call every tool with your CIPP credentials.
-
-## ChatGPT (Developer Mode)
-
-In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
-Settings > Apps > Advanced > **Developer mode**, then create a custom connector
-pointing at your HTTPS endpoint, if its authentication settings can send the bearer
-token (see above).
-
-Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
-
-## Microsoft 365 Copilot / Copilot Studio
-
-**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
-and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
-`cipp-mcp` you installed is not enough on its own. You also need a **Copilot Studio
-license** and a **tenant admin** to enable it. This is a build-and-host task, not a
-self-serve install.
-
-Once `cipp-mcp` is hosted over HTTPS (above), the lowest-code route:
-
-1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
-   Context Protocol**.
-2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth.
-   The server needs `Authorization: Bearer <token>` on every request, so this
-   works only if the auth option you pick sends it. Copilot Studio builds the Power
-   Platform connector behind the scenes; generative orchestration must be **on**.
-3. Publish the agent into Microsoft 365 Copilot.
-
-Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
-Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
-URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
-
-Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
-
-## Gemini app / web (Google)
-
-Same remote pattern as ChatGPT - point Gemini's connector at your hosted HTTPS
-endpoint, if it can send the bearer token. For a local, no-hosting path on Google, use
-**Gemini CLI** (above) instead.
+The endpoint is `https://<host>:7777/mcp`: the path is part of the endpoint. The
+server rejects any request without `Authorization: Bearer <token>`, so every
+client must send that header. **Treat the token like a password** - whoever holds
+it can call every tool with your CIPP credentials.
 
 ---
 

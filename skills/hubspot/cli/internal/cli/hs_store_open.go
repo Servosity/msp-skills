@@ -44,8 +44,10 @@ func hsTryReadOnlyMigrated(path string) (*store.Store, bool) {
 	if err != nil {
 		return nil, false
 	}
-	var one int
-	if err := st.DB().QueryRow(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='resources' LIMIT 1`).Scan(&one); err != nil {
+	// A store an older binary migrated lacks the newest extras table; it takes
+	// the read-write-migrate path instead of failing on a missing table.
+	var n int
+	if err := st.DB().QueryRow(`SELECT (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('resources', 'hubspot_pipeline_object_types')) + (SELECT COUNT(*) FROM pragma_table_xinfo('hubspot_property_history') WHERE name = 'snapshot_at')`).Scan(&n); err != nil || n != 3 {
 		_ = st.Close()
 		return nil, false
 	}

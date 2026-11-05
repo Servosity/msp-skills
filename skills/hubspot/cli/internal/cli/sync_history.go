@@ -51,6 +51,8 @@ func historyObjectType(resource string) string {
 func captureHistoryFromItem(ctx context.Context, db *store.Store, objectType string, raw json.RawMessage) error {
 	var envelope struct {
 		ID                    string                          `json:"id"`
+		UpdatedAt             string                          `json:"updatedAt"`
+		Properties            map[string]any                  `json:"properties"`
 		PropertiesWithHistory map[string][]propertyHistoryRaw `json:"propertiesWithHistory"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
@@ -58,6 +60,12 @@ func captureHistoryFromItem(ctx context.Context, db *store.Store, objectType str
 	}
 	if envelope.ID == "" || len(envelope.PropertiesWithHistory) == 0 {
 		return nil
+	}
+	// The snapshot time HubSpot reported with this history (hand-wired,
+	// handfixes.json hubspot-velocity-history-must-describe-current-stage).
+	snapshotAt, _ := envelope.Properties["hs_lastmodifieddate"].(string)
+	if snapshotAt == "" {
+		snapshotAt = envelope.UpdatedAt
 	}
 	var entries []store.PropertyHistoryEntry
 	for prop, hist := range envelope.PropertiesWithHistory {
@@ -67,11 +75,12 @@ func captureHistoryFromItem(ctx context.Context, db *store.Store, objectType str
 				continue
 			}
 			entries = append(entries, store.PropertyHistoryEntry{
-				Property:  prop,
-				Value:     h.Value,
-				Timestamp: ts,
-				Source:    h.Source,
-				SourceID:  h.SourceID,
+				Property:   prop,
+				Value:      h.Value,
+				Timestamp:  ts,
+				Source:     firstNonEmptyString(h.SourceType, h.Source),
+				SourceID:   h.SourceID,
+				SnapshotAt: snapshotAt,
 			})
 		}
 	}
@@ -83,10 +92,11 @@ func captureHistoryFromItem(ctx context.Context, db *store.Store, objectType str
 // strings (REST) or as epoch-millisecond numbers — handle both rather than
 // failing on the second shape.
 type propertyHistoryRaw struct {
-	Value     string          `json:"value"`
-	Timestamp json.RawMessage `json:"timestamp"`
-	Source    string          `json:"source"`
-	SourceID  string          `json:"sourceId"`
+	Value      string          `json:"value"`
+	Timestamp  json.RawMessage `json:"timestamp"`
+	Source     string          `json:"source"`
+	SourceType string          `json:"sourceType"` // HubSpot's documented ValueWithTimestamp field
+	SourceID   string          `json:"sourceId"`
 }
 
 func (h propertyHistoryRaw) parseTimestamp() time.Time {
@@ -106,4 +116,61 @@ func (h propertyHistoryRaw) parseTimestamp() time.Time {
 		return time.UnixMilli(n).UTC()
 	}
 	return time.Time{}
+}
+
+// fillPropertiesFromHistory copies each history property's newest value into
+// the item's regular properties block when HubSpot did not return it there.
+// --with-history never narrows properties= (that would strip the snapshot's
+// default properties), so the current value of a non-default property such as
+// hs_meeting_outcome arrives only inside propertiesWithHistory. A value HubSpot
+// did return in properties always wins. Undecodable items pass through
+// unchanged; the capture step reports them.
+func fillPropertiesFromHistory(raw json.RawMessage) json.RawMessage {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return raw
+	}
+	var hist map[string][]propertyHistoryRaw
+	if json.Unmarshal(obj["propertiesWithHistory"], &hist) != nil || len(hist) == 0 {
+		return raw
+	}
+	props := map[string]json.RawMessage{}
+	if p, ok := obj["properties"]; ok && json.Unmarshal(p, &props) != nil {
+		return raw
+	}
+	if props == nil { // "properties": null
+		props = map[string]json.RawMessage{}
+	}
+	changed := false
+	for name, entries := range hist {
+		if _, ok := props[name]; ok {
+			continue
+		}
+		var newest *propertyHistoryRaw
+		var newestAt time.Time
+		for i := range entries {
+			if ts := entries[i].parseTimestamp(); !ts.IsZero() && (newest == nil || ts.After(newestAt)) {
+				newest, newestAt = &entries[i], ts
+			}
+		}
+		if newest == nil {
+			continue
+		}
+		v, _ := json.Marshal(newest.Value)
+		props[name] = v
+		changed = true
+	}
+	if !changed {
+		return raw
+	}
+	p, err := json.Marshal(props)
+	if err != nil {
+		return raw
+	}
+	obj["properties"] = p
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
 }

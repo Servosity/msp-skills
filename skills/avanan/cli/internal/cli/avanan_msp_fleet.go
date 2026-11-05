@@ -23,6 +23,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// mspTenantsResource is the sync partition holding GET /v1.0/msp/tenants. The
+// "msp" partition is a different list (MSP partners on press 4.34.0, usage rows
+// before it) and carries no tenant seats.
+const mspTenantsResource = "msp-tenants"
+
 type fleetRow struct {
 	Tenant         string  `json:"tenant"`
 	TenantID       string  `json:"tenant_id,omitempty"`
@@ -69,7 +74,7 @@ per tenant against a rate-limited API, and produces no ranking at all.
 
 Populate the mirror first:
 
-  avanan-cli sync --resources msp
+  avanan-cli sync --resources msp-tenants
   avanan-cli mirror --since 7d
 
 Detection counts reflect whatever window was mirrored, so a shorter mirror
@@ -93,7 +98,7 @@ instead.
 				return writeDryRun(cmd.OutOrStdout(), flags, "msp fleet")
 			}
 			if flags.dataSource == "live" {
-				return usageErr(fmt.Errorf("msp fleet has no live equivalent: it joins mirrored tenants, licenses, and detections; run 'sync --resources msp' and 'mirror' then retry without --data-source live"))
+				return usageErr(fmt.Errorf("msp fleet has no live equivalent: it joins mirrored tenants, licenses, and detections; run 'sync --resources msp-tenants' and 'mirror' then retry without --data-source live"))
 			}
 			switch sortBy {
 			case "", "overage", "detections", "seats", "name":
@@ -112,12 +117,12 @@ instead.
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "msp") {
-				hintIfStale(cmd, db, "msp", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, mspTenantsResource) {
+				hintIfStale(cmd, db, mspTenantsResource, flags.maxAge)
 			}
 
 			// Sequential drains, never nested: SQLite holds one connection.
-			tenants, err := loadResources(ctx, db, "msp")
+			tenants, err := loadResources(ctx, db, mspTenantsResource)
 			if err != nil {
 				return err
 			}
@@ -164,15 +169,20 @@ instead.
 				if name == "" && id == "" {
 					continue
 				}
+				// The documented Tenant (API reference, GET /v1.0/msp/tenants)
+				// has no name: the domain is the label MSPs recognise. package
+				// and status are objects; the scalar spellings stay as
+				// fallbacks.
+				domain := str(t.Obj, "domain", "primaryDomain")
 				row := fleetRow{
-					Tenant:   orDefault(name, id),
+					Tenant:   orDefault(name, orDefault(domain, id)),
 					TenantID: id,
-					Domain:   str(t.Obj, "domain", "primaryDomain"),
-					Status:   str(t.Obj, "status", "tenantStatus"),
-					Package:  str(t.Obj, "package", "licensePackage", "packageName"),
+					Domain:   domain,
+					Status:   orDefault(nestedStr(t.Obj, "status", "statusCode", "description"), str(t.Obj, "status", "tenantStatus")),
+					Package:  orDefault(nestedStr(t.Obj, "package", "displayName", "codeName"), str(t.Obj, "package", "licensePackage", "packageName")),
 				}
-				row.SeatsLicensed = intField(t.Obj, "licensedUsers", "seats", "licenseCount", "numberOfLicenses")
-				row.SeatsUsed = intField(t.Obj, "protectedUsers", "usedSeats", "activeUsers", "usersCount")
+				row.SeatsLicensed = intField(t.Obj, "maxLicensedUsers", "licensedUsers", "seats", "licenseCount", "numberOfLicenses")
+				row.SeatsUsed = intField(t.Obj, "users", "protectedUsers", "usedSeats", "activeUsers", "usersCount")
 				row.Addons = countAddons(t.Obj)
 
 				if row.SeatsUsed > row.SeatsLicensed && row.SeatsLicensed > 0 {
@@ -225,7 +235,7 @@ instead.
 			}
 
 			if report.Tenants == 0 {
-				report.Note = "no MSP tenants in the local mirror; run 'avanan-cli sync --resources msp' first"
+				report.Note = "no MSP tenants in the local mirror; run 'avanan-cli sync --resources msp-tenants' first"
 			} else if report.TotalDetections == 0 {
 				report.Note = "tenants are mirrored but no detections are; run 'avanan-cli mirror --since 7d' to populate detection volume"
 			}
@@ -319,6 +329,15 @@ func intField(obj map[string]any, keys ...string) int {
 		}
 	}
 	return 0
+}
+
+// nestedStr reads the first non-empty string key of an object-valued field
+// (Tenant.package, Tenant.status).
+func nestedStr(obj map[string]any, field string, keys ...string) string {
+	if nested, ok := obj[field].(map[string]any); ok {
+		return str(nested, keys...)
+	}
+	return ""
 }
 
 func countAddons(obj map[string]any) int {

@@ -27,6 +27,7 @@ body:
         - action1
         - afi
         - appdirect
+        - apple-business
         - atera
         - autotask
         - auvik
@@ -36,10 +37,12 @@ body:
         - backup-radar
         - betterstack
         - bitdefender
+        - blackpoint
         - blumira
         - cipp
         - cisco-duo
         - cisco-meraki
+        - cisco-umbrella
         - connectsecure
         - connectwise-automate
         - connectwise-control
@@ -51,7 +54,9 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - dnsfilter
         - domotz
+        - exchange-online
         - fortinet
         - google-workspace
         - gradient
@@ -63,14 +68,17 @@ body:
         - itglue
         - jira-service-management
         - kaseya-bms
+        - kaseya-vsa
         - knowbe4
         - levelio
         - liongard
         - maxio
         - microsoft-graph
+        - mimecast
         - mspbots
         - n-central
         - nerdio
+        - netsapiens
         - ninjaone
         - pagerduty
         - pandadoc
@@ -78,6 +86,7 @@ body:
         - pipedrive
         - proofpoint
         - proxmox
+        - prtg
         - quickbooks
         - quotewerks
         - resourceguru
@@ -96,12 +105,14 @@ body:
         - sophos-central
         - superops
         - syncro
+        - synology
         - tactical-rmm
         - td-synnex
         - threatdown
         - threatlocker
         - unifi-network
         - veeam
+        - warranty
         - watchguard
         - wordpress
         - xero

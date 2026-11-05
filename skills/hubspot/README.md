@@ -1,4 +1,4 @@
-# HubSpot + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# HubSpot + AI - for Claude, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the HubSpot
 > API. Not affiliated with, endorsed by, or sponsored by HubSpot Inc..
@@ -12,37 +12,41 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/hubspot/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+, paused until this connector is reprinted; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `HUBSPOT_MCP_HTTP_TOKEN` is set, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your HubSpot credentials, including tools that change
+> your CRM, so treat it like a password, and set `HUBSPOT_MCP_READ_ONLY=1` on
+> a remote host that only needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the HubSpot skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `hubspot-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Paused until this connector is reprinted: ChatGPT needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `hubspot-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `hubspot-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode, and that is paused until the connector is reprinted: in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `hubspot-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
-Big install base, but an honest heads-up: these are the **remote / enterprise** path, not the local binary you just installed.
+Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Paused until this connector is reprinted: Copilot Studio needs its HTTP mode, and in this build that mode checks a token but has no request size or time limits yet. See the security note in [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same paused HTTP mode as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -80,9 +84,9 @@ Verify:
 hubspot-cli --version
 ```
 
-### Add to Claude Desktop, GitHub Copilot, Gemini CLI, Microsoft 365 Copilot, or another MCP client
+### Add to Claude Desktop, the ChatGPT desktop app, GitHub Copilot, Gemini CLI, or another MCP client
 
-After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the remote Microsoft 365 Copilot / Copilot Studio path. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
+After the installer runs, see **[mcp-install.md](./mcp-install.md)** and **[docs/which-agent.md](../../docs/which-agent.md)** for the per-agent wire-up - one section per agent, including the GitHub Copilot `servers` key and the ChatGPT desktop app. Claude Desktop's Settings > Extensions panel is the simplest path; the MCP config block (for users who prefer editing JSON) is documented in mcp-install.md.
 
 <!-- pp-hermes-install-anchor -->
 ### Install for Hermes
@@ -127,7 +131,7 @@ HUBSPOT_ACCESS_TOKEN=<value> hubspot-cli doctor
 | Which meetings were *ever* in outcome "Scheduled" this month  -  even the ones that later flipped to No Show or Completed? | `hubspot-cli meetings status-report --status scheduled --month 2026-04` |
 | Who do I call today? (the daily nurture list) | `hubspot-cli nurture queue --owner me --top 20 --agent` |
 | Which contacts or deals have gone cold? | `hubspot-cli stale contacts --days 30 --owner me` |
-| What's my pipeline health right now? ($ at risk + oldest stuck deals) | <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14` |
+| What's my pipeline health right now? (open $ at risk + oldest open-deal idle days per stage) | <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14` |
 | Are my reps overloaded? | `hubspot-cli owner-load --pipeline default` |
 | What's the cross-object timeline for this deal? (every call + email + meeting + note + task) | `hubspot-cli engagements of deal:1234567 --since 90d` |
 | What changed across contacts, deals, engagements, and companies since yesterday? | `hubspot-cli since 24h` |
@@ -138,7 +142,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most HubSpot integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "every deal that was at stage X *at some point* last quarter  -  across all 200 active accounts  -  with $ at risk weighted by stage probability and current rep load." The standard HubSpot search/filter API physically cannot answer the "was at stage X at some point" half of that question  -  only the property-history endpoint can  -  and chaining a join across deals, contacts, owners, engagements, and property snapshots through live REST is a 50-call dance the AI burns context on.
 
-This skill syncs HubSpot into a **local SQLite mirror** with full-text search **plus a property-history snapshot table** (the only HubSpot CLI/MCP that captures `propertiesWithHistory` into a queryable shape). Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `meetings status-report`, `pipeline-health`, and `engagements of` join across **deals × contacts × owners × engagements × per-property history snapshots**  -  work a stateless API wrapper can't do.
+This skill syncs HubSpot into a **local SQLite mirror** with full-text search **plus a property-history snapshot table** (an open-source HubSpot CLI/MCP that captures `propertiesWithHistory` into a queryable shape). Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `meetings status-report`, `pipeline-health`, and `engagements of` join across **deals × contacts × owners × engagements × per-property history snapshots**  -  work a stateless API wrapper can't do.
 
 ## The pain this closes
 
@@ -148,8 +152,8 @@ This skill closes that gap with five commands an MSP owner can run from a single
 
 - `hubspot-cli sync --resources hubspot-meetings-crm --with-history hs_meeting_outcome,hs_meeting_title,hubspot_owner_id`  -  captures the property snapshots so the report has data
 - `hubspot-cli meetings status-report --status scheduled --month 2026-04 --csv`  -  the customer report itself, one command
-- `hubspot-cli meetings ever-had --property hs_meeting_outcome --value Scheduled --from 2026-04-01 --to 2026-04-30`  -  same data, ad-hoc query
-- <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14`  -  the rest of the QBR: what's at risk this period
+- `hubspot-cli meetings ever-had --property hs_meeting_outcome --value SCHEDULED --from 2026-04-01 --to 2026-04-30`  -  same data, ad-hoc query
+- <!-- cli-claims:ignore -->`hubspot-cli pipeline-health default --idle-days 14`  -  the rest of the QBR: which open deal dollars have sat idle 14+ days, per stage
 - `hubspot-cli engagements of deal:<id> --since 90d`  -  full activity trail for any specific deal under discussion
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -158,7 +162,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Not with this build. ChatGPT (Plus, Pro, Team, Business, Enterprise, and Education plans; Free does not yet expose Developer Mode) connects only to **remote** MCP servers over HTTPS, which means running the HubSpot MCP server in HTTP mode. In this build HTTP mode checks a token but has no request size or time limits yet, so do not run it or put it behind a tunnel until the connector is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. Until then, use Claude Desktop, Claude Code or Codex.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `hubspot-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `hubspot-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -194,15 +198,17 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-Read the honest version first: **writes are not gated by default.** `--dry-run` is an opt-in global flag ("Show request without sending", default off) - a raw create/update/delete command sends immediately on first run unless your agent passes `--dry-run` first. The one built-in mutation gate lives on `contacts bulk-update`, and it only fires **above 100 rows** (smaller batches dispatch immediately with a one-line bypass warning). So the real control is an **agent-level policy** you set, plus the scope you grant the token.
+**Every command that changes your HubSpot portal refuses to run, and sends nothing, unless you pass `--yes` to send it or `--dry-run` to preview the request.** That covers each create, update, upsert, merge, archive, delete and association command plus `import`; POSTs that only read (search, batch read) run without it. `contacts bulk-update` needs `--yes` up to 100 rows and the digest confirm above that. An agent that can run the CLI can also pass `--yes`, so keep the approval step in its policy, plus the scope you grant the token.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| **Read** | All reports, rollups, and search (`stale`, `pipeline-health`, `nurture queue`, `deals top`, `engagements of`, `meetings history`, `meetings ever-had`, `meetings status-report`, `since`, `notes signals`, `owner-load`, `nurture-mine`, `history`) | Allow |
-| **Write (routine)** | `contacts bulk-update` (digest + `--confirm` gate, but only above 100 rows - smaller batches send immediately), `crm post-…-batch-create/update/upsert` (88 total; these raw writes have no `--confirm` flag and send immediately) | Make the agent pass `--dry-run` to preview, then require human approval of the exact command before sending. Do not rely on a built-in gate for small batches. |
+| **Read** | All reports, rollups, and search (`stale`, `pipeline-health`, `nurture queue`, `deals top`, `engagements of`, `meetings history`, `meetings ever-had`, `meetings status-report`, `since`, `notes signals`, `owner-load`, `nurture-mine`) | Allow |
+| **Write (routine)** | `contacts bulk-update` (`--yes` up to 100 rows, digest + `--confirm` above that), `crm post-…-batch-create/update/upsert` (88 total; each needs `--yes`) | Preview with `--dry-run`, then a reviewed write with `--yes` |
 | **Credential / security** | (none detected) | Human-in-the-loop only |
-| **Destructive** | `crm delete-…-archive`, `*-crm delete-…`, `hubspot-contacts-crm post-…-gdpr-delete` (24 total) | Human-in-the-loop only, explicit confirmation |
+| **Destructive** | `crm delete-…-archive`, `*-crm delete-…`, `hubspot-contacts-crm post-…-gdpr-delete` (24 total) | Human-in-the-loop only, explicit `--yes` |
 | **Admin** | (none detected) | Operator-only, not for agents |
+
+The examples above are not the full list: every other create, update, upsert, merge, association, list-membership and pipeline command is in the Write tier, and every delete, archive and gdpr-delete command is Destructive; <!-- cli-claims:ignore -->`hubspot-cli agent-context` lists each command's HTTP method. All of them need `--yes`.
 
 The strongest control is the **scope you grant the HubSpot credentials** - the CLI can only do what the credentials are permitted to do. A read/report workflow should use a read-only token. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

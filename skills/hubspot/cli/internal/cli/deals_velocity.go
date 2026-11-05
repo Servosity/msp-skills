@@ -23,7 +23,7 @@ func newNovelDealsVelocityCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "velocity",
 		Short:       "Per-deal time-in-stage and per-stage dwell stats from dealstage change history",
-		Long:        "Compute how long each open deal has sat in its current stage, plus per-stage median and p90 dwell days, from dealstage transitions captured in the local hubspot_property_history table. Requires a prior 'hubspot-cli sync --resources hubspot-deals-crm --with-history dealstage'.\n\nUse this command for \"where do deals rot\" time-in-stage analytics.\nDo NOT use this command for a single record's full engagement timeline; use 'engagements of' instead.",
+		Long:        "Compute how long each open deal has sat in its current stage, plus per-stage median and p90 dwell days, from dealstage transitions captured in the local hubspot_property_history table. Requires a prior 'hubspot-cli sync --resources hubspot-deals-crm --with-history dealstage'.\n\nA deal's time in stage is known only when its newest stored dealstage history entry IS its current stage. When the stage changed after the last history sync (or the deal has no history), its time in stage is unknown: it is left out of deals and stage_stats and listed under skipped (skipped_count, skipped_by_reason), with a stderr warning naming the sync that refreshes it.\n\nUse this command for \"where do deals rot\" time-in-stage analytics.\nDo NOT use this command for a single record's full engagement timeline; use 'engagements of' instead.",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Example: `  hubspot-cli deals velocity --pipeline default
   hubspot-cli deals velocity --stage qualifiedtobuy --limit 25`,
@@ -45,10 +45,17 @@ func newNovelDealsVelocityCmd(flags *rootFlags) *cobra.Command {
 			if !hintIfUnsynced(cmd, db, "hubspot-deals-crm") {
 				hintIfStale(cmd, db, "hubspot-deals-crm", flags.maxAge)
 			}
+			if err := hsRequireCollected(cmd.Context(), db, "deals velocity", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+				return err
+			}
 
 			view, err := queryDealsVelocity(cmd, db, pipeline, stage, limit)
 			if err != nil {
 				return err
+			}
+			if view.SkippedCount > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d open deal(s) left out of deals velocity (%d changed stage after the last dealstage history sync, %d have no dealstage history): their time in stage is unknown. Refresh with '%s'.\n",
+					view.SkippedCount, view.SkippedByReason[velocitySkipStaleHistory], view.SkippedByReason[velocitySkipNoHistory], velocityHistorySync)
 			}
 
 			if flags.asJSON {
@@ -103,14 +110,47 @@ type velocityStageStat struct {
 	P90Days    int64  `json:"p90_days"`
 }
 
+// velocitySkipped is an open deal whose time in its current stage is
+// unknown, so it is in neither deals nor stage_stats.
+type velocitySkipped struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Stage        string `json:"stage"`
+	Reason       string `json:"reason"`
+	HistoryStage string `json:"history_stage,omitempty"`
+	HistoryAt    string `json:"history_at,omitempty"`
+}
+
+const (
+	// velocitySkipStaleHistory: the stored dealstage history cannot date the
+	// entry into the current stage: its newest entry is another stage, or it
+	// was captured before the deal's last change (hs_lastmodifieddate), or the
+	// deal has no readable last-change time. A deal that left its stage and
+	// came back after the capture carries the same stage as an old entry.
+	velocitySkipStaleHistory = "stale_history"
+	// velocitySkipNoHistory: no parseable dealstage history for the deal.
+	velocitySkipNoHistory = "no_history"
+	velocityHistorySync   = "hubspot-cli sync --resources hubspot-deals-crm --with-history dealstage"
+)
+
 type velocityView struct {
-	Deals      []velocityDeal      `json:"deals"`
-	StageStats []velocityStageStat `json:"stage_stats"`
-	Note       string              `json:"note,omitempty"`
+	Deals           []velocityDeal      `json:"deals"`
+	StageStats      []velocityStageStat `json:"stage_stats"`
+	SkippedCount    int                 `json:"skipped_count"`
+	SkippedByReason map[string]int      `json:"skipped_by_reason"`
+	Skipped         []velocitySkipped   `json:"skipped"`
+	Note            string              `json:"note,omitempty"`
 }
 
 func queryDealsVelocity(cmd *cobra.Command, db *store.Store, pipeline, stage string, limit int) (velocityView, error) {
-	view := velocityView{Deals: []velocityDeal{}, StageStats: []velocityStageStat{}}
+	view := velocityView{
+		Deals: []velocityDeal{}, StageStats: []velocityStageStat{},
+		SkippedByReason: map[string]int{velocitySkipStaleHistory: 0, velocitySkipNoHistory: 0},
+		Skipped:         []velocitySkipped{},
+	}
+	if err := requireKnownDealStates(cmd.Context(), db, "deals velocity", pipeline); err != nil {
+		return view, err
+	}
 
 	// Absence check: zero dealstage history rows for deals -> empty + note.
 	var historyRows int
@@ -122,36 +162,68 @@ func queryDealsVelocity(cmd *cobra.Command, db *store.Store, pipeline, stage str
 		historyRows = 0
 	}
 	if historyRows == 0 {
-		view.Note = "no dealstage history found — run 'hubspot-cli sync --resources hubspot-deals-crm --with-history dealstage' first"
+		view.Note = "no dealstage history found; run '" + velocityHistorySync + "' first"
 		return view, nil
 	}
 
-	// Each deal's latest dealstage transition (max timestamp) joined to the
-	// current open deal row. days_in_current_stage = now - that timestamp.
+	// A deal's time in stage comes only from history that describes its
+	// CURRENT stage: the newest dealstage entries (every row at the deal's
+	// latest parseable instant) must all carry the current stage. When any of
+	// them names another stage, the stage changed after the last
+	// --with-history sync and the stored history cannot date the entry into
+	// the current stage; that deal is skipped and reported, never dated from
+	// an older entry. The newest entries are trusted only when they were captured
+	// no earlier than the deal's last change (MAX snapshot_at, the
+	// hs_lastmodifieddate HubSpot reported with the history, against the
+	// deal's current hs_lastmodifieddate; never the local write time): a deal
+	// can leave its stage and come back after the capture, and the same stage
+	// name then proves nothing. The latest instant is MAX(julianday()), never MAX() of
+	// the stored text: RFC3339 with or without a fraction and the driver's
+	// time.Time text do not sort chronologically as strings.
 	q := `
-SELECT d.id,
-  COALESCE(json_extract(d.data, '$.properties.dealname'), '') AS name,
-  CAST(json_extract(d.data, '$.properties.amount') AS REAL) AS amount,
-  COALESCE(json_extract(d.data, '$.properties.dealstage'), '') AS stage,
-  h.entered_at AS entered_stage_at,
-  -- The history timestamp may be stored either as RFC3339 ("...T..Z") or as
-  -- Go's time.Time text ("2026-04-27 12:04:57.5 +0000 UTC"); both forms break
-  -- julianday(). Normalize to "YYYY-MM-DD HH:MM:SS" (first 19 chars, T->space)
-  -- before the date arithmetic so days_in_stage is never NULL.
-  CAST((julianday('now') - julianday(replace(substr(h.entered_at, 1, 19), 'T', ' '))) AS INTEGER) AS days_in_stage
-FROM hubspot_deals_crm d
-JOIN (
-  SELECT object_id, MAX(timestamp) AS entered_at
+WITH hist AS (
+  SELECT object_id, COALESCE(value, '') AS value, CAST(timestamp AS TEXT) AS ts,
+    ` + hsJulianSQL("timestamp") + ` AS jd
+  FROM hubspot_property_history
+  WHERE object_type = 'deals' AND property = 'dealstage'
+),
+h AS (
+  -- Each deal's latest parseable dealstage instant. A deal with no
+  -- parseable transition has no known entry time (reported no_history).
+  SELECT object_id, MAX(` + hsJulianSQL("timestamp") + `) AS entered_jd,
+    MAX(` + hsJulianSQL("snapshot_at") + `) AS captured_jd
   FROM hubspot_property_history
   WHERE object_type = 'deals' AND property = 'dealstage'
   GROUP BY object_id
-) h ON h.object_id = d.id
-WHERE COALESCE(d.archived, 0) = 0
-  AND COALESCE(json_extract(d.data, '$.properties.dealstage'), '') NOT IN ('closedwon', 'closedlost')
-  AND (? = '' OR json_extract(d.data, '$.properties.pipeline') = ?)
-  AND (? = '' OR COALESCE(json_extract(d.data, '$.properties.dealstage'), '') = ?)
-ORDER BY days_in_stage DESC`
-	rows, err := db.DB().QueryContext(cmd.Context(), q, pipeline, pipeline, stage, stage)
+  HAVING entered_jd IS NOT NULL
+),
+open_deals AS (
+  SELECT id AS deal_id,
+    COALESCE(json_extract(data, '$.properties.dealname'), '') AS deal_name,
+    CAST(json_extract(data, '$.properties.amount') AS REAL) AS deal_amount,
+    COALESCE(json_extract(data, '$.properties.dealstage'), '') AS deal_stage,
+    ` + hsJulianSQL("json_extract(data, '$.properties.hs_lastmodifieddate')") + ` AS modified_jd
+  FROM hubspot_deals_crm
+  WHERE COALESCE(archived, 0) = 0
+    AND NOT ` + dealClosedSQL("") + `
+    AND (?1 = '' OR json_extract(data, '$.properties.pipeline') = ?1)
+    AND (?2 = '' OR COALESCE(json_extract(data, '$.properties.dealstage'), '') = ?2)
+)
+SELECT deal_id, deal_name, deal_amount, deal_stage,
+  COUNT(n.object_id) AS newest_rows,
+  COALESCE(SUM(CASE WHEN n.value <> deal_stage THEN 1 ELSE 0 END), 0) AS other_stage_rows,
+  MIN(CASE WHEN n.value = deal_stage THEN n.ts END) AS entered_at,
+  MIN(CASE WHEN n.value <> deal_stage THEN n.value END) AS history_stage,
+  MIN(CASE WHEN n.value <> deal_stage THEN n.ts END) AS history_at,
+  h.entered_jd,
+  CAST((julianday('now') - h.entered_jd) AS INTEGER) AS days_in_stage,
+  (h.captured_jd IS NOT NULL AND modified_jd IS NOT NULL AND h.captured_jd >= modified_jd) AS captured_after_change
+FROM open_deals
+LEFT JOIN h ON h.object_id = deal_id
+LEFT JOIN hist n ON n.object_id = deal_id AND n.jd = h.entered_jd
+GROUP BY deal_id
+ORDER BY h.entered_jd IS NULL, h.entered_jd ASC, deal_id`
+	rows, err := db.DB().QueryContext(cmd.Context(), q, pipeline, stage)
 	if err != nil {
 		return view, fmt.Errorf("query: %w", err)
 	}
@@ -159,22 +231,43 @@ ORDER BY days_in_stage DESC`
 
 	// Accumulate dwell days per stage across the full (pre-limit) candidate set
 	// so the stats describe the whole population, not just the rendered top-N.
+	// Only deals whose history describes their current stage contribute.
 	dwellByStage := map[string][]int64{}
 	all := []velocityDeal{}
+	skipped := []velocitySkipped{}
 	for rows.Next() {
 		var d velocityDeal
-		var amt sql.NullFloat64
-		var entered sql.NullString
-		if err := rows.Scan(&d.ID, &d.Name, &amt, &d.Stage, &entered, &d.DaysInStage); err != nil {
+		var amt, enteredJD sql.NullFloat64
+		var entered, historyStage, historyAt sql.NullString
+		var days sql.NullInt64
+		var newestRows, otherStageRows int64
+		var capturedAfterChange bool
+		if err := rows.Scan(&d.ID, &d.Name, &amt, &d.Stage, &newestRows, &otherStageRows, &entered, &historyStage, &historyAt, &enteredJD, &days, &capturedAfterChange); err != nil {
 			return view, err
 		}
 		d.Amount = nullF(amt)
-		d.EnteredStageAt = nullStr(entered)
+		switch {
+		case newestRows == 0 || !enteredJD.Valid || !days.Valid:
+			skipped = append(skipped, velocitySkipped{ID: d.ID, Name: d.Name, Stage: d.Stage, Reason: velocitySkipNoHistory})
+			continue
+		case otherStageRows > 0 || !entered.Valid || !capturedAfterChange:
+			skipped = append(skipped, velocitySkipped{
+				ID: d.ID, Name: d.Name, Stage: d.Stage, Reason: velocitySkipStaleHistory,
+				HistoryStage: nullStr(historyStage), HistoryAt: nullStr(historyAt),
+			})
+			continue
+		}
+		d.EnteredStageAt = entered.String
+		d.DaysInStage = days.Int64
 		all = append(all, d)
 		dwellByStage[d.Stage] = append(dwellByStage[d.Stage], d.DaysInStage)
 	}
 	if err := rows.Err(); err != nil {
 		return view, fmt.Errorf("iterating deal velocity rows: %w", err)
+	}
+	view.SkippedCount = len(skipped)
+	for _, sk := range skipped {
+		view.SkippedByReason[sk.Reason]++
 	}
 
 	// Per-stage median + p90 over the full population.
@@ -195,13 +288,18 @@ ORDER BY days_in_stage DESC`
 	})
 	view.StageStats = stats
 
-	// Apply the row limit to the per-deal output only.
+	// Apply the row limit to the per-deal and skipped lists only; the stats
+	// and skipped_count describe the whole population.
 	if limit > 0 && len(all) > limit {
 		all = all[:limit]
+	}
+	if limit > 0 && len(skipped) > limit {
+		skipped = skipped[:limit]
 	}
 	if len(all) > 0 {
 		view.Deals = all
 	}
+	view.Skipped = skipped
 	return view, nil
 }
 

@@ -59,6 +59,7 @@ REQUIRE_TITLE_DESC_PERMALINKS = {
     "/answers/mcp-server-vs-vendor-built-in-ai/",
     "/answers/how-msps-use-claude-and-chatgpt-with-their-psa/",
     "/answers/what-is-a-claude-code-skill/",
+    "/answers/mcp-servers-for-msps-2026/",
 }
 
 # The connector-formula assertions (a fixed "...MCP Server - Free, Open Source,

@@ -61,7 +61,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running backup-radar-mcp in HTTP mode, and in this build HTTP mode checks a token but has no request size or time limits yet. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way backup-radar-mcp runs, and shares MCP configuration with Codex: add backup-radar-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -85,7 +85,7 @@
     },
     {
       "q": "Can an AI agent retire backups by mistake?",
-      "a": "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
+      "a": "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, --server-dry-run (the request is sent and nothing is retired; the global --dry-run sends nothing). stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
     },
     {
       "q": "Does it work for EU ScalePad tenants?",

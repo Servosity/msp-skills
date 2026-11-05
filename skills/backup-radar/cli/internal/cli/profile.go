@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"backup-radar-pp-cli/internal/cliutil"
+	"backup-radar-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -86,7 +87,7 @@ func saveProfileStore(s *profileStore) error {
 		return fmt.Errorf("marshaling profiles: %w", err)
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := credkit.WriteFile(tmp, data, 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		return fmt.Errorf("writing profiles: %w", err)
 	}
 	return os.Rename(tmp, p)
@@ -104,13 +105,25 @@ func GetProfile(name string) (*Profile, error) {
 	return nil, nil
 }
 
+// profileAppliedFlagNames records flags the latest ApplyProfileToFlags call
+// set. profile save skips them so an overlay is not stored again as if the
+// user had typed it. Reset on every apply and at the start of
+// PersistentPreRunE so a later command in the same process starts clean.
+var profileAppliedFlagNames = map[string]struct{}{}
+
+func resetProfileAppliedFlags() {
+	profileAppliedFlagNames = map[string]struct{}{}
+}
+
 // ApplyProfileToFlags overlays profile values onto flags that the user has
 // not set explicitly on the command line. Used from root.go's
 // PersistentPreRunE so profile values feed the whole command tree.
 func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
-	if profile == nil || len(profile.Values) == 0 {
+	resetProfileAppliedFlags()
+	if profile == nil || len(profile.Values) == 0 || cmd == nil {
 		return nil
 	}
+	typedOutput := typedOutputMode(cmd)
 	// Reserved flags that never come from a profile - they control profile
 	// resolution itself or are dangerous to overlay. profile save's skip
 	// map must remain a superset of this set so saved profiles never carry
@@ -142,22 +155,53 @@ func ApplyProfileToFlags(cmd *cobra.Command, profile *Profile) error {
 		if reserved[name] || typedGroup[name] || credentialLikeRunProfileFlag(name) {
 			continue
 		}
-		flag := lookup(name)
+		if profileFlagBlockedByTypedOutput(name, typedOutput) {
+			continue
+		}
+		flag := cmd.Flags().Lookup(name)
+		owner := cmd.Flags()
 		if flag == nil {
+			flag = cmd.InheritedFlags().Lookup(name)
+			owner = cmd.InheritedFlags()
+		}
+		if flag == nil || flag.Changed {
 			continue
 		}
-		if flag.Changed {
-			continue
-		}
-		if err := flag.Value.Set(value); err != nil {
+		// FlagSet.Set marks Changed. Value.Set does not, so optional body
+		// fields and output flags would ignore a saved value.
+		if err := owner.Set(name, value); err != nil {
 			return fmt.Errorf("applying profile value %s=%q: %w", name, value, err)
 		}
-		// HAND-FIX(profile-values-count-as-typed): commands gate on Changed()
-		// (backups retire sends dry_run only when --dry-run changed), so a
-		// profile value must count as typed or a saved --dry-run runs live.
-		flag.Changed = true
+		profileAppliedFlagNames[name] = struct{}{}
 	}
 	return nil
+}
+
+// typedOutputMode returns the saved output flags a typed one blocks.
+// HAND-FIX(profile-output-mode-groups): typing a member blocks only its own
+// group, so a typed --csv beats a saved --json while a saved --compact (another
+// group) still applies. --agent sits with the format flags: the root pre-run
+// turns it into JSON.
+func typedOutputMode(cmd *cobra.Command) map[string]bool {
+	blocked := map[string]bool{}
+	if cmd == nil {
+		return blocked
+	}
+	for _, group := range [][]string{{"json", "csv", "plain", "quiet", "agent"}, {"compact", "select"}} {
+		for _, name := range group {
+			if cmd.Flags().Changed(name) {
+				for _, member := range group {
+					blocked[member] = true
+				}
+				break
+			}
+		}
+	}
+	return blocked
+}
+
+func profileFlagBlockedByTypedOutput(name string, blocked map[string]bool) bool {
+	return blocked[name]
 }
 
 func credentialLikeRunProfileFlag(name string) bool {
@@ -244,6 +288,9 @@ captured: they control profile/config resolution and would never apply).`,
 					return
 				}
 				if fl.Changed && !skip[fl.Name] {
+					if _, applied := profileAppliedFlagNames[fl.Name]; applied {
+						return
+					}
 					values[fl.Name] = fl.Value.String()
 				}
 			}

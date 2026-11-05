@@ -49,7 +49,7 @@
     },
     {
       "question": "Give my triage agent one ticket with its worklogs, client, and SLA in a single read",
-      "command": "superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name"
+      "command": "superops-cli context-ticket 12345 --agent --select ticket.subject,client.name,sla.name,worklogs"
     },
     {
       "question": "Search every synced ticket, asset, and client for \"disk full\"",
@@ -61,7 +61,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Not with this build. ChatGPT connects only to remote MCP servers over HTTPS, which means running superops-mcp in HTTP mode, and in this build HTTP mode asks for no password, listens on every network interface, and can be reached by a web page you open. Do not run it or put it behind a tunnel until the connector is reprinted; the security note at the top of the install guide explains why. Until then, use Claude Desktop, Claude Code or Codex."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way superops-mcp runs, and shares MCP configuration with Codex: add superops-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -81,14 +81,14 @@
     },
     {
       "q": "Can it create or update tickets?",
-      "a": "The typed commands are read-only by design - inspection, export, sync, and analysis. The one write path is `raw mutation`, the supported escape hatch for operations the typed commands don't wrap (for example createTicket, updateTicket, resolveAlerts). Pair it with --dry-run to preview the exact GraphQL request, and keep a human in the loop; `raw query` is the read-only counterpart."
+      "a": "The typed commands are read-only by design - inspection, export, sync, and analysis. The one write path is raw mutation, the supported escape hatch for operations the typed commands don't wrap (for example createTicket, updateTicket, resolveAlerts). Without --yes it prints the exact GraphQL request and sends nothing; add --yes to send. Over MCP, raw_mutation can only preview (the MCP server never passes --yes), and GraphQL variables go inline in the document because the separate vars field is not offered there. raw query is the read-only counterpart and refuses any document that is not a query. Keep a human in the loop for every send."
     },
     {
       "q": "What does it cost?",
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     }
   ],
-  "governance_summary": "The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`; the recommended policy is to preview it with --dry-run, show the exact GraphQL request, get approval, then run. The strongest control is the scope of the API token you mint.",
+  "governance_summary": "The skill drives the superops-cli and superops-mcp binaries, authenticating with a SUPEROPS_API_TOKEN (plus SUPEROPS_SUBDOMAIN for your tenant) read from the environment - never logged, never sent anywhere except the SuperOps API. Every typed command is read-only: tickets, assets, alerts, clients, contracts, invoices, worklogs, and the cross-entity views change nothing. The single write path is `raw mutation`, which prints the exact GraphQL request and sends nothing without --yes; over MCP it can only preview. The recommended policy: preview, show the request, get approval, then run with --yes. The strongest control is the scope of the API token you mint.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -97,8 +97,8 @@
     },
     {
       "tier": "Write (mutation escape hatch)",
-      "examples": "superops-cli raw mutation - the only write path; wraps operations the read-only typed commands don't cover (createTicket, updateTicket, resolveAlerts). --dry-run prints the exact GraphQL request without sending it",
-      "policy": "Preview with --dry-run, then a reviewed write"
+      "examples": "superops-cli raw mutation - the only write path; wraps operations the read-only typed commands don't cover (createTicket, updateTicket, resolveAlerts). Without --yes it prints the exact GraphQL request and sends nothing; over MCP it can only preview",
+      "policy": "Preview first (the default), then a reviewed --yes send"
     },
     {
       "tier": "Destructive / config",
