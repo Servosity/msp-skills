@@ -144,8 +144,8 @@
       "has_video": true,
       "cli_hash": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:1ed63a6a6ebbd8ce780edf45b0a9a8724bc527d11e27996880d7071997a6f6b8",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -239,8 +239,8 @@
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
       "cli_hash": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
       "template_version": 3,
-      "version": "0.1.12",
-      "cli_hash_at_release": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
+      "version": "0.1.13",
+      "cli_hash_at_release": "sha256:d1367ab7f37c4a478efe33dc89ece1501d8334d196e6ad701f2412dc21421325",
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
@@ -319,8 +319,8 @@
       "has_video": true,
       "cli_hash": "sha256:f1496f23732dcc50b4f928e1c415bcadb560ccede539018f4b1331c65c5b1e32",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:ae1ed5a479c6cf4ce6f142a3ede42011ac1c01ec3c14fca0bb865c6ad188d1ce",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:ef3f14d798a78b854f180b56aa7aef30e447c84b3c6b811c79e8721ec8141492",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -518,8 +518,8 @@
       "has_video": true,
       "cli_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:f609611867481a1b8db77893f7c87a2cb87a753b3bae90cfba069deef4c0b913",
       "live_verified": {
         "status": "awaiting",
         "date": null,
