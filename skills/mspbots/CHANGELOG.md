@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Fixed
+- Output that holds no credential is no longer replaced by "withheld ... it carried a credential". Long or rich text, such as HTML email with Outlook Safe Links or long incident reports, ran out the shared credential kit's checking budget and was withheld as if it carried a credential. A credential the program holds is still withheld ([#571](https://github.com/Servosity/msp-skills/pull/571)).
+
 ## [0.1.7] - 2026-11-05
 
 Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command, flag and MCP tool that shipped in 0.1.6 is still here; the list below is what changed for an operator or an agent. The press upgrade follows advisory GHSA-jh26-vhqh-692c.
