@@ -1065,6 +1065,26 @@
       "tagline": "Fleet-wide Kaseya VSA 10 answers - missing patches, failing health, software drift - and script output in one call."
     },
     {
+      "name": "keeper",
+      "system": "Password manager administration for MSPs: managed companies, users, 2FA and admin posture, and licences across every client",
+      "status": "beta",
+      "skill_path": "skills/keeper",
+      "cli_binary": "keeper-cli",
+      "mcp_binary": "keeper-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Keeper Security",
+      "vendor_trademark_owner": "Keeper Security, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/install.sh)",
+      "install_mcp_doc": "skills/keeper/mcp-install.md",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret."
+    },
+    {
       "name": "knowbe4",
       "system": "KnowBe4 KMSAT security awareness training and phishing-simulation reporting",
       "status": "beta",

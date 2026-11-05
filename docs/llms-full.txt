@@ -1898,6 +1898,40 @@ A: It is built to stay inside them. VSA 10 limits each API token per hour, so th
 
 Governance: The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.
 
+### Keeper Admin and MSP Console (Security)
+
+Page: [Keeper Admin and MSP Console](https://msp-skills.compoundingteams.com/skills/keeper.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/install.sh)
+
+See every client's Keeper 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seats in one run, then ask what changed since last quarter. Keeper Security + your AI reads through your own Commander Service Mode host and stores each run locally. It is read-only, and it has no path to a vault record.
+
+Outcomes (question -> command your AI agent runs):
+- How is every client doing on 2FA, weak passwords and BreachWatch? -> keeper-cli posture report --days 90 --agent
+- Which clients have users without 2FA, admins first? -> keeper-cli users risk --kind no-2fa --agent
+- What changed since the last posture run, by client and by user? -> keeper-cli posture diff --agent
+- Which invites went stale, and who is inactive or locked? -> keeper-cli users hygiene --kind invited,inactive --agent
+- Which managed company does this user belong to? -> keeper-cli users find jane@example.com --agent
+- How many seats does each client have allocated and active? -> keeper-cli companies list --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Keeper Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Keeper Security data safe?
+A: Your data stays on your machine and your own Service Mode host. Typed reads are printed and not saved; only posture report saves metrics and per-user facts to a local store. The skill cannot read a vault record, and a response shaped like record content is refused whole.
+Q: Can this read passwords from a client's vault?
+A: No. It can send only the admin and MSP reports listed by keeper-cli allowlist, each with fixed read-only flags. Set the same list on your Service Mode key with service-create -c, so Service Mode refuses anything else too.
+Q: What do I need from Keeper?
+A: Keeper Commander running in Service Mode on a host you control, over TLS (service-create with -crtf and -crtp), and its API key. The CLI refuses plain http on every host, localhost included. A private certificate is trusted with KEEPER_CA_CERT.
+Q: Do I need a Keeper MSP account?
+A: The cross-client commands need one. An account that is not an MSP is reported as its own enterprise, one company in the same format.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill reads Keeper admin and MSP reports: companies, seats, users, roles, teams, 2FA, password-health scores, BreachWatch summaries and audit events. It cannot change anything in Keeper and cannot read a vault record. The only things it writes are local: posture runs, learnings and profiles. Let an agent read freely, and keep a human on the credential commands.
+
 ### KnowBe4 (Security)
 
 Page: [KnowBe4](https://msp-skills.compoundingteams.com/skills/knowbe4.md)

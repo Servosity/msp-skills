@@ -71,6 +71,7 @@ body:
         - jira-service-management
         - kaseya-bms
         - kaseya-vsa
+        - keeper
         - knowbe4
         - levelio
         - liongard

@@ -222,6 +222,14 @@ kaseya-vsa:
   vendor: "Kaseya VSA 10"
   example_command: "Which critical patches are missing everywhere?"
 
+keeper:
+  vendor: "Keeper Security"
+  example_command: "Which clients have users without 2FA?"
+  response_lines:
+    - "3 clients - 7 users, 2 of them admins"
+    - "Read-only - no path to a vault secret"
+  outcome_line: "Every client's Keeper posture, read-only."
+
 knowbe4:
   vendor: "KnowBe4"
   example_command: "Who keeps clicking phishing?"
