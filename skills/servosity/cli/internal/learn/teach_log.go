@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 // teachLogStateDirName is the per-user state directory name.
@@ -104,13 +105,15 @@ func appendTeachLogEntry(entry TeachLogEntry) error {
 	if err != nil {
 		return err
 	}
+	// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+	// this program holds is refused before it is stored.
 	line, err := json.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("teach log: marshal: %w", err)
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateTeachLogIfNeeded(p)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return fmt.Errorf("teach log: open %s: %w", p, err)
 		}

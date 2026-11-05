@@ -1,0 +1,24 @@
+# Changelog
+
+All notable changes to this skill are documented here. Format follows
+[Keep a Changelog](https://keepachangelog.com/); versions follow
+[semantic versioning](https://semver.org/).
+
+## [0.1.0] - 2026-10-19
+
+### Added
+- Initial msp-skills release: CloudAlly CLI (`cloudally-cli`) and MCP server
+  (`cloudally-mcp`) over CloudAlly's Management API v2: distributor, reseller and
+  customer accounts, backup tasks and their entities, backup status feeds, users,
+  billing and recovery jobs.
+- `auth login` signs in as one company account; `auth login --partner` signs in to
+  the partner portal and reaches every customer. Both send the `client-id` and
+  `client-secret` headers on every request and refresh the token on their own.
+- `auth use-account <accountId>` mints an account-scoped token for one customer
+  (`--reseller` for reseller partners) and `auth use-account --partner` switches back.
+- `CLOUDALLY_MCP_READ_ONLY=1` lists only read-only MCP tools; `cloudally_read` keeps
+  live reads available and refuses every state-changing endpoint.
+- `local-data purge` previews and erases the local store, response cache and learn
+  journal; `CLOUDALLY_NO_LOCAL_DATA=1` keeps API responses off the disk.
+- `doctor` verifies the stored token with one authenticated read (`GET /v2/user`)
+  and turns the API row red when `base_url` is not the CloudAlly API.

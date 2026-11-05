@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/gradient-mcp",
   "title": "Gradient MSP MCP",
   "description": "CLI and MCP server for Gradient MSP Synthesize: usage push, billing drift, alert tracing.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/gradient/gradient-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.8/gradient-mcp.mcpb",
-      "version": "0.1.8",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.9/gradient-mcp.mcpb",
+      "version": "0.1.9",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -37,20 +37,50 @@
         },
         {
           "name": "GRADIENT_PARTNER_API_KEY",
-          "description": "Partner API key issued alongside the vendor key. Both halves are sent in the GRADIENT-TOKEN header.",
-          "isRequired": true,
+          "description": "Synthesize partner API key, issued with the vendor key. Fill in this and the vendor key, or GRADIENT_TOKEN alone.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "GRADIENT_TOKEN",
-          "description": "Set the GRADIENT_TOKEN credential for the Gradient MSP MCP server.",
-          "isRequired": true,
+          "description": "The GRADIENT-TOKEN header value, base64(\"<vendorApiKey>:<partnerApiKey>\"). Leave empty when you fill in the vendor and partner API keys; when set, it is used instead of them.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "GRADIENT_VENDOR_API_KEY",
-          "description": "Vendor API key from Synthesize (Integrations > Custom > Generate API Tokens). Shown once.",
-          "isRequired": true,
+          "description": "Synthesize vendor API key (Integrations -> Custom -> Generate API Tokens). Fill in this and the partner key, or GRADIENT_TOKEN alone.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "GRADIENT_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GRADIENT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GRADIENT_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Gradient MSP requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "GRADIENT_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

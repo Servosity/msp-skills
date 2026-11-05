@@ -1,0 +1,1185 @@
+{
+ "slug": "keeper",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every credential source and sink goes through the shared credential kit: credkit.Start is the first statement of both mains, credwire declares the sources once, and the transport, file, MCP and terminal sinks route through it.",
+   "why": "The contract's one layer replaces the connector's own holder, chokepoint, funnel and encoding views; a reprint that drops a wiring line leaves a sink past the kit with a green build.",
+   "spec_encode_followup": "Fleet: press template adoption of the kit will replace this wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"KEEPER_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:KEEPER_MCP_HTTP_TOKEN\", Allowed: nil},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_outbound.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "next: cliutil.OutboundGuard(c.HTTPClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_startup_ordering(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_encoded_credential_leak(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_partial_credential_leak(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_outbound_split_credential_leak(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_set_token_line(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestSetTokenFlagsMatchTheCommand(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdSetTokenArguments(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/keeper-mcp/main.go",
+     "contains": "flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldURL(\"userinfo\", raw)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it.",
+   "why": "A raw sqlite handle writes rows past the kit.",
+   "spec_encode_followup": "Fleet: press template adoption of the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "source, err := sql.Open(credsql.Driver, readOnlySQLiteDSN(sourcePath))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-every-file-write",
+   "class": "raw-file-write-past-kit",
+   "status": "active",
+   "summary": "No handle from a raw open writes a byte past the kit: the lock file stays empty, the journal's lines and repair newline go through credkit.AppendFile, the fingerprint key through credkit.WriteFile.",
+   "why": "A raw Write reaches disk unchecked.",
+   "spec_encode_followup": "Fleet: press template adoption of the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "not_contains": "f.Write([]byte{0})"
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "root.OpenFile(filepath.Base(lockPath), os.O_CREATE|os.O_RDWR, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "f.Write([]byte{'\\n'})"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "not_contains": "file.Write(key)"
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(path, key, 0o600)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal hashes KEEPER_LEARN_SESSION under its own prefix and records only flag names the invoked command declares; any other name is a placeholder.",
+   "why": "A session override or an undeclared flag name can carry a credential into a local file.",
+   "spec_encode_followup": "Fleet: press template carries this once the journal class is generated.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "A run profile holds no credential: a credential-named flag value is dropped when profiles.json loads, and credwire holds the file's credential and base-url values before output.",
+   "why": "An old or hand-written profiles.json can carry a key.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if credentialLikeRunProfileFlag(flag) || cliutil.SecretProfileKey(flag) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStoreFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_profile_store(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "read-only-mcp-writes-nothing",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "An MCP child writes nothing on behalf of a read: its store handle is read-only unless the root classifies the command as a writer (posture report, behind confirm), a missing store reads as an empty one in memory, and the journal, the correction pass and the learnings audit are skipped, so a read-only server keeps its promise.",
+   "why": "Keeper has no write path; a read-only tool must not leave state behind either.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.IsMCPChildEnv() || noLearnActive",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "IsMCPChildEnv()",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "store.AllowMCPChildWrites(commandMayWriteStore(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "readOnlyMCPChild()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_mcp_readonly.go",
+     "contains": "func openMCPChildStore(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_write_without_confirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeperblackbox/mcp_readonly_test.go",
+     "contains": "func TestMCPReadOnlyToolsWriteNothing(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-named-this-run-wins",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "KEEPER_API_KEY given this run wins over a stale stored auth_header.",
+   "why": "A stale saved header would be sent instead of the key the operator just named.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "Hand-fix (handfixes.json credential-named-this-run-wins)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_test.go",
+     "contains": "func TestNamedKeyWinsOverAStoredOne(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "commander-allowlist",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "A fixed list of read-only Commander commands is the only thing ever sent. Commands are built from typed fields, each value matches a strict token pattern or is refused, and no input changes the command string.",
+   "why": "This is the connector's central safety rule: POST /api/v1/executecommand runs anything the key's -c list permits.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "var AllowedCommands = []string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "func (c Command) validate() error",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "var safeToken = regexp.MustCompile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "func CompanyID(raw string)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "not_contains": "\"--output\""
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "not_contains": "\"--save\""
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "not_contains": "\"--attempt-fix\""
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "not_contains": "\"--apply-action\""
+    }
+   ]
+  },
+  {
+   "id": "commander-response-strict",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Each Commander answer is projected to named fields per command; anything else, a failed status, or record content is refused, so no vault record value reaches output.",
+   "why": "A response can carry another tool's vault output under the same key.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "const ExecutePath = \"/api/v1/executecommand\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "var ErrRecordContent",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "var ErrSecurityAuditErrorReport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "func project(c Command, obj map[string]any)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "env.Status != \"success\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "json.Unmarshal(raw, &lines)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mc-context-guard",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Each managed-company read switches in, checks the answer, and switches back, with the switch-back surviving a cancelled context.",
+   "why": "Commander's one global context would otherwise leave later calls in the wrong company.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "func WithCompany(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "\"Already MSP\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "\"Switched to MC\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "context.WithoutCancel(ctx)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mc-context-serialized",
+   "class": "cross-tenant",
+   "status": "active",
+   "summary": "No tenant state is held in the program: the company travels with the call. Every switch-read-switch on one Service Mode host runs under a process mutex and a per-host, per-user file lock in a directory no environment variable moves, and is checked again before its data is kept.",
+   "why": "Commander's context is global, so two concurrent reads for two companies would otherwise mix tenants.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "type LockedPoster interface",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "func withSession(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "var ErrContextChanged",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "func stillIn(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "func stillMSP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "contains": "Already switched to Managed Company id=([0-9]+)"
+    },
+    {
+     "file": "cli/internal/keeper/context.go",
+     "not_contains": "func SetSessionLockFile("
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "func sessionLockFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "SessionLockFile() string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "func sessionLockDir(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "not_contains": "os.UserCacheDir"
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_classes_test.go",
+     "contains": "func TestClass_cross_tenant_context_race(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_session_lock_test.go",
+     "contains": "func TestSessionLockFileIsOnePerInstance(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_session_lock_test.go",
+     "contains": "\"XDG_CACHE_HOME A\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "audit-error-report-keeps-last-good",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A security audit answered with its error report fails that company's read: the failed row names why, every view keeps the last good numbers, and company.security_audit_error is raised once on the change.",
+   "why": "Stored as zeros, the error report read as weak passwords dropping to none.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/posture_report.go",
+     "contains": "func raiseAuditErrorEvent(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture_report.go",
+     "not_contains": "\"error_report\", nil, nil"
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "func (s *Store) PreviousCompanyError(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_posture_test.go",
+     "contains": "func TestAuditErrorReportIsNoGoodSnapshot(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "record-shape-every-answer",
+   "class": "vault-content",
+   "status": "active",
+   "summary": "Record content is refused in every answer, not only data rows: a Service Mode GET and any error body are checked in the client before the cache, the store or an error can carry them, and an error or message member that is not plain text or holds a credential is withheld.",
+   "why": "No vault record secret reaches output, whichever member of the answer it arrives in.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "recordshape.Found(respBody)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "const withheldText",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "secretValue   = recordshape.Values",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/recordshape/recordshape.go",
+     "contains": "func Found(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_record_shape_test.go",
+     "contains": "func TestErrorAndMessageMembersCarryNoRecordContent(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_record_shape_test.go",
+     "contains": "func TestServiceModeReadsCarryNoRecordContent(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "posture-metrics",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The posture numbers are computed from Commander's rows by one pure function, with a diff over stored runs.",
+   "why": "The connector's core value; a reprint must keep it.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "func Compute(in Inputs)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "func Diff(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "func roleIndex(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "posture-store",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The tables posture report fills and the local reads over them.",
+   "why": "Whole hand-written store file plus one migration line in a generated file.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "var keeperMigrations",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "CREATE TABLE IF NOT EXISTS vendor_events"
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "func (s *Store) LatestGoodPerCompany(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "func (s *Store) FirstSeen(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "func (s *Store) MaxEventSeq(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, keeperMigrations...)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "keeper-cli-glue",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "The poster posts without a retry, because a context switch must never be replayed; posture report is a local-data writer; a Commander command gets a five-minute limit.",
+   "why": "Generated client defaults retry POSTs and use a short timeout.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "type keeperPoster struct",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "return p.c.Post(ctx, path, body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "localDataWriterCommands[\"posture report\"] = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_common.go",
+     "contains": "const keeperCommandTimeout = 5 * time.Minute",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_local.go",
+     "contains": "func latestSnapshots(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_local.go",
+     "contains": "func hintStalePosture(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "keeper-novels",
+   "class": "novel",
+   "status": "active",
+   "summary": "The novel commands replace generated stubs: the 13 typed reads, posture report, diff and runs, events, and the cross-company user views.",
+   "why": "A reprint regenerates stubs that compile and do nothing.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/posture_report.go",
+     "contains": "keeper.Run(ctx, p, keeper.UserPosture())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture_runs.go",
+     "contains": "return printAutoTable(out, items)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture_runs.go",
+     "contains": "No posture runs stored yet."
+    },
+    {
+     "file": "cli/internal/cli/events_list.go",
+     "contains": "is past the newest event %d; the local store may have been rebuilt; use --since 0"
+    },
+    {
+     "file": "cli/internal/cli/posture_report.go",
+     "not_contains": "mcp:local-write"
+    }
+   ]
+  },
+  {
+   "id": "novel-literal-registration",
+   "class": "novel",
+   "status": "active",
+   "summary": "Every novel command is registered by a literal AddCommand line in root.go, so the MCP mirror and dogfood see them.",
+   "why": "A regenerated root.go drops the registrations and the build stays green.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovel",
+     "code_only": true,
+     "min_count": 14
+    }
+   ]
+  },
+  {
+   "id": "dead-generated-helpers-removed",
+   "class": "novel",
+   "status": "active",
+   "summary": "Generated helpers nothing calls stay removed (the dogfood dead-function gate).",
+   "why": "A reprint restores them.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func booleanNoValueFlags"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func endpointPositionalArgs"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func hasChangedLocalFlags"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams"
+    }
+   ]
+  },
+  {
+   "id": "docs-security-model",
+   "class": "docs",
+   "status": "active",
+   "summary": "README carries the Safety model section and SKILL the Security model section: read-only allowlist, per-key -c list, TLS required, one tenant at a time.",
+   "why": "Generated docs describe a generic API client.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "## Safety model"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Security model"
+    }
+   ]
+  },
+  {
+   "id": "install-base-url-declared",
+   "class": "docs",
+   "status": "active",
+   "summary": "manifest.json declares KEEPER_BASE_URL as user configuration and in the server env.",
+   "why": "An MCP host otherwise cannot reach a Service Mode host that is not on localhost.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"KEEPER_BASE_URL\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "keeper_base_url"
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "Every request goes to the origin the configuration resolved when the client was built, and no redirect is followed, same host included.",
+   "why": "The api-key can run any command on the allowlisted host, so nothing later may move it.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "var ErrOriginChanged",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "var ErrRedirect",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "func guardClient(c *client.Client) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "func checkPinned(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-plaintext-key",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A plain http base URL is refused before a request, on every host, loopback included. The message tells the operator to run Service Mode with TLS.",
+   "why": "The credential contract sends no held value over plain http, and Service Mode defaults to http.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "var ErrPlaintextKey",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "asciiLower(u.Scheme) == \"http\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "not_contains": "func loopbackHost("
+    },
+    {
+     "file": "cli/internal/keeperblackbox/kit_test.go",
+     "contains": "func TestCredentialIsNotSentOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "The on-disk response cache is off, so raw Service Mode bodies never sit in cache files.",
+   "why": "Generated clients cache GET bodies.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/keeper_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "Every local store write passes a field-name rule that removes secret-named values.",
+   "why": "The store outlives the run.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/keeper_secrets.go",
+     "contains": "func SecretFieldName(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/keeper_secrets.go",
+     "contains": "func RedactSecretFields(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_secrets.go",
+     "contains": "func withoutStoredSecrets(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Every mirrored MCP tool that can write, local-file writes included, needs confirm=true.",
+   "why": "A local write from an agent is still a write.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/keeper_confirm.go",
+     "contains": "localWrite := mirrorLocalOnlyCommands[path] || (found && isMCPLocalWrite(cmd))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/keeper_confirm.go",
+     "contains": "if found && !localWrite {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "role-join-by-id",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Role facts join users by role id, from a verbose user listing, not by name.",
+   "why": "Two roles can share a name, which credits the wrong users.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "func UserPosture() Command",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/allowlist.go",
+     "contains": "\"--users\", \"--verbose\", \"--columns\", \"name,status,transfer_status,roles,2fa_enabled\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/run.go",
+     "contains": "func nestedKeep(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "type roleSet struct",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "invite-age-by-identity",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Invite age follows the current user identity and status, so a re-invited person's clock restarts.",
+   "why": "An email reused by a new user would inherit the old age.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "UserID         string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/keeper_posture.go",
+     "contains": "if !ok || cur.UserID == \"\" || prev != cur {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "breachwatch-unavailable",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A company without BreachWatch keeps its posture row with the state recorded; the run does not fail.",
+   "why": "BreachWatch is a paid add-on most managed companies do not have.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "func BreachWatchUnavailable(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/keeper/posture.go",
+     "contains": "BreachWatchState string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture_report.go",
+     "contains": "keeper.BreachWatchUnavailable(err)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor tests the key with one authenticated read of Service Mode's queue status: 401 is rejected, 403 limited, 404 with /health answering is a legacy-mode host it cannot test the key on, 404 otherwise or a non-JSON answer a base URL that is not Service Mode, instead of calling any response reachable and never checking the key.",
+   "why": "An operator's first look must tell a working install from a broken one.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorFinishVerdicts(cmd.Context(), c, cfg, reachErr, report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run"
+    },
+    {
+     "file": "cli/internal/cli/keeper_doctor.go",
+     "contains": "const doctorProbePath = \"/api/v2/queue/status\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_doctor.go",
+     "contains": "func doctorFinishVerdicts(ctx context.Context, c *client.Client, cfg *config.Config, reachErr error, report map[string]any) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_record_shape_test.go",
+     "contains": "func TestDoctorOnALegacyModeHost(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-no-learning-tools",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "The local learning writers (teach, teach-pattern, teach-lookup, teach-playbook, playbook amend, learnings confirm, reject and forget) are CLI-only: mcp:hidden keeps them off the MCP server, so an agent over MCP cannot record or delete a learning.",
+   "why": "The connector is read-only by design; a local write path over MCP was a review finding.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "\"mcp:hidden\":",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "\"mcp:hidden\":",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/learnings_candidates.go",
+     "contains": "\"mcp:hidden\": \"true\"",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/keeperblackbox/blackbox_test.go",
+     "contains": "func TestMCPWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-parents-are-no-tools",
+   "class": "novel",
+   "status": "active",
+   "summary": "A command group that only prints help is no MCP tool (pp:parent-group on the 13 parents).",
+   "why": "A help-only tool wastes an agent's turn and misleads it.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/users.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/companies.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/products.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/permits.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/billing.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/nodes.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/teams.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/roles.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/security_audit.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/breachwatch.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/audit_trail.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/events.go",
+     "contains": "\"pp:parent-group\": \"true\""
+    }
+   ]
+  },
+  {
+   "id": "queue-help-text",
+   "class": "docs",
+   "status": "active",
+   "summary": "The queue command's help says the size is the whole queue's, not this key's.",
+   "why": "Generated help from an earlier spec wording claimed the numbers were scoped to the caller's key.",
+   "spec_encode_followup": "Connector-specific; the press has no way to express this.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/promoted_queue.go",
+     "contains": "Service Mode queue status: the whole queue's size plus active and completed request counts",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/promoted_queue.go",
+     "not_contains": "scoped to the caller's API key"
+    }
+   ]
+  },
+  {
+   "id": "keeper-output-never-compacted",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "--agent and --compact never drop a field: every keeper command prints a fixed projection, so compaction is switched off at the root.",
+   "why": "The generated compaction keeps a key only when most rows carry it, so under --agent a user with 2FA on read as 2FA off and a pending invite lost its age (TestAgentOutputKeepsEveryProjectedField).",
+   "spec_encode_followup": "Press: compaction should keep every key of a command's declared output projection.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "flags.compact = false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/keeper_posture_test.go",
+     "contains": "func TestAgentOutputKeepsEveryProjectedField(",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

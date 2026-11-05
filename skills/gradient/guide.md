@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `GRADIENT_TOKEN` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `gradient-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `GRADIENT_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/gradient/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +91,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`gradient-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `GRADIENT_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `GRADIENT_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export GRADIENT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+gradient-mcp --transport http
+```
+
+Set `GRADIENT_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -122,8 +131,6 @@ gradient-cli usage drift --agent
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Billing you can audit
 - **`usage push`**  -  Push a whole file of unit counts (CSV or JSON) in one shot and trigger exactly one billing rebuild instead of one per call.
@@ -175,7 +182,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Nightly usage sync with one billing rebuild
 
 ```bash
@@ -220,6 +226,81 @@ Combines live integration status with local mapping gaps into a single go/no-go 
 
 Run `gradient-cli --help` for the full command reference and flag list.
 
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `GRADIENT_CONFIG_DIR`, `GRADIENT_DATA_DIR`, `GRADIENT_STATE_DIR`, or `GRADIENT_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `GRADIENT_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export GRADIENT_HOME=/srv/gradient
+gradient-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:GRADIENT_HOME = "C:\ProgramData\gradient"
+gradient-cli doctor
+```
+
+Under `GRADIENT_HOME=/srv/gradient`, the four dirs resolve to `/srv/gradient/config`, `/srv/gradient/data`, `/srv/gradient/state`, and `/srv/gradient/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:GRADIENT_HOME = "C:\srv\gradient"
+gradient-cli doctor
+```
+
+Under `$env:GRADIENT_HOME = "C:\srv\gradient"`, the four dirs resolve to `C:\srv\gradient\config`, `C:\srv\gradient\data`, `C:\srv\gradient\state`, and `C:\srv\gradient\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "gradient": {
+      "command": "gradient-mcp",
+      "env": {
+        "GRADIENT_HOME": "/srv/gradient"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `GRADIENT_DATA_DIR` overrides an explicit `--home` for that kind. Use `GRADIENT_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `GRADIENT_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `gradient-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `gradient-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `gradient-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `GRADIENT_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `GRADIENT_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
+
 ## Commands
 
 ### accounts
@@ -261,7 +342,7 @@ Manage integration
 Manage mappings
 
 - **`gradient-cli mappings create`** - Create Service for a Vendor for an Organization
-- **`gradient-cli mappings update`** - Updates 1 or more fields of a single Service
+- **`gradient-cli mappings update <serviceId>`** - Updates 1 or more fields of a single Service
 - **`gradient-cli mappings update-bulk`** - Updates 1 or more fields for each Service
 
 ### services
@@ -269,7 +350,7 @@ Manage mappings
 Manage services
 
 - **`gradient-cli services create`** - Create Service for a Vendor
-- **`gradient-cli services get`** - Retrieves Vendor with VendorSku[] filtered by service id
+- **`gradient-cli services get <serviceId>`** - Retrieves Vendor with VendorSku[] filtered by service id
 
 ### ticket_events
 
@@ -285,6 +366,53 @@ Manage vendor
 - **`gradient-cli vendor update`** - Update details for a vendor
 
 
+### alert
+
+
+- **`gradient-cli alert send`** - Dispatch an alert and wait until the PSA ticket actually exists, instead of fire-and-forget.
+
+- **`gradient-cli alert trace`** - Review every alert you have dispatched - messageId, account, time, last-known ticket state - and filter to ones that never became tickets.
+
+
+### hygiene
+
+
+- **`gradient-cli hygiene unmapped`** - One rollup of every unmapped account and every service without a vendor SKU, shaped as an actionable work queue.
+
+
+### status
+
+
+- **`gradient-cli status ready`** - A single go/no-go verdict on whether the integration is ready to flip to active: live status, last sync age, and outstanding mapping gaps.
+
+
+### usage
+
+
+- **`gradient-cli usage push`** - Push a whole file of unit counts (CSV or JSON) in one shot and trigger exactly one billing rebuild instead of one per call.
+
+- **`gradient-cli usage drift`** - See exactly which accounts' usage changed between your last two pushes, with old-to-new deltas.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`gradient-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`gradient-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`gradient-cli learnings list`** - Inspect taught rows
+- **`gradient-cli learnings forget <query>`** - Undo a teach
+- **`gradient-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`gradient-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`gradient-cli teach-pattern`** - Install a query/resource template up front
+- **`gradient-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `GRADIENT_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `gradient-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -293,9 +421,8 @@ gradient-cli accounts list
 
 # JSON for scripting and agents
 gradient-cli accounts list --json
-
 # Filter to specific fields
-gradient-cli accounts list --json --select id,name,status
+gradient-cli accounts list --json --select description,id,isMapped
 
 # Dry run  -  show the request without sending
 gradient-cli accounts list --dry-run
@@ -304,21 +431,23 @@ gradient-cli accounts list --dry-run
 gradient-cli accounts list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -330,9 +459,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/gradient-cli/config.toml`
+Run `gradient-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/gradient-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\gradient-cli\config.toml` on Windows; `--home`, `GRADIENT_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `GRADIENT_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `GRADIENT_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -343,6 +474,13 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `gradient-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The `GRADIENT-TOKEN` header and every API request go only to the scheme, host and port of `GRADIENT_BASE_URL` (default `https://app.usegradient.com/api`). A redirect to any other host is refused, so the credential never reaches it.
+- Any output, file or MCP result that would repeat `GRADIENT_TOKEN`, the vendor or partner API key, the header derived from them, or a credential-named value from a response prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, credential-named fields are dropped before anything reaches the local store, and the push and alert ledgers pass the same withholding.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the token from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that creates or changes Synthesize data (accounts, services, mappings, billing counts, alerts, integration status, vendor profile, usage push, import) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write (`usage push --file` is CLI-only).
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -355,5 +493,5 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **401 Unauthorized / UnauthorizedException on every call**  -  Set GRADIENT_VENDOR_API_KEY + GRADIENT_PARTNER_API_KEY (or GRADIENT_TOKEN); regenerate the pair in Synthesize -> Integrations -> Custom if lost - tokens are shown only once
 - **Alert dispatched but no PSA ticket appears**  -  Ticket creation is async via a queue: run `gradient-cli alert trace --stuck` to find it, or dispatch with `alert send --wait` to poll until the ticket exists
-- **Billing rebuilds repeatedly during a bulk count push**  -  Use `gradient-cli usage push --file <file>` - it sets no_build on every call except the last so Gradient rebuilds billing once
+- **Billing rebuilds repeatedly during a bulk count push**  -  Push the whole counts file in one run with usage push and its --file flag (CSV or JSON): it sets no_build on every call except the last, so Gradient rebuilds billing once
 - **clients returns data but is marked deprecated**  -  Upstream deprecated the clients route; use `gradient-cli accounts list` and the mappings commands instead

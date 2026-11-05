@@ -27,7 +27,7 @@
       "command": "quickbooks-cli ar-aging --agent"
     },
     {
-      "question": "What do we owe vendors, and when is it due?",
+      "question": "What do we owe vendors, and how overdue is it?",
       "command": "quickbooks-cli ap-aging --agent"
     },
     {
@@ -76,7 +76,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -99,7 +99,7 @@
       "a": "No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required."
     }
   ],
-  "governance_summary": "The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.",
+  "governance_summary": "The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials come from the environment or from the local credentials file that `auth set-token` and `auth refresh` write, and are never logged.",
   "safety_tiers": [
     {
       "tier": "Read",

@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.12] - 2026-11-05
+
+### Added
+- **Issue changes as events.** `issues watch` polls your reseller's issue list (every page, read-only, every 5 minutes by default; `--once` for cron) and records each change as an event: `servosity.issue.created`, `servosity.issue.updated` (state, severity, priority, `updated_at` or `last_seen_at` changed), `servosity.issue.archived`, `servosity.issue.ignored` and `servosity.issue.reactivated`. The first poll records a baseline and no events. The list holds active issues only, so an active issue that leaves it is re-read to learn whether it was archived or ignored, and an ignored issue is re-read at most hourly to catch it being archived or changed. Events carry ids, numbers, the issue's state, severity and audience, and timestamps only, never the description or comments; an issue whose kept fields repeat a credential the CLI sends or holds (the token, an MFA code or another credential header, at any length and in any case) is not recorded. The first poll must read every page before it records the baseline, and a read older than the recorded one is ignored. Two watchers can share one store: a poll records nothing if the other recorded anything after it read the store, so a slow poll never deletes, overwrites or brings back what the other recorded meanwhile; the next poll picks it up. A failed poll waits twice as long each time, at most an hour; a refused token stops the watch. `events list --since <cursor>` and the read-only MCP tool `events_list` read the recorded events without calling Servosity. `issues watch` is CLI-only. Servosity has no issue webhooks yet; this is the bridge until it does.
+
+### Fixed
+
+- **`--all` reads every page of a list.** A page-number list asked for the page after the last one and failed on the API's "Invalid page." answer. `--all` now follows each page's `next` link until it is empty, keeps the API's row count in the output as `meta.total_count`, and never returns a partial list: when it ends with fewer rows than the count, it writes `{"event":"truncated","fetched":N,"count":M}` to stderr and exits non-zero. `attention --refresh` reads every page of open issues (page-number or cursor links) and fails instead of ranking from a partial count.
+
+### Security
+
+- **The learn journal keeps no credential you typed.** A `SERVOSITY_MSP_LEARN_SESSION` value is stored hashed, only flag names the command declares are recorded (any other is a placeholder, and nothing after `--`), a mistyped flag is never kept as typed, `teach.log` records argument counts instead of arguments, and a profile, teach, recall, feedback or learn-store write that repeats a credential the CLI is configured with (the token, or a credential header at any length) is refused, whether or not the command calls Servosity; `recall` refuses such a query and `learnings forget` does not echo it.
+- **One shared layer now keeps credentials out of everything this connector writes.** The token, an MFA code and every other credential you configure are held from the moment either program starts, and nothing that repeats one reaches stdout, stderr, a file, the local store, the events list or an MCP result, in any encoding, in any case, or when the value is short. A command's parse errors are covered too. Credentials go only to the configured API host, over HTTPS.
+- **A read that repeats your own credential prints a notice instead.** If a response carries the token this program is using, or a token you typed on the command line, the whole output unit is replaced by a notice. `current-user api-token-list --reveal-token` run with the same token you are authenticated with is one such read, and `contracts get-by-token` if the API echoes the token you passed.
+- **A saved profile never prints a credential.** A value saved in a profile under a credential flag's name (`--password`, `--token`, `--key` and the rest) is held whenever the profile store is read, so `profile show`, `profile use` and every other output replace it with a notice. The value still applies to the command that uses the profile.
+- **The MCP HTTP server refuses a foreign browser origin.** With `--transport http`, a request whose `Origin` header is not loopback and not listed in `SERVOSITY_MSP_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]`) gets HTTP 403, even with the bearer token. Requests with no `Origin`, such as an MCP client's, are unchanged.
+- **`issues watch` skips only the issue that repeats a credential.** It is counted as `withheld`, its events are not recorded, and the rest of the poll still applies.
+
+### Changed
+
+- **A store's first open takes a few seconds.** That is the first run on a new store, and the first after an upgrade that changes its schema. Later opens skip the schema pass.
+
 ## [0.6.11] - 2026-10-24
 
 Rebuilt on CLI Printing Press 4.34.0.

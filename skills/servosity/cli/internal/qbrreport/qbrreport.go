@@ -9,15 +9,19 @@
 package qbrreport
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"servosity-msp-pp-cli/internal/credkit"
 	"sort"
 	"strconv"
 	"strings"
@@ -879,14 +883,19 @@ func RenderPDF(r *Report, outPath string) error {
 		return fmt.Errorf("--out is required for --format pdf")
 	}
 
-	tmp, err := os.CreateTemp("", "qbr-*.html")
+	tmpDir, err := os.MkdirTemp("", "qbr-")
 	if err != nil {
 		return fmt.Errorf("create temp html: %w", err)
 	}
-	tmpPath := tmp.Name()
 	// Best-effort cleanup; we want to remove the temp on both success and
 	// failure but ignore errors since the OS will reap /tmp anyway.
-	defer os.Remove(tmpPath)
+	defer os.RemoveAll(tmpDir)
+	tmpPath := filepath.Join(tmpDir, "report.html")
+	// Hand-fix (handfixes.json credkit-wiring): the page chrome renders passes the credential kit first.
+	tmp, err := credkit.Create(tmpPath)
+	if err != nil {
+		return fmt.Errorf("create temp html: %w", err)
+	}
 
 	if err := RenderHTML(r, tmp); err != nil {
 		_ = tmp.Close()
@@ -898,19 +907,28 @@ func RenderPDF(r *Report, outPath string) error {
 
 	// chrome is resolved from a fixed allowlist in findChrome() (LookPath
 	// of known binary names or a stat of the macOS .app path) — never from
-	// user input. outPath/tmpPath are local operator-controlled paths.
+	// user input. tmpPath and pdfPath are in this run's private temp dir.
+	pdfPath := filepath.Join(tmpDir, "report.pdf")
 	cmd := exec.Command(chrome, // #nosec G204 -- chrome path is allowlist-resolved, not user input
 		"--headless",
 		"--disable-gpu",
 		"--no-sandbox",
-		"--print-to-pdf="+outPath,
+		"--print-to-pdf="+pdfPath,
 		"file://"+tmpPath,
 	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("chrome PDF render failed: %w (output: %s)", err, strings.TrimSpace(string(out)))
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	// Hand-fix (handfixes.json credkit-wiring): a child gets the held set or is not started.
+	if err := credkit.RunCommand(cmd); err != nil {
+		return fmt.Errorf("chrome PDF render failed: %w (output: %s)", err, strings.TrimSpace(out.String()))
 	}
-	return nil
+	// Hand-fix (handfixes.json credkit-wiring): Chrome's own write stays in the
+	// temp dir; the destination gets the PDF through the kit's file sink.
+	pdf, err := fs.ReadFile(os.DirFS(tmpDir), "report.pdf")
+	if err != nil {
+		return fmt.Errorf("read rendered pdf: %w", err)
+	}
+	return credkit.WriteFile(outPath, pdf, 0o644)
 }
 
 func findChrome() (string, error) {

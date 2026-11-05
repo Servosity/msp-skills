@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/abnormal-cli ./cmd/abnormal-cli
+	go build -trimpath -o bin/abnormal-cli$(BIN_EXT) ./cmd/abnormal-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/abnormal-mcp ./cmd/abnormal-mcp
+	go build -trimpath -o bin/abnormal-mcp$(BIN_EXT) ./cmd/abnormal-mcp
 
 install-mcp:
 	go install ./cmd/abnormal-mcp

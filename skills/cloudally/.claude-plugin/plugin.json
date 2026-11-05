@@ -1,0 +1,20 @@
+{
+  "name": "cloudally",
+  "version": "0.1.0",
+  "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/cloudally",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "cloudally",
+    "backup",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

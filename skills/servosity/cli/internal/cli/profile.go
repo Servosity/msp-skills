@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 // Profile is a named set of flag values saved for reuse across invocations.
@@ -66,6 +67,9 @@ func loadProfileStore() (*profileStore, error) {
 		}
 		return nil, fmt.Errorf("reading profiles: %w", err)
 	}
+	// Hand-fix (handfixes.json credkit-wiring): every value under a credential
+	// flag's name is held before the store is parsed or any of it printed.
+	cliutil.HoldProfileStore(data)
 	var s profileStore
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("parsing profiles: %w", err)
@@ -81,12 +85,14 @@ func saveProfileStore(s *profileStore) error {
 	if err != nil {
 		return err
 	}
+	// Hand-fix (handfixes.json journal-credential-hardening): a profile (its name, description or any
+	// value) that repeats a credential this program holds is refused, never saved.
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling profiles: %w", err)
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := credkit.WriteFile(tmp, data, 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		return fmt.Errorf("writing profiles: %w", err)
 	}
 	return os.Rename(tmp, p)

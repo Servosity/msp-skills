@@ -77,7 +77,7 @@ metadata that mapping in the Synthesize UI relies on.
 			// All accounts; isMapped on each row is the work-queue signal.
 			accData, err := c.Get(cmd.Context(), "/vendor-api/organization/accounts", nil)
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("fetching accounts: %w", err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("fetching accounts: %w", err), flags)
 			}
 			var accounts []struct {
 				ID          string `json:"id"`
@@ -102,7 +102,7 @@ metadata that mapping in the Synthesize UI relies on.
 			// Vendor SKU catalog: SKUs missing mapping-relevant metadata.
 			venData, err := c.Get(cmd.Context(), "/vendor-api", nil)
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("fetching vendor profile: %w", err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("fetching vendor profile: %w", err), flags)
 			}
 			var vendor struct {
 				Data struct {

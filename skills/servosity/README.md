@@ -37,7 +37,7 @@ The ChatGPT desktop app runs `servosity-mcp` locally and shares MCP configuratio
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `servosity-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `SERVOSITY_MSP_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.6.11/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
+[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.6.12/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -152,11 +152,31 @@ Outcome-first, with the single command that answers each question:
 | Build the backup section of Acme's QBR as a PDF | `servosity-cli qbr "Acme Co" --out acme-q1.pdf` |
 | Quarter-end: every client's QBR report in one pass | `servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/` |
 | Watch every client's restore queue during a DR event | `servosity-cli restore-queue watch` |
+| Hear about new and changed issues without opening the portal | `servosity-cli issues watch` · `servosity-cli events list --since 0 --json` |
 | Does my Servosity bill match what I invoice clients? | `servosity-cli bill --reconcile invoices.csv` |
 | Which installed agents still aren't pulling backups? | `servosity-cli unprovisioned` |
 | Which hosts are below 7-year retention or outside the recovery guarantee? | `servosity-cli retention-audit --min 7YEAR` |
 | What one root cause is behind this month's backup failures? | `servosity-cli failure-clusters --top 10` |
 | First-time hydration of the local fleet mirror | `servosity-cli sync --full` |
+
+### Issue changes as events
+
+Servosity has no issue webhooks yet, so `issues watch` polls your reseller's issue list (read-only, every 5 minutes by default) and records each change as an event your agent reads by cursor.
+
+```bash
+# Keep running; the first poll records a baseline and no events
+servosity-cli issues watch
+# Or one poll, for cron
+servosity-cli issues watch --once --json
+# Read what changed; pass the returned cursor as --since next time
+servosity-cli events list --since 0 --json
+```
+
+- Events: `servosity.issue.created`, `servosity.issue.updated` (state, severity, priority, `updated_at` or `last_seen_at` changed), `servosity.issue.archived`, `servosity.issue.ignored`, `servosity.issue.reactivated`. `--type` narrows `events list` to one.
+- Each event carries issue and company ids and triage fields only, never the description or comments. Run `issues read <id>` for the rest.
+- The issue list holds active issues only, so an active issue that leaves it is re-read to learn whether it was archived or ignored, and an ignored issue is re-read at most hourly to catch it being archived or changed. An issue you can no longer read is dropped.
+- Only GET requests reach Servosity. The first poll must read every page before it records the baseline. A failed poll waits twice as long each time, at most an hour; a refused token stops the watch.
+- Over MCP, `events_list` reads the recorded events (read-only, no Servosity call). `issues watch` is CLI-only.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -203,6 +223,10 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The fleet mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. The partner token is read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills. The token is scoped to **your reseller account only** (no cross-reseller access).
 
+### Can my agent hear about new Servosity issues?
+
+Yes. Servosity does not send webhooks yet, so `servosity-cli issues watch` polls your issue list read-only (every 5 minutes by default) and records each new, changed, archived, ignored or reactivated issue as an event. Your agent reads them with `servosity-cli events list --since <cursor>` or the read-only MCP tool `events_list`, which costs no Servosity call. Events carry ids and triage fields, never issue text.
+
 ### Can I run this on Windows?
 
 Yes. The PowerShell installer above is the Windows path. CLI and MCP binaries are native Windows builds.
@@ -217,7 +241,7 @@ The skill authenticates with one partner token, scoped to **your reseller accoun
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `retention-audit`, `failure-clusters`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `search` | Allow |
+| Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `retention-audit`, `failure-clusters`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `issues watch`, `events list`, `search` | Allow |
 | Write (routine) | `triage` (`--ignore`/`--archive`/`--reactivate`/`--comment`), `import`, raw create/update subcommands under the resource groups | Preview with `--dry-run`, then a reviewed write - never blanket `--yes` |
 | Credential / security | `credentials rotate/delete`, `current-user api-token-list --reveal-token`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update`, `auth set-token`/`logout` | Human-in-the-loop only; the API-token read is excluded from MCP and sync |
 | Destructive | `companies delete` (deletes all backup accounts and data), `backups delete`, `users delete` | Human-in-the-loop only |

@@ -12,8 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	"immybot-pp-cli/internal/store"
-
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +22,21 @@ type dossierSoftware struct {
 
 type dossierAction struct {
 	Action string `json:"action"`
-	Status string `json:"status,omitempty"`
+	// Status is the outcome (resultName); Lifecycle is statusName.
+	Status    string `json:"status,omitempty"`
+	Lifecycle string `json:"lifecycle,omitempty"`
+	// When is the action's time as mirrored: the first of
+	// immyActionTimeFields that parses, else the first one present.
 	When   string `json:"when,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	at     immyRowTime
 }
 
+// computerDossierView is one computer's dossier. SoftwareCount counts the
+// detected software rows (DetectedComputerSoftwareResponse, one per install, so
+// a title detected twice counts twice); ActionCount counts the computer's
+// recorded actions and FailedActions the failures among them. All three are
+// totals: --limit caps only the software and recent_actions lists.
 type computerDossierView struct {
 	ComputerID    string            `json:"computer_id"`
 	ComputerName  string            `json:"computer_name,omitempty"`
@@ -38,9 +46,15 @@ type computerDossierView struct {
 	ExcludedMaint bool              `json:"excluded_from_maintenance"`
 	SoftwareCount int               `json:"software_count"`
 	Software      []dossierSoftware `json:"software"`
+	ActionCount   int               `json:"action_count"`
 	RecentActions []dossierAction   `json:"recent_actions"`
 	FailedActions int               `json:"failed_actions"`
-	Note          string            `json:"note,omitempty"`
+	// UnidentifiedActions and UnidentifiedSoftware count the mirrored rows
+	// that carry no computer id: no computer can claim them, and a name never
+	// stands for one.
+	UnidentifiedActions  int    `json:"unidentified_actions"`
+	UnidentifiedSoftware int    `json:"unidentified_software"`
+	Note                 string `json:"note,omitempty"`
 }
 
 func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
@@ -53,7 +67,11 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 		Short: "Everything the mirror knows about one computer, in one join",
 		Long: "Identity, tenant, installed software, and recent maintenance history for one " +
 			"computer, assembled from the local mirror in a single pass instead of one API call " +
-			"per section.",
+			"per section. The computer is an id, or a name only one mirrored computer carries. " +
+			"Software and actions join the computer by computer id only; mirrored rows that carry no " +
+			"computer id are counted in unidentified_actions and unidentified_software, never matched by name. " +
+			"software_count, action_count and failed_actions are totals; --limit caps only the lists, " +
+			"and recent_actions is newest first by each action's time.",
 		Example: strings.Trim(`
   immybot-cli computer-dossier 4821
   immybot-cli computer-dossier WS-01 --agent
@@ -89,7 +107,7 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 				}
 				return nil
 			}
-			db, err := store.OpenWithContext(ctx, dbPath)
+			db, err := immyOpenMirror(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}
@@ -98,43 +116,25 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 				hintIfStale(cmd, db, "computers", flags.maxAge)
 			}
 
-			crows, err := db.DB().QueryContext(ctx, `
-				SELECT id, json_extract(data,'$.name'), json_extract(data,'$.tenant'),
-				       json_extract(data,'$.tenantId'), json_extract(data,'$.online'),
-				       json_extract(data,'$.excludeFromMaintenance')
-				FROM resources WHERE resource_type IN ('computers','computers-paged','computers-dx','computers-my')`)
+			// Identity from every computer resource, each read with its own
+			// schema's field names (immyComputerShapes).
+			roster, err := immyLoadComputers(ctx, db, immyComputerIdentityTypes)
 			if err != nil {
-				return fmt.Errorf("querying computers: %w", err)
+				return err
 			}
-			found := false
-			for crows.Next() {
-				var id, name, tenant, tenantID, online, excluded sql.NullString
-				if err := crows.Scan(&id, &name, &tenant, &tenantID, &online, &excluded); err != nil {
-					_ = crows.Close()
-					return fmt.Errorf("scanning computer: %w", err)
+			match, ambiguous, found := roster.find(needle)
+			if found {
+				view.ComputerID = match.ID
+				view.ComputerName = match.Name
+				view.TenantID = match.TenantID
+				view.Online = truthy(match.Online)
+				view.ExcludedMaint = truthy(match.Excluded)
+				if view.Tenant, err = immyComputerTenantName(ctx, db, match); err != nil {
+					return err
 				}
-				if found {
-					continue
-				}
-				if nullStr(id) == needle || strings.EqualFold(nullStr(name), needle) {
-					view.ComputerID = nullStr(id)
-					view.ComputerName = nullStr(name)
-					view.Tenant = nullStr(tenant)
-					view.TenantID = nullStr(tenantID)
-					view.Online = truthy(nullStr(online))
-					view.ExcludedMaint = truthy(nullStr(excluded))
-					found = true
-				}
-			}
-			if err := crows.Err(); err != nil {
-				_ = crows.Close()
-				return fmt.Errorf("iterating computers: %w", err)
-			}
-			if err := crows.Close(); err != nil {
-				return fmt.Errorf("closing computers: %w", err)
 			}
 			if !found {
-				view.Note = fmt.Sprintf("no computer with id or name %q in the local mirror", needle)
+				view.Note = immyComputerNotFound(needle, ambiguous)
 				if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 					return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 				}
@@ -142,12 +142,12 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
+			join, joinArgs := immyComputerJoinFor("tenants-software-from-inventory-dx", match.ID)
 			srows, err := db.DB().QueryContext(ctx, `
 				SELECT json_extract(data,'$.softwareName'), json_extract(data,'$.version')
 				FROM resources
 				WHERE resource_type = 'tenants-software-from-inventory-dx'
-				  AND (json_extract(data,'$.computerId') = ? OR json_extract(data,'$.computerName') = ?)`,
-				view.ComputerID, view.ComputerName)
+				  AND `+join, joinArgs...)
 			if err == nil {
 				for srows.Next() {
 					var name, version sql.NullString
@@ -162,26 +162,40 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 			sort.Slice(view.Software, func(i, j int) bool { return view.Software[i].Name < view.Software[j].Name })
 			view.SoftwareCount = len(view.Software)
 
+			join, joinArgs = immyComputerJoinFor("maintenance-actions", match.ID)
 			arows, err := db.DB().QueryContext(ctx, `
-				SELECT COALESCE(json_extract(data,'$.maintenanceDisplayName'), json_extract(data,'$.actionTypeName')),
-				       COALESCE(json_extract(data,'$.statusName'), json_extract(data,'$.status')),
-				       COALESCE(json_extract(data,'$.startTime'), json_extract(data,'$.endTime')),
-				       COALESCE(json_extract(data,'$.reason'), json_extract(data,'$.result'))
-				FROM resources
-				WHERE resource_type IN ('maintenance-actions','maintenance-actions-maintenance-item')
-				  AND (json_extract(data,'$.computerId') = ? OR json_extract(data,'$.computerName') = ?)`,
-				view.ComputerID, view.ComputerName)
+				SELECT id, COALESCE(json_extract(data,'$.maintenanceDisplayName'), json_extract(data,'$.actionTypeName')),
+				       `+immyTimeColumns(immyActionTimeFields)+`,
+				       `+immyActionOutcomeColumns+`
+				`+immyActionFrom+`
+				  AND `+join+immyActionOrder, joinArgs...)
 			if err == nil {
+				seen := map[string]struct{}{}
 				for arows.Next() {
-					var action, status, when, reason sql.NullString
-					if err := arows.Scan(&action, &status, &when, &reason); err != nil {
+					var rowID, action sql.NullString
+					var oc immyActionOutcomeRow
+					ts := newImmyTimeScan(immyActionTimeFields)
+					dest := append([]any{&rowID, &action}, ts.dest()...)
+					if err := arows.Scan(append(dest, oc.dest()...)...); err != nil {
 						break
 					}
-					a := dossierAction{
-						Action: nullStr(action), Status: nullStr(status),
-						When: nullStr(when), Reason: nullStr(reason),
+					if immyActionSeen(seen, rowID) {
+						continue
 					}
-					if immyIsFailureStatus(a.Status) {
+					o := oc.outcome()
+					a := dossierAction{
+						Action: nullStr(action), Status: o.Label, Lifecycle: o.Lifecycle,
+						Reason: o.Cause, at: ts.time(),
+					}
+					a.When = a.at.Raw
+					if !a.at.Known {
+						for _, f := range immyActionTimeFields {
+							if a.When = ts.raw(f); a.When != "" {
+								break
+							}
+						}
+					}
+					if o.Failed {
 						view.FailedActions++
 					}
 					view.RecentActions = append(view.RecentActions, a)
@@ -189,7 +203,24 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 				_ = arows.Err()
 				_ = arows.Close()
 			}
-			sort.Slice(view.RecentActions, func(i, j int) bool { return view.RecentActions[i].When > view.RecentActions[j].When })
+			view.ActionCount = len(view.RecentActions)
+			if err := db.DB().QueryRowContext(ctx, `SELECT COUNT(DISTINCT id) `+immyActionFrom+
+				` AND `+immyComputerNoID("maintenance-actions")).Scan(&view.UnidentifiedActions); err != nil && !immyNoSuchTableErr(err) {
+				return fmt.Errorf("counting actions with no computer id: %w", err)
+			}
+			if err := db.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM resources WHERE resource_type = 'tenants-software-from-inventory-dx' AND `+
+				immyComputerNoID("tenants-software-from-inventory-dx")).Scan(&view.UnidentifiedSoftware); err != nil && !immyNoSuchTableErr(err) {
+				return fmt.Errorf("counting software rows with no computer id: %w", err)
+			}
+			// Newest first, compared as instants (offsets and the offset-less
+			// .NET form differ as text); an action with no usable time last.
+			sort.SliceStable(view.RecentActions, func(i, j int) bool {
+				a, b := view.RecentActions[i].at, view.RecentActions[j].at
+				if a.Known != b.Known {
+					return a.Known
+				}
+				return a.Known && a.At.After(b.At)
+			})
 			if flagLimit > 0 {
 				if len(view.RecentActions) > flagLimit {
 					view.RecentActions = view.RecentActions[:flagLimit]
@@ -202,9 +233,13 @@ func newNovelComputerDossierCmd(flags *rootFlags) *cobra.Command {
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s (%s)\n  tenant   %s\n  online   %t\n  excluded %t\n  software %d titles\n  actions  %d (%d failed)\n",
+			fmt.Fprintf(cmd.OutOrStdout(), "%s (%s)\n  tenant   %s\n  online   %t\n  excluded %t\n  software %d detected installs\n  actions  %d (%d failed)\n",
 				firstNonEmpty(view.ComputerName, view.ComputerID), view.ComputerID, view.Tenant,
-				view.Online, view.ExcludedMaint, view.SoftwareCount, len(view.RecentActions), view.FailedActions)
+				view.Online, view.ExcludedMaint, view.SoftwareCount, view.ActionCount, view.FailedActions)
+			if view.UnidentifiedActions+view.UnidentifiedSoftware > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "  not counted: %d action(s) and %d software row(s) in the mirror carry no computer id\n",
+					view.UnidentifiedActions, view.UnidentifiedSoftware)
+			}
 			return nil
 		},
 	}

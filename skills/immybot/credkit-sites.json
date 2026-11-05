@@ -1,0 +1,36 @@
+{
+ "sites": [
+  {
+   "file": "cmd/immybot-mcp/tls_key_hold.go",
+   "func": "holdTLSKey",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the --tls-key file only to hold its key material, before the server starts; it is the program's own TLS key, not a Files source"
+  },
+  {
+   "file": "internal/cli/immybot_profile_hold.go",
+   "func": "HoldProfileStores",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads each run profile store only to hold what it carries, before any output; it is nested JSON the kit would hold string by string, so it is not a Files source"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "wraps a connection credkit.SQLDriver already wrapped, only to set the SQLite length limit; runs no query and outputs nothing"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the connection OpenDB lent above, used only to set the SQLite length limit"
+  }
+ ]
+}

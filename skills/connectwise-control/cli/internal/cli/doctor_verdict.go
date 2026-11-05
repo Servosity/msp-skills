@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"connectwise-control-pp-cli/internal/client"
+	"connectwise-control-pp-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -48,31 +49,7 @@ const doctorBaseURLEnv = "CONNECTWISE_CONTROL_BASE_URL"
 // other way.
 const doctorShippedBaseURL = "https://your-instance.screenconnect.com"
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +58,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -91,6 +68,13 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	}
 	// Still exactly what shipped: the operator has set nothing.
 	if doctorShippedBaseURL != "" && strings.EqualFold(strings.TrimRight(base, "/"), strings.TrimRight(doctorShippedBaseURL, "/")) {
+		return true
+	}
+	// Any other spelling of the shipped placeholder's host (case, a trailing
+	// dot, a port, userinfo, a path). The client refuses every one of them
+	// (handfixes.json no-credential-to-placeholder-host), so doctor names the
+	// unset variable instead of dialling and reporting the refusal as a fault.
+	if config.IsPlaceholderBaseURL(base) {
 		return true
 	}
 	// A literal upper-case stand-in left in the path, e.g. /company/YOUR_REALM_ID.

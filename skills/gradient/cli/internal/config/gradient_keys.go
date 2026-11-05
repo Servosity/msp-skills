@@ -5,7 +5,9 @@ package config
 
 import (
 	"encoding/base64"
-	"os"
+	"strings"
+
+	"gradient-pp-cli/internal/cliutil"
 )
 
 // Env var names for the Synthesize API key pair. The official PowerShell SDK
@@ -21,11 +23,19 @@ const (
 // the official SDK's BuildGradientToken helper does. Returns the token and an
 // auth-source label, or empty strings when either key is unset.
 func DeriveGradientToken() (token, source string) {
-	vendor := os.Getenv(EnvVendorAPIKey)
-	partner := os.Getenv(EnvPartnerAPIKey)
+	// EnvOverride drops an unresolved .mcpb "${user_config.*}" placeholder, which
+	// would otherwise be sent as a key.
+	vendor := strings.TrimSpace(cliutil.EnvOverride(EnvVendorAPIKey))
+	partner := strings.TrimSpace(cliutil.EnvOverride(EnvPartnerAPIKey))
 	if vendor == "" || partner == "" {
 		return "", ""
 	}
 	raw := vendor + ":" + partner
-	return base64.StdEncoding.EncodeToString([]byte(raw)), "env:" + EnvVendorAPIKey + "+" + EnvPartnerAPIKey
+	token = base64.StdEncoding.EncodeToString([]byte(raw))
+	// The header built from the pair is held the moment it is derived
+	// (handfixes.json credkit-wiring). Both keys are held from startup
+	// (Declarations.SecretEnv); the kit's decoders read the pair and its halves
+	// out of the base64 header, so no derived part is held by hand.
+	cliutil.Hold("minted:gradient-token", token)
+	return token, "env:" + EnvVendorAPIKey + "+" + EnvPartnerAPIKey
 }

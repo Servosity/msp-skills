@@ -232,15 +232,15 @@ runs of 'drift' can compute day-over-day changes.`,
 // regardless of age — an issue that is still open needs attention whether it
 // was filed today or a year ago.
 //
-// DRF returns an absolute `next` URL with an opaque cursor token. We can't
-// feed that URL back through client.Get (which prepends BaseURL); instead we
-// extract just the `cursor` query value and re-issue against the same relative
-// path so the client encodes it exactly once.
+// DRF returns an absolute `next` URL carrying either an opaque cursor or a page
+// number. We can't feed that URL back through client.Get (which prepends
+// BaseURL); instead we re-send its query (cursor or page, plus every filter)
+// against the same relative path so the client encodes it exactly once. A next
+// link that cannot be followed, or a walk past the page cap, is an error: a
+// partial count would rank the fleet wrong without saying so.
 func countIssuesPaged(ctx context.Context, c *client.Client, path string, agg map[int64]*attentionCompany) error {
 	params := map[string]string{}
-	guard := 0
-	for guard < 100 {
-		guard++
+	for guard := 0; guard < paginatedGetMaxPages; guard++ {
 		data, err := c.Get(ctx, path, params)
 		if err != nil {
 			return err
@@ -252,19 +252,19 @@ func countIssuesPaged(ctx context.Context, c *client.Client, path string, agg ma
 			Next string `json:"next"`
 		}
 		if err := json.Unmarshal(data, &env); err != nil || env.Next == "" {
-			break
+			return nil
 		}
 		u, perr := url.Parse(env.Next)
-		if perr != nil {
-			break
+		if perr != nil || len(u.Query()) == 0 {
+			return fmt.Errorf("%s: cannot follow next page link %q", path, env.Next)
 		}
-		cursor := u.Query().Get("cursor")
-		if cursor == "" {
-			break
+		for k, v := range u.Query() {
+			if len(v) > 0 {
+				params[k] = v[0]
+			}
 		}
-		params["cursor"] = cursor
 	}
-	return nil
+	return fmt.Errorf("%s: more than %d pages of issues", path, paginatedGetMaxPages)
 }
 
 // countIssueItem increments the per-company open-issue count for one raw issue

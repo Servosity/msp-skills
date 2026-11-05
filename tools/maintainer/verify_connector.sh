@@ -142,7 +142,14 @@ exit "$fail"'
 
 linux_build_vet()   { linux_run "$mod" 'go version && go build ./... && go vet ./...'; }
 linux_cross()       { linux_run "$mod" "$CROSS"; }
-linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: never a cached result
+# as CI: never a cached result. In the linux/amd64 container on a non-amd64 host the tests run emulated, several
+# times slower than on CI's native runner, so go test's 10-minute default per package failed packages CI passes
+# (vsphere, kaseya-bms, 2026-11-05). There every test still runs and a hang still fails, at 30 minutes; CI's
+# native row and a native run here keep the default.
+linux_test() {
+  local t=; [ "$linux_mode" = docker ] && [ "$(uname -m)" != x86_64 ] && t=' -timeout 30m'
+  linux_run "$mod" "go test -count=1$t ./..."
+}
 linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 
 # ---- CI's windows row: predictors ---------------------------------------

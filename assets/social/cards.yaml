@@ -95,6 +95,10 @@ cisco-umbrella:
   vendor: "Cisco Umbrella"
   example_command: "Which clients have roaming computers offline?"
 
+cloudally:
+  vendor: "CloudAlly"
+  example_command: "Which customers have a failing backup?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
@@ -147,6 +151,10 @@ dnsfilter:
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
+
+dropsuite:
+  vendor: "Dropsuite"
+  example_command: "Which client backups are failing or stale?"
 
 exchange-online:
   vendor: "Exchange Online"
@@ -213,6 +221,14 @@ kaseya-bms:
 kaseya-vsa:
   vendor: "Kaseya VSA 10"
   example_command: "Which critical patches are missing everywhere?"
+
+keeper:
+  vendor: "Keeper Security"
+  example_command: "Which clients have users without 2FA?"
+  response_lines:
+    - "3 clients - 7 users, 2 of them admins"
+    - "Read-only - no path to a vault secret"
+  outcome_line: "Every client's Keeper posture, read-only."
 
 knowbe4:
   vendor: "KnowBe4"
@@ -411,3 +427,7 @@ xero:
 zammad:
   vendor: "Zammad"
   example_command: "Which customers might churn?"
+
+zoom-phone:
+  vendor: "Zoom Phone"
+  example_command: "Which users have no verified 911 address?"

@@ -88,7 +88,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "sessions list / get-detail, session-groups, security get-configuration, audit get-info / query-log, and search",
+      "examples": "sessions list / get-detail, sessions stale, session-groups, security get-configuration, security access-review, audit get-info / query-log, and search",
       "policy": "Allow"
     },
     {
