@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - 2026-11-05
+
+### Changed
+- Describe the changes in this release.
+
 ## [0.1.11] - 2026-11-04
 
 Reprinted on cli-printing-press **4.34.0** (from 4.32.5). Every command, flag and MCP tool that shipped in 0.1.10 is still here; the list below is what changed for an operator or an agent.

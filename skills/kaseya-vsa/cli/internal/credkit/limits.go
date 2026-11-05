@@ -15,19 +15,40 @@ package credkit
 // (.review/kit3-prep.md has the proof and the measurements).
 
 // Budget limits. Variables, so a test can lower them.
+//
+// The two decoded-bytes allowances grow with the unit, with no cap below the
+// largest unit: the matcher's work on ordinary output is linear in its size
+// (TestKitsafeOrdinaryWorkIsLinear), so an allowance per byte covers ordinary
+// output of any length, and a cap would withhold it past one length. Measured
+// on ordinary rich text (2026-11-04, the #495 lane: HTML email with Outlook
+// SafeLinks, incident reports, inline images, 5 KB to 700 KB): at most about
+// 2,000 decoded bytes and 2,500 of fixed-Huffman output per unit byte.
+//
+// The bases are a cost per unit, not per byte: a nested fixed-Huffman repeat
+// that a few hundred bytes start costs the same in a unit of any length. A
+// stream can split a write anywhere, and a unit cut inside rich text reads
+// such repeats a whole document never builds. Measured on every cut of a
+// 12-article SafeLinks page on a 2 KiB grid: at most 558 MB of fixed-Huffman
+// output and 137 MB decoded; the store connection name of 181 bytes that
+// drew 631 MB of fixed-Huffman output (TestFix1BOrdinarySQLNeverExhausts) is
+// the same kind. The same cut drew up to twice as much on another run, since
+// which worker first checks a shared view (and so is charged for it) varies,
+// so the bases are about twice the worst measured. A unit that draws more is
+// withheld and fails closed (contract 6 item 7); ordinary output draws far
+// less, and these are a ceiling, not the usual cost.
 var (
-	maxDepth       = 32       // decodings deep
-	budgetPerByte  = 256      // decoded bytes per unit byte,
-	budgetBase     = 24 << 20 // plus this (first adopters: ordinary connection names spent up to 17 MiB),
-	deflPerByte    = 64       // broken or retried fixed-Huffman output per unit byte,
-	deflBase       = 32 << 20 // plus this (the same units drew up to 28 MiB, one in 6,000 far more),
-	deflMax        = 48 << 20 // at most this
-	maxUnit        = 64 << 20 // one unit
-	maxEncodedBody = 64 << 20 // a response body read whole to hold its declared fields
-	maxDeclared    = 64 << 20 // a request body the kit reads to hold the values in it
-	streamTailMin  = 1 << 10  // a stream's context: at least this,
-	streamTailPer  = 16       // or this many times the longest held value,
-	streamTailMax  = 16 << 10 // at most this
+	maxDepth       = 32        // decodings deep
+	budgetPerByte  = 4096      // decoded bytes per unit byte,
+	budgetBase     = 512 << 20 // plus this (a cut decoded 137 MB, varying up to twice that),
+	deflPerByte    = 4096      // broken or retried fixed-Huffman output per unit byte,
+	deflBase       = 2 << 30   // plus this (a cut drew 558 MB and the SQL name 631 MB, varying up to twice that),
+	deflMax        = 1 << 40   // at most this: above any unit's allowance (maxUnit)
+	maxUnit        = 64 << 20  // one unit
+	maxEncodedBody = 64 << 20  // a response body read whole to hold its declared fields
+	maxDeclared    = 64 << 20  // a request body the kit reads to hold the values in it
+	streamTailMin  = 1 << 10   // a stream's context: at least this,
+	streamTailPer  = 16        // or this many times the longest held value,
+	streamTailMax  = 16 << 10  // at most this
 )
 
 // maxRawNest is how many headerless raw deflate streams deep a view can

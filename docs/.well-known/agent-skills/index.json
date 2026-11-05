@@ -279,7 +279,7 @@
       "type": "skill-md",
       "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has. Trigger phrases: `push usage counts to gradient`, `sync usage to synthesize`, `check my synthesize integration status`, `find unmapped gradient accounts`, `did my gradient alert create a ticket`, `use gradient`, `run gradient-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/SKILL.md",
-      "digest": "sha256:047f9d0db00e62031cb547d3bc44ba0dd245cbd9f264d28ef26f4bf299f145a5"
+      "digest": "sha256:2eaaed7a5d6f406e9f8bd51df5aa25a54ee5e109df5f91c85869c64c831ddab3"
     },
     {
       "name": "halopsa",

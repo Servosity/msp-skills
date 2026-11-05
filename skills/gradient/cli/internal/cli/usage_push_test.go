@@ -44,6 +44,8 @@ func TestParsePushFile(t *testing.T) {
 		{name: "missing header column", file: "counts.csv", content: "accountId,unitCount\na1,10\n", wantErr: true},
 		{name: "non-numeric count", file: "counts.csv", content: "accountId,serviceId,unitCount\na1,s1,abc\n", wantErr: true},
 		{name: "negative count", file: "counts.csv", content: "accountId,serviceId,unitCount\na1,s1,-3\n", wantErr: true},
+		{name: "NaN count", file: "counts.csv", content: "accountId,serviceId,unitCount\na1,s1,NaN\n", wantErr: true},
+		{name: "infinite count", file: "counts.csv", content: "accountId,serviceId,unitCount\na1,s1,1\na2,s1,+Inf\n", wantErr: true},
 		{name: "empty serviceId", file: "counts.json", content: `[{"accountId":"a1","serviceId":"","unitCount":1}]`, wantErr: true},
 		{name: "empty accountId", file: "counts.json", content: `[{"accountId":"","serviceId":"s1","unitCount":1}]`, wantErr: true},
 		{name: "invalid json", file: "counts.json", content: `[{"accountId":`, wantErr: true},

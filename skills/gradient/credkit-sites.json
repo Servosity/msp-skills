@@ -1,0 +1,124 @@
+{
+ "sites": [
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and run profile files named by credwire.credentialFiles, inside Start, and the bytes go only to HoldBody"
+  },
+  {
+   "file": "internal/config/gradient_persist.go",
+   "func": "warnLeftOut",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "prints one fixed warning that carries no value (it names no part of base_url), so it cannot carry a credential wherever it runs"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "inside Start, before the kit reads stdin: stats this process's own stdin, writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "inside Start, before the kit reads stdin: re-feeds this process's own stdin body (compacted JSON) through a pipe the kit then reads and holds; nothing reaches an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes the stdin body into the pipe that becomes os.Stdin, which StdinFlags then holds whole and line by line"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes the write end of the stdin pipe above"
+  },
+  {
+   "file": "internal/ledger/ledger.go",
+   "func": "readJSONL",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the push or alert ledger this program wrote through credkit.AppendFile; not a credential file"
+  },
+  {
+   "file": "internal/cli/usage_push.go",
+   "func": "parsePushFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the operator's usage counts CSV named by --file; not a credential file"
+  },
+  {
+   "file": "internal/cli/gradient_guard.go",
+   "func": "installPin",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the fallback inner transport when a client has none; the generated client always sets client.OutboundGuard (credkit.Transport) first, and the pin only refuses"
+  },
+  {
+   "file": "internal/cli/gradient_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the client's existing transport (credkit.Transport) in the origin pin, which only refuses an off-origin request and never sends one itself"
+  },
+  {
+   "file": "internal/cli/gradient_guard.go",
+   "func": "installPin",
+   "what": "convert:gradient-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dry-run tripper sends nothing: it closes the body and refuses every request with ErrDryRunSend, so nothing reaches the network"
+  },
+  {
+   "file": "internal/cli/gradient_guard.go",
+   "func": "installPin",
+   "what": "convert:gradient-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin only refuses an off-origin request and forwards the rest to the wrapped transport, credkit.Transport"
+  },
+  {
+   "file": "internal/cli/gradient_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "forwards an on-origin request to the wrapped transport, credkit.Transport"
+  }
+ ]
+}

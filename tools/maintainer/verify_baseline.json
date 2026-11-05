@@ -145,11 +145,6 @@
    "read-only",
    "local-data"
   ],
-  "gradient": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "halopsa": [
    "mcp-http",
    "write-gating",

@@ -117,12 +117,6 @@ func TestFix1BOrdinarySQLNeverExhausts(t *testing.T) {
 	r := rand.New(rand.NewPCG(1, 1))
 	for i := range n / 2 {
 		u := fmt.Sprintf("/var/folders/3c/v7xfshz979z_pkc18bwn767c0000gn/T/TestLearningsStats_PrunesBeforeReporting%d/%03d/data.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate", r.IntN(1<<31), 1+i%3)
-		// The one known residual of 6,000 units measured: 601 MiB of attempts
-		// on one periodic view. It fails closed, contract 6 item 7, and a test
-		// names it so the count stays honest.
-		if strings.Contains(u, "Reporting384837501/") {
-			continue
-		}
 		if v := m.check([]byte(u)); v != clean {
 			t.Errorf("%q: verdict %d, want clean", u, v)
 		}

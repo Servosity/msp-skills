@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -71,7 +72,10 @@ each row in the local push ledger that powers 'usage drift'.
   gradient-cli usage push --file ./counts.json --dry-run
   gradient-cli usage push --file ./counts.csv --no-build`, "\n"),
 		Annotations: map[string]string{
-			"mcp:read-only":       "false",
+			"mcp:read-only": "false",
+			// --file names a file on the MCP host: an MCP caller may not choose it
+			// (gradient handfix mcp-local-read-flag-file; press 4.34 honours mcp:read-flags).
+			"mcp:read-flags":      "file",
 			"pp:typed-exit-codes": "0,1,2",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -307,8 +311,8 @@ func validatePushRows(rows []pushRow) ([]pushRow, error) {
 		if r.AccountID == "" {
 			return nil, fmt.Errorf("row %d: accountId is empty", i+1)
 		}
-		if r.UnitCount < 0 {
-			return nil, fmt.Errorf("row %d: unitCount %v is negative", i+1, r.UnitCount)
+		if r.UnitCount < 0 || math.IsNaN(r.UnitCount) || math.IsInf(r.UnitCount, 0) {
+			return nil, fmt.Errorf("row %d: unitCount %v is negative or not a finite number", i+1, r.UnitCount)
 		}
 	}
 	return rows, nil
