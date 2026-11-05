@@ -17,7 +17,12 @@
       "env": {
         "SALESBUILDR_API_KEY": "${user_config.salesbuildr_api_key}",
         "SALESBUILDR_BASE_URL": "${user_config.salesbuildr_base_url}",
-        "SALESBUILDR_TENANT": "${user_config.salesbuildr_tenant}"
+        "SALESBUILDR_TENANT": "${user_config.salesbuildr_tenant}",
+        "SALESBUILDR_MCP_READ_ONLY": "${user_config.salesbuildr_mcp_read_only}",
+        "SALESBUILDR_NO_LOCAL_DATA": "${user_config.salesbuildr_no_local_data}",
+        "SALESBUILDR_USER_AGENT": "${user_config.salesbuildr_user_agent}",
+        "SALESBUILDR_MCP_HTTP_TOKEN": "${user_config.salesbuildr_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -41,6 +46,37 @@
       "title": "Salesbuildr API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from SALESBUILDR_TENANT. Set it only to point at a different host.",
       "required": false
+    },
+    "salesbuildr_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 to make the MCP server refuse every write to Salesbuildr: only read tools are callable. Leave blank to allow writes (each MCP write still previews first and sends only when called again with confirm set to true).",
+      "required": false
+    },
+    "salesbuildr_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+      "required": false
+    },
+    "salesbuildr_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Salesbuildr requests. Leave blank to use the CLI's built-in User-Agent.",
+      "required": false
+    },
+    "salesbuildr_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {
@@ -51,11 +87,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:14:54.021651Z",
-    "spec_checksum": "sha256:0cc8aff4b0b9bb96605d1d52c3aa555373d2757aa5a39a90fc6b7f5f741496c5",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T18:04:29.521671Z",
+    "spec_checksum": "sha256:2ff056a5defabb0ff541a43dcace573e38549e8fb0b55a451cbd16c1f1c7385a",
     "spec_format": "openapi3"
   }
 }

@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Changed
+- Rebuilt on the current press. The MCP server's HTTP mode now listens on localhost by default, refuses to start without `SALESBUILDR_MCP_HTTP_TOKEN`, and needs TLS for any other address; every MCP write previews first and sends only with `confirm: true`; `SALESBUILDR_MCP_READ_ONLY=1` refuses writes; `SALESBUILDR_NO_LOCAL_DATA=1` keeps no local copy; `local-data purge` erases what is stored.
+- `SALESBUILDR_TENANT` must be one subdomain label (`acme` for `https://acme.salesbuildr.com`). Any other value, or the placeholder `your-tenant`, refuses every request.
+- `company whitespace <x>` resolves an id, then an external id, then an exact name, then a substring, and an ambiguous match is an error, so an external identifier can no longer pick another company.
+
+### Fixed
+- `opportunity mrr-forecast` reads probability as the 0-1 fraction the API documents, and counts and skips values out of that range. A 0.5 probability on 1000 forecast 5 instead of 500.
+- Quantity 0 and markup 0 are values, not missing: `quote funnel`, `quote stale` and `product velocity` no longer count a 0-quantity line as one unit, `quote thin` no longer misses a zero-markup line, and `opportunity velocity` keeps a 0-day sales cycle.
+- `pricing drift` compares only the numbers both sides carry. A catalog product with no cost on file no longer reads as cost drift against 0; entries with nothing to compare are counted in `incomparable`.
+- `company whitespace` prints a product with no price as null and lists it last, instead of as price 0.
+
+### Security
+- The key goes only to the scheme, host and port of your tenant's API URL (or `SALESBUILDR_BASE_URL`), and only in the `api-key` header; a redirect to another host is refused. Responses are never cached on disk.
+- Credential handling now runs on the shared credential kit used across these connectors. Any output, file, local store write or MCP result that would carry a credential this program holds, in any encoding, is withheld whole and replaced by "[credkit: withheld from <sink>: it carried a credential this program holds]". `config.toml` keeps `base_url` without its query, and the learning journal stores `SALESBUILDR_LEARN_SESSION` only hashed and records no flag name the command does not declare.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security
