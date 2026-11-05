@@ -26,10 +26,10 @@ import (
 // access token it answers is sent as a bearer to the Partner API. The client ID
 // is held as a credential too (half of the pair, in no Partner API record).
 //
-// So the client pair may go only to the token host, Pax8's documented token
-// URL (PAX8_TOKEN_URL can name another; the kit then refuses to send the pair
-// there, which fails closed), and every other credential only to the API base
-// URL's origin. pax8_guard.go's origin pin (handfixes.json api-origin-pinned)
+// So the client pair may go only to Pax8's documented token host or the API
+// base URL's origin (a PAX8_TOKEN_URL on any third host is refused, which fails
+// closed; mimecast and cisco-umbrella bind theirs the same way), and every other
+// credential only to the API base URL's origin. pax8_guard.go's origin pin (handfixes.json api-origin-pinned)
 // is layered over the kit and narrows the token host to the one token POST.
 //
 // The store and config.toml are credential SOURCES: their own writes go
@@ -74,19 +74,19 @@ var Declarations = credkit.Declarations{
 		// URL's origin, never to a --deliver webhook, the feedback endpoint or
 		// a redirect's host.
 		{Source: "*", Allowed: []string{"base_url"}},
-		// The client pair goes only to Pax8's token manager, wherever it came
-		// from (environment, config or store, auth login's flags, the token
-		// form), never to the API host or anywhere else.
-		{Source: "env:PAX8_CLIENT_ID", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "env:PAX8_CLIENT_SECRET", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "config:client_id", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "config:client_secret", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "flag:--client-id", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "flag:--client-secret", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "field:client_id", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "field:client_secret", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "field:client-id", Allowed: []string{"https://token-manager.pax8.com"}},
-		{Source: "field:client-secret", Allowed: []string{"https://token-manager.pax8.com"}},
+		// The client pair goes only to Pax8's token manager or the configured
+		// API origin, wherever it came from (environment, config or store, auth
+		// login's flags, the token form), never anywhere else.
+		{Source: "env:PAX8_CLIENT_ID", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "env:PAX8_CLIENT_SECRET", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "config:client_id", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "config:client_secret", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "flag:--client-id", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "flag:--client-secret", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "field:client_id", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "field:client_secret", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "field:client-id", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
+		{Source: "field:client-secret", Allowed: []string{"base_url", "https://token-manager.pax8.com"}},
 		// A cookie no code sends, and the MCP HTTP bearer, which authenticates
 		// callers of this server: neither is sent anywhere.
 		{Source: "env:PAX8_COOKIE", Allowed: nil},

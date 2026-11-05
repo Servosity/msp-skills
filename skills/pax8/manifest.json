@@ -69,7 +69,7 @@
     "pax8_token_url": {
       "type": "string",
       "title": "OAuth2 token URL",
-      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default: the client ID and secret go only to Pax8's token manager, and a URL on any other host is refused before anything is sent.",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default: the client ID and secret go only to Pax8's token manager or your API base URL's host, and a URL on any other host is refused before anything is sent.",
       "required": false,
       "default": "https://token-manager.pax8.com/oauth/token"
     },

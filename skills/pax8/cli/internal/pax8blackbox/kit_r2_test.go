@@ -123,13 +123,16 @@ func TestKitConfigFileRefusesEncodedHeaderCredential(t *testing.T) {
 	if err := os.WriteFile(cfg, []byte("base_url = \"https://api.pax8.com/v1\"\n[headers]\nX-Trace = \""+rot+"\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runWithIn(t, cleanEnv(home, "PAX8_CLIENT_SECRET="+r2Secret, "PAX8_CONFIG="+cfg), "StandaloneBearer123\n", "auth", "set-token")
+	// The MCP bearer may go nowhere, so its ROT13 form in a header is left out. The
+	// client pair may reach the API origin (declarations.go), so that same form of
+	// the pair stays in this 0600 credential source (.review/followups.md, P2).
+	runWithIn(t, cleanEnv(home, "PAX8_MCP_HTTP_TOKEN="+r2Secret, "PAX8_CONFIG="+cfg), "StandaloneBearer123\n", "auth", "set-token")
 	data, err := os.ReadFile(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(data), rot) {
-		t.Fatalf("config.toml keeps the ROT13 client secret:\n%s", data)
+		t.Fatalf("config.toml keeps the ROT13 MCP bearer:\n%s", data)
 	}
 	if !strings.Contains(string(data), "https://api.pax8.com/v1") {
 		t.Fatalf("config.toml lost the base URL itself:\n%s", data)
