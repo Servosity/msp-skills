@@ -1724,7 +1724,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: What does it cost?

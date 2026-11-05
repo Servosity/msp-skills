@@ -82,6 +82,30 @@
           "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to save no API data locally: sync and workflow archive are refused and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "IMMYBOT_MCP_UPLOAD_ROOT",
+          "description": "Optional. Has no effect: this release's MCP server refuses every upload and never opens a local path. Run uploads with immybot-cli.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -16,12 +16,6 @@ Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password, so
-> any program on this computer can use it. The MCP tools can also make changes
-> with your credentials. Use the default stdio transport. If you set up a tunnel
-> for a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the ImmyBot skill |
@@ -33,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `immybot-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `immybot-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `immybot-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -214,7 +208,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `immybot-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `immybot-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `immybot-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `immybot-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -254,10 +248,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `session-triage`, `drift`, `version-spread`, `fleet-diff`, `assignment-explain`, and every other `list` / `get` except the credential read below | Allow |
+| Read | `session-triage`, `drift`, `version-spread`, `fleet-diff`, `assignment-explain`, and every other `list` / `get` except the credential read below and the GETs that change state (such as `maintenance-sessions get-cancel-for-schedule-by-schedule-id`), which the MCP server treats as writes | Allow |
 | Endpoint and fleet execution | `scripts create-run-adhoc-metascript` (runs a script body you supply on a named machine), `run-immy-service`, `maintenance-actions create-latest-action-for-tenants`, `schedules create-bulk-run-now`, `computers registry create-keys`, `target-assignments create`, `software create-global-upload` | Human-in-the-loop, explicit confirmation |
 | Write (data) | `tenants create`, `persons create`, `tags create`, `preferences update-application`, `import` | Preview with `--dry-run`, then a reviewed write |
-| Credential / security | `auth login`, `oauth get-access-tokens`, `access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` (a read that returns a secret), `roles create` | Human-in-the-loop only |
+| Credential / security | `auth login`, `oauth get-access-tokens`, `access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` (a read that returns the tenant's app registration secret, shown as a withheld notice), `access create-update-azure-tenant-auth-details` (echoes that secret back, also withheld), `roles create` | Human-in-the-loop only. The two `access` auth-details commands are CLI only, never cached or stored, never offered over MCP |
 | Destructive | `computers create-bulk-delete`, `scripts delete-global-by-id`, `software delete-global-by-identifier`, `brandings delete-by-id` | Human-in-the-loop only, explicit confirmation |
 | Local config | `profile save`, `auth logout`, `sync`, `export`, `feedback` | Allow (no server effect) |
 

@@ -25,6 +25,9 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"computers", "ephemeral-agent-circuit-breaker", "create-reset"},
 		{"maintenance-sessions", "actions", "create-by-id-rerun"},
 		{"maintenance-sessions", "create-cancel"},
+		// Re-runs whole maintenance sessions (installs, patches, scripts) on
+		// every computer in them; the 4.34.0 render moved the alias here.
+		{"maintenance-sessions", "create-rerun-v2"},
 		{"metrics", "create-circuit-breakers-isolate"},
 		{"plugins", "create-api-v1-by-provider-link-id-by-catch-all"},
 		{"provider-agents", "create-bulk-delete-pending"},
