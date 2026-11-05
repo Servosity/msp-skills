@@ -25,10 +25,13 @@ the statusline, you do not need anything in this folder - see the root
 | `check_mcp_file_flags.py` | Proves an MCP tool call cannot name a file or directory on the MCP host. The Go analyzer in `mcp_file_flags/` derives, from data flow in the connector's code (not from flag names), every flag whose value can start a filesystem path; the script then boots the real MCP server beside a recording stand-in for the CLI and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, that an ordinary flag still reaches the CLI, and that no in-process tool hands request data to a filesystem call. A name resolved inside an `os.Root` (press 4.34.0's opt-in MCP upload root) counts as naming a path only where a caller-chosen value reached the root's own location; `os.OpenRoot` of such a value, and a plain `os.Open` of the name, stay sinks. `--slug`, `--all`, `--jobs N`. The analyzer's own both-directions proof is `go test ./...` in `mcp_file_flags/`. |
 | `credkit_verify/` | The shared credential kit's wiring checker (Go, `go/types`). For a connector that carries `cli/internal/credkit/`, it verifies the hand-written wiring and names every site it cannot classify; a connector without the kit is skipped. Run `go -C tools/maintainer/credkit_verify run . --slug <slug>`. See "The kit's wiring checker" below. |
 | `check_command_tree.py` | Compiles each connector's real `cli.RootCmd()` tree (through `go build -overlay`, so nothing is written into the connector) and fails when a destructive command (delete, cancel, purge, disable, reboot, ...) still answers to the hidden alias `create`. Also fails a command-local flag that takes a value and shadows a persistent bare switch such as `--agent` or `--json` (the documented bare switch would swallow the next argument), and reports, without failing, every other local flag that shadows a global one. `--self-test` proves the classifier both ways. |
-| `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_echo.py`, `class_auth_wire.py`, `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one, and that the baseline guard fails closed; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
+| `class_harness.py` | Black-box harness for the recurring connector bug CLASSES. Drives the BUILT `<slug>-cli` / `<slug>-mcp` against a local fake HTTP server, connector-agnostic (surface from the binary's `agent-context`, wiring from `manifest.json`; no per-connector Go imports). Runs three class tests (`class_secret_corpus.py`, the credential leak test list; `class_auth_wire.py`; `class_write_safety.py`). `--slug X` checks one connector (the CI matrix row); `--all --report` prints per-class fleet counts; `--self-test` proves each class fires on a broken shape and is silent on a healthy one, and that the baseline guard fails closed; `--seed-baseline` / `--update-baseline` / `--assert-baseline-shrinks` manage the shrink-only `class_baseline.json`. See [Class tests](#class-tests). |
 | `kit_tls.py` | How a local fake vendor is served to a connector that adopted the credential kit: https with a certificate made for the run, trusted through `<PREFIX>_CA_CERT` and `SSL_CERT_FILE`. Used by `check_doctor_truth.py`, `class_harness.py` and the verify skill. A connector without the kit stays on plain http with no new variable. |
 | `verify_gate.py` | CI gate over `.claude/skills/verify-msp-skills`: `--slug X` runs its `verify.py run` (Linux: `--egress-guard proxy-env`) and compares the six feature verdicts with `verify_baseline.json`. An unlisted FAIL blocks; a listed feature that now passes blocks until its entry is removed; an ERROR blocks as a harness error, not a connector defect. `--policy-base REF` reads the baseline from the trusted base. `--assert-baseline-shrinks REF` (guards job), `--seed-from DIR` (first seed from CI verdict artifacts), `--self-test`. See [Verify gate](#verify-gate). |
 | `verify_baseline.json` | `connectors`: the verify features each connector FAILS on main today (3 to 6 by design before press 4.34.0). `known_errors`: the harness ERRORs the fleet had when it was seeded (reported, not gating). Both shrink-only, like `class_baseline.json`; a reprint PR removes its own entries. |
+| `class_secret_corpus.py` | The credential leak test list's engine: runs every line of `secret_corpus.jsonl` against a built connector and judges it by [`docs/credential-leak-contract.md`](../../docs/credential-leak-contract.md). `--slug X` / `--all --jobs 4` run it, `--self-test` proves it both ways, `--check-baseline --base REF` is the build-free guard. See [The credential leak test list](#the-credential-leak-test-list). |
+| `secret_corpus.jsonl` | The credential leak test list: one case per line, each a way a review found a held credential leaking. |
+| `corpus_baseline.json` | The leak cases each connector fails on main today, per connector and per case. Shrink-only; a connector on the shared credential kit lists nothing. |
 | `class_baseline.json` | Connectors that FAIL a class today, per class. Same burn-down model as `security_gate_baseline.json` (#429): a listed connector reports, an unlisted one fails CI, the list only shrinks. |
 | `ci_guards.sh` | Repo hygiene: no em-dashes, no personal paths, no obvious secrets, a current `.coderabbit.yaml`, no press title on a skill page, no null press version in a manifest. Decides on each guard's output, so a file missing from disk cannot turn a violation into a pass; `--self-test` proves it. |
 | `check_press_metadata.py` | Validates `skills/<dir>/press/`, the press's own `.printing-press.json`, `tools-manifest.json` and spec that onboard.py keeps beside `cli/`: only those files, parseable, version and print (`generated_at`, `spec_checksum`) agreeing with `manifest.json`, the spec matching its checksum, nothing secret-looking or personal in the text or any decoded view of it (backslash escapes, percent-encoding, HTML entities), and a vendor spec only with `publication.json`'s proof that its exact bytes are already in this repository's history outside press/ (no network check exists; every other spec is withheld as "spec source not public", and publishing one from another source is a later, deliberate change). Withheld files carry one of a fixed set of reasons there, never text from a file, tool or server. A connector without the folder is counted in the coverage line, not failed. `--base` also fails a connector the change ADDS when it was printed below `press_floor.json`. `--inspect DIR` is onboard.py's per-file verdict. `--self-test`. |
@@ -78,7 +81,7 @@ exercise gets an advisory `NOTE:` - reported, never baselined, never counted as 
 
 | Class (rule) | What enforces it | Fires on / silent on (measured) |
 | --- | --- | --- |
-| **Secret echo** - a credential value never reaches CLI output, errors or MCP results, in any encoding a server can reflect (URL, double-URL, HTML entities, JSON `\u`, base64/base64url, `Location`, `X-Request-Id`, truncated title), on error and success responses. | `class_secret_echo.py` (runtime): read commands and MCP read tools against a fake 403 that reflects each credential in body and headers; a 200 that reflects it in headers only (credential-free body); `--dry-run`, whose preview must mask the Authorization value. The MCP probe scans the session's raw stdout, stderr and whole result. Sentinels carry `.+/=` so each encoding is distinct. | Fires on 72 connectors (raw and URL forms masked; HTML, double-URL, JSON `\u` or base64 forms survive). Silent on the decoded-backstop connectors (cisco-duo, connectsecure, n-central, saas-alerts, watchguard) and riverside-fm (no credential). |
+| **Credential leaks** - a held credential never reaches output, a file or another host, in any form the contract names. | `class_secret_corpus.py` (runtime) runs every line of `secret_corpus.jsonl`: each line seeds one credential the connector declares, has a fake vendor carry it in one form and shape, drives one path (reads, MCP tools, doctor, flag and protocol errors, feedback, teach, `--deliver`, redirects), and fails if it survives in stdout, stderr, MCP output, a file under the fresh HOME, or a request to a second host. Judged by `docs/credential-leak-contract.md`. It replaced the secret-echo class, whose every check is a row here. | See [The credential leak test list](#the-credential-leak-test-list). |
 | **Auth on the wire** - a configured credential is actually transmitted, and none follows a redirect to another host. | `class_auth_wire.py` (runtime): `doctor` against a fake server, then against one that 307s to a SECOND loopback server (different host:port); the second may receive no configured credential, no token the fake server minted, and no Authorization header. A doctor that sends nothing is reported as a NOTE (not judged), never read as a pass. | Fires on 5 (connectwise-automate, connectwise-manage, cove, n-central, sherweb: each forwards a credential to the second host). Silent on the rest, which strip or refuse the hop. |
 | **Write safety** - every non-read MCP tool is refused under the read-only switch, and `--dry-run` sends nothing. | `class_write_safety.py` (runtime): with `<PREFIX>_MCP_READ_ONLY`, every write tool is called with real-shaped arguments (an `_execute` tool gets a genuine write endpoint id) in a CONTROL session with the switch off and again with it on; a write request reaching the fake API in the read-only session is a finding (a token mint, or a POST search agent-context marks read-only, is not a write). A write command (positional ids filled with a placeholder) run with `--dry-run` must put zero requests on the wire; any request it sends is a finding, and a clean dry run counts as proven only when the same command run for real reaches the API. **Complemented** by the static `mcp-read-only-switch-skips-typed-tools` rule in `check_security_gate.py` (#429), which reads `tools.go` for the drop pattern. | Fires on 10 OAuth client-credentials connectors whose dry run mints a token (appdirect, crowdstrike, halopsa, immybot, nerdio, ninjaone, pax8, sherweb, skykick, threatdown). Silent on connectwise-rmm, sophos-central and watchguard (same auth, `dry-run-never-mints` fix). Read-only: 9 of the 17 switched connectors proven to stop every write, 8 advisory, 0 violations. |
 | MCP local-file flags | Owned by the fleet gate `check_mcp_file_flags.py` (#431), not duplicated here. | - |
@@ -91,13 +94,311 @@ advisory (no write tool produced an API write even with the switch off: their `_
 typed writes need arguments the probe cannot construct), and **0** let a write through. The two
 sets do not overlap: static flags the source pattern, runtime proves the shipped behavior.
 
+### The credential leak test list
+
+`secret_corpus.jsonl` is a list of every way a review has found a connector leaking a credential it
+holds. Each line is one case: where the credential comes from (an environment variable the
+connector declares secret, a config file field, a token the connector mints, a vendor field), the
+form it travels in (raw, base64, base32, ROT13, a chain such as `rot13>base64`), the shape of the
+vendor response that carries it (an error body, a success row, a header, gzip, a value split across
+fields) and the path that runs the program (a read, an MCP tool, `doctor`, a bad flag, an unknown MCP
+tool, `feedback`, `teach`, `--deliver`, a redirect). `class_secret_corpus.py` runs every line against
+the built connector with no connector-specific code. The rules are the owner-ruled
+[credential leak contract](../../docs/credential-leak-contract.md); this list is how CI checks them.
+
+A case fails when the shared kit's matcher withholds any unit the run produced: stdout, stderr, the
+MCP server's output, any file the run leaves under its fresh HOME, or a request that reached a
+second fake host (any method, every value of a repeated header, every trailer of a chunked body).
+The list has no matcher or decoder of its own (contract section 8): `class_secret_corpus.py` builds
+the kit's `credmatch` command (`tools/maintainer/credkit/cmd/credmatch`, a temporary copy of the
+kit package plus that command) once per run into a temporary directory, deletes it when the run
+ends, and hands it the held set and each unit. It answers clean, leak (with the contract clause:
+2(a) whole, 2(b) a piece of 8 or more, 2(c) a request to a host that is no held value's origin) or
+exhausted. Every reading section 3 names (each decoder at every offset, recursively, charsets,
+compressed streams, joined JSON values, integer spellings) is the kit's. A leak and an exhausted
+unit both fail the case. A file or directory the run leaves that the test cannot read, a request
+the fake cannot parse, and a request body in a transfer coding it cannot undo (every
+`Transfer-Encoding` value is read, in order; `chunked` must come last; `gzip` and `deflate` are
+undone) fail the case. A file that two runs of one case wrote (the 6.5 split across runs) is judged
+as each run's own writes. The test knows what it injected only to name an advisory line's own
+exception; a new form needs an encoder, and a reading section 3 lacks is a kit change.
+
+A connector that adopted the shared kit (it has `cli/internal/credkit/`) is judged like any other
+and lists nothing in the baseline. Its fake vendors serve TLS on a certificate made for the run and
+trusted through `SSL_CERT_FILE` and its `<PREFIX>_CA_CERT`, since the kit refuses to send a held
+credential over plain http, and every row would otherwise end "no request" having judged nothing.
+Its `Declarations.Files` callback is not run: the kit's reading of the held set is handed every file
+the run seeded, the only credential files the run has. The vendored kit's own raw writes are not
+checked as connector code; the kernel record sees them like any other. A secret whose `Origins`
+entry names literal hosts and not `base_url` (immybot's client secret goes only to Microsoft's sign-in
+hosts) would be refused on its way to a fake on `127.0.0.1`, so the list plays the first such host: the
+token URL is spelled with that name, `HTTPS_PROXY` carries the connection to the fake, and the
+certificate names the host. The binary is unchanged. The list reads `Origins` only for this, never for
+a verdict.
+
+The credentials it holds come only from what the connector declares: each variable whose
+`user_config` entry in `manifest.json` is `sensitive`, plus each one `server.json` marks
+`isSecret`, plus each one the shared kit's `SecretEnv` names. A variable's name means nothing.
+Every declared variable a run sets is held in that run, whole and in pieces, and only while the
+program is given it: the token-error line, which unsets static tokens so the client mints, seeds the
+declared variable the token request carries, or does not apply. No piece is exempt, so a declared
+URL or host variable gets an address of its own: the fake's port by the name `localhost` (and a
+URL a path of its own), where every unheld variable spells it `127.0.0.1`, so no unheld value the
+harness gives the program shares an 8-character piece with a held one. The held set of a run is
+the kit's own (contract section 8; `credmatch`'s acquire request runs the kit's startup and
+transport code), once for each process as it ran (its own argv and environment exactly as given,
+and an MCP server's input, read for declared MCP arguments) and once for each CLI child an MCP
+server started (recorded by the wrapper at paths written into it, never in a variable the server
+could drop): what `Start` holds from the process's environment, argv and the config file it was
+given (read at its own path with the bytes the run was given, then restored), the declared
+`BaseURL` (its variable and default) and the bytes it read on stdin when a declared stdin flag was given
+(`auth_header`, every `[headers]` value, the base URL's user and password, a file that does not
+read the one canonical way held whole), then what the kit's transport holds from every request the
+fakes received (auth headers whole and their parts, Basic auth's user and password, cookie values,
+declared headers and fields) the process sent and every response it received, as sent (every header line, `Server`
+and `Date` included; no body for a HEAD, 204 or 304 response): `Set-Cookie` values, declared
+response fields in headers and bodies. Identifiers the connector declares, each with its reason,
+are exempt as in the kit, and a value the list holds on its own is exempt where the kit exempts
+its source, the source spelled exactly as the kit compares it. Each process is judged on its own
+held set (holdings last until the process exits): its stdout and stderr, the SQLite statements it
+ran (by pid), the requests it sent to the second host, and the files it changed (by a snapshot after
+each process); an MCP server's with the CLI children it started, and a file no process can be named
+for on every process's. A
+value that arrives in a response is held only when it was delivered; such values, and the user of
+a base URL the harness writes, carry no fixed prefix, so one never delivered cannot be guessed.
+Every token the fake vendor hands out is held for the rest of that run, and so is every object key
+beneath a declared response field (a vendor that stores a credential as a key; the kit holds the
+values there, not the keys), except a value that occurs as written in the kit's public text
+(`true`, `false`, `null`, a status code, a protocol word): the kit's own rule records it instead
+(the result's `recorded` count) and does not hold it. A mint that never happened leaves only that
+token unheld. Most cases inject one credential,
+the first declared one the connector sends on the wire and already withholds when a vendor echoes it
+(else the first on the wire); `each-env-var` injects every declared variable on its own, a declared
+URL variable included. A vendor response field is held only when the connector declares it: the
+`ResponseFields` (and `SecretEnv`, `Identifiers` with their reasons, and every other list) of the
+one literal of the shared kit's own `Declarations` type, read from every package the connector's
+two binaries link that reaches the kit, directly or through another package (a nested module's
+included), under the build's own settings once for each release target (declarations that differ
+between targets fail the connector's run). The type may be named only as that literal's
+type, and the value used only as `credkit.Start`'s argument, a literal or a variable of the kit's
+own type (the documented wiring: a literal in a wiring package, `credkit.Start(wiring.D)` in each
+`main`), and `Start` is only ever called directly; its address taken, a copy kept in a field, a
+field set or read elsewhere, an element of another literal, a call's result, a generic type
+argument, an unnamed struct of the same fields, `Start` as a function value (reflection), an
+identifier with no reason, a `BaseURL` that is not a literal, a `Files` callback (or any field the
+list cannot read as data; `Origins` is not read, since the list treats every host but the fake's as
+foreign) or a literal that does not type-check fails the connector's run.
+
+Stdout and stderr are captured byte for byte, and in the writes the kit's pump checks one by one:
+the bytes between two pauses of the pipe (5 ms here, 10 ms in the kit, so the list sees every
+boundary the kit would). A stream is judged whole and, through the kit's own stream check, write
+by write with the stream's context, so a short credential that ends one write is found even when
+the next write puts a digit after it. Bytes written before a child the program started keeps the
+pipe open are still judged.
+
+Every SQLite statement a run executes is judged as the kit's unit, its text and bound values in
+binding order, as it ran: the list builds each connector with `modernc.org/sqlite` replaced (`go
+build -modfile`) by a mirror whose statement layer writes each statement through the kit's own
+`sqlUnit` (a transaction's begin, commit and rollback, and the DSN the driver opens, too) to
+`corpus-sql.trace` beside the executable, outside HOME: the place is found once at start from the
+executable's own path, so no variable a process could clear decides it, and each process writes a
+start record with its pid, so a process of a binary that links the driver and wrote none fails the
+case. The build is the release build (`CGO_ENABLED=0`). A build that links another SQLite package,
+replaces any `modernc.org` module, reaches the driver's C layer (`modernc.org/sqlite/<sub>`) from
+outside the trusted modules (the driver, `modernc.org/libc`, `mathutil`, `memory`, by module, not by
+a path's prefix) other than for its `SQLITE_` constants (read by type, so no spelling of the import
+hides a use), carries assembly or a `go:linkname` that names SQLite, or whose driver the patch does
+not fit cannot be judged and fails the run.
+
+Every file write a run makes is a unit too (contract section 2: a file written as a stream of
+writes). The same build patches the toolchain's `os.File` `Write`, `WriteAt` and `ReadFrom` (in a
+hard-linked mirror of the connector's toolchain, since `go build -overlay` refuses files under the
+module cache) to record each write to a regular file, whatever its name (by `fstat`, not by
+spelling), with the file's device and inode and its name in the same trace before the write is
+made; extending a file (`Truncate`, `os.Truncate`, a write past its end) records the zeros it
+materializes. A write the trace
+cannot record, or a write into the trace's own file, is not made: the process stops with exit 97
+(the statement trace does the same). Each process's writes to each file (by device and inode, so
+every alias of one file is one stream) are judged in order, whole and write by write, on that
+process's held set, so a write later deleted or overwritten is still
+judged; a stream the kit cannot read whole fails. A file can be written below `os.File` only
+through a system call, so the trace build refuses any use outside the standard library and the
+trusted modules (`golang.org/x/sys`, `x/net` and `x/crypto` added; never the connector's own
+module) of a `syscall`, `x/sys/unix`, `x/sys/windows` or `modernc.org/libc` function that writes,
+truncates, maps memory, splices or makes a raw system call, assembly that contains a
+system-call instruction or a raw encoding (`WORD`, `BYTE` and the like) anywhere, and a
+`go:linkname` naming a system call or a write.
+
+That build is the fast first layer. The guarantee is the kernel record (`corpus_ktrace.go`): every
+process a case runs, and every process it starts, runs under a ptrace recorder that stops each
+system call that can put bytes or a name in a file and records it before the process goes on. It
+reads the bytes of `write`, `pwrite64`, `writev`, `pwritev` and `pwritev2` from the process, reads
+back from the file what `sendfile`, `splice` and `copy_file_range` put there, records the zeros an
+extension (`ftruncate`, `truncate`, `fallocate`, a positioned write past the end) materializes, and
+records every name put in the file system (a created file, directory or node, a rename's or link's
+new name, a symbolic link's target, an extended attribute's name and value, a UNIX socket's path).
+Every exec records the argv and environment the new program received, as the kernel installed them,
+judged on the ledger of the nearest process the list knows in the chain that started it (kept from each
+fork), and each new program gets its own ledger and acquisition (a process that only passes on what it
+was given adds only its `argv[0]`).
+The set is closed with a failing default: a call through another system-call ABI, a call newer than
+the recorder's table, and every call no record reads (io_uring, `process_vm_writev`, `ptrace`,
+seccomp, `bpf`, `userfaultfd`, `pidfd_getfd`, message queues, SysV memory, kernel keys, a shared
+mapping with write access of a regular file, or write access added to one later with `mprotect`, collapse and insert ranges, an `ioctl` on a regular file that is
+not a read) is recorded as a failure and the process is killed before the call runs. The one shared
+mapping with write access allowed is SQLite's `-shm` index (beside a file that starts with SQLite's
+magic): the whole file, whoever mapped it and whatever range, is recorded whenever it changed, at every
+`munmap`, `msync`, `exec` and exit of any traced process, when it is made and when the record ends, and judged on every process's held set. A write into the record itself is refused
+the same way, no process writes a core file, and a record cut short (the recorder killed) fails the
+case; the harness's timeout stops the recorder with SIGTERM, which kills every traced process and
+still ends the record. A thread killed at a stop (another thread's exit) fails nothing unless a write of its had run; a name its call may have made is still recorded. Each process's kernel writes to each file are judged like the first layer's
+(whole and write by write; a stream identical to the one the first layer judged is not judged
+twice; the statement trace's own writes are read through the trace, and only when the trace at rest
+holds every one of them; a name is judged below the case's own directories, every component the
+process chose in one unit; a CLI child's wrapper's writes to its own record files are skipped until it
+execs the CLI). Writes to a SQLite database and its side files are SQLite's own pages, written below
+`os.File` from statements judged above, so each is read as those files are read at rest (the dead
+bytes rule below). The kernel record runs on Linux only, so on another OS the class runs in a
+container (`in_linux`: a copy of the working tree, an unprivileged user, the host CPU's native
+image, module and build cache volumes); CI's rows run it natively.
+The reader type-checks the connector with `go/types` against the packages `go list -export`
+reports, under the settings the connector build uses (no inherited `GOFLAGS`, `GOOS` or `GOARCH`;
+`CGO_ENABLED=0`), once for each release target, so a comment, a string, a `_test.go` file, `testdata` or a file the build excludes declares nothing,
+an alias of the kit's type counts (a positional literal by field order), and a named string constant
+counts by its value. A conversion to the kit's type from another type, a field of it
+set outside a literal, an element that is not a constant string, a second literal and code that does
+not type-check stop the connector's run instead of holding nothing. With no field declared, the two
+vendor-field lines do not apply.
+
+The six cases in section 6 of the contract (the MCP request id echoed back, scientific notation of
+a non-digit credential, an undeclared numeric vendor field, a declared identifier, a split across
+two runs, a piece shorter than 8 characters) are **advisory**: reported, never failing. Each such
+line names its contract item in an `advisory` field, and the list does not load unless exactly
+those six are advisory. An advisory line excuses only its own exception, in its own shape: the
+request id only as the top-level `id` of a response frame (never a nested `id`), scientific
+notation never for an all-digit credential, a numeric field never when the connector declares it.
+A held credential that leaks any other way during it still fails. Every other line gates.
+
+**The learning loop.** When a review finds a credential leak the list missed, the fix to the gate
+is one line, usually in minutes:
+
+1. Write the case as a line: `{"id":"succ-rot47","family":"fold","form":"rot47","refs":["acme r2 #12"]}`.
+   Reuse the fields an existing line uses; `refs` names the finding.
+2. If the line uses a form the engine does not know, add its encoder to `ENC` in
+   `class_secret_corpus.py` (a reading the kit's matcher lacks is a kit change). A new shape or
+   drive is a few lines in `shape_response` or `Engine.drive`. Land any engine change on its own
+   first: the engine is the kit's matcher, the `credmatch` command and this harness, and a change
+   that adds a baseline entry may touch nothing but `secret_corpus.jsonl` and
+   `corpus_baseline.json`, because an added line anywhere the engine imports or CI runs it can
+   rebind an existing case.
+3. Run `python3 tools/maintainer/class_secret_corpus.py --self-test`. The deliberately leaky
+   stand-in must fail the new case and the clean one must pass it; the self-test says which way it
+   missed.
+4. Run the case on every connector: `python3 tools/maintainer/class_secret_corpus.py --all --jobs 4 --only succ-rot47`.
+   A brand-new case may land together with the connectors it already fails on: add those
+   `(connector, case)` entries to `corpus_baseline.json` in the same change. That is the only way
+   an entry is ever added.
+
+From then on every connector runs the new line in CI, so the finding never has to be found by a
+review again.
+
+**The values are fixed.** A case's values come from a generator seeded by the connector, the case and
+the attempt, so a verdict that depends on a value is the same on every run and a failure reproduces
+locally. A row whose leak needs a certain value says so in its `len` (`long-qp` for `succ-qp-mixed`:
+without two hex digits after the `=`, a connector's own quoted-printable reading can happen to catch it).
+
+**A limit can still depend on the run.** The matcher can reach a limit on one run and not the next: a
+value's bytes exhausting its budget (contract 6.7), a database's page layout, or the kit's stream limits
+when a pipe split a clean large frame at a pause. On the first full run about one row in six failed on
+one. A case whose every reason is a limit gets two more attempts, each with the next attempt's values. A
+held credential found stands at once, on any row and any attempt, including in a stream: a whole short
+credential in one write, then a pause, is a leak.
+
+**The baseline only shrinks.** `corpus_baseline.json` lists, per connector, the gated cases it
+fails on main today. In the CI row a listed failure is reported as a known failure; any other gated
+failure fails the row and names the case, its form, shape, source and drive, and every place the
+credential surfaced. An entry `case@limit` excuses only a failure whose every reason is the matcher
+reaching a limit, so a leak on that row still fails: cork's seeded lookup table holds bytes that exhaust the
+matcher whatever is held, reaching a different row on each run. `ci_guards.sh` guard 12 runs `class_secret_corpus.py --check-baseline --base
+<merge base>` with no build: an entry may be removed at any time, and added only for a case id the
+merge base's list does not have, and never in a change that also drops or rewords a case of the
+base or changes any file other than the list and the baseline (the kit's matcher, the `credmatch`
+command, the harness, a module it imports, a workflow that runs it: a renamed case is an existing
+case, and an added line can rebind an existing encoder). Only an untracked bytecode cache is
+skipped; a committed one is a change, and the guard runs Python with a fresh `pycache_prefix` so no
+committed cache runs in place of its source. A
+connector that has adopted the shared credential kit
+(`cli/internal/credkit/` exists) may have no entries at all. When a fix lands, retire what now
+passes, or an advisory line back to its own exception, with `class_secret_corpus.py
+--update-baseline --slug <slug>` (it removes, never adds).
+
+**Run it on one connector, or all of them:**
+
+```bash
+python3 tools/maintainer/class_harness.py --slug halopsa --class secret-corpus -v   # as CI runs it
+python3 tools/maintainer/class_secret_corpus.py --slug halopsa -v                   # every case, every verdict
+python3 tools/maintainer/class_secret_corpus.py --slug halopsa --only succ-rot13    # one case
+python3 tools/maintainer/class_secret_corpus.py --slug halopsa --strict             # known failures fail too
+python3 tools/maintainer/class_secret_corpus.py --all --jobs 4 --json-out "$HOME/leaks"  # whole fleet
+python3 tools/maintainer/class_secret_corpus.py --self-test                         # both directions
+```
+
+`--all` builds every connector (set `GOCACHE` to a scratch directory and delete it afterwards;
+run `disk_guard.sh gate` first on a shared Mac). A redirect case sends each client process's first
+two data requests across hosts (the first attempt and the retry path) and then answers normally,
+so a connector that refuses the hop is not held in its own retry backoff.
+
+**What it cannot see yet (known limits).**
+
+- The fake vendor is plain http on loopback, so contract 2(c)'s "over plain http" is not judged;
+  a request to any other host is (every foreign host goes through the second fake, and an https
+  one shows up only as its `CONNECT`).
+- It seeds what is declared today: secret environment variables, the config file's `auth_header`,
+  `[headers]` and `base_url` user and password, minted tokens, `Set-Cookie` values and vendor
+  fields. Other config credential fields, credential flags, stdin and legacy config paths need the
+  per-connector declarations of contract section 7, which no ledger records yet.
+- A credential that reaches a sink only in a reading the kit's matcher does not make is not seen
+  here either: the list judges every unit by the kit's verdict alone (contract section 8). The
+  kit withholds a short value after a letter or digit (its readings start at every byte offset),
+  so a 3-character credential fails more often than a long one.
+- A SQLite database's files (with its `-wal`, `-shm` or `-journal`) are judged besides the traced
+  statements: its schema statements, its rows one unit each and each table's rows joined, and every
+  other byte. Each page image (database page or WAL frame) is judged whole, values included as the
+  file holds them (adjacent values spell one string there), and its records are read as units too:
+  by the rows for a live table page, as record units otherwise (every index record, every record of
+  a freed or replaced image). An image is live only when reachable from a root with no WAL frame and
+  no journal. The headers, bytes past the database's size, the `-shm` and the journal are pieces
+  too, split at runs of 64 or more NUL bytes unless a held value has a NUL byte. The kit runs out of
+  budget on some ordinary pages read whole (auvik's index pages), so a piece the kit cannot read
+  whole is read again in 1 KB windows overlapping by half: in such a piece a reading that needs more
+  than 512 bytes is not read whole. A database SQLite cannot open fails the case. In these bytes a value
+  under 4 characters counts only where it stands as written: through a decoding, 15 of 20 random
+  3-character values matched one run's pages by chance. Statements and rows are still read in full.
+- The child process sink is the argv and environment the MCP server gives its own CLI, one unit
+  judged on the server's held set (recorded by a wrapper, with its stdin when a declared stdin flag
+  is given); other children are not observed. A child's exchanges with the fakes cannot be told from its MCP
+  server's, so each child is acquired over its server's exchanges.
+- A connector whose API is JSON-RPC or otherwise shaped (bitdefender) rejects the fake's rows and
+  retries, so its success-path cases mostly exercise its error path.
+
+**Secret-echo is a subset.** Every check the retired `class_secret_echo.py` made is a line here
+(each such line carries a `secret_echo` field naming the check): the 403 that reflects every
+credential in seven encodings plus `X-Request-Id`, `Location` and a truncated title, over four
+reads in `--json` and `--agent` and eight MCP read tools (`err-echo-all`, and one line per
+encoding); the 200 that reflects them in headers only, with MCP in its own HOME
+(`succ-header-echo`); and the `--dry-run` preview (`dry-run-preview`). Its decoder self-tests
+(each encoding, JSON escapes, offset, nested and separated base64, the frozen pre-#439 decoder
+union, the shared-HOME cache) moved into `class_secret_corpus.py --self-test`.
+`python3 tools/maintainer/class_secret_corpus.py --slug X --covers secret-echo` runs only those
+lines; `apply_secret_funnel.py` proves its wiring with them under `--strict`.
+
 ### Wiring the secret-echo funnel into a connector: `apply_secret_funnel.py`
 
-Before press 4.34.0, a fresh or reprinted connector fails the secret-echo class: the press's masks cover a
+Before press 4.34.0, a fresh or reprinted connector fails the leak list's secret-echo lines: the press's masks cover a
 credential only as written or URL-escaped (cli-printing-press #5145). `apply_secret_funnel.py --slug <slug>`
 makes the change #444 made by hand on 72 connectors. `onboard.py` runs it after vendoring.
 
-Press 4.34.0 (#5169) masks encoded forms itself, and its raw output passes the class test. The funnel still
+Press 4.34.0 (#5169) masks encoded forms itself, and its raw output passes those lines. The funnel still
 applies: a reprint keeps the connector's hand-written code (token endpoints, novel commands), which never passes
 through the generated masks and which the raw class test never exercises. The CLI and MCP error backstops and
 the held set cover that code.
@@ -123,7 +424,7 @@ the held set cover that code.
   fully wired.
 - Success is measured, not read back from its own edits. Every run passes the ledger through
   `check_handfixes.py --slug`. Every apply (one that changes nothing too) must also pass `go build ./...`,
-  `go vet ./...` and `class_harness.py --slug <slug> --class secret-echo` with 0 failing; a failure exits 1
+  `go vet ./...` and `class_secret_corpus.py --slug <slug> --covers secret-echo --strict` with 0 failing; a failure exits 1
   and names the proof and the sites the run touched. The class test must target `skills/<slug>` in the
   registry and must exercise the connector: an advisory "not exercised" is not a pass unless the entry
   declares `"hand_wired": {"class-test": "<how the error path was proven>"}`. `--check` stays cheap: no build.
@@ -209,9 +510,12 @@ Fleet counts at seed (84 connectors, measured 2026-10-23, a fleet-wide `--all` e
 
 | Class | Failing (baselined) | Passing | Advisory (not exercised) |
 | --- | --- | --- | --- |
-| secret-echo | 72 | 6 | 6 (avanan, blumira, hubspot, mspbots, proxmox, threatlocker: reads are local or need arguments) |
 | auth-wire | 5 | 79 | 0 |
 | write-safety | 10 | 47 | 27 (8 read-only not proven, see above; 21 whose write commands never reached the API even without `--dry-run`, so the dry run could not be proven clean) |
+
+The leak test list is not in `class_baseline.json`: its known failures are per connector AND per
+case in `corpus_baseline.json` (see [The credential leak test list](#the-credential-leak-test-list)),
+so a connector listed for one case is still gated on every other.
 
 Step 7 of the pipeline plan empties these lists. No connector is fixed here.
 
@@ -226,7 +530,7 @@ harness and passes on the fixed one:
    `&`, `;`, `\` or `=` is decoded on its own rather than shifted by the prefix. It decodes the
    UNION of that scan and the original one, so a blob with an interior `.` is still reconstructed:
    a decoder change may add reconstructions, never lose one. The self-test runs a corpus through the
-   pre-#439 decoder (frozen in `class_secret_echo.py`) and fails if the live decoder misses any of
+   pre-#439 decoder (frozen in `class_secret_corpus.py` since secret-echo was retired) and fails if the live decoder misses any of
    its positives.
 2. **write-safety attribution.** Token and authorization URLs point at a reserved path on the fake
    server (`TOKEN_PATH`), never its root, so a connector's data write to `POST /` is never exempted
@@ -248,8 +552,8 @@ Still open in #439: per-connector argument recipes for the advisory connectors.
 - The redirect hop changes port, not hostname. The connectors' own `CheckRedirect` compares
   host:port, which is what the 5 findings exercise; Go's built-in Authorization stripping compares
   hostnames only, so a connector relying on it alone is tested only for its custom headers.
-- A credential reflected in a 200 response BODY is the server's data and is printed by design;
-  the success probe reflects it in headers only.
+- auth-wire and write-safety do not judge what a 200 body prints. The leak test list does: under
+  the contract a held credential in a 200 body is withheld like any other unit.
 - Advisory connectors are coverage gaps, surfaced so they are never mistaken for passes.
 
 ### Cost
@@ -259,7 +563,11 @@ commands, 8 MCP read tools, 12 MCP write tools and 4 write commands for the dry 
 process capped at 20 s). Measured serially on a warm module cache, all three classes take 6-29 s
 per connector (connectwise-automate 6, ninjaone 9, halopsa 11, threatdown 14, td-synnex 19,
 saas-alerts 29: mirror tools shell out to the CLI, and a connector that refuses the cross-host
-redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers. The classes run per changed connector in the `build` matrix row; a change
+redirect retries with its own backoff). A whole-fleet run takes about 4 minutes with 8 workers.
+The credential leak test list runs its cases 16 at a time and, on the kit's matcher under the kernel
+record, takes minutes per connector: hubspot 81 to 96 s on a shared 18-CPU machine, and across the fleet
+at 5 connectors at a time under a load of 40 to 80, median 250 s, worst 3092 s (halopsa, autotask 2340,
+auvik 1945). The whole fleet took about 2 hours 10 minutes that way. The class step has no step timeout. The classes run per changed connector in the `build` matrix row; a change
 to the harness is MACHINERY (see `release_matrix.py`), so it re-runs the fleet.
 
 ## The shared credential kit: `credkit`

@@ -307,7 +307,7 @@ func (s *fieldScan) emit(c byte) {
 		s.text = append(s.text, c)
 		return
 	}
-	if s.isKey && len(s.text) <= s.keyCap {
+	if s.isKey && (len(s.text) <= s.keyCap || s.beneath()) {
 		s.text = append(s.text, c)
 	}
 	s.out = append(s.out, c)
@@ -478,9 +478,12 @@ func (s *fieldScan) lenientByte(c byte) {
 	s.out = append(s.out, c)
 }
 
+// beneath: the token stands inside a declared field's object or array.
+func (s *fieldScan) beneath() bool { return s.match >= 0 && len(s.objs) > s.match }
+
 func (s *fieldScan) start(c byte) {
 	s.isKey = s.keyNext
-	s.keep = !s.isKey && ((s.sep && containsFold(s.names, s.key)) || (s.match >= 0 && len(s.objs) > s.match))
+	s.keep = !s.isKey && ((s.sep && containsFold(s.names, s.key)) || s.beneath())
 	s.tok, s.n, s.esc, s.text = 'b', 0, false, s.text[:0]
 	if c == '"' || c == '\'' {
 		s.tok = c
@@ -518,6 +521,13 @@ func (s *fieldScan) end() {
 		}
 	}
 	if s.isKey {
+		if s.beneath() {
+			// A vendor may store the credential as a key (halopsa). Every key: two
+			// rules that told a name from a credential by its spelling both let one
+			// through. A connector whose field carries metadata pays a withheld unit
+			// (no connector's API measured does; kaseya-vsa's Headers are custom).
+			Hold("response:"+s.matchKey, value)
+		}
 		if len(text) > s.keyCap {
 			value = "" // longer than any declared name, written any way
 		}

@@ -158,7 +158,15 @@ MACHINERY = (
     # shrink-only data file (class_baseline.json) is NOT here: retiring a
     # baselined connector is data, guarded build-free by --assert-baseline-shrinks.
     "tools/maintainer/class_harness.py",
-    "tools/maintainer/class_secret_echo.py",
+    "tools/maintainer/class_secret_corpus.py",
+    # The leak test list is what the class runs, so a new line re-tests every
+    # connector. corpus_baseline.json is shrink-only data, guarded build-free
+    # by ci_guards.sh (class_secret_corpus.py --check-baseline).
+    "tools/maintainer/secret_corpus.jsonl",
+    # What the list runs on: its kernel record, and the kit whose matcher and
+    # acquisition decide every verdict (contract 8, through cmd/credmatch).
+    "tools/maintainer/corpus_ktrace.go",
+    "tools/maintainer/credkit/",
     "tools/maintainer/class_auth_wire.py",
     "tools/maintainer/class_write_safety.py",
     # The verify gate and the harness it runs (verify_gate.py --slug in each
@@ -532,6 +540,9 @@ def _self_test() -> int:
         (".github/workflows/live-verified.yml", False),
         ("tools/maintainer/check_doctor_truth.py", True),
         ("tools/maintainer/kit_tls.py", True),
+        ("tools/maintainer/corpus_ktrace.go", True),
+        ("tools/maintainer/credkit/match.go", True),
+        ("tools/maintainer/credkit/cmd/credmatch/main.go", True),
         ("tools/maintainer/check_handfixes.py", True),
         ("tools/maintainer/check_mcp_gate.py", True),
         ("tools/maintainer/check_mcp_file_flags.py", True),

@@ -40,10 +40,22 @@ jobs:
         with:
           fetch-depth: 0 # full history so the DCO range check works on PRs
 
+      # The credential leak test list's self-test builds the kit's matcher
+      # command (tools/maintainer/credkit/cmd/credmatch) with the kit's Go.
+      - name: Setup Go (the kit's version)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/maintainer/credkit/go.mod
+          cache-dependency-path: tools/maintainer/credkit/go.sum
+
       - name: Repo hygiene guards (placeholder, em-dash, personal paths)
         # Decides on each guard's OUTPUT, so a tracked file missing from disk
         # can no longer turn a printed violation into "All CI guards passed"
         # (the xargs/grep exit-status false GREEN). The self-test proves it.
+        # Guard 12 compares corpus_baseline.json with the PR base (on a push,
+        # the merge base with origin/main, which is HEAD itself).
+        env:
+          CORPUS_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           bash tools/maintainer/ci_guards.sh --self-test
@@ -800,12 +812,13 @@ jobs:
 
       - name: Recurring bug-class tests (this skill, black box)
         # Build this connector's CLI + MCP and drive them against a local fake
-        # server for the recurring CLASSES (secret echo, auth on the wire, write
-        # safety). Connector-agnostic: no per-connector Go import; the surface
-        # comes from the binary's agent-context and the wiring from manifest.json.
-        # A connector listed in class_baseline.json for a class is reported, not
-        # failed (the list only shrinks; the guards job proves a PR did not widen
-        # it). A change to the harness itself is MACHINERY, so it re-runs the
+        # server for the recurring CLASSES (the credential leak test list, auth
+        # on the wire, write safety). Connector-agnostic: no per-connector Go
+        # import; the surface comes from the binary's agent-context and the
+        # wiring from manifest.json. A connector listed in class_baseline.json
+        # for a class, or in corpus_baseline.json for a leak case, is reported,
+        # not failed (both lists only shrink; the guards job proves a PR did not
+        # widen them). A change to the harness itself is MACHINERY, so it re-runs the
         # whole fleet. Runs even if a build step above failed, so one row reports
         # everything. See tools/maintainer/README.md "Class tests".
         if: ${{ !cancelled() }}

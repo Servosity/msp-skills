@@ -1065,7 +1065,11 @@ func holdConfigLocked(b []byte) (baseURL string) {
 	return baseURL
 }
 
-var userinfoRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)@`)
+// userinfoRE reads up to the last '@', not the first '/', '?' or '#': a password
+// written raw may hold any of them (proxmox's tests name such passwords), and
+// url.Parse's own error prints the URL. A blunt reading: a port and path before an
+// '@' later in the URL are held too, which only a URL carrying an '@' can cost.
+var userinfoRE = regexp.MustCompile(`(?s)^[A-Za-z][A-Za-z0-9+.-]*://(.*)@`)
 
 // holdBaseURLLocked holds the password and every query value inside a base
 // URL (contract 1).

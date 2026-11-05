@@ -56,7 +56,9 @@ if [ "${1:-}" = "--self-test" ]; then
     ( cd "$d" && git init -q && python3 -I tools/maintainer/gen_coderabbit_config.py >/dev/null && git add -A \
       && git -c user.name=t -c user.email=t@example.com commit -q -m base ) || return 1
     ( cd "$d" && eval "$setup" )
-    ( cd "$d" && bash tools/maintainer/ci_guards.sh ) >"$d.out" 2>&1
+    # The case repository has its own history: a CORPUS_BASE the caller set
+    # (CI sets the PR base) names a commit it does not have.
+    ( cd "$d" && env -u CORPUS_BASE bash tools/maintainer/ci_guards.sh ) >"$d.out" 2>&1
     rc=$?
     if [ "$rc" -eq 0 ] && grep -q 'All CI guards passed' "$d.out"; then got=pass
     elif [ "$rc" -ne 0 ] && grep -q 'CI guards FAILED' "$d.out"; then got=fail
@@ -160,6 +162,47 @@ if [ "${1:-}" = "--self-test" ]; then
   st_case "a carrier with a file the kit does not have" fail \
     "$ck_install && $ck_carrier && printf 'package credkit\n' > skills/acme/cli/internal/credkit/local.go"
   st_case "a carrier with the kit tool removed" fail "$ck_install && $ck_carrier && rm tools/maintainer/vendor_credkit.py"
+  # Guard 12: the credential leak baseline only shrinks against the merge
+  # base (origin/main here), except entries for a case the base's list does
+  # not have; a kit connector lists nothing.
+  CS_DIR="$(dirname "$SELF")"
+  for f in class_secret_corpus.py class_harness.py kit_tls.py registry.py secret_corpus.jsonl; do
+    [ -f "$CS_DIR/$f" ] || { echo "FAIL: ci_guards self-test needs $CS_DIR/$f" >&2; exit 1; }
+  done
+  cs_bl="tools/maintainer/corpus_baseline.json"
+  cs_case="cp \"$CS_DIR/class_secret_corpus.py\" \"$CS_DIR/class_harness.py\" \"$CS_DIR/kit_tls.py\" \"$CS_DIR/registry.py\" \"$CS_DIR/secret_corpus.jsonl\" tools/maintainer/ \
+    && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\"]}}\n' > $cs_bl \
+    && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm corpus && git update-ref refs/remotes/origin/main HEAD"
+  st_case "a credential leak baseline that only shrank" pass \
+    "$cs_case && printf '{\"connectors\": {\"acme\": [\"succ-raw\"]}}\n' > $cs_bl"
+  st_case "a credential leak baseline entry added for an existing case" fail \
+    "$cs_case && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"succ-html\"]}}\n' > $cs_bl"
+  st_case "a credential leak baseline entry for a new case, landing with it" pass \
+    "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
+  st_case "a credential leak baseline entry for a new case, landing with an added engine line" fail \
+    "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf 'ENC[\"rot13\"] = ENC[\"raw\"]\n' >> tools/maintainer/class_secret_corpus.py \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
+  st_case "a credential leak baseline entry for a new case, landing with a change to a module the engine imports" fail \
+    "$cs_case && printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf 'X = 1\n' >> tools/maintainer/registry.py \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl"
+  # corpus3: only an untracked bytecode cache is skipped; a committed one
+  # counts as a change, and none runs in place of its source.
+  cs_new="printf '{\"id\": \"zz-new\", \"form\": \"rot13>base32\"}\n' >> tools/maintainer/secret_corpus.jsonl \
+     && printf '{\"connectors\": {\"acme\": [\"succ-raw\", \"succ-url\", \"zz-new\"]}}\n' > $cs_bl \
+     && mkdir -p tools/maintainer/__pycache__ && printf 'not bytecode' > tools/maintainer/__pycache__/registry.cpython-312.pyc"
+  st_case "a credential leak baseline entry for a new case, beside an untracked bytecode cache" pass "$cs_case && $cs_new"
+  st_case "a credential leak baseline entry for a new case, landing with a committed bytecode cache" fail \
+    "$cs_case && $cs_new && git add -f tools/maintainer/__pycache__/registry.cpython-312.pyc"
+  st_case "a credential leak baseline with no merge base to compare against" fail \
+    "$cs_case && git update-ref -d refs/remotes/origin/main"
+  st_case "a credential leak baseline whose tool was removed" fail "$cs_case && rm tools/maintainer/class_secret_corpus.py"
+  st_case "a connector on the shared credential kit with a known failure" fail \
+    "$cs_case && $ck_install && $ck_carrier"
+  st_case "a connector on the shared credential kit with no known failure" pass \
+    "$cs_case && $ck_install && $ck_carrier && printf '{\"connectors\": {}}\n' > $cs_bl"
   # Guards 8 and 9 read pages and manifests the way a reader and a JSON
   # parser do (Codex review, round 1). The phrase is assembled from two halves
   # so this script never carries it.
@@ -500,6 +543,39 @@ elif compgen -G 'skills/*/cli/internal/credkit' > /dev/null; then
   # Removing the tool must not turn this guard into a silent pass.
   echo "$ck_tool is missing while connectors carry the kit, so their copies cannot be checked"
   note "restore vendor_credkit.py and tools/maintainer/credkit/"
+  fail=1
+fi
+
+echo "==> 12. The credential leak baseline only shrinks"
+# corpus_baseline.json lists, per connector and per case, the leak test list
+# failures main has today. Against the merge base (CORPUS_BASE, set by CI on a
+# pull request, else the merge base with origin/main) an entry may be removed
+# at any time and added only for a case id the base's secret_corpus.jsonl does
+# not have; a connector on the shared credential kit lists nothing. No base to
+# compare against fails closed.
+cs_tool="tools/maintainer/class_secret_corpus.py"
+if [ -f "$cs_tool" ]; then
+  cs_base="${CORPUS_BASE:-}"
+  [ -n "$cs_base" ] || cs_base="$(git merge-base HEAD origin/main 2>/dev/null)"
+  if [ -z "$cs_base" ]; then
+    echo "  no merge base: CORPUS_BASE is unset and HEAD has no merge base with origin/main"
+    note "fetch origin/main, or set CORPUS_BASE to the commit this change is based on"
+    fail=1
+  # A bytecode cache a change commits must not run in place of its source:
+  # caches are read and written only under a fresh prefix.
+  elif cs_pyc="$(mktemp -d)" && cs_out="$(python3 -I -X pycache_prefix="$cs_pyc" "$cs_tool" --check-baseline --base "$cs_base" 2>&1)"; then
+    rm -rf "$cs_pyc"
+    printf '  %s\n' "$cs_out"
+  else
+    rm -rf "${cs_pyc:-}"
+    printf '%s\n' "$cs_out"
+    note "fix the connector instead of listing it; only a case new to secret_corpus.jsonl may land with entries"
+    fail=1
+  fi
+elif [ -f tools/maintainer/corpus_baseline.json ]; then
+  # Removing the tool must not turn this guard into a silent pass.
+  echo "  $cs_tool is missing while corpus_baseline.json exists, so the baseline cannot be checked"
+  note "restore class_secret_corpus.py and secret_corpus.jsonl"
   fail=1
 fi
 

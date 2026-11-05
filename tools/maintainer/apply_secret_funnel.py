@@ -8,7 +8,9 @@
 
 Why this exists
 ---------------
-The class test `class_harness.py --class secret-echo` fails any connector that
+The secret-echo rows of the credential leak test list
+(`class_secret_corpus.py --covers secret-echo`, which replaced the old
+secret-echo class) fail any connector that
 prints a credential a server echoed back in an encoded form (HTML entities,
 JSON escapes, double URL-encoding, base64, hex). Before press 4.34.0 the
 generated masks cover only the raw and URL-escaped forms (cli-printing-press
@@ -51,8 +53,9 @@ What it does (every step is idempotent)
    a hand-added one that fails still fails the proof.
 4. Proves the result by execution, never by reading its own edits back: the
    ledger always passes check_handfixes.py --slug; every apply (one that
-   changes nothing too) must also pass go build, go vet and class_harness.py
-   --slug --class secret-echo with 0 failing, run against this tree (the
+   changes nothing too) must also pass go build, go vet and
+   class_secret_corpus.py --slug --covers secret-echo --strict with 0 failing,
+   run against this tree (the
    registry must point the class test at skills/<slug>) and actually exercised
    (an advisory "not exercised" is not a pass unless the entry declares
    "hand_wired": {"class-test": "<how the error path was proven>"}). A failed
@@ -905,7 +908,7 @@ def run_slug(skill: Path, slug: str, check: bool, out=print, prove=None) -> int:
         return 1
     # Success is measured, never inferred from the text. --check stays cheap
     # (the ledger's own checker only); every apply, even one that changes
-    # nothing, must also build, vet and pass the secret-echo class test, so a
+    # nothing, must also build, vet and pass the secret-echo rows, so a
     # re-run after a hand fix proves the tree again.
     root = skill.parent.parent
     prove = prove or _PROVER[0]
@@ -933,8 +936,9 @@ def run_proofs(root: Path, slug: str, full: bool) -> list[str]:
     """The proofs a wired connector must pass, by execution. Returns one line
     per failed proof. Always: check_handfixes.py --slug (the ledger, with the
     checker's own semantics). With `full`: go build ./..., go vet ./..., and
-    class_harness.py --slug --class secret-echo, judged by this connector's
-    own failing count (a baselined failure is still a failure here)."""
+    class_secret_corpus.py --slug --covers secret-echo --strict (the leak test
+    list's rows that cover the retired secret-echo class), judged by this
+    connector's own failing count (a baselined failure is still a failure here)."""
     failed = []
     checker = root / "tools/maintainer/check_handfixes.py"
     if not checker.exists():
@@ -953,22 +957,23 @@ def run_proofs(root: Path, slug: str, full: bool) -> list[str]:
         if p.returncode != 0:
             failed.append(f"{name}: {_tail(p)}")
             return failed  # the class test cannot build what go build could not
-    harness = root / "tools/maintainer/class_harness.py"
+    harness = root / "tools/maintainer/class_secret_corpus.py"
     if not harness.exists():
-        return failed + [f"class_harness: {harness} is missing, so the funnel cannot be exercised"]
+        return failed + [f"class_secret_corpus: {harness} is missing, so the funnel cannot be exercised"]
     wrong = harness_target_error(root, slug)
     if wrong:
         return failed + [wrong]
-    p = subprocess.run([sys.executable, "-I", str(harness), "--slug", slug, "--class", "secret-echo", "-v"],
+    p = subprocess.run([sys.executable, "-I", str(harness), "--slug", slug, "--covers", "secret-echo", "--strict"],
                        cwd=root, capture_output=True, text=True, timeout=1200)
     bad = harness_verdict(p.stdout, p.returncode, hand_wired(root / "skills" / slug).get(EXERCISE_SITE))
     if bad:
-        failed.append(f"class_harness.py --slug {slug} --class secret-echo: {bad}: {_tail(p)}")
+        failed.append(f"class_secret_corpus.py --slug {slug} --covers secret-echo --strict: {bad}: {_tail(p)}")
     return failed
 
 
 EXERCISE_SITE = "class-test"  # hand_wired key: how the error path was proven when the class test cannot reach it
-HARNESS_SUMMARY = re.compile(r"== class secret-echo: (\d+) failing / (\d+) checked \((\d+) baselined, (\d+) advisory\)")
+HARNESS_SUMMARY = re.compile(r"== secret-echo rows of the leak test list on \S+: (\d+) failing, (\d+) not exercised, "
+                             r"(\d+) passed")
 
 
 def harness_target_error(root: Path, slug: str) -> str | None:
@@ -987,12 +992,12 @@ def harness_verdict(stdout: str, rc: int, waiver: str | None) -> str | None:
     """None when the class test exercised this one connector and it passed. A
     connector the test could not reach (an advisory "not exercised") is not
     proven, unless the ledger declares how its error path was proven instead."""
-    m = HARNESS_SUMMARY.search(stdout)
-    if rc != 0 or not m:
-        return "the class test failed or printed no summary"
-    failing, checked, _, advisory = (int(g) for g in m.groups())
-    if failing or checked != 1:
-        return f"{failing} failing of {checked} checked"
+    found = HARNESS_SUMMARY.findall(stdout)
+    if rc != 0 or len(found) != 1:
+        return "the class test failed or printed no single summary"
+    failing, advisory, passed = (int(g) for g in found[0])
+    if failing or not (passed or advisory):
+        return f"{failing} failing, {passed} passed"
     if advisory and not waiver:
         return (f"not exercised (an advisory, not a pass); prove the error path another way and declare it as "
                 f"\"hand_wired\": {{\"{EXERCISE_SITE}\": \"<how>\"}}")
@@ -1520,14 +1525,15 @@ def self_test() -> int:
             regf.write_text(json.dumps({"skills": meta}))
             got = harness_target_error(reg, "acme")
             expect(got is None if want is None else bool(got) and want in got, f"registry target {meta}: {want or 'accepted'}")
-        line = "== class secret-echo: {} failing / {} checked (0 baselined, {} advisory)\n"
-        expect(harness_verdict(line.format(0, 1, 0), 0, None) is None, "an exercised, passing class test is a proof")
-        expect("not exercised" in (harness_verdict(line.format(0, 1, 1), 0, None) or ""),
+        line = "== secret-echo rows of the leak test list on acme: {} failing, {} not exercised, {} passed\n"
+        expect(harness_verdict(line.format(0, 0, 9), 0, None) is None, "an exercised, passing class test is a proof")
+        expect("not exercised" in (harness_verdict(line.format(0, 1, 8), 0, None) or ""),
                "an advisory (not exercised) class test is not a proof")
-        expect(harness_verdict(line.format(0, 1, 1), 0, "a recorded 401 replay test") is None,
+        expect(harness_verdict(line.format(0, 1, 8), 0, "a recorded 401 replay test") is None,
                "a not-exercised class test with a declared proof is accepted")
-        expect(bool(harness_verdict(line.format(1, 1, 0), 1, "x")) and bool(harness_verdict(line.format(0, 0, 0), 0, None))
-               and bool(harness_verdict("", 0, None)), "a failure, an empty run or no summary is never a proof")
+        expect(bool(harness_verdict(line.format(1, 0, 8), 1, "x")) and bool(harness_verdict(line.format(0, 0, 0), 0, None))
+               and bool(harness_verdict("", 0, None)) and bool(harness_verdict(line.format(0, 0, 9) * 2, 0, None)),
+               "a failure, an empty run, no summary or two summaries is never a proof")
 
         # --list-outputs names the ledger and every file an apply would write.
         sk = _fixture(Path(tmp), "listing", f2=False, auth_site=AUTH_HEADER_SITES[0], summary=False, mint=False, auth_login=False)
