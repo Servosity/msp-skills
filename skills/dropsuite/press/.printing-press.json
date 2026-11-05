@@ -1,0 +1,163 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T04:53:23.385525Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "dropsuite",
+  "display_name": "Dropsuite",
+  "cli_name": "dropsuite-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:99197a5d6efefa811a20c21f6da3009b2884a7180912b7f951e58321964f917d",
+  "run_id": "20261027-221711-c3664aac",
+  "category": "monitoring",
+  "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+  "mcp_binary": "dropsuite-pp-mcp",
+  "mcp_tool_count": 33,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "accessToken",
+  "auth_env_vars": [
+    "DROPSUITE_ACCESS_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "DROPSUITE_ACCESS_TOKEN",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Authentication Token from Settings \u003e API Settings (the reseller admin token), sent as X-Access-Token."
+    }
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "X-Reseller-Token",
+      "in": "header",
+      "scheme": "resellerToken",
+      "env_var": {
+        "name": "DROPSUITE_RESELLER_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Reseller Token from Settings \u003e API Settings, sent as X-Reseller-Token."
+      }
+    }
+  ],
+  "endpoint_template_vars": [
+    "host"
+  ],
+  "endpoint_template_env_overrides": {
+    "host": "DROPSUITE_HOST"
+  },
+  "endpoint_template_var_defaults": {
+    "host": "dropsuite.us"
+  },
+  "auth_key_url": "https://help.dropsuite.com/hc/en-us/articles/20422080552855-API-Settings",
+  "novel_features": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See every failed, stuck or stale mailbox, OneDrive, SharePoint site, Team, shared drive and Google Drive across your active clients in one run."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage",
+      "description": "List mailboxes that exist in each client's Microsoft 365 or Google Workspace tenant but are not added to backup, with coverage percent per client."
+    },
+    {
+      "name": "Billing and seat reconciliation",
+      "command": "billing",
+      "description": "Compare each client's seat counters and shared mailboxes with what your PSA invoices, and flag over-allocation and suspended clients still holding seats."
+    },
+    {
+      "name": "Restore-readiness evidence pack",
+      "command": "evidence",
+      "description": "Produce one client's dated proof of protection: coverage, last successful backups, item counts, retention policies, freshness history and recorded restore tests."
+    },
+    {
+      "name": "Lifecycle hygiene",
+      "command": "hygiene",
+      "description": "Find deactivated or deleted mailboxes still holding storage and invitations nobody accepted, across every client."
+    },
+    {
+      "name": "Restore-test ledger",
+      "command": "restore-test",
+      "description": "Record the result of a restore test you performed in the portal and see which clients are due for one."
+    },
+    {
+      "name": "Locate a user across clients",
+      "command": "locate",
+      "description": "Find which client owns an email address, whether its mailbox and OneDrive are protected, and when they last backed up."
+    },
+    {
+      "name": "Snapshot drift",
+      "command": "drift",
+      "description": "See what changed between health runs: objects that left backup, backups that stopped advancing and item-count drops."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See every failed, stuck or stale mailbox, OneDrive, SharePoint site, Team, shared drive and Google Drive across your active clients in one run."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage",
+      "description": "List mailboxes that exist in each client's Microsoft 365 or Google Workspace tenant but are not added to backup, with coverage percent per client."
+    },
+    {
+      "name": "Billing and seat reconciliation",
+      "command": "billing",
+      "description": "Compare each client's seat counters and shared mailboxes with what your PSA invoices, and flag over-allocation and suspended clients still holding seats."
+    },
+    {
+      "name": "Restore-readiness evidence pack",
+      "command": "evidence",
+      "description": "Produce one client's dated proof of protection: coverage, last successful backups, item counts, retention policies, freshness history and recorded restore tests."
+    },
+    {
+      "name": "Lifecycle hygiene",
+      "command": "hygiene",
+      "description": "Find deactivated or deleted mailboxes still holding storage and invitations nobody accepted, across every client."
+    },
+    {
+      "name": "Restore-test ledger",
+      "command": "restore-test",
+      "description": "Record the result of a restore test you performed in the portal and see which clients are due for one."
+    },
+    {
+      "name": "Locate a user across clients",
+      "command": "locate",
+      "description": "Find which client owns an email address, whether its mailbox and OneDrive are protected, and when they last backed up."
+    },
+    {
+      "name": "Snapshot drift",
+      "command": "drift",
+      "description": "See what changed between health runs: objects that left backup, backups that stopped advancing and item-count drops."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 59,
+    "total": 59,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 89,
+      "grade": "A",
+      "total": 89
+    }
+  }
+}

@@ -63,7 +63,7 @@ sense (pending, or already active with a recent sync).
 
 			orgData, err := c.Get(cmd.Context(), "/vendor-api/organization", nil)
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("fetching integration record: %w", err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("fetching integration record: %w", err), flags)
 			}
 			var integ struct {
 				IntegrationID string `json:"integrationId"`
@@ -89,7 +89,7 @@ sense (pending, or already active with a recent sync).
 
 			accData, err := c.Get(cmd.Context(), "/vendor-api/organization/accounts", nil)
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("fetching accounts: %w", err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("fetching accounts: %w", err), flags)
 			}
 			var accounts []struct {
 				MappingID string `json:"mappingId"`

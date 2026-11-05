@@ -1,0 +1,712 @@
+{
+  "api_name": "dropsuite",
+  "base_url": "https://{host}/api",
+  "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "X-Access-Token",
+    "in": "header",
+    "env_vars": [
+      "DROPSUITE_ACCESS_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "DROPSUITE_ACCESS_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Authentication Token from Settings \u003e API Settings (the reseller admin token), sent as X-Access-Token."
+      }
+    ],
+    "key_url": "https://help.dropsuite.com/hc/en-us/articles/20422080552855-API-Settings"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_list",
+      "description": "List an organization's backed-up mailboxes with their backup status and last backup. Wire format: GET /api/accounts with optional email, username and backup_status query filters, sent with the organization's own token (use --org); the response is a bare JSON array. Each row has last_backup, current_backup_status (observed values Completed, Running, Preparing Backup, Connecting, Connection Failed), storage, msg_count and deactivated_since; the nested user object carries masked credentials. Optional: email, username, backup_status. Returns array of MailAccount.",
+      "method": "GET",
+      "path": "/accounts",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by account username."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "accounts_list-connection-failures",
+      "description": "List an organization's mailboxes whose backup cannot connect to the mail server. Wire format: GET /api/accounts/connection_failures; the response is an object with result_set, pagination (current_page, per_page, total_entries, total_pages) and api_version. Returns the ConnectionFailures.",
+      "method": "GET",
+      "path": "/accounts/connection_failures",
+      "params": []
+    },
+    {
+      "name": "accounts_list-deactivated",
+      "description": "List an organization's mailboxes whose backup is deactivated. Wire format: GET /api/accounts/deactivated_accounts with an optional email query filter; the response is a bare JSON array with deactivated_since set. Optional: email. Returns array of MailAccount.",
+      "method": "GET",
+      "path": "/accounts/deactivated_accounts",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        }
+      ]
+    },
+    {
+      "name": "accounts_list-deleted",
+      "description": "List an organization's mailboxes that were deleted from backup. Wire format: GET /api/accounts/deleted_accounts with an optional email query filter; the response is a bare JSON array with flg_deleted true. Optional: email. Returns array of MailAccount.",
+      "method": "GET",
+      "path": "/accounts/deleted_accounts",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        }
+      ]
+    },
+    {
+      "name": "accounts_list-invites",
+      "description": "Show the pending backup invitation sent to a mailbox owner. It includes who requested it, when it was last sent and whether it expired. Wire format: GET /api/accounts/invites with an optional email query filter; the vendor's sample response is a single invite object. Optional: email. Returns the Invite.",
+      "method": "GET",
+      "path": "/accounts/invites",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        }
+      ]
+    },
+    {
+      "name": "calendars_list",
+      "description": "List an organization's calendar backups per mailbox. Wire format: GET /api/calendars with optional email, page and backup_status query parameters (at most 25 rows per page); the response is a bare JSON array with calendar_schedule_count, last_backup and current_backup_status. Optional: email, page, backup_status. Returns array of CalendarBackup.",
+      "method": "GET",
+      "path": "/calendars",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "contacts_list",
+      "description": "List an organization's contact backups per mailbox. Wire format: GET /api/contacts with optional email, page and backup_status query parameters (at most 25 rows per page); the response is a bare JSON array with contact_count, last_backup and current_backup_status. Optional: email, page, backup_status. Returns array of ContactBackup.",
+      "method": "GET",
+      "path": "/contacts",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "google_drives_list",
+      "description": "List an organization's backed-up Google Drives. Wire format: GET /api/googledrives with an optional page query parameter; the response is a bare JSON array with file_count, storage, last_backup and drive type. Optional: page. Returns array of GoogleDriveBackup.",
+      "method": "GET",
+      "path": "/googledrives",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number, starting at 1 (the vendor types it as a string on this route)."
+        }
+      ]
+    },
+    {
+      "name": "journals_get",
+      "description": "Get the archiver journal mailbox of an organization (Archiver product only). Wire format: GET /api/journals; the response is an object with id and email. Returns the Journal.",
+      "method": "GET",
+      "path": "/journals",
+      "params": []
+    },
+    {
+      "name": "journals_get-ndr",
+      "description": "Get the NDR (non-delivery report) journal mailbox of an organization. Wire format: GET /api/ndr_journals; the response is an object with id and email. Returns the Journal.",
+      "method": "GET",
+      "path": "/ndr_journals",
+      "params": []
+    },
+    {
+      "name": "onedrives_list",
+      "description": "List an organization's backed-up OneDrive accounts with file counts and last backup. Wire format: GET /api/onedrives with optional email, page and backup_status query parameters (at most 25 rows per page); the response is a bare JSON array with file_count, storage, last_backup, last_activity and current_backup_status. Optional: email, page, backup_status. Returns array of OneDriveBackup.",
+      "method": "GET",
+      "path": "/onedrives",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Get one organization's subscription, including the seat counters used for billing. Wire format: GET /api/users/{id} with the reseller's own Authentication Token. Fields include seats_used, seats_available, active_seats, required_seats, deactivated_seats, paid_shared_mailboxes, free_shared_mailboxes and auto_license. Ids look like 26561-14 on current deployments. Required: id. Returns the Organization.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization (tenant user) id from the organizations list, for example 26561-14.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_get-support-sso-link",
+      "description": "Generate a portal sign-in link for one user email, using the reseller's own token. Wire format: GET /api/users/generate_support_sso_link with a required email query parameter; the response is an object with redirect_url. The URL is a login credential; treat it as a secret. Required: email. Returns the RedirectLink.",
+      "method": "GET",
+      "path": "/users/generate_support_sso_link",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Email of the user to sign in as.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "List every client organization (tenant user) under the reseller, with seats and storage counters. Wire format: GET /api/users with optional email and external_id query filters, sent with the reseller's own Authentication Token; the response is a bare JSON array. Dropsuite calls organizations users. The authentication_token and reseller_token fields are credentials and are masked in output. Optional: email, external_id. Returns array of Organization.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Scope the result to the organization whose owner email matches."
+        },
+        {
+          "name": "external_id",
+          "type": "string",
+          "location": "query",
+          "description": "Scope the result to the organization with this external (billing system) id."
+        }
+      ]
+    },
+    {
+      "name": "organizations_list-delegated-users",
+      "description": "List an organization's delegated portal users and their roles. Delegated users can sign in to the end-user portal although their own mailbox is not backed up; each row has role, login_enabled and activated. Wire format: GET /api/users/{id}/delegated with page and per_page query parameters, sent with that organization's own token (the CLI resolves it); the response is a pagination envelope with a data array. dropsuite.us serves it; the older regional hosts answer HTML 404. Required: id. Optional: page, per_page. Returns array of DelegatedUser.",
+      "method": "GET",
+      "path": "/users/{id}/delegated",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization (tenant user) id from the organizations list, for example 26561-14.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page, 1 to 100 (server default 100)."
+        }
+      ]
+    },
+    {
+      "name": "organizations_list-retention-policies",
+      "description": "List an organization's retention policies. Each policy says how long items are kept (period_number with period_unit days, months or years) and which items it covers. Wire format: GET /api/users/{id}/retention_policies with type, page and per_page query parameters, sent with that organization's own token (the CLI resolves it); the response is a pagination envelope with a data array. dropsuite.us serves it; the older regional hosts answer HTML 404. Required: id. Optional: type, page, per_page. Returns array of RetentionPolicy.",
+      "method": "GET",
+      "path": "/users/{id}/retention_policies",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization (tenant user) id from the organizations list, for example 26561-14.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Retention policy type (case-sensitive). The vendor reference lists default_domain, email_account, all_email_accounts, department, saved_search, message, review process, site and all sites; samples show review_process."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page, 1 to 100 (server default 100)."
+        }
+      ]
+    },
+    {
+      "name": "organizations_list-tenant-accounts",
+      "description": "List a tenant's mailboxes and whether each is backed up, available to add, or excluded. Use status=available to find unprotected mailboxes. Wire format: GET /api/users/{id}/tenants/{tenant_id}/accounts with a required type (m365 or gws) and optional status, page and per_page query parameters, sent with that organization's own token (the CLI resolves it); the response is a pagination envelope with a data array. The vendor reference lists this route without the tenant segment, but the live route includes it. dropsuite.us serves it; the older regional hosts answer HTML 404. Required: id, tenant_id, type. Optional: status, page, per_page. Returns array of TenantAccount.",
+      "method": "GET",
+      "path": "/users/{id}/tenants/{tenant_id}/accounts",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization (tenant user) id from the organizations list, for example 26561-14.",
+          "required": true
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant id from the organization tenants list.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant type, m365 or gws (case-sensitive).",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Mailbox backup status, excluded, active or available."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page, 1 to 100 (server default 100)."
+        }
+      ]
+    },
+    {
+      "name": "organizations_list-tenants",
+      "description": "List an organization's Microsoft 365 and Google Workspace tenants. Each tenant has its domain, a status code and total_users. Wire format: GET /api/users/{id}/tenants with type (m365 or gws), page and per_page query parameters, sent with that organization's own token (the CLI resolves it); the response is a pagination envelope with a data array. Status codes: 0 queued, 1 and 13 recreate application, 7 completed. dropsuite.us serves it; the older regional hosts answer HTML 404. Required: id. Optional: type, page, per_page. Returns array of Tenant.",
+      "method": "GET",
+      "path": "/users/{id}/tenants",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization (tenant user) id from the organizations list, for example 26561-14.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant type, m365 or gws (case-sensitive)."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "per_page",
+          "type": "int",
+          "location": "query",
+          "description": "Results per page, 1 to 100 (server default 100)."
+        }
+      ]
+    },
+    {
+      "name": "portal_get-hosted-exchange-status",
+      "description": "Get the status of a hosted Exchange PowerShell connection request. The request id comes from the vendor's POST /users/hosted_exchange, which this read-only CLI does not call. Wire format: GET /api/users/hosted_exchange with a required exchange_request_id query parameter. Required: exchange_request_id. Returns the HostedExchangeStatus.",
+      "method": "GET",
+      "path": "/users/hosted_exchange",
+      "params": [
+        {
+          "name": "exchange_request_id",
+          "type": "int",
+          "location": "query",
+          "description": "Exchange request id.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "portal_get-login-link",
+      "description": "Generate a single-use portal sign-in URL for an organization, for example to run a restore test. The link expires after 30 minutes, works once, and each call invalidates the previous link; it is a login credential. Wire format: GET /api/users/generate_redirect_link with an optional role query parameter; the response is an object with redirect_url. Optional: role. Returns the RedirectLink.",
+      "method": "GET",
+      "path": "/users/generate_redirect_link",
+      "params": [
+        {
+          "name": "role",
+          "type": "string",
+          "location": "query",
+          "description": "Optional portal role (documented only as a string). The role values the vendor lists for its per-organization SSO link are full_admin, it_admin, restricted_it_admin, group_admin, user, user_read_only, reviewer, limited_reviewer, dpo and a compliance officer role; whether this endpoint accepts the same values is not documented."
+        }
+      ]
+    },
+    {
+      "name": "portal_list-sub-users",
+      "description": "List the sub-users who can sign in to an organization's portal, with their role. Wire format: GET /api/users/sub_users; the response is a bare JSON array with email and current_role (for example User View And Restore). The authentication_token field is a credential and is masked in output. Returns array of SubUser.",
+      "method": "GET",
+      "path": "/users/sub_users",
+      "params": []
+    },
+    {
+      "name": "reference_list-countries",
+      "description": "List the countries Dropsuite accepts. Wire format: GET /api/countries; only X-Reseller-Token is required; the response is a bare JSON array. Returns array of Country.",
+      "method": "GET",
+      "path": "/countries",
+      "params": []
+    },
+    {
+      "name": "reference_list-locales",
+      "description": "List the portal languages as a map of language name to locale code (for example english to en). Wire format: GET /api/locales; only X-Reseller-Token is required. Returns the ReferenceListLocalesResponse.",
+      "method": "GET",
+      "path": "/locales",
+      "params": []
+    },
+    {
+      "name": "reference_list-timezones",
+      "description": "List the time zones Dropsuite accepts. Wire format: GET /api/timezones; only X-Reseller-Token is required; the response is a bare JSON array. Returns array of Timezone.",
+      "method": "GET",
+      "path": "/timezones",
+      "params": []
+    },
+    {
+      "name": "server_get-status",
+      "description": "Check that the Dropsuite API server is up. Wire format: GET /api/status; the response body is the JSON string OK. The dropsuite.us host answers without credentials; the older regional hosts answer 401 without credentials.",
+      "method": "GET",
+      "path": "/status",
+      "params": []
+    },
+    {
+      "name": "shared_drive_backups_list",
+      "description": "List the backup runs of one Google shared drive. Wire format: GET /api/shareddrives/domains/{id}/drives/{drive_id}/backups with an optional page query parameter; the response is a bare JSON array with start_time, end_time, total_files, current_num_file, a numeric status, backup_storage and retries. Required: id, drive_id. Optional: page. Returns array of SharedDriveBackup.",
+      "method": "GET",
+      "path": "/shareddrives/domains/{id}/drives/{drive_id}/backups",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Shared drive domain id.",
+          "required": true
+        },
+        {
+          "name": "drive_id",
+          "type": "int",
+          "location": "path",
+          "description": "Shared drive id from the shared drives list.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number, starting at 1 (the vendor types it as a string on this route)."
+        }
+      ]
+    },
+    {
+      "name": "shared_drive_domains_list",
+      "description": "List an organization's Google Workspace shared drive domains. Wire format: GET /api/shareddrives/domains with optional domain_name and page query parameters; the response is a bare JSON array with file_count, storage and last_backup. Optional: domain_name, page. Returns array of SharedDriveDomain.",
+      "method": "GET",
+      "path": "/shareddrives/domains",
+      "params": [
+        {
+          "name": "domain_name",
+          "type": "string",
+          "location": "query",
+          "description": "Scope the result to one domain name."
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number, starting at 1 (the vendor types it as a string on this route)."
+        }
+      ]
+    },
+    {
+      "name": "shared_drives_list-in-domain",
+      "description": "List the shared drives in one Google Workspace domain. Wire format: GET /api/shareddrives/domains/{id}/drives with optional drive_name and page query parameters; the response is a bare JSON array with sd_drive, active, file_count, storage and last_backup. Required: id. Optional: drive_name, page. Returns array of SharedDrive.",
+      "method": "GET",
+      "path": "/shareddrives/domains/{id}/drives",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Shared drive domain id from the shared drive domains list.",
+          "required": true
+        },
+        {
+          "name": "drive_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by shared drive name."
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number, starting at 1 (the vendor types it as a string on this route)."
+        }
+      ]
+    },
+    {
+      "name": "sharepoint_domains_list",
+      "description": "List an organization's backed-up SharePoint domains. Wire format: GET /api/sharepoints/domains with optional domain_name and page query parameters (at most 25 rows per page); the response is a bare JSON array with site_count, file_count, storage and last_backup. Some deployments answer HTTP 500 when the organization has no SharePoint data. Optional: domain_name, page. Returns array of SharepointDomain.",
+      "method": "GET",
+      "path": "/sharepoints/domains",
+      "params": [
+        {
+          "name": "domain_name",
+          "type": "string",
+          "location": "query",
+          "description": "Scope the result to one domain name."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        }
+      ]
+    },
+    {
+      "name": "sharepoint_sites_list",
+      "description": "List the backed-up SharePoint sites in one domain. Wire format: GET /api/sharepoints/domains/{domain_id}/sites with optional site_name, page and backup_status query parameters; the response is a bare JSON array with sp_site, file_count, storage, last_backup, deactivated_since and current_backup_status. Required: domain_id. Optional: site_name, page, backup_status. Returns array of SharepointSite.",
+      "method": "GET",
+      "path": "/sharepoints/domains/{domain_id}/sites",
+      "params": [
+        {
+          "name": "domain_id",
+          "type": "int",
+          "location": "path",
+          "description": "SharePoint domain id from the SharePoint domains list.",
+          "required": true
+        },
+        {
+          "name": "site_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by site name."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "tasks_list",
+      "description": "List an organization's task backups per mailbox. Wire format: GET /api/tasks with optional email, page and backup_status query parameters (at most 25 rows per page); the response is a bare JSON array with task_count, last_backup and current_backup_status. Optional: email, page, backup_status. Returns array of TaskBackup.",
+      "method": "GET",
+      "path": "/tasks",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the organization owner's email or one backed-up email address."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "teams_list-in-domain",
+      "description": "List the backed-up Teams and Microsoft 365 Groups in one domain. Wire format: GET /api/teams_and_groups/domains/{domain_id}/teams with optional group_name, page and backup_status query parameters; the response is a bare JSON array with group_name, group_type, last_backup, deactivated_since and current_backup_status. Required: domain_id. Optional: group_name, page, backup_status. Returns array of TeamBackup.",
+      "method": "GET",
+      "path": "/teams_and_groups/domains/{domain_id}/teams",
+      "params": [
+        {
+          "name": "domain_id",
+          "type": "int",
+          "location": "path",
+          "description": "Teams and Groups domain id from the Teams domains list.",
+          "required": true
+        },
+        {
+          "name": "group_name",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by team or group name."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        },
+        {
+          "name": "backup_status",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by backup status."
+        }
+      ]
+    },
+    {
+      "name": "teams_domains_list",
+      "description": "List an organization's backed-up Teams and Groups domains. Wire format: GET /api/teams_and_groups/domains with optional domain_name and page query parameters (at most 25 rows per page); the response is a bare JSON array with group_count and last_backup. Some deployments answer HTTP 500 when the organization has no Teams data. Optional: domain_name, page. Returns array of TeamsDomain.",
+      "method": "GET",
+      "path": "/teams_and_groups/domains",
+      "params": [
+        {
+          "name": "domain_name",
+          "type": "string",
+          "location": "query",
+          "description": "Scope the result to one domain name."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number, starting at 1."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See every failed, stuck or stale mailbox, OneDrive, SharePoint site, Team, shared drive and Google Drive across your active clients in one run."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage",
+      "description": "List mailboxes that exist in each client's Microsoft 365 or Google Workspace tenant but are not added to backup, with coverage percent per client."
+    },
+    {
+      "name": "Billing and seat reconciliation",
+      "command": "billing",
+      "description": "Compare each client's seat counters and shared mailboxes with what your PSA invoices, and flag over-allocation and suspended clients still holding seats."
+    },
+    {
+      "name": "Restore-readiness evidence pack",
+      "command": "evidence",
+      "description": "Produce one client's dated proof of protection: coverage, last successful backups, item counts, retention policies, freshness history and recorded restore tests."
+    },
+    {
+      "name": "Lifecycle hygiene",
+      "command": "hygiene",
+      "description": "Find deactivated or deleted mailboxes still holding storage and invitations nobody accepted, across every client."
+    },
+    {
+      "name": "Restore-test ledger",
+      "command": "restore-test",
+      "description": "Record the result of a restore test you performed in the portal and see which clients are due for one."
+    },
+    {
+      "name": "Locate a user across clients",
+      "command": "locate",
+      "description": "Find which client owns an email address, whether its mailbox and OneDrive are protected, and when they last backed up."
+    },
+    {
+      "name": "Snapshot drift",
+      "command": "drift",
+      "description": "See what changed between health runs: objects that left backup, backups that stopped advancing and item-count drops."
+    }
+  ]
+}

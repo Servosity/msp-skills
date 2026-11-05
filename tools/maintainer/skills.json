@@ -876,6 +876,28 @@
         "issue_url": null
       }
     },
+    "dropsuite": {
+      "system": "Dropsuite (NinjaOne SaaS Backup): fleet backup health, coverage gaps, seat and billing reconciliation, restore-test evidence across every client organization",
+      "status": "beta",
+      "cli_binary": "dropsuite-cli",
+      "mcp_binary": "dropsuite-mcp",
+      "vendor": "Dropsuite (NinjaOne)",
+      "vendor_trademark_owner": "NinjaOne, LLC",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Dropsuite",
+      "has_video": true,
+      "cli_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "exchange-online": {
       "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
       "status": "beta",
@@ -977,10 +999,10 @@
       "category": "Billing",
       "display_name": "Gradient MSP",
       "tagline": "Push usage counts, catch billing drift, and trace alerts to PSA tickets in Gradient MSP Synthesize from your terminal.",
-      "cli_hash": "sha256:4ff2c6903bd19c1ef62cb39efa861570ccce90dc20a2cac715974a1db621ff91",
+      "cli_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:ea662ea786f2d24fe3e129231506239fd25935da812e9bfb0b3b77bc6707837f",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

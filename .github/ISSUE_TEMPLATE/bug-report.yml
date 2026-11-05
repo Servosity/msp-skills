@@ -55,6 +55,7 @@ body:
         - datto-rmm
         - dnsfilter
         - domotz
+        - dropsuite
         - exchange-online
         - fortinet
         - google-workspace
