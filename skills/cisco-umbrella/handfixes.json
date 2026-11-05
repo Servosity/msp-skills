@@ -1,0 +1,953 @@
+{
+ "slug": "cisco-umbrella",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel, output chokepoint and SQLite wrapper. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client and token client go through credkit.Transport under the origin pin; every other HTTP client is built on the kit transport; every file write except the 0600 credential store and config.toml goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes. Every read of a config file holds every value in it before the parse, whatever its characters, except the keys in cliutil.NotCredentials and a bare boolean under a key that names no credential.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. Origins: the API base URL and https://api.umbrella.com, which serves the default token URL; a token URL on a third host is refused, and CISCO_UMBRELLA_BASE_URL stays an operator choice as in the threecx wiring. Declarations.Files follows every path config.Load reads (config.ReadPaths over each --home and --config in any spelling, credkit.FlagValues; TestReadPathsCoversEveryFileLoadReads traces the reads). Tests: internal/umbrellablackbox (built binaries over TLS against a stub that echoes every credential in every encoding), writers_test TestEveryFileWriteGoesThroughTheKit and TestEveryHTTPClientGoesThroughTheKit, internal/credwire TestDeclaredFieldsMatchTheSpec, internal/cli TestDeclaredCredentialFlagsMatchTheCommands, internal/config TestConfigHoldHasNoCharacterFilter. The class harness's secret-echo probe reaches no client error path on this connector; TestNoCredentialInAnyOutput is the proof of that path.",
+   "spec_encode_followup": "Press-side: emit the credkit wiring from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"CISCO_UMBRELLA_MCP_HTTP_TOKEN\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://api.umbrella.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestDeclaredFieldsMatchTheSpec(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ReadPaths(configPath string) ([]string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/writers_test.go",
+     "contains": "func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/writers_test.go",
+     "contains": "func TestEveryHTTPClientGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestCredentialIsNotSentOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestMintedTokensAreHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyWrittenFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdPipedToken(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_review_test.go",
+     "contains": "func TestPipedTokenIsHeldBeforeAnyOutput(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Closes credential-split-across-sql-bindings (a held value split across two bound values was stored in halves; kit row TestZZKF_fleet_SplitAcrossSQLBindings) and store-write-bypasses-chokepoint (teach --notes with a declared secret reached search_learnings). Replaces the connector-only WithholdingSQLiteDriver. Both logged seen failing with the driver reverted.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestCredentialSplitAcrossBindingsIsRefused(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestTeachNoteWithADeclaredSecretIsNotStored(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token (threecx review, same press template).",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Every credential a response carries is held before any command reads the body, then replaced by name so the listing stays readable: an API key's clientSecret and clientId, the S3 bucket key's secretAccessKey, currentKeyId and oldKeyId, a tunnel's psk, a password, a token. A token exchange is left whole for the client; its token is held all the same. An object under key is the API key record and is walked by name; a string under key is a credential. An AWS access key ID is held by shape. A password that is literally a word such as hidden is held: a mask is judged by shape only.",
+   "why": "The kit withholds a whole unit that repeats a held value, so an api-keys list that carries a clientId would print nothing if the member were not replaced first. The kit holds declared names; the shared walker also holds names the spec never declared, duplicate members and every document in a body. responseHoldTripper (umbrella_guard.go) reads each response under the client size cap and decodes it as the client will (client/umbrella_decode.go: Content-Encoding, BOM, XSSI). holdToolArguments is the same walker over MCP arguments. Tests: TestResponseCredentialsHeldAndReplacedByName, TestAWordIsNeverAMask, TestEverySpecNameThatCouldCarryACredentialIsJudged; black-box TestAPIKeyRecordsStayReadable, TestS3BucketKeyIDsHeldByName, TestShortCredentialSplitOrEncoded, TestMCPPreviewHoldsANestedCredential.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "cliutil.HoldCredentialFields(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "cliutil.RedactBody(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "if isTokenExchange(req) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/umbrella_decode.go",
+     "contains": "func DecodeBody(encoding string, body []byte) ([]byte, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(holdToolArguments),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-umbrella-mcp/umbrella_args_mcp.go",
+     "contains": "cliutil.HoldCredentialValues(req.GetArguments())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets.go",
+     "contains": "n := normalizedFieldName(name)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets.go",
+     "contains": "clientid|accesskeyid|currentkeyid|oldkeyid)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets.go",
+     "contains": "if awsAccessKeyID.MatchString(strings.TrimSpace(t)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets.go",
+     "contains": "return v == \"\" || strings.Trim(v, \"*\\u2022\") == \"\" || v == RedactedValue",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets.go",
+     "contains": "type duplicateMembers []map[string]any",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/umbrella_secrets_test.go",
+     "contains": "func TestCredentialNamesMatchInEverySpelling(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestAPIKeyRecordsStayReadable(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "umbrella-child-org-token",
+   "class": "auth-wire",
+   "summary": "A Multi-org/MSP parent key mints a child-org token by adding X-Umbrella-OrgId to the token request (--org / CISCO_UMBRELLA_ORG_ID); that token stays in memory and never replaces the parent console token on disk.",
+   "why": "Umbrella scopes a token to a child (customer) org through the token request header (developer.cisco.com/docs/cloud-security, umbrella-api-getting-started). The generated mint knows no such header, and SaveTokens would persist the child token as the parent's, scoping the next un-flagged run to that customer. Re-applied by tools/apply_handfixes.py (press 4.34.2 anchor: before guardOutbound). fleet health mints one child token per customer through it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Set(OrgHeader, childOrg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.AccessToken = tokenResp.AccessToken",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/cisco_umbrella_org.go",
+     "contains": "const OrgHeader = \"X-Umbrella-OrgId\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-no-token-mint",
+   "class": "write-safety",
+   "summary": "--dry-run never mints a client_credentials token (it would POST the key secret to the token URL), 'auth login', 'auth set-token' and 'auth logout' honour it (nothing sent, read, saved or deleted), and export --dry-run leaves its output file alone.",
+   "why": "Was a hand-fix on press 4.33.5 (authHeader minted before the dry-run branch). Press 4.34.2 does it natively (`if !c.DryRun && c.needsClientCredentialsMint()`); the assert stays so a press regression is caught. Retired-native in this reprint. Black-box TestDryRunSendsNothing found the last two on this tree: auth login --dry-run minted and saved, export --dry-run truncated -o. Hand file internal/cli/umbrella_auth_dryrun.go; export.go one branch.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_auth_dryrun.go",
+     "contains": "return writeDryRun(cmd.OutOrStdout(), flags, name)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if outputFile != \"\" && flags.dryRun {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "umbrella-child-org-store",
+   "class": "store",
+   "summary": "A child org (--org / CISCO_UMBRELLA_ORG_ID) resolves only to its own local store: never a legacy or shared data.db, and an org-keyed file even with no credentials.",
+   "why": "Synced rows of one customer must never be read back as another's (hygiene reads the store). Re-applied by tools/apply_handfixes.py into defaultDBPathInDir (helpers.go); config/cisco_umbrella_org.go scopes the store identity per org.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "scopeHash = hashDefaultDBScope(\"umbrella-org-only=\" + org)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/cisco_umbrella_org.go",
+     "contains": "return base + \"|umbrella-org=\" + org",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv",
+   "class": "mcp-argv",
+   "summary": "Recipe intent tools never pass a tool argument through as a flag or a subcommand of the CLI child: appendRecipeStringFlag always emits one --name=value element; block_one_domain runs the static `destination-lists add-destinations` (the press's recipe lifter had read the subcommand as a required \"slug\" argument and spliced it into argv), refuses a slug argument, and previews with --dry-run until confirm is boolean true.",
+   "why": "Work order blocker (MCP recipe argv hand-fix at 4 call sites: domain, slug, id, body_json). Before the fix, MCP {\"name\":\"block_one_domain\",\"arguments\":{\"slug\":\"delete\",\"id\":\"1234567\",\"body_json\":\"[]\"}} ran `destination-lists delete 1234567` with no confirm. The flag-like positional half is native since press 4.34.0 (#5045, values after --). Re-applied by tools/apply_handfixes.py (intents.go and the generated recipe_intents_test.go); TestBlockOneDomainRecipeArgv (internal/mcp/umbrella_recipe_test.go) pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return insertRecipeBeforeEndOfFlags(args, end, \"--\"+name+\"=\"+selected), false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "\"add-destinations\",",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "args = appendRecipeStatic(args, \"add-destinations\", &recipeEnd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "mcplib.WithString(\"slug\""
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "args = appendRecipeStatic(args, \"--dry-run\", &recipeEnd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/umbrella_recipe_test.go",
+     "contains": "func TestBlockOneDomainRecipeArgv(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-every-write-needs-confirm",
+   "class": "write-safety",
+   "summary": "spec.yaml carries x-pp-mutation: true on every non-GET operation (72) and false on the three documented read POSTs (domain categorization, identities by ID, the SWG override list), so cisco-umbrella_execute previews every write until confirm and cisco-umbrella_read refuses it.",
+   "why": "Spec-encoded (tools/spec_repair.py), so it survives a reprint by construction (the spec stays in the library: its vendor examples trip gitleaks, so the ledger asserts the generated endpoint table instead); prtg's review found POSTs the press read as searches running from MCP without confirm. TestEveryStateChangingEndpointNeedsConfirm (internal/mcp/umbrella_writes_confirm_test.go) checks the generated endpoint table.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   true,",
+     "min_count": 67
+    },
+    {
+     "file": "cli/internal/mcp/umbrella_writes_confirm_test.go",
+     "contains": "func TestEveryStateChangingEndpointNeedsConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request, redirect hop and token mint goes only to the scheme, host and port of the configured API base URL or token URL; anything else is refused before it is resolved, dialled or given a credential. Under the pin sits the kit's outbound guard, which also refuses a held credential to any origin Declarations does not allow.",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/umbrella_guard.go, registered with registerClientHook, so every CLI, per-customer fan-out and MCP client gets it). Byte-exact ASCII-folded origins; a host with a non-ASCII byte never matches. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP). Tests also: TestTokenURLNeverLeavesTheDeclaredHosts, TestProxyNeverReceivesAHeldCredential (black-box). The token client 'auth login' builds gets the same pin (guardTokenClient).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "hc.Transport = originPinTripper{origins: origins, next: responseHoldTripper{next: next}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "next := client.OutboundGuard(hc.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "guardTokenClient(hc, cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestTokenURLNeverLeavesTheDeclaredHosts(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: Umbrella bodies carry API key secrets, S3 secret keys and tunnel PSKs.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (umbrella_guard.go).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes withoutStoredSecrets at the merge choke point: credential-named values are replaced by name at any depth, and a record that cannot be decoded is stored as {}. A held value anywhere else in a statement is refused by the kit (credkit-sqlite-every-handle).",
+   "why": "Work order: no credential in files. Every live read writes through to the store and sync upserts raw bodies; mergeIncomingResourceData is the one merge every upsert path calls. Hand file internal/store/umbrella_secrets.go keeps the name stripping only: the kit does the matching, so a statement repeating a held value is refused whole (it used to be rewritten in place). Tests: internal/store TestStoreRedactsCredentialMembersByName; black-box TestNoCredentialInAnyWrittenFile.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/umbrella_secrets.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/umbrella_secrets_test.go",
+     "contains": "func TestStoreRedactsCredentialMembersByName(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Mirrored MCP tools that can change Umbrella state (import, destination-lists diff with apply, any later non-read-only command) preview and send only with confirm: true. A preview changes nothing on this machine: only a command reviewed into dryRunPreviews previews by running --dry-run; any other, and destination_lists_diff with apply, runs nothing and returns the argv, after refusing an undeclared argument (a host-file flag) by name.",
+   "why": "Press 4.34.2 gates cisco-umbrella_execute on confirm, but the Cobra-tree mirror registers import and the novel destination_lists_diff with no confirm. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/umbrella_confirm.go), called from RegisterTools after RegisterAll, wraps every mirrored tool that is not read-only, mcp:local-write or local-only, so a command added later is gated by default. Only boolean true sends; confirm is never forwarded. Tests: TestRegisteredMirroredWritesNeedConfirm (fails without the tools.go line), TestMirroredWriteNeedsBooleanConfirm, TestReadOnlyUnlessFlagsPlansThenApplies. Class 4 (kaseya-vsa review, sync --dry-run opened a writable store): destination_lists_diff with apply used to run its plan, which minted a token and opened the store; the plan is the same call without apply. Tests also: TestUnreviewedCommandPreviewRunsNothing, black-box TestMCPPreviewWritesNothing.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/umbrella_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/umbrella_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/umbrella_confirm_registered_test.go",
+     "contains": "\"import\", \"destination_lists_diff\", \"block_one_domain\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/umbrella_confirm.go",
+     "contains": "var dryRunPreviews = map[string]bool{\"import\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/umbrella_confirm.go",
+     "contains": "check = func(args map[string]any) error { return validateMCPArgumentNames(args, allowed) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/umbrella_confirm_test.go",
+     "contains": "func TestUnreviewedCommandPreviewRunsNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_test.go",
+     "contains": "func TestMCPPreviewWritesNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor probes GET /deployments/v2/networks with the real credential (an API key and secret it mints from count), refuses a placeholder base URL naming CISCO_UMBRELLA_BASE_URL, and reads a 404 as a wrong base URL, instead of calling any HTTP response reachable and never checking the credential.",
+   "why": "doctor is the command every doc tells an operator to run, and it could not tell a working install from a broken one (issue #282). This is a new connector, so it never received the fleet port; replay_handfixes.py only replays entries already in a ledger. Ported from the fleet form and adapted: an Umbrella install holds no bearer until the first request mints one, so AuthHeader alone read every working install as having no credential, and the generic probe walk would pick an activity report that needs a time range.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if c == nil || !doctorCredentialAvailable(c.Config) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorCredentialAvailable(cfg *config.Config) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorBaseURLEnv = \"CISCO_UMBRELLA_BASE_URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorPreferredProbePath = \"/deployments/v2/networks\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if cmdPath = doctorLeafForPath(root, nil, doctorPreferredProbePath); cmdPath != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "configured, authSource := doctorAuthConfigured(cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "} else if !doctorCredentialAvailable(cfg) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"cisco-umbrella-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorVerdictTracksReality(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorRejectedClientSecretIsNotHealthy(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "umbrella-mcp-takes-no-file",
+   "class": "mcp-host-file",
+   "status": "active",
+   "summary": "The two multipart upload endpoints (console_config create-logo and update-logo) are left out of the MCP endpoint table, so no MCP tool takes a file; the CLI keeps them for an operator's own local path.",
+   "why": "Press 4.34.2 emits MCP file parameters for multipart endpoints (base64 by default, a confined path when CISCO_UMBRELLA_MCP_UPLOAD_ROOT is set). The fleet work order holds any connector whose MCP surface takes a file. A reprint re-emits the two entries, which TestNoEndpointToolTakesAFile and these asserts catch.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "Multipart:      true"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "FileParams:     []string{\""
+    },
+    {
+     "file": "cli/internal/mcp/umbrella_no_file_tools_test.go",
+     "contains": "func TestNoEndpointToolTakesAFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "example-id-low-entropy",
+   "class": "docs",
+   "status": "active",
+   "summary": "The api-keys get, delete and refresh help examples use a low-entropy placeholder ID, not the spec sample UUID.",
+   "why": "The spec sample UUID in an apiKeyId= example trips the secret scan the repo runs in CI. A reprint re-emits it, which these asserts catch.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/api_keys_delete.go",
+     "not_contains": "39b18499-4cf3-470d-997b-960e55ee0085"
+    },
+    {
+     "file": "cli/internal/cli/api_keys_get.go",
+     "not_contains": "39b18499-4cf3-470d-997b-960e55ee0085"
+    },
+    {
+     "file": "cli/internal/cli/api_keys_refresh.go",
+     "not_contains": "39b18499-4cf3-470d-997b-960e55ee0085"
+    }
+   ]
+  },
+  {
+   "id": "credkit-every-file-write",
+   "class": "raw-file-write-past-kit",
+   "status": "active",
+   "summary": "No handle from a raw open writes a byte past the credential kit. The lock file stays empty, the journal's repair newline goes through credkit.AppendFile, the fingerprint key and an MCP upload's staged copy through credkit.WriteFile. TestEveryFileWriteGoesThroughTheKit walks every function's handles with go/ast, so a raw Write, io.Copy, Fprint or a handle stored behind an interface fails it, and an allow-list entry nothing matches fails it too.",
+   "why": "The earlier scan saw only the raw open, so it allowed a handle that then wrote. A response {\"data\":[{\"id\":1,\"password\":\"\\u0000\"}]} holds a one-character credential, and journal.offset.lock then got exactly that byte, past the kit. The lock's byte is dropped, not routed: routed, credentials.toml.lock still gets it at the token mint, before the response is read, and neither flock nor LockFileEx needs content, which the kit withholding it would already rely on. openLockFile and repairJournalSegmentTail open under os.Root and carry no annotation: check_security_gate's fleet precedent is per top-level declaration, so a #nosec line kept byte-identical inside an edited function is a P1. A reprint re-emits all four writers; these asserts and the scan catch it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "not_contains": "f.Write([]byte{0})"
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "root.OpenFile(filepath.Base(lockPath), os.O_CREATE|os.O_RDWR, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "f.Write([]byte{'\\n'})"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "not_contains": "file.Write(key)"
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(path, key, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "os.WriteFile(path, data, 0o600)"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "credkit.WriteFile(path, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/writers_test.go",
+     "contains": "func rawHandleWrites(t *testing.T, files map[string]string) []handleWrite {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_review_test.go",
+     "contains": "func TestOneByteCredentialReachesNoFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "one-time-secret-refused",
+   "class": "one-time-secret-discarded",
+   "status": "active",
+   "summary": "A request whose documented response carries a secret Umbrella generates and shows only once is refused before anything is sent, the token mint included: POST /admin/v2/apiKeys, its /refresh, POST /admin/v2/iam/rotateKey, POST /deployments/v2/tunnels with no authentication.parameters.secret, POST /deployments/v2/tunnels/{id}/keys unless autoRotate is literally false and psk.secret is present. client.RefuseRequest runs in doInternal before authHeader; oneTimeSecretTripper in the pinned chain refuses a redirect hop too. Dry runs skip it. The help text and the MCP summaries say so. TestEveryCredentialBearingWriteIsDecided binds the decision to every write route in press/tools-manifest.json and every credential field in internal/types.",
+   "why": "Cisco: 'You have only one opportunity to copy your API secret.' This program withholds the secret, as the contract requires, so these actions destroyed the only copy and a refresh broke a live integration. A reprint re-emits client.go, the five commands' Short strings and code_orch.go, and can add a route or field that returns a new secret; these asserts and the walker catch all of it. No copy of spec.yaml is in the repository, so the walker reads the two generated copies that are.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "RefuseRequest func(method, url string, body []byte) error",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.RefuseRequest(method, targetURL, bodyBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "c.RefuseRequest = refuseOneTimeSecret",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_guard.go",
+     "contains": "next = oneTimeSecretTripper{next: next}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/api_keys_create.go",
+     "contains": "Refused here: Umbrella shows the new secret only once",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/api_keys_refresh.go",
+     "contains": "Refused here: Umbrella shows the new secret only once",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_s3-bucket-keys.go",
+     "contains": "Refused here: Umbrella shows the new secret only once",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "Refused here: Umbrella shows the new secret only once",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tunnels_add.go",
+     "contains": "Refused here unless you choose the secret yourself",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tunnels_update-credentials.go",
+     "contains": "Refused here unless you choose the secret yourself",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Refresh the API key and secret. Refused here: Umbrella shows the new secret only once",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Update and rotate the tunnel credentials. Refused here unless you choose the secret yourself",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/umbrella_one_time_secret_test.go",
+     "contains": "func TestEveryCredentialBearingWriteIsDecided(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_review_test.go",
+     "contains": "func TestOneTimeSecretRequestsAreRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-credentials",
+   "class": "config-credentials-ignored",
+   "status": "active",
+   "summary": "resolveClientCredentials falls back to cfg.CiscoUmbrellaApiKey and cfg.CiscoUmbrellaApiSecret, so an owner-only config with umbrella_api_key and umbrella_api_secret authenticates.",
+   "why": "doctorCredentialAvailable counted those two fields, but the client read only ClientID, ClientSecret and the environment, so doctor passed a config whose requests went out with no credential. A reprint re-emits this function; the asserts catch it.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "id = cfg.CiscoUmbrellaApiKey",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "secret = cfg.CiscoUmbrellaApiSecret",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/kit_review_test.go",
+     "contains": "func TestConfigFileCredentialsAuthenticate(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "named-key-wins",
+   "class": "wrong-tenant",
+   "status": "active",
+   "summary": "config.Load forgets, for the run, a stored client pair, bearer and stored set-token header that belong to a key other than the one the run names (CISCO_UMBRELLA_API_KEY, or the config file it loads), so the next call mints with the named key.",
+   "why": "The generated precedence let a key and bearer a previous run stored win over a different key named in the environment or a named config, so a write meant for customer B ran in customer A's organization. Test: internal/umbrellablackbox TestNamedKeyBeatsTheStoredOne (CLI write, MCP, named config files, same-key control).",
+   "spec_encode_followup": "Press-side: a credential named on the run should win over a stored client id and its bearer when they differ.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.dropCredentialsOfAnotherKey(namedKey, fileHeader == \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) dropCredentialsOfAnotherKey(named string, headerFromStore bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/tenant_test.go",
+     "contains": "func TestNamedKeyBeatsTheStoredOne(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-scope-one-identity",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The store-scope identity counts the API key pair once, under one label, whether it came as umbrella_api_key/umbrella_api_secret or, after the first mint saved it, as client_id/client_secret.",
+   "why": "The generated identity listed each spelling, so the first sync on a fresh home went to one database and every later run (variables set or unset) read another: hygiene and local reads said nothing was synced. Test: internal/umbrellablackbox TestFirstSyncIsTheStoreLaterRunsRead.",
+   "spec_encode_followup": "Press-side: a client-credentials print whose env key is saved as client_id should key the store on one canonical identity.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "for _, key := range distinctNonEmpty(c.ClientID, nonToken(c.CiscoUmbrellaApiKey, c.AccessToken)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/umbrellablackbox/store_scope_test.go",
+     "contains": "func TestFirstSyncIsTheStoreLaterRunsRead(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

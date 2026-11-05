@@ -142,6 +142,13 @@
       "digest": "sha256:cf5c3851fd5a2796f70cee74e7c21ed267ea37dc62745bac1836201c6cd81481"
     },
     {
+      "name": "cisco-umbrella",
+      "type": "skill-md",
+      "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health. Trigger phrases: `is this domain blocked in umbrella`, `umbrella fleet health across customers`, `add a domain to the umbrella blocklist`, `umbrella roaming computers offline`, `use cisco umbrella`, `run cisco-umbrella-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-umbrella/SKILL.md",
+      "digest": "sha256:c8b47110f2555c4971cd93c973ed6d5f3c13cb7f62d42ef0d449de99060d7681"
+    },
+    {
       "name": "connect-tool",
       "type": "skill-md",
       "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",

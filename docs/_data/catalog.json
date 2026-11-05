@@ -1,5 +1,5 @@
 {
-  "count": 92,
+  "count": 93,
   "connectors": [
     {
       "slug": "abnormal",
@@ -260,6 +260,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/cisco-meraki/"
+    },
+    {
+      "slug": "cisco-umbrella",
+      "display_name": "Cisco Umbrella",
+      "tagline": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/cisco-umbrella/"
     },
     {
       "slug": "connectsecure",

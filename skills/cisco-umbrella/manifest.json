@@ -1,0 +1,134 @@
+{
+  "manifest_version": "0.3",
+  "name": "cisco-umbrella-mcp",
+  "display_name": "Cisco Umbrella",
+  "version": "0.1.0",
+  "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cisco-umbrella-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cisco-umbrella-mcp",
+      "args": [],
+      "env": {
+        "CISCO_UMBRELLA_API_KEY": "${user_config.cisco_umbrella_api_key}",
+        "CISCO_UMBRELLA_API_SECRET": "${user_config.cisco_umbrella_api_secret}",
+        "CISCO_UMBRELLA_ORG_ID": "${user_config.cisco_umbrella_org_id}",
+        "CISCO_UMBRELLA_BASE_URL": "${user_config.cisco_umbrella_base_url}",
+        "CISCO_UMBRELLA_TOKEN_URL": "${user_config.cisco_umbrella_token_url}",
+        "CISCO_UMBRELLA_OAUTH_SCOPE": "${user_config.cisco_umbrella_oauth_scope}",
+        "CISCO_UMBRELLA_MCP_READ_ONLY": "${user_config.cisco_umbrella_mcp_read_only}",
+        "CISCO_UMBRELLA_NO_LOCAL_DATA": "${user_config.cisco_umbrella_no_local_data}",
+        "CISCO_UMBRELLA_MCP_HTTP_TOKEN": "${user_config.cisco_umbrella_mcp_http_token}",
+        "CISCO_UMBRELLA_MCP_UPLOAD_ROOT": "${user_config.cisco_umbrella_mcp_upload_root}",
+        "CISCO_UMBRELLA_USER_AGENT": "${user_config.cisco_umbrella_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "cisco_umbrella_api_key": {
+      "type": "string",
+      "title": "CISCO_UMBRELLA_API_KEY",
+      "description": "Sets CISCO_UMBRELLA_API_KEY for the Cisco Umbrella MCP server. Get a credential from https://dashboard.umbrella.com.",
+      "sensitive": true,
+      "required": true
+    },
+    "cisco_umbrella_api_secret": {
+      "type": "string",
+      "title": "CISCO_UMBRELLA_API_SECRET",
+      "description": "Sets CISCO_UMBRELLA_API_SECRET for the Cisco Umbrella MCP server. Get a credential from https://dashboard.umbrella.com.",
+      "sensitive": true,
+      "required": true
+    },
+    "cisco_umbrella_org_id": {
+      "type": "string",
+      "title": "Child org ID",
+      "description": "Optional. Child org ID to act on from an MSP or Multi-org parent key (the same as --org). Leave blank to act on the key's own organization.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_base_url": {
+      "type": "string",
+      "title": "Umbrella API base URL",
+      "description": "Optional. Leave blank to use https://api.umbrella.com. Set it only to point at a different host, such as a test server; credentials then go to that host.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Optional. Leave blank to use https://api.umbrella.com/auth/v2/token. It must be on the API host; a token URL on any other host is refused.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_oauth_scope": {
+      "type": "string",
+      "title": "OAuth2 scope",
+      "description": "Optional. Scope sent with the token request. Leave blank: an Umbrella key already carries the scopes it was created with.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "cisco_umbrella_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank. Reserved for MCP file uploads: no Cisco Umbrella MCP tool in this release takes a file, so the server never opens a local path and this setting has no effect.",
+      "required": false,
+      "sensitive": false
+    },
+    "cisco_umbrella_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends on Umbrella requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank; pick a customer with CISCO_UMBRELLA_ORG_ID instead.",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T00:11:24.992948Z",
+    "spec_checksum": "sha256:3dedc05f8df13e1aacd16d85ad87aabbd45c56865c3cf36c5e4e3b58563369ec",
+    "spec_format": "openapi3"
+  }
+}

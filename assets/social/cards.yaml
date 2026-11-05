@@ -91,6 +91,10 @@ cisco-duo:
   vendor: "Cisco Duo"
   example_command: "Why is Jane locked out of Duo?"
 
+cisco-umbrella:
+  vendor: "Cisco Umbrella"
+  example_command: "Which clients have roaming computers offline?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
