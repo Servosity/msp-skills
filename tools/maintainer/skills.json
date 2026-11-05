@@ -116,7 +116,7 @@
       "category": "Billing",
       "display_name": "AppDirect",
       "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
-      "cli_hash": "sha256:743c2c142b8474b42bee3ac89dacfd8511db2fccafa353feb9abe64c9b43bbb4",
+      "cli_hash": "sha256:3532a60905f93a611fcd8b839fbb316eda2eb75eb19f23089f3036068a2195d0",
       "template_version": 3,
       "version": "0.1.9",
       "cli_hash_at_release": "sha256:085bc169d03b82a4eb92d66f813eb4e77bb2ee7f19b44bfa426493bc499c7336",
