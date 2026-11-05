@@ -434,9 +434,9 @@
     "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
   },
   "netsapiens": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "netsapiens-v0.1.0",
+    "latest_tag": "netsapiens-v0.1.1",
     "current_hash": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d",
     "released_hash": "sha256:2f6f7979c886d5c97aa92d9fcb39c11cb9e418e372a0b54a6da5de4755f9531d"
   },
