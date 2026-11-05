@@ -1149,7 +1149,7 @@
       "cli_binary": "mspbots-cli",
       "mcp_binary": "mspbots-mcp",
       "version": "0.1.6",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "MSPbots",
       "vendor_trademark_owner": "MSPbots, Inc.",
