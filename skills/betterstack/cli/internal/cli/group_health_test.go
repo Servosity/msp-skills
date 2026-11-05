@@ -28,7 +28,7 @@ func TestBuildGroupHealth(t *testing.T) {
 				{ID: "2", GroupID: "g2", Status: "down"},
 			},
 			incidents: []incidentRow{
-				{ID: "i1", Source: "2", StartedAt: "2026-06-06T00:00:00Z"},
+				{ID: "i1", Source: "2", MonitorID: "2", StartedAt: "2026-06-06T00:00:00Z"},
 			},
 			wantRows:  2,
 			wantFirst: "client-b",
@@ -83,8 +83,8 @@ func TestBuildGroupHealthCounts(t *testing.T) {
 		},
 		nil, nil,
 		[]incidentRow{
-			{ID: "i1", Source: "2", StartedAt: "2026-06-06T00:00:00Z"},
-			{ID: "i2", Source: "2", ResolvedAt: "2026-06-06T01:00:00Z"},
+			{ID: "i1", Source: "2", MonitorID: "2", StartedAt: "2026-06-06T00:00:00Z"},
+			{ID: "i2", Source: "2", MonitorID: "2", ResolvedAt: "2026-06-06T01:00:00Z"},
 		},
 	)
 	if len(rows) != 1 {

@@ -4,6 +4,19 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)).** MCP HTTP mode serves `127.0.0.1:7777` by default and refuses to start until `BETTERSTACK_MCP_HTTP_TOKEN` is set; any other address also needs TLS. MCP write tools return a preview and send only with `confirm: true`. A tool argument can never name a file to read or write.
+- **Every output is checked for credentials by the shared credential kit.** Stdout, stderr, files the CLI writes, its local database, MCP tool results and child processes all pass one shared check: text that repeats a credential the program holds, whole, as a piece of 8 or more characters, or in a decoded form, is withheld whole and replaced by a notice that says so. Credentials are read from `BETTERSTACK_API_TOKEN`, `BETTERSTACK_MCP_HTTP_TOKEN`, the base URL, every config file and the saved token before anything prints, and a monitor's basic-auth password and request headers are held as soon as Better Stack returns them. A credential is sent only to the configured Better Stack host over https, never across a redirect to another host. A monitor read that carries basic-auth or request-header values is withheld whole; use `--select` to read its other fields.
+
+### Fixed
+- **A report can no longer read an incomplete store as the whole account.** Automatic refresh was a one-page or time-windowed walk that still saved a complete checkpoint, so `triage` could keep an incident open after Better Stack resolved it. Refresh now walks the whole resource, and any walk that is not whole and reconciled (`--since`, `--latest-only`, `--no-prune`, `--full=false`, a filter, `workflow archive`) makes the reports ask for a plain `sync` instead of answering.
+- Every plain `sync` is a full walk, so a monitor deleted in Better Stack leaves the local store.
+- `doctor` probes the real Better Stack host with your token, instead of calling a working install an unconfigured placeholder.
+- `export` walks every page.
+- `statuspage-audit` now refreshes heartbeats as well as status pages, monitors and incidents once the local store is more than an hour old, so a heartbeat paused in Better Stack after your last `sync` is flagged instead of the audit reporting no drift. Every report refreshes every resource it reads.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

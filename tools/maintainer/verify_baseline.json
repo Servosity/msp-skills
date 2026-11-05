@@ -57,11 +57,6 @@
   "backup-radar": [
    "mcp-stdio"
   ],
-  "betterstack": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "bitdefender": [
    "write-gating",
    "read-only",
