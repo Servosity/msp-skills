@@ -821,11 +821,12 @@
     {
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
-      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
+      "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
       "version": "0.1.5",
-      "category": "msp",
+      "category": "marketing",
       "tags": [
         "riverside-fm",
+        "riverside",
         "marketing",
         "msp",
         "mcp",
