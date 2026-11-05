@@ -26,8 +26,10 @@ func TestImmyCompareVersions(t *testing.T) {
 }
 
 func TestImmyNormalizeReason(t *testing.T) {
+	// Only the machine-specific GUID differs: one cluster. (Distinct exit
+	// codes are distinct causes; see TestImmyNormalizeReasonKeepsDistinctCodes.)
 	a := immyNormalizeReason("Exit code 1603 on host 11111111-2222-3333-4444-555555555555")
-	b := immyNormalizeReason("Exit code 1604 on host 99999999-8888-7777-6666-555555555555")
+	b := immyNormalizeReason("Exit code 1603 on host 99999999-8888-7777-6666-555555555555")
 	if a != b {
 		t.Fatalf("machine-specific detail not normalised away:\n a=%q\n b=%q", a, b)
 	}
@@ -78,14 +80,14 @@ func TestAgeBucket(t *testing.T) {
 	}
 }
 
-func TestScopeSpecificityOrdering(t *testing.T) {
-	computer, _ := scopeSpecificity("Computer", "")
-	group, _ := scopeSpecificity("Group", "")
-	tenant, _ := scopeSpecificity("Tenant", "")
-	global, _ := scopeSpecificity("All Computers", "Global")
-	if !(computer > group && group > tenant && tenant > global) {
-		t.Fatalf("specificity must rank computer > group > tenant > global; got %d %d %d %d",
-			computer, group, tenant, global)
+func TestTargetSpecificityOrdering(t *testing.T) {
+	_, computer, _ := immyTargetApplies("Computer", "7", "42", "42", "7")
+	_, tag, _ := immyTargetApplies("TenantTag", "7", "12", "42", "7")
+	_, tenant, _ := immyTargetApplies("AllForTenant", "7", "", "42", "7")
+	_, global, _ := immyTargetApplies("AllTenants", "", "", "42", "7")
+	if !(computer > tag && tag > tenant && tenant > global) {
+		t.Fatalf("specificity must rank computer > tag/group > tenant > global; got %d %d %d %d",
+			computer, tag, tenant, global)
 	}
 }
 

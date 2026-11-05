@@ -497,8 +497,8 @@
     {
       "name": "immybot",
       "source": "./skills/immybot",
-      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.11",
+      "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -837,7 +837,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -957,7 +957,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "psa",
       "tags": [
         "superops",
@@ -1499,7 +1499,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "network-monitoring",
       "tags": [
         "prtg",
@@ -1515,7 +1515,7 @@
       "name": "synology",
       "source": "./skills/synology",
       "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "synology",

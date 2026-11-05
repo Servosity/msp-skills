@@ -145,7 +145,7 @@ func TestRequestContractGetMetadataStaysReadOnly(t *testing.T) {
 
 func requestContractConfig(t *testing.T, baseURL string) {
 	t.Helper()
-	dir := t.TempDir()
+	dir := resetMCPPathEnv(t)
 	const prefix = "IMMYBOT"
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
@@ -153,7 +153,6 @@ func requestContractConfig(t *testing.T, baseURL string) {
 			t.Setenv(name, "")
 		}
 	}
-	t.Setenv("HOME", dir)
 	t.Setenv(prefix+"_HOME", dir)
 	t.Setenv(prefix+"_NO_CONFIG_WRITE", "true")
 	configPath := filepath.Join(dir, "config.toml")
@@ -206,7 +205,7 @@ func TestRequestContractExecuteNamedWriteOnWire(t *testing.T) {
 	var params map[string]any
 	_ = json.Unmarshal([]byte(bodyJSON), &params)
 
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "brandings.create", "params": params}))
+	result, err := requestContractConfirmedExecute(t, received, "brandings.create", params)
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("execute failed: result=%#v err=%v", result, err)
 	}
@@ -238,7 +237,7 @@ func TestRequestContractExecuteAdvertisedGETBindings(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"id": "42"}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "brandings.get-by-id", "params": params}))
+	result, err := handleCodeOrchRead(context.Background(), requestContractCall(map[string]any{"endpoint_id": "brandings.get-by-id", "params": params}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("GET execute failed: result=%#v err=%v", result, err)
 	}
@@ -278,7 +277,7 @@ func TestRequestContractExecuteNamedArrayBody(t *testing.T) {
 	requestContractConfig(t, fixture.URL)
 	var body []any
 	_ = json.Unmarshal([]byte(`[42,43]`), &body)
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": map[string]any{"body": body}}))
+	result, err := requestContractConfirmedExecute(t, received, endpoint, map[string]any{"body": body})
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("array execute failed: %#v %v", result, err)
 	}
@@ -320,7 +319,7 @@ func TestRequestContractPathAndBodyMayShareWireName(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"description": "Fixture branding", "path_id": "42", "id": float64(99)}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params}))
+	result, err := requestContractConfirmedExecute(t, received, endpoint, params)
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("execute: %#v %v", result, err)
 	}
@@ -329,4 +328,21 @@ func TestRequestContractPathAndBodyMayShareWireName(t *testing.T) {
 	default:
 		t.Fatal("collision fixture was not called")
 	}
+}
+
+// requestContractConfirmedExecute drives the 4.34.0 split executor: an
+// unconfirmed immybot_execute call must return a preview and send nothing,
+// and only confirm: true reaches the fixture.
+func requestContractConfirmedExecute(t *testing.T, received chan struct{}, endpoint string, params any) (*mcplib.CallToolResult, error) {
+	t.Helper()
+	preview, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params}))
+	if err != nil || preview == nil || preview.IsError {
+		t.Fatalf("unconfirmed execute: result=%#v err=%v", preview, err)
+	}
+	select {
+	case <-received:
+		t.Fatalf("an unconfirmed %s reached the server", endpoint)
+	default:
+	}
+	return handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params, "confirm": true}))
 }

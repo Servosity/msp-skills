@@ -18,6 +18,7 @@ func newNovelHealthCmd(flags *rootFlags) *cobra.Command {
 	var flagOlderThan string
 	var flagSince string
 	var flagFailOnIssues bool
+	var flagOfflineAfter string
 
 	cmd := &cobra.Command{
 		Use:   "health",
@@ -50,6 +51,10 @@ Exit codes: 0 = summary produced (default). With --fail-on-issues: 0 = healthy,
 				return nil
 			}
 			olderThan, err := parseLookbackDuration(flagOlderThan)
+			if err != nil {
+				return err
+			}
+			offlineAfter, err := parseOfflineAfter(flagOfflineAfter)
 			if err != nil {
 				return err
 			}
@@ -94,7 +99,7 @@ Exit codes: 0 = summary produced (default). With --fail-on-issues: 0 = healthy,
 			}
 
 			now := time.Now().UTC()
-			offline := filterOfflineAgents(agents, envs, "")
+			offline := filterOfflineAgentsAt(agents, envs, "", now, offlineAfter)
 			failed := filterFailedInspections(timeline, launchpoints, envs, failSince, now, "", 0)
 			sysGaps, envGaps := findCoverageGaps(systems, envs, "")
 
@@ -112,5 +117,6 @@ Exit codes: 0 = summary produced (default). With --fail-on-issues: 0 = healthy,
 	cmd.Flags().StringVar(&flagOlderThan, "older-than", "7d", "Staleness threshold for launchpoints (e.g. 24h, 7d)")
 	cmd.Flags().StringVar(&flagSince, "since", "7d", "Window for the failed-inspection count (e.g. 24h, 7d); empty = all synced history")
 	cmd.Flags().BoolVar(&flagFailOnIssues, "fail-on-issues", false, "Exit 8 when any issue is found (for cron/CI guards)")
+	cmd.Flags().StringVar(&flagOfflineAfter, "offline-after", "1h", "An agent with no heartbeat for longer than this counts as offline (e.g. 30m, 1h, 1d)")
 	return cmd
 }

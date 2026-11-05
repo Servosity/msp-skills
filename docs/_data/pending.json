@@ -323,10 +323,10 @@
   },
   "immybot": {
     "state": "up-to-date",
-    "version": "0.1.11",
-    "latest_tag": "immybot-v0.1.11",
-    "current_hash": "sha256:a1de566df6a632b6c8de973512f4faa6e166d2501063765549d63e9709a2f500",
-    "released_hash": "sha256:a1de566df6a632b6c8de973512f4faa6e166d2501063765549d63e9709a2f500"
+    "version": "0.1.12",
+    "latest_tag": "immybot-v0.1.12",
+    "current_hash": "sha256:6fef33ff6ec9f267dc76a3fba500bc4e0e937d5b0aa3ead4ef29b58c748aeb4b",
+    "released_hash": "sha256:6fef33ff6ec9f267dc76a3fba500bc4e0e937d5b0aa3ead4ef29b58c748aeb4b"
   },
   "itglue": {
     "state": "up-to-date",
@@ -379,10 +379,10 @@
   },
   "liongard": {
     "state": "up-to-date",
-    "version": "0.1.7",
-    "latest_tag": "liongard-v0.1.7",
-    "current_hash": "sha256:7f809cd3644bc2ec54c1699690b7a3cde7e2125354c6428d35cacfd3afdfc801",
-    "released_hash": "sha256:7f809cd3644bc2ec54c1699690b7a3cde7e2125354c6428d35cacfd3afdfc801"
+    "version": "0.1.8",
+    "latest_tag": "liongard-v0.1.8",
+    "current_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1",
+    "released_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1"
   },
   "maxio": {
     "state": "up-to-date",
@@ -490,11 +490,11 @@
     "released_hash": "sha256:7b3ff5c941c1664ba6eb0271748a11ff83f857844de61645279990ba9a1859b0"
   },
   "prtg": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "prtg-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "prtg-v0.1.1",
     "current_hash": "sha256:bf818de5916e7930b79367d5e5864e96287fe29a7cb3b128dea9fd94650396d4",
-    "released_hash": "sha256:667b5f0d29b52631038a7dd8bb42770f0e8ff76f123954b6eb87a5d55f21e5ab"
+    "released_hash": "sha256:bf818de5916e7930b79367d5e5864e96287fe29a7cb3b128dea9fd94650396d4"
   },
   "quickbooks": {
     "state": "up-to-date",
@@ -532,11 +532,11 @@
     "released_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9"
   },
   "rocketcyber": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "rocketcyber-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "rocketcyber-v0.1.9",
     "current_hash": "sha256:2a4ba1fc5df0b216da3fbc76fea0fca96d738ae42e66ccef78d2e0032ec78fb1",
-    "released_hash": "sha256:6987573665ef5515b8e34b20c7c2a2ba3e92f0c52f172541c749b062182fd5e6"
+    "released_hash": "sha256:2a4ba1fc5df0b216da3fbc76fea0fca96d738ae42e66ccef78d2e0032ec78fb1"
   },
   "rootly": {
     "state": "up-to-date",
@@ -609,11 +609,11 @@
     "released_hash": "sha256:39bdd318aa0b3259af4e71e2eb728cfadd7030873d4ea3c153672b8c739256d1"
   },
   "superops": {
-    "state": "binary-pending",
-    "version": "0.1.14",
-    "latest_tag": "superops-v0.1.14",
+    "state": "up-to-date",
+    "version": "0.1.15",
+    "latest_tag": "superops-v0.1.15",
     "current_hash": "sha256:2d06563e8bc4d70912f7870059c02fc96f423ed97bdf42bb2afcd1bb88c92a03",
-    "released_hash": "sha256:b50c03b889b4b142c912f866f85e8afed00db608eb2de7e1c20fa07b213a841e"
+    "released_hash": "sha256:2d06563e8bc4d70912f7870059c02fc96f423ed97bdf42bb2afcd1bb88c92a03"
   },
   "syncro": {
     "state": "up-to-date",
@@ -623,11 +623,11 @@
     "released_hash": "sha256:4836ce33d2085479300115ae9864e85ed1ef599eeee35500ce79def0706102c5"
   },
   "synology": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "synology-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "synology-v0.1.1",
     "current_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895",
-    "released_hash": "sha256:6661eccc32dc1d09a30e1e5b0d4a955ffc8ce8a38a058bf33a341c9422f8abfd"
+    "released_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895"
   },
   "tactical-rmm": {
     "state": "up-to-date",
