@@ -1,8 +1,13 @@
 # Avanan CLI
 
-**The first command-line tool for Avanan email security  -  with an offline mirror that answers cross-tenant and what-changed questions the API itself cannot.**
+**Every Avanan email security API call, plus an offline mirror for cross-tenant questions.**
 
-Avanan (Check Point Harmony Email & Collaboration) has integrations for XSOAR, Sentinel, n8n, and MCP, but no CLI and nothing that keeps state. This one covers the whole documented surface, including the sectool exception families the published spec omits, and adds a local SQLite mirror that makes triage, campaign, exceptions audit, msp fleet, and timeline possible. It also implements the documented request signature exactly, including the request-string term the docs leave out.
+Avanan (Check Point Harmony Email and Collaboration) answers one scope and one page at a time, so the questions an MSP actually asks span calls the portal never joins. This CLI types the whole Smart API surface, mirrors events, entities and exceptions into local SQLite, and adds commands built on that mirror: triage buckets a shift's detections, campaign clusters them into phishing campaigns, exceptions find checks all seven engines at once, and remediate waits for the async task and reports the real outcome.
+
+Learn more at [Avanan](https://sc1.checkpoint.com/documents/Harmony_Email_and_Collaboration_API_Reference/index.html).
+
+Created by [@geekbrownbear](https://github.com/geekbrownbear) (Abhi Saini).
+Contributors: [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
 ## Install
 
@@ -60,9 +65,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `AVANAN_APP_ID` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `avanan-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `AVANAN_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +80,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/avanan/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -85,7 +88,8 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
     "avanan": {
       "command": "avanan-mcp",
       "env": {
-        "AVANAN_APP_ID": "<your-key>"
+        "AVANAN_APP_ID": "<your-app-id>",
+        "AVANAN_CLIENT_SECRET": "<your-client-secret>"
       }
     }
   }
@@ -94,33 +98,42 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`avanan-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `AVANAN_MCP_HTTP_TOKEN` is set, and every request must send `Authorization: Bearer <token>`. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`.
+
+```bash
+export AVANAN_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+avanan-mcp --transport http
+```
+
+Set `AVANAN_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Every tool not marked read-only is dropped, including the local-write learn tools (`teach`, `recall`), which write only this CLI's own learn store.
+
 ## Authentication
 
-Avanan uses one of two schemes depending on your host, and the CLI picks automatically. On legacy `*.avanan.net` hosts it performs the signed handshake: a fresh request UUID, your application ID, a GMT timestamp, and an `x-av-sig` computed as sha256(base64(reqId + appId + date + requestString + secret)). The resulting token lasts one hour and is refreshed for you. On Infinity Portal hosts it exchanges your access key for a bearer token instead. Set `AVANAN_APP_ID` and `AVANAN_CLIENT_SECRET`, pick your region, and run `auth login`. Credentials are region-scoped: a US key cannot read EU data, by design.
+Avanan uses one of two schemes depending on your host, and the CLI picks automatically. On legacy *.avanan.net hosts it performs the signed handshake: a fresh request UUID, your application ID, a timestamp, and an x-av-sig computed as sha256(base64(reqId + appId + date + requestString + secret)). The resulting token lasts one hour and is refreshed for you. On Infinity Portal hosts it exchanges your access key for a bearer token instead. Set AVANAN_APP_ID and AVANAN_CLIENT_SECRET, pick your region, and run auth login. Credentials are region-scoped: a US key cannot read EU data, by design.
 
 ## Quick Start
 
 ```bash
-# Confirm which auth scheme, region, and host the CLI resolved before spending a credential
-avanan-cli doctor --dry-run
+# verify credentials, region and reachability
+avanan-cli doctor
 
-# See which {farm}:{tenant} scopes your app client can reach  -  everything else depends on this
-avanan-cli scopes
+# mint a session token from AVANAN_APP_ID and AVANAN_CLIENT_SECRET
+avanan-cli auth login --region us
 
-# Mirror a week of detections, entities, and exceptions locally so the offline commands have data
+# list the scopes this credential reaches
+avanan-cli scopes --agent
+
+# mirror events, entities and exceptions into the local store
 avanan-cli mirror --since 7d
 
-# The shift-start view: what is new, bucketed by type, severity, and state
-avanan-cli triage --since 24h
-
-# Collapse that volume into candidate campaigns before you start clicking
-avanan-cli campaign --since 7d
+# the last day's detections bucketed by type, severity and state
+avanan-cli triage --since 24h --agent
 
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Local state that compounds
 - **`triage`**  -  See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume.
@@ -137,7 +150,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   avanan-cli campaign --since 7d --agent
   ```
-- **`timeline`**  -  Reconstruct one message's history from the local mirror: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
+- **`timeline`**  -  Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
 
   _Reach for this when a user disputes a quarantine or a ticket needs evidence of what actually happened to a message._
 
@@ -146,12 +159,12 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Collapsing the seven-headed exception system
-- **`exceptions find`**  -  Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and nine exception tables at once.
+- **`exceptions find`**  -  Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once.
 
   _Reach for this before adding an allowlist entry, or when a phish got through and you need to know whether one of your own exceptions let it._
 
   ```bash
-  avanan-cli exceptions find partner-domain.com --agent
+  avanan-cli exceptions find partner.example.com --agent
   ```
 - **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
 
@@ -187,12 +200,12 @@ These capabilities aren't available in any other tool for this API.
 avanan-cli triage --since 12h --agent
 ```
 
-Requires a populated mirror (`mirror --since 7d`). Everything detected in the window, bucketed by type, severity, and state, with the top offending sender domains and a count of anything still unresolved.
+Requires a populated mirror (mirror --since 7d). Everything detected in the window, bucketed by type, severity, and state, with the top offending sender domains and a count of anything still unresolved.
 
 ### Narrow a large event query to just what an agent needs
 
 ```bash
-avanan-cli event query --request-data-event-types phishing --agent --select responseData.eventId,responseData.type,responseData.state,responseData.entityInfo.subject,responseData.entityInfo.senderEmail
+avanan-cli event query --request-data-event-types phishing --agent --select responseData.eventId,responseData.type,responseData.state
 ```
 
 Avanan event payloads nest entity detail several levels deep and run to tens of KB per call; the dotted --select paths keep only the fields worth reading.
@@ -200,10 +213,10 @@ Avanan event payloads nest entity detail several levels deep and run to tens of 
 ### Check an allowlist request before you grant it
 
 ```bash
-avanan-cli exceptions find vendor-domain.com --agent
+avanan-cli exceptions find vendor.example.com --agent
 ```
 
-Requires `mirror --resources exceptions` first. Searches all nine exception tables at once and shows which engine, which list side, and who created each hit  -  replacing nine separate API calls.
+Requires mirror --resources exceptions first. Searches all ten exception tables at once and shows which engine, which list side, and who created each hit.
 
 ### Quarantine a confirmed campaign and prove it landed
 
@@ -211,7 +224,7 @@ Requires `mirror --resources exceptions` first. Searches all nine exception tabl
 avanan-cli remediate quarantine --entity f05b74da3ee859eea41aeac40aaad3c2 --wait --dry-run
 ```
 
-Resolves the required single scope, submits the action, polls the task to a terminal state, and prints the per-item outcome. Drop --dry-run to execute.
+Resolves the required single scope, submits the action, polls the task to a terminal state, and prints the per-item outcome. Replace --dry-run with --yes to execute: remediate refuses to send without --yes.
 
 ### Find tenants running over their licensed seats
 
@@ -219,7 +232,7 @@ Resolves the required single scope, submits the action, polls the task to a term
 avanan-cli msp fleet --agent --select rows.tenant,rows.seats_licensed,rows.seats_used,rows.detections
 ```
 
-Requires `sync --resources msp` and `mirror --since 7d` first. One local join across mirrored tenants, licenses, and detection volume, ranked by seat overage.
+Requires sync --resources msp-tenants and mirror --since 7d first. One local join across mirrored tenants, licenses, and detection volume, ranked by seat overage.
 
 ## Usage
 
@@ -260,6 +273,15 @@ avanan-cli doctor
 
 Under `AVANAN_HOME=/srv/avanan`, the four dirs resolve to `/srv/avanan/config`, `/srv/avanan/data`, `/srv/avanan/state`, and `/srv/avanan/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:AVANAN_HOME = "C:\srv\avanan"
+avanan-cli doctor
+```
+
+Under `$env:AVANAN_HOME = "C:\srv\avanan"`, the four dirs resolve to `C:\srv\avanan\config`, `C:\srv\avanan\data`, `C:\srv\avanan\state`, and `C:\srv\avanan\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -281,6 +303,16 @@ Relocation is one-way. Unsetting `AVANAN_HOME` does not move files back to platf
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `avanan-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `avanan-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `avanan-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `AVANAN_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync`, `workflow archive` and `mirror` refuse to run (`remediate` still acts, but keeps no local action log). Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `AVANAN_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
+
 ## Commands
 
 ### action
@@ -301,7 +333,7 @@ Manage avanan search
 
 Manage download
 
-- **`avanan-cli download <entity_id>`** - Download the raw .eml for a SaaS entity. Set original=true for the unmodified message; the default adds Avanan's visibility headers.
+- **`avanan-cli download <entity_id>`** - Download the raw .eml for a SaaS entity.
 
 ### download-large-email
 
@@ -391,7 +423,7 @@ Manage sectools
 
 Manage soar
 
-- **`avanan-cli soar get-entity`** - Retrieve the decoded email record for a SaaS entity, including headers and body. **Known limitation:** returns HTTP 404 for every entity on the tenants tested so far, including ones confirmed to exist moments earlier, so treat it as unavailable. `avanan-cli avanan-search get-saas-entity <entity_id> --scopes <scope>` returns the same record and works. The SOAR helpers were reconstructed from the vendor reference guide because the published spec omits them, so the path may simply be wrong, or the feature may be licensed separately.
+- **`avanan-cli soar get-entity`** - Retrieve the decoded email record for a SaaS entity, including headers and body.
 - **`avanan-cli soar post-notify`** - Send an exposure notification about a specific entity to a list of email addresses.
 
 ### task
@@ -399,6 +431,46 @@ Manage soar
 Manage task
 
 - **`avanan-cli task <task_id>`** - Get Task.
+
+
+### campaign
+
+
+- **`avanan-cli campaign`** - Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated.
+
+
+### exceptions
+
+
+- **`avanan-cli exceptions find`** - Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once.
+
+- **`avanan-cli exceptions audit`** - Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
+
+
+### msp
+
+
+- **`avanan-cli msp fleet`** - One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume.
+
+
+### remediate
+
+
+- **`avanan-cli remediate`** - Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome.
+
+
+### timeline
+
+
+- **`avanan-cli timeline`** - Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
+
+
+### triage
+
+
+- **`avanan-cli triage`** - See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume.
+
+
 
 
 ### Self-learning loop
@@ -422,19 +494,21 @@ The local store's schema version stamp is one-way: once this version of `avanan-
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
+avanan-cli event get mock-value
 
 # JSON for scripting and agents
-avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json
+avanan-cli event get mock-value --json
 # Filter to specific fields
-avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json --select actions,additionalData,availableEventActions
+avanan-cli event get mock-value --json --select actions,additionalData,availableEventActions
 
 # Dry run  -  show the request without sending
-avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --dry-run
+avanan-cli event get mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent
+avanan-cli event get mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -445,12 +519,12 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -462,17 +536,19 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `avanan-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/avanan-cli/config.toml` (`%USERPROFILE%\.config\avanan-cli\config.toml` on Windows); `--home`, `AVANAN_HOME`, and per-kind env vars can relocate it.
+Run `avanan-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/avanan-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\avanan-cli\config.toml` on Windows; `--home`, `AVANAN_HOME`, and per-kind env vars can relocate it.
 
-Static request headers can be configured under `headers`; per-command header overrides take precedence.
+Static request headers can be configured under `headers`; per-command header overrides take precedence. Every `headers` value is treated as a credential: output that repeats one is withheld, so keep values that are not secret (such as `Accept`) out of that table.
+
+`--ca-cert`, `AVANAN_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `AVANAN_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `AVANAN_APP_ID` | auth_flow_input | Yes | Avanan Application ID (the x-av-app-id value) issued by Check Point support. |
-| `AVANAN_CLIENT_SECRET` | auth_flow_input | Yes | Set during initial auth setup. |
-| `AVANAN_TOKEN` | harvested | No | Populated automatically by auth login. |
+| `AVANAN_APP_ID` | per_call | Yes | Set to your API credential. |
+| `AVANAN_CLIENT_SECRET` | per_call | Yes | Set to your API credential. |
+| `AVANAN_TOKEN` | per_call | Yes | Set to your API credential. |
 
 ### agentcookie (optional)
 
@@ -487,55 +563,16 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **Every request returns 401 even though the credential is correct**  -  The signature covers the request string including the query. Re-run 'avanan-cli auth login', which prints the scheme and host it resolved, and confirm the region matches where your keys were issued.
-- **An action returns HTTP 400 with an unhelpful body**  -  Action endpoints accept only one scope. Pass --scope <farm>:<tenant>, or use 'remediate', which resolves the scope for you and lists your scopes when it cannot.
-- **Requests worked an hour ago and now return 401**  -  The session token lives one hour. Run 'avanan-cli auth login' to mint a new one; normal commands also refresh it automatically.
-- **A tenant's data is missing entirely**  -  Regions are hard-isolated and credentials are per-region. Re-run 'avanan-cli auth login --region <region>' and check the tenant appears in 'avanan-cli scopes'.
-- **HTTP 429 during a large mirror**  -  Lower the pace with --rate-limit or narrow the window with 'mirror --since 24h'; the local mirror means you only pay for each window once.
-- **triage or campaign reports no events**  -  Events are a POST-query resource that 'sync' cannot walk. Run 'avanan-cli mirror --since 7d' to populate them.
-- **'exceptions audit' reports an entry as never matched, but you know it fired**  -  The never-matched check only sees your mirrored window. Widen it with 'avanan-cli mirror --since 30d' and re-run.
+- **HTTP 400 "Must provide a single scope" on exceptions, sectools or actions**  -  Your app client is multi-scope. Run scopes to list them and pass --scope; mirror and remediate resolve the scope list for you.
+- **Every request returns HTTP 401 or 403 after auth login**  -  Credentials are region-scoped. Run auth login with the --region your tenant lives in, or --base-url for another gateway, then doctor.
+- **triage, campaign, timeline or exceptions find return nothing**  -  Those commands read the local mirror only. Run mirror --since 7d first (mirror --resources exceptions for the exception commands).
+- **msp fleet is empty**  -  Run sync --resources msp-tenants to mirror tenants, licenses and usage, and mirror --since 7d for detection volume.
 
 ## Sources & Inspiration
 
 This CLI was built by studying these projects and resources:
 
-- [**demisto/content CheckPointHEC**](https://github.com/demisto/content/tree/master/Packs/CheckPointHEC)  -  Python
-- [**avanan-legacy-mcp**](https://github.com/wyre-technology/avanan-legacy-mcp)  -  TypeScript
-- [**avanan-mcp**](https://github.com/wyre-technology/avanan-mcp)  -  TypeScript
-- [**Azure-Sentinel Harmony Email connector**](https://github.com/Azure/Azure-Sentinel/tree/master/Solutions/Checkpoint%20Harmony%20Email%20and%20Collaboration)  -  Python
-- [**RewstPS Invoke-AvananRestMethod**](https://github.com/gocovi/RewstPS)  -  PowerShell
+- [**Avanan MSP sample client**](https://sc1.checkpoint.com/documents/Harmony_Email_and_Collaboration_API_Reference/index.html)  -  python
+- [**Harmony Email & Collaboration portal**](https://portal.checkpoint.com)  -  web
 
 Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)
-
-## Known Gaps
-
-- **Not yet exercised against a live Avanan tenant.** This CLI was verified
-  against mock responses, dry-run paths, and a seeded local store, but no
-  command has been run with real credentials. The request-signing algorithm is
-  pinned by test to the worked example published in the Avanan API Reference
-  Guide, and the endpoint set is drawn from that guide plus three shipping
-  clients (Cortex XSOAR, Microsoft Sentinel, and two MCP servers)  -  but the
-  end-to-end handshake has not been observed against a live tenant. Run
-  `avanan-cli doctor` and `avanan-cli auth login` first and report
-  anything that misbehaves.
-- **`x-av-app-id` is treated as opaque.** The vendor's docs are internally
-  inconsistent: the curl sample sends `myapp29` while the signature worked
-  example concatenates `US:myapp29`. This CLI signs and sends exactly the value
-  you configure, which is the only self-consistent behavior. If you get a 401
-  with a credential you believe is correct, try the other form.
-- **The offline commands read a local mirror, not the API.** `triage`,
-  `campaign`, `timeline`, `exceptions find`, and `exceptions audit` return empty
-  results until you run `avanan-cli mirror --since 7d`; `msp fleet` also needs
-  `avanan-cli sync --resources msp`. This is by design  -  it is what lets them
-  answer cross-tenant and historical questions without spending API quota.
-- **`exceptions audit`'s never-matched check is bounded by the mirrored window.**
-  An entry listed there is unused *within what you mirrored*, not proven dead.
-  Widen with `mirror --since 30d` before acting on it.
-- **`timeline` only sees actions this CLI submitted.** The API returns no
-  task-to-entity linkage, so the CLI records it at submission time. Quarantines
-  performed in the web portal or by another tool will not appear.
-- **MCP transport is stdio-only, deliberately.** The generated HTTP transport
-  binds all interfaces without authenticating callers; these credentials can
-  quarantine mail across every tenant a key reaches, so HTTP is not enabled.
-- **System and audit logs are out of scope.** Check Point exposes those through
-  the separate Infinity Portal API, not this one.

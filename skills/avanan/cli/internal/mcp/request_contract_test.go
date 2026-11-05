@@ -219,7 +219,7 @@ func TestRequestContractExecuteNamedWriteOnWire(t *testing.T) {
 	var params map[string]any
 	_ = json.Unmarshal([]byte(bodyJSON), &params)
 	params["scopes"] = "fixture-scope"
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "action.post-entity", "params": params}))
+	result, err := requestContractConfirmedExecute(t, received, "action.post-entity", params)
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("execute failed: result=%#v err=%v", result, err)
 	}
@@ -251,7 +251,8 @@ func TestRequestContractExecuteAdvertisedGETBindings(t *testing.T) {
 	defer fixture.Close()
 	requestContractConfig(t, fixture.URL)
 	params := map[string]any{"task_id": "fixture-part", "scope": "fixture-scope"}
-	result, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": "task.get", "params": params}))
+	// 4.34.0 splits the executor: reads go through avanan_read.
+	result, err := handleCodeOrchRead(context.Background(), requestContractCall(map[string]any{"endpoint_id": "task.get", "params": params}))
 	if err != nil || result == nil || result.IsError {
 		t.Fatalf("GET execute failed: result=%#v err=%v", result, err)
 	}
@@ -260,4 +261,21 @@ func TestRequestContractExecuteAdvertisedGETBindings(t *testing.T) {
 	default:
 		t.Fatal("GET did not reach the local fixture")
 	}
+}
+
+// requestContractConfirmedExecute drives the 4.34.0 split executor: an
+// unconfirmed avanan_execute call must return a preview and send nothing,
+// and only confirm: true reaches the fixture.
+func requestContractConfirmedExecute(t *testing.T, received chan struct{}, endpoint string, params any) (*mcplib.CallToolResult, error) {
+	t.Helper()
+	preview, err := handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params}))
+	if err != nil || preview == nil || preview.IsError {
+		t.Fatalf("unconfirmed execute: result=%#v err=%v", preview, err)
+	}
+	select {
+	case <-received:
+		t.Fatalf("an unconfirmed %s reached the server", endpoint)
+	default:
+	}
+	return handleCodeOrchExecute(context.Background(), requestContractCall(map[string]any{"endpoint_id": endpoint, "params": params, "confirm": true}))
 }

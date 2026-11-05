@@ -389,15 +389,15 @@ Outcomes (question -> command your AI agent runs):
 - Is this domain, sender, URL, or hash already excepted anywhere? -> avanan-cli exceptions find example.com
 - Which of our exceptions contradict each other or have not matched any traffic in the mirrored window? -> avanan-cli exceptions audit
 - Which tenant is over its seat count or having an unusual detection week? -> avanan-cli msp fleet
-- Quarantine this batch and tell me the real per-message outcome, not just that a task started. -> avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait
+- Quarantine this batch and tell me the real per-message outcome, not just that a task started. -> avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait --yes
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way avanan-mcp runs, and shares MCP configuration with Codex: add avanan-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Avanan application ID and client secret once.
 Q: Is my Avanan data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server uses stdio by default, so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message.
 Q: Will this hit my Avanan API rate limits?
 A: The skill syncs once into a local SQLite mirror, then answers most questions from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync.
 Q: Do I need an MSP account, or does this work on a single tenant?

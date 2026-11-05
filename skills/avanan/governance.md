@@ -11,9 +11,12 @@ The skill drives the `avanan-cli` binary (and `avanan-mcp`), authenticating with
 `AVANAN_APP_ID` and `AVANAN_CLIENT_SECRET`. Those two values are exchanged for a
 one-hour session token, which is replayed on later calls. Credentials are read
 from the environment by default and are never logged or sent anywhere except the
-Avanan API. They are written to disk only when you ask for it: `auth login --save`
-persists the application ID and secret, and `auth set-token` persists a session
-token, both to the credentials file under your own user profile.
+Avanan API. `auth login` saves the one-hour session token it mints to the
+credentials file under your own user profile. It also saves an application ID or
+secret passed as `--app-id` / `--secret`, unless `AVANAN_APP_ID` or
+`AVANAN_CLIENT_SECRET` is set for that value, in which case only `--save` saves it;
+values read from those variables are saved only with `--save`. `auth set-token`
+persists an application ID.
 
 Three properties of the Avanan API are worth knowing before you mint an
 application credential:
@@ -71,7 +74,11 @@ set produces, and they matter:
 
 - `remediate`, `action post-entity`, and `action post-event` carry no
   create/update/delete verb, but they quarantine and restore live mail. They are
-  the highest-consequence routine operations in this connector.
+  the highest-consequence routine operations in this connector. `remediate`
+  refuses to send anything without `--yes` (`--dry-run` previews), and the MCP
+  server never forwards `--yes`.
+- `local-data purge` deletes only this machine's local store, response cache
+  and learn journal, never anything in Avanan, and asks for `--yes` first.
 - `download`, `download-large-email`, and `soar get-entity` are reads by HTTP
   method and by tier, but what they read is the body of somebody's email. Treat
   them as a privacy decision, not a lookup.
@@ -103,5 +110,5 @@ The full source of the CLI and MCP server is in this repository under
 [`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
 the Avanan API, and you can read every line of how it does so. The skill is
 read-first, plan-by-default, and scoped to your own account. The local SQLite
-mirror stays on your machine, and the MCP server speaks stdio only, so it opens no
-network listener.
+mirror stays on your machine, and the MCP server uses stdio by default, so it opens no
+network listener unless you start its token-protected HTTP mode.

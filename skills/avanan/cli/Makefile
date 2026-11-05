@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/avanan-cli$(BIN_EXT) ./cmd/avanan-cli
+	go build -trimpath -o bin/avanan-cli$(BIN_EXT) ./cmd/avanan-cli
 
 test:
 	go test ./...
@@ -18,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/avanan-mcp$(BIN_EXT) ./cmd/avanan-mcp
+	go build -trimpath -o bin/avanan-mcp$(BIN_EXT) ./cmd/avanan-mcp
 
 install-mcp:
 	go install ./cmd/avanan-mcp

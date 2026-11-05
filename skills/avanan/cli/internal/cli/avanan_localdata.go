@@ -123,11 +123,58 @@ func str(obj map[string]any, keys ...string) string {
 	return ""
 }
 
+// strs collects EVERY string value under the given keys, from scalars and from
+// arrays, at the top level and one level down (entityInfo, entityPayload,
+// emailInfo), deduplicated case-insensitively in first-seen order.
+//
+// str returns one scalar, which is right for a sender or a subject and wrong
+// for a field the vendor documents as a list: EmailEntityPayload.to,
+// .recipients, .cc and .bcc are arrays (spec components.schemas), and reading
+// them through str returned nothing at all.
+func strs(obj map[string]any, keys ...string) []string {
+	var out []string
+	seen := map[string]bool{}
+	addValue := func(v any) {
+		var items []any
+		switch t := v.(type) {
+		case string:
+			items = []any{t}
+		case []any:
+			items = t
+		}
+		for _, it := range items {
+			s, ok := it.(string)
+			if !ok {
+				continue
+			}
+			s = strings.TrimSpace(s)
+			if s == "" || seen[strings.ToLower(s)] {
+				continue
+			}
+			seen[strings.ToLower(s)] = true
+			out = append(out, s)
+		}
+	}
+	for _, k := range keys {
+		if v, ok := obj[k]; ok {
+			addValue(v)
+		}
+		for _, container := range []string{"entityInfo", "entityPayload", "emailInfo"} {
+			if nested, ok := obj[container].(map[string]any); ok {
+				if v, ok := nested[k]; ok {
+					addValue(v)
+				}
+			}
+		}
+	}
+	return out
+}
+
 // Field name candidates, in the order Avanan's payloads tend to use them.
 var (
 	senderKeys    = []string{"senderEmail", "fromEmail", "from", "sender", "senderAddress"}
 	subjectKeys   = []string{"subject", "title", "name"}
-	recipientKeys = []string{"recipientEmail", "toEmail", "to", "recipient"}
+	recipientKeys = []string{"recipientEmail", "toEmail", "to", "recipient", "recipients", "cc", "bcc"}
 	eventTypeKeys = []string{"type", "eventType", "detectionType"}
 	stateKeys     = []string{"state", "eventState", "status"}
 	severityKeys  = []string{"severity", "confidenceIndicator", "riskLevel"}
@@ -135,7 +182,7 @@ var (
 	scopeKeys     = []string{"scope", "customerId", "tenant", "farm"}
 	entityIDKeys  = []string{"entityId", "entityID", "id"}
 	eventIDKeys   = []string{"eventId", "eventID", "id"}
-	timeKeys      = []string{"eventCreated", "createdAt", "created", "date", "eventDate", "receivedTime", "time"}
+	timeKeys      = []string{"eventCreated", "createdAt", "created", "date", "eventDate", "receivedTime", "time", "entityCreated"}
 )
 
 // avananTime parses the timestamp formats Avanan emits. Records whose time

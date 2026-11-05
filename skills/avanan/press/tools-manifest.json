@@ -1,0 +1,2512 @@
+{
+  "api_name": "avanan",
+  "base_url": "https://smart-api-production-1-us.avanan.net",
+  "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "x-av-token",
+    "in": "header",
+    "env_vars": [
+      "AVANAN_APP_ID",
+      "AVANAN_CLIENT_SECRET",
+      "AVANAN_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "AVANAN_APP_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "AVANAN_CLIENT_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "AVANAN_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "action_post-entity",
+      "description": "Post Entity Action. Required: requestData. Optional: scopes, x-av-req-id. Returns array of SaasEntityActionTask.",
+      "method": "POST",
+      "path": "/v1.0/action/entity",
+      "params": [
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-entity-action-name",
+          "wire_name": "requestData.entityActionName",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration.",
+          "required": true
+        },
+        {
+          "name": "request-data-entity-action-param",
+          "wire_name": "requestData.entityActionParam",
+          "type": "string",
+          "location": "body",
+          "description": "Entity action param"
+        },
+        {
+          "name": "request-data-entity-ids",
+          "wire_name": "requestData.entityIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity ids",
+          "required": true
+        },
+        {
+          "name": "request-data-entity-type",
+          "wire_name": "requestData.entityType",
+          "type": "string",
+          "location": "body",
+          "description": "Entity type",
+          "required": true
+        },
+        {
+          "name": "request-data-scope",
+          "wire_name": "requestData.scope",
+          "type": "string",
+          "location": "body",
+          "description": "Scope"
+        }
+      ]
+    },
+    {
+      "name": "action_post-event",
+      "description": "Post Event Action. Required: requestData. Optional: scopes, x-av-req-id. Returns array of EventActionTask.",
+      "method": "POST",
+      "path": "/v1.0/action/event",
+      "params": [
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-event-action-name",
+          "wire_name": "requestData.eventActionName",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration.",
+          "required": true
+        },
+        {
+          "name": "request-data-event-action-param",
+          "wire_name": "requestData.eventActionParam",
+          "type": "string",
+          "location": "body",
+          "description": "Event action param"
+        },
+        {
+          "name": "request-data-event-ids",
+          "wire_name": "requestData.eventIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Event ids",
+          "required": true
+        },
+        {
+          "name": "request-data-scope",
+          "wire_name": "requestData.scope",
+          "type": "string",
+          "location": "body",
+          "description": "Scope"
+        }
+      ]
+    },
+    {
+      "name": "avanan-search_get-saas-entity",
+      "description": "Get Saas Entity. Required: entity_id. Optional: scopes, x-av-req-id. Returns array of SaasEntity.",
+      "method": "GET",
+      "path": "/v1.0/search/entity/{entity_id}",
+      "params": [
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "avanan-search_query-saas-entity",
+      "description": "Query Saas Entity. Required: requestData. Optional: scopes, x-av-req-id. Returns array of SaasEntity.",
+      "method": "POST",
+      "path": "/v1.0/search/query",
+      "params": [
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-entity-extended-filter",
+          "wire_name": "requestData.entityExtendedFilter",
+          "type": "array",
+          "location": "body",
+          "description": "Entity extended filter"
+        },
+        {
+          "name": "request-data-entity-filter-end-date",
+          "wire_name": "requestData.entityFilter.endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "request-data-entity-filter-saas",
+          "wire_name": "requestData.entityFilter.saas",
+          "type": "string",
+          "location": "body",
+          "description": "Saas",
+          "required": true
+        },
+        {
+          "name": "request-data-entity-filter-saas-entity",
+          "wire_name": "requestData.entityFilter.saasEntity",
+          "type": "string",
+          "location": "body",
+          "description": "Saas entity"
+        },
+        {
+          "name": "request-data-entity-filter-start-date",
+          "wire_name": "requestData.entityFilter.startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date",
+          "required": true
+        },
+        {
+          "name": "request-data-scopes",
+          "wire_name": "requestData.scopes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Scopes"
+        },
+        {
+          "name": "request-data-scroll-id",
+          "wire_name": "requestData.scrollId",
+          "type": "string",
+          "location": "body",
+          "description": "Scroll id"
+        }
+      ]
+    },
+    {
+      "name": "download_get-entity",
+      "description": "Download the raw .eml for a SaaS entity. Required: entity_id. Optional: original, scopes. Returns the DownloadGetEntityResponse.",
+      "method": "GET",
+      "path": "/v1.0/download/entity/{entity_id}",
+      "params": [
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "original",
+          "type": "bool",
+          "location": "query",
+          "description": "true downloads the original message unmodified; false (default) adds Avanan security headers."
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated {farm}:{tenant} scopes to target."
+        }
+      ]
+    },
+    {
+      "name": "download-large-email_get-url",
+      "description": "Return a presigned URL for downloading a message too large to stream inline. Required: entity_id. Optional: scope. Returns the DownloadLargeEmailGetUrlResponse.",
+      "method": "GET",
+      "path": "/v1.0/download_large_email/entity/{entity_id}",
+      "params": [
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "event_get",
+      "description": "Get Event. Required: event_id. Optional: scopes, x-av-req-id. Returns array of EventEntity.",
+      "method": "GET",
+      "path": "/v1.0/event/{event_id}",
+      "params": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "event_query",
+      "description": "Query Event. Optional: scopes, x-av-req-id, requestData. Returns array of EventEntity.",
+      "method": "POST",
+      "path": "/v1.0/event/query",
+      "params": [
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-confidence-indicator",
+          "wire_name": "requestData.confidenceIndicator",
+          "type": "string",
+          "location": "body",
+          "description": "Confidence indicator"
+        },
+        {
+          "name": "request-data-description",
+          "wire_name": "requestData.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "request-data-end-date",
+          "wire_name": "requestData.endDate",
+          "type": "string",
+          "location": "body",
+          "description": "End date"
+        },
+        {
+          "name": "request-data-event-ids",
+          "wire_name": "requestData.eventIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Event ids"
+        },
+        {
+          "name": "request-data-event-states",
+          "wire_name": "requestData.eventStates",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Event states"
+        },
+        {
+          "name": "request-data-event-types",
+          "wire_name": "requestData.eventTypes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Event types"
+        },
+        {
+          "name": "request-data-saas",
+          "wire_name": "requestData.saas",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Saas"
+        },
+        {
+          "name": "request-data-scopes",
+          "wire_name": "requestData.scopes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Scopes"
+        },
+        {
+          "name": "request-data-scroll-id",
+          "wire_name": "requestData.scrollId",
+          "type": "string",
+          "location": "body",
+          "description": "Scroll id"
+        },
+        {
+          "name": "request-data-severities",
+          "wire_name": "requestData.severities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Severities"
+        },
+        {
+          "name": "request-data-start-date",
+          "wire_name": "requestData.startDate",
+          "type": "string",
+          "location": "body",
+          "description": "Start date"
+        }
+      ]
+    },
+    {
+      "name": "exceptions_create",
+      "description": "Create Ap Exception Blacklist. Optional: scope, scopes, x-av-req-id (plus 1 more). Returns array of ApException.",
+      "method": "POST",
+      "path": "/v1.0/exceptions/blacklist",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-action-needed",
+          "wire_name": "requestData.actionNeeded",
+          "type": "string",
+          "location": "body",
+          "description": "Action needed"
+        },
+        {
+          "name": "request-data-attachment-md5",
+          "wire_name": "requestData.attachmentMd5",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment md5"
+        },
+        {
+          "name": "request-data-comment",
+          "wire_name": "requestData.comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        },
+        {
+          "name": "request-data-entity-id",
+          "wire_name": "requestData.entityId",
+          "type": "string",
+          "location": "body",
+          "description": "Entity id"
+        },
+        {
+          "name": "request-data-ignoring-spf-check",
+          "wire_name": "requestData.ignoringSpfCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Ignoring spf check"
+        },
+        {
+          "name": "request-data-link-domain-matching",
+          "wire_name": "requestData.linkDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-link-domains",
+          "wire_name": "requestData.linkDomains",
+          "type": "string",
+          "location": "body",
+          "description": "Link domains"
+        },
+        {
+          "name": "request-data-match-only-future",
+          "wire_name": "requestData.matchOnlyFuture",
+          "type": "bool",
+          "location": "body",
+          "description": "Match only future"
+        },
+        {
+          "name": "request-data-quarantine-all",
+          "wire_name": "requestData.quarantineAll",
+          "type": "bool",
+          "location": "body",
+          "description": "Quarantine all"
+        },
+        {
+          "name": "request-data-recipient",
+          "wire_name": "requestData.recipient",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient"
+        },
+        {
+          "name": "request-data-recipient-matching",
+          "wire_name": "requestData.recipientMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-client-ip",
+          "wire_name": "requestData.senderClientIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender client ip"
+        },
+        {
+          "name": "request-data-sender-domain",
+          "wire_name": "requestData.senderDomain",
+          "type": "string",
+          "location": "body",
+          "description": "Sender domain"
+        },
+        {
+          "name": "request-data-sender-domain-matching",
+          "wire_name": "requestData.senderDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-email",
+          "wire_name": "requestData.senderEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Sender email"
+        },
+        {
+          "name": "request-data-sender-email-matching",
+          "wire_name": "requestData.senderEmailMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-ip",
+          "wire_name": "requestData.senderIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender ip"
+        },
+        {
+          "name": "request-data-sender-name",
+          "wire_name": "requestData.senderName",
+          "type": "string",
+          "location": "body",
+          "description": "Sender name"
+        },
+        {
+          "name": "request-data-sender-name-matching",
+          "wire_name": "requestData.senderNameMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-subject",
+          "wire_name": "requestData.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject"
+        },
+        {
+          "name": "request-data-subject-matching",
+          "wire_name": "requestData.subjectMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        }
+      ]
+    },
+    {
+      "name": "exceptions_create-whitelist",
+      "description": "Create Ap Exception Whitelist. Required: requestData. Optional: scope, scopes, x-av-req-id. Returns array of ApException.",
+      "method": "POST",
+      "path": "/v1.0/exceptions/whitelist",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-action-needed",
+          "wire_name": "requestData.actionNeeded",
+          "type": "string",
+          "location": "body",
+          "description": "Action needed"
+        },
+        {
+          "name": "request-data-attachment-md5",
+          "wire_name": "requestData.attachmentMd5",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment md5"
+        },
+        {
+          "name": "request-data-comment",
+          "wire_name": "requestData.comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        },
+        {
+          "name": "request-data-entity-id",
+          "wire_name": "requestData.entityId",
+          "type": "string",
+          "location": "body",
+          "description": "Entity id"
+        },
+        {
+          "name": "request-data-ignoring-spf-check",
+          "wire_name": "requestData.ignoringSpfCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Ignoring spf check"
+        },
+        {
+          "name": "request-data-link-domain-matching",
+          "wire_name": "requestData.linkDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-link-domains",
+          "wire_name": "requestData.linkDomains",
+          "type": "string",
+          "location": "body",
+          "description": "Link domains"
+        },
+        {
+          "name": "request-data-match-only-future",
+          "wire_name": "requestData.matchOnlyFuture",
+          "type": "bool",
+          "location": "body",
+          "description": "Match only future"
+        },
+        {
+          "name": "request-data-quarantine-all",
+          "wire_name": "requestData.quarantineAll",
+          "type": "bool",
+          "location": "body",
+          "description": "Quarantine all"
+        },
+        {
+          "name": "request-data-recipient",
+          "wire_name": "requestData.recipient",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient",
+          "required": true
+        },
+        {
+          "name": "request-data-recipient-matching",
+          "wire_name": "requestData.recipientMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-client-ip",
+          "wire_name": "requestData.senderClientIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender client ip"
+        },
+        {
+          "name": "request-data-sender-domain",
+          "wire_name": "requestData.senderDomain",
+          "type": "string",
+          "location": "body",
+          "description": "Sender domain",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-domain-matching",
+          "wire_name": "requestData.senderDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-email",
+          "wire_name": "requestData.senderEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Sender email",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-email-matching",
+          "wire_name": "requestData.senderEmailMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-ip",
+          "wire_name": "requestData.senderIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender ip"
+        },
+        {
+          "name": "request-data-sender-name",
+          "wire_name": "requestData.senderName",
+          "type": "string",
+          "location": "body",
+          "description": "Sender name",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-name-matching",
+          "wire_name": "requestData.senderNameMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-subject",
+          "wire_name": "requestData.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject",
+          "required": true
+        },
+        {
+          "name": "request-data-subject-matching",
+          "wire_name": "requestData.subjectMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        }
+      ]
+    },
+    {
+      "name": "exceptions_get-ap",
+      "description": "Get Ap Exception. Required: exc_type (default: whitelist). Optional: exc_id, scope, scopes (plus 1 more). Returns array of ApException.",
+      "method": "GET",
+      "path": "/v1.0/exceptions/{exc_type}",
+      "params": [
+        {
+          "name": "exc_type",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. whitelist)",
+          "required": true
+        },
+        {
+          "name": "exc_id",
+          "type": "string",
+          "location": "query",
+          "description": "Exc id"
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "exceptions_get-ap-exctype",
+      "description": "Get Ap Exception. Required: exc_type (default: whitelist), exc_id. Optional: scope, scopes, x-av-req-id. Returns array of ApException.",
+      "method": "GET",
+      "path": "/v1.0/exceptions/{exc_type}/{exc_id}",
+      "params": [
+        {
+          "name": "exc_type",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. whitelist)",
+          "required": true
+        },
+        {
+          "name": "exc_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "exceptions_update",
+      "description": "Update Ap Exception Blacklist. Required: exc_id. Optional: scope, scopes, x-av-req-id (plus 1 more). Returns array of ApException.",
+      "method": "PUT",
+      "path": "/v1.0/exceptions/blacklist/{exc_id}",
+      "params": [
+        {
+          "name": "exc_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-action-needed",
+          "wire_name": "requestData.actionNeeded",
+          "type": "string",
+          "location": "body",
+          "description": "Action needed"
+        },
+        {
+          "name": "request-data-attachment-md5",
+          "wire_name": "requestData.attachmentMd5",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment md5"
+        },
+        {
+          "name": "request-data-comment",
+          "wire_name": "requestData.comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        },
+        {
+          "name": "request-data-entity-id",
+          "wire_name": "requestData.entityId",
+          "type": "string",
+          "location": "body",
+          "description": "Entity id"
+        },
+        {
+          "name": "request-data-ignoring-spf-check",
+          "wire_name": "requestData.ignoringSpfCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Ignoring spf check"
+        },
+        {
+          "name": "request-data-link-domain-matching",
+          "wire_name": "requestData.linkDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-link-domains",
+          "wire_name": "requestData.linkDomains",
+          "type": "string",
+          "location": "body",
+          "description": "Link domains"
+        },
+        {
+          "name": "request-data-match-only-future",
+          "wire_name": "requestData.matchOnlyFuture",
+          "type": "bool",
+          "location": "body",
+          "description": "Match only future"
+        },
+        {
+          "name": "request-data-quarantine-all",
+          "wire_name": "requestData.quarantineAll",
+          "type": "bool",
+          "location": "body",
+          "description": "Quarantine all"
+        },
+        {
+          "name": "request-data-recipient",
+          "wire_name": "requestData.recipient",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient"
+        },
+        {
+          "name": "request-data-recipient-matching",
+          "wire_name": "requestData.recipientMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-client-ip",
+          "wire_name": "requestData.senderClientIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender client ip"
+        },
+        {
+          "name": "request-data-sender-domain",
+          "wire_name": "requestData.senderDomain",
+          "type": "string",
+          "location": "body",
+          "description": "Sender domain"
+        },
+        {
+          "name": "request-data-sender-domain-matching",
+          "wire_name": "requestData.senderDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-email",
+          "wire_name": "requestData.senderEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Sender email"
+        },
+        {
+          "name": "request-data-sender-email-matching",
+          "wire_name": "requestData.senderEmailMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-ip",
+          "wire_name": "requestData.senderIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender ip"
+        },
+        {
+          "name": "request-data-sender-name",
+          "wire_name": "requestData.senderName",
+          "type": "string",
+          "location": "body",
+          "description": "Sender name"
+        },
+        {
+          "name": "request-data-sender-name-matching",
+          "wire_name": "requestData.senderNameMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-subject",
+          "wire_name": "requestData.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject"
+        },
+        {
+          "name": "request-data-subject-matching",
+          "wire_name": "requestData.subjectMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        }
+      ]
+    },
+    {
+      "name": "exceptions_update-whitelist",
+      "description": "Update Ap Exception Whitelist. Required: exc_id, requestData. Optional: scope, scopes, x-av-req-id. Returns array of ApException.",
+      "method": "PUT",
+      "path": "/v1.0/exceptions/whitelist/{exc_id}",
+      "params": [
+        {
+          "name": "exc_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-action-needed",
+          "wire_name": "requestData.actionNeeded",
+          "type": "string",
+          "location": "body",
+          "description": "Action needed"
+        },
+        {
+          "name": "request-data-attachment-md5",
+          "wire_name": "requestData.attachmentMd5",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment md5"
+        },
+        {
+          "name": "request-data-comment",
+          "wire_name": "requestData.comment",
+          "type": "string",
+          "location": "body",
+          "description": "Comment"
+        },
+        {
+          "name": "request-data-entity-id",
+          "wire_name": "requestData.entityId",
+          "type": "string",
+          "location": "body",
+          "description": "Entity id"
+        },
+        {
+          "name": "request-data-ignoring-spf-check",
+          "wire_name": "requestData.ignoringSpfCheck",
+          "type": "bool",
+          "location": "body",
+          "description": "Ignoring spf check"
+        },
+        {
+          "name": "request-data-link-domain-matching",
+          "wire_name": "requestData.linkDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-link-domains",
+          "wire_name": "requestData.linkDomains",
+          "type": "string",
+          "location": "body",
+          "description": "Link domains"
+        },
+        {
+          "name": "request-data-match-only-future",
+          "wire_name": "requestData.matchOnlyFuture",
+          "type": "bool",
+          "location": "body",
+          "description": "Match only future"
+        },
+        {
+          "name": "request-data-quarantine-all",
+          "wire_name": "requestData.quarantineAll",
+          "type": "bool",
+          "location": "body",
+          "description": "Quarantine all"
+        },
+        {
+          "name": "request-data-recipient",
+          "wire_name": "requestData.recipient",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient",
+          "required": true
+        },
+        {
+          "name": "request-data-recipient-matching",
+          "wire_name": "requestData.recipientMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-client-ip",
+          "wire_name": "requestData.senderClientIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender client ip"
+        },
+        {
+          "name": "request-data-sender-domain",
+          "wire_name": "requestData.senderDomain",
+          "type": "string",
+          "location": "body",
+          "description": "Sender domain",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-domain-matching",
+          "wire_name": "requestData.senderDomainMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-email",
+          "wire_name": "requestData.senderEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Sender email",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-email-matching",
+          "wire_name": "requestData.senderEmailMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-sender-ip",
+          "wire_name": "requestData.senderIp",
+          "type": "string",
+          "location": "body",
+          "description": "Sender ip"
+        },
+        {
+          "name": "request-data-sender-name",
+          "wire_name": "requestData.senderName",
+          "type": "string",
+          "location": "body",
+          "description": "Sender name",
+          "required": true
+        },
+        {
+          "name": "request-data-sender-name-matching",
+          "wire_name": "requestData.senderNameMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        },
+        {
+          "name": "request-data-subject",
+          "wire_name": "requestData.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject",
+          "required": true
+        },
+        {
+          "name": "request-data-subject-matching",
+          "wire_name": "requestData.subjectMatching",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration."
+        }
+      ]
+    },
+    {
+      "name": "exceptions_delete_ap-exception",
+      "description": "Delete Ap Exception. Required: exc_type (default: whitelist), exc_id. Optional: scope, scopes, x-av-req-id. Returns the new DeleteApExceptionResponse.",
+      "method": "POST",
+      "path": "/v1.0/exceptions/{exc_type}/delete/{exc_id}",
+      "params": [
+        {
+          "name": "exc_type",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. whitelist)",
+          "required": true
+        },
+        {
+          "name": "exc_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_create",
+      "description": "Create Msp. Required: msp_name, requestData. Optional: x-av-req-id. Returns the new MspCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/msp/msp-partners",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-name",
+          "wire_name": "requestData.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_create-tenants",
+      "description": "Create Tenant. Required: msp_name, requestData. Optional: x-av-req-id. Returns the new MspCreateTenantsResponse.",
+      "method": "POST",
+      "path": "/v1.0/msp/tenants",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-msp-id",
+          "wire_name": "requestData.MSPId",
+          "type": "int",
+          "location": "body",
+          "description": "Mspid"
+        },
+        {
+          "name": "request-data-admin-email",
+          "wire_name": "requestData.adminEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Admin email",
+          "required": true
+        },
+        {
+          "name": "request-data-admin-name",
+          "wire_name": "requestData.adminName",
+          "type": "string",
+          "location": "body",
+          "description": "Admin name",
+          "required": true
+        },
+        {
+          "name": "request-data-company-name",
+          "wire_name": "requestData.companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name",
+          "required": true
+        },
+        {
+          "name": "request-data-phone",
+          "wire_name": "requestData.phone",
+          "type": "string",
+          "location": "body",
+          "description": "Phone",
+          "required": true
+        },
+        {
+          "name": "request-data-tenant-name",
+          "wire_name": "requestData.tenantName",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant name",
+          "required": true
+        },
+        {
+          "name": "request-data-tenant-region",
+          "wire_name": "requestData.tenantRegion",
+          "type": "string",
+          "location": "body",
+          "description": "An enumeration.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_create-users",
+      "description": "Create User. Required: msp_name, requestData. Optional: x-av-req-id. Returns the new MspCreateUsersResponse.",
+      "method": "POST",
+      "path": "/v1.0/msp/users",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-msp-id",
+          "wire_name": "requestData.MSPId",
+          "type": "int",
+          "location": "body",
+          "description": "Mspid"
+        },
+        {
+          "name": "request-data-direct-login",
+          "wire_name": "requestData.directLogin",
+          "type": "bool",
+          "location": "body",
+          "description": "Direct login",
+          "required": true
+        },
+        {
+          "name": "request-data-email",
+          "wire_name": "requestData.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "request-data-first-name",
+          "wire_name": "requestData.firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "request-data-last-name",
+          "wire_name": "requestData.lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "request-data-receive-weekly-reports",
+          "wire_name": "requestData.receiveWeeklyReports",
+          "type": "bool",
+          "location": "body",
+          "description": "Receive weekly reports",
+          "required": true
+        },
+        {
+          "name": "request-data-role",
+          "wire_name": "requestData.role",
+          "type": "string",
+          "location": "body",
+          "description": "Role",
+          "required": true
+        },
+        {
+          "name": "request-data-saml-login",
+          "wire_name": "requestData.samlLogin",
+          "type": "bool",
+          "location": "body",
+          "description": "Saml login",
+          "required": true
+        },
+        {
+          "name": "request-data-send-alerts",
+          "wire_name": "requestData.sendAlerts",
+          "type": "bool",
+          "location": "body",
+          "description": "Send alerts",
+          "required": true
+        },
+        {
+          "name": "request-data-view-private-data",
+          "wire_name": "requestData.viewPrivateData",
+          "type": "bool",
+          "location": "body",
+          "description": "View private data",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_delete",
+      "description": "Delete Msp. Required: msp_id, msp_name. Optional: x-av-req-id. Returns the MspDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/msp/msp-partners/{msp_id}",
+      "params": [
+        {
+          "name": "msp_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_delete-tenants",
+      "description": "Delete Tenant. Required: tenant_id, msp_name. Optional: x-av-req-id. Returns the MspDeleteTenantsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/msp/tenants/{tenant_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_delete-users",
+      "description": "Delete User. Required: user_id, msp_name. Optional: x-av-req-id. Returns the MspDeleteUsersResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/msp/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_describe-tenant",
+      "description": "Describe Tenant. Required: tenant_id, msp_name. Optional: x-av-req-id. Returns the MspDescribeTenantResponse.",
+      "method": "GET",
+      "path": "/v1.0/msp/tenants/{tenant_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_describe-user",
+      "description": "Describe User. Required: user_id, msp_name. Optional: x-av-req-id. Returns the MspDescribeUserResponse.",
+      "method": "GET",
+      "path": "/v1.0/msp/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list",
+      "description": "List Msps. Required: msp_name. Optional: x-av-req-id. Returns array of Msp.",
+      "method": "GET",
+      "path": "/v1.0/msp/msp-partners",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-addons",
+      "description": "List Addons. Required: msp_name. Optional: x-av-req-id. Returns array of Addon.",
+      "method": "GET",
+      "path": "/v1.0/msp/addons",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-daily-usages",
+      "description": "List Daily Usages. Required: day, month, year, msp_name. Optional: msp_ids, x-av-req-id. Returns array of Usage.",
+      "method": "GET",
+      "path": "/v1.0/msp/usage/day",
+      "params": [
+        {
+          "name": "day",
+          "type": "int",
+          "location": "query",
+          "description": "Day",
+          "required": true
+        },
+        {
+          "name": "month",
+          "type": "int",
+          "location": "query",
+          "description": "Month",
+          "required": true
+        },
+        {
+          "name": "msp_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Msp ids"
+        },
+        {
+          "name": "year",
+          "type": "int",
+          "location": "query",
+          "description": "Year",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-licenses",
+      "description": "List Licenses. Required: msp_name. Optional: x-av-req-id. Returns array of Package.",
+      "method": "GET",
+      "path": "/v1.0/msp/licenses",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-monthly-usages",
+      "description": "List Monthly Usages. Required: month, year, msp_name. Optional: msp_ids, x-av-req-id. Returns array of Usage.",
+      "method": "GET",
+      "path": "/v1.0/msp/usage",
+      "params": [
+        {
+          "name": "month",
+          "type": "int",
+          "location": "query",
+          "description": "Month",
+          "required": true
+        },
+        {
+          "name": "msp_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Msp ids"
+        },
+        {
+          "name": "year",
+          "type": "int",
+          "location": "query",
+          "description": "Year",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-tenants",
+      "description": "List Tenants. Required: msp_name. Optional: x-av-req-id. Returns array of Tenant.",
+      "method": "GET",
+      "path": "/v1.0/msp/tenants",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_list-users",
+      "description": "List Users. Required: msp_name. Optional: x-av-req-id. Returns array of User.",
+      "method": "GET",
+      "path": "/v1.0/msp/users",
+      "params": [
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "msp_update",
+      "description": "Update User. Required: user_id, msp_name, requestData. Optional: x-av-req-id. Returns the updated MspUpdateResponse.",
+      "method": "PUT",
+      "path": "/v1.0/msp/users/{user_id}",
+      "params": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-msp-id",
+          "wire_name": "requestData.MSPId",
+          "type": "int",
+          "location": "body",
+          "description": "Mspid"
+        },
+        {
+          "name": "request-data-direct-login",
+          "wire_name": "requestData.directLogin",
+          "type": "bool",
+          "location": "body",
+          "description": "Direct login",
+          "required": true
+        },
+        {
+          "name": "request-data-email",
+          "wire_name": "requestData.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "request-data-first-name",
+          "wire_name": "requestData.firstName",
+          "type": "string",
+          "location": "body",
+          "description": "First name",
+          "required": true
+        },
+        {
+          "name": "request-data-last-name",
+          "wire_name": "requestData.lastName",
+          "type": "string",
+          "location": "body",
+          "description": "Last name",
+          "required": true
+        },
+        {
+          "name": "request-data-receive-weekly-reports",
+          "wire_name": "requestData.receiveWeeklyReports",
+          "type": "bool",
+          "location": "body",
+          "description": "Receive weekly reports",
+          "required": true
+        },
+        {
+          "name": "request-data-role",
+          "wire_name": "requestData.role",
+          "type": "string",
+          "location": "body",
+          "description": "Role",
+          "required": true
+        },
+        {
+          "name": "request-data-saml-login",
+          "wire_name": "requestData.samlLogin",
+          "type": "bool",
+          "location": "body",
+          "description": "Saml login",
+          "required": true
+        },
+        {
+          "name": "request-data-send-alerts",
+          "wire_name": "requestData.sendAlerts",
+          "type": "bool",
+          "location": "body",
+          "description": "Send alerts",
+          "required": true
+        },
+        {
+          "name": "request-data-view-private-data",
+          "wire_name": "requestData.viewPrivateData",
+          "type": "bool",
+          "location": "body",
+          "description": "View private data",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "msp_update-or-create-tenant-license",
+      "description": "Update Or Create Tenant License. Required: tenant_id, msp_name, requestData. Optional: x-av-req-id. Returns the new MspUpdateOrCreateTenantLicenseResponse.",
+      "method": "POST",
+      "path": "/v1.0/msp/tenants/{tenant_id}/license",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "msp_name",
+          "type": "string",
+          "location": "header",
+          "description": "Msp name",
+          "required": true
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        },
+        {
+          "name": "request-data-addon-id-list",
+          "wire_name": "requestData.addonIdList",
+          "type": "array",
+          "location": "body",
+          "description": "Addon id list"
+        },
+        {
+          "name": "request-data-license-code-name",
+          "wire_name": "requestData.licenseCodeName",
+          "type": "string",
+          "location": "body",
+          "description": "License code name",
+          "required": true
+        },
+        {
+          "name": "request-data-max-licensed-users",
+          "wire_name": "requestData.maxLicensedUsers",
+          "type": "int",
+          "location": "body",
+          "description": "Max licensed users"
+        }
+      ]
+    },
+    {
+      "name": "report_post-mis-classification",
+      "description": "Report that one or more entities were mis-classified (phishing, spam, clean, or marketing email). Required: requestData. Optional: scope. Returns the new ReportPostMisClassificationResponse.",
+      "method": "POST",
+      "path": "/v1.0/report/mis-classification",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        },
+        {
+          "name": "request-data-classification",
+          "wire_name": "requestData.classification",
+          "type": "string",
+          "location": "body",
+          "description": "The classification the message should have received.",
+          "required": true
+        },
+        {
+          "name": "request-data-confident",
+          "wire_name": "requestData.confident",
+          "type": "string",
+          "location": "body",
+          "description": "Reporter confidence, as accepted by the API."
+        },
+        {
+          "name": "request-data-entity-ids",
+          "wire_name": "requestData.entityIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Entity ids",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scopes_get",
+      "description": "Get Scopes. Optional: scopes, x-av-req-id. Returns array of string.",
+      "method": "GET",
+      "path": "/v1.0/scopes",
+      "params": [
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_create",
+      "description": "Create an exception for the named security engine. Required: sectool. Optional: scope. Returns the new SectoolExceptionsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/sectool-exceptions/{sectool}",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_delete",
+      "description": "Delete an exception for the named security engine. Required: sectool. Optional: scope. Returns the SectoolExceptionsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectool-exceptions/{sectool}",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_update",
+      "description": "Update an existing exception for the named security engine. Required: sectool. Optional: scope. Returns the updated SectoolExceptionsUpdateResponse.",
+      "method": "PUT",
+      "path": "/v1.0/sectool-exceptions/{sectool}",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_exceptions_create-sectool-entry",
+      "description": "Create a typed exception entry for the named security engine. Required: sectool. Optional: scope. Returns the new ExceptionsCreateSectoolEntryResponse.",
+      "method": "POST",
+      "path": "/v1.0/sectool-exceptions/{sectool}/exceptions",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_exceptions_delete-sectool-entries",
+      "description": "Delete multiple typed exception entries for the named security engine. Required: sectool. Optional: scope. Returns the ExceptionsDeleteSectoolEntriesResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectool-exceptions/{sectool}/exceptions",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_exceptions_get-sectool",
+      "description": "Get one exception by its match string — a file hash, text fragment, sender address, recipient address, URL, or domain. Required: sectool, exception_type, exceptions_str. Optional: scope. Returns the ExceptionsGetSectoolResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectool-exceptions/{sectool}/exceptions/{exception_type}/{exceptions_str}",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "exception_type",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. sender_email)",
+          "required": true
+        },
+        {
+          "name": "exceptions_str",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. partner-domain.com)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectool-exceptions_exceptions_list-sectool",
+      "description": "List every exception of the given type for the named security engine. Required: sectool, exception_type. Optional: scope. Returns the ExceptionsListSectoolResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectool-exceptions/{sectool}/exceptions/{exception_type}",
+      "params": [
+        {
+          "name": "sectool",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. anomaly)",
+          "required": true
+        },
+        {
+          "name": "exception_type",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. sender_email)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_create-anomaly-exception",
+      "description": "Create an Anomaly engine exception rule. Optional: scope. Returns the new SectoolsCreateAnomalyExceptionResponse.",
+      "method": "POST",
+      "path": "/v1.0/sectools/anomaly/exceptions",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_create-ctp-item",
+      "description": "Add an entry to a Click-Time Protection exception list. Optional: scope. Returns the new SectoolsCreateCtpItemResponse.",
+      "method": "POST",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_delete-anomaly-exceptions",
+      "description": "Delete Anomaly engine exception rules by rule ID. Optional: scope. Returns the SectoolsDeleteAnomalyExceptionsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectools/anomaly/exceptions",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_delete-ctp-item",
+      "description": "Delete one Click-Time Protection exception entry. Required: item_id. Optional: scope. Returns the SectoolsDeleteCtpItemResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items/{item_id}",
+      "params": [
+        {
+          "name": "item_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_delete-ctp-items",
+      "description": "Delete multiple Click-Time Protection exception entries by ID. Optional: scope. Returns the SectoolsDeleteCtpItemsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_delete-ctp-lists",
+      "description": "Delete every Click-Time Protection exception list. Optional: scope. Returns the SectoolsDeleteCtpListsResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/v1.0/sectools/click_time_protection/exceptions",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_get-ctp-item",
+      "description": "Get one Click-Time Protection exception entry by ID. Required: item_id. Optional: scope. Returns the SectoolsGetCtpItemResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items/{item_id}",
+      "params": [
+        {
+          "name": "item_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_get-ctp-list",
+      "description": "Get one Click-Time Protection exception list by ID. Required: list_id. Optional: scope. Returns the SectoolsGetCtpListResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/{list_id}",
+      "params": [
+        {
+          "name": "list_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_list-anomaly-exceptions",
+      "description": "List the Anomaly engine's exception rules. Optional: scope. Returns the SectoolsListAnomalyExceptionsResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectools/anomaly/exceptions",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_list-ctp-items",
+      "description": "List the individual entries across Click-Time Protection exception lists. Optional: scope. Returns the SectoolsListCtpItemsResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_list-ctp-lists",
+      "description": "List the Click-Time Protection exception lists. Optional: scope. Returns the SectoolsListCtpListsResponse.",
+      "method": "GET",
+      "path": "/v1.0/sectools/click_time_protection/exceptions",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_update-ctp-item",
+      "description": "Update one Click-Time Protection exception entry. Required: item_id. Optional: scope. Returns the updated SectoolsUpdateCtpItemResponse.",
+      "method": "PUT",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items/{item_id}",
+      "params": [
+        {
+          "name": "item_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 4421)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "sectools_update-ctp-items",
+      "description": "Update Click-Time Protection exception list entries. Optional: scope. Returns the updated SectoolsUpdateCtpItemsResponse.",
+      "method": "PUT",
+      "path": "/v1.0/sectools/click_time_protection/exceptions/items",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "soar_get-entity",
+      "description": "Retrieve the decoded email record for a SaaS entity, including headers and body. Required: entity_id. Optional: scope. Returns the SoarGetEntityResponse.",
+      "method": "GET",
+      "path": "/v1.0/soar/entity/{entity_id}",
+      "params": [
+        {
+          "name": "entity_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        }
+      ]
+    },
+    {
+      "name": "soar_post-notify",
+      "description": "Send an exposure notification about a specific entity to a list of email addresses. Required: requestData. Optional: scope. Returns the new SoarPostNotifyResponse.",
+      "method": "POST",
+      "path": "/v1.0/soar/notify",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant."
+        },
+        {
+          "name": "request-data-emails",
+          "wire_name": "requestData.emails",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Emails",
+          "required": true
+        },
+        {
+          "name": "request-data-entity-id",
+          "wire_name": "requestData.entityId",
+          "type": "string",
+          "location": "body",
+          "description": "SaaS entity ID the notification is about.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "task_get",
+      "description": "Get Task. Required: task_id. Optional: scope, scopes, x-av-req-id. Returns the TaskGetResponse.",
+      "method": "GET",
+      "path": "/v1.0/task/{task_id}",
+      "params": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. f05b74da3ee859eea41aeac40aaad3c2)",
+          "required": true
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "query",
+          "description": "Scope"
+        },
+        {
+          "name": "scopes",
+          "type": "string",
+          "location": "header",
+          "description": "Scopes"
+        },
+        {
+          "name": "x-av-req-id",
+          "type": "string",
+          "location": "header",
+          "description": "X av req id"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Shift triage",
+      "command": "triage",
+      "description": "See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume."
+    },
+    {
+      "name": "Campaign clustering",
+      "command": "campaign",
+      "description": "Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated."
+    },
+    {
+      "name": "Message timeline",
+      "command": "timeline",
+      "description": "Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear."
+    },
+    {
+      "name": "Exception lookup",
+      "command": "exceptions find",
+      "description": "Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and ten exception tables at once."
+    },
+    {
+      "name": "Exception audit",
+      "command": "exceptions audit",
+      "description": "Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window."
+    },
+    {
+      "name": "MSP fleet",
+      "command": "msp fleet",
+      "description": "One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume."
+    },
+    {
+      "name": "Remediate",
+      "command": "remediate",
+      "description": "Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome."
+    }
+  ]
+}
