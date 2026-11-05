@@ -12,17 +12,17 @@ faqs:
   - q: "Is the Rewst MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `REWST_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `REWST_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Rewst data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI and MCP server are local binaries. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Is Rewst's API REST or GraphQL?"
-    a: "GraphQL-only. This CLI maps the schema to typed commands and includes an api command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io."
+    a: "GraphQL-only. The rollups (orgs, health, failures, dormant, roi, drift, coverage) and doctor send real GraphQL queries, so you don't hand-write GraphQL for those questions. The typed entity commands in this build are generated as REST-shaped calls the gateway refuses. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io."
   - q: "Can it build or run workflows?"
-    a: "It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants."
+    a: "No. It reads workflow health, failures, time saved, drift and pack coverage; it does not author workflow graphs - use the Rewst designer for that. The typed create and update commands for triggers and workflows are refused by the gateway in this build, and the safety tiers still treat them as human-in-the-loop, since those changes affect automation running on live customer tenants."
   - q: "Does it work across all my client organizations?"
     a: "Yes. The rollups (health, failures, drift, coverage) are multi-org by design and take an --org or --parent id; coverage scans a parent org's managed sub-orgs."
 howto:
@@ -38,13 +38,13 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Rewst, Inc..
+> Not affiliated with, endorsed by, or sponsored by Rewst, Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
 Yes - there is an MCP server for Rewst. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Rewst to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI "is automation healthy for this client?" or "which workflows failed overnight?" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill turns every entity into a typed command and adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.
+Ask your AI "is automation healthy for this client?" or "which workflows failed overnight?" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -86,7 +86,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/rews
 
 ## What makes this one different
 
-Most Rewst integrations just forward a GraphQL query and hand back raw nodes. This skill turns the whole schema into typed commands, syncs the syncable entities into a local SQLite mirror for offline search, and adds cross-org rollups - health, failures, ROI, drift, coverage - queried live across organizations, that Rewst's gateway has no single endpoint for. Your AI sees the answer, not a page of GraphQL JSON.
+Most Rewst integrations just forward a GraphQL query and hand back raw nodes. This skill adds cross-org rollups - health, failures, ROI, dormant workflows, drift, coverage and the org directory - that send real GraphQL queries live across organizations, which Rewst's gateway has no single endpoint for. A refused, errored or incomplete Rewst answer is a failure, never empty data. In this build the typed entity commands are generated as REST-shaped calls the gateway refuses; the rollups and doctor are what reach Rewst. Your AI sees the answer, not a page of GraphQL JSON.
 
 Rewst's web app is built to design and run automation one tenant at a time. This complements it by answering the cross-tenant operational questions - which clients are failing, where automation went dormant, which orgs drift - from the terminal or your agent, without replacing the workflow designer.
 
@@ -135,7 +135,7 @@ After install, authenticate once with your Rewst credentials, then verify with `
 | Admin and identity | organizations create / update, users create / update, user-invites create, org-support-accesses | Operator-only, not for agents |
 | Credential | auth set-token (saves your API token to the local config) | Human-in-the-loop only |
 
-The skill is read-first: the six cross-org rollups (health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/rewst/governance.md).
+The skill is read-first: the seven GraphQL rollups (orgs, health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/rewst/governance.md).
 
 ## Frequently asked questions
 
@@ -149,7 +149,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -157,7 +157,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Rewst data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI and MCP server are local binaries. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 
 ### What does it cost?
 
@@ -165,11 +165,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Is Rewst's API REST or GraphQL?
 
-GraphQL-only. This CLI maps the schema to typed commands and includes an api command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io.
+GraphQL-only. The rollups (orgs, health, failures, dormant, roi, drift, coverage) and doctor send real GraphQL queries, so you don't hand-write GraphQL for those questions. The typed entity commands in this build are generated as REST-shaped calls the gateway refuses. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io.
 
 ### Can it build or run workflows?
 
-It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants.
+No. It reads workflow health, failures, time saved, drift and pack coverage; it does not author workflow graphs - use the Rewst designer for that. The typed create and update commands for triggers and workflows are refused by the gateway in this build, and the safety tiers still treat them as human-in-the-loop, since those changes affect automation running on live customer tenants.
 
 ### Does it work across all my client organizations?
 

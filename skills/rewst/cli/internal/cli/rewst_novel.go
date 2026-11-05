@@ -11,10 +11,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -77,6 +79,150 @@ func rewstGraphQL(ctx context.Context, c *client.Client, query string, vars map[
 		return nil, fmt.Errorf("rewst GraphQL error (set REWST_API_TOKEN for the target org): %s", strings.Join(msgs, "; "))
 	}
 	return env.Data, nil
+}
+
+// decodeGraphQLPayload decodes a GraphQL data payload into out, and fails
+// when the payload is empty or null, does not decode into out, lacks any of
+// the named top-level fields (absent or null), or carries a null anywhere
+// out reads a value (rejectNullMembers): a novel must never read missing input
+// as zero (rewst handfix novel-missing-input-is-an-error; the SDL declares
+// workflowExecutionStats, workflowExecutions elements and many row fields
+// nullable).
+func decodeGraphQLPayload(data json.RawMessage, out any, fields ...string) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return fmt.Errorf("the Rewst GraphQL answer carried no data")
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &top); err != nil {
+		return fmt.Errorf("decoding the Rewst GraphQL answer: %w", err)
+	}
+	for _, f := range fields {
+		raw, ok := top[f]
+		if !ok || string(bytes.TrimSpace(raw)) == "null" {
+			return fmt.Errorf("the Rewst GraphQL answer carried no %s (missing data is never read as zero)", f)
+		}
+	}
+	return decodeRow(trimmed, out)
+}
+
+// decodeRow decodes raw into out after rejectNullMembers: the one decode every
+// novel answer, row and list element goes through.
+func decodeRow(raw json.RawMessage, out any) error {
+	if err := rejectNullMembers(raw, reflect.TypeOf(out), ""); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return fmt.Errorf("decoding the Rewst GraphQL answer: %w", err)
+	}
+	return nil
+}
+
+var rawMessageType = reflect.TypeOf(json.RawMessage(nil))
+
+// rejectNullMembers walks raw alongside the Go type it decodes into and
+// reports a null wherever that type reads a value: a struct field, list
+// element or map value whose Go type is not a pointer (rewst handfix
+// novel-missing-input-is-an-error; Codex review r1 and r2 4.34.2: a null list
+// element, then a null FIELD inside a row such as
+// TimeSavedGroupByWorkflow.secondsSaved or Organization.id, decoded as zero).
+// A pointer is the one way a novel declares "this member may be null" and
+// then shows it as null, never as a zero value. Members absent from the
+// answer are not checked (a query asks only for what it reads), and a shape
+// that does not match is left to json.Unmarshal to refuse.
+func rejectNullMembers(raw json.RawMessage, t reflect.Type, path string) error {
+	raw = bytes.TrimSpace(raw)
+	null := string(raw) == "null"
+	for t.Kind() == reflect.Pointer {
+		if null {
+			return nil
+		}
+		t = t.Elem()
+	}
+	if null {
+		if path == "" {
+			path = "the answer"
+		}
+		return fmt.Errorf("the Rewst GraphQL answer carried a null %s (missing data is never read as zero)", path)
+	}
+	join := func(k string) string {
+		if path == "" {
+			return k
+		}
+		return path + "." + k
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(raw, &obj) != nil {
+			return nil
+		}
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if !f.IsExported() {
+				continue
+			}
+			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+			if name == "-" {
+				continue
+			}
+			if name == "" {
+				name = f.Name
+			}
+			for k, v := range obj {
+				if strings.EqualFold(k, name) {
+					if err := rejectNullMembers(v, f.Type, join(k)); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if t == rawMessageType {
+			return nil
+		}
+		var items []json.RawMessage
+		if json.Unmarshal(raw, &items) != nil {
+			return nil
+		}
+		for i, it := range items {
+			if err := rejectNullMembers(it, t.Elem(), fmt.Sprintf("%s[%d]", path, i)); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(raw, &obj) != nil {
+			return nil
+		}
+		for k, v := range obj {
+			if err := rejectNullMembers(v, t.Elem(), join(k)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// orText is s, or fallback when s is null or empty (human output only).
+func orText(s *string, fallback string) string {
+	if s == nil || *s == "" {
+		return fallback
+	}
+	return *s
+}
+
+// packKey is a pack's ref, else its name; a pack with neither is missing
+// input (both are nullable in the SDL, a pack row without either cannot be
+// counted or compared).
+func packKey(name, ref *string) (string, error) {
+	if ref != nil && *ref != "" {
+		return *ref, nil
+	}
+	if name != nil && *name != "" {
+		return *name, nil
+	}
+	return "", fmt.Errorf("the Rewst GraphQL answer carried a pack with no name and no ref (missing data is never read as zero)")
 }
 
 // sinceTimestamp converts a loose duration ("24h", "30d", "1w") into an
@@ -184,13 +330,13 @@ func newHealthCmd(flags *rootFlags) *cobra.Command {
 }`
 			data, err := rewstGraphQL(cmd.Context(), c, q, map[string]any{"orgId": org, "since": cutoff})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var payload struct {
 				Stats wfExecStats `json:"workflowExecutionStats"`
 			}
-			if len(data) > 0 {
-				_ = json.Unmarshal(data, &payload)
+			if err := decodeGraphQLPayload(data, &payload, "workflowExecutionStats"); err != nil {
+				return err
 			}
 			s := payload.Stats
 			total := s.Succeeded + s.Failed + s.Running + s.Pending + s.Delayed + s.Paused
@@ -224,17 +370,17 @@ func newHealthCmd(flags *rootFlags) *cobra.Command {
 // ---- roi ----
 
 type timeSavedRow struct {
-	WorkflowID           string `json:"workflowId"`
-	WorkflowName         string `json:"workflowName"`
-	SecondsSaved         int    `json:"secondsSaved"`
-	TotalExecutions      int    `json:"totalExecutions"`
-	SuccessfulExecutions int    `json:"successfulExecutions"`
-	FailedExecutions     int    `json:"failedExecutions"`
+	WorkflowID           string  `json:"workflowId"`
+	WorkflowName         *string `json:"workflowName"`
+	SecondsSaved         int     `json:"secondsSaved"`
+	TotalExecutions      int     `json:"totalExecutions"`
+	SuccessfulExecutions int     `json:"successfulExecutions"`
+	FailedExecutions     int     `json:"failedExecutions"`
 }
 
 type roiTop struct {
 	WorkflowID   string  `json:"workflow_id"`
-	WorkflowName string  `json:"workflow_name"`
+	WorkflowName *string `json:"workflow_name"`
 	HoursSaved   float64 `json:"hours_saved"`
 	Executions   int     `json:"executions"`
 }
@@ -286,13 +432,13 @@ func newRoiCmd(flags *rootFlags) *cobra.Command {
 }`
 			data, err := rewstGraphQL(cmd.Context(), c, q, map[string]any{"orgId": org, "updatedAt": cutoff})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var payload struct {
 				Rows []timeSavedRow `json:"timeSavedGroupByWorkflow"`
 			}
-			if len(data) > 0 {
-				_ = json.Unmarshal(data, &payload)
+			if err := decodeGraphQLPayload(data, &payload, "timeSavedGroupByWorkflow"); err != nil {
+				return err
 			}
 			rows := payload.Rows
 			sort.SliceStable(rows, func(i, j int) bool { return rows[i].SecondsSaved > rows[j].SecondsSaved })
@@ -324,11 +470,7 @@ func newRoiCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "Org %s — time saved over %s: %.1f hours (%.1f days) across %d workflows\n",
 					org, since, view.HoursSaved, view.DaysSaved, view.WorkflowCount)
 				for _, t := range tops {
-					name := t.WorkflowName
-					if name == "" {
-						name = t.WorkflowID
-					}
-					fmt.Fprintf(w, "  %-40s %.1fh (%d runs)\n", name, t.HoursSaved, t.Executions)
+					fmt.Fprintf(w, "  %-40s %.1fh (%d runs)\n", orText(t.WorkflowName, t.WorkflowID), t.HoursSaved, t.Executions)
 				}
 			})
 		},
@@ -348,19 +490,19 @@ type wfExecution struct {
 	NumSuccessfulTasks       int    `json:"numSuccessfulTasks"`
 	NumAwaitingResponseTasks int    `json:"numAwaitingResponseTasks"`
 	Workflow                 struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID   string  `json:"id"`
+		Name *string `json:"name"`
 	} `json:"workflow"`
 }
 
 // ---- failures ----
 
 type failureRow struct {
-	ExecutionID  string `json:"execution_id"`
-	WorkflowID   string `json:"workflow_id"`
-	WorkflowName string `json:"workflow_name"`
-	Status       string `json:"status"`
-	CreatedAt    string `json:"created_at"`
+	ExecutionID  string  `json:"execution_id"`
+	WorkflowID   string  `json:"workflow_id"`
+	WorkflowName *string `json:"workflow_name"`
+	Status       string  `json:"status"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 type failuresView struct {
@@ -412,13 +554,13 @@ func newFailuresCmd(flags *rootFlags) *cobra.Command {
 }`
 			data, err := rewstGraphQL(cmd.Context(), c, q, map[string]any{"orgId": org, "limit": maxScan})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var payload struct {
 				Execs []wfExecution `json:"workflowExecutions"`
 			}
-			if len(data) > 0 {
-				_ = json.Unmarshal(data, &payload)
+			if err := decodeGraphQLPayload(data, &payload, "workflowExecutions"); err != nil {
+				return err
 			}
 			matches := make([]failureRow, 0)
 			scanned := 0
@@ -451,11 +593,7 @@ func newFailuresCmd(flags *rootFlags) *cobra.Command {
 			return emitNovel(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "Org %s — %d failed execution(s) in last %s (scanned %d)\n", org, len(matches), since, scanned)
 				for _, m := range matches {
-					name := m.WorkflowName
-					if name == "" {
-						name = m.WorkflowID
-					}
-					fmt.Fprintf(w, "  %-12s %-40s %s\n", m.Status, name, m.CreatedAt)
+					fmt.Fprintf(w, "  %-12s %-40s %s\n", m.Status, orText(m.WorkflowName, m.WorkflowID), m.CreatedAt)
 				}
 				if view.Note != "" {
 					fmt.Fprintf(w, "  note: %s\n", view.Note)
@@ -473,17 +611,17 @@ func newFailuresCmd(flags *rootFlags) *cobra.Command {
 // ---- dormant ----
 
 type workflowRow struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	UpdatedAt         string `json:"updatedAt"`
-	HumanSecondsSaved int    `json:"humanSecondsSaved"`
+	ID                string  `json:"id"`
+	Name              *string `json:"name"`
+	UpdatedAt         *string `json:"updatedAt"`
+	HumanSecondsSaved int     `json:"humanSecondsSaved"`
 }
 
 type dormantEntry struct {
-	WorkflowID        string `json:"workflow_id"`
-	WorkflowName      string `json:"workflow_name"`
-	HumanSecondsSaved int    `json:"human_seconds_saved"`
-	UpdatedAt         string `json:"updated_at"`
+	WorkflowID        string  `json:"workflow_id"`
+	WorkflowName      *string `json:"workflow_name"`
+	HumanSecondsSaved int     `json:"human_seconds_saved"`
+	UpdatedAt         *string `json:"updated_at"`
 }
 
 type dormantView struct {
@@ -492,7 +630,10 @@ type dormantView struct {
 	WorkflowCount     int            `json:"workflow_count"`
 	ScannedExecutions int            `json:"scanned_executions"`
 	Dormant           []dormantEntry `json:"dormant"`
-	Note              string         `json:"note,omitempty"`
+	// WorkflowsCapped is true when the workflow list returned --limit rows
+	// (rewst handfix novel-scan-caps-said).
+	WorkflowsCapped bool   `json:"workflows_capped"`
+	Note            string `json:"note,omitempty"`
 }
 
 func newDormantCmd(flags *rootFlags) *cobra.Command {
@@ -529,13 +670,13 @@ func newDormantCmd(flags *rootFlags) *cobra.Command {
 }`
 			wfData, err := rewstGraphQL(cmd.Context(), c, qWorkflows, map[string]any{"orgId": org, "limit": limit})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var wfPayload struct {
 				Workflows []workflowRow `json:"workflows"`
 			}
-			if len(wfData) > 0 {
-				_ = json.Unmarshal(wfData, &wfPayload)
+			if err := decodeGraphQLPayload(wfData, &wfPayload, "workflows"); err != nil {
+				return err
 			}
 			const qExecs = `query RecentExecs($orgId: ID!, $limit: Int) {
   workflowExecutions(where: {orgId: $orgId}, limit: $limit, order: [["createdAt", "DESC"]]) {
@@ -544,13 +685,13 @@ func newDormantCmd(flags *rootFlags) *cobra.Command {
 }`
 			exData, err := rewstGraphQL(cmd.Context(), c, qExecs, map[string]any{"orgId": org, "limit": maxScan})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var exPayload struct {
 				Execs []wfExecution `json:"workflowExecutions"`
 			}
-			if len(exData) > 0 {
-				_ = json.Unmarshal(exData, &exPayload)
+			if err := decodeGraphQLPayload(exData, &exPayload, "workflowExecutions"); err != nil {
+				return err
 			}
 			active := make(map[string]struct{})
 			scanned := 0
@@ -586,15 +727,20 @@ func newDormantCmd(flags *rootFlags) *cobra.Command {
 			if scanned >= maxScan {
 				view.Note = fmt.Sprintf("execution scan hit the --max-scan cap of %d; a very active org may misreport recently-run workflows as dormant. Raise --max-scan to widen.", maxScan)
 			}
+			if limit > 0 && len(wfPayload.Workflows) >= limit {
+				view.WorkflowsCapped = true
+				capNote := fmt.Sprintf("the workflow list returned the --limit of %d; workflows past it were not examined. Raise --limit to widen.", limit)
+				if view.Note != "" {
+					view.Note += " " + capNote
+				} else {
+					view.Note = capNote
+				}
+			}
 			return emitNovel(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "Org %s — %d dormant workflow(s) of %d (no run in %dd, scanned %d executions)\n",
 					org, len(dormant), view.WorkflowCount, days, scanned)
 				for _, dEntry := range dormant {
-					name := dEntry.WorkflowName
-					if name == "" {
-						name = dEntry.WorkflowID
-					}
-					fmt.Fprintf(w, "  %s\n", name)
+					fmt.Fprintf(w, "  %s\n", orText(dEntry.WorkflowName, dEntry.WorkflowID))
 				}
 				if view.Note != "" {
 					fmt.Fprintf(w, "  note: %s\n", view.Note)
@@ -623,55 +769,69 @@ type driftView struct {
 	FetchErrors  []string `json:"fetch_errors,omitempty"`
 }
 
-func fetchVarNames(ctx context.Context, c *client.Client, org string) (map[string]struct{}, error) {
-	const q = `query OrgVars($orgId: ID!) { orgVariables(where: {orgId: $orgId}, maskSecrets: true) { name } }`
-	data, err := rewstGraphQL(ctx, c, q, map[string]any{"orgId": org})
-	if err != nil {
-		return nil, err
-	}
-	var payload struct {
-		Vars []struct {
-			Name string `json:"name"`
-		} `json:"orgVariables"`
-	}
-	if len(data) > 0 {
-		_ = json.Unmarshal(data, &payload)
-	}
-	set := make(map[string]struct{}, len(payload.Vars))
-	for _, v := range payload.Vars {
-		if v.Name != "" {
-			set[v.Name] = struct{}{}
+// driftPageSize is the page drift asks for; packsForOrg answers at most its
+// declared default (limit: Int = 100) when no limit is sent, so both lists are
+// read page by page until a short page. driftMaxPages bounds the walk: a list
+// still full at the bound is an error, never a truncated comparison.
+const (
+	driftPageSize = 100
+	driftMaxPages = 100
+)
+
+// fetchPagedNames reads every page of one org-scoped list query and returns
+// the set of keys key extracts from its items (empty keys skipped). A missing
+// or undecodable page is an error (decodeGraphQLPayload).
+func fetchPagedNames(ctx context.Context, c *client.Client, query, field, org string, key func(json.RawMessage) (string, error)) (map[string]struct{}, error) {
+	set := make(map[string]struct{})
+	for page := 0; page < driftMaxPages; page++ {
+		data, err := rewstGraphQL(ctx, c, query, map[string]any{"orgId": org, "limit": driftPageSize, "offset": page * driftPageSize})
+		if err != nil {
+			return nil, err
+		}
+		var payload map[string][]json.RawMessage
+		if err := decodeGraphQLPayload(data, &payload, field); err != nil {
+			return nil, err
+		}
+		items := payload[field]
+		for _, it := range items {
+			k, err := key(it)
+			if err != nil {
+				return nil, fmt.Errorf("decoding a %s item: %w", field, err)
+			}
+			if k != "" {
+				set[k] = struct{}{}
+			}
+		}
+		if len(items) < driftPageSize {
+			return set, nil
 		}
 	}
-	return set, nil
+	return nil, fmt.Errorf("%s for %s is still full after %d pages of %d; refusing a partial comparison", field, org, driftMaxPages, driftPageSize)
+}
+
+func fetchVarNames(ctx context.Context, c *client.Client, org string) (map[string]struct{}, error) {
+	const q = `query OrgVars($orgId: ID!, $limit: Int, $offset: Int) { orgVariables(where: {orgId: $orgId}, maskSecrets: true, limit: $limit, offset: $offset) { name } }`
+	return fetchPagedNames(ctx, c, q, "orgVariables", org, func(raw json.RawMessage) (string, error) {
+		var v struct {
+			Name string `json:"name"`
+		}
+		err := decodeRow(raw, &v)
+		return v.Name, err
+	})
 }
 
 func fetchPackRefs(ctx context.Context, c *client.Client, org string) (map[string]struct{}, error) {
-	const q = `query OrgPacks($orgId: ID!) { packsForOrg(orgId: $orgId) { name ref } }`
-	data, err := rewstGraphQL(ctx, c, q, map[string]any{"orgId": org})
-	if err != nil {
-		return nil, err
-	}
-	var payload struct {
-		Packs []struct {
-			Name string `json:"name"`
-			Ref  string `json:"ref"`
-		} `json:"packsForOrg"`
-	}
-	if len(data) > 0 {
-		_ = json.Unmarshal(data, &payload)
-	}
-	set := make(map[string]struct{}, len(payload.Packs))
-	for _, p := range payload.Packs {
-		key := p.Ref
-		if key == "" {
-			key = p.Name
+	const q = `query OrgPacks($orgId: ID!, $limit: Int, $offset: Int) { packsForOrg(orgId: $orgId, limit: $limit, offset: $offset) { name ref } }`
+	return fetchPagedNames(ctx, c, q, "packsForOrg", org, func(raw json.RawMessage) (string, error) {
+		var p struct {
+			Name *string `json:"name"`
+			Ref  *string `json:"ref"`
 		}
-		if key != "" {
-			set[key] = struct{}{}
+		if err := decodeRow(raw, &p); err != nil {
+			return "", err
 		}
-	}
-	return set, nil
+		return packKey(p.Name, p.Ref)
+	})
 }
 
 func diffKeys(a, b map[string]struct{}) (onlyA, onlyB []string, shared int) {
@@ -740,9 +900,11 @@ func newDriftCmd(flags *rootFlags) *cobra.Command {
 				fetchErrs = append(fetchErrs, fmt.Sprintf("packs(%s): %v", against, err))
 				packsAgn = map[string]struct{}{}
 			}
-			// If every fetch failed (e.g. no credential), surface as an error.
-			if len(fetchErrs) == 4 {
-				return classifyAPIError(fmt.Errorf("%s", strings.Join(fetchErrs, "; ")), flags)
+			// Any failed fetch is an error (rewst handfix novel-missing-input-is-an-error):
+			// a side that could not be read would otherwise show every key of
+			// the other side as "missing there".
+			if len(fetchErrs) > 0 {
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("%s", strings.Join(fetchErrs, "; ")), flags)
 			}
 			vOnlyOrg, vOnlyAgn, vShared := diffKeys(varsOrg, varsAgn)
 			pOnlyOrg, pOnlyAgn, pShared := diffKeys(packsOrg, packsAgn)
@@ -790,6 +952,10 @@ type coverageView struct {
 	OrgsWith    []string       `json:"orgs_with,omitempty"`
 	OrgsMissing []string       `json:"orgs_missing,omitempty"`
 	Coverage    []packCoverage `json:"coverage,omitempty"`
+	// ScanCapped is true when the scan returned --limit orgs: there may be
+	// more managed orgs than were counted (rewst handfix novel-scan-caps-said).
+	ScanCapped bool   `json:"scan_capped"`
+	Note       string `json:"note,omitempty"`
 }
 
 func newCoverageCmd(flags *rootFlags) *cobra.Command {
@@ -824,22 +990,33 @@ func newCoverageCmd(flags *rootFlags) *cobra.Command {
 }`
 			data, err := rewstGraphQL(cmd.Context(), c, q, map[string]any{"parentOrgId": parent, "limit": limit})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var payload struct {
 				Orgs []struct {
 					ID             string `json:"id"`
 					Name           string `json:"name"`
 					InstalledPacks []struct {
-						Name string `json:"name"`
-						Ref  string `json:"ref"`
+						Name *string `json:"name"`
+						Ref  *string `json:"ref"`
 					} `json:"installedPacks"`
 				} `json:"managedAndSubOrganizations"`
 			}
-			if len(data) > 0 {
-				_ = json.Unmarshal(data, &payload)
+			if err := decodeGraphQLPayload(data, &payload, "managedAndSubOrganizations"); err != nil {
+				return err
+			}
+			for _, o := range payload.Orgs {
+				for _, p := range o.InstalledPacks {
+					if _, err := packKey(p.Name, p.Ref); err != nil {
+						return err
+					}
+				}
 			}
 			view := coverageView{Parent: parent, ScannedOrgs: len(payload.Orgs)}
+			if limit > 0 && len(payload.Orgs) >= limit {
+				view.ScanCapped = true
+				view.Note = fmt.Sprintf("the scan returned the --limit of %d managed orgs; there may be more, so counts cover only the orgs scanned. Raise --limit to widen.", limit)
+			}
 			if strings.TrimSpace(packFilter) != "" {
 				needle := strings.ToLower(packFilter)
 				view.PackFilter = packFilter
@@ -852,7 +1029,7 @@ func newCoverageCmd(flags *rootFlags) *cobra.Command {
 					}
 					has := false
 					for _, p := range o.InstalledPacks {
-						if strings.Contains(strings.ToLower(p.Name), needle) || strings.Contains(strings.ToLower(p.Ref), needle) {
+						if strings.Contains(strings.ToLower(orText(p.Name, "")), needle) || strings.Contains(strings.ToLower(orText(p.Ref, "")), needle) {
 							has = true
 							break
 						}
@@ -870,13 +1047,7 @@ func newCoverageCmd(flags *rootFlags) *cobra.Command {
 				for _, o := range payload.Orgs {
 					seen := make(map[string]struct{})
 					for _, p := range o.InstalledPacks {
-						key := p.Ref
-						if key == "" {
-							key = p.Name
-						}
-						if key == "" {
-							continue
-						}
+						key, _ := packKey(p.Name, p.Ref) // checked after the decode
 						if _, dup := seen[key]; dup {
 							continue
 						}
@@ -892,6 +1063,9 @@ func newCoverageCmd(flags *rootFlags) *cobra.Command {
 				view.Coverage = cov
 			}
 			return emitNovel(cmd, flags, view, func(w io.Writer) {
+				if view.Note != "" {
+					defer fmt.Fprintf(w, "  note: %s\n", view.Note)
+				}
 				if view.PackFilter != "" {
 					fmt.Fprintf(w, "Pack %q across %d managed org(s): %d have it, %d missing\n",
 						view.PackFilter, view.ScannedOrgs, len(view.OrgsWith), len(view.OrgsMissing))

@@ -40,6 +40,36 @@
           "description": "Rewst API token from an API client you create in the console (sent as a bearer token).",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "REWST_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "REWST_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "REWST_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the local store is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "REWST_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Rewst requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

@@ -1,7 +1,7 @@
 {
   "api_name": "rewst",
   "base_url": "https://api.rewst.io",
-  "description": "Generated from GraphQL schema",
+  "description": "Every Rewst entity as a typed command, plus fleet health, ROI, drift and coverage rollups",
   "mcp_ready": "full",
   "http_transport": "standard",
   "mcp": {
@@ -5603,6 +5603,43 @@
           "location": "body"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet execution health",
+      "command": "health",
+      "description": "One-call workflow execution health for an org: succeeded / failed / running / pending counts plus time saved, with a clear unhealthy verdict when failures are present."
+    },
+    {
+      "name": "Failure triage",
+      "command": "failures",
+      "description": "Recent failed workflow executions for an org, newest first, with workflow id, status, task counts, and age — the triage queue the API has no single endpoint for."
+    },
+    {
+      "name": "Automation ROI rollup",
+      "command": "roi",
+      "description": "Aggregates Rewst's humanSecondsSaved metric across an org's workflows into total hours/days saved and the top time-saving automations."
+    },
+    {
+      "name": "Dormant automation detector",
+      "command": "dormant",
+      "description": "Workflows that have not executed in N days — dead or orphaned automation that is still installed but no longer running."
+    },
+    {
+      "name": "Cross-org config drift",
+      "command": "drift",
+      "description": "Compares org variables and installed packs between two organizations and reports what one has that the other is missing."
+    },
+    {
+      "name": "Pack coverage matrix",
+      "command": "coverage",
+      "description": "Across a parent org's managed sub-orgs, shows which integration packs are installed where and flags orgs missing a pack — bounded by a scan cap."
+    },
+    {
+      "name": "Org directory",
+      "command": "orgs",
+      "description": "The token's own organization and every organization it manages (id, name, managing org, enabled), sorted by name: the ids health, failures, roi, dormant, drift and coverage take."
     }
   ]
 }

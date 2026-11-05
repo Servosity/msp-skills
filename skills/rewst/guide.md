@@ -1,14 +1,107 @@
 # Rewst CLI
 
-**Every Rewst entity as a typed command, plus fleet health, ROI, drift, and coverage rollups the GraphQL API can't answer in a single call.**
+**Every Rewst entity as a typed command, plus fleet health, ROI, drift and coverage rollups**
 
-Rewst's only surface is a GraphQL gateway with no first-party CLI and no local state. This CLI mirrors organizations, workflows, executions, variables, packs, triggers, forms, and the rest as typed commands with --json/--select/--agent output, an `api` command for full schema coverage, and offline SQLite sync. On top of that it adds multi-org rollups  -  fleet execution health, failure triage, automation ROI, dormant-workflow detection, cross-org config drift, and pack coverage  -  that an MSP operator otherwise has to assemble by clicking through the web app one client at a time.
+Rewst's only surface is a GraphQL gateway with no first-party CLI and no local state. This CLI mirrors organizations, workflows, executions, variables, packs, triggers, forms, and the rest as typed commands with --json/--select/--agent output, the `api` command that lists every GraphQL interface and method, and offline SQLite sync. On top of that it adds multi-org rollups  -  fleet execution health, failure triage, automation ROI, dormant-workflow detection, cross-org config drift, and pack coverage  -  that an MSP operator otherwise has to assemble by clicking through the web app one client at a time.
 
 ## Install
 
-For the short install path see [README.md](./README.md). For wiring the MCP
-server into every agent (Claude Desktop, ChatGPT, Codex, and more), see
-[mcp-install.md](./mcp-install.md). This file is the command reference.
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `rewst-cli` and `rewst-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
+
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rewst/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rewst/install.ps1 | iex
+   ```
+3. Verify: `rewst-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=rewst). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/rewst --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/rewst --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `rewst-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the rewst skill from https://github.com/Servosity/msp-skills/tree/main/skills/rewst. The skill defines how its required CLI (`rewst-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=rewst).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `REWST_API_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rewst/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/rewst/install.ps1 | iex            # Windows
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "rewst": {
+      "command": "rewst-mcp",
+      "env": {
+        "REWST_API_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+### Remote MCP over HTTP
+
+`rewst-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `REWST_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `REWST_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export REWST_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+rewst-mcp --transport http
+```
+
+Set `REWST_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -20,8 +113,8 @@ Rewst authenticates with a per-organization API client token sent as `Authorizat
 # Confirm the CLI is wired up and see whether REWST_API_TOKEN is set before making real calls.
 rewst-cli doctor --dry-run
 
-# List recent executions for the org to confirm the token and org id resolve.
-rewst-cli workflow-executions --where '{"orgId":"YOUR_ORG_ID"}' --limit 5 --agent
+# List the org ids this token can see (the --org values every rollup takes).
+rewst-cli orgs --agent
 
 # Get the execution health verdict for the last day.
 rewst-cli health --org YOUR_ORG_ID --since 24h --agent
@@ -35,8 +128,6 @@ rewst-cli roi --org YOUR_ORG_ID --since 30d --agent
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Fleet monitoring that compounds
 - **`health`**  -  One-call workflow execution health for an org: succeeded / failed / running / pending counts plus time saved, with a clear unhealthy verdict when failures are present.
@@ -59,6 +150,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   rewst-cli dormant --org 11111111-1111-1111-1111-111111111111 --days 30 --agent
+  ```
+- **`orgs`**  -  The token's own organization and every organization it manages (id, name, managing org, enabled), sorted by name: the ids health, failures, roi, dormant, drift and coverage take.
+
+  _Run it first: every other rollup needs an --org or --parent id, and without it an operator copies ids out of the web console one client at a time._
+
+  ```bash
+  rewst-cli orgs --agent
   ```
 
 ### ROI and reporting
@@ -88,7 +186,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Morning fleet check
 
 ```bash
@@ -105,13 +202,13 @@ rewst-cli failures --org YOUR_ORG_ID --since 12h --limit 25 --agent
 
 List just the failed executions, newest first, to investigate what broke.
 
-### Narrow a verbose execution list
+### Find the org ids this token can see
 
 ```bash
-rewst-cli workflow-executions --where '{"orgId":"YOUR_ORG_ID"}' --limit 50 --agent --select data.id,data.status,data.createdAt,data.numSuccessfulTasks
+rewst-cli orgs --agent --select managed_orgs.id,managed_orgs.name
 ```
 
-Pull only the fields you need from a deeply nested execution payload so an agent isn't flooded with the full object.
+One GraphQL read of the token's organization and every org it manages; feed the ids to --org (health, failures, roi, dormant, drift) or --parent (coverage).
 
 ### Report automation ROI
 
@@ -132,6 +229,81 @@ Diff org variables and installed packs to explain why automation works in one te
 ## Usage
 
 Run `rewst-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `REWST_CONFIG_DIR`, `REWST_DATA_DIR`, `REWST_STATE_DIR`, or `REWST_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `REWST_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export REWST_HOME=/srv/rewst
+rewst-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:REWST_HOME = "C:\ProgramData\rewst"
+rewst-cli doctor
+```
+
+Under `REWST_HOME=/srv/rewst`, the four dirs resolve to `/srv/rewst/config`, `/srv/rewst/data`, `/srv/rewst/state`, and `/srv/rewst/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:REWST_HOME = "C:\srv\rewst"
+rewst-cli doctor
+```
+
+Under `$env:REWST_HOME = "C:\srv\rewst"`, the four dirs resolve to `C:\srv\rewst\config`, `C:\srv\rewst\data`, `C:\srv\rewst\state`, and `C:\srv\rewst\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "rewst": {
+      "command": "rewst-mcp",
+      "env": {
+        "REWST_HOME": "/srv/rewst"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `REWST_DATA_DIR` overrides an explicit `--home` for that kind. Use `REWST_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `REWST_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `rewst-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `rewst-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `rewst-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `REWST_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `REWST_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -793,6 +965,61 @@ Manage workflows
 - **`rewst-cli workflows update`** - Update a workflow
 
 
+### coverage
+
+
+- **`rewst-cli coverage`** - Across a parent org's managed sub-orgs, shows which integration packs are installed where and flags orgs missing a pack  -  bounded by a scan cap.
+
+
+### dormant
+
+
+- **`rewst-cli dormant`** - Workflows that have not executed in N days  -  dead or orphaned automation that is still installed but no longer running.
+
+
+### drift
+
+
+- **`rewst-cli drift`** - Compares org variables and installed packs between two organizations and reports what one has that the other is missing.
+
+
+### failures
+
+
+- **`rewst-cli failures`** - Recent failed workflow executions for an org, newest first, with workflow id, status, task counts, and age  -  the triage queue the API has no single endpoint for.
+
+
+### health
+
+
+- **`rewst-cli health`** - One-call workflow execution health for an org: succeeded / failed / running / pending counts plus time saved, with a clear unhealthy verdict when failures are present.
+
+
+### roi
+
+
+- **`rewst-cli roi`** - Aggregates Rewst's humanSecondsSaved metric across an org's workflows into total hours/days saved and the top time-saving automations.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`rewst-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`rewst-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`rewst-cli learnings list`** - Inspect taught rows
+- **`rewst-cli learnings forget <query>`** - Undo a teach
+- **`rewst-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`rewst-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`rewst-cli teach-pattern`** - Install a query/resource template up front
+- **`rewst-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `REWST_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `rewst-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -801,9 +1028,8 @@ rewst-cli action-options get
 
 # JSON for scripting and agents
 rewst-cli action-options get --json
-
 # Filter to specific fields
-rewst-cli action-options get --json --select id,name,status
+rewst-cli action-options get --json --select actions,id,optionLabel
 
 # Dry run  -  show the request without sending
 rewst-cli action-options get --dry-run
@@ -812,21 +1038,23 @@ rewst-cli action-options get --dry-run
 rewst-cli action-options get --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -838,9 +1066,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/rewst-cli/config.toml`
+Run `rewst-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/rewst-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\rewst-cli\config.toml` on Windows; `--home`, `REWST_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `REWST_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `REWST_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -852,6 +1082,16 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `rewst-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+## Credential safety
+
+- The API token (`Authorization: Bearer <REWST_API_TOKEN>`) and every API request go only to the scheme, host and port of the configured base URL (`https://api.rewst.io`, or `REWST_BASE_URL` for the EU and AU regions; every operation is `POST /graphql` there). A redirect to any other host is refused, so the token never reaches it.
+- Any output, log, file, local-store row or MCP result that would repeat `REWST_API_TOKEN`, the stored token, or a credential a response carries (an API client's `auth0ClientSecret` and `auth0ClientId`, a third-party login token, an integration secret inside a pack config) is replaced by `[credkit: withheld from <where>: it carried a credential this program holds]`, in plain text and in the encodings the shared credential kit decodes. Responses are never cached on disk.
+- A `--stdin` body is held whole, so a write's answer that repeats part of the body prints that notice too.
+- Not held yet: the value of an org variable whose category is `secret` prints as Rewst returns it. Treat `org-variables` output as sensitive.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the token from stdin, never from an argument.
+- A GraphQL answer that carries an `errors` member is reported as a failure, never as empty data.
+- `--dry-run` sends nothing. Over MCP, `rewst_execute` (every Rewst operation that changes something), `import` and `jobs_prune` return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `rewst-cli doctor` to check credentials
@@ -861,6 +1101,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
+- **A typed entity command (organizations, workflows, org-variables, ...) fails with an HTTP 400 or a GraphQL error from /graphql**  -  Known limitation of this build: the typed entity commands are generated as REST-shaped calls the Rewst GraphQL gateway refuses, and a refused or errored GraphQL answer is reported as a failure, never as empty data. Use the GraphQL-native commands orgs, health, failures, roi, dormant, drift and coverage, which send real GraphQL queries.
 - **Commands return a GraphQL authentication or 'not authorized' error**  -  Set a valid org-scoped token: export REWST_API_TOKEN=<token from Configuration > API Clients>, or run rewst-cli auth set-token.
 - **A query returns no data even with a valid token**  -  Pass the correct tenant with --org <orgId>; most Rewst queries are organization-scoped and return nothing for the wrong org.
 - **health / roi / coverage report empty results**  -  Confirm the org has workflows and executions in the window; widen --since or --days, and verify the token's org can see managed sub-orgs for coverage.
