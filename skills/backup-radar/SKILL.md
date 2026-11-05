@@ -255,6 +255,13 @@ Backup Radar has two API generations with two different keys. The v3 commands (h
 
 Run `backup-radar-cli doctor` to verify setup.
 
+## Credential safety
+
+- Each key goes only to its own host. `BACKUP_RADAR_API_KEY` (sent as `x-api-key`) goes only to the scheme, host and port of the v3 base URL: `https://api.scalepad.com/backup-radar/v3`, or `BACKUP_RADAR_BASE_URL` when set (EU: `https://eu.api.scalepad.com/backup-radar/v3`). `BACKUP_RADAR_V2_API_KEY` (sent as `ApiKey`) goes only to `https://api.backupradar.com`. A request that would carry a key anywhere else, over plain http, or across a redirect to another host is refused before it is sent.
+- Any output, file, store write or MCP result that would repeat a key is replaced by a notice such as "[credkit: withheld from stdout: it carried a credential this program holds]". GET responses are never cached on disk.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `backups_ingest` and `backups_retire` return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Agent Mode
 
 Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
@@ -274,10 +281,10 @@ The analysis reports (`check`, `unwatched`, `stale`, `scorecard`, `timeline`, `c
   ```bash
   backup-radar-cli backups list --agent --select backupId,backupType,companyName
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending; `backups retire --dry-run` is the exception: it is the API's own preview flag, so the request is sent with `dry_run: true` (and with `--stdin` it sets `dry_run` in the body)
+- **Previewable**  -  `--dry-run` shows the request without sending, on every command; `backups retire --server-dry-run` is the API's own preview: it sends the request with `dry_run: true` and retires nothing (a `--stdin` body with `dry_run: true` does the same)
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Live writes**  -  `backups ingest`, `backups retire` (without `--dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --dry-run` first
+- **Live writes**  -  `backups ingest`, `backups retire` (without `--server-dry-run`) and `push` are live writes that run immediately and never prompt; preview with `push --dry-run` or `backups retire --server-dry-run` first
 
 ### Response envelope
 
@@ -318,6 +325,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `BACKUP_RADAR_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `BACKUP_RADAR_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are never cached on disk. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `BACKUP_RADAR_NO_LOCAL_DATA=1` turns `auto` reads into live reads, writes nothing new to the store, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `BACKUP_RADAR_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 

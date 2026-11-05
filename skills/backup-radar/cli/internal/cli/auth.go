@@ -14,6 +14,7 @@ import (
 
 	"backup-radar-pp-cli/internal/cliutil"
 	"backup-radar-pp-cli/internal/config"
+	"backup-radar-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -159,7 +160,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set your API key with: export BACKUP_RADAR_API_KEY=\"your-token-here\" (PowerShell: $env:BACKUP_RADAR_API_KEY = \"your-token-here\")")
+					fmt.Fprintf(w, "  %s\n", "Set your API key with: "+cliutil.EnvAssignHint(true, "BACKUP_RADAR_API_KEY", "your-token-here"))
 				}
 			}
 			return nil
@@ -180,6 +181,7 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return writeDryRun(cmd.OutOrStdout(), flags, "auth set-token")
 			}
 			token, err := readSecretFromStdin(cmd.InOrStdin())
+			credkit.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring): a key read from a pipe is held before anything can print it
 			if err != nil {
 				return authErr(err)
 			}

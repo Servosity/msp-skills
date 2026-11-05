@@ -5,15 +5,18 @@
 package cli
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"backup-radar-pp-cli/internal/cliutil"
+	"backup-radar-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -77,29 +80,39 @@ large datasets as it has no memory pressure.`,
 				}
 			}
 
-			var writer *bufio.Writer
+			// HAND-FIX(export-hands-the-kit-whole-records): no buffered writer.
+			// Records reach the kit as whole records (exportRecords: every
+			// Write ends on a record's newline, and the batch is written
+			// before each page is fetched), and the JSON document in one
+			// Write. The kit checks a file Write, or a stdout run between
+			// pauses, as one unit with the stream's tail as context, and keeps
+			// a JSON document open across units; a 4096-byte chunk ending
+			// mid-record left a record open at every unit, and past the kit's
+			// 16 KiB window the stream was lost: stdout stopped after 20 KiB
+			// (exit 74) and --output failed as if a record held a credential.
+			var writer io.Writer
 			var outFile *os.File
+			var outKit *credkit.Writer
 			if outputFile != "" && !dryRunOK(flags) { // HAND-FIX(dry-run-guards-local-mutations): --dry-run changes nothing locally either
-				f, err := openExportOutput(outputFile)
-				if err != nil {
-					return err
+				f, ferr := openExportOutput(outputFile) // HAND-FIX(export-file-closed-on-error): no shadowed err
+				if ferr != nil {
+					return ferr
 				}
 				outFile = f
-				writer = bufio.NewWriter(f)
+				// Hand-fix (handfixes.json credkit-wiring): the export is written through the credential kit as one stream.
+				outKit = credkit.NewWriter(f, credkit.SinkFile)
+				writer = outKit
 				defer func() {
 					if err != nil && outFile != nil {
 						_ = outFile.Close()
 					}
 				}()
 			} else {
-				writer = bufio.NewWriter(cmd.OutOrStdout()) // HAND-FIX(export-writes-through-cmd-out): --deliver captures it
+				writer = cmd.OutOrStdout() // HAND-FIX(export-writes-through-cmd-out): --deliver captures it
 			}
 			finishExport := func() error {
-				if err := writer.Flush(); err != nil {
-					return fmt.Errorf("flushing export: %w", err)
-				}
 				if outFile != nil {
-					if err := outFile.Close(); err != nil {
+					if err := outKit.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
 						return fmt.Errorf("closing export file: %w", err)
 					}
 					outFile = nil
@@ -107,6 +120,7 @@ large datasets as it has no memory pressure.`,
 				return nil
 			}
 
+			records := &exportRecords{w: writer}
 			config := resourceReadConfigFor(resource)
 			allItems := []json.RawMessage{}
 			var singlePayload json.RawMessage
@@ -127,7 +141,7 @@ large datasets as it has no memory pressure.`,
 				if singleItem {
 					count = 1
 					if format == "jsonl" {
-						if _, err := fmt.Fprintln(writer, string(data)); err != nil {
+						if err := records.add(data); err != nil {
 							return fmt.Errorf("writing export: %w", err)
 						}
 					} else {
@@ -144,13 +158,17 @@ large datasets as it has no memory pressure.`,
 						break
 					}
 					if format == "jsonl" {
-						if _, err := fmt.Fprintln(writer, string(item)); err != nil {
+						if err := records.add(item); err != nil {
 							return fmt.Errorf("writing export: %w", err)
 						}
 					} else {
 						allItems = append(allItems, item)
 					}
 					count++
+				}
+				// The page's records go out before the next page is fetched.
+				if err := records.flush(); err != nil {
+					return fmt.Errorf("writing export: %w", err)
 				}
 
 				if config.paginationType == "" || len(items) == 0 || (limit > 0 && count >= limit) {
@@ -176,8 +194,12 @@ large datasets as it has no memory pressure.`,
 				}
 			}
 
+			if err := records.flush(); err != nil {
+				return fmt.Errorf("writing export: %w", err)
+			}
 			if format != "jsonl" {
-				enc := json.NewEncoder(writer)
+				var doc bytes.Buffer
+				enc := json.NewEncoder(&doc)
 				enc.SetIndent("", "  ")
 				output := any(allItems)
 				if singleItem {
@@ -189,6 +211,11 @@ large datasets as it has no memory pressure.`,
 				}
 				if err := enc.Encode(output); err != nil {
 					return err
+				}
+				// One document, one Write: split across writes, the array is
+				// open at every unit (export-hands-the-kit-whole-records).
+				if _, err := writer.Write(doc.Bytes()); err != nil {
+					return fmt.Errorf("writing export: %w", err)
 				}
 			}
 			if err := finishExport(); err != nil {
@@ -207,6 +234,43 @@ large datasets as it has no memory pressure.`,
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Bypass response cache for fresh data")
 
 	return cmd
+}
+
+// exportBatchBytes bounds the whole records one Write carries. Each Write to a
+// file is one credential-kit check, whose fixed cost made one Write per record
+// several times slower than a few KiB of records; a unit the kit withholds is
+// at most this much plus one record.
+const exportBatchBytes = 4 << 10
+
+// exportRecords hands its writer whole JSON-lines records: every Write is one
+// or more records, each with its newline, never part of one, so the credential
+// kit never checks a unit that ends inside a record.
+// HAND-FIX(export-hands-the-kit-whole-records)
+type exportRecords struct {
+	w   io.Writer
+	buf []byte
+}
+
+// add takes one record. A batch it would carry past exportBatchBytes is
+// written first, so a Write ends on a record boundary.
+func (r *exportRecords) add(record []byte) error {
+	if len(r.buf) > 0 && len(r.buf)+len(record)+1 > exportBatchBytes {
+		if err := r.flush(); err != nil {
+			return err
+		}
+	}
+	r.buf = append(append(r.buf, record...), '\n')
+	return nil
+}
+
+// flush writes the records held in one Write.
+func (r *exportRecords) flush() error {
+	if len(r.buf) == 0 {
+		return nil
+	}
+	_, err := r.w.Write(r.buf)
+	r.buf = r.buf[:0]
+	return err
 }
 
 // openExportOutput creates or truncates path as a private file. OpenFile's

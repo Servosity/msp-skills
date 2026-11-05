@@ -317,7 +317,7 @@
       "display_name": "Backup Radar",
       "tagline": "Find the backups nobody is watching: failing, silent, unmapped and ticketless backups across every client in one ask.",
       "has_video": true,
-      "cli_hash": "sha256:25933406e13e90b71c1c2fe886ffb2d2f212c32d9f72871924d7679cad684be0",
+      "cli_hash": "sha256:f1496f23732dcc50b4f928e1c415bcadb560ccede539018f4b1331c65c5b1e32",
       "template_version": 3,
       "version": "0.1.2",
       "cli_hash_at_release": "sha256:6fc40d9bef02527c87d62df6a438884245ee05f0b8bb286f1c25e4e924c465a0",

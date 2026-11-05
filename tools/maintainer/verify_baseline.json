@@ -55,9 +55,7 @@
    "local-data"
   ],
   "backup-radar": [
-   "mcp-stdio",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "betterstack": [
    "mcp-http",

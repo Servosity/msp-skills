@@ -24,7 +24,7 @@ faqs:
   - q: "Will this hit my Backup Radar or ScalePad API rate limits?"
     a: "The analysis commands read the local mirror, so the daily API cost is one sync: v3 client health with a year of history, v3 devices with 90 days, and the v2 backups lists with 31 days. The client sends at most 2 requests per second by default (--rate-limit)."
   - q: "Can an AI agent retire backups by mistake?"
-    a: "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
+    a: "backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, --server-dry-run (the request is sent and nothing is retired; the global --dry-run sends nothing). stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first."
   - q: "Does it work for EU ScalePad tenants?"
     a: "Yes. Set BACKUP_RADAR_BASE_URL to https://eu.api.scalepad.com/backup-radar/v3 (the default is the US host). The Backup Radar API v2 has a single host, https://api.backupradar.com."
 howto:
@@ -178,7 +178,7 @@ The analysis commands read the local mirror, so the daily API cost is one sync: 
 
 ### Can an AI agent retire backups by mistake?
 
-backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own --dry-run preview. stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first.
+backups retire is the only command that removes backups from monitoring, and it is a v3 write that supports the API's own preview, --server-dry-run (the request is sent and nothing is retired; the global --dry-run sends nothing). stale prepares retire bodies with dry_run true, pinned by ScalePad device id for mapped devices and by exact company, device and job name for unmapped ones; a backup it cannot pin gets a retire_note instead of a body. Over MCP, BACKUP_RADAR_MCP_READ_ONLY=1 removes the backups_retire and backups_ingest tools entirely, and backups_retire is annotated destructive so hosts ask first.
 
 ### Does it work for EU ScalePad tenants?
 

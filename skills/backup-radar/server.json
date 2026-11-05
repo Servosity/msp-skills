@@ -49,10 +49,16 @@
         },
         {
           "name": "BACKUP_RADAR_MCP_READ_ONLY",
-          "description": "Optional. Set to 1, true or yes to hide the backups_ingest and backups_retire tools and the sync, export, learnings_forget, learnings_reject and workflow_archive mirrors. Read tools still write local state: the response cache and learning entries.",
+          "description": "Optional. Set to 1, true or yes to hide the backups_ingest and backups_retire tools, the sync, export and workflow_archive mirrors, and the learning-store write tools (teach, teach_pattern, teach_lookup, teach_playbook, playbook_amend, learnings_confirm, learnings_forget, learnings_reject). Read tools still write local state: the local store and the learn journal.",
           "isRequired": false,
           "isSecret": false,
           "default": "1"
+        },
+        {
+          "name": "BACKUP_RADAR_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, nothing new is written to the local store, and sync and workflow archive refuse to run.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "BACKUP_RADAR_MCP_HTTP_TOKEN",

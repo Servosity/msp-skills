@@ -15,12 +15,13 @@ func newBackupsGetCmd(flags *rootFlags) *cobra.Command {
 	var flagDate string
 
 	cmd := &cobra.Command{
-		Use:   "get <backupId>",
-		Short: "Returns the backup data for a specific day (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY).",
+		Use:     "get <backupId>",
+		Short:   "Returns the backup data for a specific day (v2 key). Uses the Backup Radar API v2 key (BACKUP_RADAR_V2_API_KEY).",
+		Example: "  backup-radar-cli backups get 4421",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "backups.get", "pp:method": "GET", "pp:path": "/backups/{backupId}", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "backups.get", "pp:method": "GET", "pp:path": "/backups/{backupId}", "mcp:read-only": "true", "pp:happy-args": "backupId=4421"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output

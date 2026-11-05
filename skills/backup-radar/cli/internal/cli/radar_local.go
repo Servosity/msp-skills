@@ -39,7 +39,7 @@ var radarResources = []string{"devices", "health", "backups", "backups-inactive"
 // ok=false means no local mirror exists yet; a sync hint was printed to stderr
 // and the caller should emit an empty result.
 func loadRadarSnapshot(cmd *cobra.Command, flags *rootFlags, dbPath string) (radar.Snapshot, bool, error) {
-	snap := radar.Snapshot{Synced: map[string]bool{}}
+	snap := radar.Snapshot{Synced: map[string]bool{}, Incomplete: map[string]bool{}}
 	if dbPath == "" {
 		dbPath = defaultDBPath("backup-radar-cli")
 	}
@@ -89,7 +89,9 @@ func loadRadarSnapshot(cmd *cobra.Command, flags *rootFlags, dbPath string) (rad
 	// A sync_state row is written when an attempt starts. A collection counts
 	// as synced after a completed attempt, or when a sync attempt left rows
 	// (kept across a later failed retry). Rows from a filtered live read with
-	// no sync attempt do not count.
+	// no sync attempt do not count. A last attempt that did not finish marks
+	// the collection incomplete whatever rows it kept: any failure signal wins
+	// (class incomplete-paging-read-as-complete).
 	attempted := map[string]bool{}
 	if stateRows, err := db.DB().QueryContext(cmd.Context(), `SELECT resource_type, last_attempt_complete FROM sync_state`); err == nil {
 		for stateRows.Next() {
@@ -98,6 +100,7 @@ func loadRadarSnapshot(cmd *cobra.Command, flags *rootFlags, dbPath string) (rad
 			if stateRows.Scan(&t, &complete) == nil {
 				attempted[t] = true
 				snap.Synced[t] = snap.Synced[t] || complete == 1
+				snap.Incomplete[t] = snap.Incomplete[t] || complete != 1
 			}
 		}
 		if err := stateRows.Err(); err != nil {
@@ -176,11 +179,17 @@ func loadRadarSnapshot(cmd *cobra.Command, flags *rootFlags, dbPath string) (rad
 
 // radarSources reports which collections fed a report.
 type radarSources struct {
-	V3Devices  int    `json:"v3_devices"`
-	V3Clients  int    `json:"v3_clients"`
-	V2Backups  int    `json:"v2_backups"`
-	V2Inactive int    `json:"v2_inactive"`
-	Note       string `json:"note,omitempty"`
+	V3Devices  int `json:"v3_devices"`
+	V3Clients  int `json:"v3_clients"`
+	V2Backups  int `json:"v2_backups"`
+	V2Inactive int `json:"v2_inactive"`
+	// Incomplete names each synced collection whose last sync attempt did not
+	// finish; its rows are read, but the report may miss some. It is not
+	// narrowed to the collections a report names: a report can read one
+	// indirectly (the device mapping behind a v2 reason's --client), so any
+	// unfinished sync is named (fail closed; Codex r2 4.34.2 review).
+	Incomplete []string `json:"incomplete,omitempty"`
+	Note       string   `json:"note,omitempty"`
 }
 
 // sourcesOf counts every collection, but the "not synced" note names only the
@@ -195,6 +204,9 @@ func sourcesOf(s radar.Snapshot, uses ...string) radarSources {
 		{"backups", "v2 backups (BACKUP_RADAR_V2_API_KEY): status, tickets, policy flags"},
 		{"backups-inactive", "v2 inactive backups (BACKUP_RADAR_V2_API_KEY)"},
 	} {
+		if s.Synced[c.name] && s.Incomplete[c.name] {
+			src.Incomplete = append(src.Incomplete, c.name)
+		}
 		if len(uses) > 0 && !slices.Contains(uses, c.name) {
 			continue
 		}
@@ -208,7 +220,28 @@ func sourcesOf(s radar.Snapshot, uses ...string) radarSources {
 	case len(missing) > 0:
 		src.Note = "not synced: " + strings.Join(missing, "; ") + ". Set the key and run 'backup-radar-cli sync'"
 	}
+	src.Note = joinNotes(src.Note, incompleteNote(src.Incomplete))
 	return src
+}
+
+// incompleteNote says which collections' last sync did not finish; "" when
+// none.
+func incompleteNote(colls []string) string {
+	if len(colls) == 0 {
+		return ""
+	}
+	return "incomplete: the last sync of " + strings.Join(colls, ", ") + " did not finish (a --max-pages cap, a failed page or an interrupted run), so this report may miss rows; run 'backup-radar-cli sync --resources " + strings.Join(colls, ",") + "'"
+}
+
+// joinNotes joins the non-empty notes into one sentence list.
+func joinNotes(notes ...string) string {
+	var out []string
+	for _, n := range notes {
+		if n = strings.TrimSpace(n); n != "" {
+			out = append(out, strings.TrimSuffix(n, "."))
+		}
+	}
+	return strings.Join(out, ". ")
 }
 
 // readPathOrStdin reads a file, or stdin when path is "-". Its callers

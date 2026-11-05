@@ -275,7 +275,7 @@
       "cli_binary": "backup-radar-cli",
       "mcp_binary": "backup-radar-mcp",
       "version": "0.1.2",
-      "printing_press_version": "4.33.5",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Backup Radar",
       "vendor_trademark_owner": "ScalePad Software Inc",
