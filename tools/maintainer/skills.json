@@ -339,10 +339,10 @@
       "category": "Monitoring",
       "display_name": "Better Stack",
       "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account",
-      "cli_hash": "sha256:9dd7c4caf50cd395b6af050d3cb9d8e789b26977f43d7ceff340eb605c89bdad",
+      "cli_hash": "sha256:9ae98113c498f301d1cdf7ebce6855f37149838693eeba510dcc029cbe0356b3",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:803bf2de1fe5998a698ebadce2bf694ec5ef93f794cc6e30eabba6d933149b5c",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:9ae98113c498f301d1cdf7ebce6855f37149838693eeba510dcc029cbe0356b3",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

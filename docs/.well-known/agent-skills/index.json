@@ -97,7 +97,7 @@
       "type": "skill-md",
       "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics - what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift - that the API alone can't answer. Trigger phrases: `which monitors are down`, `find unprotected monitors`, `incident MTTR report`, `who is on call`, `noisy monitors`, `use betterstack`, `run betterstack-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/SKILL.md",
-      "digest": "sha256:0321d219126f29ee2c460564c02e10e4c11636e12c05392d6441bd97936e15ca"
+      "digest": "sha256:c2bc4256178ec7a166f63731dc53385e2b02794078bc1409085603e2f6252f57"
     },
     {
       "name": "bitdefender",
