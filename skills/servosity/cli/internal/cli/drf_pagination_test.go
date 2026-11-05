@@ -37,15 +37,18 @@ const (
 
 type drfServer struct {
 	*httptest.Server
-	mode     drfMode
-	mu       sync.Mutex
-	hits     []string
-	pastEnds int
+	mode drfMode
+	// maxPerPage is DRF's max_page_size. It starts at drfPerPage so a walk that
+	// asks for 100 a page still crosses pages.
+	maxPerPage int
+	mu         sync.Mutex
+	hits       []string
+	pastEnds   int
 }
 
 func newDRFServer(t *testing.T, mode drfMode) *drfServer {
 	t.Helper()
-	s := &drfServer{mode: mode}
+	s := &drfServer{mode: mode, maxPerPage: drfPerPage}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(s.Close)
 	t.Setenv("SERVOSITY_MSP_BASE_URL", s.URL)
@@ -69,7 +72,7 @@ func (s *drfServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	per := drfPerPage
 	if v, err := strconv.Atoi(q.Get("page_size")); err == nil && v > 0 {
-		per = v
+		per = min(v, s.maxPerPage)
 	}
 	pages := (drfRows + per - 1) / per
 	if page < 1 || page > pages {
@@ -281,7 +284,8 @@ func TestDRFAllNeverTruncatesSilently(t *testing.T) {
 // store-backed commands read what sync landed.
 func TestDRFSyncAndStoreCommandsSeeEveryRow(t *testing.T) {
 	isolateNovelStore(t)
-	newDRFServer(t, drfHonest)
+	// Sync asks for 100 a page and advances only on a full one; the API takes 100.
+	newDRFServer(t, drfHonest).maxPerPage = 100
 	if _, stderr, err := runDRF(t, "sync", "--resources", "backups,restic-backups,dr-backups,companies", "--full", "--strict", "--json"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, stderr)
 	}

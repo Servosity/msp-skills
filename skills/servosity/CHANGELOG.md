@@ -4,6 +4,14 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.13] - unreleased
+
+### Fixed
+
+- **A plain `sync` finishes.** It used to read the Windows installer behind `download` as if it were records, and memory grew until the process was killed. `download` is no longer a sync resource, and `sync --resources download` is refused before any request.
+- **`sync` keeps only JSON records.** Under `sync` and `workflow archive`, a response whose Content-Type is not JSON is refused, a redirect to another host is not followed, and a body past the response size limit (`SERVOSITY_MSP_MAX_RESPONSE_BYTES`) is refused. The run carries on with the other resources. Each skipped resource gets a `sync_warning` event with reason `non_json_response`, `redirect_off_origin` or `response_too_large`. `sync` also lists it in its summary as `warned_resources`, and `sync --strict` exits non-zero when one was skipped.
+- **`--all` asks for 100 rows a page.** Without `--page-size` it sent none, so the server paged 10 rows at a time. An explicit `--page-size` still wins.
+
 ## [0.6.12] - 2026-11-05
 
 ### Added
