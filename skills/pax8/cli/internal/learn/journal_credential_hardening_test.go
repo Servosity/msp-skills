@@ -26,7 +26,7 @@ import (
 // jhSecret stands in for a credential an operator put where a session label
 // or a flag name goes. The held pass holds it through the shared credential
 // kit (handfixes.json credkit-wiring).
-const jhSecret = "Zq7f3a9c0e5b1d42xJhW"
+const jhSecret = "Zq7f3a9c0e5b1d42xJhW" // gitleaks:allow
 
 // jhName stands in for a credential put where the learn loop stores a name
 // or an operand by design (a query family, an alias, a pattern). Lowercase

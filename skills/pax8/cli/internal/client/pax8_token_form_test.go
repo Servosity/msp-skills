@@ -50,7 +50,7 @@ func TestMintSendsPax8TokenForm(t *testing.T) {
 			home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 			t.Setenv("LOCALAPPDATA", filepath.Join(home, "localapp"))
 			t.Setenv("APPDATA", filepath.Join(home, "appdata"))
-			cfg := &config.Config{BaseURL: srv.URL, TokenURL: srv.URL + "/token", ClientID: "cid-1234567", ClientSecret: "csecret-1234567", Path: filepath.Join(home, "config.toml")}
+			cfg := &config.Config{BaseURL: srv.URL, TokenURL: srv.URL + "/token", ClientID: "cid-1234567", ClientSecret: "csecret-1234567", Path: filepath.Join(home, "config.toml")} // gitleaks:allow
 			c := New(cfg, 5*time.Second, 0)
 			c.HTTPClient = srv.Client()
 			c.NoCache = true
@@ -60,7 +60,7 @@ func TestMintSendsPax8TokenForm(t *testing.T) {
 			if a := got.Get("Authorization"); a != "" {
 				t.Errorf("token request carried Authorization %q; Pax8 takes the credentials in the body", a)
 			}
-			want := map[string]string{"grant_type": "client_credentials", "client_id": "cid-1234567", "client_secret": "csecret-1234567", "audience": tc.want}
+			want := map[string]string{"grant_type": "client_credentials", "client_id": "cid-1234567", "client_secret": "csecret-1234567", "audience": tc.want} // gitleaks:allow
 			for k, v := range want {
 				if form[k] != v {
 					t.Errorf("form %s = %q, want %q", k, form[k], v)

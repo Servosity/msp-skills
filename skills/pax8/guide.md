@@ -117,7 +117,7 @@ pax8-cli doctor
 pax8-cli sync
 
 # list the customers you serve through Pax8
-pax8-cli companies list --json
+pax8-cli companies find --json
 
 # flag billing mismatches between invoices and subscriptions
 pax8-cli reconcile

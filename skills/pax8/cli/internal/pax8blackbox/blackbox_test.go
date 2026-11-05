@@ -58,15 +58,15 @@ import (
 )
 
 const (
-	bbToken     = "qzSECRET7fb3189bQ6u3sZxW4o1n7R8v52" // PAX8_CLIENT_SECRET (the env client secret)
-	bbClientID  = "qzCliRef-3e9a7c1d5b2f8a46"          // PAX8_CLIENT_ID
+	bbToken     = "qzSECRET7fb3189bQ6u3sZxW4o1n7R8v52" // PAX8_CLIENT_SECRET (the env client secret) gitleaks:allow
+	bbClientID  = "qzCliRef-3e9a7c1d5b2f8a46"          // PAX8_CLIENT_ID gitleaks:allow
 	bbMinted    = "qzMntAcc-9d2b6f4a1c8e7305ab"        // what the fake token endpoint would mint; the kit never lets the pair reach it
 	bbStored    = "qzStTkn-71c3e9b05d2a4f68e1"         // auth set-token (stdin), the credential store
 	bbArgvSec   = "-argvSecret-91c3e7a5"               // --client-secret on the command line (starts with "-")
 	bbShortResp = "Sh0rtPw"                            // a 7-character credential a response carries (refresh_token)
 	bbBOMResp   = "BomRespSecret-6a1c"                 // a credential in a BOM-prefixed response (access_token)
 	bbGzipResp  = "GzipRespToken-4f2a9c1e"             // a credential in a gzip-encoded response (access_token)
-	bbHTTPToken = "qzMhTkn-0123456789abcdefABCDEF0123" // PAX8_MCP_HTTP_TOKEN
+	bbHTTPToken = "qzMhTkn-0123456789abcdefABCDEF0123" // PAX8_MCP_HTTP_TOKEN gitleaks:allow
 )
 
 func secrets() []string {

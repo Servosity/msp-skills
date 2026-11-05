@@ -19,7 +19,7 @@ import (
 // The four classes Codex review round 2 left open on the hand-written funnel,
 // each with its failing input kept exactly and driven through the built binary
 // and the shared credential kit (handfixes.json credkit-wiring).
-const r2Secret = "ABCDEFGHabcdefgh12345678"
+const r2Secret = "ABCDEFGHabcdefgh12345678" // gitleaks:allow
 
 // noteServer answers every read with one record whose note is the given text.
 func noteServer(t *testing.T, note string) *server {

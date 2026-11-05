@@ -68,7 +68,7 @@ func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {
 		p := filepath.Join(h, "loose.toml")
 		_ = os.WriteFile(p, []byte("base_url = \""+u+"\"\n"), 0o644)
 		_ = os.Chmod(p, 0o644)
-		got := runWith(t, cleanEnv(h, "PAX8_CONFIG="+p, "PAX8_CLIENT_ID=EnvClientId-5c3a", "PAX8_CLIENT_SECRET=EnvPassw0rd2x"), "version")
+		got := runWith(t, cleanEnv(h, "PAX8_CONFIG="+p, "PAX8_CLIENT_ID=EnvClientId-5c3a", "PAX8_CLIENT_SECRET=EnvPassw0rd2x"), "version") // gitleaks:allow
 		if i == 0 && !strings.Contains(got, "refused") && !strings.Contains(got, kitNotice("stderr")) {
 			t.Fatalf("the loose-config case did not run (no refusal printed):\n%s", got)
 		}

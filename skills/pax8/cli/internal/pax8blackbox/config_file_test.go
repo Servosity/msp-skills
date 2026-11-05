@@ -24,7 +24,7 @@ func TestConfigFileNeverHoldsACredential(t *testing.T) {
 		urlQuery    = "UrlSecret739182x"
 		envSecret   = "EnvClientSecret-4b8e2d19"
 		tokQuery    = "TokQuerySecret-6f0a"
-		storedToken = "StandaloneBearer-123abc"
+		storedToken = "StandaloneBearer-123abc" // gitleaks:allow
 	)
 	home := t.TempDir()
 	env := cleanEnv(home,
