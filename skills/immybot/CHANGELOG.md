@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.12] - unreleased
+## [0.1.12] - 2026-11-05
 
 ### Security
 - **The learn journal keeps no text you typed in place of a name.** `IMMYBOT_LEARN_SESSION` is stored as a hash, so sessions still group. A flag name the command does not have is recorded only as `<undeclared>`, and nothing after `--` is recorded. A mistyped flag is never kept as typed. A teach with no `--query` logs how many arguments it got, not the arguments.

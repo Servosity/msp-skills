@@ -1170,8 +1170,8 @@
       "tagline": "Triage a night of failed maintenance by root cause, and rank one title across every tenant.",
       "cli_hash": "sha256:6fef33ff6ec9f267dc76a3fba500bc4e0e937d5b0aa3ead4ef29b58c748aeb4b",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:a1de566df6a632b6c8de973512f4faa6e166d2501063765549d63e9709a2f500",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:6fef33ff6ec9f267dc76a3fba500bc4e0e937d5b0aa3ead4ef29b58c748aeb4b",
       "has_video": false,
       "install_auth_hint": "Then register an app in Microsoft Entra ID, add the Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID), set `IMMYBOT_SUBDOMAIN`, `IMMYBOT_TENANT_ID`, `IMMYBOT_CLIENT_ID` and `IMMYBOT_CLIENT_SECRET`, then run `immybot-cli doctor` to confirm it works",
       "live_verified": {

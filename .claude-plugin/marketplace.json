@@ -498,7 +498,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "immybot",
