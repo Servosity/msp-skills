@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/appdirect/install.ps1
 ---
 
-# AppDirect  -  Printing Press CLI
+# AppDirect - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -592,7 +592,7 @@ Run `appdirect-cli doctor` to verify setup.
 ## Credential safety
 
 - Every API request and the bearer token go only to the scheme, host and port of `APPDIRECT_BASE_URL` (default `https://marketplace.appdirect.com/api`). The client ID and secret go only to the token URL: `APPDIRECT_TOKEN_URL`, else `/oauth2/token` on your marketplace's own host, so a reseller marketplace mints from itself, never from AppDirect's. A redirect to any other host is refused, so a credential never reaches it.
-- Any output, file or MCP result that would repeat `APPDIRECT_CLIENT_ID`, `APPDIRECT_CLIENT_SECRET`, a minted token or a credential-named value from a response prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Any output, file or MCP result that would repeat `APPDIRECT_CLIENT_ID`, `APPDIRECT_CLIENT_SECRET`, a minted token or a credential-named value from a response is replaced whole by "[credkit: withheld from <sink>: it carried a credential this program holds]", whether it repeats the value whole, as a piece of 8 or more characters, or in a decoded form (base64, hex, percent, JSON escapes and the other encodings the credential leak contract lists). The check can withhold ordinary text it cannot finish reading; it says so the same way. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
 - Only `credentials.toml` (mode 0600) holds a credential. A client ID and secret supplied by the environment are never written to disk, and nor is the token minted for them: the process keeps it in memory (the MCP server reuses it until it expires). A token is cached in `credentials.toml` only beside the client pair stored there (not at all under `APPDIRECT_NO_CONFIG_WRITE=1`), and a token is only ever sent for the client and marketplace it was minted for.
 - `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes AppDirect returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 

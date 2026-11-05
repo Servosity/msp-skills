@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored helpers shared by the novel transcendence commands
 // (reconcile, payments unpaid, subs changed, pipeline, pipeline stale,
 // company show). Kept in a separate file so regenerations preserve it.

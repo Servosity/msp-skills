@@ -4,6 +4,34 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - unreleased
+
+Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command and MCP tool that shipped in 0.1.9 is still here except where named below.
+
+### Security
+- **Rebuilt on Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** `appdirect-mcp --transport http` serves `http://127.0.0.1:7777/mcp` by default, refuses to start until `APPDIRECT_MCP_HTTP_TOKEN` is set (at least 32 characters), answers 401 to any request without that token as a bearer header, and needs `--tls-cert` and `--tls-key` for any address other than loopback. The install guide documents this mode for reference; msp-skills does not support a web-only AI app on it yet.
+- **Every output is checked for credentials by the shared credential kit.** Stdout, stderr, files the CLI writes, its local database, MCP tool results and child processes all pass one check: text that repeats a credential the program holds, whole, as a piece of 8 or more characters, or in a decoded form, is withheld whole and replaced by a notice that says so. Before the command line is parsed, the CLI and the MCP server hold every credential source they can reach: `APPDIRECT_CLIENT_ID`, `APPDIRECT_CLIENT_SECRET`, a user name, password or query value inside `APPDIRECT_BASE_URL` or `APPDIRECT_TOKEN_URL`, every config and credentials file (one that does not parse included), and every token the program mints.
+- **The client pair goes only to your own marketplace.** The token is minted from `APPDIRECT_TOKEN_URL`, else `/oauth2/token` on the host of `APPDIRECT_BASE_URL`, so a reseller marketplace mints from itself. A credential sent to any other host, over plain `http://`, or across a redirect to another host is refused before it is sent. A blank `APPDIRECT_BASE_URL` counts as unset, so the configured marketplace is used.
+- **A token is only sent for the client and marketplace it was minted for.** A client pair from the environment mints its own token and keeps it in memory; only a pair stored in `credentials.toml` (mode 0600) has its token saved beside it.
+- **Every MCP write previews first.** A tool call that changes AppDirect returns a preview and sends only when called again with `confirm: true`, and a tool argument can never name a file to read or write.
+- **Startup refusals reach you.** An MCP server that refuses to start (no HTTP token, a non-loopback address without TLS) prints its reason before it exits, and `appdirect-mcp -h` prints its usage.
+- Updated `golang.org/x/text` to v0.42.0 and `mark3labs/mcp-go` to v0.57.0.
+
+### Added
+- `APPDIRECT_MCP_READ_ONLY=1` makes the MCP server refuse every write, and `APPDIRECT_NO_LOCAL_DATA=1` keeps no local copy of API responses. Both are declared on every install channel, with `APPDIRECT_USER_AGENT`, `APPDIRECT_MCP_UPLOAD_ROOT`, `APPDIRECT_MCP_HTTP_TOKEN` and `PRINTING_PRESS_CLIENT_PROFILE`.
+- `checkout finalize-shopping-cart` and `checkout create-and-finalize-shopping-cart`, and their MCP tools, are back (the vendor documents both endpoints).
+
+### Changed
+- List commands page with `--offset` (was `--start`); the request still sends AppDirect's `start` parameter.
+- `company show` no longer lists users: a synced user record names no company, so the store cannot tell which users belong to it. `users_hint` names the memberships command that lists them live.
+- Under an agentcookie-managed config, `auth set-token` and `auth login` refuse to save.
+- Mutation responses are not cached locally.
+
+### Fixed
+- **`sync` reads every page.** Invoices, payments and the listing synced one page; offset and page-number paging now continue until the API reports the last page, and a sync that stopped early is not marked complete.
+- **`--data-source local` reads the right table.** `company list --data-source local` read synced users; every path now reads its own partition, and a path that was never synced is not read locally.
+- `doctor` counts a client ID and secret as configured, and the local analytics refuse `--data-source live` with a clear message.
+
 ## [0.1.9] - 2026-10-23
 
 ### Security

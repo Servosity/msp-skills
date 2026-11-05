@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored AppDirect-specific helper: every AppDirect tenant runs at its
 // own marketplace host, and the OAuth token endpoint lives on that same host
 // at /oauth2/token. When the operator overrides APPDIRECT_BASE_URL but does

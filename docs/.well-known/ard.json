@@ -93,7 +93,7 @@
         "Which payments failed or stalled in the last week, across every company?",
         "What's active-but-unbilled, overdue, or failed before month-close?",
         "What changed in subscriptions this week - new, ended, or suspended?",
-        "Show one customer's full picture - users, subscriptions, invoices, opportunities.",
+        "Show one customer's full picture - subscriptions, invoices and open opportunities.",
         "What does my assisted-sales pipeline look like by status?"
       ],
       "metadata": {
