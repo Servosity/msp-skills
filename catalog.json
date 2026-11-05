@@ -969,7 +969,7 @@
       "skill_path": "skills/immybot",
       "cli_binary": "immybot-cli",
       "mcp_binary": "immybot-mcp",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "ImmyBot",
