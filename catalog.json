@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-04",
+  "generated_at": "2026-11-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -211,7 +211,7 @@
       "skill_path": "skills/avanan",
       "cli_binary": "avanan-cli",
       "mcp_binary": "avanan-mcp",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "printing_press_version": "4.34.0",
       "license": "Apache-2.0",
       "vendor": "Avanan",
