@@ -2215,6 +2215,25 @@
       ],
       "press": "4.34.2",
       "reason": "hand-written credential kit wiring, reviewed 2026-11-03. Reads a config, credential store or TLS key file the operator named on their own command line, regular files only, only to hold its values at startup; nothing it reads is shown. MCP refuses those flags (check_mcp_file_flags.py)."
+    },
+    {
+      "file": "skills/appdirect/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:61d118badef2c63b8a349093218ef4094156840463e085815fd12eaa0b23afb9"
+      ],
+      "press": "4.34.2",
+      "reason": "appdirect only, press 4.34.2 template, reviewed 2026-10-28 on the appdirect reprint. Declaration resourceWritePaths maps resource group names to AppDirect API paths; gosec's credential pattern matches the 'pw' inside the group name 'appwise' (-> /appwise/v2/data). Values are endpoint paths, not secrets."
+    },
+    {
+      "file": "skills/appdirect/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
+      ],
+      "reason": "appdirect only, same reviewed declaration as the zammad entry. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/appdirect/handfixes.json)."
     }
   ]
 }
