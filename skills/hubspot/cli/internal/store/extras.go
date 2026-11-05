@@ -46,29 +46,28 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 			"source" TEXT,
 			"source_id" TEXT,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"snapshot_at" TEXT,
 			PRIMARY KEY ("object_type", "object_id", "property", "timestamp")
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_hubspot_property_history_obj_prop_ts" ON "hubspot_property_history"("object_type", "object_id", "property", "timestamp" DESC)`,
 		`CREATE INDEX IF NOT EXISTS "idx_hubspot_property_history_value_lookup" ON "hubspot_property_history"("object_type", "property", "value", "timestamp")`,
-		// hubspot_local_mutations is the best-effort local audit log written
-		// by mutation commands via LogMutation ("what did I just do?").
-		`CREATE TABLE IF NOT EXISTS "hubspot_local_mutations" (
-			"id" INTEGER PRIMARY KEY AUTOINCREMENT,
-			"timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			"command" TEXT NOT NULL,
-			"args_json" TEXT NOT NULL,
-			"exit_code" INTEGER NOT NULL,
-			"affected_count" INTEGER NOT NULL,
-			"source" TEXT NOT NULL DEFAULT 'cli',
-			"duration_ms" INTEGER NOT NULL DEFAULT 0
+		// hubspot_pipeline_object_types records which object type each stored
+		// pipeline belongs to, taken from the request path that fetched it
+		// (GET /crm/v3/pipelines/{objectType}). Every object type's pipelines
+		// share one resource, so the deal readers take only rows declared
+		// deals here (handfixes.json: pipeline-object-type-declared).
+		`CREATE TABLE IF NOT EXISTS "hubspot_pipeline_object_types" (
+			"id" TEXT PRIMARY KEY,
+			"object_type" TEXT NOT NULL
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_hubspot_local_mutations_ts" ON "hubspot_local_mutations"("timestamp" DESC)`,
-		`CREATE INDEX IF NOT EXISTS "idx_hubspot_local_mutations_cmd_ts" ON "hubspot_local_mutations"("command", "timestamp" DESC)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {
 			return fmt.Errorf("extra migration failed: %w", err)
 		}
 	}
-	return nil
+	// snapshot_at is the time HubSpot reported for the record a history row
+	// came with (handfixes.json hubspot-velocity-history-must-describe-current-stage);
+	// a row an older build wrote has none, so it proves nothing about freshness.
+	return s.ensureColumn(ctx, conn, "hubspot_property_history", "snapshot_at", "TEXT")
 }

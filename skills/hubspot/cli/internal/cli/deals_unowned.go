@@ -89,6 +89,12 @@ type unownedView struct {
 
 func queryDealsUnowned(cmd *cobra.Command, db *store.Store, pipeline string, limit int) (unownedView, error) {
 	view := unownedView{Deals: []unownedDeal{}}
+	if err := requireKnownDealStates(cmd.Context(), db, "deals unowned", pipeline); err != nil {
+		return view, err
+	}
+	if err := hsRequireCollected(cmd.Context(), db, "deals unowned", "hubspot-deals-crm"); err != nil { // hand-wired (handfixes.json: hubspot-reports-read-only-collected-properties)
+		return view, err
+	}
 
 	// Open deals whose owner is unassigned ('' or NULL) OR whose owner_id is not
 	// found among the ACTIVE owners (mirror owner_load.go's hubspot_owners_crm
@@ -105,7 +111,7 @@ FROM (
     COALESCE(json_extract(d.data, '$.properties.hubspot_owner_id'), '') AS owner_id
   FROM hubspot_deals_crm d
   WHERE COALESCE(d.archived, 0) = 0
-    AND COALESCE(json_extract(d.data, '$.properties.dealstage'), '') NOT IN ('closedwon', 'closedlost')
+    AND NOT ` + dealClosedSQL("d") + `
     AND (? = '' OR json_extract(d.data, '$.properties.pipeline') = ?)
 )
 WHERE owner_id = ''

@@ -58,11 +58,12 @@ const doctorShippedBaseURL = ""
 // paths, versions, and the free-text hints that tell an operator how to get a
 // credential. They are NOT health checks.
 //
-// doctorInfoKeys / doctorIsInfoKey: emitted natively by cli-printing-press
-// >= 4.32 (doctor.go); this file only adds "db_path" to that map via a
-// one-line body edit recorded in handfixes.json.
+// doctorInfoKeys / doctorIsInfoKey and the literal-placeholder check
+// doctorBaseURLIsPlaceholder are emitted natively by cli-printing-press
+// (doctor.go); this file only adds "db_path" to that map via a one-line body
+// edit and the shipped-value check below, both recorded in handfixes.json.
 
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -71,7 +72,7 @@ const doctorShippedBaseURL = ""
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -229,7 +230,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 	case status == 404:
 		doctorWrongBaseURL(apiPath, report)
 	case status >= 500:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was never checked.", status, apiPath)
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was not checked.", status, apiPath)
 	case status > 0:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `%s %s` to see the full response.", status, apiPath, bin, cmdPath)
 	default:
@@ -244,7 +245,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 // credential is not at fault and must not be blamed, and the api row must stop
 // claiming the connector is reachable in any useful sense.
 func doctorWrongBaseURL(apiPath string, report map[string]any) {
-	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", apiPath)
+	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was not checked.", apiPath)
 	report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not this vendor's API root. Point %s at the API root.", apiPath, doctorBaseURLEnv)
 }
 

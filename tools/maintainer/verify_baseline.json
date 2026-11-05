@@ -164,11 +164,6 @@
    "read-only",
    "local-data"
   ],
-  "hubspot": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "immybot": [
    "mcp-http",
    "write-gating",

@@ -9,7 +9,7 @@
     {
       "instead": "Building a saved view per stage, exporting, and summing $ and counts by hand for the pipeline review",
       "say": "What's my pipeline health right now - count, dollars, and what's at risk per stage?",
-      "cli": "hubspot-cli pipeline-health --idle-days 14"
+      "cli": "hubspot-cli pipeline-health default --idle-days 14"
     },
     {
       "instead": "Pulling per-rep deal lists one at a time to see who is overloaded before the Monday sales meeting",
@@ -33,7 +33,7 @@
     },
     {
       "question": "What's my pipeline health right now - per-stage count, dollars, and what's at risk?",
-      "command": "hubspot-cli pipeline-health --idle-days 14"
+      "command": "hubspot-cli pipeline-health default --idle-days 14"
     },
     {
       "question": "How is the open-deal load spread across my reps?",
@@ -44,7 +44,7 @@
       "command": "hubspot-cli nurture queue --owner me --top 20"
     },
     {
-      "question": "Which are my top deals by composite score (signal, amount, stage, recency)?",
+      "question": "Which are my top deals by composite score (amount, stage probability, recency)?",
       "command": "hubspot-cli deals top --top 5 --owner me"
     },
     {
@@ -61,7 +61,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way hubspot-mcp runs, and shares MCP configuration with Codex: add hubspot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -88,22 +88,22 @@
       "a": "It works against any portal that issues a Private App access token with the read scopes you grant. Which objects, properties, and history depth are available is governed by your HubSpot plan and the scopes on the token, not by this skill."
     }
   ],
-  "governance_summary": "The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN read from the environment - never written to disk, logged, or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Writes are not gated by default: --dry-run is an opt-in flag (default off) that previews a request without sending, so raw create/update/delete commands send immediately on first run unless your agent passes --dry-run first. The one built-in mutation gate is on contacts bulk-update, and it only fires above 100 rows (smaller batches dispatch immediately with a one-line bypass warning). The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.",
+  "governance_summary": "The skill drives the hubspot-cli and hubspot-mcp binaries, authenticating only with HUBSPOT_ACCESS_TOKEN from the environment or a token saved with hubspot-cli auth set-token in the CLI's own credentials file - never logged or sent anywhere except the HubSpot API. Read commands (reports, rollups, search) are always safe and can change nothing. Every command that changes the portal refuses to run, and sends nothing, unless it gets --yes (send) or --dry-run (preview); contacts bulk-update needs --yes up to 100 rows and the digest confirm above that. An agent that can run the CLI can pass --yes, so keep the approval step in its policy. The recommended policy is an agent-level rule: require the agent to show the exact command and get human approval before any mutation, and require a human for any destructive or credential-touching command. The strongest control is the scope you grant the Private App token.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "hubspot-cli stale deals --days 21 --owner me; hubspot-cli pipeline-health --idle-days 14; hubspot-cli owner-load --pipeline default; hubspot-cli nurture queue --owner me --top 20; hubspot-cli engagements of deal:456 --since 90d; hubspot-cli since 24h",
+      "examples": "hubspot-cli stale deals --days 21 --owner me; hubspot-cli pipeline-health default --idle-days 14; hubspot-cli owner-load --pipeline default; hubspot-cli nurture queue --owner me --top 20; hubspot-cli engagements of deal:456 --since 90d; hubspot-cli since 24h",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "hubspot-cli contacts bulk-update (digest+--confirm gate only above 100 rows; smaller batches send immediately with a bypass warning); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update (raw writes send immediately - no --confirm flag)",
-      "policy": "Pass --dry-run first to preview; raw writes are NOT gated by default, so require agent-side approval before sending"
+      "examples": "hubspot-cli contacts bulk-update (--yes up to 100 rows, digest and --confirm above that); hubspot-cli batch post-crm-v3-objects-object-type-create-create; hubspot-cli batch post-crm-v3-objects-object-type-update-update (each needs --yes or --dry-run)",
+      "policy": "Preview with --dry-run, then a reviewed write with --yes"
     },
     {
       "tier": "Destructive / config",
       "examples": "hubspot-cli hubspot-deals-crm delete-v3-objects-0-3-deal-id-archive; hubspot-cli hubspot-contacts-crm delete-v3-objects-contacts-contact-id; hubspot-cli hubspot-contacts-crm post-v3-objects-contacts-gdpr-delete",
-      "policy": "Human-in-the-loop only"
+      "policy": "Human-in-the-loop only, explicit --yes"
     }
   ]
 }

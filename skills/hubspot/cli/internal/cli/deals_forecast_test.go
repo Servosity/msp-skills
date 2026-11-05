@@ -14,8 +14,9 @@ import (
 	"hubspot-pp-cli/internal/store"
 )
 
-// seedPipeline inserts a pipeline with stage metadata probabilities into
-// hubspot_pipelines_crm so the forecast probability lookup has data.
+// seedPipeline inserts a deal pipeline with stage metadata probabilities into
+// hubspot_pipelines_crm, declared a deal pipeline as sync declares it, so the
+// forecast probability lookup has data.
 func seedPipeline(t *testing.T, s *store.Store, id string, stages []map[string]any) {
 	t.Helper()
 	data, err := json.Marshal(map[string]any{"id": id, "label": id, "stages": stages})
@@ -31,6 +32,9 @@ func seedPipeline(t *testing.T, s *store.Store, id string, stages []map[string]a
 		id, data, id,
 	); err != nil {
 		t.Fatalf("insert pipeline %s: %v", id, err)
+	}
+	if err := hsDeclarePipelineObjectType(s, "hubspot-pipelines-crm", "/crm/v3/pipelines/deals", []json.RawMessage{data}); err != nil {
+		t.Fatalf("declare pipeline %s: %v", id, err)
 	}
 }
 

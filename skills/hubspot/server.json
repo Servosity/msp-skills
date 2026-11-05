@@ -42,6 +42,19 @@
           "default": "https://api.hubapi.com"
         },
         {
+          "name": "HUBSPOT_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "HUBSPOT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "HUBSPOT_OWNER_EMAIL",
           "description": "Email address that `--owner me` resolves to when git config user.email is not set. Leave blank to name the owner on each call.",
           "isRequired": false,
