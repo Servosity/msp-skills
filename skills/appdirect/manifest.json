@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "appdirect-mcp",
+  "name": "appdirect-pp-mcp",
   "display_name": "AppDirect",
   "version": "0.1.9",
   "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
@@ -10,14 +10,14 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/appdirect-mcp",
+    "entry_point": "bin/appdirect-pp-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/appdirect-mcp",
+      "command": "${__dirname}/bin/appdirect-pp-mcp",
       "args": [],
       "env": {
-        "APPDIRECT_BASE_URL": "${user_config.appdirect_base_url}",
         "APPDIRECT_CLIENT_ID": "${user_config.appdirect_client_id}",
         "APPDIRECT_CLIENT_SECRET": "${user_config.appdirect_client_secret}",
+        "APPDIRECT_BASE_URL": "${user_config.appdirect_base_url}",
         "APPDIRECT_OAUTH_SCOPE": "${user_config.appdirect_oauth_scope}",
         "APPDIRECT_TOKEN_URL": "${user_config.appdirect_token_url}",
         "APPDIRECT_NO_CONFIG_WRITE": "${user_config.appdirect_no_config_write}"
@@ -76,11 +76,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:32:08.614655Z",
-    "spec_checksum": "sha256:21a82c3829a501ee3520a2f502bf693bbb585b509c9edd96f0af2726930f880b",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T04:30:39.099618Z",
+    "spec_checksum": "sha256:8467f8d74260c6e3be3ff94a07a5ec0d11ee39a30393f2d566c093575fc1e206",
     "spec_format": "openapi3"
   }
 }

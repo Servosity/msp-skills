@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-implemented novel feature: billing reconciliation across the local
 // subscriptions / invoices / payments tables. Originally scaffolded by the
 // CLI Printing Press; body is hand-authored.
@@ -75,7 +75,7 @@ instead. Run 'sync --resources billing' first to populate the local store.`),
   # Narrow the report for agent triage
   appdirect-cli reconcile --since 30d --agent --select findings.kind,findings.subscriptionId,findings.companyName
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"}, // appdirect handfix: local analytics refuse --data-source live (Codex r1 P2)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()

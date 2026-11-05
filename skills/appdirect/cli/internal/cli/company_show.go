@@ -1,7 +1,15 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-implemented novel feature: company 360 view joining the local
-// companies, users, subscriptions, invoices, and opportunities tables.
+// companies, subscriptions, invoices, and opportunities tables.
 // Originally scaffolded by the CLI Printing Press; body is hand-authored.
+//
+// appdirect handfix (Codex r1 4.34.2 class wrong-field-read-from-a-documented-
+// response): users are not joined. A synced user is a UserAccountV2, which
+// has no company member (company membership is UserCompanyMembershipAccountV2,
+// GET /account/v2/companies/{companyUuid}/memberships, which sync does not
+// store); the 0.1.9 join read a `company` member users never carry and
+// reported zero users for every customer. The view names the command that
+// lists the company's users instead of a count it cannot compute.
 
 package cli
 
@@ -15,13 +23,6 @@ import (
 )
 
 // pp:data-source local
-
-type company360User struct {
-	ID        string `json:"id"`
-	Email     string `json:"email,omitempty"`
-	FirstName string `json:"firstName,omitempty"`
-	LastName  string `json:"lastName,omitempty"`
-}
 
 type company360Sub struct {
 	SubscriptionID string `json:"subscriptionId"`
@@ -49,7 +50,7 @@ type company360Opp struct {
 
 type company360View struct {
 	Company       map[string]any      `json:"company"`
-	Users         []company360User    `json:"users"`
+	UsersHint     string              `json:"users_hint"`
 	Subscriptions []company360Sub     `json:"subscriptions"`
 	Invoices      []company360Invoice `json:"invoices"`
 	Opportunities []company360Opp     `json:"opportunities"`
@@ -62,12 +63,16 @@ func newNovelCompanyShowCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "show [companyId]",
-		Short: "One customer's full picture - users, subscriptions, invoices, and open opportunities",
+		Short: "One customer's full picture - subscriptions, invoices, and open opportunities",
 		Long: strings.TrimSpace(`
 Use this command for one customer's full picture: the company record plus its
-users, subscriptions, invoices, and open opportunities, joined from the local
-store in a single payload. Pass the company UUID (as shown by
+subscriptions, invoices, and open opportunities, joined from the local store
+in a single payload. Pass the company UUID (as shown by
 'search <name> --type account-v2-companies' or the companies endpoints).
+
+Users are not in the payload: a synced user record (UserAccountV2) names no
+company, so the local store cannot tell which users belong to it. users_hint
+names the command that lists them live (the company's memberships).
 
 Do NOT use this command for marketplace-wide billing matching; use 'reconcile'
 instead. Run 'sync' first to populate the local store.`),
@@ -79,15 +84,16 @@ instead. Run 'sync' first to populate the local store.`),
   appdirect-cli company show 12345678-aaaa-bbbb-cccc-1234567890ab --agent --select company.name,invoices,counts
 `, "\n"),
 		Annotations: map[string]string{
-			"mcp:read-only": "true",
-			"pp:happy-args": "companyId=12345678-aaaa-bbbb-cccc-1234567890ab",
+			"mcp:read-only":  "true",
+			"pp:data-source": "local", // appdirect handfix: local analytics refuse --data-source live (Codex r1 P2)
+			"pp:happy-args":  "companyId=12345678-aaaa-bbbb-cccc-1234567890ab",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
 			}
 			if dryRunOK(flags) {
-				fmt.Fprintln(cmd.OutOrStdout(), "would join local company, users, subscriptions, invoices, and opportunities")
+				fmt.Fprintln(cmd.OutOrStdout(), "would join local company, subscriptions, invoices, and opportunities")
 				return nil
 			}
 			if len(args) < 1 || strings.TrimSpace(args[0]) == "" {
@@ -105,7 +111,7 @@ instead. Run 'sync' first to populate the local store.`),
 			}
 			defer db.Close()
 
-			for _, rt := range []string{rtCompanies, rtUsers, rtSubscriptions, rtInvoices, rtOpportunities} {
+			for _, rt := range []string{rtCompanies, rtSubscriptions, rtInvoices, rtOpportunities} {
 				if !hintIfUnsynced(cmd, db, rt) {
 					hintIfStale(cmd, db, rt, flags.maxAge)
 				}
@@ -121,23 +127,6 @@ instead. Run 'sync' first to populate the local store.`),
 					company = c
 					break
 				}
-			}
-
-			users, err := loadResourceObjects(cmd.Context(), db, rtUsers)
-			if err != nil {
-				return err
-			}
-			matchedUsers := make([]company360User, 0)
-			for _, u := range users {
-				if novelRefID(u, "company") != companyID {
-					continue
-				}
-				matchedUsers = append(matchedUsers, company360User{
-					ID:        novelStr(u, "id"),
-					Email:     novelStr(u, "email"),
-					FirstName: novelStr(u, "firstName"),
-					LastName:  novelStr(u, "lastName"),
-				})
 			}
 
 			subs, err := loadResourceObjects(cmd.Context(), db, rtSubscriptions)
@@ -206,12 +195,11 @@ instead. Run 'sync' first to populate the local store.`),
 
 			view := company360View{
 				Company:       company,
-				Users:         matchedUsers,
+				UsersHint:     fmt.Sprintf("synced user records name no company; list this company's users with: appdirect-cli account resource-company-read-company-memberships-get %s", companyID),
 				Subscriptions: matchedSubs,
 				Invoices:      matchedInvoices,
 				Opportunities: matchedOpps,
 				Counts: map[string]int{
-					"users":         len(matchedUsers),
 					"subscriptions": len(matchedSubs),
 					"invoices":      len(matchedInvoices),
 					"opportunities": len(matchedOpps),

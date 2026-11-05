@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-implemented novel feature: assisted-sales pipeline rollup over the
 // local opportunities table. Originally scaffolded by the CLI Printing Press;
 // body is hand-authored.
@@ -57,7 +57,7 @@ populate the local store.`),
   # Who owns the open pipeline
   appdirect-cli pipeline --group-by owner --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"}, // appdirect handfix: local analytics refuse --data-source live (Codex r1 P2)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
