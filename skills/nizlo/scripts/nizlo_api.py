@@ -8,10 +8,11 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from http.client import HTTPException
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 DEFAULT_BASE_URL = "https://app.nizlo.com/api/v1"
@@ -26,6 +27,29 @@ ALLOWED_PATHS = {
 
 class ClientError(RuntimeError):
     """A safe-to-print client or HTTP error."""
+
+
+class RejectRedirects(HTTPRedirectHandler):
+    """Convert every redirect into HTTPError before credentials can be resent."""
+
+    def redirect_request(
+        self,
+        request: Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> None:
+        return None
+
+
+_OPENER = build_opener(RejectRedirects())
+
+
+def open_request(request: Request, timeout: int) -> Any:
+    """Open one request through a redirect-rejecting HTTPS client."""
+    return _OPENER.open(request, timeout=timeout)
 
 
 def normalized_base_url(value: str) -> str:
@@ -70,7 +94,7 @@ def request_json(url: str, token: str) -> Any:
         method="GET",
     )
     try:
-        with urlopen(request, timeout=30) as response:
+        with open_request(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         body = exc.read(4096).decode("utf-8", errors="replace")
@@ -79,6 +103,8 @@ def request_json(url: str, token: str) -> Any:
         ) from None
     except URLError as exc:
         raise ClientError(f"Unable to reach the Nizlo API: {exc.reason}") from None
+    except (OSError, HTTPException) as exc:
+        raise ClientError(f"Nizlo API response was interrupted: {exc}") from None
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise ClientError("Nizlo API returned a non-JSON response") from None
 
@@ -403,17 +429,17 @@ def selfcheck() -> None:
         def read(self) -> bytes:
             return b"{}"
 
-    def fake_urlopen(request: Request, timeout: int) -> Response:
+    def fake_open_request(request: Request, timeout: int) -> Response:
         seen["authorization"] = request.get_header("Authorization")
         seen["timeout"] = str(timeout)
         return Response()
 
-    original_urlopen = globals()["urlopen"]
-    globals()["urlopen"] = fake_urlopen
+    original_open_request = globals()["open_request"]
+    globals()["open_request"] = fake_open_request
     try:
         assert request_json(base + "dashboard/summary", secret) == {}
     finally:
-        globals()["urlopen"] = original_urlopen
+        globals()["open_request"] = original_open_request
     assert seen["authorization"] == f"Bearer {secret}"
     assert seen["timeout"] == "30"
     print(

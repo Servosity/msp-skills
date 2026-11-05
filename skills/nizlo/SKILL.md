@@ -4,7 +4,7 @@ description: >
   Query a Nizlo RMM workspace through its permission-limited personal access
   token API. Use for Nizlo fleet summaries, endpoint inventory, stale or
   offline-device checks, customer or site lookup, and active alert triage. This
-  first-party skill is intentionally read-only: it never creates jobs, changes
+  skill is intentionally read-only: it never creates jobs, changes
   policies, acknowledges alerts, or mutates a tenant.
 allowed-tools: "Read Bash PowerShell"
 author: "Nizlo"
