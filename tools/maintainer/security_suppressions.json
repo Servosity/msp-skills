@@ -1413,7 +1413,8 @@
       "rule": "G402",
       "bind": "file",
       "sha256": [
-        "sha256:1177b7b0e421f09350a02a861506634233aa94a9503ac26f458c08f12471c3c9"
+        "sha256:1177b7b0e421f09350a02a861506634233aa94a9503ac26f458c08f12471c3c9",
+        "sha256:db40182053db0816bc4a89fdf3da0dbb1c9d2165ad066bec039ae5795b727dda"
       ],
       "press": "4.34.0",
       "reason": "press 4.34.0 template, reviewed 2026-10-23. browser-chrome transport only. InsecureSkipVerify takes trust.insecure, which is true only when the operator sets --insecure, <SLUG>_SKIP_TLS_VERIFY or skip_tls_verify in their own config (self-signed appliances); the MCP bridge refuses --insecure. The default verifies against the system or --ca-cert pool."
