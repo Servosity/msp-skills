@@ -36,6 +36,7 @@ import (
 	"io"
 	"math"
 	mbits "math/bits"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -1902,16 +1903,91 @@ func (d *decoding) tables(p []byte) {
 		if quote && open && cut && d.s.ok() {
 			// As in wide: the reading's documents are joined over the whole
 			// reading, a character no held value has read as U+FFFD.
-			var full []byte
-			for _, c := range p {
-				r := g.char[c]
-				if r < 0 {
-					r = utf8.RuneError
+			if tableWhole {
+				var full []byte
+				for _, c := range p {
+					r := g.char[c]
+					if r < 0 {
+						r = utf8.RuneError
+					}
+					full = utf8.AppendRune(full, r)
 				}
-				full = utf8.AppendRune(full, r)
+				if d.s.charge(len(full)) {
+					d.joined(full, d.tail)
+				}
+				continue
 			}
-			if d.s.charge(len(full)) {
-				d.joined(full, d.tail)
+			d.tableDocs(g, p)
+		}
+	}
+}
+
+// tableWhole makes tables build each joined reading whole, as it did before
+// tableDocs: tests compare the two.
+var tableWhole = false
+
+// tableDocs joins the documents of g's reading of p, as joined over the whole
+// reading would, without building it: the reading of a single-byte charset
+// from one offset is the reading from the start cut there, so each document
+// is parsed from the byte that starts it, as far as the parse reads (a
+// reading built whole was most of the check's decoded bytes on ordinary
+// rich text, a binary part's reading of a few documents' starts). As in
+// modalDoc, every start is parsed over the rest of the reading and over the
+// rest of its line: more views than jsonDoc reads, never fewer.
+func (d *decoding) tableDocs(g *tableGroup, p []byte) {
+	s := d.s
+	lastNL := -1
+	for i, c := range p {
+		if g.char[c] == '\n' {
+			lastNL = i
+		}
+	}
+	reading := func(i, n int, line bool) ([]byte, bool) {
+		var t []byte
+		for j := i; j < len(p); j++ {
+			r := g.char[p[j]]
+			if r < 0 {
+				r = utf8.RuneError
+			}
+			if line && r == '\n' {
+				return t, true
+			}
+			if j-i >= n {
+				return t, false
+			}
+			t = utf8.AppendRune(t, r)
+		}
+		return t, true
+	}
+	parse := func(i int, line, atEnd bool) {
+		for n := modalGrid; s.ok(); n *= 2 {
+			t, whole := reading(i, n, line)
+			ok, decided := jsonStartIn(t, whole)
+			if !decided {
+				continue
+			}
+			if !ok {
+				return
+			}
+			out, read, open, decided := jsonStringsIn(t, whole, func(int) {})
+			if !decided {
+				continue
+			}
+			if !s.charge(read) {
+				return
+			}
+			if open && atEnd {
+				s.open.Store(true)
+			}
+			d.finalOut(out) // limits.go, joinFinal
+			return
+		}
+	}
+	for i := 0; i < len(p) && s.ok(); i++ {
+		if r := g.char[p[i]]; r == '{' || r == '[' {
+			parse(i, false, d.tail)
+			if i < lastNL {
+				parse(i, true, false)
 			}
 		}
 	}
@@ -2141,16 +2217,260 @@ func (d *decoding) modal(enc encoding.Encoding, p []byte, intro byte, isSwitch f
 		return // no switch: the reading is the bytes, high bytes as U+FFFD
 	}
 	slices.Sort(starts)
-	for _, k := range slices.Compact(starts) {
+	starts = slices.Compact(starts)
+	if w := newModalWalk(enc); w != nil && !modalWhole {
+		for _, k := range starts {
+			if !d.s.ok() || !d.modalReading(w, p, k) {
+				return
+			}
+		}
+		return
+	}
+	for _, k := range starts {
 		if !d.s.ok() {
 			return
 		}
 		out, _, _ := transform.Bytes(enc.NewDecoder(), p[k:])
+		if !d.s.charge(len(out)) {
+			return
+		}
 		if bytes.Equal(out, p[k:]) { // exact: the view as written
 			continue
 		}
 		d.joined(out, d.tail) // whole: its other characters are a document's structure and member names
 		d.s.m.rel.runs(out, func(r []byte) { d.charOut(r) })
+	}
+}
+
+// The readings modal reads, each to the end of the part, share their tails:
+// the decoder's output from a byte offset on depends only on that offset and
+// the mode it is in there, so two readings that are at one offset in one mode
+// read the same from there to the end. Decoded whole, each from its own
+// start, they made modal quadratic in the part (ordinary output: one switch
+// every few kilobytes of a binary part). modalWalk decodes each reading only
+// until it reaches an offset and mode an earlier reading decoded (the join),
+// and reads the rest of it in that reading, so each offset and mode is
+// decoded about once. What it reads of a reading is what modal read before,
+// or more (exact):
+//   - its runs of relevant characters: those that start before the join and
+//     the one in progress there, read on into the shared tail to its first
+//     character that is not relevant. Every later run starts after a
+//     character of the shared tail, and is the same run in the reading that
+//     decoded that character, which reads it.
+//   - its JSON documents: a start in the part the reading decoded is parsed
+//     from there to the end of the reading (and of its line), whatever an
+//     earlier parse read. A start's parse depends only on the bytes from it
+//     to the end, so a start in the shared tail is parsed by the reading
+//     that decoded it. Parsing every start reads every document modal read,
+//     and the ones an earlier parse read as structure as well.
+//   - a reading identical to the bytes as written is skipped, as before, and
+//     what it decoded is no join for a later reading.
+type modalWalk struct {
+	tr   transform.Transformer
+	mode reflect.Value // the decoder's mode (a small integer)
+	seen map[modalKey]uint64
+	rd   []modalReading
+	dst  []byte
+}
+
+// modalKey names a reading's start: an offset in the unit and the mode there.
+type modalKey struct {
+	x    int
+	mode int64
+}
+
+// modalReading is one reading: what it decoded itself, and the reading it
+// joins (next, at nextOff in that one's out), or next -1 at the part's end.
+type modalReading struct {
+	out           []byte
+	next, nextOff int
+	lastNL        int  // the last line feed in out, or -1
+	nlOn          bool // a line feed in its path after out
+	lastChange    int  // where in out the last chunk unlike its input ends, or -1
+	changedOn     bool // a chunk unlike its input in its path after out
+}
+
+// modalWhole makes modal decode each reading whole, as it did before
+// modalWalk: tests compare the two.
+var modalWhole = false
+
+// modalGrid: a reading is decoded in chunks that end at multiples of this
+// many bytes of the part, and checked for a join where each chunk starts.
+// Two readings that agree end their chunks at the same offsets (the last
+// character boundary at or before each multiple), so a join is found within
+// two chunks of where it happens.
+const modalGrid = 256
+
+// newModalWalk is a walk for enc, or nil when enc's decoder does not keep
+// its mode as a small integer this can read (then modal decodes each reading
+// whole, as before).
+func newModalWalk(enc encoding.Encoding) *modalWalk {
+	tr := enc.NewDecoder().Transformer
+	v := reflect.ValueOf(tr)
+	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Int {
+		return nil
+	}
+	return &modalWalk{tr: tr, mode: v.Elem(), seen: map[modalKey]uint64{}}
+}
+
+// modalReading reads the reading from p[k]. It reports false when the
+// decoder did not move (no such decoder: modal stops, fails closed).
+func (d *decoding) modalReading(w *modalWalk, p []byte, k int) bool {
+	s := d.s
+	w.tr.Reset()
+	r := modalReading{next: -1, lastChange: -1}
+	idx := len(w.rd)
+	var keys []modalKey
+	for x := k; x < len(p) && s.ok(); {
+		mode := w.mode.Int()
+		if mode < 0 || mode > 0xff {
+			s.stop(exhausted) // no such decoder: a mode this cannot key
+			return false
+		}
+		key := modalKey{x, mode}
+		if v, ok := w.seen[key]; ok {
+			r.next, r.nextOff = int(v>>32), int(v&0xffffffff)
+			break
+		}
+		w.seen[key] = uint64(idx)<<32 | uint64(len(r.out))
+		keys = append(keys, key)
+		end := min(len(p), (x/modalGrid+1)*modalGrid)
+		for {
+			if need := 4*(end-x) + 16; len(w.dst) < need {
+				w.dst = make([]byte, need)
+			}
+			nDst, nSrc, err := w.tr.Transform(w.dst, p[x:end], end == len(p))
+			if nSrc == 0 && err == transform.ErrShortSrc && end < len(p) {
+				end = min(len(p), end+modalGrid) // a character across the multiple
+				continue
+			}
+			if nSrc == 0 {
+				s.stop(exhausted) // no such decoder: it read nothing
+				return false
+			}
+			if !s.charge(nDst) {
+				return false
+			}
+			out := w.dst[:nDst]
+			if nDst != nSrc || !bytes.Equal(out, p[x:x+nSrc]) {
+				r.lastChange = len(r.out) + nDst
+			}
+			r.out = append(r.out, out...)
+			x += nSrc
+			break
+		}
+	}
+	if !s.ok() {
+		return false
+	}
+	r.lastNL = bytes.LastIndexByte(r.out, '\n')
+	if r.next >= 0 {
+		t := &w.rd[r.next]
+		r.nlOn = t.lastNL >= r.nextOff || t.nlOn
+		r.changedOn = t.lastChange > r.nextOff || t.changedOn
+	}
+	if r.lastChange < 0 && !r.changedOn {
+		// exact: the view as written. What it decoded is no join for a
+		// later reading, which reads on itself.
+		for _, key := range keys {
+			delete(w.seen, key)
+		}
+		return true
+	}
+	w.rd = append(w.rd, r)
+	rd := &w.rd[idx]
+	// Its runs: the ones before the join and the one in progress there.
+	ext := rd.out
+	if rd.next >= 0 {
+		ext = w.untilIrrelevant(slices.Clip(ext), &s.m.rel, rd.next, rd.nextOff)
+	}
+	s.m.rel.runs(ext, func(b []byte) { d.charOut(b) })
+	// Its documents: every start in what it decoded.
+	for q := 0; q < len(rd.out) && s.ok(); q++ {
+		if c := rd.out[q]; c == '{' || c == '[' {
+			d.modalDoc(w, idx, q)
+		}
+	}
+	return s.ok()
+}
+
+// untilIrrelevant appends to b the path of reading k from out offset o up to
+// its first character that is not relevant.
+func (w *modalWalk) untilIrrelevant(b []byte, rel *relevance, k, o int) []byte {
+	for ; k >= 0; k, o = w.rd[k].next, w.rd[k].nextOff {
+		seg := w.rd[k].out[o:]
+		for i := 0; i < len(seg); {
+			c, sz := rune(seg[i]), 1
+			ok := false
+			if c < utf8.RuneSelf {
+				ok = rel.asc(seg[i])
+			} else {
+				c, sz = utf8.DecodeRune(seg[i:])
+				ok = !(c == utf8.RuneError && sz == 1) && rel.has(c)
+			}
+			if !ok {
+				return append(b, seg[:i]...)
+			}
+			i += sz
+		}
+		b = append(b, seg...)
+	}
+	return b
+}
+
+// path appends to b at most n bytes of reading k's path from out offset o,
+// stopping after the first stop byte when stop >= 0, and reports whether it
+// reached the path's end or the stop byte.
+func (w *modalWalk) path(b []byte, k, o, n, stop int) ([]byte, bool) {
+	for ; k >= 0; k, o = w.rd[k].next, w.rd[k].nextOff {
+		seg := w.rd[k].out[o:]
+		if stop >= 0 && stop <= 0xff {
+			if i := bytes.IndexByte(seg, byte(stop)); i >= 0 && i < n {
+				return append(b, seg[:i]...), true
+			}
+		}
+		if len(seg) >= n {
+			return append(b, seg[:n]...), false
+		}
+		b, n = append(b, seg...), n-len(seg)
+	}
+	return b, true
+}
+
+// modalDoc joins the document that starts at out[q] of reading k, as jsonDoc
+// joins one: over the rest of the reading, a document open where the unit
+// ends reported, and over the rest of its line when a line feed follows. It
+// parses where jsonDoc would not (no quote follows, or a line holds no
+// quote after it): more views, never fewer.
+func (d *decoding) modalDoc(w *modalWalk, k, q int) {
+	s, rd := d.s, &w.rd[k]
+	parse := func(stop int, atEnd bool) {
+		for n := modalGrid; s.ok(); n *= 2 {
+			t, whole := w.path(nil, k, q, n, stop)
+			ok, decided := jsonStartIn(t, whole)
+			if !decided {
+				continue
+			}
+			if !ok {
+				return
+			}
+			out, read, open, decided := jsonStringsIn(t, whole, func(int) {})
+			if !decided {
+				continue
+			}
+			if !s.charge(read) {
+				return
+			}
+			if open && atEnd {
+				s.open.Store(true)
+			}
+			d.finalOut(out) // limits.go, joinFinal
+			return
+		}
+	}
+	parse(-1, d.tail)
+	if rd.lastNL > q || rd.nlOn {
+		parse('\n', false) // its line
 	}
 }
 
@@ -2272,18 +2592,30 @@ starts:
 // jsonStart reports whether t, which starts with '{' or '[', can start a
 // document: the parser would read past its first byte.
 func jsonStart(t []byte) bool {
+	ok, _ := jsonStartIn(t, true)
+	return ok
+}
+
+// jsonStartIn is jsonStart for t, the first bytes of the input when not
+// whole: decided reports whether the answer is the input's whatever follows.
+func jsonStartIn(t []byte, whole bool) (ok, decided bool) {
 	for _, c := range t[1:] {
 		switch {
 		case c == ' ' || c == '\t' || c == '\r' || c == '\n':
 			continue
 		case t[0] == '{':
-			return c == '"' || c == '}'
+			return c == '"' || c == '}', true
 		default:
-			return strings.IndexByte("\"{[]-0123456789tfn", c) >= 0
+			return strings.IndexByte("\"{[]-0123456789tfn", c) >= 0, true
 		}
 	}
-	return true // open where the view ends
+	return true, whole // open where the view ends
 }
+
+// jsonCutMargin is how far before the end of a cut input a syntax error
+// must be for jsonStringsIn to take it as the input's (exact: the parser
+// reads at most one byte past a token before it fails).
+const jsonCutMargin = 16
 
 // partialStart reports whether c can start a token of an encoding that a
 // later write completes (jsonStrings).
@@ -2316,6 +2648,16 @@ func closedString(s []byte) bool {
 // sequence, a control or non-ASCII byte (a partial character or code
 // list), with no space, tab or line feed from it to the end of t.
 func jsonStrings(t []byte, open func(int)) ([]byte, int, bool) {
+	out, read, atEnd, _ := jsonStringsIn(t, true, open)
+	return out, read, atEnd
+}
+
+// jsonStringsIn is jsonStrings for t, the first bytes of the input when not
+// whole. decided reports whether its answer is the input's whatever
+// follows t: the parse stopped at a syntax error well inside t, and each
+// look past it found what it looks for inside t. Whole, it is always
+// decided and the answer is jsonStrings'.
+func jsonStringsIn(t []byte, whole bool, open func(int)) (_ []byte, _ int, _ bool, decided bool) {
 	dec := json.NewDecoder(bytes.NewReader(t))
 	dec.UseNumber() // a number out of float64 range (1e1000) is a token, not an error that cuts the join short
 	type frame struct{ obj, wantKey bool }
@@ -2326,7 +2668,11 @@ func jsonStrings(t []byte, open func(int)) ([]byte, int, bool) {
 		if err != nil {
 			read := int(dec.InputOffset()) // at a syntax error: all it buffered
 			atEnd := len(stack) > 0
-			if se, ok := err.(*json.SyntaxError); ok {
+			se, syntax := err.(*json.SyntaxError)
+			// Cut short, only a syntax error well before the cut is the
+			// input's: the parser reads a byte past a number or a word.
+			decided = whole || syntax && int(se.Offset)+jsonCutMargin <= len(t)
+			if syntax {
 				read = int(se.Offset)
 				atEnd = false
 				// The offset is after the bad byte for an error inside a
@@ -2334,21 +2680,28 @@ func jsonStrings(t []byte, open func(int)) ([]byte, int, bool) {
 				// the token's start. A carriage return does not end the
 				// token: quoted-printable's soft line break is = CR LF.
 				for _, at := range []int{read - 1, read} {
-					if at >= 0 && at < len(t) && partialStart(t[at]) && !bytes.ContainsAny(t[at:], " \t\n") {
-						atEnd = true
+					if at >= 0 && at < len(t) && partialStart(t[at]) {
+						if bytes.ContainsAny(t[at:], " \t\n") {
+							continue
+						}
+						atEnd, decided = true, decided && whole
 					}
 				}
 			}
 			if err == io.EOF || len(stack) == 0 || stack[len(stack)-1].obj && stack[len(stack)-1].wantKey {
-				return out, read, atEnd
+				return out, read, atEnd, decided
 			}
 			// An open document: the string it ends inside, unfinished.
 			rest := bytes.TrimLeft(t[read:], " \t\r\n,:")
+			if len(rest) == 0 {
+				decided = decided && whole
+			}
 			if len(rest) > 0 && rest[0] == '"' && !closedString(rest[1:]) {
+				decided = decided && whole
 				out = append(out, unescape(rest[1:], false)...)
 				read = len(t)
 			}
-			return out, read, atEnd
+			return out, read, atEnd, decided
 		}
 		switch t := tok.(type) {
 		case json.Delim:

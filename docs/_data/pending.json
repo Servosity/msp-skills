@@ -392,9 +392,9 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "mspbots-v0.1.6",
+    "latest_tag": "mspbots-v0.1.7",
     "current_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
     "released_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3"
   },
