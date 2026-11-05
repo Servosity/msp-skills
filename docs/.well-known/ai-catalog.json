@@ -2002,6 +2002,26 @@
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/zammad.md"
       }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:zoom-phone",
+      "displayName": "Zoom Phone",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "description": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "tags": [
+        "Telephony"
+      ],
+      "representativeQueries": [
+        "Which users, common areas and sites have a missing or unverified emergency address?",
+        "Which phone numbers are unassigned, pending, or still held by an inactive user?",
+        "Which desk phones are offline, unassigned or on drifted firmware, by site?",
+        "Which external callers missed us this week and have not been called back?",
+        "Which IVR keys point at nothing, and which call queues have nobody to answer?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/zoom-phone.md"
+      }
     }
   ]
 }

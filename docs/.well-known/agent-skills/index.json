@@ -707,6 +707,13 @@
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server - plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
       "digest": "sha256:358b8a4d2818908ad53e9af2d45740a7588bf2257f154404a93105ca3094ad0f"
+    },
+    {
+      "name": "zoom-phone",
+      "type": "skill-md",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account. Trigger phrases: `audit zoom phone e911`, `what does this zoom phone user have`, `which call queues is this user in`, `where does this zoom phone number ring`, `zoom phone missed calls callback list`, `offboard a zoom phone user`, `zoom phone unassigned numbers`, `offline zoom desk phones`, `broken zoom phone call routing`, `run a zoom phone audit across all client accounts`, `use zoom-phone`, `run zoom-phone`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "digest": "sha256:067b51e9cdbf486193982fb305d2f016d86bd7ad4ccfc7770aa586952d0d36e6"
     }
   ]
 }
