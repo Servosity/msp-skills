@@ -22,6 +22,7 @@ All notable changes to this skill are documented here. Format follows
 - **`spend` counts what is owed.** Void, Nothing Due and Credited invoices are left out and counted; an invoice with any other status, or none, is left out and reported with its amount. Every company is shown by default (it stopped at 25 with no notice); `--limit` still works. `spend` does not subtract `carriedBalance`, because Pax8's documentation does not settle whether `total` includes it.
 - **`mrr` shows no margin it cannot know.** A subscription with no `partnerCost` used to count as pure margin. The margin now covers only rows with a cost and says how many lack one; with no costs at all, `totals.margin` is `null`.
 - **Money is never added across currencies.** `mrr` gives one total per currency, with `totals.mrr` and `totals.margin` `null` when there is more than one. `spend` gives one row per company and currency. `overage` averages a product within one currency.
+- **`--agent` keeps what marks a figure as partial.** The compact agent output dropped a field that only some rows carry, such as `subscriptionsWithoutCost` on one billing term or `notOwedInvoices` on one company; `mrr`, `spend`, `overage`, `reconcile` and `since` now keep every field their rows define.
 - **The newest usage record wins a same-second tie.** A sync and a live read in the same second could leave `overage` reading the older charges.
 
 ### Security

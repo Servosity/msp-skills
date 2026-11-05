@@ -181,7 +181,7 @@ Do NOT use this command for a single customer's full picture; use 'company show'
 			})
 
 			if flags.asJSON {
-				return printJSONFiltered(out, changes, flags)
+				return pax8PrintNovelJSON(out, changes, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			if len(changes) == 0 {
 				fmt.Fprintf(out, "No subscription changes in the last %s. (Run 'pax8-cli sync' first if the store is empty.)\n", windowLabel)

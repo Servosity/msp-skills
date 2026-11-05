@@ -124,7 +124,7 @@ by the threshold factor (default 1.5x). Run 'pax8-cli sync' first.`,
 			sort.Slice(flagged, func(i, j int) bool { return flagged[i].OverageFactor > flagged[j].OverageFactor })
 
 			if flags.asJSON {
-				return printJSONFiltered(out, flagged, flags)
+				return pax8PrintNovelJSON(out, flagged, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			if len(flagged) == 0 {
 				if len(summaries) == 0 {

@@ -1335,7 +1335,7 @@
    "id": "novel-money-shapes",
    "class": "wrong-result",
    "status": "active",
-   "summary": "spend and mrr share one reading of the money Pax8 documents (internal/cli/pax8_novel_rules.go). spend sums Invoice.total for status Unpaid, Paid and Carried; Void, Nothing Due and Credited are left out and counted; any other status, or none, is left out and reported with its amount. Money is never added across currencyCode: spend has one row per company and currency, and mrr with more than one currency prints null for totals.mrr and totals.margin and one total per currency in totals.byCurrency. spend shows every company unless --limit asks for fewer. mrr reports a margin only over subscriptions that carry partnerCost and counts the rest in subscriptionsWithoutCost; with no cost on any row the margin is null. Invoice.carriedBalance is not subtracted, because the spec examples do not settle whether Invoice.total includes it. overage averages a product within one currency.",
+   "summary": "spend and mrr share one reading of the money Pax8 documents (internal/cli/pax8_novel_rules.go). spend sums Invoice.total for status Unpaid, Paid and Carried; Void, Nothing Due and Credited are left out and counted; any other status, or none, is left out and reported with its amount. Money is never added across currencyCode: spend has one row per company and currency, and mrr with more than one currency prints null for totals.mrr and totals.margin and one total per currency in totals.byCurrency. spend shows every company unless --limit asks for fewer. mrr reports a margin only over subscriptions that carry partnerCost and counts the rest in subscriptionsWithoutCost; with no cost on any row the margin is null. Invoice.carriedBalance is not subtracted, because the spec examples do not settle whether Invoice.total includes it. overage averages a product within one currency. Under --agent and --compact, mrr, spend, overage, reconcile and since keep every field their rows define (pax8PrintNovelJSON), so a counter on only some rows survives.",
    "why": "Adversarial review 2026-11-05, reproduced on the binary: spend counted a Void invoice as spend, cut to 25 companies with no notice, and added currencies under the first currency it saw; mrr printed a margin equal to the MRR when partnerCost was absent, which is every documented example. Tests in internal/cli/pax8_money_test.go failed before the fix (seen/r1-class3-seen-failing.log).",
    "asserts": [
     {
@@ -1384,6 +1384,42 @@
      "file": "cli/internal/cli/overage.go",
      "contains": "pax8UsageAverageKey(s)",
      "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_output.go",
+     "contains": "func pax8PrintNovelJSON(w io.Writer, v any, flags *rootFlags) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
      "code_only": true
     }
    ]

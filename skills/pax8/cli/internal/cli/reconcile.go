@@ -237,7 +237,7 @@ Run 'pax8-cli sync' first.`,
 			res.Summary.ActiveWithoutInvoiceN = len(res.ActiveWithoutInvoice)
 
 			if flags.asJSON {
-				return printJSONFiltered(out, res, flags)
+				return pax8PrintNovelJSON(out, res, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			fmt.Fprintf(out, "Reconciliation summary: %d companies, %d %ss (%d without a subscription), %d billed-without-active-sub, %d active-without-invoice\n\n",
 				res.Summary.Companies, res.Summary.InvoiceLines, invoiceLabel, res.Summary.UnlinkedLines, res.Summary.BilledWithoutSub, res.Summary.ActiveWithoutInvoiceN)

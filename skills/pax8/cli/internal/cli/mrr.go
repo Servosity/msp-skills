@@ -316,7 +316,7 @@ Do NOT use this command for per-customer spend rollups; use 'spend' instead.`,
 			})
 
 			if flags.asJSON {
-				return printJSONFiltered(out, res, flags)
+				return pax8PrintNovelJSON(out, res, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			if len(currencies) == 0 {
 				currencies = []mrrCurrencyTotal{{Margin: res.Totals.Margin}}

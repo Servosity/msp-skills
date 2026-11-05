@@ -128,7 +128,7 @@ Do NOT use this command for a single named customer's full picture; use 'company
 			}
 
 			if flags.asJSON {
-				return printJSONFiltered(out, rows, flags)
+				return pax8PrintNovelJSON(out, rows, flags) // pax8 handfix: novel-money-shapes (every row field kept under --agent)
 			}
 			if len(rows) == 0 {
 				fmt.Fprintln(out, "No invoices in local store. Run 'pax8-cli sync' first.")
