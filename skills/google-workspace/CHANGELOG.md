@@ -6,8 +6,8 @@ All notable changes to this skill are documented here. Format follows
 
 ## [0.1.5] - 2026-11-05
 
-### Changed
-- Describe the changes in this release.
+### Fixed
+- Output that holds no credential is no longer replaced by "withheld ... it carried a credential". Long or rich text, such as HTML email with Outlook Safe Links or long incident reports, ran out the shared credential kit's checking budget and was withheld as if it carried a credential. A credential the program holds is still withheld ([#571](https://github.com/Servosity/msp-skills/pull/571)).
 
 ## [0.1.4] - 2026-11-04
 

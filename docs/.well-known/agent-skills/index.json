@@ -247,6 +247,13 @@
       "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
     },
     {
+      "name": "dropsuite",
+      "type": "skill-md",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential. Trigger phrases: `check dropsuite backups`, `which clients have failing saas backups`, `unprotected mailboxes in ninjaone saas backup`, `reconcile dropsuite seats with billing`, `use dropsuite`, `run dropsuite`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/SKILL.md",
+      "digest": "sha256:a8190f4088167b93bc92c47715afe70c9be40f36b0c6a1bdb5a0a197b04a3582"
+    },
+    {
       "name": "exchange-online",
       "type": "skill-md",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session. Trigger phrases: `audit mailbox forwarding`, `which mailboxes still have EWS on`, `offboard this user's mailbox`, `why didn't this email arrive`, `release quarantined email`, `use exchange-online`, `run exchange-online`.",
@@ -279,7 +286,7 @@
       "type": "skill-md",
       "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has. Trigger phrases: `push usage counts to gradient`, `sync usage to synthesize`, `check my synthesize integration status`, `find unmapped gradient accounts`, `did my gradient alert create a ticket`, `use gradient`, `run gradient-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/gradient/SKILL.md",
-      "digest": "sha256:047f9d0db00e62031cb547d3bc44ba0dd245cbd9f264d28ef26f4bf299f145a5"
+      "digest": "sha256:2eaaed7a5d6f406e9f8bd51df5aa25a54ee5e109df5f91c85869c64c831ddab3"
     },
     {
       "name": "halopsa",

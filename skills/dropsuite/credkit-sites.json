@@ -1,0 +1,156 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/billing.go",
+   "func": "newNovelBillingCmd",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the PSA invoice CSV the operator names with --invoice, never a credential file; the flag is not an MCP argument (mcp:read-flags invoice)"
+  },
+  {
+   "file": "internal/cli/dropsuite_org.go",
+   "func": "installRedaction",
+   "what": "convert:dropsuite-pp-cli/internal/cli.redactingTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a hand-written layer above the kit's transport; its next is the client's kit-guarded transport (removes organization tokens from response bodies before the client stores them)"
+  },
+  {
+   "file": "internal/cli/dropsuite_org.go",
+   "func": "installRedaction",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the client's existing transport, which client.New always sets to credkit.Transport (client.OutboundGuard over the cloned *http.Transport), so every request this layer sends still passes the kit innermost"
+  },
+  {
+   "file": "internal/cli/dropsuite_org.go",
+   "func": "installRedaction",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fallback only for a client with no transport; every client here comes from client.New, which always sets the kit-guarded transport, so this value is never used"
+  },
+  {
+   "file": "internal/cli/dropsuite_org.go",
+   "func": "orgClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "unwraps the org-routing layer back to its next, the client's kit-guarded transport, for an explicit --org token"
+  },
+  {
+   "file": "internal/cli/dropsuite_org.go",
+   "func": "redactingTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sends through next, the client's kit-guarded transport"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "installOrgRouting",
+   "what": "convert:dropsuite-pp-cli/internal/cli.orgRoutingTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a hand-written layer above the kit's transport; its next is the client's kit-guarded transport (swaps in one organization's token for organization-scoped routes)"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "installOrgRouting",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the client's existing transport, which client.New always sets to credkit.Transport (client.OutboundGuard over the cloned *http.Transport), so every request this layer sends still passes the kit innermost"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "installOrgRouting",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fallback only for a client with no transport; every client here comes from client.New, which always sets the kit-guarded transport, so this value is never used"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "orgRoutingTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "sends through next, the client's kit-guarded transport"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "orgTokenDirectory.get",
+   "what": "convert:dropsuite-pp-cli/internal/cli.pinCredentials.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a hand-written layer above the kit's transport; its next is the client's kit-guarded transport (sets the reseller headers on the organization-list request)"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "orgTokenDirectory.get",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the admin client's transport is pinCredentials over next, the calling client's kit-guarded transport"
+  },
+  {
+   "file": "internal/cli/dropsuite_routing.go",
+   "func": "pinCredentials.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "sends through next, the calling client's kit-guarded transport"
+  },
+  {
+   "file": "internal/cli/ds_guard.go",
+   "func": "guardClient",
+   "what": "convert:dropsuite-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a hand-written layer above the kit's transport; its next is the client's kit-guarded transport (refuses any origin other than the configured API and the sign-in link routes for reads)"
+  },
+  {
+   "file": "internal/cli/ds_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the client's existing transport, which client.New always sets to credkit.Transport (client.OutboundGuard over the cloned *http.Transport), so every request this layer sends still passes the kit innermost"
+  },
+  {
+   "file": "internal/cli/ds_guard.go",
+   "func": "guardClient",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fallback only for a client with no transport; every client here comes from client.New, which always sets the kit-guarded transport, so this value is never used"
+  },
+  {
+   "file": "internal/cli/ds_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sends through next, the client's kit-guarded transport, after the origin and route checks"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the same driver connection, inside credkit.SQLDriver; one PRAGMA-free limit call, no data"
+  }
+ ]
+}

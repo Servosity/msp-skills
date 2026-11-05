@@ -12,11 +12,15 @@ package ledger
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gradient-pp-cli/internal/cliutil"
+	"gradient-pp-cli/internal/credkit"
 )
 
 // Dir returns the ledger directory, creating it if needed.
@@ -62,23 +66,30 @@ type AlertRecord struct {
 	TicketID     string    `json:"ticket_id,omitempty"`
 	TicketStatus string    `json:"ticket_status"` // "pending" | "created" | "timeout" | "failed"
 	CheckedAt    time.Time `json:"checked_at,omitempty"`
+	Error        string    `json:"error,omitempty"` // why a "failed" alert did not become a ticket
 }
 
 func pushesPath(dir string) string { return filepath.Join(dir, "pushes.jsonl") }
 func alertsPath(dir string) string { return filepath.Join(dir, "alerts.jsonl") }
 
 // AppendPushes appends push records to the ledger.
+// Every ledger write goes through the shared credential kit: records carry
+// API error text and operator-typed titles (gradient handfix:
+// ledger-files-withheld, handfixes.json credkit-wiring). The records of one
+// call are one unit, appended with one credkit.AppendFile.
 func AppendPushes(dir string, records []PushRecord) error {
-	f, err := os.OpenFile(pushesPath(dir), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		return fmt.Errorf("opening push ledger: %w", err)
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
 	for _, r := range records {
 		if err := enc.Encode(r); err != nil {
 			return fmt.Errorf("writing push ledger: %w", err)
 		}
+	}
+	if buf.Len() == 0 {
+		return nil
+	}
+	if err := credkit.AppendFile(pushesPath(dir), buf.Bytes(), 0o600); err != nil {
+		return fmt.Errorf("writing push ledger: %w", err)
 	}
 	return nil
 }
@@ -89,14 +100,14 @@ func ReadPushes(dir string) ([]PushRecord, error) {
 	return readJSONL[PushRecord](pushesPath(dir))
 }
 
-// AppendAlert appends one alert dispatch record.
+// AppendAlert appends one alert dispatch record, through the credential kit
+// (handfixes.json credkit-wiring).
 func AppendAlert(dir string, rec AlertRecord) error {
-	f, err := os.OpenFile(alertsPath(dir), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	line, err := json.Marshal(rec)
 	if err != nil {
-		return fmt.Errorf("opening alert ledger: %w", err)
+		return fmt.Errorf("writing alert ledger: %w", err)
 	}
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(rec); err != nil {
+	if err := credkit.AppendFile(alertsPath(dir), append(line, '\n'), 0o600); err != nil {
 		return fmt.Errorf("writing alert ledger: %w", err)
 	}
 	return nil
@@ -125,25 +136,17 @@ func UpdateAlert(dir string, updated AlertRecord) (bool, error) {
 	if !matched {
 		return false, nil
 	}
-	tmp, err := os.CreateTemp(dir, "alerts-*.jsonl")
-	if err != nil {
-		return false, fmt.Errorf("creating temp alert ledger: %w", err)
-	}
-	enc := json.NewEncoder(tmp)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
 	for _, a := range alerts {
 		if err := enc.Encode(a); err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmp.Name())
 			return false, fmt.Errorf("rewriting alert ledger: %w", err)
 		}
 	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmp.Name())
-		return false, fmt.Errorf("closing temp alert ledger: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), alertsPath(dir)); err != nil {
-		_ = os.Remove(tmp.Name())
-		return false, fmt.Errorf("swapping alert ledger: %w", err)
+	// A temp-file swap whose bytes go through the credential kit
+	// (cliutil.AtomicWritePrivateFile writes the temp with credkit.WriteFile).
+	if err := cliutil.AtomicWritePrivateFile(alertsPath(dir), buf.Bytes(), 0o600, 0o700); err != nil {
+		return false, fmt.Errorf("rewriting alert ledger: %w", err)
 	}
 	return true, nil
 }
@@ -164,6 +167,12 @@ func readJSONL[T any](path string) ([]T, error) {
 	for sc.Scan() {
 		line++
 		if len(sc.Bytes()) == 0 {
+			continue
+		}
+		// Hand-fix (handfixes.json credkit-wiring): a record the credential kit
+		// withheld is its notice line in the file; it is no record, so the
+		// readers (usage drift, alert trace) pass over it instead of failing.
+		if string(bytes.TrimSpace(sc.Bytes())) == credkit.Notice(credkit.SinkFile) {
 			continue
 		}
 		var rec T

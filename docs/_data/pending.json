@@ -244,10 +244,17 @@
     "current_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6",
     "released_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6"
   },
-  "exchange-online": {
-    "state": "version-pending",
+  "dropsuite": {
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "dropsuite-v0.1.0",
+    "current_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825",
+    "released_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825"
+  },
+  "exchange-online": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "exchange-online-v0.1.0",
     "current_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6",
     "released_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6"
   },
@@ -274,10 +281,10 @@
   },
   "gradient": {
     "state": "up-to-date",
-    "version": "0.1.8",
-    "latest_tag": "gradient-v0.1.8",
-    "current_hash": "sha256:ea662ea786f2d24fe3e129231506239fd25935da812e9bfb0b3b77bc6707837f",
-    "released_hash": "sha256:ea662ea786f2d24fe3e129231506239fd25935da812e9bfb0b3b77bc6707837f"
+    "version": "0.1.9",
+    "latest_tag": "gradient-v0.1.9",
+    "current_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db",
+    "released_hash": "sha256:eeb1ae6cf3fafdeb072a148f06a9d2c914d2dceaf9c05adb8b6d156078eaa2db"
   },
   "halopsa": {
     "state": "up-to-date",

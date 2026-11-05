@@ -693,6 +693,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dropsuite",
+      "displayName": "Dropsuite",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/SKILL.md",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential. Trigger phrases: `check dropsuite backups`, `which clients have failing saas backups`, `unprotected mailboxes in ninjaone saas backup`, `reconcile dropsuite seats with billing`, `use dropsuite`, `run dropsuite`.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "What is failing, stuck or stale across every client right now?",
+        "Which tenant mailboxes are not added to backup, with coverage percent per client?",
+        "Which clients are over-allocated against my PSA invoice, or suspended but still holding seats?",
+        "Which deactivated or deleted mailboxes still hold storage, and which invitations were never accepted?",
+        "Which client owns this email address, and are its mailbox and OneDrive backed up?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/dropsuite.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:exchange-online",
       "displayName": "Exchange Online",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

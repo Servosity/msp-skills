@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/gradient-cli ./cmd/gradient-cli
+	go build -trimpath -o bin/gradient-cli$(BIN_EXT) ./cmd/gradient-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/gradient-mcp ./cmd/gradient-mcp
+	go build -trimpath -o bin/gradient-mcp$(BIN_EXT) ./cmd/gradient-mcp
 
 install-mcp:
 	go install ./cmd/gradient-mcp
