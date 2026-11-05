@@ -1,0 +1,578 @@
+{
+  "api_name": "synology",
+  "base_url": "https://nas.example.com:5001",
+  "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "session_handshake",
+    "env_vars": [
+      "SYNOLOGY_ACCOUNT",
+      "SYNOLOGY_PASSWORD",
+      "SYNOLOGY_DEVICE_ID",
+      "SYNOLOGY_OTP_CODE"
+    ],
+    "env_var_specs": [
+      {
+        "name": "SYNOLOGY_ACCOUNT",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": false,
+        "description": "DSM account name used for the SYNO.API.Auth login"
+      },
+      {
+        "name": "SYNOLOGY_PASSWORD",
+        "kind": "auth_flow_input",
+        "required": true,
+        "sensitive": true,
+        "description": "DSM account password; sent in the login request body, never stored by the CLI"
+      },
+      {
+        "name": "SYNOLOGY_DEVICE_ID",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": true,
+        "description": "Trusted-device token (did) from a previous two-factor login, used instead of a one-time code"
+      },
+      {
+        "name": "SYNOLOGY_OTP_CODE",
+        "kind": "auth_flow_input",
+        "required": false,
+        "sensitive": true,
+        "description": "Six-digit one-time code for the first login of a two-factor account"
+      }
+    ],
+    "cookie_domain": ".nas.example.com"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "abb_backup",
+      "description": "Start a backup now for one or more tasks. Required: task_ids.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task\u0026method=backup\u0026version=1\u0026trigger_type=1",
+      "params": [
+        {
+          "name": "task_ids",
+          "type": "string",
+          "location": "query",
+          "description": "JSON array of task ids, for example [5] or [5,8]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "abb_cancel",
+      "description": "Cancel the running backup of one or more tasks. Required: task_ids.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task\u0026method=cancel\u0026version=1",
+      "params": [
+        {
+          "name": "task_ids",
+          "type": "string",
+          "location": "query",
+          "description": "JSON array of task ids, for example [5]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "abb_hypervisors",
+      "description": "List the VMware and Hyper-V hypervisors registered in Active Backup for Business.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Inventory\u0026method=list\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "abb_logs",
+      "description": "Read the Active Backup for Business activity log for the package, tasks and devices. Optional: task_id, filter, offset (plus 1 more).",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Log\u0026method=list_log\u0026version=1",
+      "params": [
+        {
+          "name": "task_id",
+          "type": "integer",
+          "location": "query",
+          "description": "Only log lines of this task"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "JSON filter, for example {'log_level':0} for errors only or {'key_word':'timeout'}"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query",
+          "description": "Index of the first log line to return"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of log lines to return"
+        }
+      ]
+    },
+    {
+      "name": "abb_result_detail",
+      "description": "Show the detail log lines (errors, warnings, skipped paths) of one job result. Required: result_id. Optional: limit (default: 500), order_by, direction.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Log\u0026method=list_result_detail\u0026version=1",
+      "params": [
+        {
+          "name": "result_id",
+          "type": "integer",
+          "location": "query",
+          "description": "Job result id from abb results or abb tasks (last_result.result_id)",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of detail lines to return"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field, log_level or log_time"
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction"
+        }
+      ]
+    },
+    {
+      "name": "abb_results",
+      "description": "List job results across tasks (backups plus version deletions and restores; filter {'job_action':1} for backups only) with status, times and error counts. Optional: task_id, filter, offset (plus 1 more).",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Log\u0026method=list_result\u0026version=1",
+      "params": [
+        {
+          "name": "task_id",
+          "type": "integer",
+          "location": "query",
+          "description": "Only results of this task"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "JSON filter, for example {'status':4} for failed runs or {'from_timestamp':1741900000}. status 2 success, 3 partial, 4 failed, 5 canceled, 6 no backup; job_action 1 backup"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query",
+          "description": "Index of the first result to return"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of results to return"
+        }
+      ]
+    },
+    {
+      "name": "abb_settings",
+      "description": "Show Active Backup for Business package settings and certificate information.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Setting\u0026method=list\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "abb_storage",
+      "description": "List Active Backup for Business storage destinations with dedup size, device counts and volume.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Share\u0026method=list_storage\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "abb_tasks",
+      "description": "List Active Backup for Business tasks with their last job result, protected devices, progress and next run time. Optional: load_versions, filter.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Task\u0026method=list\u0026version=1\u0026load_status=true\u0026load_result=true\u0026load_devices=true",
+      "params": [
+        {
+          "name": "load_versions",
+          "type": "boolean",
+          "location": "query",
+          "description": "Include each task's backup versions (restore points)"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "JSON filter object, for example {'task_id':5} or {'backup_type':2}. backup_type 1 vm, 2 pc, 3 physical server, 4 file server, 5 nas"
+        }
+      ]
+    },
+    {
+      "name": "abb_transfers",
+      "description": "List protected devices with every transfer (bytes, status, start, end) inside a time window. Required: time_start, time_end.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.ActiveBackup.Overview\u0026method=list_device_transfer_size\u0026version=1",
+      "params": [
+        {
+          "name": "time_start",
+          "type": "integer",
+          "location": "query",
+          "description": "Window start, epoch seconds",
+          "required": true
+        },
+        {
+          "name": "time_end",
+          "type": "integer",
+          "location": "query",
+          "description": "Window end, epoch seconds",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "folder_list",
+      "description": "List shared folders, including the ActiveBackupforBusiness destination share. Optional: additional.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.Share\u0026method=list\u0026version=1",
+      "params": [
+        {
+          "name": "additional",
+          "type": "string",
+          "location": "query",
+          "description": "JSON array of extra fields, for example ['encryption','share_quota']"
+        }
+      ]
+    },
+    {
+      "name": "group_list",
+      "description": "List local DSM groups on the NAS, for example to find the administrators group. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.Group\u0026method=list\u0026version=1",
+      "params": [
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query",
+          "description": "Index of the first group"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of groups"
+        }
+      ]
+    },
+    {
+      "name": "group_members",
+      "description": "List the accounts in one group, for example administrators. Required: group.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.Group.Member\u0026method=list\u0026version=1",
+      "params": [
+        {
+          "name": "group",
+          "type": "string",
+          "location": "query",
+          "description": "Group name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hyperbackup_task_status",
+      "description": "Show one Hyper Backup task's last result, last success, next run and health state without contacting the destination. Required: task_id.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Backup.Task\u0026method=status\u0026version=1\u0026blOnline=false\u0026additional=%5B%22last_bkp_time%22%2C%22next_bkp_time%22%2C%22last_bkp_result%22%2C%22is_modified%22%2C%22last_bkp_progress%22%5D",
+      "params": [
+        {
+          "name": "task_id",
+          "type": "integer",
+          "location": "query",
+          "description": "Hyper Backup task id from hyperbackup tasks",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "hyperbackup_tasks",
+      "description": "List Hyper Backup tasks (the NAS's own backups to another NAS, USB or cloud) with their destination type.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Backup.Task\u0026method=list\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "log_list",
+      "description": "Read the DSM system log with level, date range and keyword filters. Optional: logtype, level, keyword (plus 4 more).",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.SyslogClient.Log\u0026method=list\u0026version=1",
+      "params": [
+        {
+          "name": "logtype",
+          "type": "string",
+          "location": "query",
+          "description": "Log category, for example system or connection"
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "location": "query",
+          "description": "Minimum severity, for example err, warn or info"
+        },
+        {
+          "name": "keyword",
+          "type": "string",
+          "location": "query",
+          "description": "Substring the message must contain"
+        },
+        {
+          "name": "date_from",
+          "type": "integer",
+          "location": "query",
+          "description": "Earliest entry, epoch seconds"
+        },
+        {
+          "name": "date_to",
+          "type": "integer",
+          "location": "query",
+          "description": "Latest entry, epoch seconds"
+        },
+        {
+          "name": "start",
+          "type": "integer",
+          "location": "query",
+          "description": "Index of the first entry"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of entries"
+        }
+      ]
+    },
+    {
+      "name": "package_list",
+      "description": "List installed packages with version and running state; confirms Active Backup for Business is installed. Optional: additional.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.Package\u0026method=list\u0026version=2",
+      "params": [
+        {
+          "name": "additional",
+          "type": "string",
+          "location": "query",
+          "description": "JSON array of extra fields, for example ['status','version']"
+        }
+      ]
+    },
+    {
+      "name": "session_apis",
+      "description": "List every API namespace this NAS exposes with its version range and CGI path; shows whether Active Backup for Business is installed. (public)",
+      "method": "GET",
+      "path": "/webapi/query.cgi?api=SYNO.API.Info\u0026method=query\u0026version=1\u0026query=all",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "session_logout",
+      "description": "Invalidate the current DSM session id so it can no longer be used on this NAS.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.API.Auth\u0026method=logout\u0026version=6",
+      "params": []
+    },
+    {
+      "name": "storage_disks",
+      "description": "List physical disks with model, serial number, temperature and SMART health status.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Storage\u0026method=load_info\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "storage_overview",
+      "description": "Show Storage Manager's disks, storage pools and volumes with their status in one call.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Storage\u0026method=load_info\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "storage_pools",
+      "description": "List storage pools with RAID type, status and member disks.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Storage\u0026method=load_info\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "storage_smart",
+      "description": "Show the SMART attribute table for one disk. Required: device.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Smart\u0026method=get_smart_info\u0026version=1",
+      "params": [
+        {
+          "name": "device",
+          "type": "string",
+          "location": "query",
+          "description": "Disk device path as reported by storage disks, for example /dev/sata1 or /dev/sda",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "storage_smart_schedule",
+      "description": "List the scheduled SMART tests (quick or extended) configured for the NAS's disks.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Smart.Scheduler\u0026method=list\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "storage_volumes",
+      "description": "List volumes with status, size, used space and file system.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Storage.CGI.Storage\u0026method=load_info\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "system_dsm",
+      "description": "Show DSM product identity (model, version string, serial) as the web UI reports it.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.DSM.Info\u0026method=getinfo\u0026version=2",
+      "params": []
+    },
+    {
+      "name": "system_get",
+      "description": "Show model, serial number, DSM version, uptime and system temperature. Optional: type.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.System\u0026method=info\u0026version=3",
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Restrict the report to one section, for example storage"
+        }
+      ]
+    },
+    {
+      "name": "system_health_check",
+      "description": "Show the aggregate system health verdict the DSM dashboard shows.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.System.SystemHealth\u0026method=get\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "system_network",
+      "description": "Show the NAS hostname, DNS servers, default gateway and network interface settings.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.Network\u0026method=get\u0026version=2",
+      "params": []
+    },
+    {
+      "name": "system_ups",
+      "description": "Show the state of the uninterruptible power supply (UPS) attached to the NAS, if any.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.ExternalDevice.UPS\u0026method=get\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "system_utilization",
+      "description": "Show current CPU, memory, disk and network utilization.",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.System.Utilization\u0026method=get\u0026version=1",
+      "params": []
+    },
+    {
+      "name": "user_list",
+      "description": "List local user accounts, for example to audit who can log in to a client NAS. Optional: type, additional, offset (plus 1 more).",
+      "method": "GET",
+      "path": "/webapi/entry.cgi?api=SYNO.Core.User\u0026method=list\u0026version=1",
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Account source, for example local"
+        },
+        {
+          "name": "additional",
+          "type": "string",
+          "location": "query",
+          "description": "JSON array of extra fields, for example ['email','expired','description']"
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "location": "query",
+          "description": "Index of the first account"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "location": "query",
+          "description": "Maximum number of accounts"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet status rollup",
+      "command": "fleet status",
+      "description": "One row per client NAS with backup outcomes, stale devices, worst storage state and sync age; exits 6 when any NAS is warning, critical or unknown (--no-fail exits 0)."
+    },
+    {
+      "name": "ABB failures",
+      "command": "abb failures",
+      "description": "Every Active Backup task across the fleet whose latest run in a window failed, partially succeeded, was canceled, or never ran."
+    },
+    {
+      "name": "Stale protection",
+      "command": "abb stale",
+      "description": "Protected PCs, servers and VMs whose last successful backup is older than a threshold, or that never succeeded."
+    },
+    {
+      "name": "Per-NAS fleet sync",
+      "command": "fleet sync",
+      "description": "Mirror ABB job status and storage health from every NAS registered with fleet add into one local database, each NAS with its own login."
+    },
+    {
+      "name": "Fleet storage health",
+      "command": "fleet health",
+      "description": "Degraded or crashed volumes and pools, disks with bad SMART status, hot disks and nearly full volumes across every NAS, with days-to-full when history exists."
+    },
+    {
+      "name": "Failed-task triage",
+      "command": "abb triage",
+      "description": "Why one ABB task failed: its newest non-success run, its detail lines and the ABB log from that window, errors first. Live call to one NAS; DSM returns log types and parameters, not message text."
+    },
+    {
+      "name": "Device lookup",
+      "command": "abb device",
+      "description": "Find a machine by host name across every NAS and see which task protects it, its last success and its recent runs."
+    },
+    {
+      "name": "Backup trend",
+      "command": "abb trend",
+      "description": "Per task or device: run count, success rate, median and p90 duration, and an overrun flag when the latest run is far slower than usual."
+    },
+    {
+      "name": "Protection dropped",
+      "command": "abb unprotected",
+      "description": "Devices and tasks that dropped out of Active Backup protection across the fleet: a machine removed from its task, a task deleted, or a task whose schedule is off while it still holds devices; exits 6 when any exist or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    },
+    {
+      "name": "Volume runway",
+      "command": "fleet capacity",
+      "description": "Every volume on every NAS with used percent, growth per day and days until full from retained storage snapshots, soonest first; exits 6 when a volume fills inside the horizon (default 30 days), a volume's capacity is unknown, or a NAS's storage cannot be read (--no-fail exits 0)."
+    },
+    {
+      "name": "Change-rate anomaly",
+      "command": "abb change-rate",
+      "description": "Devices whose newest good backup moved far more data than their own median (a mass file change) or nothing at all for several runs in a row, across the fleet; exits 6 when any device is flagged or a NAS mirror is not synced or ABB stopped answering (--no-fail exits 0)."
+    }
+  ]
+}
