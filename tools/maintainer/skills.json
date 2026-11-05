@@ -239,8 +239,8 @@
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
       "cli_hash": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:8eefe15e797f4a0896f3d6a920ce150247d67e5e7f97337e7093f4247e765aed",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:5b2464f06ee3be9bcbbfc580ec544ca3e4ad857b7b36aa2b99ccc3bdf9142199",
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {

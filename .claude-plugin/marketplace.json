@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "avanan",

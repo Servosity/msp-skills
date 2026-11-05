@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.12] - unreleased
+## [0.1.12] - 2026-11-05
 
 ### Security
 - **Rebuilt on CLI Printing Press 4.34.0** ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `AVANAN_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The default stdio transport is unchanged. Dependencies: `mark3labs/mcp-go` v0.57.0, `golang.org/x/text` v0.42.0.
