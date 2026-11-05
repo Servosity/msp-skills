@@ -519,7 +519,7 @@
       "cli_hash": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:db1990491f3e5efdc193e2591dd3a9b7b8e47edf22637f0d0cd3df546968de4a",
       "live_verified": {
         "status": "awaiting",
         "date": null,
