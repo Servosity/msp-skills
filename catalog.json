@@ -450,7 +450,7 @@
     {
       "name": "cloudally",
       "system": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/cloudally",
       "cli_binary": "cloudally-cli",
       "mcp_binary": "cloudally-mcp",
@@ -463,7 +463,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)",
       "install_mcp_doc": "skills/cloudally/mcp-install.md",
       "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.0",
+      "verified_code": "current",
       "category": "Backup/DR",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server."
     },

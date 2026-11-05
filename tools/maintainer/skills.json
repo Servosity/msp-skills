@@ -529,7 +529,7 @@
     },
     "cloudally": {
       "system": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "cloudally-cli",
       "mcp_binary": "cloudally-mcp",
       "vendor": "CloudAlly",
@@ -543,10 +543,15 @@
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-05",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/pull/400",
+        "verified_by": "@sonofskywalker3 (Servosity)",
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/400",
+        "verified_version": "0.1.0",
+        "verified_cli_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+        "verified_basis": "latest-release-at-flip"
       },
       "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
     },

@@ -852,7 +852,7 @@ Governance: The skill reads Umbrella deployments, policies, destination lists, r
 ### CloudAlly (Backup/DR)
 
 Page: [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md)
-Verification: Awaiting live verification
+Verification: Live-verified by @sonofskywalker3 (Servosity) (2026-11-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
 
 Ask your AI about CloudAlly SaaS backup for Microsoft 365 and Google Workspace: the latest backup status of every customer, one customer's backup tasks and their entities, running or pausing backups, users, billing and restore jobs, all through CloudAlly's Management API v2 from one CLI and MCP server.
