@@ -1774,6 +1774,16 @@
       "reason": "abnormal's copy of the press's claimLegacyUnscopedDB (press 4.34.2 reprint), reviewed 2026-11-04, byte-identical to apple-business's reviewed copy (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     },
     {
+      "file": "skills/runzero/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "runzero's copy of the press's claimLegacyUnscopedDB (press 4.34.2 reprint), reviewed 2026-11-05, byte-identical to abnormal's and apple-business's reviewed copies (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory, not an input."
+    },
+    {
       "file": "skills/prtg/cli/internal/fleet/runner.go",
       "rule": "G204",
       "bind": "decl",
