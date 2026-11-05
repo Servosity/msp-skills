@@ -1931,7 +1931,7 @@
         "sha256:70e141efaeeb6b2f34cc07be6f8d7cd4b3ee24e43855ea451e6cc8e720117755"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. claimLegacyUnscopedDB reads the data.db owner marker in this CLI's own store directory; the path is derived from the state directory, never from a request or MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. claimLegacyUnscopedDB reads data.db.owner, the owner marker of this CLI's own legacy store: defaultDBPathInDir builds it from cliutil.DataDir() (or ~/.local/share/<app> when that fails) as <dir>/data.db plus .owner, never from a request, a server response or an MCP tool argument. It creates the marker with credkit.WriteFile (0600) and publishes it with a hard link."
     },
     {
       "file": "skills/synology/cli/internal/cli/nas_process.go",
@@ -1941,7 +1941,7 @@
         "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. runForNAS starts os.Executable() (this same binary, no shell) through exec.CommandContext with argv built in this file: rerunForNAS passes this process's own arguments plus --nas <registered name>, and syncNASInChild passes fleetSyncChildArgs' fixed fleet sync arguments plus --nas <name>. The program path never comes from a request, a server response or an MCP tool argument, and with no shell no argument can become a command. A process already started for one NAS (PP_NAS_PROCESS set) starts no other. nasChildEnviron gives the child this environment with SYNOLOGY_BASE_URL set to that NAS's address, without SYNOLOGY_MCP_HTTP_TOKEN and without any credential variable that is not that NAS's. credkit.RunCommand (StartCommand) then, because this is the connector's own program, moves that NAS's credential variables out of the environment and writes them, together with the whole held set (every value this process holds, other NAS credentials included, each with its allowed origins), as JSON down an inherited pipe named by CREDKIT_HELD: an extra file descriptor on Unix, an inherited handle on Windows; not stdin, argv or environment. Start in the child holds every value it receives, so it keeps withholding the other NAS credentials from its output, and sets back as environment variables only the variables moved out of the environment, the selected NAS's. A child whose argv or environment would still carry a held value is not started."
     },
     {
       "file": "skills/synology/cli/internal/cli/nas_process.go",
@@ -1951,7 +1951,7 @@
         "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. runForNAS starts os.Executable() (this same binary, no shell) through exec.CommandContext with argv built in this file: rerunForNAS passes this process's own arguments plus --nas <registered name>, and syncNASInChild passes fleetSyncChildArgs' fixed fleet sync arguments plus --nas <name>. The program path never comes from a request, a server response or an MCP tool argument, and with no shell no argument can become a command. A process already started for one NAS (PP_NAS_PROCESS set) starts no other. nasChildEnviron gives the child this environment with SYNOLOGY_BASE_URL set to that NAS's address, without SYNOLOGY_MCP_HTTP_TOKEN and without any credential variable that is not that NAS's. credkit.RunCommand (StartCommand) then, because this is the connector's own program, moves that NAS's credential variables out of the environment and writes them, together with the whole held set (every value this process holds, other NAS credentials included, each with its allowed origins), as JSON down an inherited pipe named by CREDKIT_HELD: an extra file descriptor on Unix, an inherited handle on Windows; not stdin, argv or environment. Start in the child holds every value it receives, so it keeps withholding the other NAS credentials from its output, and sets back as environment variables only the variables moved out of the environment, the selected NAS's. A child whose argv or environment would still carry a held value is not started."
     },
     {
       "file": "skills/synology/cli/internal/cli/nas_process.go",
@@ -1961,7 +1961,7 @@
         "sha256:365140537d617e7fe7e1f2eb458cec5cfca7ad823076f1e693665ed2328c9a75"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. runForNAS starts os.Executable() (this same binary, no shell) through exec.CommandContext with argv built in this file: rerunForNAS passes this process's own arguments plus --nas <registered name>, and syncNASInChild passes fleetSyncChildArgs' fixed fleet sync arguments plus --nas <name>. The program path never comes from a request, a server response or an MCP tool argument, and with no shell no argument can become a command. A process already started for one NAS (PP_NAS_PROCESS set) starts no other. nasChildEnviron gives the child this environment with SYNOLOGY_BASE_URL set to that NAS's address, without SYNOLOGY_MCP_HTTP_TOKEN and without any credential variable that is not that NAS's. credkit.RunCommand (StartCommand) then, because this is the connector's own program, moves that NAS's credential variables out of the environment and writes them, together with the whole held set (every value this process holds, other NAS credentials included, each with its allowed origins), as JSON down an inherited pipe named by CREDKIT_HELD: an extra file descriptor on Unix, an inherited handle on Windows; not stdin, argv or environment. Start in the child holds every value it receives, so it keeps withholding the other NAS credentials from its output, and sets back as environment variables only the variables moved out of the environment, the selected NAS's. A child whose argv or environment would still carry a held value is not started."
     },
     {
       "file": "skills/synology/cli/internal/cli/nas_process.go",
@@ -1971,7 +1971,7 @@
         "sha256:09b9925be817521482270d2514c684417c80c69e9a84ca2db773b867f6a0a27f"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. runForNAS re-executes this same binary (os.Executable, no shell) with the argv this file builds, so one process serves one NAS and holds only that NAS's credentials, passed on stdin. No path or program name comes from a request, a server or an MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. runForNAS starts os.Executable() (this same binary, no shell) through exec.CommandContext with argv built in this file: rerunForNAS passes this process's own arguments plus --nas <registered name>, and syncNASInChild passes fleetSyncChildArgs' fixed fleet sync arguments plus --nas <name>. The program path never comes from a request, a server response or an MCP tool argument, and with no shell no argument can become a command. A process already started for one NAS (PP_NAS_PROCESS set) starts no other. nasChildEnviron gives the child this environment with SYNOLOGY_BASE_URL set to that NAS's address, without SYNOLOGY_MCP_HTTP_TOKEN and without any credential variable that is not that NAS's. credkit.RunCommand (StartCommand) then, because this is the connector's own program, moves that NAS's credential variables out of the environment and writes them, together with the whole held set (every value this process holds, other NAS credentials included, each with its allowed origins), as JSON down an inherited pipe named by CREDKIT_HELD: an extra file descriptor on Unix, an inherited handle on Windows; not stdin, argv or environment. Start in the child holds every value it receives, so it keeps withholding the other NAS credentials from its output, and sets back as environment variables only the variables moved out of the environment, the selected NAS's. A child whose argv or environment would still carry a held value is not started."
     },
     {
       "file": "skills/synology/cli/internal/client/session.go",
@@ -1981,7 +1981,7 @@
         "sha256:d17aaf705b4624339e317ecd280f63758584fb7fd4d086a6454fd444057dc535"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. sessionTokenURL is the DSM login endpoint path on the placeholder host nas.example.com (api=SYNO.API.Auth). It carries no account, password or token; gosec matched the word Token."
+      "reason": "synology, reviewed 2026-11-04. sessionTokenURL is the generated DSM login path (api=SYNO.API.Auth&method=login) on the placeholder host nas.example.com:5001. It carries no account, password or token; it is used only by legacySessionTokenFetch, which nothing calls, and as one of the hosts saveToDisk reads jar cookies for. gosec matched the word Token."
     },
     {
       "file": "skills/synology/cli/internal/client/session.go",
@@ -1991,7 +1991,7 @@
         "sha256:9b641ac6d640307647a2aa137e32c3061327695c5b28ef31587d14eeb254e8bd"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. This http.Cookie is rebuilt from the local 0600 session cache to seed the client's own cookie jar; it is never sent to a browser as a Set-Cookie. The record is refused unless its account and origin match, and the jar keeps only cookies of the configured origin."
+      "reason": "synology, reviewed 2026-11-04. loadFromDisk rebuilds this http.Cookie from the local session cache (written 0600 by dsm.WriteSessionRecord) to seed the client's own cookie jar; it is never sent to a browser as a Set-Cookie. The record is read only when the configured origin and account are both known, its cookies are restored only when its account matches, its origin is the configured one and it is younger than sessionTTL, and each cookie only when its own URL is the configured origin."
     },
     {
       "file": "skills/synology/cli/internal/cliutil/credkit_wiring.go",
@@ -2001,7 +2001,7 @@
         "sha256:4d49bed40be86f899f8ef4c113ae6e9831ed7951bbbe95647f184330574eb336"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. ReadRegularFile reads the operator's own config, store or TLS key path at startup so its values are held before anything can print; refuses anything but a regular file. Never reached from an MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. ReadRegularFile reads a config, credentials, profile store, session cache or MCP TLS key file named by this process's own startup: credentialFiles, inside credkit Start before anything can print, passes paths from the default config and data directories, --config, --home, SYNOLOGY_CONFIG and the MCP server's own --tls-key launch flag, so their values are held and cannot print. It refuses anything but a regular file. No path comes from an MCP tool argument: the MCP shell-out blocks --config and --home."
     },
     {
       "file": "skills/synology/cli/internal/credwire/declarations.go",
@@ -2011,7 +2011,7 @@
         "sha256:4195c93ab82e4961decf9135f9adfdcf982a323788f343d745c7b2646cc3d1b1"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. Reads this CLI's own fleet.json under its config directories so every registered NAS's credential variables are held before anything can print. Read only, never echoed."
+      "reason": "synology, reviewed 2026-11-04. registeredNAS reads fleet.json, this CLI's own registry, under the config directories this run resolves (the defaults and any --home), inside credkit Start before anything can print, so every registered NAS's address and credential variables are held. Read only, never echoed; the MCP shell-out blocks --home."
     },
     {
       "file": "skills/synology/cli/internal/dsm/tls.go",
@@ -2022,7 +2022,7 @@
         "sha256:373b31dcac5a8341adb75bb7bcefcb8dd1355ffe1a2d0d3aee87d78b700fa37c"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+      "reason": "synology, reviewed 2026-11-04. Certificate pinning for NAS units with self-signed certificates; this entry covers ApplyTLS and RefuseAllTLS. ApplyTLS with a pin sets InsecureSkipVerify and replaces chain and hostname verification with a VerifyPeerCertificate callback that compares the SHA-256 of the leaf's DER bytes with the pin and refuses on mismatch (PinMismatchError); a pin that is not a 64-character hex SHA-256 is an error, and the env-pin caller then uses RefuseAllTLS. RefuseAllTLS sets InsecureSkipVerify on a fresh config whose callback rejects every handshake, so it never connects. Every caller passes a fresh or cloned tls.Config and nothing in this module sets ClientSessionCache, so no session resumes past the callback. A pin is only as good as its source: one from --tls-fingerprint or SYNOLOGY_TLS_FINGERPRINT is what the operator supplied; one from --pin-cert is whatever FetchFingerprint saw (below). Trust on first use, stated plainly: FetchFingerprint dials the URL's host with InsecureSkipVerify (no chain or hostname check), completes the handshake, sends no application data and no credential, and returns the SHA-256 of whatever leaf certificate that address presents. Its only caller is 'fleet add --pin-cert' (fleet_registry.go), which stores that value as the pin without comparing it to anything, so whatever answers at the configured address at that moment becomes the trusted certificate. With --check in the same command, checkNAS logs in at once through that new pin and posts <prefix>_ACCOUNT and <prefix>_PASSWORD (and an OTP code or trusted-device token when set) to the holder of that certificate before the operator has compared anything; without --check, the first login is the next command that reaches that NAS. A first registration's table output does not print the fingerprint (only --json carries nas.tls_fingerprint; fleet list shows only 'pinned'). The help text warns only in its re-pin paragraph ('to whatever certificate the address presents right now', 'use it only on a network you trust'); the --pin-cert flag description, the first-registration paragraph and the example 'fleet add acme --url ... --pin-cert --check' carry no warning, and dsm.go's certificate-failure message suggests --pin-cert without one. The operator-checked pin is '--tls-fingerprint <value>' (or SYNOLOGY_TLS_FINGERPRINT for the single NAS) with a value read in DSM (Control Panel > Security > Certificate); PinMismatchHint recommends only that and never --pin-cert. fleet add is operator-only: it is annotated mcp:hidden and is not an MCP tool, so no MCP caller can choose the address or the credential prefix or start the fetch."
     },
     {
       "file": "skills/synology/cli/internal/dsm/tls.go",
@@ -2033,7 +2033,7 @@
         "sha256:3d0ca907fd7d08c1323c7f557414967c89fc3ac3071fa6117440a470ac449d62"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+      "reason": "synology, reviewed 2026-11-04. Certificate pinning for NAS units with self-signed certificates; this entry covers RefuseAllTLS and FetchFingerprint. RefuseAllTLS sets InsecureSkipVerify on a fresh config whose callback rejects every handshake, so it never connects. FetchFingerprint's InsecureSkipVerify is what lets it read a self-signed certificate, and it is not a verified read. Trust on first use, stated plainly: FetchFingerprint dials the URL's host with InsecureSkipVerify (no chain or hostname check), completes the handshake, sends no application data and no credential, and returns the SHA-256 of whatever leaf certificate that address presents. Its only caller is 'fleet add --pin-cert' (fleet_registry.go), which stores that value as the pin without comparing it to anything, so whatever answers at the configured address at that moment becomes the trusted certificate. With --check in the same command, checkNAS logs in at once through that new pin and posts <prefix>_ACCOUNT and <prefix>_PASSWORD (and an OTP code or trusted-device token when set) to the holder of that certificate before the operator has compared anything; without --check, the first login is the next command that reaches that NAS. A first registration's table output does not print the fingerprint (only --json carries nas.tls_fingerprint; fleet list shows only 'pinned'). The help text warns only in its re-pin paragraph ('to whatever certificate the address presents right now', 'use it only on a network you trust'); the --pin-cert flag description, the first-registration paragraph and the example 'fleet add acme --url ... --pin-cert --check' carry no warning, and dsm.go's certificate-failure message suggests --pin-cert without one. The operator-checked pin is '--tls-fingerprint <value>' (or SYNOLOGY_TLS_FINGERPRINT for the single NAS) with a value read in DSM (Control Panel > Security > Certificate); PinMismatchHint recommends only that and never --pin-cert. fleet add is operator-only: it is annotated mcp:hidden and is not an MCP tool, so no MCP caller can choose the address or the credential prefix or start the fetch."
     },
     {
       "file": "skills/synology/cli/internal/dsm/tls.go",
@@ -2043,7 +2043,7 @@
         "sha256:a28ad6f6ad1f6a62fe29acc7a02daaefee29dc1bd005b42f91449ec985dcac7c"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+      "reason": "synology, reviewed 2026-11-04. Certificate pinning for NAS units with self-signed certificates; this entry covers the whole file. ApplyTLS with a pin sets InsecureSkipVerify and replaces chain and hostname verification with a VerifyPeerCertificate callback that compares the SHA-256 of the leaf's DER bytes with the pin and refuses on mismatch (PinMismatchError); a pin that is not a 64-character hex SHA-256 is an error, and the env-pin caller then uses RefuseAllTLS. Without a pin, --insecure (registry) or SYNOLOGY_SKIP_TLS_VERIFY=1 makes ApplyTLS set InsecureSkipVerify with no check at all: an explicit operator opt-in that turns verification off for that NAS. RefuseAllTLS sets InsecureSkipVerify on a fresh config whose callback rejects every handshake, so it never connects. Every caller passes a fresh or cloned tls.Config and nothing in this module sets ClientSessionCache, so no session resumes past the callback. A pin is only as good as its source: one from --tls-fingerprint or SYNOLOGY_TLS_FINGERPRINT is what the operator supplied; one from --pin-cert is whatever FetchFingerprint saw (below). Trust on first use, stated plainly: FetchFingerprint dials the URL's host with InsecureSkipVerify (no chain or hostname check), completes the handshake, sends no application data and no credential, and returns the SHA-256 of whatever leaf certificate that address presents. Its only caller is 'fleet add --pin-cert' (fleet_registry.go), which stores that value as the pin without comparing it to anything, so whatever answers at the configured address at that moment becomes the trusted certificate. With --check in the same command, checkNAS logs in at once through that new pin and posts <prefix>_ACCOUNT and <prefix>_PASSWORD (and an OTP code or trusted-device token when set) to the holder of that certificate before the operator has compared anything; without --check, the first login is the next command that reaches that NAS. A first registration's table output does not print the fingerprint (only --json carries nas.tls_fingerprint; fleet list shows only 'pinned'). The help text warns only in its re-pin paragraph ('to whatever certificate the address presents right now', 'use it only on a network you trust'); the --pin-cert flag description, the first-registration paragraph and the example 'fleet add acme --url ... --pin-cert --check' carry no warning, and dsm.go's certificate-failure message suggests --pin-cert without one. The operator-checked pin is '--tls-fingerprint <value>' (or SYNOLOGY_TLS_FINGERPRINT for the single NAS) with a value read in DSM (Control Panel > Security > Certificate); PinMismatchHint recommends only that and never --pin-cert. fleet add is operator-only: it is annotated mcp:hidden and is not an MCP tool, so no MCP caller can choose the address or the credential prefix or start the fetch."
     },
     {
       "file": "skills/synology/cli/internal/dsm/tls.go",
@@ -2054,7 +2054,7 @@
         "sha256:3d0ca907fd7d08c1323c7f557414967c89fc3ac3071fa6117440a470ac449d62"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. Certificate pinning for NAS devices with self-signed certificates. Verification is not turned off: with a pin, VerifyPeerCertificate compares the leaf's SHA-256 with the fingerprint the operator recorded and refuses on mismatch; RefuseAllTLS rejects every handshake; FetchFingerprint reads the certificate at registration, sends no data and no credential, and the operator checks the value in DSM. No config in this module sets ClientSessionCache, so no session resumes past the callback."
+      "reason": "synology, reviewed 2026-11-04. Certificate pinning for NAS units with self-signed certificates; this entry covers RefuseAllTLS and FetchFingerprint. RefuseAllTLS sets InsecureSkipVerify on a fresh config whose callback rejects every handshake, so it never connects. FetchFingerprint's InsecureSkipVerify is what lets it read a self-signed certificate, and it is not a verified read. Trust on first use, stated plainly: FetchFingerprint dials the URL's host with InsecureSkipVerify (no chain or hostname check), completes the handshake, sends no application data and no credential, and returns the SHA-256 of whatever leaf certificate that address presents. Its only caller is 'fleet add --pin-cert' (fleet_registry.go), which stores that value as the pin without comparing it to anything, so whatever answers at the configured address at that moment becomes the trusted certificate. With --check in the same command, checkNAS logs in at once through that new pin and posts <prefix>_ACCOUNT and <prefix>_PASSWORD (and an OTP code or trusted-device token when set) to the holder of that certificate before the operator has compared anything; without --check, the first login is the next command that reaches that NAS. A first registration's table output does not print the fingerprint (only --json carries nas.tls_fingerprint; fleet list shows only 'pinned'). The help text warns only in its re-pin paragraph ('to whatever certificate the address presents right now', 'use it only on a network you trust'); the --pin-cert flag description, the first-registration paragraph and the example 'fleet add acme --url ... --pin-cert --check' carry no warning, and dsm.go's certificate-failure message suggests --pin-cert without one. The operator-checked pin is '--tls-fingerprint <value>' (or SYNOLOGY_TLS_FINGERPRINT for the single NAS) with a value read in DSM (Control Panel > Security > Certificate); PinMismatchHint recommends only that and never --pin-cert. fleet add is operator-only: it is annotated mcp:hidden and is not an MCP tool, so no MCP caller can choose the address or the credential prefix or start the fetch."
     },
     {
       "file": "skills/synology/cli/internal/fleet/registry.go",
@@ -2064,7 +2064,7 @@
         "sha256:251c372d8999051cb20edc6bbb2a1e70d7ddd8b7a851981af2703b9a310b5686"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. LoadRegistry reads this CLI's own fleet.json from its config directory (RegistryPath; tests pass a temp path), never from a request or MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. LoadRegistry reads this CLI's own fleet.json (RegistryPath, <config dir>/fleet.json; tests pass a temp path), never a path from a request or an MCP tool argument."
     },
     {
       "file": "skills/synology/cli/internal/learn/journal.go",
@@ -2074,7 +2074,7 @@
         "sha256:7c14f96d6d0d3de623d8c8edaa8ebdb6e7e9695812cbd6956a6173d1e51f807c"
       ],
       "press": "4.34.2",
-      "reason": "synology, reviewed 2026-11-03. repairJournalSegmentTail opens a segment of this CLI's own learn journal; the path is built from its state directory, never from a request or MCP tool argument."
+      "reason": "synology, reviewed 2026-11-04. repairJournalSegmentTail opens today's segment of this CLI's own learn journal (JournalDir, <state dir>/learn) read-write without creating it, reads its last byte and, when that is not a newline, appends one through credkit.AppendFile. The path is never from a request or an MCP tool argument."
     },
     {
       "file": "skills/google-workspace/cli/internal/cliutil/creds_perms_unix.go",
