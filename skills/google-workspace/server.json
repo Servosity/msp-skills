@@ -36,10 +36,16 @@
         },
         {
           "name": "GOOGLE_WORKSPACE_MCP_READ_ONLY",
-          "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject, and refuse every non-GET API call (true or yes are ignored). Leave blank for the full tool set.",
+          "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, the raw API execute tool, and every tool that writes the local learning store (teach, teach-pattern, teach-lookup, teach-playbook, playbook amend, learnings confirm, learnings forget and learnings reject), so only reads reach Google (true or yes are ignored). Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false,
           "default": "1"
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_NO_LOCAL_DATA",
+          "description": "Optional. Set to exactly 1 to keep no local copy of Google Workspace data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync and workflow archive are refused. Leave blank to keep the local mirror.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "GOOGLE_WORKSPACE_TOKEN",

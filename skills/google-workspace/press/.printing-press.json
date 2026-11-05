@@ -1,0 +1,144 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T20:33:34.868903Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "google-workspace",
+  "display_name": "Google Workspace Admin",
+  "cli_name": "google-workspace-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "internal",
+  "spec_source": "official",
+  "spec_checksum": "sha256:7284e128477c332de66f776952ea3b97567b491385725afbe1389ca3b3103de7",
+  "run_id": "20261102-203334",
+  "category": "productivity",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+  "mcp_binary": "google-workspace-pp-mcp",
+  "mcp_tool_count": 163,
+  "mcp_ready": "full",
+  "api_version": "directory_v1",
+  "auth_type": "bearer_token",
+  "auth_env_vars": [
+    "GOOGLE_WORKSPACE_TOKEN",
+    "ADMIN_ACCESS_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "GOOGLE_WORKSPACE_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "ADMIN_ACCESS_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant 2SV sweep",
+      "command": "mfa-gaps",
+      "description": "Every account without 2-Step Verification across all your client tenants, ranked with unenrolled admins first."
+    },
+    {
+      "name": "Licence waste per client",
+      "command": "stale-licenses",
+      "description": "Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim."
+    },
+    {
+      "name": "Ordered offboarding",
+      "command": "offboard",
+      "description": "Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step."
+    },
+    {
+      "name": "Incomplete-offboarding sweep",
+      "command": "leavers",
+      "description": "Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer."
+    },
+    {
+      "name": "External-sharing drift",
+      "command": "sharing-drift",
+      "description": "Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and how many files newly went external or public (up to 5 sample names per user), across clients."
+    },
+    {
+      "name": "One-row-per-client posture",
+      "command": "posture",
+      "description": "One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile."
+    },
+    {
+      "name": "Cross-tenant OAuth app inventory",
+      "command": "oauth-apps",
+      "description": "Third-party apps with access to client data across every active user and tenant, ranked by scope risk; --since switches to apps newly authorized in that window."
+    },
+    {
+      "name": "Risky sign-in sweep",
+      "command": "login-alerts",
+      "description": "Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-tenant 2SV sweep",
+      "command": "mfa-gaps",
+      "description": "Every account without 2-Step Verification across all your client tenants, ranked with unenrolled admins first."
+    },
+    {
+      "name": "Licence waste per client",
+      "command": "stale-licenses",
+      "description": "Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim."
+    },
+    {
+      "name": "Ordered offboarding",
+      "command": "offboard",
+      "description": "Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step."
+    },
+    {
+      "name": "Incomplete-offboarding sweep",
+      "command": "leavers",
+      "description": "Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer."
+    },
+    {
+      "name": "External-sharing drift",
+      "command": "sharing-drift",
+      "description": "Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and how many files newly went external or public (up to 5 sample names per user), across clients."
+    },
+    {
+      "name": "One-row-per-client posture",
+      "command": "posture",
+      "description": "One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile."
+    },
+    {
+      "name": "Cross-tenant OAuth app inventory",
+      "command": "oauth-apps",
+      "description": "Third-party apps with access to client data across every active user and tenant, ranked by scope risk; --since switches to apps newly authorized in that window."
+    },
+    {
+      "name": "Risky sign-in sweep",
+      "command": "login-alerts",
+      "description": "Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 191,
+    "total": 191,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 91,
+      "grade": "A",
+      "total": 91
+    }
+  }
+}

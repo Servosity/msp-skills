@@ -11,7 +11,7 @@ import (
 func newVerificationCodesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "verification-codes",
-		Short:       "List, generate, and create verificationcodes",
+		Short:       "List and generate verificationcodes",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

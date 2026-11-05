@@ -47,8 +47,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | google-workspace-cli auth set-token")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Set one of:")
-			fmt.Fprintln(w, "  export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\"")
-			fmt.Fprintln(w, "  export ADMIN_ACCESS_TOKEN=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "GOOGLE_WORKSPACE_TOKEN", "your-token-here"))
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "ADMIN_ACCESS_TOKEN", "your-token-here"))
 			if !launch {
 				return nil
 			}
@@ -134,8 +134,8 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | google-workspace-cli auth set-token\n")
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Optional request credentials:")
-				fmt.Fprintln(w, "  export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\"")
-				fmt.Fprintln(w, "  export ADMIN_ACCESS_TOKEN=\"your-token-here\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "GOOGLE_WORKSPACE_TOKEN", "your-token-here"))
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "ADMIN_ACCESS_TOKEN", "your-token-here"))
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 
@@ -145,7 +145,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set one of: "+cliutil.EnvAssignHint(true, "GOOGLE_WORKSPACE_TOKEN", "your-token-here")+" or "+cliutil.EnvAssignHint(true, "ADMIN_ACCESS_TOKEN", "your-token-here"))
 				}
 			}
 			return nil

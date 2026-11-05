@@ -32,7 +32,7 @@ func TestCodeOrchBindRemainingPathVars(t *testing.T) {
 }
 
 // TestCodeOrchExecuteBindsFlagBoundPathVar pins the call site in
-// handleCodeOrchExecute: customers.get has no Positional entry for
+// codeOrchInvoke (read tool): customers.get has no Positional entry for
 // {customerKey}, so only the hand-fix can put it in the request path.
 func TestCodeOrchExecuteBindsFlagBoundPathVar(t *testing.T) {
 	resetMCPPathEnv(t)
@@ -46,7 +46,7 @@ func TestCodeOrchExecuteBindsFlagBoundPathVar(t *testing.T) {
 	t.Setenv("GOOGLE_WORKSPACE_BASE_URL", srv.URL)
 	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "ya29.test")
 
-	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+	res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"endpoint_id": "customers.get", "params": map[string]any{"customerKey": "my_customer"}},
 	}})
 	if err != nil || res == nil || res.IsError {

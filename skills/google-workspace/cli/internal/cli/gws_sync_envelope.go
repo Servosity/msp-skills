@@ -19,7 +19,8 @@ var googleListItemsKey = map[string]string{
 
 // googleListPageIsEmpty reports an empty page of a synced list resource.
 // Google omits the items array when a list is empty and returns only kind and
-// etag; that envelope must not be stored as a record.
+// etag; that envelope must not be stored as a record. The list schemas
+// require no field, so kind is not consulted (google-list-empty-page-continues).
 func googleListPageIsEmpty(resource string, data json.RawMessage) bool {
 	key, ok := googleListItemsKey[resource]
 	if !ok {
@@ -29,15 +30,44 @@ func googleListPageIsEmpty(resource string, data json.RawMessage) bool {
 	if json.Unmarshal(data, &env) != nil {
 		return false
 	}
-	if _, google := env["kind"]; !google {
-		return false
-	}
 	raw, present := env[key]
 	if !present || isJSONNull(raw) {
 		return true
 	}
 	var items []json.RawMessage
 	return json.Unmarshal(raw, &items) == nil && len(items) == 0
+}
+
+// googleListNextPageToken is the one reader of Google's list continuation
+// signal: the nextPageToken string of a list envelope, or "". Google ends a
+// list only by omitting nextPageToken; a page whose items array is empty or
+// omitted (directory_v1.json Users, Groups; datatransfer_v1.json
+// DataTransfersListResponse, ApplicationsListResponse; reseller_v1.json
+// Subscriptions) can still carry one, so every Google list pager asks this,
+// not the item count, whether to fetch again. Hand-fix (handfixes.json
+// google-list-empty-page-continues).
+func googleListNextPageToken(data json.RawMessage) string {
+	var env map[string]json.RawMessage
+	if json.Unmarshal(data, &env) != nil {
+		return ""
+	}
+	var tok string
+	if json.Unmarshal(env["nextPageToken"], &tok) != nil {
+		return ""
+	}
+	return tok
+}
+
+// resourcePageContinues reports whether export or tail must read another
+// page after one that held items records. Under cursor pagination a next
+// cursor alone decides (an empty page is not the end); otherwise an empty
+// page ends the read as before. Hand-fix (handfixes.json
+// google-list-empty-page-continues).
+func resourcePageContinues(config resourceReadConfig, items int, next string) bool {
+	if config.paginationType == "cursor" && next != "" {
+		return true
+	}
+	return items > 0
 }
 
 // googleListEnvelopeEnded reports a Google list envelope (it carries kind)

@@ -17,6 +17,7 @@
       "env": {
         "GOOGLE_WORKSPACE_TENANT": "${user_config.google_workspace_tenant}",
         "GOOGLE_WORKSPACE_MCP_READ_ONLY": "${user_config.google_workspace_mcp_read_only}",
+        "GOOGLE_WORKSPACE_NO_LOCAL_DATA": "${user_config.google_workspace_no_local_data}",
         "GOOGLE_WORKSPACE_TOKEN": "${user_config.google_workspace_token}",
         "ADMIN_ACCESS_TOKEN": "${user_config.admin_access_token}",
         "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "${user_config.google_workspace_mcp_http_token}",
@@ -36,9 +37,15 @@
     "google_workspace_mcp_read_only": {
       "type": "string",
       "title": "Read-only mode",
-      "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject (import is never exposed over MCP) and refuse every non-GET API call; tools that write only the local learn store (teach, playbook amend, learnings confirm) stay. Any other value, including true or yes, leaves every tool enabled. Backup-code reads (verification-codes list) are GET calls and stay available. Leave blank for the full tool set. Preset to 1; clear it only when you want the agent to make changes.",
+      "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, the raw API execute tool, and every tool that writes the local learning store (teach, teach-pattern, teach-lookup, teach-playbook, playbook amend, learnings confirm, learnings forget and learnings reject), so only reads reach Google (import is never exposed over MCP). Any other value, including true or yes, leaves every tool enabled. Backup-code reads (verification-codes list) are reads and stay available. Leave blank for the full tool set. Preset to 1; clear it only when you want the agent to make changes.",
       "required": false,
       "default": "1"
+    },
+    "google_workspace_no_local_data": {
+      "type": "string",
+      "title": "No local data",
+      "description": "Optional. Set to exactly 1 to keep no local copy of Google Workspace data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync and workflow archive are refused. Leave blank to keep the local mirror.",
+      "required": false
     },
     "google_workspace_token": {
       "type": "string",
@@ -88,10 +95,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-13T22:44:26.858556Z",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T20:33:34.868903Z",
     "spec_checksum": "sha256:7284e128477c332de66f776952ea3b97567b491385725afbe1389ca3b3103de7",
     "spec_format": "internal"
   }

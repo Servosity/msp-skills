@@ -4,6 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode now listens on `127.0.0.1:7777` by default, refuses to start until `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, refuses browser origins other than loopback unless listed in `GOOGLE_WORKSPACE_MCP_HTTP_ALLOWED_ORIGINS`, and needs `--tls-cert` and `--tls-key` for any address other than loopback. The ChatGPT desktop app runs the connector locally; web-only AI apps (ChatGPT on the web, Copilot Studio, the Gemini app) are not supported by msp-skills yet; see [mcp-install.md](./mcp-install.md).
+- **An unfilled Claude Desktop field is never used as the HTTP token.** If `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` arrives as the literal `${user_config...}` placeholder (with or without surrounding spaces), the server treats it as unset and HTTP mode does not start.
+- **The raw API tool is split in two.** A read tool answers GET endpoints with no confirmation; the execute tool returns a preview and sends only when the call passes `confirm: true`.
+- **The service-account token request never follows a redirect.** It goes only to `https://oauth2.googleapis.com/token`.
+- `GOOGLE_WORKSPACE_MCP_READ_ONLY=1` now also removes the raw API execute tool and every tool that writes the local learning store, so only reads reach Google.
+- A saved run profile never supplies `--yes`, and `profile save` no longer stores it.
+
+### Added
+- `GOOGLE_WORKSPACE_NO_LOCAL_DATA=1` keeps no local copy of Google data: reads go to the API, the response cache is off, and `sync` and `workflow archive` are refused. It is optional and declared on every install channel.
+- `local-data purge` previews the local store files, response cache and learning journal it would erase, and deletes them only with `--yes`.
+
+### Fixed
+- **`export`, `tail` and `sync` read every page of a Google list.** A page with no records that still carried `nextPageToken` (with or without `kind`) ended the read early, so an export could finish with records missing; a record-less last page is no longer written out as a record.
+- **`leavers` counts admin roles held through a group.** Role assignments are now listed with `includeIndirectRoleAssignments`, so a suspended account that is an admin through group membership is flagged.
+
+### Changed
+- `--deliver webhook:` no longer follows redirects. An Apps Script web app answers a delivered POST with a 302; that is now reported as "redirects are not followed" after the POST was sent once.
+
 ## [0.1.3] - 2026-10-23
 
 ### Changed

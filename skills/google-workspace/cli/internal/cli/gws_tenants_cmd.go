@@ -56,6 +56,8 @@ func readSAKeyIdentity(path string) (saKeyIdentity, []byte, error) {
 	if err != nil {
 		return saKeyIdentity{}, nil, fmt.Errorf("reading service-account key: %w", err)
 	}
+	// Held before any diagnostic can print it (handfixes.json credkit-wiring).
+	cliutil.HoldBody(raw)
 	var id saKeyIdentity
 	if err := json.Unmarshal(raw, &id); err != nil {
 		return saKeyIdentity{}, nil, fmt.Errorf("service-account key is not JSON: %w", err)
@@ -127,7 +129,9 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 					}
 					t.OwnershipMismatch = existing.OwnershipMismatch
 				}
-				if err := cliutil.AtomicWritePrivateFile(keyDest, raw, 0o600, 0o700); err != nil {
+				// The copied key is a credential source (internal/credwire holds it at
+				// startup), so it is written outside the kit, which would withhold it.
+				if err := cliutil.AtomicWriteCredentialFile(keyDest, raw, 0o600, 0o700); err != nil {
 					return configErr(fmt.Errorf("storing service-account key: %w", err))
 				}
 				kept := reg.Tenants[:0]
