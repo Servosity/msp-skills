@@ -105,9 +105,9 @@
     "released_hash": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146"
   },
   "blackpoint": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "blackpoint-v0.1.0",
+    "latest_tag": "blackpoint-v0.1.1",
     "current_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68",
     "released_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68"
   },
