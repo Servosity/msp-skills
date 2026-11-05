@@ -87,7 +87,8 @@ Exit codes & warnings:
   ...} so callers can detect that a partial failure was tolerated. Pass
   --strict to exit non-zero on any per-resource failure. Exit is always
   non-zero when every selected resource failed, regardless of --strict.
-  A list whose walk cannot be proven complete (no page block from
+  A dependent whose parent failed or was never read counts as failed, not
+  synced. A list whose walk cannot be proven complete (no page block from
   the API, or a block that contradicts the rows read) fails its resource,
   deletes nothing under --full, and exits non-zero.
 
@@ -288,7 +289,11 @@ Resource scoping:
 			var criticalFailedResources []string
 			var firstErr error
 			var firstPlaceholderErr error
+			// Hand-fix (handfixes.json sync-failed-dependent-not-success):
+			// the dependents ask how their parent's read went this run.
+			flatOutcomes := map[string]syncResult{}
 			for res := range results {
+				flatOutcomes[res.Resource] = res
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
@@ -320,7 +325,7 @@ Resource scoping:
 				}
 			}
 			// Sync dependent (parent-child) resources sequentially after flat resources.
-			depResults := syncDependentResources(cmd.Context(), c, db, sinceTS, full, maxPages, effectiveLatestOnly, prune, parentFilter, userParams, syncEventWriter, concurrency)
+			depResults := syncDependentResources(cmd.Context(), c, db, sinceTS, full, maxPages, effectiveLatestOnly, prune, parentFilter, userParams, syncEventWriter, concurrency, flatOutcomes)
 			for _, res := range depResults {
 				if res.Err != nil {
 					if humanFriendly {
@@ -356,7 +361,10 @@ Resource scoping:
 			elapsed := time.Since(started)
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
-				if warnCount > 0 {
+				if errCount > 0 {
+					fmt.Fprintf(os.Stderr, "Sync finished with failures: %d records across %d resources (%d failed, %d warned, %.1fs)\n",
+						totalSynced, totalResources, errCount, warnCount, elapsed.Seconds())
+				} else if warnCount > 0 {
 					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
 						totalSynced, totalResources, warnCount, elapsed.Seconds())
 				} else {
@@ -391,6 +399,27 @@ Resource scoping:
 			if firstPlaceholderErr != nil {
 				return classifyAPIError(cmd.OutOrStdout(), firstPlaceholderErr, flags)
 			}
+			// Hand-fix (handfixes.json sync-failed-dependent-not-success): the
+			// counts reach a machine caller on a failed run too, not only on exit 0.
+			if machineFormat {
+				summary := map[string]any{
+					"total_records": totalSynced,
+					"resources":     totalResources,
+					"success":       successCount,
+					"warned":        warnCount,
+					"errored":       errCount,
+					"duration_ms":   elapsed.Milliseconds(),
+				}
+				// The dry-run walk already produced this preview. Stamp the
+				// envelope marker on it instead of replacing the summary.
+				if c.DryRun {
+					summary["dry_run"] = true
+					summary["action"] = "sync"
+				}
+				if err := printJSONFiltered(cmd.OutOrStdout(), summary, flags); err != nil {
+					return err
+				}
+			}
 			if strict && errCount > 0 {
 				return errors.New(describeFailedResources(errCount, failedResources))
 			}
@@ -412,25 +441,6 @@ Resource scoping:
 						errCount, strings.ReplaceAll(msg, `"`, `\"`))
 				} else {
 					fmt.Fprintf(os.Stderr, "warning: %d resource(s) failed but exit code is 0 because the new default treats non-critical failures as warnings. Pass --strict to restore the old behavior, or annotate critical resources with x-critical: true.\n", errCount)
-				}
-			}
-			if machineFormat {
-				summary := map[string]any{
-					"total_records": totalSynced,
-					"resources":     totalResources,
-					"success":       successCount,
-					"warned":        warnCount,
-					"errored":       errCount,
-					"duration_ms":   elapsed.Milliseconds(),
-				}
-				// The dry-run walk already produced this preview. Stamp the
-				// envelope marker on it instead of replacing the summary.
-				if c.DryRun {
-					summary["dry_run"] = true
-					summary["action"] = "sync"
-				}
-				if err := printJSONFiltered(cmd.OutOrStdout(), summary, flags); err != nil {
-					return err
 				}
 			}
 			return nil
@@ -2617,7 +2627,7 @@ func dependentResourceDefs() []dependentResourceDef {
 func syncDependentResources(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
 	RateLimit() float64
-}, db *store.Store, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, parentFilter []string, userParams *syncUserParams, syncEvents io.Writer, concurrency int) []syncResult {
+}, db *store.Store, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, parentFilter []string, userParams *syncUserParams, syncEvents io.Writer, concurrency int, flatOutcomes map[string]syncResult) []syncResult {
 	allow := make(map[string]bool, len(parentFilter))
 	for _, r := range parentFilter {
 		allow[r] = true
@@ -2627,7 +2637,7 @@ func syncDependentResources(ctx context.Context, c interface {
 		if len(allow) > 0 && !allow[dep.ParentTable] && !allow[dep.Name] {
 			continue
 		}
-		res := syncDependentResource(ctx, c, db, dep, sinceTS, full, maxPages, latestOnly, prune, userParams, syncEvents, concurrency)
+		res := syncDependentResource(ctx, c, db, dep, sinceTS, full, maxPages, latestOnly, prune, userParams, syncEvents, concurrency, flatOutcomes)
 		results = append(results, res)
 	}
 	return results
@@ -3174,11 +3184,39 @@ func dependentSyncInterruptError(ctx context.Context, resource string, reported,
 	return fmt.Errorf("%s interrupted after %d of %d parents: %w", resource, reported, total, cause)
 }
 
+// dependentParentFailure says why a dependent's parent cannot vouch for its
+// rows: the parent failed or was not readable this run, or it was not in this
+// run and no earlier walk of it ever finished. A preview reads nothing, so it
+// fails nothing.
+func dependentParentFailure(c any, db *store.Store, dep dependentResourceDef, flatOutcomes map[string]syncResult, userParams *syncUserParams) error {
+	if preview, ok := c.(interface{ IsDryRun() bool }); ok && preview.IsDryRun() {
+		return nil
+	}
+	if res, ran := flatOutcomes[dep.ParentTable]; ran {
+		switch {
+		case res.Err != nil:
+			return fmt.Errorf("%s not synced: its parent %s failed", dep.Name, dep.ParentTable)
+		case res.Warn != nil:
+			return fmt.Errorf("%s not synced: its parent %s was not read", dep.Name, dep.ParentTable)
+		}
+		return nil
+	}
+	scopeKey := syncCheckpointScope(dep.ParentTable, false, userParams, syncClientTemplateVars(c), syncActivePathContext())
+	_, lastSynced, _, err := db.ReadSyncScope(dep.ParentTable, scopeKey)
+	if err != nil {
+		return fmt.Errorf("%s not synced: reading the state of its parent %s: %w", dep.Name, dep.ParentTable, err)
+	}
+	if lastSynced.IsZero() {
+		return fmt.Errorf("%s not synced: its parent %s was never read; sync it first", dep.Name, dep.ParentTable)
+	}
+	return nil
+}
+
 // syncDependentResource syncs a single child resource by iterating all parent IDs.
 func syncDependentResource(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
 	RateLimit() float64
-}, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int) syncResult {
+}, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int, flatOutcomes map[string]syncResult) syncResult {
 	started := time.Now()
 	if syncEvents == nil {
 		syncEvents = io.Discard
@@ -3215,7 +3253,16 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 		return syncResult{Resource: dep.Name, Err: err, Duration: time.Since(started)}
 	}
+	// Hand-fix (handfixes.json sync-failed-dependent-not-success): no
+	// parent rows is a success only when the parent was read and really has none.
+	parentFailure := dependentParentFailure(c, db, dep, flatOutcomes, userParams)
 	if len(parentRows) == 0 {
+		if parentFailure != nil {
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, "", parentFailure))
+			}
+			return syncResult{Resource: dep.Name, Err: parentFailure, Duration: time.Since(started)}
+		}
 		if humanFriendly {
 			fmt.Fprintf(os.Stderr, "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
 		}
@@ -3223,6 +3270,12 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 	parentCoverageComplete := true
 	coverageReason := ""
+	// Parents already in the store still get their children refreshed, but a
+	// parent list that failed or never finished may hold others this walk never saw.
+	if parentFailure != nil {
+		parentCoverageComplete = false
+		coverageReason = "parent_not_read"
+	}
 	if cliutil.IsDogfoodEnv() && len(parentRows) > dogfoodMaxParentRows {
 		originalParentRows := len(parentRows)
 		parentRows = parentRows[:dogfoodMaxParentRows]
