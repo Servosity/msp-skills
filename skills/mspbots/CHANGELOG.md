@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.7] - unreleased
+## [0.1.7] - 2026-11-05
 
 Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command, flag and MCP tool that shipped in 0.1.6 is still here; the list below is what changed for an operator or an agent. The press upgrade follows advisory GHSA-jh26-vhqh-692c.
 

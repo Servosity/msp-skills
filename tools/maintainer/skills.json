@@ -1411,8 +1411,8 @@
       "tagline": "Pull datasets, snapshot KPIs, and track ticket backlog trends by asking.",
       "cli_hash": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "template_version": 3,
-      "version": "0.1.6",
-      "cli_hash_at_release": "sha256:27cc737e503d602a81d4e3ababe7adddfb165561cbdea13ebfa2e582a94c5557",
+      "version": "0.1.7",
+      "cli_hash_at_release": "sha256:80e4f6e217c4085a49280426e3657540556ca4ad9d18cfc1f959e020f5dd31f3",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
