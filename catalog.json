@@ -126,6 +126,26 @@
       "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close."
     },
     {
+      "name": "apple-business",
+      "system": "Apple Business (Apple Business Manager): devices, MDM server assignments, AppleCare coverage, Activation Lock, users and audit events across every client org",
+      "status": "beta",
+      "skill_path": "skills/apple-business",
+      "cli_binary": "apple-business-cli",
+      "mcp_binary": "apple-business-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Apple",
+      "vendor_trademark_owner": "Apple Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/apple-business/install.sh)",
+      "install_mcp_doc": "skills/apple-business/mcp-install.md",
+      "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+      "verification": "awaiting",
+      "category": "MDM",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org"
+    },
+    {
       "name": "atera",
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",

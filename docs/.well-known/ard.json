@@ -101,6 +101,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:apple-business",
+      "displayName": "Apple Business",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/apple-business/SKILL.md",
+      "description": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "tags": [
+        "MDM"
+      ],
+      "representativeQueries": [
+        "Which devices are not assigned to any MDM server, and is a missing default server the reason?",
+        "Which devices lose AppleCare in the next 90 days, grouped by purchase order?",
+        "Which devices have no active AppleCare coverage at all?",
+        "Which devices are Activation Locked to a user, and who is the owner when known?",
+        "Per client org: how many devices, how many unassigned, expiring, uncovered and user-locked, and how many stale MDM servers?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/apple-business.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:atera",
       "displayName": "Atera",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

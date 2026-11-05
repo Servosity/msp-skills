@@ -37,6 +37,13 @@
       "digest": "sha256:c7cf452982fa6da85a72f066534cdacb361967355cff0e3c4cf45773c48c1935"
     },
     {
+      "name": "apple-business",
+      "type": "skill-md",
+      "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock. Trigger phrases: `which MDM is this serial assigned to`, `find Apple devices not assigned to an MDM`, `AppleCare expiring for this customer`, `assign these serials to Jamf in Apple Business`, `Apple Business audit log`, `use apple-business`, `run apple-business-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/apple-business/SKILL.md",
+      "digest": "sha256:4c4a7b1222abf5f45d0899ddd2bb3712ead0f9aeeff12260cb92b346c19b4af7"
+    },
+    {
       "name": "atera",
       "type": "skill-md",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can. Trigger phrases: `which atera agents are offline`, `atera tickets about to breach sla`, `atera book of business`, `what changed in atera since yesterday`, `sync atera to my machine`, `use atera`, `run atera-cli`, `which customers are under-contracted`, `patch compliance across the fleet`, `what contracts are expiring`.",
