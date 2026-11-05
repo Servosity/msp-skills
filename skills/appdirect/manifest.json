@@ -20,7 +20,13 @@
         "APPDIRECT_CLIENT_SECRET": "${user_config.appdirect_client_secret}",
         "APPDIRECT_OAUTH_SCOPE": "${user_config.appdirect_oauth_scope}",
         "APPDIRECT_TOKEN_URL": "${user_config.appdirect_token_url}",
-        "APPDIRECT_NO_CONFIG_WRITE": "${user_config.appdirect_no_config_write}"
+        "APPDIRECT_NO_CONFIG_WRITE": "${user_config.appdirect_no_config_write}",
+        "APPDIRECT_MCP_READ_ONLY": "${user_config.appdirect_mcp_read_only}",
+        "APPDIRECT_NO_LOCAL_DATA": "${user_config.appdirect_no_local_data}",
+        "APPDIRECT_USER_AGENT": "${user_config.appdirect_user_agent}",
+        "APPDIRECT_MCP_UPLOAD_ROOT": "${user_config.appdirect_mcp_upload_root}",
+        "APPDIRECT_MCP_HTTP_TOKEN": "${user_config.appdirect_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -66,6 +72,46 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "appdirect_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 to make the MCP server refuse every write: only read tools are callable. Leave blank to allow writes (each MCP write still previews first and sends only when called again with confirm set to true).",
+      "required": false
+    },
+    "appdirect_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+      "required": false
+    },
+    "appdirect_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on AppDirect requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "appdirect_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank. Reserved for MCP file uploads: the AppDirect MCP server refuses every upload in this release (a user CSV, a catalog file, a product image or PDF) and names the CLI command to run instead, so the server never opens a local path and this setting has no effect.",
+      "required": false,
+      "sensitive": false
+    },
+    "appdirect_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -76,11 +122,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:32:08.614655Z",
-    "spec_checksum": "sha256:21a82c3829a501ee3520a2f502bf693bbb585b509c9edd96f0af2726930f880b",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T04:30:39.099618Z",
+    "spec_checksum": "sha256:8467f8d74260c6e3be3ff94a07a5ec0d11ee39a30393f2d566c093575fc1e206",
     "spec_format": "openapi3"
   }
 }

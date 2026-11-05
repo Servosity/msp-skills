@@ -22,6 +22,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"appwise", "events"},
 		{"products", "delete-image"},
 		{"shopping-carts", "items", "delete-shopping-cart"},
+		{"checkout", "create-and-finalize-shopping-cart"},
 	} {
 		cmd := root
 		for _, name := range path {

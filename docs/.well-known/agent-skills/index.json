@@ -34,7 +34,7 @@
       "type": "skill-md",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins. Trigger phrases: `reconcile appdirect billing`, `which appdirect payments failed this week`, `what changed in appdirect subscriptions`, `show my appdirect pipeline`, `appdirect company 360`, `use appdirect`, `run appdirect-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/appdirect/SKILL.md",
-      "digest": "sha256:c7cf452982fa6da85a72f066534cdacb361967355cff0e3c4cf45773c48c1935"
+      "digest": "sha256:90deae0ff3dbeef3912b897aff3c4594c422f270d368469ba715f1d95e92e231"
     },
     {
       "name": "apple-business",

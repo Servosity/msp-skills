@@ -18,6 +18,14 @@ white-label marketplace with `APPDIRECT_BASE_URL`.
 ## Default-safe behavior
 
 - **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Over MCP, every write previews first.** A tool call that changes AppDirect returns a preview and
+  sends nothing until it is called again with `confirm` set to boolean true, and
+  `APPDIRECT_MCP_READ_ONLY=1` refuses every write. The MCP server takes no file from a tool call:
+  the six upload endpoints are refused over MCP and run with the CLI.
+- **Credentials stay in one place.** Only `credentials.toml` (mode 0600) holds a credential; a client
+  pair from the environment, and the token minted for it, are never written to disk. The client pair
+  is sent only to your own marketplace's token URL, and any output, file or MCP result that would
+  repeat a credential the program holds is withheld.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything. This includes the cross-entity views (`reconcile`, `payments
   unpaid`, `subs changed`, `company show`, `pipeline`) and a handful of API
@@ -55,8 +63,8 @@ gated, not waved through as a read.
   like `request-purchase` and discount changes.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
-- **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md).
+- **Rotate the credential if it is ever exposed.** HTTP mode needs `APPDIRECT_MCP_HTTP_TOKEN`
+  and TLS for any address other than loopback (see mcp-install.md); treat that token like a password.
 
 ## Why an MSP owner can be comfortable
 

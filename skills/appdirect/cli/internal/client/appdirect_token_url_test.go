@@ -25,10 +25,13 @@ func TestResolveAppDirectTokenURL(t *testing.T) {
 		{"scheme-less host with port", "", "mp.example.com:9000", "https://mp.example.com:9000/oauth2/token"},
 		{"empty base falls back to default", "", "", "https://marketplace.appdirect.com/oauth2/token"},
 		// Adversarial / mistyped inputs must never route credentials to a
-		// userinfo-confused host; they fall back to the spec default.
-		{"userinfo confusion rejected", "", "victim.com@attacker.com", "https://marketplace.appdirect.com/oauth2/token"},
-		{"explicit scheme with userinfo rejected", "", "https://user@victim.com/api", "https://marketplace.appdirect.com/oauth2/token"},
-		{"protocol-relative rejected", "", "//evil.com/api", "https://marketplace.appdirect.com/oauth2/token"},
+		// userinfo-confused host, nor to AppDirect's own marketplace (another
+		// tenant): they name no token URL at all, and nothing is posted
+		// (Codex r1 4.34.2 class credential-sent-to-another-host; 0.1.9 fell
+		// back to the spec default here).
+		{"userinfo confusion rejected", "", "victim.com@attacker.com", ""},
+		{"explicit scheme with userinfo rejected", "", "https://user@victim.com/api", ""},
+		{"protocol-relative rejected", "", "//evil.com/api", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
