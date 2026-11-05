@@ -1340,6 +1340,21 @@
       "file": "skills/prtg/cli/internal/fleet/runner.go",
       "rule": "exec-nonliteral-cmd",
       "reason": "Builtin twin of the content-bound G204 and msp-exec-nonliteral-command entries for the same call site. prtg (hand-written fleet runner, press 4.34.2 connector), reviewed 2026-11-04. Runner.Run re-executes this CLI (os.Executable) once per registered PRTG core through credkit.RunCommand; args are fixed subcommands and flags plus --req paths validated by cleanAPIPath and core names validated by the registry; request bodies go on stdin; the environment is scrubbed per core (fleet.Scrub); no shell. Repo-relative (scoped to prtg only)."
+    },
+    {
+      "file": "skills/vsphere/cli/internal/client/vsphere_session.go",
+      "rule": "disabled-tls-verify",
+      "reason": "vsphere only. This is certificate PINNING, which is stricter than chain verification, not a disabled check. pinnedTLSConfig is installed only when VSPHERE_TLS_FINGERPRINT (environment only, never a config file) holds at least one well-formed SHA-256 fingerprint; ParsePins rejects a malformed or empty setting as an error instead of falling back. Only then does it set InsecureSkipVerify, together with a VerifyConnection callback that runs on every handshake, resumed ones included, and accepts only a leaf certificate whose SHA-256 is pinned (vCenter usually serves a self-signed VMCA certificate). With no pin the transport keeps Go's normal chain and hostname verification."
+    },
+    {
+      "file": "skills/vsphere/cli/internal/client/vsphere_session.go",
+      "rule": "msp-insecure-skip-verify",
+      "reason": "Same line as the disabled-tls-verify entry above (semgrep flags the identical InsecureSkipVerify: true). vsphere only. This is certificate PINNING, which is stricter than chain verification, not a disabled check. pinnedTLSConfig is installed only when VSPHERE_TLS_FINGERPRINT (environment only, never a config file) holds at least one well-formed SHA-256 fingerprint; ParsePins rejects a malformed or empty setting as an error instead of falling back. Only then does it set InsecureSkipVerify, together with a VerifyConnection callback that runs on every handshake, resumed ones included, and accepts only a leaf certificate whose SHA-256 is pinned (vCenter usually serves a self-signed VMCA certificate). With no pin the transport keeps Go's normal chain and hostname verification."
+    },
+    {
+      "file": "skills/vsphere/cli/internal/client/vsphere_session.go",
+      "rule": "G402",
+      "reason": "Annotation-hidden finding (the inline #nosec G402 at the pinned config). vsphere only. This is certificate PINNING, which is stricter than chain verification, not a disabled check. pinnedTLSConfig is installed only when VSPHERE_TLS_FINGERPRINT (environment only, never a config file) holds at least one well-formed SHA-256 fingerprint; ParsePins rejects a malformed or empty setting as an error instead of falling back. Only then does it set InsecureSkipVerify, together with a VerifyConnection callback that runs on every handshake, resumed ones included, and accepts only a leaf certificate whose SHA-256 is pinned (vCenter usually serves a self-signed VMCA certificate). With no pin the transport keeps Go's normal chain and hostname verification."
     }
   ],
   "bound": [
