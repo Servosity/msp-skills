@@ -820,7 +820,7 @@
       "skill_path": "skills/gradient",
       "cli_binary": "gradient-cli",
       "mcp_binary": "gradient-mcp",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Gradient MSP",
