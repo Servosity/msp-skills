@@ -611,6 +611,13 @@
       "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
     },
     {
+      "name": "warranty",
+      "type": "skill-md",
+      "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror. Trigger phrases: `is this laptop still under warranty`, `warranty end date for serial`, `which devices go out of warranty this quarter`, `dell warranty lookup`, `lenovo warranty lookup`, `use warranty`, `run warranty-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/SKILL.md",
+      "digest": "sha256:ec04660bb8a6bf6182e1e2767370ea0e9d5c902c639dff05968b6a3198d6a505"
+    },
+    {
       "name": "watchguard",
       "type": "skill-md",
       "description": "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`.",

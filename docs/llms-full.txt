@@ -3231,6 +3231,41 @@ A: The full VSPC v3 surface is exposed, including create/delete jobs and agent d
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
 
+### Device Warranty (Documentation)
+
+Page: [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/install.sh)
+
+Ask which client devices go out of warranty this quarter and get the list, per client. Device Warranty plus your AI agent looks up Dell, Lenovo and Apple serials with whichever vendor credentials you have, keeps every answer in a local warranty mirror, and answers fleet questions offline: what expires soon, what to refresh next year, and which devices were never verified.
+
+Outcomes (question -> command your AI agent runs):
+- Which client devices are out of warranty or expire in the next 90 days? -> warranty-cli report --within 90d --agent
+- Which of Acme Dental's devices have already expired? -> warranty-cli report --customer "Acme Dental" --status expired --agent
+- What is the warranty on these serials right now? -> warranty-cli lookup 1ABC234 PF1ABCDE --agent
+- How many devices per client lose coverage in each of the next four quarters, and how many are past four years old? -> warranty-cli lifecycle --quarters 4 --age 4y --agent
+- Which devices could the report not speak for, and why? -> warranty-cli unresolved --agent
+- Which vendors are configured, and what does each still need? -> warranty-cli doctor --json
+- Which coverage expired or changed since I last checked? -> warranty-cli events list --since 0 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Device Warranty MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my client device data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need credentials for all three vendors?
+A: No. Every vendor is optional. Dell needs a TechDirect Warranty API client ID and secret, Lenovo a ClientID token from your Lenovo account manager, Apple an Apple Business API account in the client's organization. A vendor without credentials is reported as vendor_unconfigured and never called, and the others keep working. warranty-cli doctor --json lists what each vendor still needs.
+Q: Where do the serials come from?
+A: Any CSV or JSON device export with a serial column (manufacturer, model and hostname are optional), for example from your RMM. warranty-cli import devices.csv --customer "Acme Dental" loads it into the mirror; apple-pull loads a client's Apple devices straight from Apple Business.
+Q: Will this hit the vendors' rate limits?
+A: It is built to stay inside them: Dell lookups go 100 service tags per call, Lenovo 25 serials per call spaced 250 ms apart, Apple one serial per call. recheck refreshes only stale or soon-expiring devices, and --max-calls caps a run.
+
+Governance: The skill reads warranty and coverage data from Dell, Lenovo and Apple and changes nothing at any vendor. It writes only its own local warranty mirror (import, lookup, recheck, apple-pull), which you can preview with --dry-run, and over MCP those saves need confirm. Let an agent read and report freely; keep a human on credential commands and on local-data purge.
+
 ### WatchGuard Cloud (Security)
 
 Page: [WatchGuard Cloud](https://msp-skills.compoundingteams.com/skills/watchguard.md)

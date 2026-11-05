@@ -1,5 +1,5 @@
 {
-  "count": 88,
+  "count": 89,
   "connectors": [
     {
       "slug": "abnormal",
@@ -1092,6 +1092,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "warranty",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/warranty/"
     },
     {
       "slug": "watchguard",

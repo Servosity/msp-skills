@@ -106,6 +106,7 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - warranty
         - watchguard
         - wordpress
         - xero
