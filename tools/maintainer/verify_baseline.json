@@ -193,12 +193,6 @@
    "read-only",
    "local-data"
   ],
-  "runzero": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "saas-alerts": [
    "write-gating",
    "read-only",

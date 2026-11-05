@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `RUNZERO_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `runzero-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `RUNZERO_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/runzero/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +91,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`runzero-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `RUNZERO_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `RUNZERO_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export RUNZERO_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+runzero-mcp --transport http
+```
+
+Set `RUNZERO_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -119,8 +128,6 @@ runzero-cli diff --since 7d
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Attack-surface intelligence (local store)
 - **`diff`**  -  Show which assets, services, ports, and software appeared or disappeared between two local syncs.
@@ -172,7 +179,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this to find how many distinct versions of a package are deployed and which assets run the laggards._
 
   ```bash
-  runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
+  runzero-cli software rollup openssl --agent
   ```
 - **`stale`**  -  Bucket assets by last-seen age, end-of-life OS, and missing tag/owner  -  emitting IDs ready to pipe into the bulk commands.
 
@@ -192,7 +199,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Sync then triage exposure offline
 
@@ -229,14 +235,89 @@ Find assets not seen in 45 days (plus EOL-OS and untagged/unowned) locally; feed
 ### Software version rollup across the fleet
 
 ```bash
-runzero-cli software rollup <name> --agent   # e.g. <name> = openssl
+runzero-cli software rollup openssl --agent
 ```
 
-Group every installed build of a product (here, OpenSSL) by version with the count of assets running each, so you can target the outdated ones. Omit `<name>` to roll up the entire software inventory.
+Group every installed OpenSSL build by version with the count of assets running each, so you can target the outdated ones.
 
 ## Usage
 
 Run `runzero-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `RUNZERO_CONFIG_DIR`, `RUNZERO_DATA_DIR`, `RUNZERO_STATE_DIR`, or `RUNZERO_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `RUNZERO_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export RUNZERO_HOME=/srv/runzero
+runzero-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:RUNZERO_HOME = "C:\ProgramData\runzero"
+runzero-cli doctor
+```
+
+Under `RUNZERO_HOME=/srv/runzero`, the four dirs resolve to `/srv/runzero/config`, `/srv/runzero/data`, `/srv/runzero/state`, and `/srv/runzero/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:RUNZERO_HOME = "C:\srv\runzero"
+runzero-cli doctor
+```
+
+Under `$env:RUNZERO_HOME = "C:\srv\runzero"`, the four dirs resolve to `C:\srv\runzero\config`, `C:\srv\runzero\data`, `C:\srv\runzero\state`, and `C:\srv\runzero\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "runzero": {
+      "command": "runzero-mcp",
+      "env": {
+        "RUNZERO_HOME": "/srv/runzero"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `RUNZERO_DATA_DIR` overrides an explicit `--home` for that kind. Use `RUNZERO_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `RUNZERO_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `runzero-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `runzero-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `runzero-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `RUNZERO_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `RUNZERO_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -453,24 +534,98 @@ Manage runzero import
 defined custom integrations. See [/account/custom-integrations](#/account/getAccountCustomIntegrations). Currently only assets for custom integrations are importable here.
 
 
+### affected
+
+
+- **`runzero-cli affected`** - Given a CVE, list every affected asset with its services and criticality.
+
+
+### certs-expiring
+
+
+- **`runzero-cli certs-expiring`** - List TLS certificates expiring within a window or using weak crypto, joined to the asset and service presenting them.
+
+
+### diff
+
+
+- **`runzero-cli diff`** - Show which assets, services, ports, and software appeared or disappeared between two local syncs.
+
+
+### exposure-delta
+
+
+- **`runzero-cli exposure-delta`** - List services and ports that became newly exposed or newly vulnerable since the last sync, ranked by asset criticality.
+
+
+### exposure-map
+
+
+- **`runzero-cli exposure-map`** - Roll up which protocols and ports are exposed across a CIDR, asset-counted per service.
+
+
+### scan-watch
+
+
+- **`runzero-cli scan-watch`** - Start a scan on a site and follow the task to completion in one command, with a typed exit code on the result.
+
+
+### software
+
+
+- **`runzero-cli software rollup`** - Group installed software by product and version with a count of assets running each.
+
+
+### stale
+
+
+- **`runzero-cli stale`** - Bucket assets by last-seen age, end-of-life OS, and missing tag/owner  -  emitting IDs ready to pipe into the bulk commands.
+
+
+### triage
+
+
+- **`runzero-cli triage`** - Rank assets by criticality joined to their exposed services and high-severity vulnerability findings.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`runzero-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`runzero-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`runzero-cli learnings list`** - Inspect taught rows
+- **`runzero-cli learnings forget <query>`** - Undo a teach
+- **`runzero-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`runzero-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`runzero-cli teach-pattern`** - Install a query/resource template up front
+- **`runzero-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `RUNZERO_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `runzero-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-runzero-cli account create-asset-ownership-types
+runzero-cli account export-events-json
 
 # JSON for scripting and agents
-runzero-cli account create-asset-ownership-types --json
-
-# Filter to specific fields
-runzero-cli account create-asset-ownership-types --json --select id,name,status
+runzero-cli account export-events-json --json
+# Filter to specific fields by name
+runzero-cli account export-events-json --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
-runzero-cli account create-asset-ownership-types --dry-run
+runzero-cli account export-events-json --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-runzero-cli account create-asset-ownership-types --agent
+runzero-cli account export-events-json --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -478,15 +633,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -498,19 +653,29 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/runzero-cli/config.toml`
+Run `runzero-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/runzero-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\runzero-cli\config.toml` on Windows; `--home`, `RUNZERO_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `RUNZERO_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `RUNZERO_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `RUNZERO_API_KEY` | per_call | Yes | Set to your API credential. |
+| `RUNZERO_BASE_URL` | per_call | No | The API base URL; leave unset for `https://console.runzero.com/api/v1.0`, or set your self-hosted console's `https://<host>/api/v1.0`. |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `runzero-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The API key (`RUNZERO_API_KEY`: an account, organization or export token) goes only as `Authorization: Bearer <key>` to the scheme, host and port of the configured base URL: `https://console.runzero.com/api/v1.0` by default, or `RUNZERO_BASE_URL` (a self-hosted console). A redirect to any other host is refused, so the key never reaches it.
+- A credential a response carries (an API key's token from `account get-keys`, an organization's export and download tokens, a minted access token, a client secret) prints as `[credential withheld]`, and the rest of the record prints; the local store keeps the same masked record. Any other output, file or MCP result that would repeat the key, its header or one of those credentials, in any encoding, is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. Responses are never cached on disk.
+- Only `credentials.toml` and `config.toml` (both mode 0600) hold a credential: `config.toml` keeps the base URL as you configured it, a password or token in it included. `auth set-token` reads the key from stdin and holds it before anything prints.
+- `--dry-run` sends nothing. Over MCP, `runzero_execute`, `import`, `scan_watch` and every other tool that changes runZero data return a preview and send only with `confirm: true`; the exports and the offline analysis tools are read-only; and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

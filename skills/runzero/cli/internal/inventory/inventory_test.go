@@ -40,7 +40,7 @@ func openTestDB(t *testing.T) *sql.DB {
 
 // nowMinusDays returns a unix timestamp `days` in the past.
 func nowMinusDays(days int) int64 {
-	return time.Now().Add(-time.Duration(days) * 24 * time.Hour).Unix()
+	return clock().Add(-time.Duration(days) * 24 * time.Hour).Unix()
 }
 
 func seedRun1() map[string]string {
@@ -278,7 +278,7 @@ func TestEmptyStoreDegradesGracefully(t *testing.T) {
 func TestNullColumnsDoNotDropRows(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
-	now := time.Now().Unix()
+	now := clock().Unix()
 	old := nowMinusDays(90)
 	if _, err := db.ExecContext(ctx, `INSERT INTO inv_sync_runs(id,started_at,finished_at) VALUES(1,?,?)`, now, now); err != nil {
 		t.Fatal(err)

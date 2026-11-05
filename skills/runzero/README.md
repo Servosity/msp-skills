@@ -16,13 +16,6 @@ Every runZero query, plus a local SQLite copy of your whole attack surface that 
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the runZero skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `runzero-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `runzero-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `runzero-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -189,11 +182,19 @@ This skill closes that gap by syncing the whole surface locally and answering th
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
+## Credential safety
+
+- The API key (`RUNZERO_API_KEY`) goes only as `Authorization: Bearer <key>` to the configured base URL (`https://console.runzero.com/api/v1.0`, or your console through `RUNZERO_BASE_URL`), only over https, and never across a redirect to another host.
+- Save the key with `auth set-token`, which reads it from standard input so it never sits in your shell history: `printf '%s' "$KEY" | runzero-cli auth set-token` (PowerShell: `$env:KEY | runzero-cli auth set-token`). Only `credentials.toml` (mode 0600) holds it.
+- A credential a runZero response carries (an API key's token from `account get-keys`, an organization's export and download tokens, a minted access token, a client secret) prints as `[credential withheld]`, and the rest of the record prints. Any other output, file or MCP result that would repeat the key or one of those credentials, in any encoding, is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. Responses are never cached on disk.
+- Over MCP, every tool that changes runZero data, the token mint `account get-apitoken` included, returns a preview and sends only with `confirm: true`.
+- `inventory sync` with a failed export, and every analysis command or `inventory list` over an incomplete local copy (an entity never synced, whose last sync failed or did not finish, or synced under another `--search` filter), prints its result and exits 6. Add `--allow-partial-failure` to get exit 0 with a warning.
+
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `runzero-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `runzero-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `runzero-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `runzero-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -205,7 +206,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my runZero data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries, and the MCP server runs over stdio unless you deliberately start it in HTTP mode (`runzero-mcp --transport http`): that mode refuses to start until `RUNZERO_MCP_HTTP_TOKEN` is set (32 or more characters), every request must send it as `Authorization: Bearer <token>`, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Does this burn my runZero API quota?
 

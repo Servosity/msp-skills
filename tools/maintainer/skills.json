@@ -2013,7 +2013,7 @@
       "category": "Security",
       "display_name": "runZero",
       "tagline": "Find every asset on your attack surface, diff it over time, and trace any CVE to the machines it hits.",
-      "cli_hash": "sha256:a7ad62afc53e52d3894843ef71d1403ccab66d9351b66484711fc8ad1d16b08e",
+      "cli_hash": "sha256:ead1e127f144d247db15cfcb3a024b1cae340fa2b0230a41235a2d3c79a12b09",
       "template_version": 3,
       "version": "0.1.7",
       "cli_hash_at_release": "sha256:01c262f6eb49225b774a97bb580d26dfd71051a2b6da0eea01a6fbe77314458a",
