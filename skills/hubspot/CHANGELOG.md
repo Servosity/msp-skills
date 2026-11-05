@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.5] - unreleased
+## [0.2.5] - 2026-11-04
 
 ### Changed
 - **Rebuilt on cli-printing-press 4.34.0.** The MCP server's `--transport http` mode refuses to start without `HUBSPOT_MCP_HTTP_TOKEN`, needs TLS off loopback, and refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive. `HUBSPOT_MCP_READ_ONLY=1` (preset in every install channel) drops the write tools; `HUBSPOT_NO_LOCAL_DATA=1` keeps no local copy of API responses.
