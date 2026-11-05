@@ -245,11 +245,11 @@
     "released_hash": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6"
   },
   "dropsuite": {
-    "state": "never-released",
+    "state": "version-pending",
     "version": "0.1.0",
     "latest_tag": null,
     "current_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825",
-    "released_hash": null
+    "released_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825"
   },
   "exchange-online": {
     "state": "up-to-date",
