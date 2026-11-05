@@ -3,23 +3,47 @@
 ## The pain
 
 CloudAlly backs up a customer's Microsoft 365 or Google Workspace every day, and the
-backups are good. Keeping an eye on them across every customer is where an MSP's
-morning goes.
+backups are good. Getting data back out at scale is where an MSP's afternoon goes.
 
-The everyday question - "is anyone's backup failing?" - means opening every customer
-account in the partner portal and looking. "What is running for this customer right
+The request usually sounds simple: "restore every mailbox to how it was on the 1st",
+or, from a lawyer or an auditor, "give us every mailbox as it stood on 31 December,
+for each of the last few years". In the CloudAlly portal that is one mailbox, one
+date, one wizard at a time. A customer with a hundred mailboxes and four year-ends is
+four hundred trips through the same screens, and nothing records which ones were done.
+
+The documented CloudAlly API does not shorten the trip. It reports each mailbox's
+**latest** backup only, so it cannot answer "which backup was taken on or before
+31 December 2022". The documented export call answers 200 and creates nothing. Past
+backup dates and working downloads exist only in the customer portal.
+
+Then the details bite. An MS365 mailbox is not one download but five (mail, calendar,
+contacts, tasks, notes), each with its own timestamp. Backup times are stored in UTC,
+so the backup CloudAlly stamps 31 December holds the 30th for a US customer. Download
+links expire after 60 seconds, so pasting them into a ticket does not work, and a
+multi-gigabyte archive cannot be fetched by hand fast enough to matter.
+
+Meanwhile the everyday question - "is anyone's backup failing?" - means opening every
+customer account in the partner portal and looking. "What is running for this customer right
 now?", "which tasks are paused?" and "what did this month's bill come to?" are the same
 tour, one customer at a time.
 
-The CloudAlly Management API v2 can answer these, but it is not friendly to script
-against: every request needs a client-id and client-secret header plus a bearer token,
-partner and company scope are separate logins, acting inside one customer needs a
-token minted for that account, and tokens expire. Some documented calls also do less
-than the reference suggests: the export endpoint answers 200 with an empty body and
-creates no job.
-
 ## What this skill does about it
 
+- `cloudally-cli backup snapshots` lists every backup a mailbox has in a month, from
+  the same calendar the portal's restore wizard reads, reached through the partner
+  handoff the partner portal itself uses.
+- `cloudally-cli restore plan` resolves every mailbox on a task to its newest
+  successful backup at or before a date and shows the plan before anything is sent;
+  `restore submit` sends one restore per mailbox with a local ledger, `restore watch`
+  follows them, and `restore history` answers "what did we restore for this customer
+  last quarter" without calling the API.
+- `cloudally-cli download submit` creates one download job per mailbox and sub-source
+  for every mailbox backed up on one date (in the customer's own timezone with
+  `--utc-offset`), reconciles what the portal actually created, and resumes cleanly;
+  `download fetch` mints each 60-second link and streams the archive to disk in one
+  step, one folder per year, mailbox and sub-source.
+- `cloudally-cli backup health` finds every stale or failing mailbox and site across
+  every customer from one synced feed.
 - `cloudally-cli distributor-accounts backup-statuses` (or `reseller-accounts
   backup-statuses`, `distributor-resellers all-backup-statuses`) returns the latest
   backup status of every customer in one call.
@@ -27,13 +51,12 @@ creates no job.
   customer, so `tasks list`, `tasks get` and `user status` answer for that customer
   without a portal visit; `auth use-account --partner` switches back.
 - `cloudally-cli tasks` runs, pauses, activates and cancels backup tasks and their
-  entities, and `recovery restore` starts a restore of one entity from a backup date.
-- `cloudally-cli distributor-resellers all-bills`, `reseller bills` and `user bills`
+  entities, and `distributor-resellers all-bills`, `reseller bills` and `user bills`
   read billing.
-- `cloudally-cli sync` mirrors the read endpoints into a local SQLite store for
-  offline `search`.
 
-Every command takes `--dry-run` to show the request before anything changes.
+`restore submit`, `download submit` and `download start` print what they would do and
+stop until `--yes` is passed. The generated API commands, including `recovery restore`
+and every delete, send immediately, so governance.md marks them human-only.
 
 ## Status
 

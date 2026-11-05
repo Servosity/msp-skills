@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/cloudally-mcp",
   "title": "CloudAlly MCP",
-  "description": "CloudAlly Microsoft 365 and Google Workspace backup: accounts, backup tasks, status and restores",
+  "description": "Restore or download CloudAlly mailboxes as of a past date, and find failing backups",
   "version": "0.1.0",
   "icons": [
     {
@@ -60,7 +60,7 @@
         },
         {
           "name": "CLOUDALLY_PARTNER_EMAIL",
-          "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for the distributor and reseller commands and `auth use-account`.",
+          "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for the distributor and reseller commands, `auth use-account`, past backup dates and downloads.",
           "isRequired": false,
           "isSecret": false
         },
@@ -77,8 +77,14 @@
           "isSecret": false
         },
         {
+          "name": "CLOUDALLY_PORTAL_URL",
+          "description": "Optional; leave blank. The customer portal origin used for past backup dates, restores resolved from them and downloads (default https://app.cloudally.com). It must be https (plain http only on a loopback test host), and portal credentials go only to https://app.cloudally.com or the CLOUDALLY_BASE_URL origin, so any other portal is refused before anything is sent. Needed when CLOUDALLY_BASE_URL points away from api.cloudally.com: portal commands then refuse to assume the production portal.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "CLOUDALLY_MCP_READ_ONLY",
-          "description": "Optional. Set to 1 to list only read-only tools: it removes cloudally_execute, sync, import, export, workflow_archive, jobs_prune and the learn-store writers, and cloudally_read refuses every state-changing endpoint. The tools it keeps can still write the learn journal and create an empty local store.",
+          "description": "Optional. Set to 1 to list only read-only tools: it removes cloudally_execute, restore_submit, download_submit, download_start, download_link, sync, export, workflow_archive, jobs_prune and the learn-store writers, and cloudally_read refuses every state-changing endpoint. The tools it keeps can still write the learn journal and create an empty local store.",
           "isRequired": false,
           "isSecret": false
         },

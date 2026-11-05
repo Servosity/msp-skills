@@ -25,6 +25,7 @@ import (
 func TestMain(m *testing.M) {
 	// Hand-fix (handfixes.json credkit-wiring): see client.OutboundGuard; no test here runs credkit.Start.
 	client.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }
+	client.HoldMinted = func(string, ...string) {}
 	os.Exit(testenv.RunSandboxed(m))
 }
 
