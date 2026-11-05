@@ -44,7 +44,7 @@ func newLicenseAssignmentsListForProductCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("customer-id") && flagCustomerId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "customer-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-id"))
 			}
 			path := "https://licensing.googleapis.com/apps/licensing/v1/product/{productId}/users"
 			c, err := flags.newClient()

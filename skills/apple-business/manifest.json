@@ -1,0 +1,134 @@
+{
+  "manifest_version": "0.3",
+  "name": "apple-business-mcp",
+  "display_name": "Apple Business",
+  "version": "0.1.0",
+  "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/apple-business-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/apple-business-mcp",
+      "args": [],
+      "env": {
+        "APPLE_BUSINESS_CLIENT_ID": "${user_config.apple_business_client_id}",
+        "APPLE_BUSINESS_KEY_ID": "${user_config.apple_business_key_id}",
+        "APPLE_BUSINESS_PRIVATE_KEY": "${user_config.apple_business_private_key}",
+        "APPLE_BUSINESS_MCP_READ_ONLY": "${user_config.apple_business_mcp_read_only}",
+        "APPLE_BUSINESS_NO_LOCAL_DATA": "${user_config.apple_business_no_local_data}",
+        "APPLE_BUSINESS_MCP_HTTP_TOKEN": "${user_config.apple_business_mcp_http_token}",
+        "APPLE_BUSINESS_BASE_URL": "${user_config.apple_business_base_url}",
+        "APPLE_BUSINESS_TOKEN_URL": "${user_config.apple_business_token_url}",
+        "APPLE_BUSINESS_OAUTH_SCOPE": "${user_config.apple_business_oauth_scope}",
+        "APPLE_BUSINESS_USER_AGENT": "${user_config.apple_business_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "APPLE_BUSINESS_ACCESS_TOKEN": "${user_config.apple_business_access_token}"
+      }
+    }
+  },
+  "user_config": {
+    "apple_business_client_id": {
+      "type": "string",
+      "title": "APPLE_BUSINESS_CLIENT_ID",
+      "description": "API account Client ID, e.g. BUSINESSAPI.<uuid>.",
+      "required": true,
+      "sensitive": true
+    },
+    "apple_business_key_id": {
+      "type": "string",
+      "title": "APPLE_BUSINESS_KEY_ID",
+      "description": "Key ID shown for the API account's private key (JWT kid header).",
+      "required": true,
+      "sensitive": true
+    },
+    "apple_business_private_key": {
+      "type": "string",
+      "title": "APPLE_BUSINESS_PRIVATE_KEY",
+      "description": "ES256 private key for the API account: PEM text or a path to the downloaded .pem file.",
+      "sensitive": true,
+      "required": true
+    },
+    "apple_business_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "apple_business_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "apple_business_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "apple_business_base_url": {
+      "type": "string",
+      "title": "Apple Business API base URL (optional)",
+      "required": false,
+      "sensitive": false,
+      "description": "Leave blank. Defaults to https://api-business.apple.com/v1."
+    },
+    "apple_business_token_url": {
+      "type": "string",
+      "title": "Token endpoint (optional)",
+      "required": false,
+      "sensitive": false,
+      "description": "Leave blank. Defaults to Apple's token endpoint at https://account.apple.com/auth/oauth2/token."
+    },
+    "apple_business_oauth_scope": {
+      "type": "string",
+      "title": "OAuth scope (optional)",
+      "required": false,
+      "sensitive": false,
+      "description": "Leave blank. Defaults to business.api."
+    },
+    "apple_business_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Optional. Overrides the User-Agent the CLI sends on Apple Business requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "apple_business_access_token": {
+      "type": "string",
+      "title": "APPLE_BUSINESS_ACCESS_TOKEN",
+      "description": "Optional override; leave blank. A bearer token minted elsewhere: while set, it is the run's whole identity. It replaces any configured or saved account, requests send it, its data stays in its own local store, the private key is not read and nothing is minted or saved. It expires in an hour and is not renewed.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T02:37:51.678617Z",
+    "spec_checksum": "sha256:e7e065a4e3b341a10272e32c2fa8ddd0fa51b81a3a2a370d6562603808b6f581",
+    "spec_format": "openapi3"
+  }
+}

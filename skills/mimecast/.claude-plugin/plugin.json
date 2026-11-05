@@ -1,0 +1,20 @@
+{
+  "name": "mimecast",
+  "version": "0.1.0",
+  "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/mimecast",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mimecast",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

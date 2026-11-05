@@ -1,0 +1,1823 @@
+{
+  "api_name": "apple-business",
+  "base_url": "https://api-business.apple.com/v1",
+  "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "APPLE_BUSINESS_CLIENT_ID",
+      "APPLE_BUSINESS_PRIVATE_KEY",
+      "APPLE_BUSINESS_KEY_ID"
+    ],
+    "env_var_specs": [
+      {
+        "name": "APPLE_BUSINESS_CLIENT_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "API account Client ID, e.g. BUSINESSAPI.\u003cuuid\u003e."
+      },
+      {
+        "name": "APPLE_BUSINESS_PRIVATE_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "ES256 private key for the API account: PEM text or a path to the downloaded .pem file."
+      },
+      {
+        "name": "APPLE_BUSINESS_KEY_ID",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "Key ID shown for the API account's private key (JWT kid header)."
+      }
+    ],
+    "key_url": "https://support.apple.com/guide/business/axm33189f66a"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "apps_get",
+      "description": "Get information about a specific app for an organization using the built-in device management in Apple Business. Required: id. Optional: fields_apps. Returns the AppResponse.",
+      "method": "GET",
+      "path": "/apps/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_apps",
+          "wire_name": "fields[apps]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "apps_list",
+      "description": "Get a list of apps for an organization using the built-in device management in Apple Business. Optional: fields_apps, limit, cursor. Returns array of App.",
+      "method": "GET",
+      "path": "/apps",
+      "params": [
+        {
+          "name": "fields_apps",
+          "wire_name": "fields[apps]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of resources to return (maximum 1000)."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "audit_events_list",
+      "description": "Get a list of audit events in an organization that satisfies the query criteria. Required: filter_startTimestamp, filter_endTimestamp. Optional: filter_actorId, filter_subjectId, filter_type (plus 3 more). Returns array of AuditEvent.",
+      "method": "GET",
+      "path": "/auditEvents",
+      "params": [
+        {
+          "name": "filter_startTimestamp",
+          "wire_name": "filter[startTimestamp]",
+          "type": "array",
+          "location": "query",
+          "description": "ISO8601 formatted start timestamp of query time range.",
+          "required": true
+        },
+        {
+          "name": "filter_endTimestamp",
+          "wire_name": "filter[endTimestamp]",
+          "type": "array",
+          "location": "query",
+          "description": "ISO8601 formatted end timestamp of query time range.",
+          "required": true
+        },
+        {
+          "name": "filter_actorId",
+          "wire_name": "filter[actorId]",
+          "type": "array",
+          "location": "query",
+          "description": "Id of actor of event. Note that only one actor id in query is supported."
+        },
+        {
+          "name": "filter_subjectId",
+          "wire_name": "filter[subjectId]",
+          "type": "array",
+          "location": "query",
+          "description": "Id of subject of event. Note that only one subject id in query is supported."
+        },
+        {
+          "name": "filter_type",
+          "wire_name": "filter[type]",
+          "type": "array",
+          "location": "query",
+          "description": "Type of event. Note that only one type in query is supported."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "fields_auditEvents",
+          "wire_name": "fields[auditEvents]",
+          "type": "array",
+          "location": "query",
+          "description": "Fields audit events"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor"
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-apps",
+      "description": "Add apps to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/apps",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-configurations",
+      "description": "Add Configurations to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/configurations",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-devices",
+      "description": "Add devices to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/orgDevices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-packages",
+      "description": "Add packages to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/packages",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-user-groups",
+      "description": "Add user groups to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/userGroups",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_add-users",
+      "description": "Add users to a Blueprint. Required: id, data.",
+      "method": "POST",
+      "path": "/blueprints/{id}/relationships/users",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_create",
+      "description": "Create a new Blueprint in an organization. Required: data. Returns the new BlueprintResponse.",
+      "method": "POST",
+      "path": "/blueprints",
+      "params": [
+        {
+          "name": "data-attributes-description",
+          "wire_name": "data.attributes.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-relationships-apps",
+          "wire_name": "data.relationships.apps",
+          "type": "object",
+          "location": "body",
+          "description": "Apps"
+        },
+        {
+          "name": "data-relationships-configurations",
+          "wire_name": "data.relationships.configurations",
+          "type": "object",
+          "location": "body",
+          "description": "Configurations"
+        },
+        {
+          "name": "data-relationships-org-devices",
+          "wire_name": "data.relationships.orgDevices",
+          "type": "object",
+          "location": "body",
+          "description": "Org devices"
+        },
+        {
+          "name": "data-relationships-packages",
+          "wire_name": "data.relationships.packages",
+          "type": "object",
+          "location": "body",
+          "description": "Packages"
+        },
+        {
+          "name": "data-relationships-user-groups",
+          "wire_name": "data.relationships.userGroups",
+          "type": "object",
+          "location": "body",
+          "description": "User groups"
+        },
+        {
+          "name": "data-relationships-users",
+          "wire_name": "data.relationships.users",
+          "type": "object",
+          "location": "body",
+          "description": "Users"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_delete",
+      "description": "Delete a Blueprint from an organization. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_get",
+      "description": "Get information about a specific Blueprint in an organization. Required: id. Optional: fields_blueprints, include, limit_apps (plus 5 more). Returns the BlueprintResponse.",
+      "method": "GET",
+      "path": "/blueprints/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_blueprints",
+          "wire_name": "fields[blueprints]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "Related resources to include in the response. Possible values: apps, configurations, packages, orgDevices, users, userGroups."
+        },
+        {
+          "name": "limit_apps",
+          "wire_name": "limit[apps]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related apps to include."
+        },
+        {
+          "name": "limit_configurations",
+          "wire_name": "limit[configurations]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related configurations to include."
+        },
+        {
+          "name": "limit_packages",
+          "wire_name": "limit[packages]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related packages to include."
+        },
+        {
+          "name": "limit_orgDevices",
+          "wire_name": "limit[orgDevices]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related devices to include."
+        },
+        {
+          "name": "limit_users",
+          "wire_name": "limit[users]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related users to include."
+        },
+        {
+          "name": "limit_userGroups",
+          "wire_name": "limit[userGroups]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related user groups to include."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list",
+      "description": "Get a list of Blueprints in an organization. Optional: fields_blueprints, limit, include (plus 7 more). Returns array of Blueprint.",
+      "method": "GET",
+      "path": "/blueprints",
+      "params": [
+        {
+          "name": "fields_blueprints",
+          "wire_name": "fields[blueprints]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of resources to return (maximum 1000)."
+        },
+        {
+          "name": "include",
+          "type": "array",
+          "location": "query",
+          "description": "Related resources to include in the response. Possible values: apps, configurations, packages, orgDevices, users, userGroups."
+        },
+        {
+          "name": "limit_apps",
+          "wire_name": "limit[apps]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related apps to include."
+        },
+        {
+          "name": "limit_configurations",
+          "wire_name": "limit[configurations]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related configurations to include."
+        },
+        {
+          "name": "limit_packages",
+          "wire_name": "limit[packages]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related packages to include."
+        },
+        {
+          "name": "limit_orgDevices",
+          "wire_name": "limit[orgDevices]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related devices to include."
+        },
+        {
+          "name": "limit_users",
+          "wire_name": "limit[users]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related users to include."
+        },
+        {
+          "name": "limit_userGroups",
+          "wire_name": "limit[userGroups]",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of related user groups to include."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-apps",
+      "description": "Get a list of app IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintAppsLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/apps",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-configurations",
+      "description": "Get a list of Configuration IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintConfigurationsLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/configurations",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-devices",
+      "description": "Get a list of device IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintOrgDevicesLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/orgDevices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-packages",
+      "description": "Get a list of package IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintPackagesLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/packages",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-user-groups",
+      "description": "Get a list of user group IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintUserGroupsLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/userGroups",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_list-users",
+      "description": "Get a list of user IDs associated with a Blueprint. Required: id. Optional: limit, cursor. Returns array of BlueprintUsersLinkagesResponseData.",
+      "method": "GET",
+      "path": "/blueprints/{id}/relationships/users",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-apps",
+      "description": "Remove apps from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/apps",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-configurations",
+      "description": "Remove Configurations from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/configurations",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-devices",
+      "description": "Remove devices from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/orgDevices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-packages",
+      "description": "Remove packages from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/packages",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-user-groups",
+      "description": "Remove user groups from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/userGroups",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_remove-users",
+      "description": "Remove users from a Blueprint. Required: id, data. Destructive.",
+      "method": "DELETE",
+      "path": "/blueprints/{id}/relationships/users",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "location": "body",
+          "description": "The resource data with updated attributes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blueprints_update",
+      "description": "Update an existing Blueprint in an organization. Required: id, data. Returns the updated BlueprintResponse.",
+      "method": "PATCH",
+      "path": "/blueprints/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data-attributes-description",
+          "wire_name": "data.attributes.description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-relationships-apps",
+          "wire_name": "data.relationships.apps",
+          "type": "object",
+          "location": "body",
+          "description": "Apps"
+        },
+        {
+          "name": "data-relationships-configurations",
+          "wire_name": "data.relationships.configurations",
+          "type": "object",
+          "location": "body",
+          "description": "Configurations"
+        },
+        {
+          "name": "data-relationships-org-devices",
+          "wire_name": "data.relationships.orgDevices",
+          "type": "object",
+          "location": "body",
+          "description": "Org devices"
+        },
+        {
+          "name": "data-relationships-packages",
+          "wire_name": "data.relationships.packages",
+          "type": "object",
+          "location": "body",
+          "description": "Packages"
+        },
+        {
+          "name": "data-relationships-user-groups",
+          "wire_name": "data.relationships.userGroups",
+          "type": "object",
+          "location": "body",
+          "description": "User groups"
+        },
+        {
+          "name": "data-relationships-users",
+          "wire_name": "data.relationships.users",
+          "type": "object",
+          "location": "body",
+          "description": "Users"
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "configurations_create",
+      "description": "Create a new custom Configuration in an organization. Required: data. Returns the new ConfigurationResponse.",
+      "method": "POST",
+      "path": "/configurations",
+      "params": [
+        {
+          "name": "data-attributes-configured-for-platforms",
+          "wire_name": "data.attributes.configuredForPlatforms",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Configured for platforms"
+        },
+        {
+          "name": "data-attributes-custom-settings-values",
+          "wire_name": "data.attributes.customSettingsValues",
+          "type": "object",
+          "location": "body",
+          "description": "The custom settings payload for a Configuration of type CUSTOM_SETTING."
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "data-attributes-type",
+          "wire_name": "data.attributes.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "configurations_delete",
+      "description": "Delete a Configuration from an organization. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/configurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "configurations_get",
+      "description": "Get information about a specific Configuration in an organization. Required: id. Optional: fields_configurations. Returns the ConfigurationResponse.",
+      "method": "GET",
+      "path": "/configurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_configurations",
+          "wire_name": "fields[configurations]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "configurations_list",
+      "description": "Get a list of Configurations in an organization. Optional: fields_configurations, limit, cursor. Returns array of Configuration.",
+      "method": "GET",
+      "path": "/configurations",
+      "params": [
+        {
+          "name": "fields_configurations",
+          "wire_name": "fields[configurations]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of resources to return (maximum 1000)."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "configurations_update",
+      "description": "Update an existing custom Configuration in an organization. Required: id, data. Returns the updated ConfigurationResponse.",
+      "method": "PATCH",
+      "path": "/configurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data-attributes-configured-for-platforms",
+          "wire_name": "data.attributes.configuredForPlatforms",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Configured for platforms"
+        },
+        {
+          "name": "data-attributes-custom-settings-values",
+          "wire_name": "data.attributes.customSettingsValues",
+          "type": "object",
+          "location": "body",
+          "description": "The custom settings payload for a Configuration of type CUSTOM_SETTING."
+        },
+        {
+          "name": "data-attributes-name",
+          "wire_name": "data.attributes.name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_activities_create",
+      "description": "Assign or unassign devices to a device management service, manage a device management service migration for devices, or release devices from an organization. To assign devices to a device management service and schedule a device management service migration, use the ASSIGN_DEVICES_WITH_MDM_MIGRATION_DEADLINE activity type and include activityTypeMetadata.mdmMigrationDeadlineDateTime, an ISO 8601 date and time by which the migration needs to complete. The deadline can't be more than 90 days in the future.To update the deadline for an in-progress device management service migration, use the UPDATE_MDM_MIGRATION_DEADLINE activity type. This doesn't require a mdmServer relationship. If the new deadline is earlier than the existing one, or in the past, the device honors it without giving the user an option to delay the migration.If the request tries to update the deadline for a serial number that isn't undergoing a device management service migration, the activity log result indicates a failure for that serial number.To cancel an in-progress device management service migration, use the CANCEL_MDM_MIGRATION activity type. This doesn't require a mdmServer relationship or activityTypeMetadata.If the request tries to cancel a device management service migration for a serial number that isn't undergoing one, the activity log result indicates a failure for that serial number.To release devices from an organization, use RELEASE_DEVICES activity type. Required: data. Returns the new OrgDeviceActivityResponse.",
+      "method": "POST",
+      "path": "/orgDeviceActivities",
+      "params": [
+        {
+          "name": "data-attributes-activity-type",
+          "wire_name": "data.attributes.activityType",
+          "type": "string",
+          "location": "body",
+          "description": "The type of activity you want to create.",
+          "required": true
+        },
+        {
+          "name": "data-attributes-activity-type-metadata",
+          "wire_name": "data.attributes.activityTypeMetadata",
+          "type": "object",
+          "location": "body",
+          "description": "Additional metadata for an organization device activity, used by device management service migration activity types."
+        },
+        {
+          "name": "data-relationships-devices",
+          "wire_name": "data.relationships.devices",
+          "type": "object",
+          "location": "body",
+          "description": "The data that describe the relationship between the resources.",
+          "required": true
+        },
+        {
+          "name": "data-relationships-mdm-server",
+          "wire_name": "data.relationships.mdmServer",
+          "type": "object",
+          "location": "body",
+          "description": "The data that describe the relationship between the resources."
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "The resource type.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_activities_get",
+      "description": "Get information for an organization device activity that a device management action, such as assign or unassign, creates. Required: id. Optional: fields_orgDeviceActivities. Returns the OrgDeviceActivityResponse.",
+      "method": "GET",
+      "path": "/orgDeviceActivities/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_orgDeviceActivities",
+          "wire_name": "fields[orgDeviceActivities]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "devices_activation-lock",
+      "description": "Get the Activation Lock status of an organization device. Required: id. Optional: fields_activationLockStatus. Returns the ActivationLockStatusResponse.",
+      "method": "GET",
+      "path": "/orgDevices/{id}/activationLockStatus",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource. For example, the device's serial number.",
+          "required": true
+        },
+        {
+          "name": "fields_activationLockStatus",
+          "wire_name": "fields[activationLockStatus]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "devices_applecare-coverage",
+      "description": "Get a list of AppleCare coverage resources for an organization device. Required: id. Optional: fields_appleCareCoverage, limit, cursor. Returns array of AppleCareCoverage.",
+      "method": "GET",
+      "path": "/orgDevices/{id}/appleCareCoverage",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource. For example, the device's serial number.",
+          "required": true
+        },
+        {
+          "name": "fields_appleCareCoverage",
+          "wire_name": "fields[appleCareCoverage]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "devices_assigned-server",
+      "description": "Get the assigned device management service information for a device. Required: id. Optional: fields_mdmServers. Returns the MdmServerResponse.",
+      "method": "GET",
+      "path": "/orgDevices/{id}/assignedServer",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_mdmServers",
+          "wire_name": "fields[mdmServers]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "devices_assigned-server-id",
+      "description": "Get the assigned device management service ID information for a device. Required: id. Returns the OrgDeviceAssignedServerLinkageResponse.",
+      "method": "GET",
+      "path": "/orgDevices/{id}/relationships/assignedServer",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_get",
+      "description": "Get information about a device in an organization. Required: id. Optional: fields_orgDevices. Returns the OrgDeviceResponse.",
+      "method": "GET",
+      "path": "/orgDevices/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_orgDevices",
+          "wire_name": "fields[orgDevices]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "devices_list",
+      "description": "Get a list of devices in an organization that enroll using Automated Device Enrollment. Optional: fields_orgDevices, limit, cursor. Returns array of OrgDevice.",
+      "method": "GET",
+      "path": "/orgDevices",
+      "params": [
+        {
+          "name": "fields_orgDevices",
+          "wire_name": "fields[orgDevices]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "mdm_devices_details",
+      "description": "Get detailed information about a device enrolled in Apple Device Management service. Required: id. Optional: fields_mdmDeviceDetails. Returns the MdmDeviceDetailResponse.",
+      "method": "GET",
+      "path": "/mdmDevices/{id}/details",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_mdmDeviceDetails",
+          "wire_name": "fields[mdmDeviceDetails]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "mdm_devices_list",
+      "description": "Get a list of devices enrolled in Apple Device Management service. Optional: fields_mdmDevices, limit, cursor. Returns array of MdmDevice.",
+      "method": "GET",
+      "path": "/mdmDevices",
+      "params": [
+        {
+          "name": "fields_mdmDevices",
+          "wire_name": "fields[mdmDevices]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_create",
+      "description": "Create a new device management service in an organization. Required: data. Returns the new MdmServerResponse.",
+      "method": "POST",
+      "path": "/mdmServers",
+      "params": [
+        {
+          "name": "data-attributes-enable-mdm-disown-flag",
+          "wire_name": "data.attributes.enableMdmDisownFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable mdm disown flag"
+        },
+        {
+          "name": "data-attributes-server-certificate",
+          "wire_name": "data.attributes.serverCertificate",
+          "type": "object",
+          "location": "body",
+          "description": "The X.509 certificate to associate with a device management service.",
+          "required": true
+        },
+        {
+          "name": "data-attributes-server-name",
+          "wire_name": "data.attributes.serverName",
+          "type": "string",
+          "location": "body",
+          "description": "Server name",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_delete",
+      "description": "Delete a device management service from an organization. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "/mdmServers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_devices",
+      "description": "Get a list of device serial numbers assigned to a device management service. Required: id. Optional: limit, cursor. Returns array of MdmServerDevicesLinkagesResponseData.",
+      "method": "GET",
+      "path": "/mdmServers/{id}/relationships/devices",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_get",
+      "description": "Get the information for a specific device management service. Required: id. Optional: fields_mdmServers. Returns the MdmServerResponse.",
+      "method": "GET",
+      "path": "/mdmServers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_mdmServers",
+          "wire_name": "fields[mdmServers]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for the resource."
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_list",
+      "description": "Get a list of device management services in an organization. Optional: fields_mdmServers, limit, cursor. Returns array of MdmServer.",
+      "method": "GET",
+      "path": "/mdmServers",
+      "params": [
+        {
+          "name": "fields_mdmServers",
+          "wire_name": "fields[mdmServers]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "mdm_servers_update",
+      "description": "Update an existing device management service in an organization. Required: id, data. Returns the updated MdmServerResponse.",
+      "method": "PATCH",
+      "path": "/mdmServers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "data-attributes-default-product-families",
+          "wire_name": "data.attributes.defaultProductFamilies",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Default product families"
+        },
+        {
+          "name": "data-attributes-enable-mdm-disown-flag",
+          "wire_name": "data.attributes.enableMdmDisownFlag",
+          "type": "bool",
+          "location": "body",
+          "description": "Enable mdm disown flag"
+        },
+        {
+          "name": "data-attributes-server-certificate",
+          "wire_name": "data.attributes.serverCertificate",
+          "type": "object",
+          "location": "body",
+          "description": "The X.509 certificate to associate with a device management service."
+        },
+        {
+          "name": "data-attributes-server-name",
+          "wire_name": "data.attributes.serverName",
+          "type": "string",
+          "location": "body",
+          "description": "Server name"
+        },
+        {
+          "name": "data-id",
+          "wire_name": "data.id",
+          "type": "string",
+          "location": "body",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "data-type",
+          "wire_name": "data.type",
+          "type": "string",
+          "location": "body",
+          "description": "Type",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "org_units_get",
+      "description": "Get information about a specific organizational unit in an organization. Required: id. Optional: fields_organizationalUnits. Returns the OrganizationalUnitResponse.",
+      "method": "GET",
+      "path": "/organizationalUnits/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_organizationalUnits",
+          "wire_name": "fields[organizationalUnits]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "org_units_list",
+      "description": "Get a list of organizational units in an organization. Optional: fields_organizationalUnits, limit, cursor. Returns array of OrganizationalUnit.",
+      "method": "GET",
+      "path": "/organizationalUnits",
+      "params": [
+        {
+          "name": "fields_organizationalUnits",
+          "wire_name": "fields[organizationalUnits]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "org_units_users",
+      "description": "Get a list of user IDs for an organizational unit in an organization. Required: id. Optional: limit, cursor. Returns array of OrganizationalUnitUsersLinkagesResponseData.",
+      "method": "GET",
+      "path": "/organizationalUnits/{id}/relationships/users",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "packages_get",
+      "description": "Get information about a specific package for an organization using Apple Business's built-in device management. Required: id. Optional: fields_packages. Returns the PackageResponse.",
+      "method": "GET",
+      "path": "/packages/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_packages",
+          "wire_name": "fields[packages]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "packages_list",
+      "description": "Get a list of packages for an organization using Apple Business's built-in device management. Optional: fields_packages, limit, cursor. Returns array of Package.",
+      "method": "GET",
+      "path": "/packages",
+      "params": [
+        {
+          "name": "fields_packages",
+          "wire_name": "fields[packages]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of resources to return (maximum 1000)."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_get",
+      "description": "Get information about a specific user group in an organization. Required: id. Optional: fields_userGroups. Returns the UserGroupResponse.",
+      "method": "GET",
+      "path": "/userGroups/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_userGroups",
+          "wire_name": "fields[userGroups]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_list",
+      "description": "Get a list of user groups in an organization. Optional: fields_userGroups, limit, cursor. Returns array of UserGroup.",
+      "method": "GET",
+      "path": "/userGroups",
+      "params": [
+        {
+          "name": "fields_userGroups",
+          "wire_name": "fields[userGroups]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_users",
+      "description": "Get a list of user IDs for a user group in an organization. Required: id. Optional: limit, cursor. Returns array of UserGroupUsersLinkagesResponseData.",
+      "method": "GET",
+      "path": "/userGroups/{id}/relationships/users",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get information about a specific user in an organization. Required: id. Optional: fields_users. Returns the UserResponse.",
+      "method": "GET",
+      "path": "/users/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier for the resource.",
+          "required": true
+        },
+        {
+          "name": "fields_users",
+          "wire_name": "fields[users]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "Get a list of users in an organization. Optional: fields_users, limit, cursor. Returns array of User.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "fields_users",
+          "wire_name": "fields[users]",
+          "type": "array",
+          "location": "query",
+          "description": "The fields to return for included related types."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The number of included related resources to return."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Opaque cursor from meta."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Device lookup by any identifier",
+      "command": "devices lookup",
+      "description": "One row per device with its org record, assigned MDM server, AppleCare and Activation Lock, by serial (live) or by MAC, IMEI, EID or order number (needs sync first)."
+    },
+    {
+      "name": "Assign devices to an MDM server by name",
+      "command": "devices assign",
+      "description": "Assign or move serials to a device management service by name; with --wait, poll the activity and verify every serial landed."
+    },
+    {
+      "name": "Unassign devices from their current MDM server",
+      "command": "devices unassign",
+      "description": "Remove serials from whatever device management service they are on now, one activity per server; with --wait, verify each."
+    },
+    {
+      "name": "Per-device enrichment fan-out",
+      "command": "devices enrich",
+      "description": "Fetch AppleCare coverage, Activation Lock status and the serial-to-server map for every synced device into the local store, resumable."
+    },
+    {
+      "name": "AppleCare expiry and coverage-gap report",
+      "command": "applecare expiring",
+      "description": "Devices whose AppleCare ends within a window (or, with --uncovered, with no active coverage), with optional counts by order, family, server or org. Needs sync and devices enrich --applecare."
+    },
+    {
+      "name": "Unassigned devices with root-cause diagnosis",
+      "command": "devices unassigned",
+      "description": "Org-owned devices not assigned to any MDM server, with days since it joined the org and a flag when no server defaults their product family. Needs sync of devices and mdm_servers."
+    },
+    {
+      "name": "Activation Lock exposure report",
+      "command": "devices locked",
+      "description": "Devices currently Activation Locked, user locks by default, with the owner when built-in device management data is synced. Needs devices enrich --activation-lock."
+    },
+    {
+      "name": "Audit change digest",
+      "command": "audit-events digest",
+      "description": "A readable change log over a relative window: one flattened row per event, newest first, plus per-category counts."
+    },
+    {
+      "name": "Cross-customer rollup",
+      "command": "fleet summary",
+      "description": "One row of counts per customer org: devices, unassigned, AppleCare expiring and uncovered, user-locked, stale MDM servers, sync age. Each org needs sync and devices enrich under its own API account."
+    },
+    {
+      "name": "MDM server health",
+      "command": "mdm-servers health",
+      "description": "Each MDM server's status, device count, days since it last connected to Apple and its default product families, flagging stale servers (ACTIVE, owns devices, silent past --stale) and INACTIVE or DELETED servers that still own devices."
+    },
+    {
+      "name": "Audit actor rollup",
+      "command": "audit-events actors",
+      "description": "Who made changes over a relative window: one row per actor (admin user or API account, grouped by actor id) with event counts, non-success outcomes, categories and event types."
+    }
+  ]
+}

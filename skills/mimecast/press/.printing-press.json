@@ -1,0 +1,153 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T23:33:19.371642Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "mimecast",
+  "display_name": "Mimecast",
+  "cli_name": "mimecast-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:707779093cb5500812eab3ae24015fa3c62aae128e371ce98939c1e530e3b8ac",
+  "run_id": "20261027-175208-cab72d29",
+  "category": "monitoring",
+  "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+  "mcp_binary": "mimecast-pp-mcp",
+  "mcp_tool_count": 52,
+  "mcp_ready": "full",
+  "api_version": "2.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "mimecastOAuth",
+  "auth_env_vars": [
+    "MIMECAST_CLIENT_ID",
+    "MIMECAST_CLIENT_SECRET"
+  ],
+  "auth_key_url": "https://mimecastsupport.zendesk.com/hc/en-us/articles/34000360548755-API-Integrations-Managing-API-2-0-for-Email-Security-MX",
+  "auth_title": "Mimecast API 2.0 application",
+  "novel_features": [
+    {
+      "name": "Why was it blocked",
+      "command": "why",
+      "description": "Explain one message in a single verdict: its stage (held, rejected-at-gateway, released-from-hold, rejected-from-hold, the tracking status such as delivery or bounced, or not-found) and why, with policy, reason, spam score, SPF/DKIM/DMARC and who released or rejected it."
+    },
+    {
+      "name": "Hold-queue triage sheet",
+      "command": "held triage",
+      "description": "See the whole hold queue grouped by hold reason, policy or sender domain, with a release-risk class per group and ready-to-act ID batches."
+    },
+    {
+      "name": "Guarded release with ticket",
+      "command": "held release-safe",
+      "description": "Release held messages after a keyword-based hold-reason check (a heuristic, not verified against every Mimecast hold reason) that refuses impersonation, malware, sandbox and policy holds unless you give an override reason, and record the ticket in a local ledger."
+    },
+    {
+      "name": "Purge a flooding sender",
+      "command": "held purge-sender",
+      "description": "Plan, then with --yes reject, every held message from one sender address or domain, optionally blocking that sender for each recipient it targeted."
+    },
+    {
+      "name": "Release accountability audit",
+      "command": "held release-audit",
+      "description": "Review who released or rejected held messages over a period, flagging risky releases and marking those with no ticket in the local release-safe ledger."
+    },
+    {
+      "name": "Sender permit/block suggestions",
+      "command": "senders suggest",
+      "description": "Find senders that keep getting held then released (narrow permit candidates, excluding any with impersonation or malware holds or failed SPF/DKIM/DMARC) or keep getting rejected (block candidates), as a ready managed-sender payload."
+    },
+    {
+      "name": "Mail-flow health verdict",
+      "command": "mailflow",
+      "description": "One OK/WARN/FAIL verdict for tenant mail flow: queue backlog, no inbound mail within a window, and stuck deliveries grouped by destination, with a monitor-friendly exit code."
+    },
+    {
+      "name": "Who clicked this link",
+      "command": "ttp who-clicked",
+      "description": "Given a raw or Mimecast-rewritten URL, list who clicked it, when, whether it was blocked, and whether they clicked through a warning (delivery-time entry scans are not counted as clicks)."
+    },
+    {
+      "name": "Mailbox threat timeline",
+      "command": "threats mailbox",
+      "description": "Show every threat event that touched one mailbox over a window, newest first: URL Protect clicks, attachment sandbox verdicts, impersonation hits, gateway rejections and messages held for it, with a per-source fetch report so a failed source never reads as clean."
+    },
+    {
+      "name": "Campaign blast radius",
+      "command": "threats sender",
+      "description": "Given a sender address or @domain, list every recipient it reached or tried to reach across URL clicks, attachment verdicts, impersonation hits, rejections and holds, with per-recipient counts by kind, who clicked (clickers first) and the held message IDs."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Why was it blocked",
+      "command": "why",
+      "description": "Explain one message in a single verdict: its stage (held, rejected-at-gateway, released-from-hold, rejected-from-hold, the tracking status such as delivery or bounced, or not-found) and why, with policy, reason, spam score, SPF/DKIM/DMARC and who released or rejected it."
+    },
+    {
+      "name": "Hold-queue triage sheet",
+      "command": "held triage",
+      "description": "See the whole hold queue grouped by hold reason, policy or sender domain, with a release-risk class per group and ready-to-act ID batches."
+    },
+    {
+      "name": "Guarded release with ticket",
+      "command": "held release-safe",
+      "description": "Release held messages after a keyword-based hold-reason check (a heuristic, not verified against every Mimecast hold reason) that refuses impersonation, malware, sandbox and policy holds unless you give an override reason, and record the ticket in a local ledger."
+    },
+    {
+      "name": "Purge a flooding sender",
+      "command": "held purge-sender",
+      "description": "Plan, then with --yes reject, every held message from one sender address or domain, optionally blocking that sender for each recipient it targeted."
+    },
+    {
+      "name": "Release accountability audit",
+      "command": "held release-audit",
+      "description": "Review who released or rejected held messages over a period, flagging risky releases and marking those with no ticket in the local release-safe ledger."
+    },
+    {
+      "name": "Sender permit/block suggestions",
+      "command": "senders suggest",
+      "description": "Find senders that keep getting held then released (narrow permit candidates, excluding any with impersonation or malware holds or failed SPF/DKIM/DMARC) or keep getting rejected (block candidates), as a ready managed-sender payload."
+    },
+    {
+      "name": "Mail-flow health verdict",
+      "command": "mailflow",
+      "description": "One OK/WARN/FAIL verdict for tenant mail flow: queue backlog, no inbound mail within a window, and stuck deliveries grouped by destination, with a monitor-friendly exit code."
+    },
+    {
+      "name": "Who clicked this link",
+      "command": "ttp who-clicked",
+      "description": "Given a raw or Mimecast-rewritten URL, list who clicked it, when, whether it was blocked, and whether they clicked through a warning (delivery-time entry scans are not counted as clicks)."
+    },
+    {
+      "name": "Mailbox threat timeline",
+      "command": "threats mailbox",
+      "description": "Show every threat event that touched one mailbox over a window, newest first: URL Protect clicks, attachment sandbox verdicts, impersonation hits, gateway rejections and messages held for it, with a per-source fetch report so a failed source never reads as clean."
+    },
+    {
+      "name": "Campaign blast radius",
+      "command": "threats sender",
+      "description": "Given a sender address or @domain, list every recipient it reached or tried to reach across URL clicks, attachment verdicts, impersonation hits, rejections and holds, with per-recipient counts by kind, who clicked (clickers first) and the held message IDs."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 68,
+    "total": 68,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

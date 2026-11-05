@@ -57,10 +57,7 @@ Do not use this CLI for:
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
-
 ### Team management
-
 - **`agent-load`**  -  See each agent's current ticket load broken out by state (open/pending/backlog) so you can balance work before it piles up.
 
   _Reach for this when asked who is overloaded or how work is distributed across the support team right now._
@@ -112,7 +109,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Knowledge Base
-
 - **`kb browse`**  -  Print the Knowledge Base as a category/answer tree parsed from the init bundle.
 
   _Reach for this to see the KB structure before reading or searching answers._
@@ -136,7 +132,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Ticket ergonomics
-
 - **`ticket note`**  -  Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults.
 
   _Reach for this to log work on a ticket without hand-building the article payload._
@@ -144,6 +139,27 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   zammad-cli ticket note 12345 --body "Investigated, awaiting logs" --internal --dry-run
   ```
+
+### Webhooks (no polling)
+
+Zammad can call this machine when a ticket is created or updated or an article is added, so nothing has to poll it.
+
+```bash
+# Once, with a token that has the admin.webhook and admin.trigger permissions
+zammad-cli webhooks register --endpoint http://127.0.0.1:8789/zammad --yes
+# Keep running on the machine Zammad posts to
+zammad-cli webhooks listen
+# Read what arrived; pass the returned cursor as --since next time
+zammad-cli events list --since 0 --json
+```
+
+- `register` creates one Zammad webhook and one trigger per event (`zammad.ticket.created`, `zammad.ticket.updated`, `zammad.article.created`). It generates the signature secret and stores it beside your API token, readable only by you; `ZAMMAD_WEBHOOK_SECRET` overrides it. The secret is never printed: `webhooks status` shows only where it comes from.
+- `listen` binds to this machine only (127.0.0.1, port 8789) by default and refuses to start without the secret. Every request must carry Zammad's `X-Hub-Signature`, checked before the body is read; a delivery it has already seen is dropped, and bodies over 1 MiB are refused.
+- The webhook carries IDs only. The listener fetches the ticket through the API and records the event, so customer text never travels in the webhook.
+- Zammad gives up on a delivery after five attempts over about two minutes. Each time `listen` starts, it first records what changed while it was down. A delivery Zammad gives up on while `listen` is running but cannot be reached (a network outage) is not recorded.
+- Zammad has to reach the listener. A self-hosted Zammad on the same server works with the default. Zammad on another machine on your LAN needs `listen --addr <lan-ip>:8789 --tls-cert <file> --tls-key <file>` and an `https://` endpoint. A Zammad Cloud instance cannot reach a machine on your LAN.
+- Reach for this when the user wants to react to new or changed tickets. Read with `events list --since <cursor>` and keep the returned cursor; run `tickets get <id>` for a ticket's text.
+- Over MCP, `events_list` reads the recorded events (read-only, no Zammad call). `webhooks_register` and `webhooks_unregister` change Zammad only with `confirm: true`. `listen` is CLI-only.
 
 ## Command Reference
 
@@ -214,6 +230,81 @@ These capabilities aren't available in any other tool for this API.
 - `zammad-cli users update`  -  Update a user
 
 
+**agent-load**
+
+
+- `zammad-cli agent-load`  -  See each agent's current ticket load broken out by state (open/pending/backlog) so you can balance work before it piles up.
+
+
+**agent-trend**
+
+
+- `zammad-cli agent-trend`  -  Show whether each agent's queue is growing or shrinking across the last N weeks, with opened-vs-closed deltas.
+
+
+**churn-risk**
+
+
+- `zammad-cli churn-risk`  -  Score each organization's churn risk from open backlog, overdue tickets, unanswered pending, and negative-sentiment customer messages, listing the contributing factors.
+
+
+**customer-health**
+
+
+- `zammad-cli customer-health`  -  Rank organizations by a health signal built from open count, oldest-open age, reopen rate, velocity, and last activity.
+
+
+**escalate**
+
+
+- `zammad-cli escalate`  -  Surface active tickets whose recent customer messages read as upset (heuristic negative-signal scan), ranked by hits, age, and priority  -  with the matched snippets shown.
+
+
+**feedback-scan**
+
+
+- `zammad-cli feedback-scan`  -  Bucket ticket and article text into feature-request, pricing, compliance, and bug themes with the source ticket refs and snippets.
+
+
+**kb**
+
+
+- `zammad-cli kb browse`  -  Print the Knowledge Base as a category/answer tree parsed from the init bundle.
+
+- `zammad-cli kb search`  -  Text search over KB answer titles and bodies from the live KB init bundle.
+
+- `zammad-cli kb get`  -  Resolve a KB answer id from the init bundle to its full translated body.
+
+
+**events**
+
+
+- `zammad-cli events list`  -  List the Zammad events `webhooks listen` recorded after a cursor, oldest first (local, no Zammad call).
+
+
+**webhooks**
+
+
+- `zammad-cli webhooks register`  -  Create the Zammad webhooks and triggers that call `webhooks listen` (writes only with `--yes`).
+- `zammad-cli webhooks listen`  -  Receive, verify and record Zammad webhooks until stopped (CLI only).
+- `zammad-cli webhooks status`  -  Show the registered webhooks and triggers and where the secret comes from (never the secret).
+- `zammad-cli webhooks unregister`  -  Remove what `webhooks register` created (writes only with `--yes`).
+
+
+**overdue**
+
+
+- `zammad-cli overdue`  -  Find aging tickets still in new/open/pending past a threshold, weighted by priority so the worst rise to the top.
+
+
+**ticket**
+
+
+- `zammad-cli ticket note`  -  Add an internal or partner-visible note to a ticket in one line, with correct content-type defaults.
+
+
+
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -225,7 +316,6 @@ zammad-cli which "<capability in your own words>"
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
-
 
 ### Balance the queue at standup
 
@@ -281,7 +371,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -317,7 +407,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use per-kind env vars only when a specific kind must diverge: `ZAMMAD_CONFIG_DIR`, `ZAMMAD_DATA_DIR`, `ZAMMAD_STATE_DIR`, `ZAMMAD_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `ZAMMAD_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
 - `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
-- Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
+- Stored secrets live in `credentials.toml` under the data dir; the webhook signature secret lives beside it in `webhook_secret`. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `zammad-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
 
@@ -335,6 +425,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `ZAMMAD_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `ZAMMAD_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `ZAMMAD_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync`, `workflow archive`, `articles sync` and `webhooks listen`; `--data-source local` still reads an existing store, and `ZAMMAD_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -562,10 +654,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -610,6 +702,8 @@ Parse `$ARGUMENTS`:
    claude mcp add zammad-mcp -- zammad-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `zammad-mcp --transport http` requires `ZAMMAD_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. `ZAMMAD_MCP_READ_ONLY=1` drops every mirrored tool that is not marked read-only, the learn-store tools included, and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

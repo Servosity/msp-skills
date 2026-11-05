@@ -1,0 +1,114 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/apple-business-mcp",
+  "title": "Apple MCP",
+  "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/apple-business/apple-business-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/apple-business"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/apple-business-v0.1.0/apple-business-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "APPLE_BUSINESS_CLIENT_ID",
+          "description": "Set the APPLE_BUSINESS_CLIENT_ID credential for the Apple MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "APPLE_BUSINESS_KEY_ID",
+          "description": "Set the APPLE_BUSINESS_KEY_ID credential for the Apple MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "APPLE_BUSINESS_PRIVATE_KEY",
+          "description": "Set the APPLE_BUSINESS_PRIVATE_KEY credential for the Apple MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "APPLE_BUSINESS_ACCESS_TOKEN",
+          "description": "Optional override; leave blank. A bearer token minted elsewhere: while set, it is the run's whole identity. It replaces any configured or saved account, requests send it, its data stays in its own local store, the private key is not read and nothing is minted or saved. It expires in an hour and is not renewed.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "APPLE_BUSINESS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transpor",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_BASE_URL",
+          "description": "Leave blank. Defaults to https://api-business.apple.com/v1.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_TOKEN_URL",
+          "description": "Leave blank. Defaults to Apple's token endpoint at https://account.apple.com/auth/oauth2/token.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_OAUTH_SCOPE",
+          "description": "Leave blank. Defaults to business.api.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "APPLE_BUSINESS_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on Apple Business requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

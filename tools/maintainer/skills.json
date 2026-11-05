@@ -130,6 +130,29 @@
         "issue_url": null
       }
     },
+    "apple-business": {
+      "system": "Apple Business (Apple Business Manager): devices, MDM server assignments, AppleCare coverage, Activation Lock, users and audit events across every client org",
+      "status": "beta",
+      "cli_binary": "apple-business-cli",
+      "mcp_binary": "apple-business-mcp",
+      "vendor": "Apple",
+      "vendor_trademark_owner": "Apple Inc",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Apple Business",
+      "tagline": "Find unassigned devices, expiring AppleCare and Activation Lock across every client's Apple Business org",
+      "has_video": true,
+      "cli_hash": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:14631132845236e2fc7cf71bedd55a2f77b923391c840a6ce78538508445c4f6",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "atera": {
       "system": "all-in-one RMM, PSA, and remote-access platform for MSPs and internal IT teams",
       "status": "beta",
@@ -346,6 +369,28 @@
       "template_version": 3,
       "version": "0.1.4",
       "cli_hash_at_release": "sha256:e07624f2825e723f02bb309d7b420de69eec8a6045f0d49fd1cd75c9a36d7146",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
+    "blackpoint": {
+      "system": "Blackpoint Cyber CompassOne MDR: tenants, detections, assets, vulnerabilities, posture and Cloud Response, plus a cross-tenant fleet view",
+      "status": "beta",
+      "cli_binary": "blackpoint-cli",
+      "mcp_binary": "blackpoint-mcp",
+      "vendor": "Blackpoint Cyber",
+      "vendor_trademark_owner": "Blackpoint Cyber",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Blackpoint Cyber",
+      "has_video": true,
+      "cli_hash": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:bbabb703895006be37cae6bf42ffd4b660d0ab00f3a04a705d1e4c49afb9e83f",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -786,6 +831,29 @@
         "issue_url": null
       }
     },
+    "exchange-online": {
+      "system": "Exchange Online, the Microsoft 365 mail service: mailboxes, permissions, forwarding, mail flow and quarantine across customer tenants",
+      "status": "beta",
+      "cli_binary": "exchange-online-cli",
+      "mcp_binary": "exchange-online-mcp",
+      "vendor": "Microsoft Exchange Online",
+      "vendor_trademark_owner": "Microsoft Corporation",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Exchange Online",
+      "tagline": "Audit forwarding, sweep inbox rules and offboard mailboxes across every customer tenant, no PowerShell session",
+      "has_video": true,
+      "cli_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "fortinet": {
       "system": "FortiGate firewalls (FortiOS REST API), FortiManager and FortiGate Cloud",
       "status": "beta",
@@ -820,10 +888,10 @@
       "category": "Security",
       "display_name": "Google Workspace",
       "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
-      "cli_hash": "sha256:c85b9491aa2cb85b36b07ab723d02080643306076ad7ddfd7d6c829bd74e48e9",
+      "cli_hash": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:440afe492ffac9cf73d840e7cd50dd1021e3d248ba9855a1c883e192dec903fc",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:ca40ce7473042947d2c63a37c432479aceebc0f25ab7338f7989d1a976a4fb69",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1218,6 +1286,28 @@
         "issue_url": null
       }
     },
+    "mimecast": {
+      "system": "Mimecast email security (API 2.0)",
+      "status": "beta",
+      "cli_binary": "mimecast-cli",
+      "mcp_binary": "mimecast-mcp",
+      "vendor": "Mimecast",
+      "vendor_trademark_owner": "Mimecast Services Limited",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Mimecast",
+      "has_video": true,
+      "cli_hash": "sha256:74bdfbb7f7212d294450450e25afbaaf743d56010dd5f81bf7f658ad7c8023bd",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
@@ -1313,6 +1403,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "netsapiens": {
+      "system": "White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain",
+      "status": "beta",
+      "cli_binary": "netsapiens-cli",
+      "mcp_binary": "netsapiens-mcp",
+      "vendor": "NetSapiens",
+      "vendor_trademark_owner": "Crexendo, Inc",
+      "first_party": false,
+      "category": "Telephony",
+      "display_name": "NetSapiens",
+      "tagline": "Find seat overages, offline phones, unrouted numbers and E911 gaps across every client domain on your NetSapiens platform.",
+      "has_video": true,
+      "cli_hash": "sha256:33d948345714f56681a4b482b16dd43379b88550c80f3a6e303a0a797478c328",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:641725291ba8fe62046392058ec5cd1b0f341370d3e9d65de7dabfdaa640a6ee",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "ninjaone": {
@@ -2072,6 +2185,29 @@
         "issue_url": null
       }
     },
+    "warranty": {
+      "system": "Dell, Lenovo and Apple device warranty lookups",
+      "status": "beta",
+      "cli_binary": "warranty-cli",
+      "mcp_binary": "warranty-mcp",
+      "vendor": "Dell, Lenovo and Apple",
+      "vendor_trademark_owner": "Dell Inc., Lenovo and Apple Inc",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Device Warranty",
+      "tagline": "Warranty end dates for every client device across Dell, Lenovo and Apple, in one local mirror.",
+      "has_video": true,
+      "cli_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "watchguard": {
       "system": "WatchGuard Cloud: Firebox, Endpoint Security (EPDR), ThreatSync, AuthPoint and NDR across every Service Provider managed account",
       "status": "beta",
@@ -2158,10 +2294,10 @@
       "category": "PSA",
       "display_name": "Zammad",
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
-      "cli_hash": "sha256:76d64e45ecddc98108a0d3c390effdb98abbfdd552177d536fa4078edcb80aa2",
+      "cli_hash": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:fc7ad403babfda3b89fd0801687c46cef619869b0bbec3f6687854b8ac879d21",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",

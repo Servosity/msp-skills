@@ -1,0 +1,119 @@
+{
+  "outcome_intro": "Ask \"which open Blackpoint detections are oldest across all my clients?\" and get one queue spanning every CompassOne tenant. fleet-sync pulls each tenant's detections, devices, vulnerabilities, scans, posture and Cloud Response settings into a local mirror, so your AI can rank stale agents, coverage gaps, CVE spread and posture across the whole book of customers in plain English.",
+  "instead_of_say": [
+    {
+      "instead": "Switch into each customer tenant in the CompassOne portal to see which detections are still open and how long they have waited.",
+      "say": "Show me every open Blackpoint detection across all my clients, oldest first.",
+      "cli": "blackpoint-cli triage --older-than 24h"
+    },
+    {
+      "instead": "Open each tenant's asset list and sort by last check-in to find endpoints whose agent went quiet.",
+      "say": "Which Blackpoint agents have not reported in two weeks?",
+      "cli": "blackpoint-cli stale-agents --days 14"
+    },
+    {
+      "instead": "Check every customer by hand for a recent scan, an escalation contact group and a posture rating.",
+      "say": "Which customers have no recent scan or nobody to escalate to?",
+      "cli": "blackpoint-cli gaps --scan-days 30"
+    }
+  ],
+  "pain_points": [
+    "CompassOne scopes detections, assets, vulnerabilities and scans to one customer tenant at a time: every one of those API calls needs that tenant's id. Across 30 or 80 customers there is no single queue that says which open detection anywhere has waited longest.",
+    "Coverage decays quietly: an agent stops reporting, a scan stops completing, an escalation contact group is emptied. Nothing in the per-tenant views rolls those gaps up across customers before an incident finds them.",
+    "Cloud Response travel exceptions carry end dates, and connection allow-lists grow country by country. Auditing them means opening every Microsoft 365, Cisco Duo and Google connection one by one."
+  ],
+  "outcomes": [
+    {
+      "question": "Which open detections are oldest across every client?",
+      "command": "blackpoint-cli triage --older-than 24h"
+    },
+    {
+      "question": "Which devices' agents stopped reporting?",
+      "command": "blackpoint-cli stale-agents --days 14"
+    },
+    {
+      "question": "Which customers have no recent scan, no escalation contacts or no posture rating?",
+      "command": "blackpoint-cli gaps --scan-days 30"
+    },
+    {
+      "question": "Which exploited CVE affects the most customers?",
+      "command": "blackpoint-cli cve-spread --exploited"
+    },
+    {
+      "question": "Which tenants have the weakest posture score, and in which NIST function?",
+      "command": "blackpoint-cli leaderboard"
+    },
+    {
+      "question": "Which travel exceptions have expired or end this week?",
+      "command": "blackpoint-cli geo-audit --expiring 7d"
+    },
+    {
+      "question": "What does one client look like right now?",
+      "command": "blackpoint-cli overview \"Acme Dental\""
+    },
+    {
+      "question": "What are this client's numbers for the monthly report?",
+      "command": "blackpoint-cli client-report \"Acme Dental\" --since 30d"
+    }
+  ],
+  "different_vs_wrappers": "This connector stores every customer tenant side by side in a local SQLite mirror, so cross-tenant questions (one detection queue, stale agents, coverage gaps, CVE spread, posture ranking) are one local query. Other Blackpoint MCP servers, such as WYRE-AI/blackpoint-mcp and MSPbotsAI/compassone-mcp, call the live API per question; that works for one tenant, while a fleet-wide view needs one call per tenant.",
+  "different_vs_vendor": "CompassOne is where the SOC works and where you configure Cloud Response. This connector does not replace it: it adds the rollups across customers that the per-tenant views do not pre-compute, readable by any AI agent that speaks MCP.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Blackpoint Cyber MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Blackpoint Cyber data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What Blackpoint access do I need?",
+      "a": "A CompassOne API token, created in the CompassOne portal under API tokens. A partner token reaches every customer tenant; a tenant token sees one customer. A read-only partner token is enough for every read and rollup command. Some routes need entitlements: a 403 on vulnerabilities or users means the account is not entitled, and fleet-sync records that tenant's slice as failed instead of empty."
+    },
+    {
+      "q": "Will this hit my Blackpoint API rate limits?",
+      "a": "The key quota is 2000 requests per 15 minutes. fleet-sync makes one or more calls per tenant and data kind, so on a large fleet limit it with --tenant and --kinds. After a sync, triage, gaps, stale-agents, cve-spread, leaderboard, geo-audit and overview read the local mirror and make no API calls; client-report and the endpoint commands call the API live."
+    },
+    {
+      "q": "Will this replace the CompassOne portal?",
+      "a": "No. The portal stays your console for investigations, Cloud Response configuration and reports. This connector answers the questions that span customers, and gives your AI agent a safe, previewable path to the few changes the API allows."
+    }
+  ],
+  "governance_summary": "The connector authenticates with your CompassOne API token and is read-first: every rollup, report and list command changes nothing. Writes (contact groups, Cloud Response approved countries, Cisco Duo onboardings) send as soon as you run them from the CLI unless you pass --dry-run to preview; over MCP every write only previews until the call sets confirm to true, and read-only mode (preset on in the Claude Desktop bundle) hides them. Keep autonomous agents to reads and previews, and require a human for any write, any approved-country change and any delete.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "triage, overview, client-report, gaps, stale-agents, cve-spread, leaderboard, geo-audit, fleet-sync, tenants list, detections list, vulnerabilities, posture, scans, search",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Credential",
+      "examples": "darkweb-exposures (lists breached accounts; each password is replaced by [withheld]), cisco-onboardings create (takes a Duo secret key), auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "contact-groups create, contact-groups update, contact-groups add-member, contact-groups update-member, contact-groups assign-tenants, cisco-onboardings sync-users, cisco-onboardings complete, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Access policy (Cloud Response)",
+      "examples": "ms365 approve-country, ms365 approve-user-country, ms365 remove-country, ms365 remove-user-country, cloud-connections approve-country, cloud-connections approve-user-country, cloud-connections remove-approved-country, cloud-connections remove-user-country",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "contact-groups delete, contact-groups delete-many, contact-groups delete-member, cisco-onboardings delete",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

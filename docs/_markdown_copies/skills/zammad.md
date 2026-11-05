@@ -52,6 +52,7 @@ Demo data is simulated. Every command shown exists in the real CLI.
 | Log an internal note on a ticket without opening the browser | `zammad-cli ticket note 12345 --body "Investigated, awaiting logs" --internal` |
 | Search the Knowledge Base before answering a customer | `zammad-cli kb search "restore" --json` |
 | See the whole Knowledge Base as a tree | `zammad-cli kb browse` |
+| What changed in Zammad since I last looked, without polling? | `zammad-cli events list --since 0 --json` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/zammad/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/zammad/guide.md).
 
@@ -98,9 +99,9 @@ After install, authenticate once with your Zammad credentials, then verify with 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync | Allow |
+| Read | agent-load, agent-trend, customer-health, overdue, escalate, churn-risk, feedback-scan, tickets search/get, articles by-ticket, kb browse/search/get, search, sync, webhooks status, webhooks listen, events list | Allow |
 | Write (routine) | ticket note, tickets create/update, articles create, tags add/remove, organizations create/update, users create/update, kb answer-create/publish/internal, kb category-create | Preview with --dry-run, then a reviewed write |
-| Destructive / config | tickets delete, kb answer-delete | Human-in-the-loop only |
+| Destructive / config | tickets delete, kb answer-delete, webhooks register, webhooks unregister | Human-in-the-loop only |
 
 Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/zammad/governance.md).
 
@@ -116,7 +117,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way zammad-mcp runs, and shares MCP configuration with Codex: add zammad-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way zammad-mcp runs, and shares MCP configuration with Codex: add zammad-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -137,6 +138,10 @@ Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://suppo
 ### Are the escalation, churn, and feedback signals AI sentiment analysis?
 
 No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own.
+
+### Can my agent hear about new Zammad tickets without polling?
+
+Yes. `zammad-cli webhooks register` creates signed Zammad webhooks and triggers, and `zammad-cli webhooks listen` receives them on this machine (127.0.0.1 by default; any other address needs TLS). It verifies every request's signature, drops replays, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down. Your agent reads the events with `events list` or the read-only MCP tool `events_list`. Zammad has to reach the listener, so this fits a self-hosted Zammad on the same server or your LAN.
 
 ## More PSA connectors
 

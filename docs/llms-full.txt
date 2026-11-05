@@ -219,6 +219,48 @@ A: It is built to avoid them. The marketplace REST API uses leaky-bucket rate li
 
 Governance: The skill reads marketplace data - companies, users, subscriptions, invoices, payments, and the assisted-sales pipeline - and those reads are always safe. It can also write: create and update companies, users, memberships, and opportunities; touch money-moving operations like purchases and payment instruments; and delete or expire records. Keep an autonomous agent to reads plus previewed (--dry-run) writes, and require a human for payment/credential and destructive (delete, cancel, expire) operations.
 
+### Apple Business (MDM)
+
+Page: [Apple Business](https://msp-skills.compoundingteams.com/skills/apple-business.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/apple-business/install.sh)
+
+Ask which devices across every client never reached an MDM server, which lose AppleCare in the next 90 days, or which returned Macs are still Activation Locked, and get the list. Apple Business plus your AI agent reads a local store per customer org, so questions the portal answers one org and one serial at a time become one answer. It also moves serials between MDM servers, with a --dry-run preview.
+
+Outcomes (question -> command your AI agent runs):
+- Which devices are not assigned to any MDM server, and is a missing default server the reason? -> apple-business-cli devices unassigned --added-within 30d --agent
+- Which devices lose AppleCare in the next 90 days, grouped by purchase order? -> apple-business-cli applecare expiring --within 90d --group-by order --agent
+- Which devices have no active AppleCare coverage at all? -> apple-business-cli applecare expiring --uncovered --agent
+- Which devices are Activation Locked to a user, and who is the owner when known? -> apple-business-cli devices locked --type user --agent
+- Per client org: how many devices, how many unassigned, expiring, uncovered and user-locked, and how many stale MDM servers? -> apple-business-cli fleet summary --within 90d --agent
+- Which MDM servers stopped checking in with Apple but still own devices? -> apple-business-cli mdm-servers health --issues-only --agent
+- Everything about one device: org record, MDM server, AppleCare and Activation Lock -> apple-business-cli devices lookup C02XL0ABJGH5 --agent
+- Who changed what in the organization this week? -> apple-business-cli audit-events digest --since 7d --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Apple Business MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Apple Business data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What do I need from each client's Apple Business Manager?
+A: An API account. An Administrator opens Settings > API in Apple Business, adds an API account and downloads its private key (.pem, offered once). The account's Client ID and Key ID plus that key are the three values the skill needs. API accounts belong to one organization, so each client gets its own.
+Q: Will this hit Apple's API rate limits?
+A: It paces itself when Apple Business answers 429. Sync once, then the fleet reports read the local store and make no API calls; devices enrich is the only per-device fan-out, bounded by --concurrency, and --skip-fresh lets a rerun resume.
+Q: Does it replace my MDM (Jamf, Intune, Kandji, Mosyle)?
+A: No. Apple Business Manager decides which MDM server a device enrolls with; this skill reads and changes that assignment and reports on the devices. Your MDM still manages them after enrollment.
+Q: What do I need from each client's Apple Business Manager?
+A: An API account. An Administrator opens Settings > API in Apple Business, adds an API account and downloads its private key (.pem, offered once). The account's Client ID and Key ID plus that key are the three values the skill needs. API accounts belong to one organization, so each client gets its own.
+Q: Will this hit Apple's API rate limits?
+A: It paces itself when Apple answers 429. Sync once, then the fleet reports read the local store and make no API calls; devices enrich is the only per-device fan-out, bounded by --concurrency, and --skip-fresh lets a rerun resume.
+Q: Does it replace my MDM (Jamf, Intune, Kandji, Mosyle)?
+A: No. Apple Business Manager decides which MDM server a device enrolls with; this skill reads and changes that assignment and reports on the devices. Your MDM still manages them after enrollment.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads your Apple Business inventory, MDM servers, AppleCare coverage, Activation Lock, users and audit log, and can create, change and delete Blueprints, Configurations and MDM servers and move devices between MDM servers. Over MCP every write previews and runs only with confirm set to true. Let an agent read freely and preview writes; keep device assignment, deletes and authentication changes with a human.
+
 ### Atera (RMM)
 
 Page: [Atera](https://msp-skills.compoundingteams.com/skills/atera.md)
@@ -572,6 +614,42 @@ Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 Governance: The skill authenticates with a GravityZone Control Center API key you create, and its reach is exactly the API areas you enable on that key. Every fleet report (health, incident queue, threats, locate, RMM gap, changes, billing) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. GravityZone is also an endpoint security console, so isolating machines, killing processes, running remote commands, scans and quarantine tasks reach real customer machines; those, plus policy, blocklist and exclusion changes, need a human to approve the exact command. Reads that return or take a credential (push settings, license keys, policy, package and integration settings, install links, user password checks) are human-only. Generated commands run immediately, and the MCP server's generic execute tool can call any method, so set BITDEFENDER_MCP_READ_ONLY=1 for an agent that should only read.
+
+### Blackpoint Cyber (Security)
+
+Page: [Blackpoint Cyber](https://msp-skills.compoundingteams.com/skills/blackpoint.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blackpoint/install.sh)
+
+Ask "which open Blackpoint detections are oldest across all my clients?" and get one queue spanning every CompassOne tenant. fleet-sync pulls each tenant's detections, devices, vulnerabilities, scans, posture and Cloud Response settings into a local mirror, so your AI can rank stale agents, coverage gaps, CVE spread and posture across the whole book of customers in plain English.
+
+Outcomes (question -> command your AI agent runs):
+- Which open detections are oldest across every client? -> blackpoint-cli triage --older-than 24h
+- Which devices' agents stopped reporting? -> blackpoint-cli stale-agents --days 14
+- Which customers have no recent scan, no escalation contacts or no posture rating? -> blackpoint-cli gaps --scan-days 30
+- Which exploited CVE affects the most customers? -> blackpoint-cli cve-spread --exploited
+- Which tenants have the weakest posture score, and in which NIST function? -> blackpoint-cli leaderboard
+- Which travel exceptions have expired or end this week? -> blackpoint-cli geo-audit --expiring 7d
+- What does one client look like right now? -> blackpoint-cli overview "Acme Dental"
+- What are this client's numbers for the monthly report? -> blackpoint-cli client-report "Acme Dental" --since 30d
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Blackpoint Cyber MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Blackpoint Cyber data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Blackpoint access do I need?
+A: A CompassOne API token, created in the CompassOne portal under API tokens. A partner token reaches every customer tenant; a tenant token sees one customer. A read-only partner token is enough for every read and rollup command. Some routes need entitlements: a 403 on vulnerabilities or users means the account is not entitled, and fleet-sync records that tenant's slice as failed instead of empty.
+Q: Will this hit my Blackpoint API rate limits?
+A: The key quota is 2000 requests per 15 minutes. fleet-sync makes one or more calls per tenant and data kind, so on a large fleet limit it with --tenant and --kinds. After a sync, triage, gaps, stale-agents, cve-spread, leaderboard, geo-audit and overview read the local mirror and make no API calls; client-report and the endpoint commands call the API live.
+Q: Will this replace the CompassOne portal?
+A: No. The portal stays your console for investigations, Cloud Response configuration and reports. This connector answers the questions that span customers, and gives your AI agent a safe, previewable path to the few changes the API allows.
+
+Governance: The connector authenticates with your CompassOne API token and is read-first: every rollup, report and list command changes nothing. Writes (contact groups, Cloud Response approved countries, Cisco Duo onboardings) send as soon as you run them from the CLI unless you pass --dry-run to preview; over MCP every write only previews until the call sets confirm to true, and read-only mode (preset on in the Claude Desktop bundle) hides them. Keep autonomous agents to reads and previews, and require a human for any write, any approved-country change and any delete.
 
 ### Blumira (Security)
 
@@ -1174,6 +1252,42 @@ A: No add-on is required - you generate an API Key from the Domotz Portal under 
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
 
+### Exchange Online (Security)
+
+Page: [Exchange Online](https://msp-skills.compoundingteams.com/skills/exchange-online.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/exchange-online/install.sh)
+
+Ask your AI "is mail leaving this client's tenant?" or "which mailboxes still use EWS?" and get the answer from Exchange Online's REST admin endpoints, one customer tenant per call, with no PowerShell session to open. Forwarding audits, inbox-rule sweeps, compromise triage, offboarding with a per-step receipt and a cross-tenant quarantine queue, from one local binary and MCP server.
+
+Outcomes (question -> command your AI agent runs):
+- Can mail auto-forward out of this tenant, and does the outbound spam policy or a remote domain block it? -> exchange-online-cli forwarding-audit 0550b473-9fd2-4dbb-a058-a1640b4bf458 --sweep --agent
+- Which inbox rules in this tenant forward, redirect, delete or hide mail? -> exchange-online-cli inbox-rules sweep 0550b473-9fd2-4dbb-a058-a1640b4bf458 --agent
+- Which mailboxes still have EWS, IMAP, POP, ActiveSync or SMTP AUTH effectively on? -> exchange-online-cli ews-posture 0550b473-9fd2-4dbb-a058-a1640b4bf458 --all --agent
+- What compromise evidence does this one mailbox show right now? -> exchange-online-cli bec triage 0550b473-9fd2-4dbb-a058-a1640b4bf458 alex@example.com --agent
+- Which Exchange offboarding steps are done or still pending for this leaver? -> exchange-online-cli offboard 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --manager boss@example.com --plan --agent
+- Which mailboxes can this user open, send as or send on behalf of? -> exchange-online-cli access-map 0550b473-9fd2-4dbb-a058-a1640b4bf458 jane@example.com --agent
+- Why did this person not get the email, and what should I do next? -> exchange-online-cli where-is 0550b473-9fd2-4dbb-a058-a1640b4bf458 --recipient alex@example.com --since 48h --agent
+- Which quarantine release requests are waiting longest across every tenant I snapshotted? -> exchange-online-cli quarantine queue --older-than 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Microsoft Exchange Online MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Microsoft Exchange Online data safe?
+A: Your data stays on your machine. The CLI and MCP server run locally and talk only to Microsoft's Exchange Online endpoint; inbox-rule sweeps and quarantine snapshots are saved to a local database under your user account (secret fields stripped; cmdlet reads are not saved), and a held credential is withheld from every output and file. Credentials are never bundled or transmitted by MSP Skills.
+Q: Do I still need Exchange Online PowerShell?
+A: Not for the cmdlets this connector covers: it calls the same REST admin endpoints the ExchangeOnlineManagement v3 module uses, so no PowerShell session is needed. Bulk policy creation, Purview compliance and Exchange Server on-premises stay with PowerShell or other tools.
+Q: What token does it need?
+A: A bearer token for the resource https://outlook.office365.com, issued for the customer tenant you are working in, with an Exchange role that allows the cmdlets you run. Set it as EXCHANGE_ONLINE_TOKEN or save it with auth set-token; each call names the tenant ID.
+Q: Can an AI agent change mailboxes on its own?
+A: Not over MCP without your approval: every state-changing cmdlet and the offboard command return a preview until the call carries confirm: true, and EXCHANGE_ONLINE_MCP_READ_ONLY=1 removes every write tool. On the command line, preview writes with --dry-run (offboard with --plan) before running them.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads mailboxes, permissions, inbox rules, mail flow, policies, message traces and quarantine in one customer tenant at a time. It can change mailboxes, permissions, client protocols, inbox and transport rules, quarantine and mobile devices, and run an offboarding sequence; over MCP every change previews until it is confirmed. Let an agent run reads freely, approve routine writes after a preview, and keep device wipes, quarantine deletes and offboarding with a human.
+
 ### Fortinet (Security)
 
 Page: [Fortinet](https://msp-skills.compoundingteams.com/skills/fortinet.md)
@@ -1233,7 +1347,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way google-workspace-mcp runs, and shares MCP configuration with Codex: add google-workspace-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way google-workspace-mcp runs, and shares MCP configuration with Codex: add google-workspace-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`.
 Q: Is my Google Workspace data safe?
@@ -1786,6 +1900,46 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
 
+### Mimecast (Security)
+
+Page: [Mimecast](https://msp-skills.compoundingteams.com/skills/mimecast.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/mimecast/install.sh)
+
+Mimecast plus your AI answers the questions your service desk gets every day: why a message never arrived, what is in the hold queue and which of it is safe to release, who clicked a phishing link and who else that sender reached, and whether mail is flowing. Each answer is one command that joins message tracking, the hold queue, the release and rejection logs and the click logs.
+
+Outcomes (question -> command your AI agent runs):
+- Why didn't this message arrive: held, rejected, released or delivered, and by which policy? -> mimecast-cli why --from billing@vendor.example --to alice@example.com --since 3d --agent
+- What is in the hold queue, grouped by hold reason, with a release-risk class per group? -> mimecast-cli held triage --since 24h --group-by reason --agent
+- What arrived in the hold queue since I last looked? -> mimecast-cli held triage --since 24h --new --agent
+- Release this held message for ticket T-1042, but only if its hold reason is safe - show me the decision first -> mimecast-cli held release-safe eNo1jr0OgjAYRd-lExample --ticket T-1042 --plan
+- Who clicked this phishing link, and did anyone click through a warning? -> mimecast-cli ttp who-clicked https://phish.example/login --since 7d --agent
+- Which users did this phishing sender reach, which clicked, and which still have it in the hold queue? -> mimecast-cli threats sender @phish.example --since 3d --agent
+- Every threat, rejection and hold for alice@example.com this week, newest first -> mimecast-cli threats mailbox alice@example.com --since 7d --agent
+- Who released risky held messages this week, and which releases have no ticket? -> mimecast-cli held release-audit --since 7d --agent
+- Is mail flowing: queue backlog, inbound gaps and stuck deliveries in one OK/WARN/FAIL verdict? -> mimecast-cli mailflow --max-queue 200 --stale-after 30m --agent
+- Which senders keep getting held and then released, so a narrow permit would stop the tickets? -> mimecast-cli senders suggest --since 30d --min-holds 3 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Mimecast MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Mimecast data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which Mimecast deployments and API version does it work with?
+A: Mimecast API 2.0, with a client ID and secret from the Mimecast API 2.0 tile in the Administration Console (Administration > Services > API and Platform Integrations). API 1.0 access keys do not work. The hold queue, why, mailflow, message tracking and TTP log commands are for MX-based (Cloud Gateway) deployments; the remediation and ci-policies commands are for Cloud Integrated tenants.
+Q: Can an agent release a phishing email by accident?
+A: held release-safe refuses impersonation, malware, sandbox and policy holds unless --override gives a reason, and --plan shows the decision without releasing anything; held purge-sender only plans until you add --yes. Over MCP, every tool that changes Mimecast returns a preview until it is called again with confirm: true, and MIMECAST_MCP_READ_ONLY=1 makes the MCP server refuse every write. The raw held release and held reject commands send when you run them, so keep agents on held release-safe --plan and --dry-run previews.
+Q: Does it work across my clients' Mimecast accounts?
+A: With Mimecast delegate access, set MIMECAST_ACCOUNT_CODE (or pass --account-code on the workflow commands) to act on one customer account. It applies to the classic endpoints: hold queue, message tracking, logs and managed-sender permit or block. The REST endpoints (gateway, journaling, ci-policies, remediation, senders bulk-delete) have no account selector, so while an account code is set the CLI refuses their writes and warns on their reads. Delegation has not yet been verified against a live delegate tenant.
+Q: Will it hit my Mimecast API rate limits?
+A: Mimecast sets quotas per function and per API application. Read commands back off and retry on HTTP 429; writes (release, reject, permit or block) exit with code 7 instead of replaying, so rerun them after the wait. The workflow commands page the logs only up to --max-scan-pages pages (100 entries each) and say when a result was truncated.
+
+Governance: The connector reads Mimecast message tracking, the hold queue, the TTP, rejection, audit and DLP logs freely, and changes Mimecast only through write commands: releasing and rejecting held mail and permitting or blocking senders day to day; policy, gateway and journaling changes; and deletions and security-event remediation. Let an agent run reads, held release-safe --plan and --dry-run previews on its own, approve every real release and every MCP confirm, and keep deletions, remediation, mail-routing changes, sending email and anything that touches credentials behind a human.
+
 ### Concierge (Meta)
 
 Page: [Concierge](https://github.com/servosity/msp-skills/tree/main/skills/_meta)
@@ -1908,6 +2062,40 @@ Q: Why does a change only return a job ID?
 A: Every NMM mutation (provisioning, scripted actions, backup, host power) is async and returns a job ID. Run nerdio-cli job wait <job_id> to poll it to a terminal state and exit non-zero if it failed - so your agent never reports "done" on a job that actually errored.
 
 Governance: The skill reads your whole NMM fleet - accounts, host pools, session hosts, Intune devices, billing - and can also make changes: create or delete host pools and reservations, power and restart session hosts, run scripted actions across accounts, and manage secure variables. Reads are safe to automate. Anything that powers, executes, deletes, or touches a stored secret should be previewed with --dry-run and approved by a human. The credential's NMM role is the real ceiling - scope it to only what your workflow needs.
+
+### NetSapiens (Telephony)
+
+Page: [NetSapiens](https://msp-skills.compoundingteams.com/skills/netsapiens.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/netsapiens/install.sh)
+
+Ask which clients are over their seat limit, which phones went offline, which numbers route nowhere and where E911 data is missing, and get one answer across every client domain on your NetSapiens platform. The reseller portal shows one domain at a time; this skill syncs your whole reseller into a local mirror, so each fleet-wide audit is one command.
+
+Outcomes (question -> command your AI agent runs):
+- Which clients are over or near a user, call queue, auto attendant or conference limit? -> netsapiens-cli fleet seats --flagged --json
+- Which phones are unregistered, high-latency or never provisioned? -> netsapiens-cli fleet offline --json
+- Which phone numbers route to a missing or unreachable user, queue or attendant? -> netsapiens-cli fleet dids --problems-only --json
+- Which domains, users and devices are missing an emergency caller ID or point at an unknown emergency address? -> netsapiens-cli fleet e911 --json
+- Which users had unanswered inbound calls in the last 7 days, and is their phone registered now? -> netsapiens-cli fleet missed --window 7d --json
+- Which call queues are dropping callers, and are their agents' phones registered? -> netsapiens-cli fleet queues --window 7d --json
+- What users, devices, numbers and domains were added, removed or re-pointed since my last check? -> netsapiens-cli fleet changes --json
+- Which client, user and phones does this number belong to? -> netsapiens-cli trace 6025550142 --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the NetSapiens MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my NetSapiens data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Does it work with Crexendo, OITVOIP and other white-label NetSapiens platforms?
+A: Yes. Set NETSAPIENS_SERVER to your provider's platform host and use an API key or OAuth2 access token from that platform. Without NETSAPIENS_SERVER the CLI talks to ns-api.com, which is only the NetSapiens public sandbox.
+Q: Do I need a reseller-level API key?
+A: For the fleet audits, yes: a reseller-scoped key sees every client domain. An office-manager key sees one domain, so the fleet commands then cover only that client. A read-only key is enough for every audit.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Most of what an MSP asks is read-only: the fleet audits, trace and search read the local mirror, and sync reads the API. The CLI also carries every NetSapiens v2 write, from user and number changes to live call control, API keys and domain restores. Over MCP every write previews first and sends only with confirm: true; on the CLI, preview with --dry-run. Allow reads; keep writes, credential commands and restores with a human.
 
 ### NinjaOne (RMM)
 
@@ -3079,6 +3267,41 @@ A: The full VSPC v3 surface is exposed, including create/delete jobs and agent d
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
 
+### Device Warranty (Documentation)
+
+Page: [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/warranty/install.sh)
+
+Ask which client devices go out of warranty this quarter and get the list, per client. Device Warranty plus your AI agent looks up Dell, Lenovo and Apple serials with whichever vendor credentials you have, keeps every answer in a local warranty mirror, and answers fleet questions offline: what expires soon, what to refresh next year, and which devices were never verified.
+
+Outcomes (question -> command your AI agent runs):
+- Which client devices are out of warranty or expire in the next 90 days? -> warranty-cli report --within 90d --agent
+- Which of Acme Dental's devices have already expired? -> warranty-cli report --customer "Acme Dental" --status expired --agent
+- What is the warranty on these serials right now? -> warranty-cli lookup 1ABC234 PF1ABCDE --agent
+- How many devices per client lose coverage in each of the next four quarters, and how many are past four years old? -> warranty-cli lifecycle --quarters 4 --age 4y --agent
+- Which devices could the report not speak for, and why? -> warranty-cli unresolved --agent
+- Which vendors are configured, and what does each still need? -> warranty-cli doctor --json
+- Which coverage expired or changed since I last checked? -> warranty-cli events list --since 0 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Device Warranty MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my client device data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need credentials for all three vendors?
+A: No. Every vendor is optional. Dell needs a TechDirect Warranty API client ID and secret, Lenovo a ClientID token from your Lenovo account manager, Apple an Apple Business API account in the client's organization. A vendor without credentials is reported as vendor_unconfigured and never called, and the others keep working. warranty-cli doctor --json lists what each vendor still needs.
+Q: Where do the serials come from?
+A: Any CSV or JSON device export with a serial column (manufacturer, model and hostname are optional), for example from your RMM. warranty-cli import devices.csv --customer "Acme Dental" loads it into the mirror; apple-pull loads a client's Apple devices straight from Apple Business.
+Q: Will this hit the vendors' rate limits?
+A: It is built to stay inside them: Dell lookups go 100 service tags per call, Lenovo 25 serials per call spaced 250 ms apart, Apple one serial per call. recheck refreshes only stale or soon-expiring devices, and --max-calls caps a run.
+
+Governance: The skill reads warranty and coverage data from Dell, Lenovo and Apple and changes nothing at any vendor. It writes only its own local warranty mirror (import, lookup, recheck, apple-pull), which you can preview with --dry-run, and over MCP those saves need confirm. Let an agent read and report freely; keep a human on credential commands and on local-data purge.
+
 ### WatchGuard Cloud (Security)
 
 Page: [WatchGuard Cloud](https://msp-skills.compoundingteams.com/skills/watchguard.md)
@@ -3215,10 +3438,11 @@ Outcomes (question -> command your AI agent runs):
 - Log an internal note on a ticket without opening the browser -> zammad-cli ticket note 12345 --body "Investigated, awaiting logs" --internal
 - Search the Knowledge Base before answering a customer -> zammad-cli kb search "restore" --json
 - See the whole Knowledge Base as a tree -> zammad-cli kb browse
+- What changed in Zammad since I last looked, without polling? -> zammad-cli events list --since 0 --json
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way zammad-mcp runs, and shares MCP configuration with Codex: add zammad-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way zammad-mcp runs, and shares MCP configuration with Codex: add zammad-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Zammad data safe?
@@ -3229,5 +3453,7 @@ Q: Does it work with my Zammad instance, self-hosted or hosted?
 A: Both. Point it at any Zammad instance with ZAMMAD_URL (for example https://support.yourcompany.com) and a personal access token in ZAMMAD_API_TOKEN, created under Profile then Token Access. Nothing is hardcoded to a specific instance.
 Q: Are the escalation, churn, and feedback signals AI sentiment analysis?
 A: No. They are transparent keyword-and-timing heuristics that surface the tickets and matched text for your AI or a human to judge. They flag candidates and show the evidence - they never claim a verdict on their own.
+Q: Can my agent hear about new Zammad tickets without polling?
+A: Yes. `zammad-cli webhooks register` creates signed Zammad webhooks and triggers, and `zammad-cli webhooks listen` receives them on this machine (127.0.0.1 by default; any other address needs TLS). It verifies every request's signature, drops replays, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down. Your agent reads the events with `events list` or the read-only MCP tool `events_list`. Zammad has to reach the listener, so this fits a self-hosted Zammad on the same server or your LAN.
 
 Governance: Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.

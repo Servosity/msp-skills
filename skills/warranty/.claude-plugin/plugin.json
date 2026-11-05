@@ -1,0 +1,21 @@
+{
+  "name": "warranty",
+  "version": "0.1.0",
+  "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/warranty",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "warranty",
+    "dell, lenovo and apple",
+    "documentation",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

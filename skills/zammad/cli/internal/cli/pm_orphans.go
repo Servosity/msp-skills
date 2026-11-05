@@ -1,11 +1,18 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-carried: emitted by cli-printing-press 4.28.0 (project-management workflow template); the 4.32.5 profiler classes Zammad as the "content" archetype and no longer emits it. Kept so the shipped `orphans` surface survives the reprint (see handfixes.json: pm-workflow-commands-carried).
+//
+// Rewritten on Zammad's ticket model (Codex round 1 on the 4.34.0 reprint,
+// 2026-10-24). The template demanded a "project" and "labels" field that a
+// Zammad ticket never carries, so every ticket (and every user, group and
+// state) was reported orphaned. It now reports active tickets with no owner
+// (Zammad's owner id 1 is "unassigned"), no priority or no group.
 
 package cli
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,102 +25,38 @@ func newOrphansCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "orphans",
-		Short: "Find items missing key fields like assignee or project",
-		Long: `Scan locally synced data for items that are missing important fields
-such as assignee, project, priority, or labels. Useful for triaging unowned work.`,
-		Example: `  # Find orphaned items
+		Short: "Find open tickets missing an owner, priority or group",
+		Long: `Scan the locally synced active tickets (new, open or pending) for ones
+with no owner (unassigned), no priority or no group. Useful for triaging
+unowned work.`,
+		Example: `  # Find orphaned tickets
   zammad-cli orphans
 
   # Output as JSON
   zammad-cli orphans --json`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// pp:data-source local
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dbPath == "" {
-				dbPath = defaultDBPath("zammad-cli")
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
 			}
-
-			db, err := store.OpenWithContext(cmd.Context(), dbPath)
+			if dryRunOK(flags) {
+				return nil
+			}
+			db, err := openNovelStore(cmd.Context(), dbPath)
 			if err != nil {
-				return fmt.Errorf("opening local database: %w\nRun 'zammad-cli sync' first.", err)
+				return err
 			}
 			defer db.Close()
-
-			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
-
-			// Fields that indicate an item is properly assigned/categorized
-			checkFields := []struct {
-				jsonPaths []string
-				label     string
-			}{
-				{[]string{"$.assigneeId", "$.assignee_id", "$.assignee", "$.ownerId", "$.owner_id"}, "assignee"},
-				{[]string{"$.projectId", "$.project_id", "$.project"}, "project"},
-				{[]string{"$.priority", "$.priorityId", "$.priority_id"}, "priority"},
-				{[]string{"$.labels", "$.labelIds", "$.label_ids", "$.tags"}, "labels"},
+			maybeEmitSyncHints(cmd, db, "tickets", flags.maxAge)
+			if err := novelRequireSynced(db, "tickets", false); err != nil {
+				return err
 			}
 
-			rows, err := db.Query(`SELECT id, resource_type, data FROM resources ORDER BY resource_type, id`)
+			items, err := buildOrphanTickets(db)
 			if err != nil {
-				return fmt.Errorf("querying items: %w", err)
+				return err
 			}
-			defer rows.Close()
-
-			type orphanItem struct {
-				ID            string   `json:"id"`
-				ResourceType  string   `json:"resource_type"`
-				Title         string   `json:"title,omitempty"`
-				MissingFields []string `json:"missing_fields"`
-			}
-
-			var items []orphanItem
-			for rows.Next() {
-				var id, resType string
-				var data []byte
-				if err := rows.Scan(&id, &resType, &data); err != nil {
-					continue
-				}
-				var obj map[string]any
-				if err := json.Unmarshal(data, &obj); err != nil {
-					continue
-				}
-
-				var missing []string
-				for _, cf := range checkFields {
-					found := false
-					for _, path := range cf.jsonPaths {
-						// Strip "$." prefix for direct map lookup
-						key := strings.TrimPrefix(path, "$.")
-						if v, ok := obj[key]; ok {
-							if v != nil && fmt.Sprintf("%v", v) != "" && fmt.Sprintf("%v", v) != "[]" && fmt.Sprintf("%v", v) != "<nil>" {
-								found = true
-								break
-							}
-						}
-					}
-					if !found {
-						missing = append(missing, cf.label)
-					}
-				}
-
-				if len(missing) == 0 {
-					continue
-				}
-
-				title := ""
-				for _, key := range []string{"title", "name", "subject", "summary"} {
-					if v, ok := obj[key]; ok {
-						title = fmt.Sprintf("%v", v)
-						break
-					}
-				}
-
-				items = append(items, orphanItem{
-					ID:            id,
-					ResourceType:  resType,
-					Title:         title,
-					MissingFields: missing,
-				})
-			}
-
 			totalCount := len(items)
 			if limit > 0 && len(items) > limit {
 				items = items[:limit]
@@ -132,14 +75,14 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 			}
 
 			if len(items) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No orphaned items found. All items have key fields populated.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No orphaned tickets found. Every active ticket has an owner, priority and group.")
 				return nil
 			}
 
 			if totalCount > len(items) {
-				fmt.Fprintf(cmd.OutOrStdout(), "Found %d orphaned items (showing first %d):\n\n", totalCount, len(items))
+				fmt.Fprintf(cmd.OutOrStdout(), "Found %d orphaned tickets (showing first %d):\n\n", totalCount, len(items))
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Found %d orphaned items:\n\n", len(items))
+				fmt.Fprintf(cmd.OutOrStdout(), "Found %d orphaned tickets:\n\n", len(items))
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-30s %s\n", "ID", "TYPE", "MISSING", "TITLE")
 			fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-30s %s\n", "----", "----", "-------", "-----")
@@ -148,15 +91,67 @@ such as assignee, project, priority, or labels. Useful for triaging unowned work
 				if len(titleDisplay) > 40 {
 					titleDisplay = titleDisplay[:37] + "..."
 				}
-				missingStr := strings.Join(item.MissingFields, ", ")
-				fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-30s %s\n", item.ID, item.ResourceType, missingStr, titleDisplay)
+				fmt.Fprintf(cmd.OutOrStdout(), "%-20s %-15s %-30s %s\n", item.ID, item.ResourceType, strings.Join(item.MissingFields, ", "), titleDisplay)
 			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
-	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum items to show")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum tickets to show (0 means all)")
 
 	return cmd
+}
+
+type orphanItem struct {
+	ID            string   `json:"id"`
+	ResourceType  string   `json:"resource_type"`
+	Title         string   `json:"title,omitempty"`
+	MissingFields []string `json:"missing_fields"`
+}
+
+// buildOrphanTickets returns the active tickets missing an owner ("assignee";
+// Zammad's owner id 1 means unassigned), a priority or a group, by ticket id.
+func buildOrphanTickets(db *store.Store) ([]orphanItem, error) {
+	states, err := loadZammadStateCatalog(db)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.Query(`SELECT id, title, CAST(state_id AS TEXT), CAST(owner_id AS TEXT), CAST(priority_id AS TEXT), CAST(group_id AS TEXT) FROM tickets`)
+	if err != nil {
+		return nil, fmt.Errorf("querying tickets: %w", err)
+	}
+	defer rows.Close()
+	items := make([]orphanItem, 0)
+	for rows.Next() {
+		var id, title, stateID, ownerID, priorityID, groupID sql.NullString
+		if err := rows.Scan(&id, &title, &stateID, &ownerID, &priorityID, &groupID); err != nil {
+			return nil, fmt.Errorf("scanning tickets: %w", err)
+		}
+		if !id.Valid || strings.TrimSpace(id.String) == "" {
+			continue
+		}
+		if !zammadStateActive(zammadStateForID(states, stateID).Kind) {
+			continue
+		}
+		missing := make([]string, 0, 3)
+		if zammadOwnerID(ownerID) == "1" {
+			missing = append(missing, "assignee")
+		}
+		if strings.TrimSpace(priorityID.String) == "" {
+			missing = append(missing, "priority")
+		}
+		if strings.TrimSpace(groupID.String) == "" {
+			missing = append(missing, "group")
+		}
+		if len(missing) == 0 {
+			continue
+		}
+		items = append(items, orphanItem{ID: id.String, ResourceType: "tickets", Title: title.String, MissingFields: missing})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading tickets: %w", err)
+	}
+	sort.SliceStable(items, func(i, j int) bool { return zammadNumericLess(items[i].ID, items[j].ID) })
+	return items, nil
 }

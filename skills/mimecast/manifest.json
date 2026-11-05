@@ -1,0 +1,126 @@
+{
+  "manifest_version": "0.3",
+  "name": "mimecast-mcp",
+  "display_name": "Mimecast",
+  "version": "0.1.0",
+  "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/mimecast-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/mimecast-mcp",
+      "args": [],
+      "env": {
+        "MIMECAST_CLIENT_ID": "${user_config.mimecast_client_id}",
+        "MIMECAST_CLIENT_SECRET": "${user_config.mimecast_client_secret}",
+        "MIMECAST_ACCOUNT_CODE": "${user_config.mimecast_account_code}",
+        "MIMECAST_BASE_URL": "${user_config.mimecast_base_url}",
+        "MIMECAST_TOKEN_URL": "${user_config.mimecast_token_url}",
+        "MIMECAST_OAUTH_SCOPE": "${user_config.mimecast_oauth_scope}",
+        "MIMECAST_USER_AGENT": "${user_config.mimecast_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "MIMECAST_MCP_READ_ONLY": "${user_config.mimecast_mcp_read_only}",
+        "MIMECAST_NO_LOCAL_DATA": "${user_config.mimecast_no_local_data}",
+        "MIMECAST_MCP_HTTP_TOKEN": "${user_config.mimecast_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "mimecast_client_id": {
+      "type": "string",
+      "title": "MIMECAST_CLIENT_ID",
+      "description": "Client ID of your Mimecast API 2.0 application (Administration Console: Administration > Services > API and Platform Integrations > Mimecast API 2.0).",
+      "sensitive": true,
+      "required": true
+    },
+    "mimecast_client_secret": {
+      "type": "string",
+      "title": "MIMECAST_CLIENT_SECRET",
+      "description": "Client secret of your Mimecast API 2.0 application (Administration Console: Administration > Services > API and Platform Integrations > Mimecast API 2.0).",
+      "sensitive": true,
+      "required": true
+    },
+    "mimecast_account_code": {
+      "type": "string",
+      "title": "Delegated account code (optional)",
+      "description": "Optional. Mimecast delegate access: the customer account code to act on, sent on the classic endpoints (hold queue, tracking, logs, managed senders). Leave blank to use the API application's own account.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_base_url": {
+      "type": "string",
+      "title": "API base URL (optional)",
+      "description": "Optional. Regional API gateway for data residency, for example https://uk-api.services.mimecast.com. Set MIMECAST_TOKEN_URL to the same region. Leave blank for https://api.services.mimecast.com.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_token_url": {
+      "type": "string",
+      "title": "OAuth token URL (optional)",
+      "description": "Optional. Regional OAuth token endpoint, for example https://uk-api.services.mimecast.com/oauth/token. Leave blank for https://api.services.mimecast.com/oauth/token.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_oauth_scope": {
+      "type": "string",
+      "title": "OAuth scope (optional)",
+      "description": "Optional. OAuth scope sent with the client-credentials token request. Leave blank to send no scope.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to Mimecast. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Optional. Binds the MCP server to one saved client profile. Leave blank for the default.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store. Leave blank to keep the local store.",
+      "sensitive": false,
+      "required": false
+    },
+    "mimecast_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T23:33:19.371642Z",
+    "spec_checksum": "sha256:707779093cb5500812eab3ae24015fa3c62aae128e371ce98939c1e530e3b8ac",
+    "spec_format": "openapi3"
+  }
+}
