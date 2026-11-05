@@ -179,9 +179,9 @@
     {
       "name": "connectwise-control",
       "type": "skill-md",
-      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `stale screenconnect agents`, `connectwise control user access review`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
-      "digest": "sha256:04e959d85eb395ebe2a3801a9e6b01d5ceecc84256876c59e6970082cd22b9f5"
+      "digest": "sha256:c7b3c2d6da601a3cf56096ca76eecf5d45a9b4839c82f4f94a2003225eb20a66"
     },
     {
       "name": "connectwise-manage",
