@@ -30,6 +30,7 @@ import (
 	"appdirect-pp-cli/internal/client"
 	"appdirect-pp-cli/internal/cliutil"
 	"appdirect-pp-cli/internal/config"
+	"appdirect-pp-cli/internal/credkit"
 	"appdirect-pp-cli/internal/platform"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -154,11 +155,7 @@ func isTerminal(w io.Writer) bool {
 		}
 	}
 	if f, ok := w.(*os.File); ok {
-		fi, err := f.Stat()
-		if err != nil {
-			return true
-		}
-		return (fi.Mode() & os.ModeCharDevice) != 0
+		return credkit.Terminal(f) // Hand-fix (handfixes.json credkit-wiring): the kit replaced stdout and stderr with pipes; it knows what they were.
 	}
 	return false
 }
@@ -610,7 +607,7 @@ func endpointArgsUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error
 			printFlags = &copied
 		}
 		if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-			"error": funnelShownError(err),
+			"error": err.Error(),
 			"usage": endpointUsageLine(cmd),
 		}, printFlags); printErr != nil {
 			return printErr
@@ -1140,7 +1137,7 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 		return
 	}
 	_ = writeEncodedJSON(w, map[string]any{
-		"error": funnelShownError(err),
+		"error": err.Error(),
 		"code":  code,
 	}, "", "")
 }

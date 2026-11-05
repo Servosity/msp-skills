@@ -20,17 +20,15 @@ package cli
 //   - no-response-cache: the on-disk response cache is off. Raw bodies must
 //     not sit in cache files; the local store keeps credential fields out
 //     (store/appdirect_secrets.go).
-//   - response-credentials-held: every credential a response carries (the
-//     minted access_token included) is held before the body reaches any
-//     command, so the output chokepoint withholds it in every format.
+//   - the credentials a response carries (the minted access_token included)
+//     are held by the shared credential kit's transport inside this pin
+//     (credwire.Declarations ResponseFields).
 //   - dry-run-sends-nothing: a client built under --dry-run refuses every
 //     request at its transport, whatever the command does with it.
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -88,11 +86,10 @@ func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {
 }
 
 func installPins(hc *http.Client, pins appdirectPins, dryRun bool) {
-	next := hc.Transport
-	if next == nil {
-		next = http.DefaultTransport
+	inner := hc.Transport
+	if inner == nil {
+		inner = cliutil.OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	var inner http.RoundTripper = responseHoldTripper{next: next}
 	if dryRun {
 		inner = dryRunTripper{}
 	}
@@ -223,31 +220,4 @@ func displayOrigin(u *url.URL) string {
 		return o
 	}
 	return "a non-ASCII host"
-}
-
-// responseHoldTripper reads each response (under the client's size cap),
-// decodes a copy as the client will (Content-Encoding, then BOM and JSONP/XSSI
-// prefixes), and holds its credential values with the one shared walker
-// (cliutil.HoldCredentialFields: any length, masks excluded) before any
-// command reads it. Request bodies and params are held in the client itself
-// (doInternal), before a --dry-run preview or a send.
-type responseHoldTripper struct{ next http.RoundTripper }
-
-func (t responseHoldTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.next.RoundTrip(req)
-	if err != nil || resp == nil || resp.Body == nil {
-		return resp, err
-	}
-	body, rerr := client.ReadBody(resp.Body)
-	_ = resp.Body.Close()
-	if rerr != nil {
-		return nil, rerr
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(body))
-	plain, derr := client.DecodeBody(resp.Header.Get("Content-Encoding"), body)
-	if derr != nil {
-		return resp, nil
-	}
-	cliutil.HoldCredentialFields(plain)
-	return resp, nil
 }

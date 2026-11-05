@@ -1,0 +1,172 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "installPins",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport; only the in-process unit tests reassign it (internal/cli and internal/client credkit_seam_test.go)"
+  },
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "installPins",
+   "what": "convert:appdirect-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "dryRunTripper.RoundTrip refuses every request with ErrDryRunSend and sends nothing"
+  },
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "installPins",
+   "what": "convert:appdirect-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin is the outermost transport and sends only through next, which is the client's own transport (client.newHTTPClient builds it with cliutil.OutboundGuard, which is credkit.Transport) or cliutil.OutboundGuard(nil); under --dry-run next is dryRunTripper, which sends nothing"
+  },
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "installPins",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin is the outermost transport and sends only through next, which is the client's own transport (client.newHTTPClient builds it with cliutil.OutboundGuard, which is credkit.Transport) or cliutil.OutboundGuard(nil); under --dry-run next is dryRunTripper, which sends nothing"
+  },
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "installPins",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a nil client transport is replaced by cliutil.OutboundGuard(nil), which is credkit.Transport(nil), before the pin wraps it"
+  },
+  {
+   "file": "internal/cli/appdirect_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin is the outermost transport and sends only through next, which is the client's own transport (client.newHTTPClient builds it with cliutil.OutboundGuard, which is credkit.Transport) or cliutil.OutboundGuard(nil); under --dry-run next is dryRunTripper, which sends nothing"
+  },
+  {
+   "file": "internal/cli/company_show.go",
+   "func": "newNovelCompanyShowCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/company_show.go",
+   "func": "newNovelCompanyShowCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/payments_unpaid.go",
+   "func": "newNovelPaymentsUnpaidCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/payments_unpaid.go",
+   "func": "newNovelPaymentsUnpaidCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/pipeline.go",
+   "func": "newNovelPipelineCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/pipeline.go",
+   "func": "newNovelPipelineCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/pipeline_stale.go",
+   "func": "newNovelPipelineStaleCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/pipeline_stale.go",
+   "func": "newNovelPipelineStaleCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/reconcile.go",
+   "func": "newNovelReconcileCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/reconcile.go",
+   "func": "newNovelReconcileCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/subs_changed.go",
+   "func": "newNovelSubsChangedCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/subs_changed.go",
+   "func": "newNovelSubsChangedCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after both mains call credkit.Start first; the checker's before-Start closure takes in the whole command tree (4586 such sites, in generated files too). The output goes to cmd's writer, which is the kit's stdout"
+  },
+  {
+   "file": "internal/cli/novel_helpers.go",
+   "func": "loadResourceObjects",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a SELECT over the local store inside a command's RunE, after credkit.Start; it writes nothing"
+  },
+  {
+   "file": "internal/config/appdirect_kit.go",
+   "func": "configFileDiffers",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads config.toml, which Declarations.Files names (Start holds it first), only to compare it with the bytes about to be written; the bytes are decoded into a map and go nowhere else"
+  },
+  {
+   "file": "internal/config/appdirect_kit.go",
+   "func": "configFileDiffers",
+   "what": "reflect",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reflect.DeepEqual compares two decoded TOML maps of plain values; it reaches no command, client or transport"
+  }
+ ]
+}

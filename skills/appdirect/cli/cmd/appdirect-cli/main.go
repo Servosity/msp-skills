@@ -5,13 +5,18 @@
 package main
 
 import (
-	"os"
-
 	"appdirect-pp-cli/internal/cli"
+	"appdirect-pp-cli/internal/credkit"
+	"appdirect-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the kit holds every startup credential and owns stdout and stderr before anything else runs.
+	credkit.Start(credwire.Declarations)
+	credwire.Started()
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

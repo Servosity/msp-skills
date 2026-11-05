@@ -499,353 +499,6 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body)))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 2,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "output-chokepoint",
-   "class": "secret-echo",
-   "summary": "One holder and one withholding chokepoint in front of every output path: CLI stdout, stderr and loggers, MCP results, errors and every stdio message, --deliver, export and rvtools files, and the local store. One holder from every source before anything prints: the environment (APPDIRECT_PASSWORD, and the Basic header built from it whole and as its base64 payload), the config file and credential store (loaded before parsing), credential flags and the auth set-credentials password in argv, MCP arguments, request params and bodies, every response (credential-named members in any spelling, gzip and BOM bodies included) and every session id AppDirect mints. appdirect: the environment holder holds every credential-named APPDIRECT_* variable (client ID and secret included) and the credentials a APPDIRECT_*_URL carries.",
-   "why": "Work order credential rules (new-connector batch 1). Ported from the exchange-online 4.34.2 reprint (cisco-umbrella's layer plus its Codex r1/r2 class fixes). cliutil.WithholdText/WithholdBytes/HeldEchoes (appdirect_output.go) withhold a held value in every view the funnel decodes plus ASCII85/Z85/base32 at every alignment and in joined views. One-line edits in generated files are re-applied by tools/apply_credential_rules.py. Tests: internal/appdirectblackbox (built binaries vs a fake AppDirect echoing every credential it was sent, whole and split, including a login fault that repeats the password; scans all CLI and MCP output and every written file), appdirect_output_test.go, appdirect_hold_test.go, appdirect_cred_rules_test.go; prove_bb.sh reverts each install point alone. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "defer installOutputChokepoint(rootCmd)()",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "holdConfigCredentials(cfg)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/deliver.go",
-     "contains": "body = cliutil.WithholdBytes(body)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.HoldRequestCredentials(params, bodyBytes)",
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(withholdToolResults)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/appdirect_output_cli.go",
-     "contains": "holdStoredCredentials()",
-     "code_only": true,
-     "min_count": 2
-    },
-    {
-     "file": "cli/internal/config/appdirect_hold.go",
-     "contains": "cliutil.HoldKeys(c.AuthHeaderVal, c.AuthHeader())",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "for _, scheme := range []string{\"bearer \", \"basic \"} {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/blackbox_test.go",
-     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets_test.go",
-     "contains": "func TestCredentialNamesMatchInEverySpelling(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "case SecretFieldName(strings.TrimPrefix(name, \"APPDIRECT_\")):",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "case strings.HasSuffix(name, \"_URL\"):",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets_test.go",
-     "contains": "func TestHoldEnvCredentialsHoldsEveryCredentialVariable(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "file-sinks-withheld",
-   "class": "secret-echo",
-   "summary": "Every file the program writes, except the 0600 credential store, passes the chokepoint: feedback, profiles, teach and learnings logs, the learn journal entry, client profiles, deliver, export --output, every rvtools export CSV tab (the whole tab at once) and the store.",
-   "why": "Work order: no credential in files. The black-box found rvtools export --out writing a VM row whose id repeated the session id. TestEveryFileWritePassesTheChokepoint fails on any write site that skips the chokepoint unless it is reviewed there; TestNoCredentialInAnyWrittenFile scans every file a battery writes. learn/journal.go stays byte-identical to the fleet; the entry is filtered where root.go builds it. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/feedback.go",
-     "contains": "json.NewEncoder(cliutil.WithheldWriter(f)).Encode(entry)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/profile.go",
-     "contains": "os.WriteFile(tmp, cliutil.WithholdBytes(data), 0o600)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/teach.go",
-     "contains": "cliutil.WithheldWriter(f)",
-     "code_only": true,
-     "min_count": 2
-    },
-    {
-     "file": "cli/internal/cli/teach.go",
-     "contains": "cliutil.WithholdBytes([]byte(strings.Join(kept",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/teach.go",
-     "contains": "learn.SetJournalLearnContext(cliutil.WithholdText(result.Family), withheldStrings(result.UnresolvedEntities))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/learn/teach_log.go",
-     "contains": "f.Write(cliutil.WithholdBytes(append(line, '\\n')))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/platform/profile.go",
-     "contains": "data = cliutil.WithholdBytes(data)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "learn.JournalInvocation(withheldJournalEntry(learn.JournalEntry{",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/export.go",
-     "contains": "f, ferr := cliutil.WithholdingFile(openExportOutput(outputFile))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/writers_test.go",
-     "contains": "func TestEveryFileWritePassesTheChokepoint(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-response-cache",
    "class": "secret-echo",
    "summary": "The on-disk response cache is off on every client: raw AppDirect bodies never sit in cache files.",
@@ -862,7 +515,7 @@
   {
    "id": "store-never-keeps-secrets",
    "class": "secret-echo",
-   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values and withholds any value or id that repeats a held credential; every SQL write of a read-write store (learnings, playbooks, learn events) passes the chokepoint through a database/sql driver wrapper.",
+   "summary": "Every resource write passes mergeIncomingResourceData, which stores each record through withoutStoredSecrets: values under credential field names (passwords, client secrets, tokens, one-time codes) are replaced by \"[redacted]\" at any depth, and a record that cannot be decoded is stored as {}. Every statement of a read-write store then passes the shared credential kit's SQLite driver (credkit-wiring).",
    "why": "Work order: no credential in files. store.go carries 4 lines re-applied by tools/apply_credential_rules.py; Open uses WithholdingSQLiteDriver (hand file internal/store/appdirect_withhold_driver.go, from the cisco-umbrella Codex r1 class store-write-bypasses-chokepoint). The class credential-split-across-sql-bindings is left to the fleet credential filter the publish step adopts (orchestrator ruling 2026-10-27). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
    "asserts": [
@@ -872,23 +525,13 @@
      "code_only": true
     },
     {
-     "file": "cli/internal/store/store.go",
-     "contains": "id = storedID(id)",
+     "file": "cli/internal/store/appdirect_secrets.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
      "code_only": true
     },
     {
-     "file": "cli/internal/store/store.go",
-     "contains": "return storedID(resourceStorageIDRaw(resourceType, id, obj))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "db, err := sql.Open(WithholdingSQLiteDriver, dsn)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/store/appdirect_withhold_driver.go",
-     "contains": "sql.Register(WithholdingSQLiteDriver, withholdingDriver{inner: inner})",
+     "file": "cli/internal/store/appdirect_secrets_test.go",
+     "contains": "func TestStoredRecordKeepsNoCredentialField(t *testing.T) {",
      "code_only": true
     }
    ]
@@ -923,231 +566,6 @@
    ]
   },
   {
-   "id": "mcp-protocol-messages-withheld",
-   "class": "secret-echo",
-   "summary": "Every JSON-RPC message the MCP server writes on stdio (its only transport) passes the chokepoint: a message withheld in place stays valid JSON; one that cannot be is replaced by a JSON-RPC error with the same id.",
-   "why": "exchange-online Codex review r1 class mcp-protocol-output-bypasses-chokepoint: mcp-go v0.57.0 answers an unknown tool or prompt name with an error that repeats the name before any tool middleware runs. Hand file cmd/appdirect-mcp/appdirect_output_mcp.go; one line in generated main.go re-applied by tools/apply_credential_rules.py. Test: TestMCPProtocolErrorsWithheld. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/cmd/appdirect-mcp/main.go",
-     "contains": "if err := serveStdioWithheld(s); err != nil {",
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_output_mcp.go",
-     "contains": "func withheldMessageLine(line string) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/sinks_test.go",
-     "contains": "func TestMCPProtocolErrorsWithheld(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "network-sinks-withheld",
-   "class": "secret-echo",
-   "summary": "Every request sent anywhere but the pinned AppDirect (feedback --send to APPDIRECT_FEEDBACK_ENDPOINT, the --deliver webhook) passes the chokepoint in its body and goes through cliutil.SendOutbound, which refuses it when its URL or a header repeats a held value and never follows a redirect.",
-   "why": "exchange-online Codex review r1/r2 class outbound-sink-bypasses-chokepoint, carried with the layer. Lines in generated feedback.go and deliver.go re-applied by tools/apply_credential_rules.py. TestEveryNetworkSendPassesTheChokepoint fails on any request site a reprint adds that does not pass the chokepoint (the API client, the session logins to the configured origin and the bodiless doctor probe are reviewed there); TestFeedbackSendWithholdsCredentials and TestNonAPISendersNeverCarryAHeldValue drive the binaries. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/feedback.go",
-     "contains": "body = cliutil.WithholdBytes(body)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/feedback.go",
-     "contains": "resp, err := cliutil.SendOutbound(\"APPDIRECT_FEEDBACK_ENDPOINT\", req.Method, req.URL.String(), req.Header, body, 15*time.Second)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/deliver.go",
-     "contains": "resp, err := cliutil.SendOutbound(\"--deliver webhook URL\", req.Method, req.URL.String(), req.Header, body, 30*time.Second)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_outbound.go",
-     "contains": "if outboundHoldsSecret(u, header) || outboundReassemblesHeld(outboundParts(u, header, body)) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/sinks_test.go",
-     "contains": "func TestEveryNetworkSendPassesTheChokepoint(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/outbound_test.go",
-     "contains": "func TestNonAPISendersNeverCarryAHeldValue(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "startup-output-held-first",
-   "class": "secret-echo",
-   "summary": "The chokepoint is installed before any startup source loads: the CLI's InstallOutputFunnel and the MCP server's InstallStderrFunnel point stdout and stderr at gated filters, then hold the environment, the stored configuration and credential store and the command line, and only then check and deliver what was printed meanwhile (a config refusal that repeats its base_url). The holder covers a base URL's userinfo password and credential-named query values and the file layer an environment value overrode.",
-   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): a refused global credential store's base_url and an unparseable base_url printed their passwords; every config and credential file value is now held when its bytes are read, used or refused (cliutil.HoldTOMLCredentials from parseConfigData, baseURLFromConfigBytes and loadCredentialsWithStatus: three generated one-liners re-applied by tools/apply_credential_rules.py), HoldURLCredentials reads the raw text before parsing, and the chokepoint redacts the password of any URL it sees, held or not (redactURLPasswords). vsphere Codex review r1 class output-before-chokepoint: config.Load printed its untrusted-route refusal (which repeats base_url) straight to stderr before the filter existed, in the CLI and the MCP server. heldStartup (internal/cliutil/appdirect_output.go) drains the startup output before the installer returns so it is never lost when a process exits early. Tests: TestNothingPrintsBeforeTheChokepoint (black-box, CLI and MCP), TestLoadHoldsURLCredentialsAndTheOverriddenFileLayer; prove_bb.sh startup-order, url-holds, file-layer-holds. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/appdirect_output_cli.go",
-     "contains": "restore, outTTY, errTTY, err := cliutil.InstallOutputFunnel(func() {",
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_output_mcp.go",
-     "contains": "if err := cliutil.InstallStderrFunnel(func() {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "func heldStartup(hold func(), streams []startupStream) error {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_hold.go",
-     "contains": "cliutil.HoldURLCredentials(c.BaseURL)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_hold.go",
-     "contains": "holdConfigCredentials(c.fileConfig)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/boundaries_test.go",
-     "contains": "func TestNothingPrintsBeforeTheChokepoint(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_hold_test.go",
-     "contains": "func TestLoadHoldsURLCredentialsAndTheOverriddenFileLayer(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "cliutil.HoldTOMLCredentials(data)",
-     "code_only": true,
-     "min_count": 2
-    },
-    {
-     "file": "cli/internal/cliutil/credentials.go",
-     "contains": "HoldTOMLCredentials(data)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func HoldTOMLCredentials(data []byte) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "text = redactURLPasswords(text)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_hold_test.go",
-     "contains": "func TestLoadHoldsRefusedFileValues(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/config_sources_test.go",
-     "contains": "func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "mcp-held-arguments-refused",
-   "class": "secret-echo",
-   "summary": "The MCP server refuses any tool call whose arguments (credential-named members held and left out) repeat a value it holds, in any form the chokepoint finds, before any tool runs: a mirrored tool's CLI child holds only what it loads itself, so a session id the server minted or a credential a response carried never reaches a child's files.",
-   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): the guard read raw numbers exactly while the mirror formats them as float64, so 1e31 reached the child as a held 32-digit session id; RunCLICommand, the one place the mirror spawns the CLI, now refuses an argv that repeats a held value (one generated line in internal/mcp/cobratree/shellout.go re-applied by tools/apply_credential_rules.py); the raw-argument guard stays. vsphere Codex review r1 class held-value-crosses-process-boundary: teach called over MCP with the server's session id as its notes wrote it to the local store and learnings.jsonl. argumentsRepeatHeld in cmd/appdirect-mcp/appdirect_output_mcp.go (hand file), in the outermost tool middleware. Test: TestMCPChildNeverReceivesAHeldValue (both session ids and two response credentials, whole and split, with a control learning); prove_bb.sh mcp-held-args. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_output_mcp.go",
-     "contains": "if argumentsRepeatHeld(req) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_output_mcp.go",
-     "contains": "func argumentsRepeatHeld(req mcplib.CallToolRequest) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/boundaries_test.go",
-     "contains": "func TestMCPChildNeverReceivesAHeldValue(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if cliutil.HeldEchoes(strings.Join(args, \"\\n\")) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/appdirect_argv_test.go",
-     "contains": "func TestChildArgvNeverRepeatsAHeldValue(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "undecoded-encodings-every-alignment",
-   "class": "secret-echo",
-   "summary": "Every held value of 8 or more characters is matched in base32, base32hex (both cases), ASCII85 and Z85, the encodings the shared funnel does not decode, whole and inside a longer encoded stream at every byte alignment: base32 needles are the characters whose bits lie inside the value at each of the 5 offsets, ASCII85/Z85 needles the whole groups inside it (one group at least).",
-   "why": "Codex r2 (same class, fixed after the stop rule, UNREVIEWED): needles below the funnel's 8-character floor (one ASCII85 group, a short credential) were searched only raw, JSON-unescaped and percent-decoded; shortEchoes now searches every view the funnel's own decoders make (funnelViews, same steps and work budget, fails closed when the budget runs out), and values of 4 to 7 characters get whole-group encodings at every alignment too. vsphere Codex review r1 class undecoded-encoding-gap: an 8-character password's whole base32 form printed unchanged (no aligned 10-byte core existed); the class test found 560 misses across 8- to 14-character values. encodedCores in internal/cliutil/appdirect_output.go; the earlier whole-group cores stay. Test: TestUndecodedEncodingsMatchAtEveryLengthAndAlignment; prove_bb.sh encoded-b32-offsets, encoded-a85-one-group. Ported to appdirect from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "lo, hi := (8*off+4)/5, 8*(off+len(v))/5",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output_test.go",
-     "contains": "func TestUndecodedEncodingsMatchAtEveryLengthAndAlignment(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "if views, complete = funnelViews(text); !complete {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "func funnelViews(text string) (views []string, complete bool) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_views_test.go",
-     "contains": "func TestShortNeedlesSearchedInEveryFunnelView(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "held-forms-in-every-encoding",
-   "class": "secret-echo",
-   "summary": "Before encoding, every held value is expanded to its schemeless and needle forms (a held 'Bearer <token>' also matches the bare token), so base32, base32hex, ASCII85 and Z85 of the bare credential are withheld.",
-   "why": "Codex r1 (4.34.2 reprint) class secret-in-encoded-output: only the whole held string was encoded, so the base32/ASCII85/Z85 of a header token without its scheme printed unchanged. Test: TestSchemePrefixedHeldValueMatchesBareInEveryEncoding. Ported to appdirect from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "forms := append([]string{v, funnelSchemeless(v)}, funnelNeedles([]string{v})...)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output_test.go",
-     "contains": "func TestSchemePrefixedHeldValueMatchesBareInEveryEncoding(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "docs-credential-safety",
    "class": "docs",
    "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
@@ -1169,24 +587,6 @@
     {
      "file": "SKILL.md",
      "not_contains": "cached for five minutes"
-    }
-   ]
-  },
-  {
-   "id": "response-credentials-held",
-   "status": "active",
-   "summary": "Every credential a response carries (the minted access_token included) is held before the body reaches any command, deflate or gzip encoded or not, at any depth.",
-   "why": "Work order credential rule (one holder: minted or refreshed tokens). The pinned transport reads each response under the client's size cap, decodes a copy as the client will, and holds its credential-named values (appdirect_guard.go responseHoldTripper). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/appdirect_guard.go",
-     "contains": "cliutil.HoldCredentialFields(plain)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/appdirect_cred_rules_test.go",
-     "contains": "func TestResponseCredentialsHeld(t *testing.T) {",
-     "code_only": true
     }
    ]
   },
@@ -1242,261 +642,19 @@
    ]
   },
   {
-   "id": "config-file-holds-no-credential",
-   "status": "active",
-   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo and every credential-named or held query value; a credential-named header, or one repeating a configured or environment credential, is left out) and the write is refused when the file still repeats any held value; the legacy scrub writes through the same filter. The 0600 credential store is unchanged.",
-   "why": "Codex r1 class credential-persisted-outside-the-store: `APPDIRECT_BASE_URL='https://marketplace.appdirect.com/api?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/appdirect_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "if err := refuseCredentialInConfigFile(persist, data, c); err != nil {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_persist.go",
-     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_persist.go",
-     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func URLWithoutCredentials(raw string) (clean string, changed bool) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_persist_test.go",
-     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/config_file_test.go",
-     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "every-text-encoding-withheld",
-   "status": "active",
-   "summary": "The chokepoint withholds a held value in every per-byte numeric encoding (quoted-printable with soft breaks, \\x41, 0x41, %u0041, \\u{41}, &#x41;, separated hex pairs, decimal, octal and binary byte lists), decoded as views of the text and of every view the funnel decodes, and in the fixed-alphabet and radix encodings the funnel does not decode (uuencode, xxencode, crypt and bcrypt base64, Crockford and z-base-32 at every alignment; base36, base58 and base62 whole).",
-   "why": "Codex r1 class secret-in-encoded-output: `APPDIRECT_CLIENT_SECRET=ABCDEFGHabcdefgh12345678 appdirect-pp-cli feedback '=41=42...' --agent` kept the quoted-printable secret in stdout and feedback.jsonl. The class is any text encoding the shared funnel does not decode, so families are closed, not names (hand file internal/cliutil/appdirect_encodings.go, one line each in HeldEchoes and encodedCores). TestEveryByteEncodingOfAHeldValueIsWithheld failed on 24 encodings before (seen/r1-encoded-output-seen-failing.log). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "shortEchoes(text, held) || byteEscapeEchoes(text, held)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "out = append(out, alphabetCores(v)...)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "return append(out, radixNeedles(v)...)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_encodings.go",
-     "contains": "func byteEscapeViews(text string) []string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_encodings.go",
-     "contains": "func alphabetCores(v string) []string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_classes_test.go",
-     "contains": "func TestEveryByteEncodingOfAHeldValueIsWithheld(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "outbound-split-parts-refused",
-   "status": "active",
-   "summary": "A non-API request (feedback --send, a --deliver webhook) is refused when any held value can be reassembled from its parts in any order: userinfo, host labels, path segments, query names and values, fragment, header names and values, and the body's string values and words, each also decoded.",
-   "why": "Codex r1 class credential-split-across-outbound-parts: `APPDIRECT_FEEDBACK_ENDPOINT='http://127.0.0.1:9999/?a=<half1>&b=<half2>' feedback test --send` delivered both halves of the client secret: query names interrupted the joined views. Hand file internal/cliutil/appdirect_outbound.go (outboundParts, coveredByParts). TestOutboundRefusesAHeldValueReassembledFromItsParts failed on all 10 shapes before (seen/r1-outbound-split-seen-failing.log). Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_outbound.go",
-     "contains": "outboundReassemblesHeld(outboundParts(u, header, body))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_outbound.go",
-     "contains": "func coveredByParts(h string, parts []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_classes_test.go",
-     "contains": "func TestOutboundRefusesAHeldValueReassembledFromItsParts(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "auth-carrier-names-and-shapes-held",
-   "status": "active",
-   "summary": "The credential-name rule covers the standard auth carriers (Authorization, Proxy-Authorization, the authenticate headers, cookies, sessions, bearer and JWT values, signatures, assertions, SAML, one-time codes); a credential-named value's scheme-stripped and cookie-pair pieces are held; and a value shaped like a credential (Bearer token68, Basic base64 of user:password, a JWT) is held under any name. No AppDirect API field name matches except provisioning key.",
-   "why": "Codex r1 class holder-incomplete: a response member `\"authorization\":\"Bearer X\"` was neither held nor redacted, so X printed in successful output and the store. TestStandardAuthNamesAreCredentialNames and TestResponseCredentialUnderAnyAuthNameIsHeld failed before (seen/r1-holder-auth-names-seen-failing.log); TestNoAppDirectSpecNameReadsAsACredential keeps the rule from redacting AppDirect data. Ported to appdirect from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "|authoriz|authenticat|^auth$|^xauth|cookie|session|bearer|jwt|signature|^sig$|assertion|saml|^otp$|^totp$|^mfa|^pin$|pincode|passcode|verificationcode)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func holdCredentialShapedValue(v string) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func holdCredentialParts(v string) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_classes_test.go",
-     "contains": "func TestResponseCredentialUnderAnyAuthNameIsHeld(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_classes_test.go",
-     "contains": "func TestNoAppDirectSpecNameReadsAsACredential(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "export-file-closed-on-error",
    "status": "active",
-   "summary": "export --output closes its (withholding) output file on every return, including an API error: the open no longer shadows RunE's named err",
+   "summary": "export --output closes its output file (the kit's file writer) on every return, including an API error: the open no longer shadows RunE's named err",
    "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
    "asserts": [
     {
      "file": "cli/internal/cli/export.go",
-     "contains": "f, ferr := cliutil.WithholdingFile(openExportOutput(outputFile))",
+     "contains": "f, ferr := openExportOutput(outputFile)",
      "code_only": true
     },
     {
      "file": "cli/internal/appdirectblackbox/export_test.go",
      "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "derived-credential-parts-held",
-   "status": "active",
-   "summary": "Every held value, from every source, also holds the parts it carries at any length (credentialParts, run by holdEncodedCores): the value after an auth scheme word and, for the value and that part, the id:secret text a base64 pair decodes to and both halves; a credential-named value is read for its shape too",
-   "why": "Codex r1 class holder incomplete for decoded authentication parts: the funnel's needles keep a base64 pair's halves only from eight characters up and credential-named values skipped shape decoding, so a response {\"authorization\":\"Basic dTphYmNkZWY=\",\"name\":\"abcdef\"} redacted the header but printed the six-character password under name. Seen failing: seen/r1-holder-basic-password-seen-failing.log (Codex input), seen/r1-holder-decoded-parts-seen-failing.log (the class: short halves of any held pair). Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "forms = append(forms, credentialParts(v)...)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func credentialParts(v string) []string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "if pair, ok := funnelBase64Pair(c); ok {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "not_contains": "if !secret {"
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_parts_test.go",
-     "contains": "func TestDecodedBasicPasswordIsHeldAtAnyLength(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_r1_parts_test.go",
-     "contains": "func TestHeldPairHalvesAreHeldAtAnyLength(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "output-units-reassembled",
-   "status": "active",
-   "summary": "The output chokepoint (HeldEchoes) withholds a held value that the output's units spell in any order with anything between them (scatteredEchoes, internal/cliutil/appdirect_scattered.go): JSON string values, words, delimiter-separated fields and each unit's decoded forms; any substring of any unit (a unit's tail, head or the whole unit weighing more); every held form including the alignment encodings; no length floor on a part, each part weighed against chance for this output, corrected for repeated parts and the number of ways to cut the value, with order evidence for parts that stand in the value's order",
-   "why": "Codex r1 class credential split across output members: joinedEchoes joined only adjacent values, so APPDIRECT_VENDOR_API_KEY=ABCDEFGH12345678 appdirect-pp-cli feedback '{\"a\":\"ABCDEFGH\",\"gap\":\"x\",\"b\":\"12345678\"}' --json printed the key (stdout and feedback.jsonl). A fixed length floor either missed short parts or, in a 3000-row listing, withheld ordinary output (numbers spelled a short value's hex form), so parts are weighed instead (no false positive on a 20000-row listing even at 22 bits against the 42 required). Parts anywhere inside a unit and split encoded forms were added before round 2 (seen/r1b-substring-parts-seen-failing.log, seen/r1b-encoded-forms-spelled-seen-failing.log). Seen failing: seen/r1-split-across-members-seen-failing.log, seen/r1-split-across-members-feedback-seen-failing.log, seen/r1-split-order-evidence-seen-failing.log; the no-false-positive test seen failing without the corrections: seen/r1-split-no-false-positive-seen-failing.log. Ported to appdirect from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "byteEscapeEchoes(text, held) ||\n\t\tscatteredEchoes(text, held)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "expandedHeld.encoded[core] = true",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered.go",
-     "contains": "func scatteredEchoes(text string, held []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered.go",
-     "contains": "func spelledBits(h string, es []scatterEdge, need float64, order map[string]int) float64 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered.go",
-     "contains": "total := orderBits(path, order) - charge",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered.go",
-     "contains": "need += scatterEncodedExtra",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered.go",
-     "contains": "longest = longestIn(sa, h[p:], max(0, longest-1))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered_test.go",
-     "contains": "func TestHeldValueSplitAcrossUnitsWithGapsIsWithheld(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered_test.go",
-     "contains": "func TestHeldValueSplitIntoShortPartsIsWithheld(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_scattered_test.go",
-     "contains": "func TestScatteredCheckLeavesOrdinaryOutputAlone(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/appdirectblackbox/appdirect_r1_split_test.go",
-     "contains": "func TestFeedbackSplitAcrossMembersWithheld(t *testing.T) {",
      "code_only": true
     }
    ]
@@ -1525,113 +683,6 @@
     {
      "file": "cli/internal/cli/appdirect_dryrun_writes_test.go",
      "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "journal-entry-withheld-as-written",
-   "status": "active",
-   "summary": "The learn journal writes no entry that repeats a held value, checked on the line as written (after the writer fills the session key and learn context); APPDIRECT_LEARN_SESSION is a grouping key, not held as a credential",
-   "why": "Codex r1 class credential persisted in journal: the journal writer filled session_key after the entry passed the chokepoint, so APPDIRECT_LEARN_SESSION equal to the bearer token was written verbatim. Held by name (it reads as a session credential), every entry would have been dropped. TestJournalNeverWritesAHeldSessionKey seen failing (seen/r1-credential-persisted-in-journal-seen-failing.log). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/learn/journal.go",
-     "contains": "if line, err := json.Marshal(entry); err != nil || cliutil.HeldEchoes(string(line)) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "var publicEnvVars = map[string]bool{\"APPDIRECT_LEARN_SESSION\": true}",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/learn/appdirect_review_r1_test.go",
-     "contains": "func TestJournalNeverWritesAHeldSessionKey(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "base85-family-withheld",
-   "status": "active",
-   "summary": "Every held value is matched in the whole base85 family by alphabet (Ascii85, Z85, RFC 1924), at every alignment and as a whole short value",
-   "why": "Codex r1 class secret in encoded output: Python's base64.b85encode (RFC 1924) of a held secret printed unchanged beside the matched Ascii85 and Z85. TestRFC1924Base85OfAHeldValueIsWithheld seen failing (seen/r1-secret-in-encoded-output-seen-failing.log). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "base85Alphabets = []string{ascii85Alphabet(), z85Alphabet, rfc1924Alphabet}",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_review_r1_test.go",
-     "contains": "func TestRFC1924Base85OfAHeldValueIsWithheld(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "short-held-values-matched-anywhere",
-   "status": "active",
-   "summary": "A held value of any length is matched anywhere (substring) in the text and every decoded view, with its whole-value encodings and its per-byte escape runs of any length; the public (id) half of a decoded base64 pair is held only from shortMinLen",
-   "why": "Codex r1 class short credential in output: a held value under four characters was matched only where it stood alone, so `APPDIRECT_CLIENT_SECRET=abc ... feedback prefixabcsuffix` printed it. Fail closed: a credential that short withholds most text that repeats it. The one-letter user name of a Basic pair would withhold nearly everything, so the public half keeps the floor. TestVeryShortHeldValueIsWithheldInsideText seen failing (seen/r1-short-credential-in-output-seen-failing.log). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "if v == \"\" || len(v) >= heldMatchFloor {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "not_contains": "slices.Contains(viewWords, h)"
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_encodings.go",
-     "contains": "shortRuns    = newByteRuns(1)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "if len(strings.TrimSpace(id)) >= shortMinLen {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_review_r1_test.go",
-     "contains": "func TestVeryShortHeldValueIsWithheldInsideText(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "output-split-across-deliveries",
-   "status": "active",
-   "summary": "Every streaming delivery (CLI stdout and stderr bursts, file sinks, every MCP protocol message on stdio and HTTP) is checked after the tail of what the process already delivered (DeliverChecked): the delivery that completes a held value is withheld (an MCP message becomes the withheld error for its request)",
-   "why": "Codex r1 class credential split across protocol messages: two unknown-tool errors each repeated half of the token and each was filtered alone, so the client received it whole. TestTokenSplitAcrossProtocolMessagesIsWithheld and TestHeldValueSplitAcrossDeliveriesIsWithheld seen failing (seen/r1-credential-split-across-protocol-messages- and r1-credential-split-across-deliveries-seen-failing.log). Ported to appdirect from the action1 4.34.2 reprint (one credential layer across the fleet).",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "func DeliverChecked(text string, withheld func() string) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "DeliverChecked(string(WithholdBytes(f.pending))",
-     "code_only": true,
-     "min_count": 1
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_output_mcp.go",
-     "contains": "line := deliveredMessageLine(string(m.buf[:i]))",
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/appdirect-mcp/appdirect_review_r1_test.go",
-     "contains": "func TestTokenSplitAcrossProtocolMessagesIsWithheld(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_review_r1_test.go",
-     "contains": "func TestHeldValueSplitAcrossDeliveriesIsWithheld(t *testing.T) {",
      "code_only": true
     }
    ]
@@ -1903,189 +954,6 @@
    ]
   },
   {
-   "id": "config-check-reads-back-every-shape",
-   "status": "active",
-   "summary": "The last check before config.toml is written reads back the exact bytes whatever shape produced them (an agentcookie-managed save marshals the whole configuration) and refuses a file that repeats a held value or the configuration's credentials in any form; every header is judged by name, by credential shape and by the output chokepoint's full matcher (cliutil.EchoesValues), so a header holding a credential's base32 is left out. Under agentcookie a minted token stays in process memory.",
-   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class credential-persisted-outside-the-store: with .agentcookie-managed beside config.toml, `printf 'NewBearer-739182' | auth set-token` wrote the bearer into config.toml (the check returned early for any shape but the credential-free one), and a header holding the base32 of the token was kept (the salesbuildr round-2 repeat of this class), and the legacy-config scrub wrote a migrated legacy file with no last check at all (seen/r1-legacy-scrub-seen-failing.log). The generated TestAgentcookieMarkerKeepsCredentialsInConfig asserted the old behavior and now asserts the refusal (tools/apply_credential_rules.py). Seen failing: seen/r1-credential-persisted-outside-the-store-seen-failing.log.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/appdirect_persist.go",
-     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_persist.go",
-     "contains": "func headerHoldsCredential(name, value string, creds []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_persist.go",
-     "contains": "if err := toml.Unmarshal(data, &doc); err != nil {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "func EchoesValues(text string, values []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "contains": "func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "not_contains": "func TestAgentcookieMarkerKeepsCredentialsInConfig("
-    },
-    {
-     "file": "cli/internal/client/appdirect_tokens.go",
-     "contains": "if c.Config.AgentcookieManagedByExternalStore() {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_codex_r1_test.go",
-     "contains": "func TestR1AgentcookieSaveNeverWritesACredential(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_codex_r1_test.go",
-     "contains": "func TestR1HeaderNeverCarriesAnEncodedCredential(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "if refuseCredentialInConfigFile(scrubbed, scrubbedData, c) != nil {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/appdirect_codex_r1_test.go",
-     "contains": "func TestR1LegacyScrubNeverWritesACredential(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "holder-holds-every-credential-part",
-   "status": "active",
-   "summary": "The holder holds every part of a credential at any length (each value of a cookie or parameter list under a credential name), a number under a credential name (a one-time code, a PIN; a measure name such as total_tokens or passwordMinLength excepted) held and redacted, and the credentials any string or non-JSON body carries under any name: a URL's userinfo password and credential-named query values, a credential-named name=value or 'Name: value', a credential-named XML element (CDATA included) or attribute, an auth-scheme value or JWT anywhere, and JSON that starts inside it.",
-   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class holder-incomplete: a response {\"cookie\":\"sid=pQ7\",\"name\":\"pQ7\"} redacted the cookie and printed its 3-character value (parameter-list parts under shortMinLen were not held); {\"otp\":736251} was printed (numbers were neither held nor redacted); a non-JSON body (AppDirect documents XML responses) held nothing. Seen failing: seen/r1-cliutil-classes-seen-failing.log, seen/r1-holder-every-body-encoding-seen-failing.log.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func holdEmbeddedCredentials(s string) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func holdNumber(v any) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func numericMeasureName(name string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "if val = strings.Trim(strings.TrimSpace(val), `\"`); val != \"\" && !isMaskValue(val) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "case float64, json.Number, int, int64, uint64:",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "func redactNumericSecretMembers(text string) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "func holdMarkupCredentials(s string) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "|^pin$|pincode|passcode|verificationcode)`)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_secrets.go",
-     "contains": "holdEmbeddedCredentials(string(body))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_codex_r1_test.go",
-     "contains": "func TestR1HolderHoldsEveryCredentialPart(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_codex_r1_test.go",
-     "contains": "func TestR1HolderReadsEveryBodyEncoding(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "decoded-forms-withheld",
-   "status": "active",
-   "summary": "The output chokepoint matches by decoding, not by enumerated spellings: every hex-digit run is a byte in decimal, hex, octal or binary whatever separates the runs (byteTokenEchoes); a held value under eight characters is searched in every run of each 4-, 5- and 6-bit alphabet decoded at all eight bit alignments, base85 at all five group alignments and radix runs as one number (shortAlphabetEchoes); a held number is matched as its value in any notation (numericEchoes). The byte-escape pre-check counts hex digits (a superset of what its decoders read). The funnel's needles are cached per held list.",
-   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class secret-in-encoded-output: with {\"password\":\"zzzz\"} held, {\"name\":\"7a:7a:7a:7a\"} printed it (the pre-check counted eight decimal digits); byte lists with wider gaps than [ \\t,:;|.-]{1,3}, a short value in uuencode, Crockford or base58 at any alignment, and 7.36251e5 for a held 736251 were printed. Seen failing: seen/r1-cliutil-classes-seen-failing.log.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "func byteTokenEchoes(text string, held []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "func shortAlphabetEchoes(text string, short []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "func numericEchoes(text string, numeric []string) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_decoded.go",
-     "contains": "func bitAlignedEchoes(run []byte, a *decodeAlphabet, found func([]byte) bool) bool {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "return echoesForms(text, heldValues())",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_output.go",
-     "contains": "func cachedFunnelNeedles(held []string) []string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_encodings.go",
-     "contains": "if isHexDigit(text[i]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_codex_r1_test.go",
-     "contains": "func TestR1ByteListsWithAnySeparator(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_codex_r1_test.go",
-     "contains": "func TestR1ShortHeldValueInEveryAlphabet(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/appdirect_codex_r1_test.go",
-     "contains": "func TestR1NumericCredentialInEveryNumberForm(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "store-partition-follows-path",
    "status": "active",
    "summary": "Local reads and the automatic write-through use the store partition sync fills for the endpoint the request path is (the most specific pp:path template in the command tree that matches it: a synced collection, or one {parameter} record under it), never the command group's label; a literal child of a synced collection is another endpoint; a path no partition is synced from is never read locally, cached or used as a network fallback; a mutation response is never cached.",
@@ -2320,6 +1188,422 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit is wired by hand: internal/credwire/declarations.go carries the one credkit.Declarations literal, credkit.Start is the first statement of both mains and credkit.Exit ends them, and every sink passes the kit: stdout and stderr, files (cache, response cache, learn journal and teach log, jobs ledger, export, deliver, feedback, profiles), SQLite through internal/kitsql, MCP (MCPIn, MCPOut, MCPHTTP, MCPTools), the HTTP transport (cliutil.OutboundGuard, which production never reassigns), child processes and credkit.Terminal.",
+   "why": "The connector's own credential layer (ported from action1) closed one shape per review and the next review found the next one. The kit holds every part of every declared credential at startup and checks every sink, so the shape stops mattering; the 23 entries of that layer are retired (.review/handfix-reconciliation.json). A reprint rewrites the generated mains and sinks: these asserts make that fail instead of silently dropping the routing. The 0600 credential store and config.toml are credential sources, listed in Declarations.Files, and their writes stay outside the kit by contract. internal/credwire/kit_classes_test.go drives the built binaries through the classes the kit closes here (credential-sent-to-other-host, credential-persisted-outside-store, holder-incomplete in its declared-source forms, secret-in-encoded-output).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-cli/main.go",
+     "contains": "credwire.Started()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credwire.Started()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credkit.MCPHTTP(server.NewStreamableHTTPServer(s))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kitsql/kitsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(&sqlite.Driver{}))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(kitsql.Driver, dsn)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(kitsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.NewWriter(tmp, credkit.SinkFile).Write(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_outbound.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "c.Transport = OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "Transport: cliutil.OutboundGuard(tr)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = cliutil.OutboundGuard(cloned)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/appdirect_tokens.go",
+     "contains": "credkit.Hold(\"minted:oauth\", access)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "credkit.Hold(\"minted:oauth\", accessToken, refreshToken, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/appdirect_guard.go",
+     "contains": "inner = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "return credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "return credkit.NewWriter(f, credkit.SinkFile), nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "return credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "json.NewEncoder(credkit.NewWriter(f, credkit.SinkFile))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.AppendFile(p, ",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, ",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_classes_test.go",
+     "contains": "func TestKitDeclaredCredentialsWithSpacesAndShortBearerAreHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_classes_test.go",
+     "contains": "func TestKitLongNumericSpellingOfAHeldNumberIsWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-exit-delivers-stderr",
+   "class": "lost-diagnostic",
+   "status": "active",
+   "summary": "Every exit of the MCP server is credkit.Exit, flag parsing included (flag.ContinueOnError: -h exits 0 with the usage, a bad flag exits 2 naming it), so what it printed reaches stderr before the process ends.",
+   "why": "os.Exit ended the MCP server before the kit's stderr pipe flushed, so --transport http without APPDIRECT_MCP_HTTP_TOKEN exited 1 with an empty stderr, and -h and a bad flag printed nothing (.review/seen/mcp-exit-delivers-stderr-before.log). TestKitMCPExitDeliversItsMessage runs the built binary.",
+   "asserts": [
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "if errors.Is(err, flag.ErrHelp) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credkit.Exit(2)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "contains": "credkit.Exit(0)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/cmd/appdirect-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/internal/credwire/kit_classes_test.go",
+     "contains": "func TestKitMCPExitDeliversItsMessage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "blank-base-url-is-unset",
+   "class": "credential-sent-to-other-host",
+   "status": "active",
+   "summary": "A blank APPDIRECT_BASE_URL names no marketplace: Load trims it, so the configured tenant stands, and the base URL the kit binds every credential to is the one Load will use (credwire.credentialFiles pins it from config.StartupBaseURL during credkit.Start; Started restores the environment).",
+   "why": "Codex r2 class credential-sent-to-other-host: APPDIRECT_BASE_URL=' ' over a 0600 config naming a tenant sent the client pair toward AppDirect's own marketplace token URL (.review/seen/credential-sent-to-other-host-before.log). TestKitBlankBaseURLNeverSendsThePairToTheDefaultMarketplace runs the built binary behind a recording proxy.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if v := strings.TrimSpace(cliutil.EnvOverride(\"APPDIRECT_BASE_URL\")); v != \"\" {",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if v := strings.TrimSpace(cliutil.EnvOverride(\"APPDIRECT_TOKEN_URL\")); v != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_kit.go",
+     "contains": "func StartupBaseURL(configFlag string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "base := config.StartupBaseURL(configFlag)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "pinnedBase = os.Setenv(baseURLEnv, base) == nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_classes_test.go",
+     "contains": "func TestKitBlankBaseURLNeverSendsThePairToTheDefaultMarketplace(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-rewrite-keeps-file-values",
+   "class": "credential-persisted-outside-store",
+   "status": "active",
+   "summary": "A config.toml rewrite records an environment base URL or token URL as its marketplace only (urlWithoutCredential drops the user name, password, query and fragment), so a stored token stays bound to that marketplace and no URL credential lands in the file; a save that changes nothing in config.toml does not rewrite it.",
+   "why": "Codex r2 class credential-persisted-outside-store: auth set-token rewrote config.toml with APPDIRECT_BASE_URL's query credential, which a [headers] value repeated (.review/seen/credential-persisted-outside-store-before.log). config.toml is a credential source, so its writes stay outside the kit by contract and the connector keeps them clean. Recording the marketplace (not the file's old value) keeps minted-token-bound-to-its-client true: TestStoredTokenOfAnotherClientIsNeverSent.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"BaseURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"TokenURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = urlWithoutCredential(c.BaseURL, c.fileConfig.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.TokenURL = urlWithoutCredential(c.TokenURL, c.fileConfig.TokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if configFileDiffers(c.Path, data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_kit.go",
+     "contains": "func urlWithoutCredential(raw, fallback string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_kit.go",
+     "contains": "func configFileDiffers(path string, data []byte) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_codex_r1_test.go",
+     "contains": "func TestURLWithoutCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/kit_classes_test.go",
+     "contains": "func TestKitConfigHeaderRepeatingAURLCredentialIsNotWrittenBack(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "agentcookie-config-holds-no-credential",
+   "class": "credential-persisted-outside-store",
+   "status": "active",
+   "summary": "config.toml is never the credential store, an agentcookie-managed one included: a save that would write a credential field into it is refused (ErrConfigHoldsCredential), and under agentcookie a minted token stays in process memory.",
+   "why": "The generated agentcookie path marshals the whole configuration, the client pair and tokens included, into config.toml. Kept from config-check-reads-back-every-shape when the rest of that entry was retired for the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.AgentcookieManagedByExternalStore() && persisted.hasCredentialFields() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_kit.go",
+     "contains": "var ErrConfigHoldsCredential = errors.New(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/appdirect_tokens.go",
+     "contains": "if c.Config.AgentcookieManagedByExternalStore() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/appdirect_codex_r1_test.go",
+     "contains": "func TestR1AgentcookieSaveNeverWritesACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "func TestAgentcookieMarkerKeepsCredentialsInConfig("
     }
    ]
   }

@@ -5,7 +5,6 @@
 package platform
 
 import (
-	"appdirect-pp-cli/internal/cliutil"
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
@@ -21,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"appdirect-pp-cli/internal/credkit"
 )
 
 const ProfileSchemaVersion = 1
@@ -297,7 +298,6 @@ func DeleteProfile(name string) error {
 }
 
 func writePrivateFile(path string, data []byte) error {
-	data = cliutil.WithholdBytes(data) // appdirect handfix: output-chokepoint (file sink)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -315,7 +315,7 @@ func writePrivateFile(path string, data []byte) error {
 		_ = tmp.Close()
 		return err
 	}
-	if _, err := tmp.Write(data); err != nil {
+	if _, err := credkit.NewWriter(tmp, credkit.SinkFile).Write(data); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		_ = tmp.Close()
 		return err
 	}

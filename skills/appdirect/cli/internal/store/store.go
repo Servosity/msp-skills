@@ -28,6 +28,7 @@ import (
 	"unicode/utf8"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/kitsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -217,7 +218,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open(WithholdingSQLiteDriver, dsn) // appdirect handfix: store-never-keeps-secrets (every SQL write)
+	db, err := sql.Open(kitsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring): every statement of the read-write store passes the kit
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -2250,7 +2251,6 @@ func (s *Store) mergeIncomingResourceDataRaw(tx *sql.Tx, resourceType, id string
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
-	id = storedID(id) // appdirect handfix: store-never-keeps-secrets
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -5078,10 +5078,6 @@ func scalarIDString(value any) string {
 }
 
 func resourceStorageID(resourceType, id string, obj map[string]any) string {
-	return storedID(resourceStorageIDRaw(resourceType, id, obj)) // appdirect handfix: store-never-keeps-secrets
-}
-
-func resourceStorageIDRaw(resourceType, id string, obj map[string]any) string {
 	for _, parentKey := range resourceParentKeyColumns[resourceType] {
 		parentValue := ResourceIDString(lookupFieldValue(obj, parentKey))
 		if parentValue != "" && parentValue != "<nil>" {

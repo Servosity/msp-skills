@@ -118,7 +118,7 @@ func TestStoreOfAnotherMarketplaceIsNeverAdopted(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			switch {
 			case r.Method == http.MethodPost && r.URL.Path == "/oauth2/token":
-				_, _ = io.WriteString(w, `{"access_token":"scope-minted-`+tag+`-4d2a","expires_in":3600}`)
+				_, _ = io.WriteString(w, `{"access_token":"Mt`+tag[len(tag)-1:]+`-k3Vq8Zp2Wx","expires_in":3600}`)
 			case r.URL.Path == "/api/billing/v1/subscriptions" && r.URL.Query().Get("start") == "0":
 				_, _ = io.WriteString(w, `[{"id":"sub-`+tag+`","status":"ACTIVE","creationDate":1760000000000,"company":{"id":"co-`+tag+`","name":"Company-`+tag+`"}}]`)
 			default:
@@ -149,13 +149,13 @@ func TestStoreOfAnotherMarketplaceIsNeverAdopted(t *testing.T) {
 		return out.String()
 	}
 	t.Setenv("APPDIRECT_BASE_URL", a.URL+"/api")
-	run("scope-pasted-token-MarketA-0123456789\n", "auth", "set-token")
+	run("pTk-Zq81vLw0Yh3Nc6Rb\n", "auth", "set-token")
 	if out := run("", "sync", "--resources", "billing-v1-subscriptions", "--json"); !strings.Contains(out, `"total_records": 1`) {
 		t.Fatalf("marketplace A's sync stored nothing; the test did not run:\n%s", out)
 	}
 	t.Setenv("APPDIRECT_BASE_URL", b.URL+"/api")
-	t.Setenv("APPDIRECT_CLIENT_ID", "scope-client-MarketB")
-	t.Setenv("APPDIRECT_CLIENT_SECRET", "scope-secret-MarketB-7c3e")
+	t.Setenv("APPDIRECT_CLIENT_ID", "cid-Wv6Ty3Pq")
+	t.Setenv("APPDIRECT_CLIENT_SECRET", "Sct-Bn4Rk7Vd2Qe")
 	if out := run("", "subs", "changed", "--since", "3650d", "--json"); strings.Contains(out, "sub-MarketA") {
 		t.Errorf("marketplace B's view reads marketplace A's synced subscription (A's store was adopted into B's):\n%s", out)
 	}

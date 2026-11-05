@@ -17,10 +17,14 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"appdirect-pp-cli/internal/cli"
+	"appdirect-pp-cli/internal/credkit"
+	"appdirect-pp-cli/internal/credwire"
 	mcptools "appdirect-pp-cli/internal/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -57,58 +61,72 @@ const httpAllowedOriginsEnvVar = "APPDIRECT_MCP_HTTP_ALLOWED_ORIGINS"
 var version = "0.0.0-dev"
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the kit holds every startup credential and owns stdout and stderr before anything else runs.
+	credkit.Start(credwire.Declarations)
+	credwire.Started()
 	// Pin the learn-event surface for this process and every walker
 	// shell-out child, so usage events record surface=mcp.
 	_ = os.Setenv("APPDIRECT_LEARN_SURFACE", "mcp")
 	if err := cli.BindMCPServerProfile(); err != nil {
 		fmt.Fprintf(os.Stderr, "MCP client-profile bind failed: %v\n", err)
-		os.Exit(1)
+		credkit.Exit(1)
 	}
 	s := server.NewMCPServer(
 		"AppDirect",
 		version,
-		// Hand-fix (handfixes.json secret-echo-decoded-funnel): outermost, so every error result passes the funnel.
-		server.WithToolHandlerMiddleware(withholdToolResults), // appdirect handfix: output-chokepoint (every result, outermost)
-		server.WithToolHandlerMiddleware(funnelToolErrors),
+		// Hand-fix (handfixes.json credkit-wiring): every tool result and error is one checked MCP message.
+		server.WithToolHandlerMiddleware(credkit.MCPTools),
 		server.WithToolCapabilities(false),
 	)
 
 	mcptools.RegisterTools(s)
 
+	// Hand-fix (handfixes.json mcp-exit-delivers-stderr): flag parsing exits through the kit too,
+	// so -h delivers its usage (exit 0) and a bad flag its error (exit 2).
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
 	transport := flag.String("transport", defaultTransport(), "MCP transport: stdio | http")
 	addr := flag.String("addr", defaultHTTPAddr, "bind address for http transport (host:port or :port)")
 	tlsCert := flag.String("tls-cert", "", "TLS certificate file; required with --tls-key for any non-loopback --addr")
 	tlsKey := flag.String("tls-key", "", "TLS private key file; required with --tls-cert for any non-loopback --addr")
-	flag.Parse()
+	// A copy: the parser is handed no slice of os.Args, which the kit read at Start.
+	if err := flag.CommandLine.Parse(append([]string(nil), os.Args[1:]...)); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			credkit.Exit(0)
+		}
+		credkit.Exit(2)
+	}
 
 	switch strings.ToLower(*transport) {
 	case "stdio":
-		if err := serveStdioWithheld(s); err != nil { // appdirect handfix: output-chokepoint (every MCP message, stdio)
+		// Hand-fix (handfixes.json credkit-wiring): each frame's declared arguments are held on the way in, each frame checked on the way out.
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut()); err != nil && !errors.Is(err, context.Canceled) {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			credkit.Exit(1)
 		}
 	case "http":
 		token, err := requireHTTPCallerToken()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			credkit.Exit(1)
 		}
 		allowedOrigins, err := loadAllowedHTTPOrigins()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			credkit.Exit(1)
 		}
 		bindAddr, loopback := classifyHTTPBind(*addr)
 		if err := requireTLSForNonLoopback(*addr, loopback, *tlsCert, *tlsKey); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			credkit.Exit(1)
 		}
 		if (*tlsCert != "") != (*tlsKey != "") {
 			fmt.Fprintf(os.Stderr, "MCP server error: both --tls-cert and --tls-key are required for TLS\n")
-			os.Exit(1)
+			credkit.Exit(1)
 		}
-		inner := server.NewStreamableHTTPServer(s)
-		httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuthWithOrigins(token, allowedOrigins, withheldHTTP(inner))) // appdirect handfix: output-chokepoint (every MCP message, HTTP)
+		// Hand-fix (handfixes.json credkit-wiring): every byte of an authenticated answer leaves through the kit.
+		httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuthWithOrigins(token, allowedOrigins, credkit.MCPHTTP(server.NewStreamableHTTPServer(s))))
 		fmt.Fprintf(os.Stderr, "appdirect-mcp serving MCP over streamable HTTP at %s (Authorization: Bearer $%s)\n", bindAddr, httpTokenEnvVar)
 		if *tlsCert != "" {
 			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
@@ -117,12 +135,13 @@ func main() {
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			credkit.Exit(1)
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "unknown --transport %q (supported: stdio, http)\n", *transport)
-		os.Exit(2)
+		credkit.Exit(2)
 	}
+	credkit.Exit(0)
 }
 
 // defaultTransport reads PP_MCP_TRANSPORT env when set, otherwise falls back

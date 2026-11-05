@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"appdirect-pp-cli/internal/kitsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -105,7 +106,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		return errors.New("legacy database must differ from the profile-scoped destination")
 	}
 	if state.Database.Status == "backed_up" {
-		target, err := sql.Open("sqlite", readOnlySQLiteDSN(targetPath))
+		target, err := sql.Open(kitsql.Driver, readOnlySQLiteDSN(targetPath))
 		if err != nil {
 			return fmt.Errorf("open existing migration destination: %w", err)
 		}
@@ -119,7 +120,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		return nil
 	}
 
-	source, err := sql.Open("sqlite", readOnlySQLiteDSN(sourcePath))
+	source, err := sql.Open(kitsql.Driver, readOnlySQLiteDSN(sourcePath))
 	if err != nil {
 		markLegacyDatabaseQuarantined(state)
 		return nil
@@ -135,7 +136,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 	}
 
 	if _, err := os.Lstat(targetPath); err == nil {
-		target, openErr := sql.Open("sqlite", readOnlySQLiteDSN(targetPath))
+		target, openErr := sql.Open(kitsql.Driver, readOnlySQLiteDSN(targetPath))
 		if openErr != nil {
 			return fmt.Errorf("open existing migration destination: %w", openErr)
 		}
@@ -163,7 +164,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		_ = os.Remove(targetPath)
 		return fmt.Errorf("secure migrated database: %w", err)
 	}
-	target, err := sql.Open("sqlite", targetPath)
+	target, err := sql.Open(kitsql.Driver, targetPath)
 	if err != nil {
 		_ = os.Remove(targetPath)
 		return fmt.Errorf("open migrated database: %w", err)

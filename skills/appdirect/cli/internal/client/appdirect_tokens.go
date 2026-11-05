@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"appdirect-pp-cli/internal/config"
+	"appdirect-pp-cli/internal/credkit"
 )
 
 type processToken struct {
@@ -87,6 +88,7 @@ func (c *Client) tokenBinding() (mint bool, decided bool) {
 // config.toml, which is never a credential store (config-file-holds-no-
 // credential refuses that save), so its token stays in this process too.
 func (c *Client) keepMintedToken(clientID, clientSecret, access string, expiry time.Time) error {
+	credkit.Hold("minted:oauth", access) // Hand-fix (handfixes.json credkit-wiring): a minted token is held before it is used.
 	processTokens.Store(pairKey(clientID, clientSecret, ResolveAppDirectTokenURL(c.Config)), processToken{access: access, expiry: expiry})
 	c.Config.AuthHeaderVal = "" // force AuthHeader() to use the new AccessToken path
 	if c.Config.AgentcookieManagedByExternalStore() {

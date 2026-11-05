@@ -19,6 +19,7 @@ import (
 
 	"appdirect-pp-cli/internal/client"
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 )
 
 // JobRow is one entry in the local jobs ledger. Rows are appended as NDJSON
@@ -66,12 +67,12 @@ func RecordJob(row JobRow) error {
 		row.SubmittedAt = time.Now().UTC()
 	}
 	row.UpdatedAt = time.Now().UTC()
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	line, err := json.Marshal(row)
 	if err != nil {
-		return fmt.Errorf("opening jobs ledger: %w", err)
+		return err
 	}
-	defer f.Close()
-	return json.NewEncoder(cliutil.WithheldWriter(f)).Encode(row) // appdirect handfix: output-chokepoint (file sink)
+	// Hand-fix (handfixes.json credkit-wiring): a ledger row that repeats a held credential is withheld at the write point.
+	return credkit.AppendFile(p, append(line, '\n'), 0o600)
 }
 
 func readJobRows() ([]JobRow, error) {
@@ -240,7 +241,7 @@ func asyncJobPendingErr(cmd *cobra.Command, flags *rootFlags, jobID, recoveryCom
 			"job_id":           jobID,
 			"status":           "pending",
 			"recovery_command": recoveryCommand,
-			"error":            funnelShownError(err),
+			"error":            err.Error(),
 			"code":             ExitJobPending,
 		})
 	}
@@ -409,7 +410,7 @@ func newJobsPruneCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening tmp ledger: %w", err)
 			}
-			enc := json.NewEncoder(cliutil.WithheldWriter(f)) // appdirect handfix: output-chokepoint (file sink)
+			enc := json.NewEncoder(credkit.NewWriter(f, credkit.SinkFile)) // Hand-fix (handfixes.json credkit-wiring)
 			for _, r := range kept {
 				if err := enc.Encode(r); err != nil {
 					_ = f.Close()

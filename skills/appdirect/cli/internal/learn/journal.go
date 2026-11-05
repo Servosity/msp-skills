@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 )
 
 // The invocation journal records one entry per CLI invocation in dated
@@ -237,12 +238,6 @@ func JournalInvocation(entry JournalEntry) {
 	if entry.QueryFamily == "" && len(entry.UnresolvedEntities) == 0 {
 		entry.QueryFamily, entry.UnresolvedEntities = takeJournalLearnContext()
 	}
-	if entry.SessionKey == "" { // appdirect handfix: output-chokepoint (file sink: the entry as written, with its session key and learn context)
-		entry.SessionKey = JournalSessionKey()
-	}
-	if line, err := json.Marshal(entry); err != nil || cliutil.HeldEchoes(string(line)) {
-		return // an entry that would repeat a credential is not journaled
-	}
 	if err := AppendJournalEntry(entry); err != nil {
 		journalWarnOnce.Do(func() {
 			fmt.Fprintf(os.Stderr, "warning: learn journal write skipped: %v\n", err)
@@ -277,16 +272,9 @@ func AppendJournalEntry(entry JournalEntry) error {
 	if err := repairJournalSegmentTail(p); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- path derived from state dir
-	if err != nil {
-		return fmt.Errorf("journal: open %s: %w", p, err)
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
+	// Hand-fix (handfixes.json credkit-wiring): checked whole at the write point, after every field is filled. A withheld entry leaves the kit's notice, which the reader skips.
+	if err := credkit.AppendFile(p, append(line, '\n'), 0o600); err != nil {
 		return fmt.Errorf("journal: write: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("journal: close: %w", err)
 	}
 	// Best-effort: retention failures never fail the append (the
 	// entry is already durable).
@@ -295,7 +283,7 @@ func AppendJournalEntry(entry JournalEntry) error {
 }
 
 func repairJournalSegmentTail(p string) error {
-	f, err := os.OpenFile(p, os.O_RDWR|os.O_APPEND, 0o600) // #nosec G304 -- path derived from state dir
+	f, err := os.Open(p) // #nosec G304 -- path derived from state dir
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -321,7 +309,7 @@ func repairJournalSegmentTail(p string) error {
 	if last[0] == '\n' {
 		return nil
 	}
-	if _, err := f.Write([]byte{'\n'}); err != nil {
+	if err := credkit.AppendFile(p, []byte{'\n'}, 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring): the kit tracks what it appends; a write beside it makes the file unknown.
 		return fmt.Errorf("journal: repair tail %s: %w", p, err)
 	}
 	return nil

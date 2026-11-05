@@ -748,7 +748,7 @@ func TestConcurrentCredentialWritersLeaveParseableCredentials(t *testing.T) {
 		t.Fatalf("credential value = %q, want one complete writer", got)
 	}
 }
-func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) { // appdirect handfix: config-file-holds-no-credential (agentcookie too)
+func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) { // appdirect handfix: agentcookie-config-holds-no-credential
 	_, configPath := resetCredentialEnv(t)
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatalf("mkdir config: %v", err)

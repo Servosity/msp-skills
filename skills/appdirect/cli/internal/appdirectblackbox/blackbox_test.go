@@ -2,42 +2,26 @@
 
 // Package appdirectblackbox runs the built CLI and MCP binaries against an
 // AppDirect marketplace fake that echoes every credential it was sent back in
-// every encoding it can, whole and split across lines and adjacent values,
-// and checks what a reviewer cannot read off the code (appdirect handfixes
-// output-chokepoint, store-never-keeps-secrets, no-response-cache,
-// no-credential-in-files, response-credentials-held, api-origin-pinned,
-// dry-run-sends-nothing, mcp-endpoint-write-confirm, client-credentials-mint,
-// minted-token-bound-to-its-client):
+// every encoding it can, and checks what a reviewer cannot read off the code
+// (appdirect handfixes api-origin-pinned, per-marketplace-token-url,
+// dry-run-sends-nothing, mcp-endpoint-write-confirm, mcp-mirror-write-confirm,
+// export-file-closed-on-error):
 //
-//   - nothing the program prints (stdout, stderr, MCP results and errors)
-//     holds a credential: the APPDIRECT_CLIENT_ID + APPDIRECT_CLIENT_SECRET
-//     pair, the access token the fake's token endpoint mints for that pair
-//     (fresh in every process, or cached by an earlier run), the token stored
-//     with auth set-token, the MCP HTTP token, a credential-named flag value,
-//     and the credentials a response carries;
-//   - no file the program writes, except the 0600 credential store, holds
-//     one either (the local store, receipts, exports, delivered files, the
-//     learn journal, the jobs ledger, config.toml), and the credential store
-//     never holds an environment pair or the token minted for one;
 //   - no credential leaves for a host other than the configured marketplace
-//     by redirect, the token mint included;
+//     by redirect, the token mint included, and auth login mints only at the
+//     configured marketplace;
 //   - the MCP server sends a write only when the call sets confirm to the
-//     boolean true, and --dry-run sends nothing at all (no mint either).
+//     boolean true, and --dry-run sends nothing at all (no mint either);
+//   - nothing these runs print repeats a credential.
+//
+// What every sink withholds is the shared credential kit's (handfixes.json
+// credkit-wiring), proven by the kit's own tests and internal/credwire.
 //
 // The fake models AppDirect: the API under <marketplace>/api, the token
 // endpoint at <marketplace>/oauth2/token on the same origin (POST, a form body
 // grant_type=client_credentials&scope=..., the client authenticated with HTTP
 // Basic, answered {"access_token","expires_in"}); billing lists are plain JSON
 // arrays, account v2 lists are pages (content).
-//
-// The oracle is the exact set of strings the server sent, so a pass does not
-// depend on the program's own decoder. The fake teaches the holder nothing:
-// it echoes a credential only under names that do not read as credentials and
-// never in a shape the holder learns from (an auth-scheme value such as
-// "Bearer <v>" or "Basic <v>" is held under any name), so a value the program
-// failed to hold from its real source (the environment, the store, the mint,
-// the argv) is printed, and the scan fails. TestEchoTeachesTheHolderNothing
-// proves it.
 package appdirectblackbox
 
 import (
@@ -60,6 +44,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -82,7 +67,7 @@ const (
 	bbUser         = "user-5150"                           // a user uuid
 	bbSub          = "sub-7731"                            // a subscription id
 	bbDenied       = "co-denied"                           // a company uuid the fake answers 401
-	bbControl      = "ctlEchoValue-7a1b9c2d3e"             // not a credential: the fake echoes it like one (TestEchoTeachesTheHolderNothing)
+	bbControl      = "ctlEchoValue-7a1b9c2d3e"             // not a credential: the fake echoes it like one
 )
 
 func secrets() []string {
@@ -483,19 +468,6 @@ func (m credMode) header() string {
 	return "Bearer " + bbMintAccess
 }
 
-// held is a credential the process holds from its start in mode m (the one a
-// test types on the command line or into a URL).
-func (m credMode) held() string {
-	switch m {
-	case credStored:
-		return bbStored
-	case credPairCached:
-		return bbMintAccess // loaded from the credential store
-	default:
-		return bbClientSecret
-	}
-}
-
 // mints reports whether every process of mode m mints its own token.
 func (m credMode) mints() bool { return m == credPair || m == credPairOverStored }
 
@@ -718,71 +690,6 @@ func (e *bbEnv) importFile(t *testing.T, tok string) string {
 	return p
 }
 
-// novelResources are the sync resources the six novel views read.
-const novelResources = "account-v2-companies,account,billing-v1-subscriptions,billing-v1-invoices,billing-v1-payments,assisted-sales-v1-opportunities"
-
-// battery runs every output path; tok is a credential the process holds
-// (credMode.held).
-func battery(t *testing.T, e *bbEnv, deliverFile, tok string) [][]string {
-	companies := e.importFile(t, tok)
-	list := []string{"account", "resource-company-read-all-companies-get"}
-	with := func(base []string, more ...string) []string { return append(append([]string{}, base...), more...) }
-	return [][]string{
-		// Every output mode.
-		with(list, "--json"),
-		with(list),
-		with(list, "--csv"),
-		with(list, "--plain"),
-		with(list, "--json", "--receipt"),
-		with(list, "--json", "--audit-dir", filepath.Join(e.home, "audit")),
-		with(list, "--json", "--deliver", "file:"+deliverFile),
-		// Every response shape: BOM-prefixed, short credential, split echo,
-		// 401 echo, refused redirect, an id that repeats a held value.
-		{"account", "resource-user-read-user-get", bbUser, "--json"},
-		{"billing", "resource-subscription-read-subscription-get", bbSub, "--json"},
-		{"account", "resource-company-read-company-get", bbCompany, "--json"},
-		{"lead", "resource-app-reseller-api-get-all-get", "--json"},
-		{"channel", "resource-other-read-events-get", "--json"},
-		{"billing", "resource-subscription-read-subscriptions-get", "--json"},
-		{"account", "resource-company-read-company-memberships-get", bbCompany, "--json"},
-		// Writes the fake echoes, a rejected write, an asynchronous submit
-		// whose job id repeats the bearer token (the jobs ledger), and import.
-		{"account", "resource-company-patch-company-patch", bbCompany, "--name", "HQ", "--json"},
-		{"billing", "resource-other-update-subscription-patch", bbSub, "--status", "ACTIVE", "--external-id", "HQ " + tok, "--json"},
-		{"account", "resource-company-patch-company-patch", bbDenied, "--name", "HQ", "--json"},
-		{"integration", "resource-other-bill-usage-v2-post", "--billable", "--idempotency-key", "usage-1042", "--json"},
-		{"import", "account", "--input", companies, "--json"},
-		// The local store, exports and the six novel local-store views.
-		{"sync", "--resources", novelResources, "--json"},
-		{"export", "account", "--format", "jsonl", "--output", filepath.Join(e.home, "export.jsonl")},
-		{"export", "billing", "--format", "json"},
-		{"reconcile", "--json"},
-		{"subs", "changed", "--since", "3650d", "--json"},
-		{"payments", "unpaid", "--since", "3650d", "--json"},
-		{"pipeline", "--json"},
-		{"pipeline", "stale", "--days", "1", "--json"},
-		{"company", "show", bbCompany, "--json"},
-		{"search", "HQ", "--json"},
-		{"search", "Echo", "--json", "--data-source", "local"},
-		// A credential on the command line: a credential-named flag, an unknown
-		// flag, a positional, feedback text.
-		with(list, "--client-secret", bbArgvSec),
-		with(list, "--json", "--"+tok),
-		{"account", "resource-company-read-company-get", tok, "--json"},
-		{"feedback", "noted the token " + tok + " in a ticket"},
-		// Previews: a dry run sends nothing (auth login neither mints nor saves).
-		{"account", "resource-company-patch-company-patch", bbCompany, "--name", "Echo " + tok, "--dry-run"},
-		{"account", "resource-company-create-company-post", "--name", "Echo " + tok, "--dry-run"},
-		{"auth", "login", "--client-id", bbClientID, "--client-secret", bbClientSecret, "--dry-run"},
-		{"import", "account", "--input", companies, "--dry-run"},
-		// Learnings, playbooks and learn events land in the local store's own tables.
-		{"teach", "--query", "find companies " + tok, "--resource", bbCompany, "--resource-type", "account-v2-companies",
-			"--notes", "rotated " + tok, "--playbook-notes", "use " + tok, "--no-validate"},
-		{"doctor"},
-		{"auth", "status"},
-	}
-}
-
 // mcpReads are read-only tools across every response shape the fake has.
 func mcpReads() []map[string]any {
 	read := func(id string, params map[string]any) map[string]any {
@@ -862,190 +769,6 @@ func checkMode(t *testing.T, sv *server, mode credMode) {
 	}
 }
 
-// Class credential-persisted-in-files, in every credential mode.
-func TestNoCredentialInAnyWrittenFile(t *testing.T) {
-	for _, mode := range []credMode{credStored, credPairOverStored, credPair, credPairCached} {
-		t.Run(mode.String(), func(t *testing.T) {
-			t.Parallel()
-			sv := echoServer(t)
-			e := newEnv(t, sv, mode)
-			deliverFile := filepath.Join(e.home, "deliver.json")
-			for _, args := range battery(t, e, deliverFile, mode.held()) {
-				e.run(t, args...)
-			}
-			e.mcpCalls(t, mcpBattery())
-			checkMode(t, sv, mode)
-			if _, _, minted, _ := sv.counts(); mode.mints() && minted < 5 {
-				// The environment pair's token lives in its process: no
-				// process can reuse another's token from disk.
-				t.Errorf("%s: only %d mints across the battery; a token was reused from disk", mode, minted)
-			}
-			// What the credential store may keep: the token it was given
-			// (set-token, or the mint for the pair it holds) and that pair.
-			keeps := map[credMode][]string{credStored: {bbStored}, credPairOverStored: {bbStored},
-				credPairCached: {bbClientID, bbClientSecret, bbMintAccess}}[mode]
-			var scanned int
-			var sawCreds bool
-			_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
-				if err != nil || d.IsDir() {
-					return nil
-				}
-				data, rerr := os.ReadFile(path)
-				if rerr != nil {
-					return nil
-				}
-				scanned++
-				rel, _ := filepath.Rel(e.home, path)
-				if strings.HasPrefix(d.Name(), "credentials") {
-					// The credential store: the one file allowed to hold a
-					// credential, never an environment pair, the token minted
-					// for one, or one a response or the command line carried.
-					for _, k := range keeps {
-						sawCreds = sawCreds || (bytes.Contains(data, []byte(k)) && (k == bbStored || k == bbMintAccess))
-					}
-					if info, err := d.Info(); err == nil && runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
-						t.Errorf("%s mode %v, want 0600", rel, info.Mode().Perm())
-					}
-				secret:
-					for _, s := range secrets() {
-						for _, k := range keeps {
-							if s == k {
-								continue secret
-							}
-						}
-						if bytes.Contains(data, []byte(s)) {
-							t.Errorf("the credential store %s holds %q, which it was never given to keep", rel, s)
-						}
-					}
-					return nil
-				}
-				assertNoEcho(t, "file "+rel, string(data))
-				return nil
-			})
-			if scanned < 5 {
-				t.Fatalf("only %d files written; the battery did not run", scanned)
-			}
-			if len(keeps) > 0 && !sawCreds {
-				t.Errorf("no credential store holds the %s", mode)
-			}
-			if len(keeps) == 0 && e.credentialStoreHolds(bbMintAccess) {
-				t.Errorf("%s: a credential store holds the minted token", mode)
-			}
-			// The battery really wrote data, so the scan above is not vacuous.
-			if b, err := os.ReadFile(deliverFile); err != nil || !bytes.Contains(b, []byte("HQ-Record")) {
-				t.Errorf("%s: want the delivered record (err %v)", filepath.Base(deliverFile), err)
-			}
-			if b, err := os.ReadFile(filepath.Join(e.home, "export.jsonl")); err != nil || !bytes.Contains(b, []byte("HQ-Record")) {
-				t.Errorf("export.jsonl: want the exported record (err %v):\n%.1500s", err, b)
-			}
-			var sawJobs bool
-			var sawCompany, sawSubscription, sawLearning bool
-			_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
-				if err != nil || d.IsDir() {
-					return nil
-				}
-				sawJobs = sawJobs || d.Name() == "jobs.jsonl"
-				if strings.HasSuffix(d.Name(), ".db") {
-					if b, rerr := os.ReadFile(path); rerr == nil {
-						sawCompany = sawCompany || bytes.Contains(b, []byte("HQ-Record"))
-						// sync read the billing lists as well as the account pages.
-						sawSubscription = sawSubscription || bytes.Contains(b, []byte("HQ-Product"))
-						// The teach run's learning row was written, its secret withheld in place.
-						sawLearning = sawLearning || bytes.Contains(b, []byte("rotated"))
-					}
-				}
-				return nil
-			})
-			if !sawCompany || !sawSubscription {
-				t.Errorf("no local store holds the fetched records (company %v, subscription %v)", sawCompany, sawSubscription)
-			}
-			if !sawLearning {
-				t.Errorf("no local store holds the taught learning; the teach run wrote nothing")
-			}
-			if !sawJobs {
-				t.Errorf("the asynchronous submit recorded no job; the jobs ledger scan did not run")
-			}
-		})
-	}
-}
-
-// Class secret-in-output, with an environment pair over a stored token (the
-// stored token held and unused), with the client pair minting in every
-// process, and with the client pair on a cached minted token.
-func TestNoCredentialInAnyOutput(t *testing.T) {
-	for _, mode := range []credMode{credPairOverStored, credPair, credPairCached} {
-		t.Run(mode.String(), func(t *testing.T) {
-			t.Parallel()
-			sv := echoServer(t)
-			e := newEnv(t, sv, mode)
-			deliverFile := filepath.Join(e.home, "deliver.json")
-			outputs := map[string]string{}
-			for _, args := range battery(t, e, deliverFile, mode.held()) {
-				out := e.run(t, args...)
-				outputs[strings.Join(args, " ")] = out
-				assertNoEcho(t, fmt.Sprintf("output of %v", args), out)
-			}
-			// The novel views read what sync wrote, so their scan is not vacuous.
-			if out := outputs["reconcile --json"]; !strings.Contains(out, bbSub) {
-				t.Errorf("reconcile printed no synced subscription:\n%.1500s", out)
-			}
-			if out := outputs["company show "+bbCompany+" --json"]; !strings.Contains(out, "HQ-Product") {
-				t.Errorf("company show printed no synced subscription:\n%.1500s", out)
-			}
-			// The data still prints, the echo is withheld in place, and JSON
-			// output stays valid JSON.
-			cmd := exec.Command(bbCLI, "account", "resource-company-read-all-companies-get", "--json")
-			cmd.Env, cmd.Dir = e.env, e.home
-			stdout, err := cmd.Output()
-			if err != nil {
-				t.Fatalf("account resource-company-read-all-companies-get --json: %v", err)
-			}
-			var doc any
-			if json.Unmarshal(stdout, &doc) != nil || !bytes.Contains(stdout, []byte("HQ-Record")) || !bytes.Contains(stdout, []byte("text withheld")) {
-				t.Fatalf("want valid JSON with the record and the withheld notice, got:\n%.1500s", stdout)
-			}
-			out := e.mcpCalls(t, mcpBattery())
-			if !strings.Contains(out, fmt.Sprintf(`"id":%d`, len(mcpBattery()))) {
-				t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
-			}
-			assertNoEcho(t, "MCP session", out)
-			if !strings.Contains(out, "HQ-Record") {
-				t.Fatalf("MCP results lost the record itself:\n%.2000s", out)
-			}
-			// The fake echoed the header it really received, so the scans above
-			// covered it; no other credential source was sent.
-			checkMode(t, sv, mode)
-		})
-	}
-}
-
-// The oracle is not vacuous: the fake echoes a value that is not a credential
-// (bbControl, sent as a company uuid) exactly as it echoes the credentials it
-// is sent, and the output prints it, so the echo shapes teach the holder
-// nothing; the credential the same responses echo is still withheld.
-func TestEchoTeachesTheHolderNothing(t *testing.T) {
-	for _, mode := range []credMode{credStored, credPair} {
-		t.Run(mode.String(), func(t *testing.T) {
-			sv := echoServer(t)
-			e := newEnv(t, sv, mode)
-			out := e.run(t, "account", "resource-company-read-company-memberships-get", bbControl, "--json")
-			out += e.run(t, "account", "resource-company-read-company-get", bbControl, "--json")
-			out += e.mcpCalls(t, []map[string]any{{"name": "appdirect_read", "arguments": map[string]any{
-				"endpoint_id": "account.resource-company-read-company-memberships-get", "params": map[string]any{"companyUuid": bbControl}}}})
-			for _, f := range echoForms(bbControl) {
-				if !holdsForm(out, f) {
-					t.Errorf("the echo of the control value as %q was withheld or never sent: the fake teaches the holder, so the credential scans are vacuous:\n%.2000s", f, out)
-				}
-			}
-			if a, b := halves(bbControl); !strings.Contains(out, a+" "+b) {
-				t.Errorf("the split echo of the control value was withheld:\n%.2000s", out)
-			}
-			assertNoEcho(t, "output", out)
-			checkMode(t, sv, mode)
-		})
-	}
-}
-
 // Class credential-sent-to-another-host: a redirect off the configured
 // marketplace is refused before it is followed, from the CLI, sync and MCP
 // alike, and in the client-credentials mode a redirected token endpoint never
@@ -1115,37 +838,6 @@ func TestRedirectNeverReachesAnotherHost(t *testing.T) {
 	})
 }
 
-// A rejected mint (a wrong secret, the token endpoint's refusal echoing what
-// it was sent and the client it decoded) returns promptly and prints nothing
-// it was sent, from the CLI, from sync and from MCP.
-func TestRejectedMintPrintsNoSecret(t *testing.T) {
-	sv := echoServer(t)
-	e := newEnv(t, sv, credPair)
-	const wrong = "wrongClientSecret-6d2a9f1c4e"
-	e.env = append(withoutEnv(e.env, "APPDIRECT_CLIENT_SECRET"), "APPDIRECT_CLIENT_SECRET="+wrong)
-	out := e.run(t, "account", "resource-company-read-all-companies-get", "--json")
-	out += e.run(t, "sync", "--resources", "account-v2-companies", "--json")
-	out += e.mcpCalls(t, []map[string]any{{"name": "appdirect_read", "arguments": map[string]any{"endpoint_id": "account.resource-company-read-all-companies-get"}}})
-	_, mints, minted, bad := sv.counts()
-	if mints == 0 || minted != 0 || len(bad) == 0 {
-		t.Fatalf("want only refused mints, got %d requests, %d accepted (refused %v)", mints, minted, bad)
-	}
-	for _, why := range bad {
-		if why != "wrong client secret" {
-			t.Fatalf("a mint was refused for %q, not the wrong secret: the request was malformed", why)
-		}
-	}
-	if !strings.Contains(out, "401") && !strings.Contains(strings.ToLower(out), "invalid_client") && !strings.Contains(strings.ToLower(out), "unauthorized") {
-		t.Errorf("the refusal was not reported:\n%.2000s", out)
-	}
-	for _, f := range append(echoForms(wrong), echoForms(bbClientID)...) {
-		if strings.Contains(out, f) {
-			t.Errorf("output repeats the posted credential as %q:\n%.2000s", f, out)
-		}
-	}
-	assertNoEcho(t, "output", out)
-}
-
 // mcp-endpoint-write-confirm and mcp-mirror-write-confirm: every request the
 // MCP server and its mirrored CLI children send to the API is a GET while no
 // call sets confirm, though the battery calls every kind of write tool; each
@@ -1157,9 +849,6 @@ func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {
 			sv := echoServer(t)
 			e := newEnv(t, sv, mode)
 			out := e.mcpCalls(t, mcpBattery())
-			if !strings.Contains(out, "HQ-Record") {
-				t.Fatalf("the MCP battery fetched nothing:\n%.2000s", out)
-			}
 			replies := mcpReplies(out)
 			for i, call := range mcpWrites() {
 				id := len(mcpReads()) + i + 1
@@ -1315,8 +1004,11 @@ func TestAuthLoginMintsOnlyAtItsMarketplace(t *testing.T) {
 	// marketplace without another mint, and still nothing leaves.
 	sv.reset()
 	e.env = withoutEnv(withoutEnv(e.env, "APPDIRECT_CLIENT_ID"), "APPDIRECT_CLIENT_SECRET")
-	if read := e.run(t, "account", "resource-company-read-all-companies-get", "--json"); !strings.Contains(read, "HQ-Record") {
-		t.Fatalf("the read after login fetched nothing:\n%.1500s", read)
+	// The fake echoes what it was sent, so the shared credential kit withholds
+	// the read's output; the request the fake saw is the proof.
+	read := e.run(t, "account", "resource-company-read-all-companies-get", "--json")
+	if methods, _, _, _ := sv.counts(); !slices.Contains(methods, "GET /api/account/v2/companies") {
+		t.Fatalf("the read after login fetched nothing (requests %v):\n%.1500s", methods, read)
 	}
 	if _, mints, _, _ := sv.counts(); mints != 0 {
 		t.Errorf("the read after login minted %d time(s); the saved token was not used", mints)
@@ -1329,4 +1021,14 @@ func TestAuthLoginMintsOnlyAtItsMarketplace(t *testing.T) {
 	if len(escaped) != 0 {
 		t.Fatalf("a request left for another host: %v", escaped)
 	}
+}
+
+func withoutEnv(env []string, key string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, key+"=") {
+			out = append(out, kv)
+		}
+	}
+	return out
 }

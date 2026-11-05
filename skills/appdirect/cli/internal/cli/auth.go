@@ -17,6 +17,7 @@ import (
 	"appdirect-pp-cli/internal/client"
 	"appdirect-pp-cli/internal/cliutil"
 	"appdirect-pp-cli/internal/config"
+	"appdirect-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -187,7 +188,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret})))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
@@ -283,7 +284,7 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
 			}
 			token, err := readSecretFromStdin(cmd.InOrStdin())
-			cliutil.FunnelHold(token) // appdirect handfix: output-chokepoint
+			credkit.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring): a token piped in is held before anything can print it.
 			if err != nil {
 				return authErr(err)
 			}

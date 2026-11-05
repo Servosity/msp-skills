@@ -6,6 +6,7 @@ package cli
 
 import (
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"bytes"
 	"fmt"
 	"net/http"
@@ -61,7 +62,6 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 // the mirror writer set up in root.go. Binary-response commands unwrap the
 // envelope before calling Deliver so ordinary JSON is never decoded here.
 func Deliver(sink DeliverSink, body []byte, compact bool) error {
-	body = cliutil.WithholdBytes(body) // appdirect handfix: output-chokepoint
 	switch sink.Scheme {
 	case "", "stdout":
 		return nil
@@ -135,7 +135,8 @@ func writeDownloadUnder(dir, name string, body []byte) error {
 	if err := f.Chmod(0o600); err != nil {
 		return fmt.Errorf("setting download permissions: %w", err)
 	}
-	if _, err := f.Write(body); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the temporary file is opened exclusively for its permissions; the bytes pass the kit.
+	if _, err := credkit.NewWriter(f, credkit.SinkFile).Write(body); err != nil {
 		return fmt.Errorf("writing download: %w", err)
 	}
 	if err := f.Sync(); err != nil {
@@ -167,7 +168,14 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 
 	// One POST. A followed 3xx would replay the body at a Location the
 	// operator did not name, including another host or an http downgrade.
-	resp, err := cliutil.SendOutbound("--deliver webhook URL", req.Method, req.URL.String(), req.Header, body, 30*time.Second) // appdirect handfix: network-sinks-withheld
+	httpClient := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: cliutil.OutboundGuard(nil), // Hand-fix (handfixes.json credkit-wiring)
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting to webhook: %w", err)
 	}

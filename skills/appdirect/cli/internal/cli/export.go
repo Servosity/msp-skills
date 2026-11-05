@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -96,9 +97,9 @@ large datasets as it has no memory pressure.`,
 				outputFile = ""
 			}
 			var writer *bufio.Writer
-			var outFile *os.File
+			var outFile *credkit.Writer
 			if outputFile != "" {
-				f, ferr := cliutil.WithholdingFile(openExportOutput(outputFile)) // appdirect handfix: output-chokepoint (file sink); export-file-closed-on-error (no shadowed err)
+				f, ferr := openExportOutput(outputFile) // appdirect handfix: export-file-closed-on-error (no shadowed err)
 				if ferr != nil {
 					return ferr
 				}
@@ -230,7 +231,7 @@ large datasets as it has no memory pressure.`,
 // openExportOutput creates or truncates path as a private file. OpenFile's
 // mode applies only when the file is created; an existing 0644 file would
 // stay world-readable across the truncate, so the mode is set again after open.
-func openExportOutput(path string) (*os.File, error) {
+func openExportOutput(path string) (*credkit.Writer, error) {
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("creating output directory: %w", err)
@@ -244,5 +245,5 @@ func openExportOutput(path string) (*os.File, error) {
 		_ = f.Close()
 		return nil, fmt.Errorf("setting output file permissions: %w", err)
 	}
-	return f, nil
+	return credkit.NewWriter(f, credkit.SinkFile), nil // Hand-fix (handfixes.json credkit-wiring)
 }

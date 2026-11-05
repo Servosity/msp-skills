@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -64,12 +65,12 @@ func appendFeedback(entry FeedbackEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	line, err := json.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("opening feedback ledger: %w", err)
+		return err
 	}
-	defer f.Close()
-	return json.NewEncoder(cliutil.WithheldWriter(f)).Encode(entry) // appdirect handfix: output-chokepoint (file sink)
+	// Hand-fix (handfixes.json credkit-wiring): feedback that repeats a held credential is withheld at the write point.
+	return credkit.AppendFile(p, append(line, '\n'), 0o600)
 }
 
 func postFeedback(url string, entry FeedbackEntry) error {
@@ -77,14 +78,14 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	if err != nil {
 		return err
 	}
-	body = cliutil.WithholdBytes(body) // appdirect handfix: output-chokepoint (network sink)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("building feedback request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "appdirect-cli/feedback")
-	resp, err := cliutil.SendOutbound("APPDIRECT_FEEDBACK_ENDPOINT", req.Method, req.URL.String(), req.Header, body, 15*time.Second) // appdirect handfix: network-sinks-withheld
+	client := &http.Client{Timeout: 15 * time.Second, Transport: cliutil.OutboundGuard(nil)} // Hand-fix (handfixes.json credkit-wiring)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting feedback: %w", err)
 	}

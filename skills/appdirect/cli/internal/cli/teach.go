@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"appdirect-pp-cli/internal/learn"
 	"appdirect-pp-cli/internal/learn/entities"
 	"appdirect-pp-cli/internal/learn/lookups"
@@ -125,14 +126,8 @@ func writeTeachErrLog(line string) {
 	}
 	_ = cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
 		ts := time.Now().UTC().Format(time.RFC3339)
-		_, err = fmt.Fprintf(cliutil.WithheldWriter(f), "%s %s\n", ts, line) // appdirect handfix: output-chokepoint (file sink)
-		return err
+		return credkit.AppendFile(p, []byte(fmt.Sprintf("%s %s\n", ts, line)), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	})
 }
 
@@ -148,13 +143,12 @@ func appendLearningsAudit(entry map[string]any) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		entry["ts"] = time.Now().UTC().Format(time.RFC3339)
+		line, err := json.Marshal(entry)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		entry["ts"] = time.Now().UTC().Format(time.RFC3339)
-		return json.NewEncoder(cliutil.WithheldWriter(f)).Encode(entry) // appdirect handfix: output-chokepoint (file sink)
+		return credkit.AppendFile(p, append(line, '\n'), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	})
 }
 
@@ -206,9 +200,9 @@ func scrubLogFile(path, rawQuery, queryHash string) error {
 		return nil
 	}
 	if len(kept) == 0 {
-		return os.WriteFile(path, nil, 0o600)
+		return credkit.WriteFile(path, nil, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	return os.WriteFile(path, cliutil.WithholdBytes([]byte(strings.Join(kept, "\n")+"\n")), 0o600) // appdirect handfix: output-chokepoint (file sink)
+	return credkit.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600)
 }
 
 func logLineMatchesQuery(line, rawQuery, queryHash string) bool {
@@ -703,7 +697,7 @@ when learnings exist.`,
 			// post-run journal entry: flag derivation anchors candidates
 			// on this family, and teach-time synthesis locates the
 			// recall->teach episode by it.
-			learn.SetJournalLearnContext(cliutil.WithholdText(result.Family), withheldStrings(result.UnresolvedEntities)) // appdirect handfix: output-chokepoint (file sink)
+			learn.SetJournalLearnContext(result.Family, result.UnresolvedEntities)
 			// Measurement: record hit/miss (+ playbook hit) AFTER the
 			// match completed, so the event write never holds the store
 			// lock across the recall scan. Telemetry-class: failures go

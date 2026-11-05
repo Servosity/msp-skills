@@ -234,7 +234,6 @@ func loadCredentialsWithStatus(path string, explicit bool) (*Credentials, Creden
 		}
 		return nil, status, nil
 	}
-	HoldTOMLCredentials(data) // appdirect handfix: output-chokepoint (every file value, used or refused)
 	var creds Credentials
 	if err := toml.Unmarshal(data, &creds); err != nil {
 		warnCredentialsIssue(path, "parse", err)

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -86,7 +87,7 @@ func saveProfileStore(s *profileStore) error {
 		return fmt.Errorf("marshaling profiles: %w", err)
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, cliutil.WithholdBytes(data), 0o600); err != nil { // appdirect handfix: output-chokepoint (file sink)
+	if err := credkit.WriteFile(tmp, data, 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		return fmt.Errorf("writing profiles: %w", err)
 	}
 	return os.Rename(tmp, p)

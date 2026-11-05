@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"appdirect-pp-cli/internal/cliutil"
+	"appdirect-pp-cli/internal/credkit"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -163,13 +164,18 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// Base URL override (used by printing-press verify to point at mock/test servers)
-	if v := cliutil.EnvOverride("APPDIRECT_BASE_URL"); v != "" {
+	// appdirect handfix: blank-base-url-is-unset (Codex r2 class credential-sent-to-other-host): a
+	// blank value names no marketplace, so the configured one stands; the client pair
+	// never falls back to AppDirect's own token URL. An environment value is written
+	// back to config.toml without its credential parts (configForSave).
+	if v := strings.TrimSpace(cliutil.EnvOverride("APPDIRECT_BASE_URL")); v != "" {
 		cfg.BaseURL = v
+		cfg.markEnvOverride("BaseURL")
 	}
-	if v := cliutil.EnvOverride("APPDIRECT_TOKEN_URL"); v != "" {
+	if v := strings.TrimSpace(cliutil.EnvOverride("APPDIRECT_TOKEN_URL")); v != "" {
 		cfg.TokenURL = v
+		cfg.markEnvOverride("TokenURL")
 	}
-	holdConfigCredentials(cfg) // appdirect handfix: output-chokepoint
 	return cfg, nil
 }
 
@@ -204,7 +210,6 @@ func readConfigFile(path string, cfg *Config, owner string) error {
 }
 
 func parseConfigData(data []byte, cfg *Config, path string, owner string) error {
-	cliutil.HoldTOMLCredentials(data) // appdirect handfix: output-chokepoint (every file value, used or refused)
 	if err := toml.Unmarshal(data, cfg); err != nil {
 		return fmt.Errorf("parsing %s %s: %w", owner, path, err)
 	}
@@ -552,7 +557,6 @@ func builtinBaseURL() string {
 }
 
 func baseURLFromConfigBytes(data []byte) string {
-	cliutil.HoldTOMLCredentials(data) // appdirect handfix: output-chokepoint (every file value, used or refused)
 	var parsed struct {
 		BaseURL string `toml:"base_url"`
 	}
@@ -979,6 +983,7 @@ func (c *Config) saveCredentialMaterial() error {
 }
 
 func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken string, expiry time.Time) error {
+	credkit.Hold("minted:oauth", accessToken, refreshToken, clientSecret) // Hand-fix (handfixes.json credkit-wiring): a minted token is held from here on.
 	c.ClientID = clientID
 	c.ClientSecret = clientSecret
 	c.AccessToken = accessToken
@@ -1106,6 +1111,15 @@ func (c *Config) configForSave() Config {
 		if c.envOverrides["ClientSecret"] {
 			out.ClientSecret = c.fileConfig.ClientSecret
 		}
+		// appdirect handfix: config-rewrite-keeps-file-values: an environment URL is
+		// recorded as its marketplace (a stored token stays bound to it), never with the
+		// credential its query or userinfo may carry.
+		if c.envOverrides["BaseURL"] {
+			out.BaseURL = urlWithoutCredential(c.BaseURL, c.fileConfig.BaseURL)
+		}
+		if c.envOverrides["TokenURL"] {
+			out.TokenURL = urlWithoutCredential(c.TokenURL, c.fileConfig.TokenURL)
+		}
 	}
 	out.envOverrides = nil
 	out.fileConfig = nil
@@ -1134,19 +1148,23 @@ func (c *Config) updateFileConfigField(field string) {
 
 func (c *Config) save() error {
 	persisted := c.configForSave()
-	var persist any = persisted
-	if !c.AgentcookieManagedByExternalStore() {
-		persist = persistedWithoutCredentials(persisted.persisted(), c) // appdirect handfix: config-file-holds-no-credential
+	// appdirect handfix: agentcookie-config-holds-no-credential: config.toml is never the
+	// credential store, an agentcookie-managed one included, so that save is refused.
+	if c.AgentcookieManagedByExternalStore() && persisted.hasCredentialFields() {
+		return ErrConfigHoldsCredential
 	}
-	data, err := toml.Marshal(persist)
+	data, err := toml.Marshal(persisted.persisted())
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := refuseCredentialInConfigFile(persist, data, c); err != nil { // appdirect handfix: config-file-holds-no-credential
-		return err
-	}
-	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
-		return err
+	// appdirect handfix: config-rewrite-keeps-file-values (Codex r2 class
+	// credential-persisted-outside-store): a save that changes nothing in config.toml
+	// does not rewrite it. config.toml is a credential source, so its rewrite stays
+	// outside the shared credential kit (credwire.Declarations names it in Files).
+	if configFileDiffers(c.Path, data) {
+		if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
+			return err
+		}
 	}
 	c.scrubLegacyCredentials()
 	if !c.AgentcookieManagedByExternalStore() {
@@ -1181,15 +1199,11 @@ func (c *Config) scrubLegacyCredentials() {
 		return
 	}
 	legacy.clearCredentialFields()
-	scrubbed := persistedWithoutCredentials(legacy.persisted(), c) // appdirect handfix: config-file-holds-no-credential
+	scrubbed := legacy.persisted()
 	scrubbedData, err := toml.Marshal(scrubbed)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
 		return
-	}
-	// appdirect handfix: config-check-reads-back-every-shape (the legacy scrub writes a config file too)
-	if refuseCredentialInConfigFile(scrubbed, scrubbedData, c) != nil {
-		scrubbedData = nil // keep nothing of a legacy config that still repeats a credential
 	}
 	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)

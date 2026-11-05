@@ -179,9 +179,6 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
-	funnelCommandErrors(rootCmd)
-	defer installOutputChokepoint(rootCmd)() // appdirect handfix: output-chokepoint (stdout, stderr and loggers)
 	defer finalizePlatformInvocation(&flags, &retErr)
 	// A previous Execute in this process may have reached PreRun. Reset
 	// before parse so a failure that never gets there still consults argv.
@@ -697,14 +694,14 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 		}
 		return f != nil && f.Value.Type() == "bool"
 	}
-	learn.JournalInvocation(withheldJournalEntry(learn.JournalEntry{ // appdirect handfix: output-chokepoint (file sink)
+	learn.JournalInvocation(learn.JournalEntry{
 		Cmd:           journalVerbChain(rootCmd, executed),
 		ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag),
 		ExitCode:      exitCode,
 		ErrorClass:    errorClass,
 		FailedFlag:    failedFlag,
 		SuggestedFlag: suggestedFlag,
-	}))
+	})
 }
 
 // isLocalDataInvocation keeps the learn loop from journaling or deriving

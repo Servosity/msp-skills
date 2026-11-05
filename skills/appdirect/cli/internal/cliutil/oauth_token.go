@@ -31,6 +31,9 @@ func OAuthTokenHTTPClient(base *http.Client) *http.Client {
 		}
 		c.Transport = base.Transport
 	}
+	if c.Transport == nil {
+		c.Transport = OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring): a token request without a base client still passes the kit
+	}
 	c.CheckRedirect = oauthTokenSameOriginRedirect
 	return c
 }
