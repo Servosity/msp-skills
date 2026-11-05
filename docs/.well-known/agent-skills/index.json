@@ -384,7 +384,7 @@
       "type": "skill-md",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/SKILL.md",
-      "digest": "sha256:7ab58c55bbc74f52dda461eb53724269edf3b00b95aef52c7756eafcca6d260f"
+      "digest": "sha256:75e7fa45377f9e8b830f4b36c5775bc52c51a947903046848e1bcaeeec10d9c5"
     },
     {
       "name": "maxio",

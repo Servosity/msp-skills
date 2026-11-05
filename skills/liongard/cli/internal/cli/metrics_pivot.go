@@ -20,10 +20,12 @@ func newNovelMetricsPivotCmd(flags *rootFlags) *cobra.Command {
 		Short: "One RoarPath metric pulled across every system as a system-by-value table, CSV-ready for reports.",
 		Long: `Pivots a single metric across the systems it applies to, from the locally
 synced store. Matches metric definitions by case-insensitive substring on name,
-resolves the covered systems (from a SystemID on the metric, else via the
-metric's inspector), and includes the evaluated value per system when the synced
-data carries it. Use --csv for a report-ready table. Run
-'liongard-cli sync' first.`,
+resolves the covered systems (those carrying the metric's inspector, in the
+metric's environment when it names one), and includes the evaluated value per
+system when the stored data carries one. The synced metric definitions carry
+no values (Liongard evaluates them per system: 'liongard-cli metrics
+evaluation'), so has_value is false unless a value was stored. Use --csv for a
+report-ready table. Run 'liongard-cli sync' first.`,
 		Example: strings.Trim(`
   # Pivot a metric across all systems, CSV for a report
   liongard-cli metrics pivot "MFA Enabled Count" --csv
@@ -57,9 +59,9 @@ data carries it. Use --csv for a report-ready table. Run
 				"rows":                rows,
 			}
 			if matched == 0 {
-				result["note"] = "No metric definition matched; check the name or run 'liongard-cli sync'."
+				result["note"] = "No metric definition matched; check the name with 'liongard-cli metrics metrics'."
 			} else if !anyValue {
-				result["note"] = "Matched metric definitions but no evaluated values are present in the synced data; rows show the systems the metric covers. Sync metric evaluations to populate values."
+				result["note"] = "Matched metric definitions carry no evaluated values (has_value false on every row); rows show the systems each metric covers. Liongard evaluates metric values per system: 'liongard-cli metrics evaluation' (GET /metrics/bulk)."
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 		},

@@ -22,7 +22,8 @@ func newNovelInspectorsCoverageCmd(flags *rootFlags) *cobra.Command {
 		Short: "Which environments are missing a given inspector type - the estate-wide rollout-gap view",
 		Long: `Use this command to find which environments are MISSING a given inspector
 type (adoption gap by inspector), anti-joining inspectors, launchpoints, and
-environments from the local store. Run 'liongard-cli sync' first.
+environments from the local store. Run 'liongard-cli sync' first (the default
+sync includes inspectors).
 
 Do NOT use this command to find systems with NO launchpoint at all; use
 'coverage' instead.`,
@@ -78,7 +79,7 @@ Do NOT use this command to find systems with NO launchpoint at all; use
 			}
 			if len(rows) == 0 {
 				if len(inspectors) == 0 {
-					result["note"] = "no inspectors synced locally; run 'liongard-cli sync --resources inspectors,launchpoints,environments' first"
+					result["note"] = "the synced inspector list is empty (Liongard returned no inspector types)"
 				} else {
 					result["note"] = "no inspectors matched the query; check the name with 'liongard-cli inspectors' or drop --inspector"
 				}

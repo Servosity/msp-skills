@@ -2,7 +2,7 @@
 
 **Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.**
 
-Liongard's portal shows one environment at a time. The v1 API does list detections and timeline entries across every environment, but it is a live API, not an offline copy of the whole estate you can diff for drift across environments, stale launchpoints, or per-system history. This CLI syncs every environment, system, launchpoint, inspector, agent, detection, metric, and timeline entry into a local SQLite store, then runs cross-estate joins the live API never returns: drift since a window, stale launchpoints, offline agents, monitoring-coverage gaps, and metric pivots. Agent-native throughout  -  --json, --select, --csv, and typed exit codes.
+Liongard's API answers one environment at a time and only through the web UI or per-instance REST calls. This CLI syncs every environment, system, launchpoint, inspector, agent, detection, metric, and timeline entry into a local SQLite store, then runs cross-estate joins the live API never returns: drift since a window, stale launchpoints, offline agents, monitoring-coverage gaps, and metric pivots. Agent-native throughout  -  --json, --select, --csv, and typed exit codes.
 
 ## Install
 
@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `LIONGARD_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `liongard-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `LIONGARD_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/liongard/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -95,9 +93,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`liongard-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `LIONGARD_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `LIONGARD_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export LIONGARD_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+liongard-mcp --transport http
+```
+
+Set `LIONGARD_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Set one shape or the other, never both: LIONGARD_API_KEY wins whenever it is non-empty and the ID/secret pair is ignored. Run `doctor` to confirm the host and credentials resolve.
+Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Run `doctor` to confirm the host and credentials resolve.
 
 ## Quick Start
 
@@ -121,12 +130,10 @@ liongard-cli launchpoints stale --older-than 7d
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Whole-estate visibility
 - **`drift`**  -  Every change detected across all your client environments within a time window, joined to the owning environment and system.
 
-  _Reach for this when an agent needs the whole-estate 'what changed overnight' answer instead of paging the live detections endpoint._
+  _Reach for this when an agent needs the whole-estate 'what changed overnight' answer instead of paging the per-environment detections endpoint._
 
   ```bash
   liongard-cli drift --since 24h --agent
@@ -198,14 +205,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Reporting and SLA
-- **`metrics pivot`**  -  One RoarPath metric pulled across every system as a system-by-value table, CSV-ready for reports.
+- **`metrics pivot`**  -  One RoarPath metric across every system it covers, CSV-ready for reports; the value column is filled only where the local store carries an evaluated value.
 
   _Use to assemble a single metric across the whole estate for an SLA or QBR deck in one command._
 
   ```bash
   liongard-cli metrics pivot "MFA Enabled Count" --csv
   ```
-- **`metrics breach`**  -  Every system whose RoarPath metric value crosses a numeric threshold.
+- **`metrics breach`**  -  Every system whose RoarPath metric value crosses a numeric threshold. It refuses until every covered system has an evaluated value in the local store; the synced metric definitions carry none (Liongard evaluates them per system: `liongard-cli metrics evaluation`).
 
   _Use for SLA-breach and security-posture checks across all clients without N per-system calls._
 
@@ -214,7 +221,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Morning drift triage as JSON
 
@@ -259,6 +265,81 @@ Every system whose patch age crosses the threshold, across all clients.
 ## Usage
 
 Run `liongard-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `LIONGARD_CONFIG_DIR`, `LIONGARD_DATA_DIR`, `LIONGARD_STATE_DIR`, or `LIONGARD_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `LIONGARD_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export LIONGARD_HOME=/srv/liongard
+liongard-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:LIONGARD_HOME = "C:\ProgramData\liongard"
+liongard-cli doctor
+```
+
+Under `LIONGARD_HOME=/srv/liongard`, the four dirs resolve to `/srv/liongard/config`, `/srv/liongard/data`, `/srv/liongard/state`, and `/srv/liongard/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:LIONGARD_HOME = "C:\srv\liongard"
+liongard-cli doctor
+```
+
+Under `$env:LIONGARD_HOME = "C:\srv\liongard"`, the four dirs resolve to `C:\srv\liongard\config`, `C:\srv\liongard\data`, `C:\srv\liongard\state`, and `C:\srv\liongard\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "liongard": {
+      "command": "liongard-mcp",
+      "env": {
+        "LIONGARD_HOME": "/srv/liongard"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `LIONGARD_DATA_DIR` overrides an explicit `--home` for that kind. Use `LIONGARD_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `LIONGARD_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `liongard-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `liongard-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `liongard-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `LIONGARD_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `LIONGARD_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -391,6 +472,89 @@ Create and manage users in your Liongard instance
 - **`liongard-cli users update`** - Updates a single User
 
 
+### agents
+
+
+- **`liongard-cli agents offline`** - Every offline agent across the estate, joined to the environment it serves.
+
+
+### coverage
+
+
+- **`liongard-cli coverage`** - Monitoring gaps: systems with no launchpoint bound, and environments with no systems at all.
+
+
+### detections
+
+
+- **`liongard-cli detections failures`** - Every inspection that ran but failed or errored across the estate, joined to the owning environment.
+
+
+### drift
+
+
+- **`liongard-cli drift`** - Every change detected across all your client environments within a time window, joined to the owning environment and system.
+
+
+### environments
+
+
+- **`liongard-cli environments overview`** - One client's complete picture in a single command: its systems, each system's launchpoints, agent, latest inspection, open detections, and key metrics.
+
+
+### health
+
+
+- **`liongard-cli health`** - One estate-wide health scorecard: stale launchpoints, offline agents, failed inspections, and coverage gaps as a single summary with a typed exit code.
+
+
+### inspectors
+
+
+- **`liongard-cli inspectors coverage`** - Which environments are missing a given inspector type - the estate-wide rollout-gap view.
+
+
+### launchpoints
+
+
+- **`liongard-cli launchpoints stale`** - Every launchpoint whose newest inspection is older than a threshold, with the owning environment and system named.
+
+- **`liongard-cli launchpoints run-stale`** - Find stale launchpoints and trigger an inspection run on each, in one guarded command.
+
+
+### metrics
+
+
+- **`liongard-cli metrics pivot`** - One RoarPath metric across every system it covers, CSV-ready for reports; the value column is filled only where the local store carries an evaluated value.
+
+- **`liongard-cli metrics breach`** - Every system whose RoarPath metric value crosses a numeric threshold. It refuses until every covered system has an evaluated value in the local store; the synced metric definitions carry none (Liongard evaluates them per system: `liongard-cli metrics evaluation`).
+
+
+### systems
+
+
+- **`liongard-cli systems history`** - The full chronological change history of one system: every detection and inspection entry in time order.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`liongard-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`liongard-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`liongard-cli learnings list`** - Inspect taught rows
+- **`liongard-cli learnings forget <query>`** - Undo a teach
+- **`liongard-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`liongard-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`liongard-cli teach-pattern`** - Install a query/resource template up front
+- **`liongard-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `LIONGARD_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `liongard-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -399,9 +563,8 @@ liongard-cli access-keys get
 
 # JSON for scripting and agents
 liongard-cli access-keys get --json
-
 # Filter to specific fields
-liongard-cli access-keys get --json --select id,name,status
+liongard-cli access-keys get --json --select AccessKeyId,CreatedOn,DeletedOn
 
 # Dry run  -  show the request without sending
 liongard-cli access-keys get --dry-run
@@ -410,21 +573,23 @@ liongard-cli access-keys get --dry-run
 liongard-cli access-keys get --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Runtime Endpoint
 
@@ -445,9 +610,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/liongard-cli/config.toml`
+Run `liongard-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/liongard-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\liongard-cli\config.toml` on Windows; `--home`, `LIONGARD_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `LIONGARD_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `LIONGARD_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -460,6 +627,13 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `liongard-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+## Credential safety
+
+- The `X-ROAR-API-KEY` header (and the `X-Auth-Token` session token) and every API request go only to the scheme, host and port of the resolved base URL (`https://<LIONGARD_INSTANCE>.app.liongard.com/api/v1`, or `LIONGARD_BASE_URL`). A redirect to any other host is refused, so the credential never reaches it.
+- Any output, file or MCP result that would repeat `LIONGARD_API_KEY`, the Access Key ID or Secret, the header composed from them, the session token, or a credential-named value from a response (a new access key's secret, for example) prints "[text withheld: it repeated a secret value this program holds]" in its place. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the token from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that creates, changes, deletes or runs something in Liongard (`liongard_execute`, `launchpoints run-stale`, `import`) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `liongard-cli doctor` to check credentials
@@ -470,6 +644,6 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **doctor reports the host cannot be resolved**  -  Set LIONGARD_INSTANCE to your subdomain only (e.g. us1), not the full URL; the base becomes https://us1.app.liongard.com/api/v1.
-- **401 Unauthorized on every call**  -  The X-ROAR-API-KEY must be base64 of accessKeyId:accessKeySecret. Set LIONGARD_ACCESS_KEY_ID and LIONGARD_ACCESS_KEY_SECRET and let the CLI encode them, or set a correctly pre-encoded LIONGARD_API_KEY - one or the other, never both. A leftover LIONGARD_API_KEY (even a placeholder) wins over the pair, which is the usual cause of a 401 when the ID and secret look right.
-- **drift or stale commands return nothing**  -  Run `sync --full` first; the cross-estate joins read the local store, not the live API.
+- **401 Unauthorized on every call**  -  The X-ROAR-API-KEY must be base64 of accessKeyId:accessKeySecret. Set LIONGARD_ACCESS_KEY_ID and LIONGARD_ACCESS_KEY_SECRET and let the CLI encode them, or set a correctly pre-encoded LIONGARD_API_KEY.
+- **drift, stale or offline commands refuse with "sync never finished" or a narrowed copy**  -  Run the `sync --full --resources <name>` command the message names, without `--param` or `--resource-param`; the cross-estate joins read the local store, not the live API.
 - **list commands return a Data wrapper you do not want**  -  The CLI already unwraps the {Data,Pagination,Success} envelope; use --select to project just the fields you need.

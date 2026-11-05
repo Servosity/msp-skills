@@ -24,5 +24,9 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 			return fmt.Errorf("extra migration failed: %w", err)
 		}
 	}
+	// liongard handfix (r2-narrowed-sync-is-not-a-snapshot): sync_state.snapshot_full + its reset trigger.
+	if err := s.migrateSyncSnapshot(ctx, conn); err != nil {
+		return fmt.Errorf("extra migration failed: %w", err)
+	}
 	return nil
 }

@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on CLI Printing Press 4.34.2** (the press upgrade behind [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)). HTTP mode refuses to start without `LIONGARD_MCP_HTTP_TOKEN`, checks it on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback; every MCP write previews and sends only with `confirm: true`.
+- **One shared credential filter.** The CLI and the MCP server now use the fleet's shared credential kit: every credential the program holds (environment, config, credential store, saved profiles, flags, piped `--stdin` bodies, credentials Liongard returns) is withheld from every output, file, local database and MCP result in any encoding, and is sent only to your Liongard instance over https. A run with no instance set (`LIONGARD_INSTANCE` still the `example` placeholder) sends no credential at all.
+- The learn journal no longer stores the `LIONGARD_LEARN_SESSION` value or flag names the command does not declare.
+
+### Changed
+- **`metrics` and `inspectors` sync again**, so `metrics pivot` and `inspectors coverage` answer from the local copy. `metrics breach` refuses until every covered system has an evaluated value stored, because synced metric definitions carry no values (Liongard evaluates them per system: `liongard-cli metrics evaluation`).
+- **Commands that read the local copy refuse an incomplete one** (a sync that never finished, or one narrowed by `--param`, `--resource-param`, `--since` or `--max-pages`) and name the exact `sync --full --resources <name>` command to run, instead of answering from partial data.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security
