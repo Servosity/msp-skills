@@ -62,7 +62,7 @@
         },
         {
           "name": "PAX8_TOKEN_URL",
-          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default: the client ID and secret go only to Pax8's token manager, and a URL on any other host is refused before anything is sent.",
           "isRequired": false,
           "isSecret": false,
           "default": "https://token-manager.pax8.com/oauth/token"

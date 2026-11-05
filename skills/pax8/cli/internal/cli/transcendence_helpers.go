@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written novel-feature helpers (Phase 3). Shared by the reconcile, mrr,
 // overage, since, spend, and company-show commands. Not generator-managed.
 

@@ -4,7 +4,19 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.9] - unreleased
+
+### Changed
+- **Rebuilt on cli-printing-press 4.34.2.** The MCP server's `--transport http` mode refuses to start without `PAX8_MCP_HTTP_TOKEN`, binds `127.0.0.1:7777` by default and needs TLS off loopback.
+- **MCP write tools preview first.** The eight MCP tools that change Pax8 data (company create and update, contact create, update and delete, order create, subscription update and cancel) show what they would send and send it only with `confirm: true`.
+
+### Fixed
+- **`auth login` and the automatic sign-in send what Pax8 documents.** The client ID, client secret and audience go in the token form body; `auth login` used to leave out the audience, so the token it saved could not be used.
+- **A rejected token request returns an error.** A refused sign-in no longer hangs.
+- **`reconcile` and `overage` read the newest usage record.** A record stored under two names is read once, the row written last winning, so an older stored row no longer hides a newer live read.
+- **Paid trials are expected on the invoice.** A trial priced above zero is now flagged when no invoice line bills it.
+- **Credit lines do not count as billing.** Rebate, payment-credit, service-credit and invoice-credit lines, and any line with a negative total, neither bill nor count as billed.
+- **`since`, `overage` and `reconcile` print `[]`, not `null`, on an empty store.**
 
 ### Security
 - **Credentials are held by the shared credential kit** (`docs/credential-leak-contract.md`) from the first instruction of each binary: the client ID and secret, the MCP HTTP token, `PAX8_COOKIE` and every value in the config and credentials files never reach standard output or error, an MCP result, a file, the local store or a request to another host, in any of the encodings the kit reads: what would carry one is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`.
