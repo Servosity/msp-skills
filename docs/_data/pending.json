@@ -175,11 +175,11 @@
     "released_hash": "sha256:d8f6686a60d3d698925866b4d906dfc0e2ef64b2e7d14a8ae9014e3afad53e52"
   },
   "connectwise-control": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "connectwise-control-v0.1.8",
     "current_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
-    "released_hash": "sha256:fa6992095fdcb9ff4e22f37dcea8e92a95c309adc2d09ec3c5d8838efb140c4c"
+    "released_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34"
   },
   "connectwise-manage": {
     "state": "up-to-date",
@@ -343,11 +343,11 @@
     "released_hash": "sha256:d5224268c39680743641113e5542e2b32777052f0d99a1978ad148322ec4c5ae"
   },
   "kaseya-bms": {
-    "state": "binary-pending",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "kaseya-bms-v0.1.7",
     "current_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7",
-    "released_hash": "sha256:b1f19cda876aff80f14fb863088099ac0644b409c4c6a6e7c90b6e6f2f6d45d8"
+    "released_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7"
   },
   "kaseya-vsa": {
     "state": "up-to-date",
