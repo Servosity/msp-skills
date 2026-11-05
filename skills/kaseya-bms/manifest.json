@@ -15,12 +15,17 @@
       "command": "${__dirname}/bin/kaseya-bms-mcp",
       "args": [],
       "env": {
-        "KASEYA_BMS_BASE_URL": "${user_config.kaseya_bms_base_url}",
         "KASEYA_BMS_BEARER_AUTH": "${user_config.kaseya_bms_bearer_auth}",
+        "KASEYA_BMS_TOKEN": "${user_config.kaseya_bms_token}",
+        "KASEYA_BMS_BASE_URL": "${user_config.kaseya_bms_base_url}",
         "KASEYA_BMS_PASSWORD": "${user_config.kaseya_bms_password}",
         "KASEYA_BMS_TENANT": "${user_config.kaseya_bms_tenant}",
-        "KASEYA_BMS_TOKEN": "${user_config.kaseya_bms_token}",
-        "KASEYA_BMS_USERNAME": "${user_config.kaseya_bms_username}"
+        "KASEYA_BMS_USERNAME": "${user_config.kaseya_bms_username}",
+        "KASEYA_BMS_MCP_READ_ONLY": "${user_config.kaseya_bms_mcp_read_only}",
+        "KASEYA_BMS_NO_LOCAL_DATA": "${user_config.kaseya_bms_no_local_data}",
+        "KASEYA_BMS_MCP_HTTP_TOKEN": "${user_config.kaseya_bms_mcp_http_token}",
+        "KASEYA_BMS_USER_AGENT": "${user_config.kaseya_bms_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,7 +39,7 @@
     "kaseya_bms_token": {
       "type": "string",
       "title": "KASEYA_BMS_TOKEN",
-      "description": "Optional. Sets KASEYA_BMS_TOKEN for the Kaseya BMS MCP server.",
+      "description": "Optional pre-minted JWT; when set it wins over the login and nothing is minted.",
       "sensitive": true
     },
     "kaseya_bms_password": {
@@ -53,7 +58,7 @@
     "kaseya_bms_username": {
       "type": "string",
       "title": "BMS username",
-      "description": "Kaseya BMS login used by `auth login` to exchange for a short-lived JWT.",
+      "description": "Kaseya BMS API user login. With the password and tenant, the connector mints a short-lived JWT on first use and again when it expires.",
       "required": true
     },
     "kaseya_bms_base_url": {
@@ -62,6 +67,41 @@
       "description": "Base URL for the Kaseya BMS API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://api.bms.kaseya.com"
+    },
+    "kaseya_bms_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "kaseya_bms_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "kaseya_bms_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "kaseya_bms_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Optional. Overrides the User-Agent the CLI sends on Kaseya BMS requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -72,11 +112,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:52:09.874146Z",
-    "spec_checksum": "sha256:b153b32a4e51022ddae68d4c550f523cc7bab1d3762548986ecae43511e3449c",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T20:51:46.928158Z",
+    "spec_checksum": "sha256:897974ec3ae184df57180be15d9a632f28ebc6ec0c03f6ad50a95410ec7b81e5",
     "spec_format": "openapi3"
   }
 }
