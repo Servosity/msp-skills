@@ -453,7 +453,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -1079,7 +1079,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "psa",
       "tags": [
         "zammad",
@@ -1125,7 +1125,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1358,7 +1358,7 @@
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "blackpoint",
