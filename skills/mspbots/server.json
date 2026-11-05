@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/mspbots-mcp",
   "title": "MSPbots MCP",
   "description": "Readable filters, alias-named resources, full exports, and the KPI history MSPbots doesn't keep.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/mspbots/mspbots-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/mspbots-v0.1.6/mspbots-mcp.mcpb",
-      "version": "0.1.6",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/mspbots-v0.1.7/mspbots-mcp.mcpb",
+      "version": "0.1.7",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -40,6 +40,36 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://api.mspbots.ai"
+        },
+        {
+          "name": "MSPBOTS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MSPBOTS_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on MSPbots requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MSPBOTS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MSPBOTS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
