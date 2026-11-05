@@ -2474,6 +2474,42 @@ A: Add one entry per client with `proxmox-cli clusters add`: its PVE host, optio
 
 Governance: Every request this skill sends to Proxmox VE or Proxmox Backup Server is a read, so no command it runs can change a cluster or a backup. The only writes are local: the cluster list, a saved token, the local mirror and the agent learning store, and the MCP server cannot edit the cluster list. Gate where output goes: --deliver can send any command's output to a file or a webhook URL.
 
+### PRTG Network Monitor (Network Monitoring)
+
+Page: [PRTG Network Monitor](https://msp-skills.compoundingteams.com/skills/prtg.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/prtg/install.sh)
+
+PRTG plus your AI answers the questions that span every client's PRTG core at once: what is down right now and since when, what changed overnight, what someone paused or acknowledged and forgot, and which cores are behind on version, license or maintenance. Register each core once; every fleet command asks all of them in one run and names a core that fails instead of counting it as healthy.
+
+Outcomes (question -> command your AI agent runs):
+- Which client core is in the worst shape right now? -> prtg-cli fleet status --agent
+- What is down and unacknowledged across every core, oldest first? -> prtg-cli fleet alarms --status down --unacked --agent
+- What changed overnight: new alarms and recoveries, with how each sensor came back? -> prtg-cli fleet handoff --since 12h --agent
+- What has someone paused or acknowledged with no end date for more than a week? -> prtg-cli fleet silenced --indefinite --older-than 7d --agent
+- Which cores are behind on version, have a license or maintenance ending, or a disconnected probe? -> prtg-cli fleet drift --within 30d --agent
+- Which probes does each client have, and are they connected? -> prtg-cli fleet exec /experimental/probes --agent
+- Acknowledge the ISP outage alarm on every client with the ticket number - preview first -> prtg-cli fleet ack --filter 'name = "Ping"' --message 'TKT-4411 ISP outage' --duration 2h
+- After maintenance, resume the paused devices everywhere and rescan them -> prtg-cli fleet resume --kind device --filter 'name = "fw01"' --scan
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the PRTG Network Monitor MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my PRTG data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which PRTG versions and editions does it work with?
+A: It uses PRTG API v2, which the PRTG application server serves on port 1616 by default. Paessler documents API v2 as not available on PRTG clusters, so use it with single-node PRTG Network Monitor cores. The fleet views read the typed list endpoints Paessler marks deprecated in favour of the experimental ones; PRTG still serves them, and they also work on cores older than 24.3.
+Q: Can an agent pause or acknowledge things on my clients' cores by accident?
+A: fleet ack, fleet pause and fleet resume only preview what they would do on each core until you add --yes. Over MCP, every tool that changes PRTG returns that preview until it is called again with confirm: true, and setting PRTG_MCP_READ_ONLY=1 makes the MCP server refuse every write. Single-core write commands such as sensors pause sensor send when you run them, so keep agents to reads and --dry-run previews and see the safety model below.
+Q: Where do the API keys live?
+A: In environment variables. For one core set PRTG_SERVER and PRTG_API_KEY; for many, core add records each core's server and PRTG_FLEET_KEYS holds every core's key as name=key pairs (acme=KEY1,globex=KEY2); the keys are never written to disk. Create keys in PRTG under Account Settings > My Account > API Keys, with the lowest access level your workflow needs.
+
+Governance: The connector reads PRTG monitoring data freely, and changes PRTG only through write commands: acknowledgements, pauses, resumes and scans day to day; deleting sensors, devices, groups and probes; and user and API key management. Let an agent run reads and the fleet previews on its own, approve every --yes and every MCP confirm, and keep deletes, discovery scans of client networks and anything touching users or keys behind a human.
+
 ### QuickBooks Online (Billing)
 
 Page: [QuickBooks Online](https://msp-skills.compoundingteams.com/skills/quickbooks.md)

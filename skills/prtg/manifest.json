@@ -1,0 +1,126 @@
+{
+  "manifest_version": "0.3",
+  "name": "prtg-mcp",
+  "display_name": "PRTG Network Monitor",
+  "version": "0.1.0",
+  "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/prtg-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/prtg-mcp",
+      "args": [],
+      "env": {
+        "PRTG_API_KEY": "${user_config.prtg_api_key}",
+        "PRTG_SERVER": "${user_config.prtg_server}",
+        "PRTG_FLEET_KEYS": "${user_config.prtg_fleet_keys}",
+        "PRTG_CORE": "${user_config.prtg_core}",
+        "PRTG_BASE_URL": "${user_config.prtg_base_url}",
+        "PRTG_SKIP_TLS_VERIFY": "${user_config.prtg_skip_tls_verify}",
+        "PRTG_USER_AGENT": "${user_config.prtg_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "PRTG_MCP_READ_ONLY": "${user_config.prtg_mcp_read_only}",
+        "PRTG_NO_LOCAL_DATA": "${user_config.prtg_no_local_data}",
+        "PRTG_MCP_HTTP_TOKEN": "${user_config.prtg_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "prtg_api_key": {
+      "type": "string",
+      "title": "PRTG_API_KEY",
+      "description": "API key for your PRTG core (PRTG: Account Settings > My Account > API Keys), sent as a Bearer token.",
+      "sensitive": true,
+      "required": true
+    },
+    "prtg_server": {
+      "type": "string",
+      "title": "PRTG_SERVER",
+      "description": "Your PRTG core's host and API v2 port, for example prtg.example.com:1616 (the CLI connects over https).",
+      "sensitive": false,
+      "required": true
+    },
+    "prtg_fleet_keys": {
+      "type": "string",
+      "title": "PRTG fleet keys (optional)",
+      "description": "Optional. API keys for the cores you registered with 'prtg-cli core add', as name=key pairs separated by commas (acme=KEY1,globex=KEY2). Needed only for the fleet tools. Leave blank for one core.",
+      "sensitive": true,
+      "required": false
+    },
+    "prtg_core": {
+      "type": "string",
+      "title": "Pin to one registered core (optional)",
+      "description": "Optional. Name of a core registered with 'prtg-cli core add' to point every single-core tool at. Leave blank to use PRTG_SERVER.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_base_url": {
+      "type": "string",
+      "title": "PRTG API base URL (optional)",
+      "description": "Optional. Full API v2 base URL, for example https://prtg.example.com:1616/api/v2. Overrides PRTG_SERVER when set. Leave blank to use PRTG_SERVER.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_skip_tls_verify": {
+      "type": "string",
+      "title": "Skip TLS verification (optional)",
+      "description": "Optional. Set to true only for a PRTG core with a self-signed certificate. Leave blank to verify certificates.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to your PRTG core. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Optional. Binds the MCP server to one saved client profile. Leave blank for the default.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store. Leave blank to keep the local store.",
+      "sensitive": false,
+      "required": false
+    },
+    "prtg_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T21:27:18.924237Z",
+    "spec_checksum": "sha256:1b57031245c6da8f6929adfe8fc56b6436a5004ff5e7226a2aa37e79a594112b",
+    "spec_format": "openapi3"
+  }
+}

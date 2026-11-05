@@ -143,7 +143,7 @@ Treat it as a local simulation, not a live trace. It walks the last synced firew
 
 ## More Network Monitoring connectors
 
-Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Cisco Meraki](https://msp-skills.compoundingteams.com/skills/cisco-meraki.md) · [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md)
+Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Cisco Meraki](https://msp-skills.compoundingteams.com/skills/cisco-meraki.md) · [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md) · [PRTG Network Monitor](https://msp-skills.compoundingteams.com/skills/prtg.md)
 
 ## Status
 
