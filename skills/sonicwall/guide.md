@@ -169,7 +169,7 @@ sonicwall-cli exposure SNWLID-2024-0015
   ```
 
 ### Patch and exposure
-- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it.
+- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
   _Use it the moment a SonicWall advisory drops (for example CVE-2024-40766) to pick the firewalls that need tonight's change window._
 
@@ -210,7 +210,7 @@ Pass, warn, fail or unknown for firmware, advisories, end of support, licences, 
 sonicwall-cli exposure SNWLID-2024-0015 --agent
 ```
 
-Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted, or a name containing WAN; unknown when a zone's type is not reported); an empty list for a CVE ID means no advisory text matched, not zero exposure.
+Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 
 ### Lean inventory for an agent
 
@@ -485,7 +485,7 @@ Manage vulnerabilities
 ### exposure
 
 
-- **`sonicwall-cli exposure`** - Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted, or a name containing WAN); a CVE ID only matches when NSM's advisory text names it.
+- **`sonicwall-cli exposure`** - Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
 
 ### firmware

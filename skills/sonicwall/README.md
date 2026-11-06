@@ -212,7 +212,7 @@ Not with `posture`, `exposure`, `mfa-audit` or `firmware drift`: those only see 
 
 ### How does it decide SSL-VPN is exposed to the internet?
 
-It reads each firewall's SSL-VPN zone settings and the firewall's zone list, and marks SSL-VPN as exposed when it is enabled on an internet-facing zone: security type untrusted (SonicOS's WAN type), or a name containing WAN. When a zone's security type is not reported, the result is unknown, never pass.
+It reads each firewall's SSL-VPN zone settings and the firewall's zone list, and marks SSL-VPN as exposed when it is enabled on an internet-facing zone: security type untrusted (SonicOS's WAN type). A zone's reported type decides even when its name contains WAN. Only when a zone's type is not reported does a name containing WAN count as internet-facing; any other zone of unreported type makes the result unknown, never pass.
 
 ### What does it cost?
 

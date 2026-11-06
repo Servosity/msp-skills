@@ -1078,8 +1078,8 @@
   {
    "id": "unknown-never-pass-r1-2026-11-02",
    "status": "active",
-   "summary": "SSL-VPN exposure is graded by each zone's SonicOS security type (untrusted, or a name containing WAN) and is unknown when a zone's type cannot be read; blind-spots refuses an empty registry; --tenant is refused when any NSM firewall reports no tenantId",
-   "why": "Codex review 2026-11-02 round 1 (three P1s): posture and exposure inferred WAN from the zone NAME, so an untrusted zone named Internet graded pass / not reachable (SonicOS documents zone.security_type, sonicos-api-swagger.json#/definitions/zone); blind-spots answered an empty MySonicWall registry with 'Every registered firewall ... is visible in NSM'; and the fleet reader dropped firewalls with no tenantId (optional in nsm-api-gateway.json device_list) from every --tenant report. TestExposureGradesZonesBySecurityType, TestBlindSpotsEmptyRegistryIsNotAllClear and TestTenantFilterRefusesUntenantedFirewalls failed on the published code and pass after. Codex round 2 (2026-11-02): the empty-registry guard counted every registered product while the comparison drops non-firewalls, so a registry of only access points and an empty NSM fleet still read as all-clear; the guard now counts the products the comparison actually covers (a serial, and a firewall or unclassified product unless --all-products) and exits 3 when that is zero.",
+   "summary": "SSL-VPN exposure is graded by each zone's SonicOS security type (untrusted); a name containing WAN counts only when the type cannot be read, and any other zone of unread type is unknown; blind-spots refuses an empty registry; --tenant is refused when any NSM firewall reports no tenantId",
+   "why": "Codex review 2026-11-02 round 1 (three P1s): posture and exposure inferred WAN from the zone NAME, so an untrusted zone named Internet graded pass / not reachable (SonicOS documents zone.security_type, sonicos-api-swagger.json#/definitions/zone); blind-spots answered an empty MySonicWall registry with 'Every registered firewall ... is visible in NSM'; and the fleet reader dropped firewalls with no tenantId (optional in nsm-api-gateway.json device_list) from every --tenant report. TestExposureGradesZonesBySecurityType, TestBlindSpotsEmptyRegistryIsNotAllClear and TestTenantFilterRefusesUntenantedFirewalls failed on the published code and pass after. Codex round 2 (2026-11-02): the empty-registry guard counted every registered product while the comparison drops non-firewalls, so a registry of only access points and an empty NSM fleet still read as all-clear; the guard now counts the products the comparison actually covers (a serial, and a firewall or unclassified product unless --all-products) and exits 3 when that is zero. Codex review 2026-11-06 round 1: a name containing WAN overrode a zone's reported security type, so a trusted zone named SWAN read as internet-facing; a reported type now decides alone and the name is the fallback only when the type is unknown (TestExposureKnownZoneTypeBeatsWANName and the new TestZonesInternetFacing cases failed first).",
    "asserts": [
     {
      "file": "cli/internal/posture/posture.go",
@@ -1140,6 +1140,24 @@
     {
      "file": "cli/internal/cli/sonicwall_r2_blind_spots_test.go",
      "contains": "func TestBlindSpotsNoComparedFirewallIsNotAllClear("
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "case typesOK && listed:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_r1_fixes_test.go",
+     "contains": "func TestExposureKnownZoneTypeBeatsWANName(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "(security type untrusted; a name containing WAN counts only when the zone's type is not reported);"
     }
    ]
   },
@@ -1223,7 +1241,7 @@
     },
     {
      "file": "SKILL.md",
-     "contains": "on an internet-facing zone (security type untrusted, or a name containing WAN"
+     "contains": "on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported"
     },
     {
      "file": "SKILL.md",

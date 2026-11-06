@@ -67,6 +67,33 @@ func TestExposureGradesZonesBySecurityType(t *testing.T) {
 	}
 }
 
+// A zone whose security type was read is graded by that type alone: a trusted
+// zone whose name contains WAN is not internet-facing (Codex review 2026-11-06
+// round 1). The WAN name decides only when the type is unknown.
+func TestExposureKnownZoneTypeBeatsWANName(t *testing.T) {
+	testenv.Isolate(t)
+	routes := map[string]string{
+		"/devices/tenant":     `[{"serialNumber":"` + serialA + `","friendlyName":"HQ","firmwareVersion":"7.1.1-7058","liveStatus":true,"tenantId":"t1"}]`,
+		"/devices/vulnerable": `[{"serialNumber":"` + serialA + `","friendlyName":"HQ","vulnList":[{"advisoryID":"SNWLID-2024-0015","title":"x","haveWorkaroud":true}]}]`,
+	}
+	access := `{"ssl_vpn":{"server":{"access":[{"zone":"SWAN","enable":true}]}}}`
+	for _, tc := range []struct {
+		name, zones, want string
+	}{
+		{"trusted zone named SWAN", `{"zones":[{"name":"SWAN","security_type":"trusted"}]}`, "no"},
+		{"untrusted zone named SWAN", `{"zones":[{"name":"SWAN","security_type":"untrusted"}]}`, "yes"},
+		{"SWAN type not reported", `{"zones":[{"name":"SWAN"}]}`, "yes"},
+	} {
+		srv := newR1Mock(t, routes, map[string]string{"/firewall/ssl-vpn/server/accesses": access, "/firewall/zones": tc.zones})
+		out, _ := runCLI(t, srv, "exposure", "SNWLID-2024-0015")
+		var hits []exposureRow
+		decodeResults(t, out, &hits)
+		if len(hits) != 1 || hits[0].WANReachable != tc.want {
+			t.Errorf("%s: hits = %+v, want sslvpn_wan_reachable %s", tc.name, hits, tc.want)
+		}
+	}
+}
+
 // An empty MySonicWall registry compares nothing and must not read as an all-clear.
 func TestBlindSpotsEmptyRegistryIsNotAllClear(t *testing.T) {
 	testenv.Isolate(t)

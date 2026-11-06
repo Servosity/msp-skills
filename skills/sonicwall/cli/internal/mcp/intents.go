@@ -44,7 +44,7 @@ func RegisterIntents(s *server.MCPServer) {
 			opts := []mcplib.ToolOption{
 				// Hand-wired (handfixes.json mcp-recipe-argv-not-flag-like): the lifter named the advisory
 				// positional "slug" and copied the recipe's example advisory; the tool runs the read-only exposure command.
-				mcplib.WithDescription("Triage one SonicWall advisory across the fleet: list every firewall NSM matched to it and mark which have SSL-VPN enabled on an internet-facing zone (security type untrusted, or a name containing WAN; unknown when a zone's type is not reported). Required: advisory, an SNWLID ID (exact match, e.g. SNWLID-2024-0015) or a CVE ID (matches only when NSM's advisory text names it, so an empty list for a CVE means no advisory text matched, not zero exposure). Needs an NSM token from nsm-login."),
+				mcplib.WithDescription("Triage one SonicWall advisory across the fleet: list every firewall NSM matched to it and mark which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown). Required: advisory, an SNWLID ID (exact match, e.g. SNWLID-2024-0015) or a CVE ID (matches only when NSM's advisory text names it, so an empty list for a CVE means no advisory text matched, not zero exposure). Needs an NSM token from nsm-login."),
 				mcplib.WithReadOnlyHintAnnotation(true),
 				mcplib.WithDestructiveHintAnnotation(false),
 				mcplib.WithOpenWorldHintAnnotation(true),
@@ -55,7 +55,7 @@ func RegisterIntents(s *server.MCPServer) {
 	}
 }
 
-// handleAdvisoryTriage runs the advisory_triage recipe intent: Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted, or a name containing WAN; unknown when a zone's type is not reported); an empty list for a CVE ID means no advisory text matched, not zero exposure.
+// handleAdvisoryTriage runs the advisory_triage recipe intent: Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 func handleAdvisoryTriage(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	if recipeCLIPathErr != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil

@@ -12,7 +12,7 @@ All notable changes to this skill are documented here. Format follows
 - Over MCP, the tools that sign in or can change state (`nsm_login`, `nsm_get`, `import`, and the NSM token exchange and refresh endpoints) return a preview and run only when called again with `confirm` set to `true`.
 
 ### Fixed
-- `posture` and `exposure` decide whether SSL-VPN is reachable from the internet by each zone's security type (`untrusted`), not its name, so a WAN zone with any name is graded.
+- `posture` and `exposure` decide whether SSL-VPN is reachable from the internet by each zone's security type (`untrusted`), not its name: a WAN zone with any name is graded, and a trusted zone whose name contains WAN is not reported as exposed. A name containing WAN counts only when a zone's type is not reported.
 - `blind-spots` never reports "every registered firewall is visible" when nothing was compared: an empty registry, or one with no firewall to compare (pass `--all-products` to include access points and other products), exits 3 and says so.
 - `--tenant` no longer silently skips a firewall whose tenant NSM did not report (so `licenses renewals --tenant` could miss one): the command stops, says how many firewalls report no tenant, and suggests rerunning without `--tenant` or with `--serial`.
 

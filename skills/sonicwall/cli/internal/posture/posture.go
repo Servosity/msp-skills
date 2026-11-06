@@ -503,19 +503,25 @@ func ZoneSecurityTypes(raw json.RawMessage) (types map[string]string, ok bool) {
 	return types, true
 }
 
-// ZonesInternetFacing grades the SSL-VPN zones: a zone is internet-facing when
-// its security type is untrusted (SonicOS's WAN type) or its name contains WAN.
-// known is false when no zone is internet-facing and at least one zone's type
-// could not be read (types unreadable, zone not listed, or type not reported):
-// a custom-named zone of unknown type is never graded as not exposed.
+// ZonesInternetFacing grades the SSL-VPN zones. A zone whose security type was
+// read is graded by that type alone: untrusted (SonicOS's WAN type) is
+// internet-facing, any other type is not, whatever the zone is named. Only when
+// the type could not be read (types unreadable, zone not listed, or type not
+// reported) does a name containing WAN count as internet-facing. known is false
+// when no zone is internet-facing and at least one zone's type could not be
+// read: a custom-named zone of unknown type is never graded as not exposed.
 func ZonesInternetFacing(zones []string, types map[string]string, typesOK bool) (facing bool, known bool) {
 	undecided := false
 	for _, z := range zones {
 		t, listed := types[strings.ToLower(z)]
 		switch {
-		case strings.Contains(strings.ToUpper(z), "WAN") || (typesOK && listed && t == "untrusted"):
+		case typesOK && listed:
+			if t == "untrusted" {
+				facing = true
+			}
+		case strings.Contains(strings.ToUpper(z), "WAN"):
 			facing = true
-		case !typesOK || !listed:
+		default:
 			undecided = true
 		}
 	}

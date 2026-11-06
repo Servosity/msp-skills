@@ -35,8 +35,9 @@ checks.
 ## What this skill does about it
 
 - `sonicwall-cli exposure "SNWLID-2024-0015"` lists every firewall NSM matched
-  to the advisory and marks whether SSL-VPN is enabled on a zone whose name
-  contains WAN. With no argument, `exposure` ranks the advisories that hit the
+  to the advisory and marks whether SSL-VPN is enabled on an internet-facing
+  zone (security type untrusted; a WAN name counts only when the type is not
+  reported). With no argument, `exposure` ranks the advisories that hit the
   most firewalls.
 - `sonicwall-cli mfa-audit` lists admin TOTP per firewall and every local
   SSL-VPN user without a one-time password, with SAML, RADIUS, LDAP or TACACS+

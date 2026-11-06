@@ -546,6 +546,13 @@ func TestZonesInternetFacing(t *testing.T) {
 		{[]string{"Odd"}, types, true, false, false},
 		{[]string{"Missing"}, types, true, false, false},
 		{[]string{"LAN", "Internet"}, types, true, true, true},
+		// A zone type that was read decides alone: a name containing WAN does not
+		// override it (Codex review 2026-11-06 round 1). The name is the fallback
+		// only when the type is unknown.
+		{[]string{"SWAN"}, map[string]string{"swan": "trusted"}, true, false, true},
+		{[]string{"WAN-Backup"}, map[string]string{"wan-backup": "public"}, true, false, true},
+		{[]string{"WAN"}, map[string]string{"wan": "untrusted"}, true, true, true},
+		{[]string{"WAN"}, map[string]string{}, true, true, true},
 	}
 	for _, c := range cases {
 		facing, known := ZonesInternetFacing(c.zones, c.types, c.typesOK)
