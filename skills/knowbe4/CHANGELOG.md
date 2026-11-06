@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-06
 
 ### Security
 - **Rebuilt on CLI Printing Press 4.34.2** (advisory [GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now listens on `127.0.0.1` by default, refuses to start until `KNOWBE4_MCP_HTTP_TOKEN` is set, requires `Authorization: Bearer <token>` on every request, needs TLS for any non-loopback address, and refuses browser origins it does not list. mcp-go is v0.57.0.

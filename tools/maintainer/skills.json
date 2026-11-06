@@ -1385,8 +1385,8 @@
       "tagline": "Hunt repeat clickers, track risk drift, and close training-coverage gaps across every KnowBe4 client from your terminal.",
       "cli_hash": "sha256:5aa06bc8b8239c11a2f2d6514a08e8d57fde1908add3c463109da4736895bdc5",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:955b404706a25f4c33173317c3df1f5d4e30f1e1b1bc2d1bcab3d4ef77bf87ee",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:5aa06bc8b8239c11a2f2d6514a08e8d57fde1908add3c463109da4736895bdc5",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
