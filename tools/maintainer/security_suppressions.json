@@ -2696,6 +2696,67 @@
       ],
       "press": "4.35.1",
       "reason": "connectwise-rmm, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the blumira entry for this file). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/veeam/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same declarations, by digest, as the connectwise-automate entry; the file is !windows."
+    },
+    {
+      "file": "skills/veeam/cli/internal/store/store.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:be4e32edce533bb5dbb3983141c2b56783c6859e785aff86457fa9596b8ff7f3"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). resourceIDFieldOverrides is the generated map of sync resource NAMES to the NAME of each list's own key field (instanceUid, guestOsCredentialsUid, ...); gosec matches the word credentials in the resource name infrastructure-sites-public-cloud-guest-os-credentials. No value in it is a credential."
+    },
+    {
+      "file": "skills/veeam/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "bind": "decl",
+      "sha256": [
+        "sha256:927bf9be376b3e2bfd6c8869db2dd36126dfdcd5ec885b00c37eb366eea80302"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). The same generated resourceIDFieldOverrides map of resource names to key-field names as the store.go entry; no value in it is a credential."
+    },
+    {
+      "file": "skills/veeam/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. The marker write goes through credkit.WriteFile. Same declaration digest as the connectwise-automate entry."
+    },
+    {
+      "file": "skills/veeam/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS). Same declaration digest as the connectwise-automate entry."
+    },
+    {
+      "file": "skills/veeam/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "veeam, press 4.35.1 security reprint with the shared credential kit, reviewed 2026-11-06 (Codex rounds 1 and 2 APPROVED). credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credential store, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home. Same declaration digest as the connectwise-automate entry."
     }
   ]
 }
