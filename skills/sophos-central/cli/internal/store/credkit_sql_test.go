@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -21,7 +22,20 @@ import (
 // through the credential kit's SQL driver (internal/credsql), which withholds
 // it before SQLite sees it. The value is held the way Start holds
 // SOPHOS_CENTRAL_CLIENT_SECRET; this package's other tests never write it.
+//
+// It runs in a child process: a held value lasts for the process, and the kit
+// then checks every later statement of this package's tests against it, which
+// took the package from 9 s to 220 s.
 func TestStoreNeverWritesAHeldCredential(t *testing.T) {
+	if os.Getenv("SOPHOS_CENTRAL_STORE_HELD_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestStoreNeverWritesAHeldCredential$", "-test.count=1", "-test.v")
+		cmd.Env = append(os.Environ(), "SOPHOS_CENTRAL_STORE_HELD_CHILD=1")
+		out, err := cmd.CombinedOutput()
+		if err != nil || !bytes.Contains(out, []byte("--- PASS: TestStoreNeverWritesAHeldCredential")) {
+			t.Fatalf("child run: %v\n%s", err, out)
+		}
+		return
+	}
 	const secret = "qZ7vN" + "2xLp9Wd4Sc"
 	credkit.Hold("env:SOPHOS_CENTRAL_CLIENT_SECRET", secret)
 	dir := t.TempDir()
