@@ -211,6 +211,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	cliutil.Hold("minted:token", tok.AccessToken) // Hand-fix (handfixes.json credkit-wiring): auth login's minted bearer
 	return &tok, nil
 }
 

@@ -119,6 +119,9 @@ func (c *Client) ScopedBearer(ctx context.Context, audience string) (string, tim
 	if err := json.Unmarshal(body, &tr); err != nil || tr.AccessToken == "" {
 		return "", time.Time{}, fmt.Errorf("token endpoint returned no access_token for the audience")
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the audience-scoped bearer is held
+	// before anything can carry it, bound to the configured API origin.
+	cliutil.Hold("minted:scoped-token", tr.AccessToken, "Bearer "+tr.AccessToken)
 	ttl := time.Duration(tr.ExpiresIn) * time.Second
 	if ttl <= 0 {
 		ttl = 55 * time.Minute // documented lifetime is 3600 s
@@ -376,7 +379,7 @@ func InstallScopeTransport(c *Client) error {
 	audience := strings.TrimSpace(cliutil.EnvOverride(AudienceEnvVar))
 	base := c.HTTPClient.Transport
 	if base == nil {
-		base = http.DefaultTransport
+		base = cliutil.OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring): a nil transport is the kit's guard over the default
 	}
 	if _, wrapped := base.(*scopeTransport); !wrapped {
 		c.HTTPClient.Transport = &scopeTransport{base: base, c: c, origin: originOf(c.RequestBaseURL()), audience: audience}

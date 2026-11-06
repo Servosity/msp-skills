@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 	"watchguard-pp-cli/internal/cliutil"
+	"watchguard-pp-cli/internal/credkit"
 )
 
 // DeliverSink describes where command output should be routed when
@@ -143,13 +144,11 @@ func writeDownloadUnder(dir, name string, body []byte) error {
 	if err := f.Chmod(0o600); err != nil {
 		return fmt.Errorf("setting download permissions: %w", err)
 	}
-	if _, err := f.Write(body); err != nil {
-		return fmt.Errorf("writing download: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		return fmt.Errorf("writing download: %w", err)
-	}
 	if err := f.Close(); err != nil {
+		return fmt.Errorf("writing download: %w", err)
+	}
+	// Hand-fix (handfixes.json credkit-wiring): the body is written through the credential kit; a withheld one leaves nothing behind.
+	if err := credkit.WriteFile(tmp, body, 0o600); err != nil {
 		return fmt.Errorf("writing download: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -184,7 +183,7 @@ func deliverWebhook(webhookURL string, body []byte, compact bool) error {
 		password, _ := user.Password()
 		req.SetBasicAuth(user.Username(), password)
 	}
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	resp, err := cliutil.OutboundGuard(nil).RoundTrip(req) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("posting to webhook: %w", err)
 	}
