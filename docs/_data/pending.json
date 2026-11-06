@@ -336,9 +336,9 @@
     "released_hash": "sha256:78c2769ba7ddd569d3f22f4d3470038d95285281fbf05592944d1717c8bc8752"
   },
   "jamf-pro": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "jamf-pro-v0.1.0",
     "current_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
     "released_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca"
   },
