@@ -788,12 +788,14 @@ BUILD_TARGETS = (("linux", "amd64"), ("linux", "arm64"), ("darwin", "amd64"),
 
 
 def graph_roots(mod_dir: Path) -> list[str]:
-    """`./...` plus each cmd/ dir it skips (a name starting with _ or .): registry.cmd_dirs
-    can pick such a dir and release.yml builds what it picks, so a scan rooted at `./...`
-    alone would never see that binary's imports (codex, GO-2026-6911 review)."""
+    """`./...` plus every dir under cmd/ by explicit path. registry.cmd_dirs picks the
+    release entry points from all of them (any name, symlinks followed) and release.yml
+    builds what it picks, while `./...` skips names starting with _ or . and symlinked
+    dirs, so a scan rooted at `./...` alone could miss a release binary's imports (codex,
+    GO-2026-6911 review)."""
     cmd = mod_dir / "cmd"
     return ["./..."] + sorted(f"./cmd/{d.name}" for d in (cmd.iterdir() if cmd.is_dir() else ())
-                              if d.is_dir() and d.name[:1] in "_.")
+                              if d.is_dir())
 
 
 def _go_list_direct(mod_dir: Path, goos: str, goarch: str) -> tuple[set[str], set[str]] | None:
@@ -3027,17 +3029,21 @@ def _self_test_osv_packages() -> int:
          osv_unlinked({"affected": [{"package": {"name": mod}}]}, mod, server_only) is None),
         ("a record with no affected list gates as before", osv_unlinked({}, mod, server_only) is None),
     ]
-    # The graph sees a release entry point `./...` skips: cmd/_acme-cli links a package
-    # cmd/acme-cli does not (real go list, stdlib only, no network).
+    # The graph sees release entry points `./...` skips: cmd/_acme-cli and the symlink
+    # cmd/aaa-mcp -> ../_entry each link a package cmd/acme-cli does not (real go list,
+    # stdlib only, no network).
     tmp = Path(tempfile.mkdtemp(prefix="gate-osv-roots-"))
     try:
         (tmp / "go.mod").write_text("module example.com/acme\n\ngo 1.21\n")
-        for d, imp in (("acme-cli", "fmt"), ("_acme-cli", "net/http/httptest")):
-            (tmp / "cmd" / d).mkdir(parents=True)
-            (tmp / "cmd" / d / "main.go").write_text(f'package main\n\nimport _ "{imp}"\n\nfunc main() {{}}\n')
+        for d, imp in (("cmd/acme-cli", "fmt"), ("cmd/_acme-cli", "net/http/httptest"), ("_entry", "net/smtp")):
+            (tmp / d).mkdir(parents=True)
+            (tmp / d / "main.go").write_text(f'package main\n\nimport _ "{imp}"\n\nfunc main() {{}}\n')
+        (tmp / "cmd" / "aaa-mcp").symlink_to("../_entry", target_is_directory=True)
         graph = direct_import_modules(tmp)
         cases.append(("the graph covers a cmd/_ entry point", graph is not None and "net/http/httptest" in graph[1]))
-        cases.append(("graph_roots names it", graph_roots(tmp) == ["./...", "./cmd/_acme-cli"]))
+        cases.append(("the graph covers a symlinked cmd entry point", graph is not None and "net/smtp" in graph[1]))
+        cases.append(("graph_roots names every cmd dir",
+                      graph_roots(tmp) == ["./...", "./cmd/_acme-cli", "./cmd/aaa-mcp", "./cmd/acme-cli"]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     failed = 0
