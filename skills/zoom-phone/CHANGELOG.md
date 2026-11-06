@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-11-06
 
 ### Added
 - Zoom Phone CLI and MCP server covering the Zoom Phone API (420 MCP tools), with a local SQLite mirror filled by `sync`.

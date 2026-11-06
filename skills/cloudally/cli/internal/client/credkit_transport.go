@@ -21,6 +21,13 @@ import (
 // prove the guard itself.
 var OutboundGuard = credkit.Transport
 
+// HoldMinted holds a credential the program acquires outside the kit's own
+// sources (the portal's handoff and CSRF tokens). It is credkit.Hold; the
+// in-process unit tests that swap OutboundGuard swap it too, since the held set
+// is process-wide and a test value held by one test would withhold another
+// test's ordinary output.
+var HoldMinted = credkit.Hold
+
 // guardedTransport is OutboundGuard around inner, with inner kept so a
 // streaming client can clone it with its own header timeout and guard the
 // clone.

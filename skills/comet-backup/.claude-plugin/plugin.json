@@ -1,0 +1,21 @@
+{
+  "name": "comet-backup",
+  "version": "0.1.0",
+  "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/comet-backup",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "comet-backup",
+    "comet backup",
+    "backup-dr",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

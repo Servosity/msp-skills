@@ -91,10 +91,10 @@
       "category": "Backup/DR",
       "display_name": "Afi",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
-      "cli_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e",
+      "cli_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -189,10 +189,10 @@
       "category": "PSA",
       "display_name": "Autotask PSA",
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
-      "cli_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
+      "cli_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
       "template_version": 3,
-      "version": "0.1.9",
-      "cli_hash_at_release": "sha256:91ca48c3c47904d750169a994095d2207214080bfa28f0cfcd4004868f7b2d80",
+      "version": "0.1.10",
+      "cli_hash_at_release": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -538,10 +538,10 @@
       "category": "Backup/DR",
       "display_name": "CloudAlly",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "cli_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+      "cli_hash": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+      "version": "0.2.0",
+      "cli_hash_at_release": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
       "live_verified": {
         "status": "live-verified",
         "date": "2026-11-05",
@@ -554,6 +554,28 @@
         "verified_basis": "latest-release-at-flip"
       },
       "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
+    },
+    "comet-backup": {
+      "system": "White-label backup: users, devices, jobs, policies, and storage across every tenant on an MSP's Comet server",
+      "status": "beta",
+      "cli_binary": "comet-backup-cli",
+      "mcp_binary": "comet-backup-mcp",
+      "vendor": "Comet Backup",
+      "vendor_trademark_owner": "Comet Licensing Ltd",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Comet Backup",
+      "has_video": true,
+      "cli_hash": "sha256:5cf0d2ffd1c268867f0a123ae914f1fd92f496e2d2b8b3a14c15426e7ab60a45",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
@@ -635,7 +657,7 @@
       "display_name": "ConnectWise Control",
       "cli_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
       "template_version": 3,
-      "version": "0.1.9",
+      "version": "0.1.10",
       "cli_hash_at_release": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
       "has_video": true,
       "live_verified": {
@@ -1211,6 +1233,28 @@
         "issue_url": null
       }
     },
+    "jamf-pro": {
+      "system": "Jamf Pro: computers, mobile devices, policies, scripts, and packages across every client Jamf instance for MSPs",
+      "status": "beta",
+      "cli_binary": "jamf-pro-cli",
+      "mcp_binary": "jamf-pro-mcp",
+      "vendor": "Jamf",
+      "vendor_trademark_owner": "JAMF Software, LLC",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Jamf Pro",
+      "has_video": true,
+      "cli_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "jira-service-management": {
       "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
       "status": "beta",
@@ -1247,7 +1291,7 @@
       "tagline": "Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.",
       "cli_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7",
       "template_version": 3,
-      "version": "0.1.8",
+      "version": "0.1.9",
       "cli_hash_at_release": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7",
       "has_video": true,
       "live_verified": {
@@ -1390,10 +1434,10 @@
       "first_party": false,
       "category": "Billing",
       "display_name": "Maxio",
-      "cli_hash": "sha256:9dfdf4a73b00bd7517e63a746ccf0076dfde084266243447b6a9f38cbdb7d201",
+      "cli_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2372,6 +2416,29 @@
         "issue_url": null
       }
     },
+    "vsphere": {
+      "system": "VMware vCenter Server and vSphere (ESXi hosts, clusters, VMs, datastores and snapshots)",
+      "status": "beta",
+      "cli_binary": "vsphere-cli",
+      "mcp_binary": "vsphere-mcp",
+      "vendor": "VMware",
+      "vendor_trademark_owner": "Broadcom Inc",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "VMware vSphere",
+      "tagline": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "has_video": true,
+      "cli_hash": "sha256:9cab95c5b6886e29d29471e6ae71830d16c5b72a38928c58063b5c1eb1f699e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "warranty": {
       "system": "Dell, Lenovo and Apple device warranty lookups",
       "status": "beta",
@@ -2513,7 +2580,7 @@
       "cli_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
       "live_verified": {
         "status": "awaiting",
         "date": null,

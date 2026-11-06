@@ -15,5 +15,6 @@ import (
 // internal/credwire.
 func TestMain(m *testing.M) {
 	OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }
+	HoldMinted = func(string, ...string) {}
 	os.Exit(m.Run())
 }

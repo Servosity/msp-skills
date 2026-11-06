@@ -1,0 +1,108 @@
+{
+  "manifest_version": "0.3",
+  "name": "vsphere-mcp",
+  "display_name": "VMware vSphere",
+  "version": "0.1.0",
+  "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/vsphere-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/vsphere-mcp",
+      "args": [],
+      "env": {
+        "VSPHERE_PASSWORD": "${user_config.vsphere_password}",
+        "VSPHERE_USERNAME": "${user_config.vsphere_username}",
+        "VSPHERE_BASE_URL": "${user_config.vsphere_base_url}",
+        "VSPHERE_TLS_FINGERPRINT": "${user_config.vsphere_tls_fingerprint}",
+        "VSPHERE_USER_AGENT": "${user_config.vsphere_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "VSPHERE_MCP_READ_ONLY": "${user_config.vsphere_mcp_read_only}",
+        "VSPHERE_NO_LOCAL_DATA": "${user_config.vsphere_no_local_data}",
+        "VSPHERE_MCP_HTTP_TOKEN": "${user_config.vsphere_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "vsphere_password": {
+      "type": "string",
+      "title": "VSPHERE_PASSWORD",
+      "description": "Password for VSPHERE_USERNAME.",
+      "sensitive": true,
+      "required": true
+    },
+    "vsphere_username": {
+      "type": "string",
+      "title": "VSPHERE_USERNAME",
+      "description": "vCenter SSO user, e.g. readonly@vsphere.local. A Read-Only role is enough.",
+      "required": true
+    },
+    "vsphere_base_url": {
+      "type": "string",
+      "title": "VSPHERE_BASE_URL",
+      "description": "Your vCenter, https://<vcenter> (https only).",
+      "required": true
+    },
+    "vsphere_tls_fingerprint": {
+      "type": "string",
+      "title": "VSPHERE_TLS_FINGERPRINT",
+      "description": "Only for a self-signed vCenter certificate: its SHA-256 fingerprint (comma-separate several). Leave empty for a trusted certificate.",
+      "required": false,
+      "default": ""
+    },
+    "vsphere_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to vCenter. Leave blank to use the built-in one.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Optional. Binds the MCP server to one saved client profile. Leave blank for the default.",
+      "required": false,
+      "sensitive": false
+    },
+    "vsphere_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools. vCenter is only ever read; the tools that write this CLI's own files (learnings, playbooks, the local store, exports) act only with confirm set to true, and this switch hides them. Leave blank.",
+      "required": false,
+      "sensitive": false
+    },
+    "vsphere_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to vCenter and nothing is written to the local store. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "vsphere_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP bearer token (unused)",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T04:05:33.799033Z",
+    "spec_checksum": "sha256:cd726b76852c8d251ca73d4922dbc1b7eb1ff677af0de6bcc7036fdf25a9bea5",
+    "spec_format": "openapi3"
+  }
+}

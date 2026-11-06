@@ -18,7 +18,10 @@ type custMRR struct {
 	MRRCents   int64  `json:"mrr_cents"`
 }
 
-// latestPerCustomerMRR returns per-customer MRR at the most recent snapshot,
+// latestPerCustomerMRR returns per-customer MRR at the most recent snapshot
+// over current subscriptions (revenue.CurrentStates: a past-due
+// subscription's MRR is still the customer's; Codex r1 class
+// current-states-narrowed-to-active),
 // descending by MRR, plus the total. Mirrors cohort.go's snapshot→subscription
 // join (s.subscription_id = sub.id). Shared by concentration and arpa.
 func latestPerCustomerMRR(ctx context.Context, db *sql.DB) ([]custMRR, int64, error) {
@@ -39,10 +42,10 @@ func latestPerCustomerMRR(ctx context.Context, db *sql.DB) ([]custMRR, int64, er
 		LEFT JOIN resources cust ON cust.resource_type='customers-json'
 		                        AND cust.id = json_extract(sub.data,'$.customer.id')
 		WHERE s.snapshot_at = ?
-		  AND json_extract(sub.data,'$.state')='active'
+		  AND LOWER(COALESCE(json_extract(sub.data,'$.state'),'')) IN (SELECT value FROM json_each(?))
 		GROUP BY cid
 		HAVING mrr > 0
-		ORDER BY mrr DESC`, latest.String)
+		ORDER BY mrr DESC`, latest.String, revenue.CurrentStatesArg())
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying per-customer MRR: %w", err)
 	}
@@ -62,6 +65,7 @@ func latestPerCustomerMRR(ctx context.Context, db *sql.DB) ([]custMRR, int64, er
 }
 
 type concentrationView struct {
+	Currency       string    `json:"currency,omitempty"`
 	TotalCustomers int       `json:"total_customers"`
 	TotalMRRCents  int64     `json:"total_mrr_cents"`
 	Top1Pct        float64   `json:"top_1_customer_pct"`
@@ -101,7 +105,8 @@ func newNovelConcentrationCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			view := concentrationView{TotalCustomers: len(custs), TotalMRRCents: total, Top: []custMRR{}}
+			currency, money := revenueMoney(cmd.Context(), db)
+			view := concentrationView{Currency: currency, TotalCustomers: len(custs), TotalMRRCents: total, Top: []custMRR{}}
 			if len(custs) == 0 || total == 0 {
 				hintRunMrrSync(cmd.ErrOrStderr())
 				view.Note = "no MRR snapshots yet — run `maxio-cli mrr sync` first"
@@ -120,11 +125,11 @@ func newNovelConcentrationCmd(flags *rootFlags) *cobra.Command {
 			view.Note = "shares computed over the per-subscription MRR snapshot, which excludes annual-prepay subscriptions; the full-book recognized-revenue total is in QuickBooks (report pnl). Concentration shares are still representative of the recurring book."
 
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
-				fmt.Fprintf(w, "customers: %d   total MRR: %s\n", view.TotalCustomers, revenue.Cents(view.TotalMRRCents))
+				fmt.Fprintf(w, "customers: %d   total MRR: %s\n", view.TotalCustomers, money(view.TotalMRRCents))
 				fmt.Fprintf(w, "top 1:  %5.1f%%\ntop 5:  %5.1f%%\ntop 10: %5.1f%%\n", view.Top1Pct, view.Top5Pct, view.Top10Pct)
 				fmt.Fprintf(w, "\n%-40s %14s %8s\n", "customer", "mrr", "share%")
 				for _, c := range view.Top {
-					fmt.Fprintf(w, "%-40s %14s %7.1f%%\n", truncReason(c.Customer), revenue.Cents(c.MRRCents), float64(c.MRRCents)/float64(total)*100)
+					fmt.Fprintf(w, "%-40s %14s %7.1f%%\n", truncReason(c.Customer), money(c.MRRCents), float64(c.MRRCents)/float64(total)*100)
 				}
 			})
 		},

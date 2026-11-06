@@ -8,12 +8,15 @@
 ## What it authenticates as
 
 The skill drives the `afi-cli` binary (and `afi-mcp`),
-authenticating with `AFI_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Afi API.
+authenticating with `AFI_API_KEY`. The key goes only to the Afi API host (`https://papi.afi.ai`,
+or `AFI_BASE_URL` when set), in the `Authorization` header; a redirect to another host is
+refused. A key from the environment is never written to disk; only `credentials.toml`
+(mode 0600) holds a credential, and only if you run `auth set-token`. Output that would
+repeat a credential is withheld.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **`--dry-run` is opt-in - use it.** From the CLI, mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Over MCP, every write returns a preview and sends nothing until it is called again with `confirm` set to boolean true, and `AFI_MCP_READ_ONLY=1` refuses every write to Afi. Make your agent's policy: preview, show the exact command, get approval, then run the write.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not

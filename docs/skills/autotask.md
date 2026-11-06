@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "What credentials do I need?"
-    a: "An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach."
+    a: "An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach."
   - q: "Do I have to figure out my Autotask zone URL?"
     a: "No. Autotask hosts each tenant in a numbered zone (webservicesN.autotask.net). Run autotask-cli zone once and the CLI discovers and caches your tenant's base URL, the same way Autotask's own docs tell integrations to make a zone-information request first."
   - q: "Will this blow through my Autotask API limits?"
@@ -139,7 +139,7 @@ After install, authenticate once with your Autotask PSA credentials, then verify
 | Write (routine) | autotask-cli tickets create-entity (open a ticket); autotask-cli tickets patch-entity (update status or owner); autotask-cli time-entries create-entity (log time); autotask-cli companies update-entity - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
 | Destructive / config | autotask-cli time-entries delete-entity; autotask-cli service-calls delete-entity "1234"; autotask-cli contact-groups delete-entity "1234" | Human-in-the-loop only |
 
-The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/autotask/governance.md).
+The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/autotask/governance.md).
 
 ## Frequently asked questions
 
@@ -169,7 +169,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### What credentials do I need?
 
-An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
+An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
 
 ### Do I have to figure out my Autotask zone URL?
 

@@ -1,0 +1,200 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/autotask_guard.go",
+   "func": "installPin",
+   "what": "convert:autotask-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dry-run tripper sends nothing: it closes the body and answers every request with ErrDryRunSend"
+  },
+  {
+   "file": "internal/cli/autotask_guard.go",
+   "func": "installPin",
+   "what": "convert:autotask-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin (api-origin-pinned) refuses a request for any other origin and hands the rest to the client's own transport, credkit.Transport (or the dry-run tripper, which sends nothing)"
+  },
+  {
+   "file": "internal/cli/autotask_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the transport set here is the origin pin, whose inner transport is the client's credkit.Transport (credkit.Transport(nil) when the client had none)"
+  },
+  {
+   "file": "internal/cli/autotask_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "calls only the inner transport installPin set: credkit.Transport, or the dry-run tripper, which sends nothing"
+  },
+  {
+   "file": "internal/cli/autotask_resource_read.go",
+   "func": "readResourcePage",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "io.Discard, handed to the page walk; the read runs from export and tail after Start, and init only fills the path tables"
+  },
+  {
+   "file": "internal/cli/autotask_sync_scope.go",
+   "func": "clearUnfilteredWalks",
+   "what": "database/sql.DB.Exec",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the sync scope wrapper is registered in init and runs as sync's RunE, after Start; the handle comes from store.Open, which opens through credsql (credkit.SQLDriver), so each statement is the kit's"
+  },
+  {
+   "file": "internal/cli/autotask_sync_scope.go",
+   "func": "clearUnfilteredWalks",
+   "what": "database/sql.DB.QueryRow",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the sync scope wrapper is registered in init and runs as sync's RunE, after Start; the handle comes from store.Open, which opens through credsql (credkit.SQLDriver), so each statement is the kit's"
+  },
+  {
+   "file": "internal/cli/autotask_sync_scope.go",
+   "func": "markFilteredWalks",
+   "what": "database/sql.DB.Exec",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "the sync scope wrapper is registered in init and runs as sync's RunE, after Start; the handle comes from store.Open, which opens through credsql (credkit.SQLDriver), so each statement is the kit's"
+  },
+  {
+   "file": "internal/cli/autotask_sync_scope.go",
+   "func": "markFilteredWalks",
+   "what": "database/sql.DB.QueryRow",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the sync scope wrapper is registered in init and runs as sync's RunE, after Start; the handle comes from store.Open, which opens through credsql (credkit.SQLDriver), so each statement is the kit's"
+  },
+  {
+   "file": "internal/cli/picklist.go",
+   "func": "newNovelPicklistCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "built by a command constructor that an init registration reaches; the closure runs as the command's RunE, after Start, and writes to the command's output, which the kit's output layer wraps"
+  },
+  {
+   "file": "internal/cli/picklist.go",
+   "func": "newNovelPicklistCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "built by a command constructor that an init registration reaches; the closure runs as the command's RunE, after Start, and writes to the command's output, which the kit's output layer wraps"
+  },
+  {
+   "file": "internal/cli/zone.go",
+   "func": "newZoneCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "built by a command constructor that an init registration reaches; the closure runs as the command's RunE, after Start, and writes to the command's output, which the kit's output layer wraps"
+  },
+  {
+   "file": "internal/cli/zone.go",
+   "func": "newZoneCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "built by a command constructor that an init registration reaches; the closure runs as the command's RunE, after Start, and writes to the command's output, which the kit's output layer wraps"
+  },
+  {
+   "file": "internal/cli/zone.go",
+   "func": "discoverZone",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by hc, built in this function with credkit.Transport and the origin pin to the zone-discovery host; zone runs after Start"
+  },
+  {
+   "file": "internal/cli/zone.go",
+   "func": "discoverZone",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hc is built in this function with credkit.Transport behind the origin pin; zone runs after Start"
+  },
+  {
+   "file": "internal/cli/zone.go",
+   "func": "firstNonEmptyEnv",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the API user's login name for zone discovery; both variables are Identifiers in the Declarations (the name is no credential)",
+   "names": [
+    "AUTOTASK_USERNAME",
+    "AUTOTASK_PSA_USER_NAME"
+   ]
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and run profile files credwire.credentialFiles names (and the files the MCP server reloads), and the bytes go only to credkit.HoldBody and HoldURL"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/config/autotask_persist.go",
+   "func": "persistedWithoutCredentials",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a fixed warning on stderr when a config save drops base_url's userinfo or query; it runs from a config save after Start, and stderr is the kit's"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  }
+ ]
+}

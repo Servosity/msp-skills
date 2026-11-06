@@ -1,0 +1,114 @@
+{
+  "manifest_version": "0.3",
+  "name": "comet-backup-mcp",
+  "display_name": "Comet Backup",
+  "version": "0.1.0",
+  "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/comet-backup-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/comet-backup-mcp",
+      "args": [],
+      "env": {
+        "COMET_BACKUP_PASSWORD": "${user_config.comet_backup_password}",
+        "COMET_BACKUP_SERVER": "${user_config.comet_backup_server}",
+        "COMET_BACKUP_SESSION_KEY": "${user_config.comet_backup_session_key}",
+        "COMET_BACKUP_USERNAME": "${user_config.comet_backup_username}",
+        "COMET_BACKUP_BASE_URL": "${user_config.comet_backup_base_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "COMET_BACKUP_MCP_READ_ONLY": "${user_config.comet_backup_mcp_read_only}",
+        "COMET_BACKUP_NO_LOCAL_DATA": "${user_config.comet_backup_no_local_data}",
+        "COMET_BACKUP_USER_AGENT": "${user_config.comet_backup_user_agent}",
+        "COMET_BACKUP_MCP_HTTP_TOKEN": "${user_config.comet_backup_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "comet_backup_password": {
+      "type": "string",
+      "title": "COMET_BACKUP_PASSWORD",
+      "description": "Admin account password (sent as AuthType=Password). Set COMET_BACKUP_SESSION_KEY instead to use a session key.",
+      "sensitive": true,
+      "required": true
+    },
+    "comet_backup_server": {
+      "type": "string",
+      "title": "COMET_BACKUP_SERVER",
+      "description": "Your Comet Server's host and port, for example backup.example.com:8060 (the CLI connects over https).",
+      "required": true
+    },
+    "comet_backup_session_key": {
+      "type": "string",
+      "title": "COMET_BACKUP_SESSION_KEY",
+      "description": "Optional. Admin session key from AdminAccountSessionStart (sent as AuthType=SessionKey). Takes precedence over the password when set.",
+      "sensitive": true
+    },
+    "comet_backup_username": {
+      "type": "string",
+      "title": "COMET_BACKUP_USERNAME",
+      "description": "Admin account name (form field Username).",
+      "required": true
+    },
+    "comet_backup_base_url": {
+      "type": "string",
+      "title": "Comet Server full URL (optional)",
+      "description": "Optional. The full https URL of your Comet Server, for example https://10.0.0.5:8060. Overrides COMET_BACKUP_SERVER when set. Leave blank to use COMET_BACKUP_SERVER. The admin login is only ever sent over https.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Optional. Binds the MCP server to one saved client profile. Leave blank for the default.",
+      "required": false,
+      "sensitive": false
+    },
+    "comet_backup_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools, refuse any state-changing execute call, and refuse the credential-tier reads. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "comet_backup_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "comet_backup_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to your Comet Server. Leave blank to use the built-in one.",
+      "required": false
+    },
+    "comet_backup_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T04:40:42.387881Z",
+    "spec_checksum": "sha256:cd531b56412e128f499cf36c09aa3a16c4b23814185cf9da1fc5948e0e091262",
+    "spec_format": "openapi3"
+  }
+}

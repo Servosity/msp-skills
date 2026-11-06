@@ -1,6 +1,6 @@
 ---
 name: cloudally
-description: "Use when the user asks about CloudAlly SaaS backup of Microsoft 365 or Google Workspace through the Management API v2: partner, reseller and customer accounts, backup tasks and their status, running or pausing backups, users, billing and recovery (restore) jobs. Trigger phrases: `which CloudAlly backups are failing`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `restore a CloudAlly mailbox`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`."
+description: "Use when the user asks about CloudAlly backups of Microsoft 365 or Google Workspace: restores many mailboxes to one past backup date, builds and downloads year-end mailbox archives, lists a mailbox's past backups (which CloudAlly's documented API cannot), and finds stale or failing backups across every partner customer; also partner, reseller and customer accounts, backup tasks, users and billing through the Management API v2. Trigger phrases: `restore all mailboxes to a date in CloudAlly`, `batch restore CloudAlly mailboxes`, `download every mailbox as of December 31`, `year-end mailbox archive from CloudAlly`, `list a CloudAlly mailbox's past backups`, `which CloudAlly backups are failing`, `check CloudAlly restore progress`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`."
 author: "Jeff Moore"
 license: "Apache-2.0"
 vendor: "CloudAlly"
@@ -42,11 +42,11 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-CloudAlly SaaS backup for Microsoft 365 and Google Workspace from scripts or an agent: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through CloudAlly's Management API v2. Log in as one company, or as a partner that reaches every customer.
+Log in as one company, or as a partner that reaches every customer, and drive CloudAlly backups from scripts or an agent. The restore group plans, submits, watches and remembers multi-mailbox restores to a chosen backup date. The download group builds year-end mailbox archives for every mailbox backed up on one date and collects them to disk. `backup snapshots` reads a mailbox's past backups from the customer portal, which the documented API cannot, and `backup health` sweeps every customer for stale or failing backups.
 
 ## When to Use This CLI
 
-Use this CLI for anything that touches one CloudAlly company account (the default login) or, with a partner login, every customer account: backup status across customers, listing and managing backup tasks and their entities, running, pausing and cancelling backups, restoring one entity from a backup date, managing accounts, resellers and users, and reading bills.
+Use this CLI for anything that touches one CloudAlly company account (the default login) or, with a partner login, every customer account: listing backup tasks, restoring mailboxes and sites from a backup date, downloading mailbox archives as they stood on a past date, managing tasks and entities, running, pausing and cancelling backups, checking backup health across customers, managing accounts, resellers and users, and reading bills. It is the right tool when more than one mailbox needs restoring to the same date, when that date is in the past and each mailbox has to be resolved to the backup taken on or before it, or when restore history older than a week is needed.
 
 ## Anti-triggers
 
@@ -55,6 +55,80 @@ Do not use this CLI for:
 - Do not use it for Microsoft 365 administration itself (creating users, licenses, mailbox settings); it only drives CloudAlly backups of those tenants.
 - Do not use it to create API keys; client-id and client-secret are created in the CloudAlly partner portal.
 - Do not use it for billing reconciliation on indirect partner accounts; CloudAlly blocks billing endpoints by default for them.
+
+## Unique Capabilities
+
+### Batch restore by date
+- **`restore plan`** - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
+
+  _Reach for this before any multi-mailbox restore so the operator can review what will be restored and from which backup._
+
+  ```bash
+  cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --date 2026-10-03 --agent
+  ```
+- **`restore submit`** - Submit one restore per mailbox per date with a local ledger and a restore guard (`restore-guard.db` in the state directory) shared by every login and token that uses that state directory: a restore already sent from it is never sent again unless you pass --new-batch. Another OS user, `--home`, `CLOUDALLY_HOME` or `CLOUDALLY_STATE_DIR` has its own guard, and `recovery restore` and the MCP `cloudally_execute` tool bypass it; --resume keeps the batch's recorded target account and restore options.
+
+  _Use this for every restore, a single mailbox included (`--entities <mailbox>`); `recovery restore` skips the plan, ledger, guard and confirmation._
+
+  ```bash
+  cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
+  ```
+- **`restore watch`** - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
+
+  _Pick this to track a batch you submitted; use tasks list --type RESTORE only for raw job listings._
+
+  ```bash
+  cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 30s --agent
+  ```
+- **`restore history`** - See what was restored for which company and when, from the local ledger, without calling the API.
+
+  _Use this for audit questions about past restores; it never calls the API._
+
+  ```bash
+  cloudally-cli restore history --since 2026-09-01 --agent
+  ```
+- **`backup snapshots`** - List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.
+
+  _Use this to confirm a past restore point exists before restoring anything. It is read-only and needs a partner login plus --account._
+
+  ```bash
+  cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12 --agent
+  ```
+
+### Mailbox downloads to a past date
+- **`download submit`** - Create one download (export) job per mailbox and sub-source for every mailbox backed up on one date, record every row in a local ledger, and reconcile it against the portal.
+
+  _Use this for year-end or legal-hold archives of many mailboxes, and for any MS365 mailbox. Pass `--utc-offset` so `--on-date` means the account's own calendar day, and run it once without `--yes` first: that prints the plan and creates nothing (exit 2; exit 0 with nothing to create when every mailbox was skipped, so read the skipped list before calling the set complete)._
+
+  ```bash
+  cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5
+  ```
+- **`download fetch`** - Download every ready archive to disk, one folder per year, mailbox and sub-source, minting and streaming each 60-second link in one step and resuming safely after an interruption.
+
+  _Use this to collect the archives `download submit` created; `--plan-only` lists what it would write. `--dest` must already exist, even with `--plan-only` (`mkdir archives`; PowerShell: `New-Item -ItemType Directory archives`)._
+
+  ```bash
+  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12 --plan-only
+  ```
+- **`download start`** - Build one archive of one mailbox from the backup taken on or before a date, for single-archive sources (MS365 tasks go through `download submit`). It runs as a one-archive batch through the download guard, so running it again creates nothing; confirm the job with the printed `download submit --batch <key> --resume --yes`.
+
+  ```bash
+  cloudally-cli download start --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --date 2025-12-31 --dry-run
+  ```
+- **`download list`**, **`download watch`** and **`download link`** - List an account's download jobs, follow one to READY_FOR_DOWNLOAD, and mint a fresh link for a finished one. A link is valid for about 60 seconds: hand it to a program, never to a ticket.
+
+  ```bash
+  cloudally-cli download watch --account 5f1c2a --job 9f2b1c --once
+  ```
+
+### Partner operations
+- **`backup health`** - Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.
+
+  _Use this for a partner-wide health check instead of paging through distributor-accounts backup-statuses._
+
+  ```bash
+  cloudally-cli backup health --stale-days 2 --group-by account --agent
+  ```
 
 ## Command Reference
 
@@ -94,7 +168,7 @@ Do not use this CLI for:
 
 **distributor_recovery** - Manage distributor recovery
 
-- `cloudally-cli distributor-recovery export` - The documented export call. On the live API it answers 200 with an empty body and creates no job; do not rely on it.
+- `cloudally-cli distributor-recovery export` - The documented export call; on the live API it answers 200 and creates no job. Use `download submit` or `download start`.
 - `cloudally-cli distributor-recovery restore` - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. Writes back into the customer's live mailbox, site or drive.
 
 **distributor_resellers** - Manage distributor resellers
@@ -118,7 +192,7 @@ Do not use this CLI for:
 
 **recovery** - Manage recovery
 
-- `cloudally-cli recovery export` - The documented export call. On the live API it answers 200 with an empty body and creates no job; do not rely on it.
+- `cloudally-cli recovery export` - The documented export call; on the live API it answers 200 and creates no job. Use `download submit` or `download start`.
 - `cloudally-cli recovery restore` - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. Writes back into the customer's live mailbox, site or drive.
 
 **reseller** - Manage reseller
@@ -157,7 +231,7 @@ Do not use this CLI for:
 
 **reseller_recovery** - Manage reseller recovery
 
-- `cloudally-cli reseller-recovery export` - The documented export call. On the live API it answers 200 with an empty body and creates no job; do not rely on it.
+- `cloudally-cli reseller-recovery export` - The documented export call; on the live API it answers 200 and creates no job. Use `download submit` or `download start`.
 - `cloudally-cli reseller-recovery restore` - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. Writes back into the customer's live mailbox, site or drive.
 
 **session** - Manage session
@@ -197,6 +271,41 @@ Do not use this CLI for:
 - `cloudally-cli user update-settings` - Update Cloudally account settings.
 
 
+**backup**
+
+
+- `cloudally-cli backup health` - Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.
+
+- `cloudally-cli backup snapshots` - List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.
+
+
+**restore**
+
+
+- `cloudally-cli restore plan` - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
+
+- `cloudally-cli restore submit` - Submit one restore per mailbox per date with a local ledger and a restore guard (`restore-guard.db` in the state directory) shared by every login and token that uses that state directory: a restore already sent from it is never sent again unless you pass --new-batch. Another OS user, `--home`, `CLOUDALLY_HOME` or `CLOUDALLY_STATE_DIR` has its own guard, and `recovery restore` and the MCP `cloudally_execute` tool bypass it; --resume keeps the batch's recorded target account and restore options.
+
+- `cloudally-cli restore watch` - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
+
+- `cloudally-cli restore history` - See what was restored for which company and when, from the local ledger, without calling the API.
+
+
+**download**
+
+
+- `cloudally-cli download submit` - Create one download (export) job per mailbox and sub-source for every mailbox backed up on one date, with a local ledger and a reconcile pass.
+
+- `cloudally-cli download fetch` - Download every ready archive to disk, one folder per year, mailbox and sub-source.
+
+- `cloudally-cli download start` - Build one archive of one mailbox (single-archive sources; MS365 goes through download submit).
+
+- `cloudally-cli download list` - List an account's download (export) jobs.
+
+- `cloudally-cli download watch` - Follow one download job until its archive is ready.
+
+- `cloudally-cli download link` - Mint a fresh 60-second link for each file of a finished download job.
+
 
 ### Finding the right command
 
@@ -209,6 +318,88 @@ cloudally-cli which "<capability in your own words>"
 `which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
+
+### Plan a batch restore and save it for review
+
+```bash
+cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --plan-out plan.json
+```
+
+Resolve which backup each mailbox would be restored from and save the plan for review.
+
+### Submit the batch after reviewing the plan
+
+```bash
+cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --concurrency 3 --yes
+```
+
+Sends one restore per mailbox from the same plan restore plan showed (or pass --plan-file plan.json to submit a saved plan exactly). Without --yes nothing is sent.
+
+### Follow a batch to completion
+
+```bash
+cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 30s --agent --select rows.entity,rows.status,rows.task_id
+```
+
+Polls the account's RESTORE tasks, correlates them to the batch and prints only the columns an agent needs.
+
+### Partner-wide health sweep (partner login)
+
+```bash
+cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --group-by account
+```
+
+Windows PowerShell 5.1 has no `&&`; run the second command only when the first succeeded:
+
+```powershell
+cloudally-cli sync --resources distributor_accounts-backup-statuses
+if ($LASTEXITCODE -eq 0) {
+  cloudally-cli backup health --stale-days 2 --group-by account
+}
+```
+
+Needs `auth login --partner`; refreshes the statuses feed for every customer, then lists stale or failing entities grouped by customer.
+
+### What did we restore for a customer last quarter
+
+```bash
+cloudally-cli restore history --since 2026-07-01 --csv
+```
+
+Reads this login's local ledger only, so it works offline. The partner login, each `auth use-account` customer and each company login keep separate ledgers, so run it under the login that submitted the batches.
+
+### Check which backup a past date resolves to for one mailbox
+
+```bash
+cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12
+```
+
+Lists that mailbox's backup runs for the month from the portal's backup calendar, so the restore point is confirmed before anything is restored.
+
+### Plan an end-of-year restore for every mailbox on a task
+
+```bash
+cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31 --plan-out eoy.json
+```
+
+Resolves each mailbox to its newest successful backup at or before 2025-12-31 from the portal's backup calendar. Mailboxes with no backup by that date are listed as NO_BACKUP and left out of the submission.
+
+### Year-end archive of every mailbox on a task (partner login)
+
+```bash
+cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5
+cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes
+```
+
+Creates one job per mailbox and sub-source for the backups taken on 31 December in the account's own timezone. A mailbox with no successful backup that day is listed as skipped, never archived from another date. Each row is saved as REQUESTED before its create is sent. A create whose result is unknown (timeout, dropped connection, server error) is UNKNOWN and is never sent again by `--resume` on its own: `--resume` first marks jobs it finds on the portal CREATED; add `--retry-unknown` only after `download list` shows they are missing. Rows that never appear on the portal are marked MISSING; re-send them with `--batch <key> --resume --yes`. The batch records `--include-deleted`, `--include-legal-hold` and `--format`, and `--resume` uses the recorded values (a different value is refused). Running the same submit again while its batch has archives created, possibly created or being sent is refused, with the `--batch <key> --resume --yes` command printed (a run with a different `--utc-offset` is a different submit, since it selects another day's backups); `--new-batch` starts a second batch and creates every export again, so never pass it on an agent's own initiative. The batch key and the resume command are printed before the first create. `--timeout` limits each API and portal call, not the whole run, so the reconcile wait runs to the end. Each create carries a unique job label (`cloudally-cli <id>`, visible in the portal's job list); a row is confirmed only by the job with its label (or, if the portal drops labels, by the one job of that snapshot created after the row was requested), never by an older export of the same snapshot, and a confirmed row stays created even after the job leaves the list. `download submit` claims every archive (account, task, mailbox, sub-source, snapshot, format, include flags) in one download guard (`download-guard.db` in the state directory) just before creating it, so no two batches or runs create the same archive; a zip and a PST, or the same snapshot with and without legal-hold items, are different archives. A new batch creates only the archives no other batch has created and lists the rest as SKIPPED (this batch's `download fetch --batch` downloads them through the holding batch's confirmed jobs), so a pilot mailbox followed by the whole task creates only the rest and one fetch collects all of it; it is refused only while another batch's create of one of its archives is still unsettled, with that batch's resume command. A row whose job is not found is EMPTY (an empty mailbox) only when this run sent it and the portal accepted it, the portal's job count grew by exactly the creates this run had accepted, and nothing else in this state directory (another download or restore, an earlier create of the batch not yet confirmed, or a create whose answer was lost) could have added a job; otherwise it is MISSING. Every `--resume` checks the portal before sending anything, `--no-reconcile` included (it skips only the wait after sending). When a confirmed job ends in failure (any status naming one: FAILED, CANCELLED, ABORTED, STOPPED, ERROR), `download fetch` (or the next resume) marks it JOB_FAILED and `download submit --batch <key> --resume --yes` creates that archive exactly once more. If a job of the same mailbox, sub-source and snapshot is listed but cannot be proved to be the batch's (its label was lost or edited), the row is held as ambiguous and never re-created: collect it with the printed `download fetch --on-date ... --entities ...` exactly as printed (its `--on-date` is the snapshot's UTC day, so do not add `--utc-offset`) and check it is the export wanted. While the batch folder (`download-batches` in the state directory) holds a ledger written by a pre-release build of these commands, one the download guard has no record of, `download submit` (with or without `--resume`, `--dry-run` included) and `download start` refuse before any request, exit 2 and name the file: check what it created with `download list`, then move the file away. `download fetch --batch` still reads it. The command exits 0 when every row is created, empty or held by another batch, 6 while rows are FAILED, MISSING, JOB_FAILED, UNKNOWN, ambiguous or REQUESTED and not yet confirmed, and 2 when it refused before sending anything; an interrupted reconcile wait exits 6 and prints the `--batch <key> --resume --yes` command, which confirms what was created and sends nothing that may already exist. Any other non-zero exit (1 when the portal session, ledger or guard could not be opened or saved, 3 or 4 from the task read) means stop and read the message; if a batch key was printed, continue only with `download submit --batch <key> --resume --yes`. A create the portal accepted whose job is still not listed an hour later becomes MISSING, and the next `--resume` sends it again. The job list never shows an export that finished empty, so if the same rows come back MISSING after a resend, stop resending, check `download list`, and leave the next step to a person. `download submit --resume` and `download fetch --batch` refuse (exit 2) an `--account` other than the batch's own. When the portal's job listing stops at its cap or cannot be read, nothing is concluded from a row's absence: no row becomes MISSING or EMPTY, and MISSING and UNKNOWN rows are not sent again in that run.
+
+### Collect the finished archives
+
+```bash
+cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12
+```
+
+Use the batch key `download submit` printed. Collect by `--batch`, not `--on-date`: fetch reads `--on-date` as the UTC day of the backup unless it is given the submit's `--utc-offset`, so without it fetch would miss the batch's archives or pick up another day's export. Create the folder first (`mkdir archives`; PowerShell: `New-Item -ItemType Directory archives`). Writes `<dest>/2025/<mailbox>/<sub-source>/<archive>.zip` with a small `.cloudally.json` record beside each archive. Re-runs skip an archive only when its record matches, so it can be re-run until every job is collected; existing files are never overwritten, and a name held by another file gets the export id added. Folders and files are readable only by the current user on macOS and Linux; on Windows they inherit the permissions of the `--dest` folder, so choose a private one. It exits 6 if any archive FAILED, is MISSING (including a body of the wrong size, an error page, or a link whose host resolves to a private address) or is UNLISTED (the portal's job listing stopped at its cap of 5,000 jobs, so the archive may still exist; nothing is suggested to create it), 8 when nothing failed but some jobs are still NOT_READY (run the same command later; a create still unconfirmed an hour after it was accepted, the batch's own or another batch's it holds, becomes MISSING with exit 6 and the resume command that settles it), and 3 when no download job matched at all. If the portal has already expired a confirmed archive, fetch says so and prints a `--new-batch` command; check `download list` first, and leave that decision to a person. With `--batch` it downloads only the jobs the batch confirmed, plus the archives other batches hold for it (through their confirmed jobs, matched by job id); confirm the rest with `download submit --batch <key> --resume --yes`; it never resends an UNKNOWN row, but a row the portal accepted over an hour ago and still does not list is MISSING and is sent again. `download watch` exits 0 when the job is READY_FOR_DOWNLOAD, 6 when it finished any other way (failed, cancelled, aborted, stopped or partly done), 3 when the job id is not on the account, and 8 with `--once` while it is still being built or when interrupted (Ctrl-C, or closing the terminal on macOS and Linux), printing the command to watch it again. Links to single-label hosts or `.local`, `.internal`, `.lan`, `.home.arpa`, `.localhost` and `.corp` names are refused. An archive streams as long as data keeps arriving; `--timeout` does not cut it off. `.partial` files left by a killed run are removed once they are an hour old. When several fetches run for the same customer, start them a few seconds apart.
 
 ### Backup status across every customer (partner login)
 
@@ -241,32 +432,23 @@ Each entity's `lastBackupDates` carries the latest backup date in the `yyyyMMddH
 cloudally-cli user status --all --agent
 ```
 
-### Restore one mailbox from its latest backup (preview first)
+## How CloudAlly behaves (read before restoring or downloading)
 
-```bash
-cloudally-cli recovery restore --task-id 64b0e9 --account jane.doe@contoso.com --date 20261001021500 --source O365MAIL --dry-run
-```
+These were observed against a production CloudAlly partner tenant, not taken from the API reference. They decide which command to use.
 
-Drop `--dry-run` only after the operator has confirmed the task, entity and date. A restore writes back into the customer's live mailbox, site or drive.
-
-### Follow restore jobs
-
-```bash
-cloudally-cli tasks list --type RESTORE --agent --select id,status
-```
-
-## How CloudAlly behaves (read before restoring)
-
-These were observed against a production CloudAlly partner tenant, not taken from the API reference.
-
-- **The documented API reports only the latest backup.** `tasks get` and the status feeds (`backup-statuses`, `user status`) report each entity's most recent backup per sub-source. The Management API v2 has no call that lists older backup dates, so `recovery restore --date` can only be filled from the latest backup date the task reports, or from a date the operator already knows.
-- **The documented export endpoint does nothing.** `POST .../recovery/export` (the generated `recovery export`, `distributor-recovery export` and `reseller-recovery export` commands) answers 200 with an empty body and creates no job (seen live on 2026-10-15). Do not rely on it to create a download; use the CloudAlly portal for downloads.
-- **`tasks delete` deletes backed-up data.** `tasks delete` (and the distributor and reseller variants) is `DELETE .../backup-tasks/{id}`: it deletes a backup task together with its backed-up data. To stop a running backup, restore or download job, use `tasks cancel`; never point `tasks delete` at a job id.
-- **Restores write into live data.** `recovery restore` and its distributor and reseller variants write back into the customer's live mailbox, site or drive. Preview with `--dry-run` and confirm the target before sending.
+- **The documented API knows only the latest backup.** `tasks get` and the status feeds report each mailbox's most recent backup per sub-source. Every past backup date comes from the customer portal's backup calendar (`getSnapshotsCalendar`), which `backup snapshots`, `restore plan`, `download start` and `download submit` read for you. The portal is reached through the partner handoff: the partner token calls `POST /v2/distributors/accounts/{id}/partner-access-token`, which returns a single-use opaque token that is spent at `app.cloudally.com/newapp?accessToken=`. So any past-date read needs `auth login --partner` and `--account <id>`.
+- **`extid` is mandatory for the calendar.** Without the mailbox's external id the calendar answers success with no rows, which reads as "no backups". The CLI looks it up from the task; pass `backup snapshots --ext-id` only when the task record lacks it.
+- **Snapshot timestamps are UTC.** A nightly backup that runs late in the evening local time is stamped the next UTC day, so the run stamped `2022-12-31` for a US Eastern account holds the 30 December state. `download submit --utc-offset -5` selects by the account's own calendar day; leaving it at 0 matches the UTC date, which is usually the day before the one intended.
+- **The documented export endpoint does nothing.** `POST .../recovery/export` (the generated `distributor-recovery export`, `reseller-recovery export` and `recovery export` commands) answers 200 with an empty body and creates no job. Downloads are created the way the portal creates them, through `download start` (single-archive sources) and `download submit` (MS365, any number of mailboxes).
+- **An MS365 mailbox is one download job per sub-source.** Mail, calendar, contacts, tasks and notes (`O365MAIL`, `O365CALENDAR`, `O365CONTACTS`, `O365TASKS`, `O365NOTES`) are separate jobs, each asked for with that sub-source's own timestamp. A job for the parent `MS365` source is accepted and creates nothing, which is why `download start` refuses MS365 tasks and points at `download submit`.
+- **Download links last 60 seconds.** A link is a presigned object-storage URL. `download fetch` mints and streams each one in the same step. Never paste a link into a ticket or chat; it is dead within a minute, and until then anyone holding it can download the archive. Customers can collect finished downloads themselves in the CloudAlly portal (their account name > Jobs > Download results).
+- **Finished download jobs cannot be deleted.** `tasks delete` (and the distributor and reseller variants) is `DELETE .../backup-tasks/{id}`: it deletes a backup task together with its backed-up data. Never point it at a download job id.
+- **A restore is sent once per state directory, and an agent never re-sends one.** Restores write into live mailboxes. Run `restore plan` first (or `restore submit` without `--yes`, which lists each mailbox and the backup it resolves to and sends nothing; `--dry-run` without `--plan-file` prints placeholder bodies only), show the human the plan, and pass `--yes` only after they confirm the account, task, mailboxes and dates. `restore submit` claims each restore in a guard (`restore-guard.db` in the state directory, shared by every login and token that uses it) and refuses a run that would send one again. Another OS user, `--home`, `CLOUDALLY_HOME` or `CLOUDALLY_STATE_DIR` has its own guard, and `recovery restore` and the MCP `cloudally_execute` tool bypass it, so run restores from one account and one state directory. The guard also refuses any restore of the same task and mailbox whose resolved backup is within 30 minutes of one already sent (the same backup reported two ways). Ledgers written by pre-release builds are not imported: while the data directory holds a restore ledger with a batch the guard has no record of, `restore submit` refuses before any request, exits 2 and names the file. Check what it sent with `restore history` under the login that wrote it (a `data.db` predates per-user stores and does not show there, so treat its restores as sent), then move the file away; moving a `data-<hash>.db` also moves that login's synced rows and restore history with it. `restore history` and `restore watch` still read it. Never pass `--new-batch` on your own initiative: it restores those mailboxes a second time. If `restore submit` reports UNKNOWN rows, run only `restore watch --batch <id> --once` and show the human the result; the printed `--resume --retry-unknown --yes` command is theirs to run, and only for rows watch still finds no RESTORE task for. `restore history` shows the ledger of the login you are on (partner, each `auth use-account` customer and each company login keep their own). `restore submit` exits 0 only when every row was accepted, 1 when the ledger or guard cannot be read (nothing sent), 2 when it refused before sending, 3 when no mailbox has a backup at or before the date or the task id is not found, 4 on a 401/403, 10 when `auth-context.json` cannot be trusted (nothing sent), and 5 when any row failed, is UNKNOWN or was never sent (for example after Ctrl-C), printing the exact `--resume` command, or when reading the task failed before anything was sent; `restore watch` exits 0 only when every row was submitted and its RESTORE task reports success (COMPLETED, COMPLETE, SUCCEEDED, SUCCEED, SUCCESS, DONE or FINISHED); 5 means something needs a person (a restore failed, was cancelled or only partly succeeded, a task reports a status the CLI does not recognise (printed as received), a row is still UNKNOWN, a row was never submitted, or a restore was accepted but no RESTORE task ever appeared: check `tasks list --type RESTORE` and do not resend); 8 means restores are still running, scheduled or paused (`--once`, `--max-wait` or Ctrl-C), so run watch again later. A `--retry-unknown` resend that is refused leaves the row UNKNOWN, because the first send may still have been accepted. `--timeout` bounds each API or portal request in `restore plan`, `submit` and `watch`, never the whole run; `restore watch --max-wait` (default 2h) bounds the watch. An interrupted submit (Ctrl-C or a tool timeout) says how many restores were already accepted and prints the `--resume` command; never report it as nothing restored.
+- **One portal session per customer at a time.** Starting several portal sessions for the same customer in the same instant can invalidate each other's unspent handoff tokens (seen as `portal session is not authenticated (status 401)`). When running several `download fetch` or `download submit` processes for one customer, start them a few seconds apart (about 6 seconds was enough).
 
 ## Auth Setup
 
-CloudAlly needs three things on every request: a client-id header, a client-secret header (the API key pair created under Integrations > REST API in the partner portal) and a Bearer access token. The key pair identifies the integration; what the CLI can reach depends only on which login you use. Set CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, then set CLOUDALLY_EMAIL and CLOUDALLY_PASSWORD to one company's CloudAlly account and run `cloudally-cli auth login`: that is the default, and every command is limited to that one company. For partner-wide work (status across customers, the `distributor-*` and `reseller-*` commands, switching between customers with `auth use-account <accountId>`), set CLOUDALLY_PARTNER_EMAIL and CLOUDALLY_PARTNER_PASSWORD and run `cloudally-cli auth login --partner`; that login can see and change every customer account. `auth use-account --partner` switches back to the partner token. Tokens are stored in the credentials file and refreshed automatically.
+CloudAlly needs three things on every request: a client-id header, a client-secret header (the API key pair created under Integrations > REST API in the partner portal) and a Bearer access token. The key pair identifies the integration; what the CLI can reach depends only on which login you use. Set CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, then set CLOUDALLY_EMAIL and CLOUDALLY_PASSWORD to one company's CloudAlly account and run `cloudally-cli auth login`: that is the default, and every command is limited to that one company. For partner-wide work (backup health across customers, the `distributor-*` and `reseller-*` commands, switching between customers with `auth use-account <accountId>`), set CLOUDALLY_PARTNER_EMAIL and CLOUDALLY_PARTNER_PASSWORD and run `cloudally-cli auth login --partner`; that login can see and change every customer account. `auth use-account --partner` switches back. Tokens are stored in the credentials file and refreshed automatically. Past backup dates, downloads and download links come from the customer portal, reached through the partner handoff, so those commands need the partner login and `--account <id>`.
 
 Run `cloudally-cli doctor` to verify setup.
 
@@ -314,7 +496,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `CLOUDALLY_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `CLOUDALLY_CONFIG_DIR`, `CLOUDALLY_DATA_DIR`, `CLOUDALLY_STATE_DIR`, `CLOUDALLY_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `CLOUDALLY_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, the local store (`data-<hash>.db`, one per CloudAlly user and API URL; `data-nocredential.db` for runs with no credential), cookies, and auth sidecars. `state` contains persisted queries, jobs, `teach.log`, `restore-guard.db` and `download-guard.db` (the restore and download guards, shared by every login and token that uses this state directory), download batch ledgers, and `auth-context.json`, which every `auth login` writes and which, after `auth login --partner`, also holds the partner access and refresh token; `auth logout` deletes it. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `cloudally-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -601,7 +783,7 @@ If `--wait` times out or polling fails after the job was accepted, the command e
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
 | 4 | Authentication required |
-| 5 | API error (upstream issue) |
+| 5 | API error; for `restore submit` and `restore watch` it means rows failed, are UNKNOWN or need a person: read the message and never re-run the original command |
 | 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit) |
@@ -623,15 +805,16 @@ Parse `$ARGUMENTS`:
    claude mcp add cloudally-mcp --env CLOUDALLY_CLIENT_ID="<your client id>" --env CLOUDALLY_CLIENT_SECRET="<your client secret>" -- cloudally-mcp
    ```
 3. Run `cloudally-cli auth login --partner` (or `auth login` for one company) once in a terminal; the MCP server reads the saved token and refreshes it.
+   Through MCP, `restore_submit`, `download_submit` and `download_start` only preview (the server exposes no `--yes`), and `download fetch` is CLI-only: review the plan, then submit from a terminal.
 4. Verify: `claude mcp list`
 
 ## Direct Use
 
-1. Check if installed: `which cloudally-cli`
+1. Check if installed: `cloudally-cli --version` (`which cloudally-cli` on macOS and Linux, `Get-Command cloudally-cli` in PowerShell)
    If not found, offer to install (see Prerequisites at the top of this skill).
-2. Match the user query to the best command from the Command Reference above, and read "How CloudAlly behaves" before any restore.
+2. Match the user query to the best command from the Unique Capabilities and Command Reference above, and read "How CloudAlly behaves" before any restore or download.
 3. Execute with the `--agent` flag:
    ```bash
-   cloudally-cli <command> [subcommand] [args] --agent
+   cloudally-cli backup health --agent
    ```
-4. If ambiguous, drill into subcommand help, for example `cloudally-cli tasks --help`.
+4. If ambiguous, drill into subcommand help, for example `cloudally-cli download --help`.

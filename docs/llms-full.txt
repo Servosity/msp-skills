@@ -160,7 +160,7 @@ Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across
 
 Outcomes (question -> command your AI agent runs):
 - Which resources have no backup protection at all? -> afi-cli coverage-gaps --agent
-- Which protected resources have a stale backup (silent failures)? -> afi-cli backup-stale --max-age 48h --agent
+- Which protected resources are not getting backed up (silent failures)? -> afi-cli backup-stale --agent
 - Is the whole fleet green this morning, or who failed? -> afi-cli fleet-health --failed-only --agent
 - What is one tenant's full backup posture for a QBR or ticket? -> afi-cli tenant-scorecard <tenant-id> --agent
 - Am I over- or under-licensed on Afi seats? -> afi-cli reconcile-licenses --agent
@@ -169,11 +169,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Afi data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this trip Afi's API rate limits?
@@ -328,7 +328,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: What credentials do I need?
-A: An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
+A: An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
 Q: Do I have to figure out my Autotask zone URL?
 A: No. Autotask hosts each tenant in a numbered zone (webservicesN.autotask.net). Run autotask-cli zone once and the CLI discovers and caches your tenant's base URL, the same way Autotask's own docs tell integrations to make a zone-information request first.
 Q: Will this blow through my Autotask API limits?
@@ -338,7 +338,7 @@ A: Run autotask-cli picklist "Tickets" "status" (or any entity and field) and it
 Q: Is this Datto Autotask PSA or just Autotask?
 A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this skill targets the Autotask REST API, which both names refer to. It does not cover Datto RMM - that is a separate product with a separate API.
 
-Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
+Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
 ### Auvik (RMM)
 
@@ -855,9 +855,16 @@ Page: [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md)
 Verification: Live-verified by @sonofskywalker3 (Servosity) (2026-11-05)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
 
-Ask your AI about CloudAlly SaaS backup for Microsoft 365 and Google Workspace: the latest backup status of every customer, one customer's backup tasks and their entities, running or pausing backups, users, billing and restore jobs, all through CloudAlly's Management API v2 from one CLI and MCP server.
+Ask your AI to restore or download every CloudAlly mailbox as it stood on a past date, list a mailbox's past backups, or find every customer whose backups are stale or failing, alongside the everyday Management API v2 work: backup tasks and their entities, running or pausing backups, users and billing. It plans before it acts, records every restore and download in a local ledger, and reads the past backup dates CloudAlly's documented API cannot reach from the customer portal, the same way the partner portal does.
 
 Outcomes (question -> command your AI agent runs):
+- Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.) -> cloudally-cli backup health --stale-days 2 --group-by account
+- What backups does this mailbox have for December? -> cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12
+- Which backup would each mailbox on this task be restored from for December 31st? -> cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31
+- Plan, then restore every mailbox on the task to October 1st. -> cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01
+- Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone. -> cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5
+- Download every finished year-end archive into an existing folder (create it first), one folder per mailbox and sub-source. -> cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12
+- What did we restore for this customer since September? -> cloudally-cli restore history --account 5f1c2a --since 2026-09-01
 - What is the latest backup status of every mailbox and site across all my CloudAlly customers? -> cloudally-cli distributor-accounts backup-statuses --all
 - Which customer accounts do I manage? -> cloudally-cli distributor-accounts list --all
 - Switch into this customer's account. -> cloudally-cli auth use-account 5f1c2a
@@ -873,17 +880,53 @@ A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter the CloudAlly API client id and secret once and run `cloudally-cli auth login --partner`.
 Q: What credentials does it need?
-A: A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands and `auth use-account` need the partner login.
+A: A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands, `auth use-account`, past backup dates and downloads need the partner login.
 Q: Can it change or delete my customers' backups?
-A: It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every command takes --dry-run to show the request first, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools.
+A: It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint (including recovery restore and tasks delete) as soon as the caller passes confirm=true and download_link returns live links.
+Q: Why does a December 31st download hold December 30th?
+A: CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day.
 Q: Is my CloudAlly data safe?
-A: Your data stays on your machine. The CLI, MCP server and local store are all local, and the MCP server runs over stdio unless you start it with --transport http. Credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server and local store are all local, the MCP server runs over stdio unless you start it with --transport http, and download links are minted and streamed in one step rather than stored. Every request goes through a shared credential kit that holds the key pair, the tokens and the portal session and sends each only to CloudAlly's API or https://app.cloudally.com. Credentials are never bundled or transmitted by MSP Skills.
 Q: Can it download mailbox archives?
-A: Not reliably. The documented export call (recovery export and its distributor and reseller variants) answers 200 with an empty body and creates no job on the live API (seen 2026-10-15). Use the CloudAlly portal for downloads.
+A: Yes. The documented export call (recovery export and its distributor and reseller variants) answers 200 and creates no job, so `download submit` (every mailbox backed up on one date) and `download start` (one single-archive mailbox) create the jobs through the customer portal the way the portal does, and `download fetch` mints each 60-second link and writes the archive to a folder you choose. Both creates print a plan and stop until you pass --yes.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: This connector can start restores into live customer mailboxes and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. Every command previews with --dry-run, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
+Governance: This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed (over MCP they only preview), and a restore or download guard in the state directory refuses to send the same restore or create the same archive twice; the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
+
+### Comet Backup (Backup/DR)
+
+Page: [Comet Backup](https://msp-skills.compoundingteams.com/skills/comet-backup.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/install.sh)
+
+Ask which Comet backups failed or went quiet last night and get every protected item across every tenant on your Comet Server in one list, with the error lines that explain each failure. Comet's console and emailed reports answer one customer at a time; this skill reads the whole server, reports per-tenant storage against quota, and keeps a local snapshot history so you can see what changed since yesterday.
+
+Outcomes (question -> command your AI agent runs):
+- Which protected items failed, are overdue or never backed up, across every tenant? -> comet-backup-cli health --state failed,overdue,never --json
+- Why did backups fail in the last 24 hours, with the first error lines from each job log? -> comet-backup-cli triage --window 24h --json
+- Which tenants are at or above 80 percent of a storage, device or Microsoft 365 quota? -> comet-backup-cli usage --over 80 --json
+- Which offline devices have not finished a job in a week and still own protected items? -> comet-backup-cli devices stale --older-than 7d --billable-only --json
+- Which devices run a Comet client version that differs from the server? -> comet-backup-cli devices outdated --json
+- Which backup problems opened or resolved since the previous snapshot? -> comet-backup-cli changes --only health --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Comet Backup MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Comet Backup data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Comet account does it need?
+A: A Comet Server admin account. Set COMET_BACKUP_SERVER to your server's host and port (or COMET_BACKUP_BASE_URL to its full URL), then COMET_BACKUP_USERNAME and COMET_BACKUP_PASSWORD. Comet recommends a dedicated API admin with a long random password and no 2FA; for an admin that requires 2FA, start a session with Comet's session-start API and set COMET_BACKUP_SESSION_KEY instead. Personal API tokens are not supported yet. On Comet-Hosted servers, create an Additional User with a local password.
+Q: Does it work with self-hosted and Comet-Hosted servers?
+A: Yes. Each MSP runs one Comet Server, self-hosted or Comet-Hosted, holding all of its tenants; the skill talks only to the server you name and refuses a redirect to any other host.
+Q: Can it run backups or restores?
+A: It can ask an online device to run a backup or a restore through Comet's live-connection API, but those are writes on a customer endpoint: preview them with --dry-run and keep them human-approved. The MCP server sends a write only when the call carries confirm: true. rerun-failed only prints its plan unless you add --yes.
+
+Governance: Most commands only read: fleet health, failure triage, usage, device lists, job history and server status. Seven reads return credential material (password hashes, TOTP keys, storage keys); the CLI redacts those fields and the MCP server runs them only with confirm: true. Writes reach your tenants and their devices (run a backup or restore, uninstall, delete a user), so preview them with --dry-run and keep a human in the loop.
 
 ### connect-tool (Meta)
 
@@ -1777,6 +1820,44 @@ Q: Can it delete my documentation?
 A: No. The CLI reads, and creates or updates contacts, passwords, configurations, and documents - it exposes no delete for any IT Glue resource. The coverage and stale-password audits read metadata only; password secret values are never read or printed.
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
+
+### Jamf Pro (MDM)
+
+Page: [Jamf Pro](https://msp-skills.compoundingteams.com/skills/jamf-pro.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/install.sh)
+
+Ask which client has this Mac, or which clients have FileVault off and patches behind, and get one answer across every client's Jamf Pro. Jamf Pro plus your AI agent reads each client's own server in parallel, with that client's own API client, so a question that means logging in to every console one at a time becomes one reply.
+
+Outcomes (question -> command your AI agent runs):
+- Which client has this Mac, iPad or iPhone, by serial, name, username or email? -> jamf-pro-cli fleet find C02XK1ABJG5H --agent
+- Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off? -> jamf-pro-cli fleet posture --stale-days 14 --min-os 14.6 --agent
+- Which patch titles are behind latest, and which clients have failed managed OS updates? -> jamf-pro-cli fleet patch --behind-only --agent
+- A vendor advisory landed: which clients and computers have this app below the fixed version? -> jamf-pro-cli fleet app "Google Chrome" --below 129.0.6668.100 --agent
+- Which policies are disabled, can never run, have no scope, or point at a missing script or package? -> jamf-pro-cli fleet policy-hygiene --agent
+- Which ADE or VPP tokens expire soon, which enrollment syncs failed, and which Jamf Pro versions are clients on? -> jamf-pro-cli fleet health --within 30d --agent
+- Which clients are missing objects from our template instance, or run a different copy of its scripts? -> jamf-pro-cli fleet baseline --golden msp-template --agent
+- Does every client's API client still work? -> jamf-pro-cli instance test --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Jamf Pro MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Jamf Pro data safe?
+A: Your data stays on your machine. The CLI, the MCP server and the local mirror all run locally. The AI sees query results, and credentials are never bundled or transmitted by MSP Skills: they go to your own Jamf Pro server and nowhere else, and any output that repeats one is withheld.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need a separate API client for each client's Jamf Pro?
+A: Yes. Create one in each instance under Settings > System > API roles and clients, with only the read privileges the reports need, then register it once with `jamf-pro-cli instance add`. Each secret stays in the JAMF_PRO_FLEET_SECRETS environment variable (name=secret entries separated by commas) and is never written to the registry.
+Q: Will this replace Jamf Account or the Jamf Pro console?
+A: No. Jamf Account is where a service provider manages customers and their products, and each console is where you build policies and enroll devices. This skill answers questions across the data inside those instances.
+Q: Can it read LAPS passwords, FileVault keys or lock PINs?
+A: No. Those endpoints are not included, `fleet exec` refuses them by path, and any password, key, token or PIN field in another response prints as [redacted]. Read them in the Jamf Pro console.
+Q: We run one Jamf Pro with sites. Does it help?
+A: Partly. Register that server once and every read works, but fleet reports count per instance, not per site. Fleet reports earn their keep when each client has its own instance.
+
+Governance: It reads inventory, policies, patch status and enrollment health from every Jamf Pro instance you register, and can change one instance at a time with the writes that instance's API client allows. Passwords, keys, tokens and PINs in responses are redacted, and the endpoints that return LAPS passwords, FileVault keys, recovery-lock passwords and lock PINs are not included. Let an agent read freely, preview routine writes, and keep a human on anything that touches credentials or acts on a device.
 
 ### Jira Service Management (PSA)
 
@@ -3558,6 +3639,40 @@ Q: Can it change backup jobs or run restores?
 A: The full VSPC v3 surface is exposed, including create/delete jobs and agent deployment, but those are gated human-in-the-loop in governance.md. Day-to-day this is read-first monitoring; destructive and infrastructure commands need explicit approval.
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
+
+### VMware vSphere (Other)
+
+Page: [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/install.sh)
+
+Ask your AI which client VMs can leave VMware today, which are blocked and why, how many cores Broadcom will bill for, and what each VM looks like on Proxmox. vsphere-cli reads vCenter with a Read-Only login and answers in seconds, as JSON your agent can act on. It never changes anything in vCenter.
+
+Outcomes (question -> command your AI agent runs):
+- Which VMs are blocked from migrating, and what is blocking each one? -> vsphere-cli migration blockers --severity block --agent
+- Which snapshots are older than a week, and how much delta disk does each of those VMs carry? -> vsphere-cli snapshots audit --older-than 7d --agent
+- How many licensable cores does this vCenter have under the 16-core-per-CPU minimum? -> vsphere-cli licence exposure --agent
+- How much vCPU, RAM and storage does the Proxmox target need? -> vsphere-cli migration capacity --powered-on-only --agent
+- Which Proxmox VE settings does this VM map to? -> vsphere-cli migration proxmox-map --vm vm-1021 --agent
+- Can I get an RVTools-format export without a Windows machine? -> vsphere-cli rvtools export --out ./acme-rvtools
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the VMware vSphere MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my VMware data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything in vCenter?
+A: No. Every vCenter call is a read. A Read-Only role on the vCenter SSO user is enough.
+Q: Which vCenter versions does it support?
+A: Inventory reads need vCenter 7.0 Update 2 or later. Snapshots, licence exposure, host hardware and capacity need vCenter 8.0 Update 1 or later; on older vCenters those checks are reported as unknown, never as a pass.
+Q: Our vCenter uses a self-signed certificate. Will it connect?
+A: Yes. Set VSPHERE_TLS_FINGERPRINT to the certificate's SHA-256 fingerprint and the CLI accepts only that certificate. Without it, normal certificate checks apply.
+
+Governance: Every command that talks to vCenter is a read: the skill cannot power off, delete, move or reconfigure anything. It does write on your own machine (the local store, export files, saved credentials), and local-data purge erases that local data. Let agents run the read commands freely; keep credential and local-erase commands with a human.
 
 ### Device Warranty (Documentation)
 
