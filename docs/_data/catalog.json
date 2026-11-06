@@ -1,5 +1,5 @@
 {
-  "count": 106,
+  "count": 107,
   "connectors": [
     {
       "slug": "abnormal",
@@ -507,6 +507,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/dropsuite/"
+    },
+    {
+      "slug": "eset-protect",
+      "display_name": "ESET PROTECT",
+      "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/eset-protect/"
     },
     {
       "slug": "exchange-online",
