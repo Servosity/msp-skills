@@ -297,8 +297,9 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 // secretSide is the part of a Basic pair (user ":" pass, the user declared an
 // Identifier) whose 8-character pieces are the pair's pieces that overlap the
 // password (KF-JSM-1): the colon and the password with the fewest characters
-// of the user in front that still give every such piece, at least 6 as
-// written and 6 normalized. A piece inside the user (its email domain,
+// of the user in front that still give every such piece: 6 normalized (a
+// piece as written that starts further back normalizes to one holding 8
+// normalized characters of the part). A piece inside the user (its email domain,
 // "acmemsp.") is the Identifier's, not a credential's: an answer naming the
 // domain is ordinary output. The cut is taken only where the part, normalized,
 // ends the normalized pair, so its pieces are pieces of the pair: never more
@@ -307,7 +308,7 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 // bytes) and when the password is under pieceLen characters ("key:x": the
 // user half is the secret by its shape).
 // ponytail: one normalize per candidate cut, capped at 4*pieceLen user
-// characters (then the pair, whole); a user is a short account name.
+// characters as written (then the pair, whole); a user is a short account name.
 func secretSide(pair string, userLen int, pass string) string {
 	if !utf8.ValidString(pair) || utf8.RuneCountInString(pass) < pieceLen {
 		return pair
@@ -322,7 +323,7 @@ func secretSide(pair string, userLen int, pass string) string {
 			break
 		}
 		ns := normalize([]byte(pair[i:]))
-		if raw >= pieceLen-2 && utf8.RuneCount(ns)-utf8.RuneCount(np) >= pieceLen-2 && bytes.HasSuffix(n, ns) && bytes.HasSuffix(ns, np) {
+		if utf8.RuneCount(ns)-utf8.RuneCount(np) >= pieceLen-2 && bytes.HasSuffix(n, ns) && bytes.HasSuffix(ns, np) {
 			return pair[i:]
 		}
 	}

@@ -76,7 +76,7 @@ func TestKitJSMEveryPasswordPieceOfThePairHeld(t *testing.T) {
 	for _, user := range []string{
 		"tech@acmemsp.com", "abcdefg", "abcdefgh", "", "u",
 		"jos\u00e9@caf\u00e9.example", "jose\u0301\u0301@cafe\u0301.ex\u0301", "\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03",
-		"ADMINISTRATOR@VSPHERE.LOCAL", "tech@acme.\ufb01nance", "xxxxe\u0301abcd", "tech@\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03", "ab\ufb01cdefgh", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
+		"ADMINISTRATOR@VSPHERE.LOCAL", "tech@acme.\ufb01nance", "tech@acme.o\ufb03ce", "xxxxe\u0301abcd", "tech@\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03", "ab\ufb01cdefgh", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
 	} {
 		for _, pass := range []string{"jsmtok-Pr0beEm4il9z", "pw-12345", "p:w:9876543210"} {
 			holdBasic(t, jsmUser, user, pass)
@@ -134,6 +134,11 @@ func TestKitJSMProbeAnswer(t *testing.T) {
 // Codex r1: a cut whose user side normalizes longer (a ligature) must not
 // hold a piece that lies wholly inside the user.
 func TestKitJSMLigatureUserSiteLink(t *testing.T) {
+	// Codex r2: a cut 5 characters back as written, 6 normalized, is enough.
+	holdBasic(t, jsmUser, "tech@acme.o\ufb03ce", "jsmtok-Pr0beEm4il9z")
+	if leaks("https://acme.office/") || !leaks("e.o\ufb03ce:j") || !leaks("office:j") {
+		t.Errorf("ligature user: site link withheld or password piece passed: %q", heldValues())
+	}
 	holdBasic(t, jsmUser, "tech@acme.\ufb01nance", "jsmtok-Pr0beEm4il9z")
 	for _, u := range []string{"https://acme.finance/", "acme.\ufb01nance", "tech@acme.finance"} {
 		if leaks(u) {
