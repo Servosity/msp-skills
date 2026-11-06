@@ -70,10 +70,10 @@
     "released_hash": "sha256:d1367ab7f37c4a478efe33dc89ece1501d8334d196e6ad701f2412dc21421325"
   },
   "aws-billing": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.8",
     "latest_tag": "aws-billing-v0.1.8",
-    "current_hash": "sha256:96279142aa0c403a70b9191730bf1a061585eaa3264c6b41331d38780e315bff",
+    "current_hash": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
     "released_hash": "sha256:96279142aa0c403a70b9191730bf1a061585eaa3264c6b41331d38780e315bff"
   },
   "axcient": {
