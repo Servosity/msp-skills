@@ -107,7 +107,7 @@ export TD_SYNNEX_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
 td-synnex-mcp --transport http
 ```
 
-Set `TD_SYNNEX_MCP_READ_ONLY=1` (any value except blank, `0`, `false`, `no` or `off` turns it on) to drop mirrored commands that are not marked read-only and every endpoint tool that can change StreamOne ION. Commands marked local-write, which write only this CLI's own learn store, stay available.
+Set `TD_SYNNEX_MCP_READ_ONLY=1` (any value except blank, `0`, `false`, `no` or `off` turns it on) to drop mirrored commands that are not marked read-only and every endpoint tool that can change StreamOne ION.
 
 ## Authentication
 

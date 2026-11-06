@@ -1104,7 +1104,7 @@
   {
    "id": "credkit-wiring",
    "class": "credential-kit",
-   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API through guardTransport and the ion redaction transport, the OAuth token and validateAccess forms, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand and StartCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. auth mint holds every access and refresh token it receives (minted:ion-access-token, minted:ion-refresh-token) before anything prints. The credential store, config.toml, the legacy config, the refresh-token rescue file and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile).",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API through guardTransport and the ion redaction transport, the OAuth token and validateAccess forms, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand and StartCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. auth mint holds every access and refresh token it receives (minted:ion-access-token, minted:ion-refresh-token) before anything prints. The credential store, config.toml, the legacy config, the refresh-token rescue file and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile). Codex round 1 (2026-11-06): every URL-valued startup source (a run profile's base-url and other URL-named values, every duplicate member; config and store base_url; TD_SYNNEX_BASE_URL and the URLEnv variables) is held through credkit.HoldURL in declarations.go, and the key Spacefast mints for an anonymous page is held the moment its receipt is parsed, so the notice names the 0600 record instead of printing the key-bearing links.",
    "why": "One contract, one matcher and one set of sinks replace the connector's own layer. It retires secret-echo-decoded-funnel with reason \"replaced by the shared credential kit\" (the 4.35.1 reprint had already dropped its files; it is not a `retired` record because check_handfixes.py accepts only registry-backed retirements and fleet_handfixes.json marks that id delegated) and ion-mask-env-refresh-token (client.go maskCredentialText no longer adds TD_SYNNEX_REFRESH_TOKEN: the kit holds it from SecretEnv, and TestHeldCredentialNeverEchoed/env_refresh_token proves the kit withholds it, raw, URL-encoded once and twice, base64 and as a 12-character piece, on the same sinks, the sync warning, a CLI error and an MCP tool error, with that line removed; also not registry-backed, so recorded here). Classes closed, each by a test seen failing first on the pre-kit build (internal/credwire/leak_test.go, on the built binaries; TD_SYNNEX_LEAK_BIN_DIR runs it against others): a held credential (env and stored access token, env refresh token, the tokens auth mint receives) echoed by an ION error body or printed by auth mint (TestHeldCredentialNeverEchoed); a credential in a malformed config.toml echoed by a startup flag error in either main (TestMalformedConfigCredentialHeldAtStartup); a credential sent over plain http or delivered by --deliver to a webhook on another origin (TestCredentialNeverSentOffOrigin; its redirect and config-profile cases are outcome guards the template already closed); the learn journal recording a held credential from TD_SYNNEX_LEARN_SESSION or argv (TestJournalNeverRecordsAHeldCredential, journal written with credkit.AppendFile); and an MCP confirm preview or tool error echoing a password argument (TestMCPConfirmPreviewNeverEchoesACredentialArgument). auth mint --print-access-token is kept: the contract has no carve-out for a user-requested print of a held value, so the output that carries the token is withheld, and the flag's help says so. In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test seams swap (credkit_seam_test.go in internal/cli and internal/mcp). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter (credsql), and openReadOnly runs select 1 because the kit's connection does not forward Ping.",
    "status": "active",
    "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name.",
@@ -1462,6 +1462,46 @@
     {
      "file": "cli/internal/credwire/leak_test.go",
      "contains": "func TestMCPConfirmPreviewNeverEchoesACredentialArgument(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", env.Data.Claim.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "if !d.Account && d.Key != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "a credential this CLI does not print",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(src, s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"userinfo\", v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"userinfo\", f.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/url_minted_leak_test.go",
+     "contains": "func TestSavedURLCredentialHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/url_minted_leak_test.go",
+     "contains": "func TestSpacefastPageKeyHeldWhenMinted(t *testing.T) {",
      "code_only": true
     }
    ]

@@ -431,6 +431,7 @@ func TestIONOAuthURL(t *testing.T) {
 func TestSubscriptionsSetHonoursAccountDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCOUNT_ID", "10505")
 	flags := &rootFlags{}
@@ -454,6 +455,7 @@ func TestSubscriptionsSetHonoursAccountDefault(t *testing.T) {
 func TestSetTokenKeepsStoredRefreshToken(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -490,6 +492,7 @@ func TestAuthKeepsRefreshTokenShadowedByConfig(t *testing.T) {
 	setup := func(t *testing.T, cfgBody string, credMode os.FileMode) (string, *cobra.Command) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
+		t.Setenv("USERPROFILE", home)
 		t.Setenv("XDG_CONFIG_HOME", "")
 		t.Setenv("XDG_DATA_HOME", "")
 		t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -748,6 +751,7 @@ func TestChangesDropUnchangedSeatsInCombinedOrders(t *testing.T) {
 func TestSavedTokenIsNotShadowedAndEndpointNotPersisted(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -928,6 +932,7 @@ func TestParsePositionFileKeepsLargeNumericIDs(t *testing.T) {
 func TestStaleFileTokenDroppedEvenWithEnvToken(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	cfg, err := config.Load("")
@@ -1057,6 +1062,7 @@ func TestPrintIONJSONCarriesFreshnessInAgentMeta(t *testing.T) {
 func TestFreshnessMetaDoesNotCertifyAnotherDB(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	flags := &rootFlags{freshnessMeta: map[string]any{"decision": "fresh"}}
 	cmd := &cobra.Command{}
 	cmd.SetErr(io.Discard)

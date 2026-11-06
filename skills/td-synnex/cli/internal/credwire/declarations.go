@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
+
 	"td-synnex-pp-cli/internal/cliutil"
 	"td-synnex-pp-cli/internal/config"
 	"td-synnex-pp-cli/internal/credkit"
@@ -86,9 +88,17 @@ var Declarations = credkit.Declarations{
 		{Source: "env:TD_SYNNEX_MCP_HTTP_TOKEN", Allowed: nil},
 		// --deliver spacefast:<name> publishes to Spacefast's API.
 		{Source: "env:SPACEFAST_TOKEN", Allowed: []string{"https://api.spacefast.com"}},
-		// An anonymous Spacefast page's key (deliver_spacefast.go holds it before
-		// an update sends it as the bearer) goes only to Spacefast's API.
+		// An anonymous Spacefast page's key (deliver_spacefast.go holds it the
+		// moment a publish receipt is parsed, and again when an update sends it
+		// as the bearer) goes only to Spacefast's API.
 		{Source: "minted:spacefast-page-key", Allowed: []string{"https://api.spacefast.com"}},
+		// The password and query values of a URL saved in a run profile
+		// (holdProfiles): base-url, and any other value whose name says URL.
+		// The program sends no profile URL anywhere (no flag takes base-url);
+		// bound like every ION credential, so a password a profile shares with
+		// the configured base URL still reaches that origin, and nothing else.
+		{Source: "profile:base-url", Allowed: []string{"base_url"}},
+		{Source: "profile:url", Allowed: []string{"base_url"}},
 	},
 	Identifiers: []credkit.Identifier{
 		{Source: "config:base_url", Reason: "the API base URL; a credential inside it is held as userinfo and query:<name>"},
@@ -158,6 +168,7 @@ var Declarations = credkit.Declarations{
 // No flag arity is guessed: credkit.FlagValues counts every occurrence.
 func credentialFiles(args []string) []string {
 	compactStdinBody(args)
+	holdURLEnv()
 	homes := credkit.FlagValues(args, "--home")
 	configs := credkit.FlagValues(args, "--config")
 	startupNamedConfigOrHome = len(homes) > 0 || len(configs) > 0
@@ -192,7 +203,52 @@ func credentialFiles(args []string) []string {
 	for _, cfg := range configs {
 		holdOnly(runFiles(cfg))
 	}
+	// The kit reads the files it is handed itself; their base_url is read
+	// here too, for the spellings only HoldURL reads (holdConfigURL).
+	for _, f := range used {
+		holdConfigURL(f)
+	}
 	return used
+}
+
+// urlEnv is every environment variable whose value is a URL the program reads:
+// Declarations.BaseURL.Env and Declarations.URLEnv (declarations_test.go keeps
+// the two lists equal; the Declarations literal cannot be read from here, as
+// Start calls this function through it).
+var urlEnv = []string{"TD_SYNNEX_BASE_URL", "TD_SYNNEX_FEEDBACK_ENDPOINT", "SPACEFAST_API_URL"}
+
+// holdURLEnv holds the password and every query value of each URL environment
+// variable with the kit's own URL reader. The kit's BaseURL and URLEnv readers
+// hold a well-formed URL's; credkit.HoldURL also reads one written without a
+// scheme (ops:secret@ion.tdsynnex.com/api/v3), which doctor and every
+// transport error print back. Source userinfo is the one the kit holds a base
+// URL's password under, so the binding is the kit's own.
+func holdURLEnv() {
+	for _, name := range urlEnv {
+		if v := os.Getenv(name); v != "" {
+			credkit.HoldURL("userinfo", v)
+		}
+	}
+}
+
+// holdConfigURL holds the password and every query value of the base_url in a
+// config file or a credential store, read as config.Load and the credential
+// store read it (go-toml into base_url), with credkit.HoldURL. HoldBody holds
+// a file's declared credential names, not a URL's parts; the program prints a
+// base_url back (doctor, a refused credential's origin). A file that does not
+// parse is held whole by the kit (HoldBody, gatherFile), and holds no base_url
+// the program could print.
+func holdConfigURL(path string) {
+	data, err := readRegular(path)
+	if err != nil {
+		return
+	}
+	var f struct {
+		BaseURL string `toml:"base_url"`
+	}
+	if toml.Unmarshal(data, &f) == nil && strings.TrimSpace(f.BaseURL) != "" {
+		credkit.HoldURL("userinfo", f.BaseURL)
+	}
 }
 
 // startupNamedConfigOrHome records that the command line named a --config or
@@ -215,6 +271,7 @@ func runFiles(explicit string) []string {
 		files = append(files, explicit)
 		if store, err := cliutil.CredentialsFilePathForConfig(explicit); err == nil {
 			holdFile(store)
+			holdConfigURL(store)
 		}
 	} else if dir, err := cliutil.ConfigDir(); err == nil {
 		primary := filepath.Join(dir, "config.toml")
@@ -227,6 +284,7 @@ func runFiles(explicit string) []string {
 	}
 	if store, err := cliutil.CredentialsFilePath(); err == nil {
 		holdFile(store)
+		holdConfigURL(store)
 	}
 	return files
 }
@@ -234,12 +292,13 @@ func runFiles(explicit string) []string {
 func holdOnly(files []string) {
 	for _, f := range files {
 		holdFile(f)
+		holdConfigURL(f)
 	}
 }
 
 // holdDirSources holds the credential sources that are not config files: the
 // run-profile store (ruling 8c: a value saved under a credential flag's name
-// or under base-url, every duplicate included) and the refresh-token rescue
+// or under base-url, every duplicate included; holdProfiles) and the refresh-token rescue
 // files auth mint writes when it cannot save a rotated refresh token (one in
 // the config directory, else one in the temp directory). Each is read by the
 // kit's declared names (credkit.HoldBody); a rescue file is one bare token,
@@ -249,10 +308,10 @@ func holdDirSources() {
 	if err != nil {
 		return
 	}
-	holdFile(filepath.Join(dir, "profiles.json"))
+	holdProfiles(filepath.Join(dir, "profiles.json"))
 	holdFile(filepath.Join(dir, cliutil.IONRescueFileName))
 	if home, err := os.UserHomeDir(); err == nil {
-		holdFile(filepath.Join(home, ".td-synnex-cli", "profiles.json"))
+		holdProfiles(filepath.Join(home, ".td-synnex-cli", "profiles.json"))
 	}
 	rescues, _ := filepath.Glob(filepath.Join(os.TempDir(), cliutil.IONRescueTempPattern))
 	for _, r := range rescues {
@@ -268,6 +327,83 @@ func holdFile(path string) {
 		return
 	}
 	credkit.HoldBody(data)
+}
+
+// holdProfiles holds what a saved run-profile store carries. HoldBody holds
+// each value under a declared credential name. The password and every query
+// value of each URL-valued value (urlValuedName: base-url, expected-base-url)
+// are held with the kit's own URL reader, credkit.HoldURL, since HoldBody
+// does not read a URL's parts and `profile show` and `profile use` print every
+// value. The store is read as profile.go's loadProfileStore reads it
+// (encoding/json into profiles.<name>.values, struct keys matched in any
+// case), but member by member, so every duplicate of a key is held, not only
+// the member encoding/json keeps. A store that does not parse is refused by
+// the program before it prints a value, and HoldBody holds it whole.
+func holdProfiles(path string) {
+	holdFile(path)
+	data, err := readRegular(path)
+	if err != nil {
+		return
+	}
+	for _, top := range members(data) {
+		if !strings.EqualFold(top.key, "profiles") {
+			continue
+		}
+		for _, profile := range members(top.value) {
+			for _, field := range members(profile.value) {
+				if !strings.EqualFold(field.key, "values") {
+					continue
+				}
+				for _, v := range members(field.value) {
+					var s string
+					if src := urlValuedName(v.key); src != "" && json.Unmarshal(v.value, &s) == nil && s != "" {
+						credkit.HoldURL(src, s)
+					}
+				}
+			}
+		}
+	}
+}
+
+// urlValuedName is the source a profile value is held under when its name
+// (a flag name, in any case, with - or _) names a URL: profile:base-url for
+// base-url, profile:url for any other name ending in url, uri or endpoint
+// (expected-base-url). Empty for every other name. --deliver is no URL name:
+// its webhook:<url> is a destination, and holding it would refuse delivery.
+func urlValuedName(name string) string {
+	n := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(name), "_", "-"))
+	switch {
+	case n == "base-url":
+		return "profile:base-url"
+	case strings.HasSuffix(n, "url"), strings.HasSuffix(n, "uri"), strings.HasSuffix(n, "endpoint"):
+		return "profile:url"
+	}
+	return ""
+}
+
+type member struct {
+	key   string
+	value json.RawMessage
+}
+
+// members is every member of the JSON object b, in order, each duplicate key
+// included, as far as b parses. Anything but an object has none.
+func members(b []byte) []member {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
+		return nil
+	}
+	var out []member
+	for dec.More() {
+		k, err := dec.Token()
+		key, ok := k.(string)
+		var v json.RawMessage
+		if err != nil || !ok || dec.Decode(&v) != nil {
+			break
+		}
+		out = append(out, member{key, v})
+	}
+	return out
 }
 
 // readRegular reads path only when it is a regular file, so a FIFO or a device

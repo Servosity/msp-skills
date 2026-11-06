@@ -220,13 +220,30 @@ func deliverSpacefast(target string, body []byte) error {
 	if d.URL == "" && receipt.Version.ImmutableURL != "" {
 		d.URL = receipt.Version.ImmutableURL
 	}
-	if err := rememberSpacefastDelivery(stateKey, d); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: published, but could not remember the page for later updates: %v\n", err)
+	rememberErr := rememberSpacefastDelivery(stateKey, d)
+	if rememberErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: published, but could not remember the page for later updates: %v\n", rememberErr)
 	}
 
 	verb := "Published"
 	if havePrior {
 		verb = "Updated"
+	}
+	// Hand-fix (handfixes.json credkit-wiring): an anonymous page's private link and claim link carry its key, a held
+	// credential the kit withholds wherever it appears, so the notice names the 0600 record that keeps both instead.
+	if !d.Account && d.Key != "" {
+		where := "could not be saved (see the warning above)"
+		if dir, name, err := spacefastDeliveryPath(stateKey); err == nil && rememberErr == nil {
+			where = "are saved in " + filepath.Join(dir, name) + " (url, claim_url)"
+		}
+		fmt.Fprintf(os.Stderr, "%s on Spacefast: page %s. Its private link and its claim link carry the page key, a credential this CLI does not print; they %s. Open claim_url to keep the page and share it.\n", verb, t.Name, where)
+		if t.Public && !havePrior {
+			fmt.Fprintln(os.Stderr, "note: anonymous pages start private; claim the page to make it public.")
+		}
+		if receipt.Next.Action == "poll" {
+			fmt.Fprintln(os.Stderr, "note: Spacefast is still finalizing; the page will be live in a few seconds.")
+		}
+		return nil
 	}
 	fmt.Fprintf(os.Stderr, "%s on Spacefast: %s\n", verb, spacefastFirstNonEmpty(d.URL, "(URL pending; see the Spacefast dashboard)"))
 	if !d.Account && d.ClaimURL != "" {
@@ -365,7 +382,13 @@ func spacefastPublish(api, bearer string, payload map[string]any, files map[stri
 	var env struct {
 		Data spacefastReceipt `json:"data"`
 	}
-	if err := json.Unmarshal(raw, &env); err != nil {
+	err = json.Unmarshal(raw, &env)
+	// Hand-fix (handfixes.json credkit-wiring): a new anonymous page's key is a credential Spacefast mints; it is held
+	// the moment the receipt is parsed, before anything prints or stores it or a link that carries it.
+	if env.Data.Claim != nil && strings.TrimSpace(env.Data.Claim.Key) != "" {
+		cliutil.Hold("minted:spacefast-page-key", env.Data.Claim.Key)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("reading Spacefast receipt: %w", err)
 	}
 	if env.Data.Space.ID == "" {
