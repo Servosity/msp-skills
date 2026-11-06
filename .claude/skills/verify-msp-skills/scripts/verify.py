@@ -36,9 +36,11 @@ fixture installer_fixtures/fake_github.py.
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime as dt
 import fcntl
 import hashlib
+import hmac
 import http.client
 import ipaddress
 import json
@@ -382,6 +384,170 @@ class FakeVendor:
             if srv is not None:
                 srv.shutdown()
                 srv.server_close()
+
+
+# --------------------------------------------------------------------------- #
+# Connectors whose vendor is not an HTTP API, declared here and never inferred
+# from manifest values or a slug's text. A WinRM connector talks WS-Management
+# only to the hosts its config file's [[servers]] entries name, and refuses any
+# base URL, so feature 2 starts a loopback WinRM stub, writes a scratch config
+# naming it (pinned to the stub's certificate), and drives the declared read
+# tools. config_env selects that config file; username_var and password_var
+# are the shared WinRM account, which keeps the manifest's stand-in values.
+# --------------------------------------------------------------------------- #
+
+WINRM_CONNECTORS = {
+    "windows-server": {"config_env": "WINDOWS_SERVER_CONFIG", "username_var": "WINDOWS_SERVER_USERNAME",
+                       "password_var": "WINDOWS_SERVER_PASSWORD", "read_tools": ("volumes_list",)},
+}
+WINRM_ACTION_RE = re.compile(r"<a:Action[^>]*>([^<]+)</a:Action>")
+WINRM_SHELL_RE = re.compile(r'<w:Selector Name="ShellId">([^<]+)</w:Selector>')
+WINRM_SCRIPT_RE = re.compile(r'<rsp:Variable Name="WSPP_SCRIPT">([^<]*)</rsp:Variable>')
+WINRM_ARGS_RE = re.compile(r"<rsp:Arguments>([^<]*)</rsp:Arguments>")
+WINRM_REFUSED = '{"ok":false,"error":{"kind":"refused","message":"script integrity check failed"}}'
+
+
+def winrm_volumes(marker: str) -> str:
+    """The stub's answer to a pinned script: one volume row in the scripts'
+    {"ok":true,"data":...} envelope, carrying this run's marker."""
+    row = {"drive_letter": "C", "unique_id": marker, "label": marker, "file_system": "NTFS",
+           "size_bytes": 107374182400, "free_bytes": 45097156608, "percent_free": 42.0, "health_status": "Healthy"}
+    return json.dumps({"ok": True, "data": [row]})
+
+
+class FakeWinRM:
+    """A loopback WS-Management listener over TLS, the protocol shape of the
+    windows-server connector's own newKitWinRM test stub. Every request must
+    carry Basic auth with the configured account, or it is answered 401 and
+    nothing is served. Create opens a shell and keeps the SHA-256 of the
+    WSPP_SCRIPT it carries; Command must carry the bootstrap that pins that
+    hash, as a real server's bootstrap refuses a script that does not match;
+    Receive answers `reply` (the run's volume row) only for a pinned script,
+    else the bootstrap's refusal; Signal and Delete close. Each request is
+    logged with its action, whether it was authorized and whether it served
+    `reply`; never a credential."""
+
+    def __init__(self, cert: tuple[str, str], username: str, password: str, log: Path, reply: str | None = None):
+        self.marker = "verify-winrm-" + secrets.token_hex(6)
+        self.reply = winrm_volumes(self.marker) if reply is None else reply
+        self.basic = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+        self.lock = threading.RLock()  # send() records while a branch holds it
+        self.requests: list[dict] = []
+        self.shells: dict[str, dict] = {}
+        self.log = log
+        stub = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def _reply(self, code: int, inner: str | None) -> None:
+                data = b"" if inner is None else (
+                    '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" '
+                    'xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell" '
+                    'xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" '
+                    'xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" '
+                    'xmlns:x="http://schemas.xmlsoap.org/ws/2004/09/transfer"><s:Body>'
+                    + inner + "</s:Body></s:Envelope>").encode()
+                self.send_response(code)
+                if code == 401:
+                    self.send_header("WWW-Authenticate", "Basic")
+                self.send_header("Content-Type", "application/soap+xml;charset=UTF-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                if data:
+                    self.wfile.write(data)
+
+            def do_POST(self) -> None:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(n).decode("utf-8", "replace") if n > 0 else ""
+                m = WINRM_ACTION_RE.search(body)
+                action = m.group(1).rsplit("/", 1)[-1] if m else None
+                authorized = hmac.compare_digest(self.headers.get("Authorization") or "", stub.basic)
+                served, sent = False, False
+
+                def send(code: int, inner: str | None) -> None:
+                    # Record before any byte of the reply: a client that has read a served reply must find
+                    # it in stub.since(), or a correct read could FAIL (codex).
+                    nonlocal sent
+                    stub.record(action, authorized, served)
+                    sent = True
+                    self._reply(code, inner)
+
+                try:
+                    if not authorized:
+                        return send(401, None)
+                    if action is None:
+                        return send(400, None)
+                    s = WINRM_SHELL_RE.search(body)
+                    shell = s.group(1) if s else ""
+                    with stub.lock:
+                        if action == "Create":
+                            v = WINRM_SCRIPT_RE.search(body)
+                            try:
+                                digest = hashlib.sha256(base64.b64decode(v.group(1), validate=True)).hexdigest().upper()
+                            except (AttributeError, ValueError):
+                                digest = None
+                            shell = f"SHELL-{len(stub.shells) + 1}"
+                            stub.shells[shell] = {"digest": digest, "pinned": False}
+                            return send(200, '<x:ResourceCreated><a:ReferenceParameters><w:SelectorSet>'
+                                                    f'<w:Selector Name="ShellId">{shell}</w:Selector>'
+                                                    "</w:SelectorSet></a:ReferenceParameters></x:ResourceCreated>")
+                        if action == "Command":
+                            sh = stub.shells.get(shell) or {}
+                            a = WINRM_ARGS_RE.search(body)
+                            enc = re.search(r"-EncodedCommand\s+(\S+)", a.group(1)) if a else None
+                            try:
+                                boot = base64.b64decode(enc.group(1), validate=True).decode("utf-16-le") if enc else ""
+                            except ValueError:
+                                boot = ""
+                            sh["pinned"] = bool(sh.get("digest")) and f"'{sh['digest']}'" in boot
+                            return send(200, "<rsp:CommandResponse><rsp:CommandId>CMD-1</rsp:CommandId>"
+                                                    "</rsp:CommandResponse>")
+                        if action == "Receive":
+                            served = (stub.shells.get(shell) or {}).get("pinned", False)
+                            out = stub.reply if served else WINRM_REFUSED
+                            return send(200, '<rsp:ReceiveResponse><rsp:Stream Name="stdout" CommandId="CMD-1">'
+                                                    + base64.b64encode(out.encode()).decode()
+                                                    + '</rsp:Stream><rsp:Stream Name="stderr" CommandId="CMD-1" End="true">'
+                                                    '</rsp:Stream><rsp:CommandState CommandId="CMD-1" State="http://schemas.'
+                                                    'microsoft.com/wbem/wsman/1/windows/shell/CommandState/Done">'
+                                                    "<rsp:ExitCode>0</rsp:ExitCode></rsp:CommandState></rsp:ReceiveResponse>")
+                        if action == "Signal":
+                            return send(200, "<rsp:SignalResponse/>")
+                        if action == "Delete":
+                            return send(200, "")
+                    return send(400, None)
+                finally:
+                    if not sent:
+                        stub.record(action, authorized, served)
+
+        self.srv = _QuietHTTPServer(("127.0.0.1", 0), Handler)
+        self.srv.daemon_threads = True
+        self.port = self.srv.server_address[1]
+        kit_tls.serve_tls(self.srv, cert)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+
+    def record(self, action: str | None, authorized: bool, served: bool) -> None:
+        rec = {"t": stamp(), "action": action, "authorized": authorized, "served": served}
+        with self.lock:
+            self.requests.append(rec)
+            with self.log.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
+
+    def mark(self) -> int:
+        with self.lock:
+            return len(self.requests)
+
+    def since(self, mark: int) -> list[dict]:
+        with self.lock:
+            return list(self.requests[mark:])
+
+    def stop(self) -> None:
+        self.srv.shutdown()
+        self.srv.server_close()
 
 
 # --------------------------------------------------------------------------- #
@@ -890,10 +1056,12 @@ def f1_install(ctx: Ctx) -> dict:
 
 def f2_mcp_stdio(ctx: Ctx) -> dict:
     d = ctx.fdir("f2-mcp-stdio")
-    if not ctx.wiring.url_vars and not ctx.wiring.host_vars:
+    decl = WINRM_CONNECTORS.get(ctx.slug)
+    if decl is None and not ctx.wiring.url_vars and not ctx.wiring.host_vars:
         return verdict(ERROR, "manifest.json names no base-URL variable, so the fake vendor cannot stand in")
+    stub, env = start_winrm(ctx, decl, d) if decl else (None, None)
     try:
-        with ctx.stdio("session", d) as cli:
+        with ctx.stdio("session", d, env) as cli:
             init = cli.initialize()
             info = (init.get("result") or {}).get("serverInfo") or {}
             if gate.is_protocol_error(init) or not info:
@@ -903,11 +1071,16 @@ def f2_mcp_stdio(ctx: Ctx) -> dict:
             write_json(d / "tools.json", tools)
             if not tools:
                 return verdict(FAIL, "tools/list returned no tools")
-            attempts = drive_read(ctx, cli, tools)
+            attempts = drive_winrm(cli, tools, stub, decl) if stub else drive_read(ctx, cli, tools)
     except ServerGone as e:
         return verdict(FAIL, str(e))
+    finally:
+        if stub is not None:
+            stub.stop()
     write_json(d / "read-attempts.json", attempts)
     head = f"initialize ok ({info.get('name')} {info.get('version')}), {len(tools)} tools"
+    if stub is not None:
+        return winrm_verdict(head, attempts)
     if not attempts:
         return verdict(ERROR, f"{head}; found no read tool to call")
     for a in attempts:
@@ -926,6 +1099,83 @@ def f2_mcp_stdio(ctx: Ctx) -> dict:
                               f"but rejected its generic reply: {tail(reached[-1]['answer_head'], 1)}")
     return verdict(FAIL, f"{head}; {len(attempts)} read call(s), none reached the fake vendor: "
                          f"{tail(last['answer_head'], 1)}")
+
+
+def start_winrm(ctx: Ctx, decl: dict, d: Path) -> tuple[FakeWinRM, dict]:
+    """The WinRM stub and the stdio session's environment: the declared config
+    variable names a scratch config (in the scratch HOME, mode 600, as the
+    connector requires) with one [[servers]] entry for the stub, pinned to the
+    stub's certificate by cert_sha256, the connector's own pinning option. The
+    base-URL variables are left unset, as a user leaves them; the connector
+    refuses any value. The account is the manifest's stand-in pair."""
+    tls_dir = ctx.scratch / "winrm-tls"
+    tls_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        cert = kit_tls.make_cert(str(tls_dir))
+    except RuntimeError as e:
+        raise HarnessError(str(e)) from e
+    env = ctx.env(drop=tuple(ctx.wiring.url_vars + ctx.wiring.host_vars))
+    user, password = env.get(decl["username_var"]), env.get(decl["password_var"])
+    if not user or not password:
+        raise HarnessError(f"the manifest gives no stand-in value for {decl['username_var']} or {decl['password_var']}")
+    stub = FakeWinRM(cert, user, password, d / "winrm-requests.jsonl")
+    pin = hashlib.sha256(ssl.PEM_cert_to_DER_cert(Path(cert[0]).read_text(encoding="utf-8"))).hexdigest()
+    cfg = ctx.home / ".config" / "verify-winrm-servers.toml"
+    cfg.write_text(f'[[servers]]\nname = "verify-stub"\nhost = "127.0.0.1"\nport = {stub.port}\n'
+                   f'auth = "basic"\ncert_sha256 = "{pin}"\n', encoding="utf-8")
+    cfg.chmod(0o600)
+    env[decl["config_env"]] = str(cfg)
+    return stub, env
+
+
+def drive_winrm(cli: StdioClient, tools: list[dict], stub: FakeWinRM, decl: dict) -> list[dict]:
+    """The declared read tools, in order, until one answers with the stub's
+    data. Each attempt records the WinRM requests it caused."""
+    by = {t.get("name", ""): t for t in tools}
+    missing = [n for n in decl["read_tools"] if n not in by]
+    if missing:
+        raise HarnessError(f"declared WinRM read tool(s) {missing} are not in tools/list; update WINRM_CONNECTORS")
+    attempts: list[dict] = []
+    for name in decl["read_tools"]:
+        args = gate.placeholder_args(by[name].get("inputSchema") or {})
+        mark = stub.mark()
+        msg = cli.call(name, args)
+        text = gate.result_text(msg)
+        attempts.append({"tool": name, "arguments": args, "is_error": is_tool_error(msg),
+                         "carries_marker": stub.marker in text, "answer_head": redact(text)[:1500],
+                         "winrm_requests": stub.since(mark)})
+        if winrm_read_ok(attempts[-1]):
+            break
+    return attempts
+
+
+def winrm_read_ok(a: dict) -> bool:
+    return not a["is_error"] and a["carries_marker"] and any(r["served"] for r in a["winrm_requests"])
+
+
+def winrm_verdict(head: str, attempts: list[dict]) -> dict:
+    """PASS only when a read tool answered without error, its answer carries
+    the stub's marker, and the stub served that data to an authorized, pinned
+    script. Anything less is the connector's (the stub answers real-shaped
+    data, unlike the HTTP fake's generic reply), so FAIL."""
+    for a in attempts:
+        if winrm_read_ok(a):
+            acts = ", ".join(dict.fromkeys(str(r["action"]) for r in a["winrm_requests"]))
+            return verdict(PASS, f"{head}; {a['tool']} reached the WinRM stub ({acts}; Basic auth with the "
+                                 f"configured account, pinned script) and answered with the stub's volume row")
+    a = attempts[-1]
+    reqs = a["winrm_requests"]
+    if not reqs:
+        why = "none reached the WinRM stub"
+    elif not any(r["authorized"] for r in reqs):
+        why = "the WinRM stub refused its credential (HTTP 401)"
+    elif not any(r["served"] for r in reqs):
+        why = "it reached the WinRM stub but no pinned script was served the stub's data"
+    elif a["is_error"]:
+        why = "it was served the stub's data but answered with an error"
+    else:
+        why = "it answered without the stub's data"
+    return verdict(FAIL, f"{head}; {len(attempts)} WinRM read call(s): {why}: {tail(a['answer_head'], 1)}")
 
 
 def is_read_tool(t: dict) -> bool:
@@ -1280,6 +1530,7 @@ def self_test() -> int:
     bad += dsm_self_test()
     bad += vcenter_self_test()
     bad += kit_tls_self_test()
+    bad += winrm_self_test()
     print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
     return 0 if not bad else 1
 
@@ -1351,6 +1602,95 @@ def kit_tls_self_test() -> int:
         (cfg / "config.go").write_text("package config\n", encoding="utf-8")
         line(kit_tls.refusal(skill, "linux") is None and bool(kit_tls.refusal(skill, "darwin")),
              "an adopter with no CA variable runs on Linux, and elsewhere is a harness refusal, not a verdict")
+    return bad
+
+
+def winrm_exchange(stub: FakeWinRM, cafile: str, username: str, password: str, pin: bool = True) -> tuple[int, str]:
+    """A stand-in for the connector's WinRM client: Create (carrying WSPP_SCRIPT),
+    Command (the -EncodedCommand bootstrap, pinning the script's SHA-256 unless
+    pin is False), Receive, Signal, Delete, with Basic auth over TLS trusting
+    only the stub's certificate. Returns the last HTTP status and the stdout."""
+    script = b"Emit-Ok @()"
+    digest = hashlib.sha256(script).hexdigest().upper() if pin else "0" * 64
+    boot = base64.b64encode(f"if($h -cne '{digest}'){{exit 0}}".encode("utf-16-le")).decode()
+    auth = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+    tls = ssl.create_default_context(cafile=cafile)
+
+    def post(action: str, shell: str, body: str) -> tuple[int, str]:
+        sel = f'<w:SelectorSet><w:Selector Name="ShellId">{shell}</w:Selector></w:SelectorSet>' if shell else ""
+        env = (f'<s:Envelope><s:Header><a:Action s:mustUnderstand="true">http://schemas.microsoft.com/wbem/wsman/1/'
+               f"windows/shell/{action}</a:Action>{sel}</s:Header><s:Body>{body}</s:Body></s:Envelope>")
+        conn = http.client.HTTPSConnection("127.0.0.1", stub.port, context=tls, timeout=10)
+        try:
+            conn.request("POST", "/wsman", body=env.encode(), headers={"Authorization": auth})
+            resp = conn.getresponse()
+            return resp.status, resp.read().decode("utf-8", "replace")
+        finally:
+            conn.close()
+
+    status, body = post("Create", "", '<rsp:Shell><rsp:Environment><rsp:Variable Name="WSPP_SCRIPT">'
+                                     + base64.b64encode(script).decode() + "</rsp:Variable></rsp:Environment></rsp:Shell>")
+    m = WINRM_SHELL_RE.search(body)
+    if status != 200 or not m:
+        return status, ""
+    shell = m.group(1)
+    post("Command", shell, "<rsp:CommandLine><rsp:Command>powershell.exe</rsp:Command><rsp:Arguments>-NoLogo "
+                           f"-NoProfile -NonInteractive -EncodedCommand {boot}</rsp:Arguments></rsp:CommandLine>")
+    status, body = post("Receive", shell, "<rsp:Receive/>")
+    out = re.search(r'<rsp:Stream Name="stdout"[^>]*>([^<]*)<', body)
+    post("Signal", shell, "<rsp:Signal/>")
+    post("Delete", shell, "")
+    return status, base64.b64decode(out.group(1)).decode() if out else ""
+
+
+def winrm_self_test() -> int:
+    """The WinRM stub feature 2 drives a WinRM connector against, both ways,
+    through winrm_verdict: a correct exchange is PASS; a wrong password or
+    account is answered 401, serves nothing and is FAIL; a stub that answers
+    nothing or a generic reply, and a script the bootstrap does not pin, are
+    FAIL. HTTP connectors never reach this code: only a declared slug does."""
+    cases = [  # (label, reply override, account, pinned script, expected verdict, expected status)
+        ("correct exchange", None, ("acct", "right-password"), True, PASS, 200),
+        ("wrong password refused", None, ("acct", "wrong-password"), True, FAIL, 401),
+        ("wrong account refused", None, ("other", "right-password"), True, FAIL, 401),
+        ("stub answers nothing", "", ("acct", "right-password"), True, FAIL, 200),
+        ("stub answers a generic reply", '{"ok":true,"data":[]}', ("acct", "right-password"), True, FAIL, 200),
+        ("script not pinned by the bootstrap", None, ("acct", "right-password"), False, FAIL, 200),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory(prefix="verify-winrm-") as td:
+        cert = kit_tls.make_cert(td)
+        for label, reply, (user, pw), pin, want, want_status in cases:
+            stub = FakeWinRM(cert, "acct", "right-password", Path(td) / "winrm.jsonl", reply)
+            try:
+                status, out = winrm_exchange(stub, cert[0], user, pw, pin)
+                a = {"tool": "stand-in", "arguments": {}, "is_error": status != 200 or '"ok":false' in out,
+                     "carries_marker": stub.marker in out, "answer_head": out[:200], "winrm_requests": stub.since(0)}
+                got = winrm_verdict("stand-in", [a])
+            finally:
+                stub.stop()
+            ok = got["verdict"] == want and status == want_status
+            if want_status == 401:
+                ok = ok and not any(r["authorized"] or r["served"] for r in a["winrm_requests"])
+            bad += not ok
+            print(f"  [{'PASS' if ok else 'FAIL'}] WinRM stub: {label}: HTTP {status}, f2 {got['verdict']}")
+        # Each request is recorded before its reply starts: the count of records when the Nth reply begins is N.
+        stub = FakeWinRM(cert, "acct", "right-password", Path(td) / "winrm.jsonl")
+        seen: list[int] = []
+        handler = stub.srv.RequestHandlerClass
+        orig = handler._reply
+
+        def counting(h, code, inner):
+            seen.append(len(stub.requests))
+            return orig(h, code, inner)
+        handler._reply = counting
+        try:
+            winrm_exchange(stub, cert[0], "acct", "right-password")
+        finally:
+            stub.stop()
+        ok = len(seen) == 5 and seen == list(range(1, 6))
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] WinRM stub: each request recorded before its reply: records at each reply {seen}")
     return bad
 
 
@@ -2065,7 +2405,7 @@ def main() -> int:
                    default="sandbox" if platform.system() == "Darwin" else "proxy-env")
     rp = sub.add_parser("report", help="latest verdict per slug, one row each")
     rp.add_argument("--json", action="store_true")
-    sub.add_parser("self-test", help="feature 3's HTTP probe and the kit's TLS vendor against stand-ins, both ways")
+    sub.add_parser("self-test", help="feature 3's HTTP probe, the kit's TLS vendor and the WinRM stub against stand-ins, both ways")
     c = sub.add_parser("cleanup", help="stop what a run started and remove its scratch (never evidence)")
     g = c.add_mutually_exclusive_group(required=True)
     g.add_argument("--run", help="one run's evidence folder")

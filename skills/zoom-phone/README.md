@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Zoom Phone MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zoom-phone-v0.1.0/zoom-phone-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zoom Phone release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zoom-phone).)
+[**Download Zoom Phone MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zoom-phone-v0.1.1/zoom-phone-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zoom Phone release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zoom-phone).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

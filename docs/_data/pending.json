@@ -441,11 +441,11 @@
     "released_hash": "sha256:d45790225e20651bf23351a8bfe20eca448e43f5571235a2b4363d1a70d8bd20"
   },
   "nerdio": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "nerdio-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "nerdio-v0.1.9",
     "current_hash": "sha256:30498c026b1b238587c00d7f3432436190a0619a478fd9c7815d4076d9488af2",
-    "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
+    "released_hash": "sha256:30498c026b1b238587c00d7f3432436190a0619a478fd9c7815d4076d9488af2"
   },
   "netsapiens": {
     "state": "up-to-date",
@@ -532,9 +532,9 @@
     "released_hash": "sha256:7d4fe3fbd3660f5bf9dfbd6a42ed5ca396a0f126e0a5cf608f1fda60b6a9f9a0"
   },
   "rewst": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "rewst-v0.1.7",
+    "latest_tag": "rewst-v0.1.8",
     "current_hash": "sha256:838fa9bd3a46fc31c77da4d149f99e64bf866b05c211da828550021077ba80dc",
     "released_hash": "sha256:838fa9bd3a46fc31c77da4d149f99e64bf866b05c211da828550021077ba80dc"
   },
@@ -581,10 +581,10 @@
     "released_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7"
   },
   "sentinelone": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.6",
     "latest_tag": "sentinelone-v0.2.6",
-    "current_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52",
+    "current_hash": "sha256:803798ce0b9abfa3ef5cf0508d652630c6898c02a0521fb389b4e7ff3d4c40d9",
     "released_hash": "sha256:e85123c47bc94a7a2f89aeec6c906a56508dbf1ba19e2b07581adb98d3bfea52"
   },
   "servosity": {
@@ -728,9 +728,9 @@
     "released_hash": "sha256:3a89857f0fba2ef77ae56b3ef76ccd548522e218b026c96efb0559cf2ee97057"
   },
   "zoom-phone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "zoom-phone-v0.1.0",
+    "latest_tag": "zoom-phone-v0.1.1",
     "current_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934",
     "released_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934"
   }
