@@ -2306,6 +2306,111 @@
         "sha256:6e0094d55f63437174d7bbffcc66d078a42632edbfcb07be7ddf2ddbc9c9e888",
         "sha256:c84d79f7cee392d0d137bde80b41dafde5a570d878f5eb06a2ade207eafe1464"
       ]
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/auth.go",
+      "rule": "G124",
+      "bind": "decl",
+      "sha256": [
+        "sha256:1dfc5bf96f7944413c4fb20e557d3610559ea29b4c681b54094f1ac5e38be635",
+        "sha256:03b81eeb3ac6e790cfac8e218bd83cf357f69f8c4e725920d7a0d9a899a35fcf"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Client-side cookie values parsed from the operator's own cookie file or header for this CLI's jar, never a Set-Cookie this program serves. The kit refuses a held cookie over plain http or to another origin."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/auth.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:03b81eeb3ac6e790cfac8e218bd83cf357f69f8c4e725920d7a0d9a899a35fcf",
+        "sha256:a71f2c4d4b0cb0fb00709dacef1968bb808e518bbc543b376c03bfb60ca7cf12",
+        "sha256:ffa6eef9393c28e2701589dd94185f3dbaa53f8b5b733ea3e0b05d63e6ac3154"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Local browser login, CLI only: reads Chrome's Preferences and profile files from the operator's own Chrome directory, copies them into a private temp dir (0600), and reads the file the operator named with --cookies-file. Nothing it reads is shown; the kit holds the values. The auth commands are not MCP tools."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:b2909c6642eb3d86b770b68cc5b6bc28dedfb0cc0236bc41e042ea96e3be91ac"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/chrome.go",
+      "rule": "G402",
+      "bind": "decl",
+      "sha256": [
+        "sha256:248575bdf938f8ecd41a519a9a0aa3814ce41f47b4076232bde8c46e82f31447"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. browser-chrome transport to an https proxy. InsecureSkipVerify takes trust.insecure, true only when the operator sets --insecure, RIVERSIDE_FM_SKIP_TLS_VERIFY or skip_tls_verify in their own config; the MCP bridge refuses --insecure. The default verifies against the system or --ca-cert pool. Same code the 4.34.0 fleet entry accepts, plus the kit outbound guard."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/cookiejar.go",
+      "rule": "G124",
+      "bind": "decl",
+      "sha256": [
+        "sha256:0fb36d50105a867c95255f992a35db316f93ee45727366271d0c62baf2e24846",
+        "sha256:802ff4d26e3aab4490ddc4ee4844a2e05074d31ff11c29967f4f926c1d0845b8"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Client-side cookie values going into this CLI's own jar, never a Set-Cookie this program serves. Secure, HttpOnly and SameSite are server-response attributes; the persisted Secure bit is kept, and the kit refuses a held cookie over plain http or to another origin (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP)."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/cookiejar.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:55068dca4c3f544fcc77bfff8d7790def79451cba74a7dd83ebcea6b0f55390d"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. mergeAndWriteCookieRows reads this CLI's own cookies.json under its data directory; the path comes from cookieJarPath, no command input names it."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credentials.toml, cookie jar), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
     }
   ]
 }
