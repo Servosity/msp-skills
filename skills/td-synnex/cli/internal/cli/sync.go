@@ -663,6 +663,10 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 		}
 		existingCount = bindCount
+		// pp:handfix td-synnex (ion-book-one-account): this walk's rows commit
+		// only while its claim and scope still hold (store/ion_book_rows.go).
+		db.DeclareIONBookWalk(resource, syncClientTemplateVars(c)["accountId"], scopeKey)
+		defer db.EndIONBookWalk(resource)
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, persistedCursor, existingCount); err != nil {
 			return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 		}

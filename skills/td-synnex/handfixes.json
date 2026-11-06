@@ -1016,7 +1016,7 @@
    "asserts": [
     {
      "file": "cli/internal/cli/ion_book.go",
-     "contains": "func ionUnprovenResources(ctx context.Context, db *store.Store, resources []string) []string {",
+     "contains": "func ionUnprovenResources(ctx context.Context, db ionQuerier, resources []string) []string {",
      "min_count": 1,
      "code_only": true
     },
@@ -1028,7 +1028,7 @@
     },
     {
      "file": "cli/internal/cli/ion_book.go",
-     "contains": "if unproven := ionUnprovenResources(cmd.Context(), db, resources); len(unproven) > 0 {",
+     "contains": "if unproven := ionUnprovenResources(cmd.Context(), tx, resources); len(unproven) > 0 {",
      "min_count": 1,
      "code_only": true
     },
@@ -1578,14 +1578,14 @@
    "id": "ion-book-one-account",
    "class": "book-answers-for-another-account",
    "status": "active",
-   "summary": "the licence book answers only from walks of the ION account it is asked about: sync refuses (exit 2, naming the store's account) any accountId from --path-context, --param, --global-param or --resource-param that is not the configured account (CLI and the MCP sync tool, which runs the CLI); every walk of a book list (customers, subscriptions, orders) by sync, workflow archive or the auto-refresh first empties a list recorded for another account or for none, with its sync state, and records its own; the book refuses (exit 10, naming the account found and the sync) unless the record and the latest walk's scope both name the configured account; a command aimed at another account's <accountId> saves nothing locally, so a mutation write-back cannot add that account's rows",
-   "why": "Adversarial review 2026-11-06 (fresh context), P1: with TD_SYNNEX_ACCOUNT_ID=10505, `sync --resources customers,subscriptions,orders --path-context accountId=20000` (also the MCP sync tool with path-context [\"accountId=20000\"]) walked account 20000 into account 10505's store with a whole-walk proof; margin --by customer then answered for 10505 with 20000's customers (exit 0), customers show 108500 exited 3, and after an earlier 10505 sync margin merged both accounts silently. ionUnprovenResources checked the walk was whole and unfiltered but never which account it walked. Also found: customers create 20000 wrote account 20000's new customer into the 10505 store through the mutation write-back, and the book answered for it. Sync never prunes a book list (every walk is tenant-scoped by the accountId template var, so syncPruneSkipReason skips it), so refusing the walk alone would leave an explicit --db shared between accounts, an adopted unscoped data.db or a store an earlier build wrote merging rows forever: the store therefore records the account per book list (ion_store_account) and a walk for another account empties the list before writing. Repro on built binaries in .review/repro-r1.log (before: a, b, c, e reproduced; after: none). TestSyncRefusesAnotherAccountsWalk, TestBookAnswersOnlyFromWalksOfItsAccount, TestBookRefusesAStoreNotTracedToItsAccount, TestBookScopeMustNameItsAccount and TestForeignAccountWriteBackStaysOutOfTheBook failed on the unfixed tree and pass after; removing each piece alone (the sync refusal, the book check, the purge, the scope check, the write-back guard) fails its test again. Cost: a store synced before this fix refuses the book (exit 10, naming the sync) until one sync, which re-walks each book list from empty. GENERATED sync.go: a reprint must re-apply the two marked edits.",
+   "summary": "the licence book answers only from walks of the ION account it is asked about: sync refuses (exit 2, naming the store's account) any accountId from --path-context, --param, --global-param or --resource-param that is not the configured account (CLI and the MCP sync tool, which runs the CLI); every walk of a book list (customers, subscriptions, orders) by sync, workflow archive or the auto-refresh first empties a list recorded for another account or for none, with its sync state, and records its own; the book refuses (exit 10, naming the account found and the sync) unless the record and the latest walk's scope both name the configured account; a command aimed at another account's <accountId> saves nothing locally, so a mutation write-back cannot add that account's rows; a book row (customers, subscriptions, orders) commits only inside the transaction that checks the list's ion_store_account record names the writer's account (and, for a sync walk, that sync_state still holds the walk's bound scope), else the write rolls back, and each committed row is tagged with that account (ion_book_row); the book reads its proofs and its rows in one read transaction and only rows tagged with the configured account, refusing (exit 10, naming the sync) a list holding any other row; a sync's claim empties such a list, so one sync recovers",
+   "why": "Adversarial review 2026-11-06 (fresh context), P1: with TD_SYNNEX_ACCOUNT_ID=10505, `sync --resources customers,subscriptions,orders --path-context accountId=20000` (also the MCP sync tool with path-context [\"accountId=20000\"]) walked account 20000 into account 10505's store with a whole-walk proof; margin --by customer then answered for 10505 with 20000's customers (exit 0), customers show 108500 exited 3, and after an earlier 10505 sync margin merged both accounts silently. ionUnprovenResources checked the walk was whole and unfiltered but never which account it walked. Also found: customers create 20000 wrote account 20000's new customer into the 10505 store through the mutation write-back, and the book answered for it. Sync never prunes a book list (every walk is tenant-scoped by the accountId template var, so syncPruneSkipReason skips it), so refusing the walk alone would leave an explicit --db shared between accounts, an adopted unscoped data.db or a store an earlier build wrote merging rows forever: the store therefore records the account per book list (ion_store_account) and a walk for another account empties the list before writing. Repro on built binaries in .review/repro-r1.log (before: a, b, c, e reproduced; after: none). TestSyncRefusesAnotherAccountsWalk, TestBookAnswersOnlyFromWalksOfItsAccount, TestBookRefusesAStoreNotTracedToItsAccount, TestBookScopeMustNameItsAccount and TestForeignAccountWriteBackStaysOutOfTheBook failed on the unfixed tree and pass after; removing each piece alone (the sync refusal, the book check, the purge, the scope check, the write-back guard) fails its test again. Cost: a store synced before this fix refuses the book (exit 10, naming the sync) until one sync, which re-walks each book list from empty. GENERATED sync.go: a reprint must re-apply the two marked edits. Codex round 2 (publish 2026-11-06), P1 sync.go:575, reproduced on the built binary (.review/repro-r2/RESULT.md): two concurrent syncs of accounts 10505 and 20000 into one explicit --db; 10505's late page committed its rows through upsertResourceBatch after 20000's sync claimed and completed the list (only the checkpoint after it saw the scope change, and nothing rolled the rows back), so margin for 20000 answered with both accounts' subscriptions. The ownership check now runs in the row write's own transaction (GENERATED store.go upsertGenericResourceTx: one marked hook, the funnel every resources write uses), and the read is tag-filtered inside one snapshot. TestConcurrentSyncsOfTwoAccountsNeverMixTheBook (two in-process syncs, a held stub response), TestBookRefusesARowNoWriteForItsAccountTagged and store TestIONBookRowCommitsOnlyForTheListsAccount failed on the unfixed tree and pass after (.review/r3fix/); the recorded input no longer reproduces on the built binary (.review/repro-r3fix/run.log). GENERATED store.go: a reprint must re-apply the marked hook.",
    "spec_encode_followup": "Press-side: a tenant-scoped store should record the tenant each table was walked for and refuse a --path-context or param that names another tenant, since tenant-scoped walks are never pruned.",
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "pp:handfix td-synnex (ion-book-one-account)",
-     "min_count": 2,
+     "min_count": 3,
      "code_only": false
     },
     {
@@ -1602,7 +1602,7 @@
     },
     {
      "file": "cli/internal/cli/ion_book.go",
-     "contains": "if foreign, found := ionForeignResources(cmd.Context(), db, ionBookAccount(flags), resources); len(foreign) > 0 {",
+     "contains": "if foreign, found := ionForeignResources(cmd.Context(), tx, account, resources); len(foreign) > 0 {",
      "min_count": 1,
      "code_only": true
     },
@@ -1657,6 +1657,66 @@
     {
      "file": "cli/internal/cli/ion_book_account_test.go",
      "contains": "func TestForeignAccountWriteBackStaysOutOfTheBook(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "pp:handfix td-synnex (ion-book-one-account)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if err := s.ionBookRowTx(tx, resourceType, id); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ion_book_rows.go",
+     "contains": "if walk.account == \"\" || owner != walk.account {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.DeclareIONBookWalk(resource, syncClientTemplateVars(c)[\"accountId\"], scopeKey)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if untagged := ionUntaggedResources(cmd.Context(), tx, account, resources); len(untagged) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "ON t.resource_type = r.resource_type AND t.id = r.id AND t.account = ? WHERE r.resource_type = ? ORDER BY r.updated_at DESC`, account, resource)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_account_default.go",
+     "contains": "store.IONBookAccount = func() string { return ionBookAccount(flags) }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_race_test.go",
+     "contains": "func TestConcurrentSyncsOfTwoAccountsNeverMixTheBook(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_race_test.go",
+     "contains": "func TestBookRefusesARowNoWriteForItsAccountTagged(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/ion_book_rows_test.go",
+     "contains": "func TestIONBookRowCommitsOnlyForTheListsAccount(",
      "min_count": 1,
      "code_only": true
     }

@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"td-synnex-pp-cli/internal/config"
+	"td-synnex-pp-cli/internal/store"
 )
 
 const accountPathPrefix = "/accounts/{accountId}"
@@ -39,6 +40,10 @@ func init() {
 	}
 	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
 		walkCommands(root, func(c *cobra.Command) { wrapAccountDefault(c, flags) })
+		// A live read's or a mutation's write-back writes book rows for the
+		// configured account only (store/ion_book_rows.go). ponytail: the
+		// newest root's flags win, as the generated default-store scope does.
+		store.IONBookAccount = func() string { return ionBookAccount(flags) }
 	})
 }
 

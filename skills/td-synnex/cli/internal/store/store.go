@@ -1912,6 +1912,11 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	// pp:handfix td-synnex (ion-book-one-account): a book row commits only for
+	// the account its list is recorded for, in this transaction.
+	if err := s.ionBookRowTx(tx, resourceType, id); err != nil {
+		return err
+	}
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
