@@ -176,7 +176,7 @@
   },
   "connectwise-control": {
     "state": "version-pending",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "latest_tag": "connectwise-control-v0.1.8",
     "current_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
     "released_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34"
@@ -351,7 +351,7 @@
   },
   "kaseya-bms": {
     "state": "version-pending",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "latest_tag": "kaseya-bms-v0.1.7",
     "current_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7",
     "released_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7"
