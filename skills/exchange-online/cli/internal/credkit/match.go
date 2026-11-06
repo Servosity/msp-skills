@@ -72,6 +72,11 @@ type matcher struct {
 	distinct [256][]int
 	multiO   sync.Once
 	multi    *multiIndex // multi-byte charsets
+
+	// prefixes is the first eight bytes of every pattern when the matcher
+	// is of constTable's class (consttable.go), else nil.
+	prefixes map[uint64]struct{}
+	rec      func([]byte) // ConstantTable's: every text matched (nil on every matcher a sink uses)
 }
 
 func (m *matcher) prepare() {
@@ -189,6 +194,7 @@ func buildMatcher(vals []string, anywhere, whole bool) *matcher {
 		m.norms = append(m.norms, []byte(w))
 	}
 	m.ac = newAutomaton(pats)
+	m.prefixes = constPrefixes(m, pats)
 	return m
 }
 
@@ -302,6 +308,9 @@ func (m *matcher) hit(n []byte) bool { return m.hitIn(n, false) }
 // hitIn is hit, with a short value counted anywhere when anywhere is set
 // (a run decoder's output, every span of which is a view of its own).
 func (m *matcher) hitIn(n []byte, anywhere bool) bool {
+	if m.rec != nil {
+		m.rec(n)
+	}
 	a := m.ac
 	s := int32(0)
 	for i, c := range n {
