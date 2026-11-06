@@ -2,6 +2,7 @@
 // `consolidated` — per-account + aggregate org rollup with inline month-over-month delta.
 //
 // pp:client-call
+// pp:data-source auto
 package cli
 
 import (
@@ -47,7 +48,7 @@ account you'll see only that account.`,
 
   # Last month as JSON
   aws-billing-cli consolidated --period last-month --agent`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
@@ -63,7 +64,12 @@ account you'll see only that account.`,
 			if err != nil {
 				return err
 			}
-			priorLines, _, _ := canonicalCostLines(cmd.Context(), o, prev)
+			// A prior period that cannot be read is an error, never a $0 prior
+			// and a +100% delta (Codex r1 class failure-read-as-an-empty-result).
+			priorLines, _, err := canonicalCostLines(cmd.Context(), o, prev)
+			if err != nil {
+				return fmt.Errorf("reading the prior period (%s to %s): %w", prev.Start, prev.End, err)
+			}
 
 			curByAcct, curTotal := sumByAccount(cur)
 			priorByAcct, priorTotal := sumByAccount(priorLines)

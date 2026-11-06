@@ -1,0 +1,122 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T17:05:45.89232Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "datto-saas",
+  "display_name": "Datto SaaS Protection",
+  "cli_name": "datto-saas-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:725125a2c09192207278d7e8c1292d90116e19513944e3dccd11a3f324a5d91f",
+  "run_id": "20261027-123357-30e8a307",
+  "category": "monitoring",
+  "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+  "mcp_binary": "datto-saas-pp-mcp",
+  "mcp_tool_count": 6,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "basicAuth",
+  "auth_env_vars": [
+    "DATTO_SAAS_PUBLIC_KEY",
+    "DATTO_SAAS_SECRET_KEY"
+  ],
+  "auth_key_url": "https://portal.dattobackup.com/integrations/api",
+  "novel_features": [
+    {
+      "name": "Bulk change planner",
+      "command": "seats bulk-plan",
+      "description": "Turn a seat selection into ready-to-run License, Pause or Unlicense batches, grouped by subscription and seat type and capped at 100 ids, without sending anything."
+    },
+    {
+      "name": "Billing reconciliation",
+      "command": "seats reconcile",
+      "description": "See, per client, where Datto's seatsUsed disagrees with billable and Active seats before you invoice."
+    },
+    {
+      "name": "Protection gaps",
+      "command": "seats gaps",
+      "description": "List seats across all clients that are Unprotected (Paused too with --include-paused), newest first, with each seat's remoteId for a License plan."
+    },
+    {
+      "name": "Backup health ranking",
+      "command": "backup-health",
+      "description": "Rank clients worst first by backup coverage, then consecutive short backup windows and perfect-backup rate."
+    },
+    {
+      "name": "Exit inventory",
+      "command": "exit-inventory",
+      "description": "Build one manifest for a client leaving SaaS Protection: domains, subscription ids, retention, every seat with remoteId, storage, last backups and a blockers checklist."
+    },
+    {
+      "name": "Seat roster",
+      "command": "seats roster",
+      "description": "Every synced seat across all clients in one table, joined with its customer's domains, product types and subscription ids; --csv for a fleet-wide export."
+    },
+    {
+      "name": "Seat summary",
+      "command": "seats summary",
+      "description": "Seat counts per client and seat type, split by Active, Paused, Archived and Unprotected state and the billable flag."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Bulk change planner",
+      "command": "seats bulk-plan",
+      "description": "Turn a seat selection into ready-to-run License, Pause or Unlicense batches, grouped by subscription and seat type and capped at 100 ids, without sending anything."
+    },
+    {
+      "name": "Billing reconciliation",
+      "command": "seats reconcile",
+      "description": "See, per client, where Datto's seatsUsed disagrees with billable and Active seats before you invoice."
+    },
+    {
+      "name": "Protection gaps",
+      "command": "seats gaps",
+      "description": "List seats across all clients that are Unprotected (Paused too with --include-paused), newest first, with each seat's remoteId for a License plan."
+    },
+    {
+      "name": "Backup health ranking",
+      "command": "backup-health",
+      "description": "Rank clients worst first by backup coverage, then consecutive short backup windows and perfect-backup rate."
+    },
+    {
+      "name": "Exit inventory",
+      "command": "exit-inventory",
+      "description": "Build one manifest for a client leaving SaaS Protection: domains, subscription ids, retention, every seat with remoteId, storage, last backups and a blockers checklist."
+    },
+    {
+      "name": "Seat roster",
+      "command": "seats roster",
+      "description": "Every synced seat across all clients in one table, joined with its customer's domains, product types and subscription ids; --csv for a fleet-wide export."
+    },
+    {
+      "name": "Seat summary",
+      "command": "seats summary",
+      "description": "Seat counts per client and seat type, split by Active, Paused, Archived and Unprotected state and the billable flag."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 40,
+    "total": 40,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 98,
+      "grade": "A",
+      "total": 98
+    }
+  }
+}

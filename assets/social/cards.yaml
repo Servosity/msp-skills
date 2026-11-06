@@ -148,6 +148,10 @@ datto-rmm:
   vendor: "Datto RMM"
   example_command: "Which endpoints across all my clients have gone dark?"
 
+datto-saas:
+  vendor: "Datto SaaS Protection"
+  example_command: "Which users across all my clients are not backed up?"
+
 dnsfilter:
   vendor: "DNSFilter"
   example_command: "Why is this site blocked for Acme?"

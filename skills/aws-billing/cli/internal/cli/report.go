@@ -23,6 +23,7 @@ import (
 
 	"aws-billing-pp-cli/internal/awsx"
 	"aws-billing-pp-cli/internal/cliutil"
+	"aws-billing-pp-cli/internal/credkit"
 )
 
 // slackChannelEnvVar names the env var that supplies the default Slack target
@@ -38,7 +39,7 @@ func resolveSlackChannel(flagValue string) string {
 	if strings.TrimSpace(flagValue) != "" {
 		return flagValue
 	}
-	return strings.TrimSpace(os.Getenv(slackChannelEnvVar))
+	return strings.TrimSpace(cliutil.EnvOverride(slackChannelEnvVar)) // an unresolved .mcpb placeholder is unset
 }
 
 type reportData struct {
@@ -52,6 +53,7 @@ type reportData struct {
 	ByAccount   []consolidatedAccount
 	Waste       []awsx.InventoryResource
 	WasteTotal  float64
+	WasteError  string // the waste scan could not be read: shown, never read as no waste
 }
 
 func newReportCmd(flags *rootFlags) *cobra.Command {
@@ -63,17 +65,23 @@ func newReportCmd(flags *rootFlags) *cobra.Command {
 		Short: "Render an HTML/PDF bill breakdown and optionally post it to Slack",
 		Long: `Build a smart, sectioned report of the AWS bill — total with month-over-month
 delta, top services, per-account rollup, and a dollar-ranked waste list — as
-HTML and/or PDF. With --post-slack it posts a summary plus the HTML to Slack
-(delegating to the slack-pp-cli binary). The CLI writes files and posts only
-when asked; it never mutates AWS.`,
+HTML and/or PDF. With --post-slack --yes it posts a summary plus the HTML to
+Slack (delegating to the slack-pp-cli binary); --post-slack alone previews the
+post. The CLI writes files and posts only when asked; it never mutates AWS.`,
 		Example: `  # Write an HTML report for last month
   aws-billing-cli report --period last-month
 
-  # HTML + PDF, posted to your Slack DM
-  aws-billing-cli report --period last-month --format both --post-slack`,
-		// No mcp:read-only: this command always writes a report file to disk and,
-		// with --post-slack, posts to Slack — both are side effects an MCP host
-		// should be able to prompt on. (Read-only against AWS, but not the FS/Slack.)
+  # HTML + PDF, then preview the Slack post (nothing is posted without --yes)
+  aws-billing-cli report --period last-month --format both --post-slack
+
+  # Post it to your Slack DM
+  aws-billing-cli report --period last-month --post-slack --yes`,
+		// No mcp:read-only: this command writes a report file and, with
+		// --post-slack, posts to Slack. aws-billing handfix (report-post-needs-yes):
+		// a post is sent only with --yes; without it the command prints what it
+		// would post. The MCP gate adds --yes only on confirm: true
+		// (aws-billing:sends-with-yes), and an MCP call never writes a file.
+		Annotations: map[string]string{"aws-billing:sends-with-yes": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
@@ -106,9 +114,17 @@ when asked; it never mutates AWS.`,
 
 			wantHTML := format == "" || format == "html" || format == "both"
 			wantPDF := format == "pdf" || format == "both"
+			if cliutil.IsMCPChildEnv() {
+				// An MCP tool call never writes a file on this machine: the
+				// summary (and, with --post-slack, the HTML upload) is the result.
+				wantHTML, wantPDF = false, false
+			}
 
 			if wantHTML {
-				if err := os.WriteFile(outPath, []byte(htmlDoc), 0o644); err != nil {
+				if err := credkit.WriteFile(outPath, []byte(htmlDoc), 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
+					return fmt.Errorf("writing HTML report: %w", err)
+				}
+				if err := os.Chmod(outPath, 0o600); err != nil { // WriteFile keeps an existing file's mode (Codex r1 P2)
 					return fmt.Errorf("writing HTML report: %w", err)
 				}
 				htmlPath = outPath
@@ -134,6 +150,11 @@ when asked; it never mutates AWS.`,
 			channel := resolveSlackChannel(slackChannel)
 			if channel == "" {
 				return usageErr(fmt.Errorf("no Slack target: pass --slack-channel <id> or set %s (e.g. export %s=<your-dm-or-channel-id>)", slackChannelEnvVar, slackChannelEnvVar))
+			}
+			if !flags.yes {
+				fmt.Fprintln(w, "\n"+summary)
+				fmt.Fprintf(w, "\nPreview only: nothing was posted. Re-run with --yes to post this summary and the HTML report to Slack channel %s.\n", channel)
+				return nil
 			}
 			// Side-effect: posting to Slack. Short-circuit under verify.
 			if cliutil.IsVerifyEnv() {
@@ -166,7 +187,12 @@ func gatherReport(ctx context.Context, flags *rootFlags, o awsReadOpts, pr perio
 	}
 	d.Source = source
 	prev := previousPeriod(pr)
-	priorLines, _, _ := canonicalCostLines(ctx, o, prev)
+	// A prior period that cannot be read is an error, never a $0 prior and a
+	// +100% delta (Codex r1 class failure-read-as-an-empty-result).
+	priorLines, _, err := canonicalCostLines(ctx, o, prev)
+	if err != nil {
+		return d, fmt.Errorf("reading the prior period (%s to %s): %w", prev.Start, prev.End, err)
+	}
 
 	d.ByService, _ = groupCostLines(cur, "service")
 	curByAcct, curTotal := sumByAccount(cur)
@@ -189,15 +215,19 @@ func gatherReport(ctx context.Context, flags *rootFlags, o awsReadOpts, pr perio
 	}
 	sort.Slice(d.ByAccount, func(i, j int) bool { return d.ByAccount[i].AmountUSD > d.ByAccount[j].AmountUSD })
 
-	// Waste (best-effort; don't fail the report if inventory is denied).
-	if waste, _, werr := ensureInventory(ctx, o, "", "", true); werr == nil {
-		sort.Slice(waste, func(i, j int) bool { return waste[i].MonthlyWasteUSD > waste[j].MonthlyWasteUSD })
-		d.Waste = waste
-		for _, r := range waste {
-			d.WasteTotal += r.MonthlyWasteUSD
-		}
-		d.WasteTotal = round2f(d.WasteTotal)
+	// Waste is best-effort (the bill is reported when the inventory is
+	// denied), but a failed scan is shown as unavailable, never as "no waste".
+	waste, _, werr := ensureInventory(ctx, o, "", "", true)
+	if werr != nil {
+		d.WasteError = werr.Error()
+		return d, nil
 	}
+	sort.Slice(waste, func(i, j int) bool { return waste[i].MonthlyWasteUSD > waste[j].MonthlyWasteUSD })
+	d.Waste = waste
+	for _, r := range waste {
+		d.WasteTotal += r.MonthlyWasteUSD
+	}
+	d.WasteTotal = round2f(d.WasteTotal)
 	return d, nil
 }
 
@@ -213,7 +243,9 @@ func renderReportSummary(d reportData) string {
 			fmt.Fprintf(&b, "  • %s — $%.2f (%.0f%%)\n", g.Key, g.AmountUSD, g.Pct)
 		}
 	}
-	if d.WasteTotal > 0 {
+	if d.WasteError != "" {
+		fmt.Fprintf(&b, "Waste scan unavailable: %s\n", d.WasteError)
+	} else if d.WasteTotal > 0 {
 		fmt.Fprintf(&b, "Estimated waste: ~$%.2f/mo across %d resources\n", d.WasteTotal, len(d.Waste))
 	}
 	return b.String()
@@ -260,7 +292,9 @@ func renderReportHTML(d reportData) string {
 	}
 	fmt.Fprintf(&b, `<tr class="total"><td>TOTAL</td><td class="n">$%.2f</td><td class="n"></td></tr></table>`, d.TotalUSD)
 
-	if len(d.Waste) > 0 {
+	if d.WasteError != "" {
+		fmt.Fprintf(&b, `<h2>Waste</h2><p>Waste scan unavailable: %s</p>`, esc(d.WasteError))
+	} else if len(d.Waste) > 0 {
 		fmt.Fprintf(&b, `<h2>Waste — ~$%.2f/mo</h2><table><tr><th>Type</th><th>Resource</th><th>Region</th><th class="n">$/mo</th><th>Reason</th></tr>`, d.WasteTotal)
 		for i, r := range d.Waste {
 			if i >= 25 {
@@ -288,16 +322,21 @@ func htmlToPDF(htmlDoc, pdfPath string) error {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := tmp.WriteString(htmlDoc); err != nil {
+	if err := tmp.Close(); err != nil {
 		return err
 	}
-	tmp.Close()
+	if err := credkit.WriteFile(tmp.Name(), []byte(htmlDoc), 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
+		return err
+	}
 	abs, _ := filepath.Abs(pdfPath)
 	cmd := exec.Command(chrome, "--headless", "--disable-gpu", "--no-pdf-header-footer",
 		"--print-to-pdf="+abs, "file://"+tmp.Name())
+	if err := prepareHelpers(helperRun{cmd: cmd, reads: [][]byte{[]byte(htmlDoc)}}); err != nil { // aws-billing handfix (child-env-without-aws-credentials)
+		return err
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	if err := credkit.RunCommand(cmd); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		return fmt.Errorf("chrome: %v: %s", err, strings.TrimSpace(stderr.String()))
 	}
 	return nil
@@ -328,26 +367,42 @@ func postReportToSlack(ctx context.Context, channel, summary, htmlDoc, stamp str
 	if slack == "" {
 		return fmt.Errorf("slack-pp-cli not found on PATH or in ~/.local/bin (install it to post to Slack)")
 	}
+	// Both runs are checked before the first one starts (prepareHelper), so a
+	// refusal never leaves a summary posted without its report.
 	// 1. Summary message.
 	msg := exec.CommandContext(ctx, slack, slackMessageArgs(channel, summary)...)
-	if out, err := msg.CombinedOutput(); err != nil {
-		return fmt.Errorf("post_message: %v: %s", err, strings.TrimSpace(string(out)))
-	}
 	// 2. Upload the HTML report via stdin JSON (avoids ARG_MAX on large docs).
-	payload, _ := json.Marshal(map[string]string{
+	payload, err := json.Marshal(map[string]string{
 		"channels":        channel,
 		"content":         htmlDoc,
 		"filename":        "aws-bill-" + stamp + ".html",
 		"title":           "AWS Bill " + stamp,
 		"initial_comment": "Full HTML breakdown attached.",
 	})
+	if err != nil {
+		return fmt.Errorf("encoding the upload: %w", err)
+	}
 	up := exec.CommandContext(ctx, slack, "files", "upload", "--stdin")
-	up.Stdin = bytes.NewReader(payload)
-	if out, err := up.CombinedOutput(); err != nil {
+	if err := prepareHelpers(helperRun{cmd: msg}, helperRun{cmd: up, stdin: payload}); err != nil { // aws-billing handfix (child-env-without-aws-credentials)
+		return err
+	}
+	if out, err := runHelper(msg); err != nil {
+		return fmt.Errorf("post_message: %v: %s", err, strings.TrimSpace(out))
+	}
+	if out, err := runHelper(up); err != nil {
 		// Non-fatal: the summary message already landed.
-		return fmt.Errorf("file upload (summary posted ok): %v: %s", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("file upload (summary posted ok): %v: %s", err, strings.TrimSpace(out))
 	}
 	return nil
+}
+
+// runHelper runs a prepared helper through the credential kit and returns
+// its combined output. // Hand-fix (handfixes.json credkit-wiring)
+func runHelper(cmd *exec.Cmd) (string, error) {
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	err := credkit.RunCommand(cmd)
+	return out.String(), err
 }
 
 func findSlackCLI() string {

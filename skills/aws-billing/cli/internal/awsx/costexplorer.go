@@ -3,6 +3,7 @@ package awsx
 
 import (
 	"context"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/costexplorer"
@@ -20,8 +21,9 @@ const metricUnblended = "UnblendedCost"
 // throttle response to a typed cliutil.RateLimitError so callers never read a
 // throttle as "no data".
 func (c *Client) ceCall(ctx context.Context, label string, fn func() error) error {
-	_ = ctx
-	c.ceLimiter.Wait()
+	if err := c.ceLimiter.Wait(ctx); err != nil {
+		return err
+	}
 	err := fn()
 	if err != nil {
 		if IsThrottle(err) {
@@ -34,12 +36,39 @@ func (c *Client) ceCall(ctx context.Context, label string, fn func() error) erro
 	return nil
 }
 
+// CostBucket is one time period of a Cost Explorer answer (ResultsByTime
+// TimePeriod: Start inclusive, End exclusive, YYYY-MM-DD). Estimated is
+// ResultsByTime Estimated: the period's amounts are not final yet (the
+// current month), so a stored copy goes stale.
+type CostBucket struct {
+	Start     string
+	End       string
+	Estimated bool
+}
+
+// CostAnswer is one complete GetCostAndUsage answer: every group of every
+// page, and every time period AWS answered for, a period with no groups (no
+// spend) included (aws-billing handfix cost-cache-answers-only-its-request:
+// the local cache stores and reuses a period only as AWS answered it).
+type CostAnswer struct {
+	Lines   []CostLine
+	Buckets []CostBucket
+}
+
 // GetCostAndUsageGrouped returns monthly cost lines grouped by the given
 // dimensions (1 or 2). groupKeys are CE dimension keys such as
 // "LINKED_ACCOUNT", "SERVICE", "USAGE_TYPE", "REGION". start/end are
 // YYYY-MM-DD; end is exclusive. The returned lines carry the dimension values
 // in order: groupKeys[0] -> first field, groupKeys[1] -> second.
 func (c *Client) GetCostAndUsageGrouped(ctx context.Context, start, end, granularity string, groupKeys []string) ([]CostLine, error) {
+	ans, err := c.GetCostAndUsageAnswer(ctx, start, end, granularity, groupKeys)
+	return ans.Lines, err
+}
+
+// GetCostAndUsageAnswer reads every NextPageToken page of one
+// GetCostAndUsage request. A group repeated for one period across pages is
+// summed into one line, so the answer has one line per period and group key.
+func (c *Client) GetCostAndUsageAnswer(ctx context.Context, start, end, granularity string, groupKeys []string) (CostAnswer, error) {
 	groups := make([]cetypes.GroupDefinition, 0, len(groupKeys))
 	for _, k := range groupKeys {
 		groups = append(groups, cetypes.GroupDefinition{
@@ -52,7 +81,9 @@ func (c *Client) GetCostAndUsageGrouped(ctx context.Context, start, end, granula
 		gran = cetypes.GranularityDaily
 	}
 
-	var lines []CostLine
+	var ans CostAnswer
+	bucketAt := map[[2]string]int{}
+	lineAt := map[string]int{}
 	var nextToken *string
 	for {
 		in := &costexplorer.GetCostAndUsageInput{
@@ -70,11 +101,21 @@ func (c *Client) GetCostAndUsageGrouped(ctx context.Context, start, end, granula
 			out, e = c.CE.GetCostAndUsage(ctx, in)
 			return e
 		}); err != nil {
-			return nil, err
+			return CostAnswer{}, err
 		}
 		for _, rbt := range out.ResultsByTime {
-			ps := aws.ToString(rbt.TimePeriod.Start)
-			pe := aws.ToString(rbt.TimePeriod.End)
+			var ps, pe string
+			if rbt.TimePeriod != nil {
+				ps, pe = aws.ToString(rbt.TimePeriod.Start), aws.ToString(rbt.TimePeriod.End)
+			}
+			if ps != "" && pe != "" {
+				if i, seen := bucketAt[[2]string{ps, pe}]; seen {
+					ans.Buckets[i].Estimated = ans.Buckets[i].Estimated || rbt.Estimated // any page saying estimated wins
+				} else {
+					bucketAt[[2]string{ps, pe}] = len(ans.Buckets)
+					ans.Buckets = append(ans.Buckets, CostBucket{Start: ps, End: pe, Estimated: rbt.Estimated})
+				}
+			}
 			for _, g := range rbt.Groups {
 				amount := 0.0
 				unit := "USD"
@@ -92,7 +133,13 @@ func (c *Client) GetCostAndUsageGrouped(ctx context.Context, start, end, granula
 					Unit:        unit,
 				}
 				assignGroupKeys(&line, groupKeys, g.Keys)
-				lines = append(lines, line)
+				key := ps + "\x00" + pe + "\x00" + strings.Join(g.Keys, "\x00")
+				if i, dup := lineAt[key]; dup {
+					ans.Lines[i].AmountUSD += amount
+					continue
+				}
+				lineAt[key] = len(ans.Lines)
+				ans.Lines = append(ans.Lines, line)
 			}
 		}
 		if out.NextPageToken == nil || aws.ToString(out.NextPageToken) == "" {
@@ -100,7 +147,7 @@ func (c *Client) GetCostAndUsageGrouped(ctx context.Context, start, end, granula
 		}
 		nextToken = out.NextPageToken
 	}
-	return lines, nil
+	return ans, nil
 }
 
 // assignGroupKeys maps CE group dimension values onto the CostLine fields.
@@ -161,24 +208,33 @@ func (c *Client) GetCostForecast(ctx context.Context, start, end, granularity st
 // over [start,end). dimension is e.g. "SERVICE", "LINKED_ACCOUNT", "REGION",
 // "USAGE_TYPE".
 func (c *Client) GetDimensionValues(ctx context.Context, start, end, dimension string) ([]DimensionValue, error) {
-	var out *costexplorer.GetDimensionValuesOutput
-	err := c.ceCall(ctx, "GetDimensionValues", func() error {
-		var e error
-		out, e = c.CE.GetDimensionValues(ctx, &costexplorer.GetDimensionValuesInput{
-			TimePeriod: &cetypes.DateInterval{Start: aws.String(start), End: aws.String(end)},
-			Dimension:  cetypes.Dimension(dimension),
+	// aws-billing handfix (ce-dimension-values-paged): GetDimensionValues
+	// answers in pages (NextPageToken); every page is read.
+	var vals []DimensionValue
+	var next *string
+	for {
+		var out *costexplorer.GetDimensionValuesOutput
+		err := c.ceCall(ctx, "GetDimensionValues", func() error {
+			var e error
+			out, e = c.CE.GetDimensionValues(ctx, &costexplorer.GetDimensionValuesInput{
+				TimePeriod:    &cetypes.DateInterval{Start: aws.String(start), End: aws.String(end)},
+				Dimension:     cetypes.Dimension(dimension),
+				NextPageToken: next,
+			})
+			return e
 		})
-		return e
-	})
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		for _, dv := range out.DimensionValues {
+			vals = append(vals, DimensionValue{
+				Value:     aws.ToString(dv.Value),
+				Dimension: dimension,
+			})
+		}
+		if aws.ToString(out.NextPageToken) == "" {
+			return vals, nil
+		}
+		next = out.NextPageToken
 	}
-	vals := make([]DimensionValue, 0, len(out.DimensionValues))
-	for _, dv := range out.DimensionValues {
-		vals = append(vals, DimensionValue{
-			Value:     aws.ToString(dv.Value),
-			Dimension: dimension,
-		})
-	}
-	return vals, nil
 }

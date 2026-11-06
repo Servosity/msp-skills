@@ -147,7 +147,7 @@
     {
       "name": "aws-billing",
       "source": "./skills/aws-billing",
-      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
       "version": "0.1.8",
       "category": "billing",
       "tags": [
@@ -1677,6 +1677,22 @@
         "windows-server",
         "windows server",
         "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-saas",
+      "source": "./skills/datto-saas",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "datto-saas",
+        "datto saas protection",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",
