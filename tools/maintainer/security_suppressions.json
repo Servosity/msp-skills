@@ -2573,6 +2573,57 @@
       ],
       "press": "4.35.1",
       "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credential store, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template: uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative 32-bit value, so the conversion cannot overflow; it compares the credential file's owner with the running user. Same declarations as riverside-fm and google-workspace."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template loadSpacefastDelivery reads this program's own delivery record under its state directory; the name is a digest of the sink, not a path from input. --deliver is a refused root flag over MCP. Same declaration digest as riverside-fm and google-workspace."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Same read as the G703 entry: the CLI's own Spacefast delivery record under its state directory."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. The credential kit wiring writes the marker with credkit.WriteFile after the temp handle is closed (handfixes.json credkit-wiring); both flagged reads of markerPath are template code."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Credential kit wiring (hand-written). readRegular stats and reads a credential source this program reads anyway (config, credential store, profiles.json), only when it is a regular file; the paths come from the program's own directories or the --config/--home the user typed. Same declaration digest as riverside-fm and google-workspace."
     }
   ]
 }
