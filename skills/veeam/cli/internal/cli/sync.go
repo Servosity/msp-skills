@@ -598,6 +598,9 @@ func syncResource(ctx context.Context, c interface {
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, persistedCursor, existingCount); err != nil {
 			return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 		}
+		if err := veeamWalkBegin(db, resource, veeamWalkUnfiltered(resource, effectiveSince, userParams), existingCursor); err != nil {
+			return syncResult{Resource: resource, Err: err, Duration: time.Since(started)}
+		}
 	}
 	var progressCount int64
 	pagesFetched := 0
@@ -857,7 +860,7 @@ func syncResource(ctx context.Context, c interface {
 		// the primary key the same way UpsertBatch does, so seenIDs match stored
 		// row IDs. Only non-empty IDs are tracked; reconcile never deletes a row
 		// whose ID was seen this run.
-		if flatReconcilable {
+		if flatReconcilable || veeamWalkTracked(resource) {
 			for _, it := range items {
 				if o, derr := store.DecodeJSONObject(it); derr == nil {
 					if id := extractID(resource, o); id != "" {
@@ -1126,6 +1129,11 @@ func syncResource(ctx context.Context, c interface {
 	}
 	if stateErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
+	}
+	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
+		if err := veeamWalkEnd(db, resource, veeamWalkUnfiltered(resource, effectiveSince, userParams), seenIDs, totalCount, outcome.complete, finalCursor); err != nil {
+			return syncResult{Resource: resource, Count: cachedCount, Err: err, Duration: time.Since(started)}
+		}
 	}
 
 	if reconcileErr != nil {

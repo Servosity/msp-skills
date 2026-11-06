@@ -72,11 +72,14 @@ func veeamSyncNames(path string) []string {
 	return out
 }
 
-// veeamLoad returns every decoded record synced from the given documented
-// list paths. It fails closed: a path no sync partition fetches, a partition
-// that never synced or whose last sync did not finish, a store read error and
-// an undecodable row are all errors, because a partial mirror reported as a
-// whole one reads as a healthy fleet. Records are de-duplicated on
+// veeamLoad returns the decoded records the last finished, unrestricted sync
+// walk of each given documented list path returned (veeam_walk.go). It fails
+// closed: a path no sync partition fetches, a partition that never synced or
+// whose last sync did not finish, one no finished unrestricted walk covers, a
+// store read error and an undecodable record are all errors, because a partial
+// mirror reported as a whole one reads as a healthy fleet. Rows the walk did
+// not return (a narrowed sync's, a live read's write-through, an import's, a
+// record the API has since deleted) are not read. Records are de-duplicated on
 // instanceUid (VSPC's primary key) so an entity reachable from two partitions
 // counts once. NULL/blank data rows are skipped.
 func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRow, error) {
@@ -84,6 +87,7 @@ func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRo
 		return nil, fmt.Errorf("no local mirror: run `veeam-cli sync` first")
 	}
 	var types []string
+	members := map[string]map[string]bool{}
 	for _, p := range paths {
 		names := veeamSyncNames(p)
 		if len(names) == 0 {
@@ -93,6 +97,11 @@ func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRo
 			if err := veeamSyncComplete(ctx, db, p, name); err != nil {
 				return nil, err
 			}
+			m, err := veeamWalkMembers(ctx, db, p, name)
+			if err != nil {
+				return nil, err
+			}
+			members[name] = m
 		}
 		types = append(types, names...)
 	}
@@ -105,7 +114,7 @@ func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRo
 		placeholders[i] = "?"
 		args[i] = t
 	}
-	q := "SELECT data FROM resources WHERE resource_type IN (" + strings.Join(placeholders, ",") + ")"
+	q := "SELECT resource_type, id, data FROM resources WHERE resource_type IN (" + strings.Join(placeholders, ",") + ")"
 	rows, err := db.DB().QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("reading local store: %w", err)
@@ -114,9 +123,13 @@ func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRo
 	out := make([]veeamRow, 0)
 	seen := map[string]bool{}
 	for rows.Next() {
+		var rtype, id string
 		var data sql.NullString
-		if err := rows.Scan(&data); err != nil {
+		if err := rows.Scan(&rtype, &id, &data); err != nil {
 			return nil, fmt.Errorf("reading local store: %w", err)
+		}
+		if !members[rtype][id] {
+			continue
 		}
 		if !data.Valid || strings.TrimSpace(data.String) == "" {
 			continue
@@ -142,16 +155,18 @@ func veeamLoad(ctx context.Context, db *store.Store, paths ...string) ([]veeamRo
 // veeamSyncComplete reports whether the partition's last sync finished
 // (sync_state.last_attempt_complete). A partition with no sync record, or one
 // whose last attempt stopped early (--max-pages, an error), is incomplete.
+// Finished is necessary, not sufficient: veeamWalkMembers then requires a
+// finished unrestricted walk. Each error names the sync that fixes it.
 func veeamSyncComplete(ctx context.Context, db *store.Store, path, name string) error {
 	var complete sql.NullInt64
 	err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, name).Scan(&complete)
 	switch {
 	case err == sql.ErrNoRows:
-		return fmt.Errorf("%s (sync resource %s) has never been synced: run `veeam-cli sync` first", path, name)
+		return fmt.Errorf("%s (sync resource %s) has never been synced: run `%s` first", path, name, veeamWalkFix(ctx, db, name))
 	case err != nil:
 		return fmt.Errorf("reading sync state for %s: %w", name, err)
 	case !complete.Valid || complete.Int64 != 1:
-		return fmt.Errorf("the last sync of %s (sync resource %s) did not finish, so this report would be partial: run `veeam-cli sync` again", path, name)
+		return fmt.Errorf("the last sync of %s (sync resource %s) did not finish, so this report would be partial: run `%s` to finish it", path, name, veeamWalkFix(ctx, db, name))
 	}
 	return nil
 }

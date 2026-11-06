@@ -4,6 +4,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"slices"
@@ -94,7 +95,8 @@ var veeamNovelPaths = []string{veeamPathCompanies, veeamPathProviderCompanies, v
 	veeamPathWorkloadsServer, veeamPathWorkloadsConsole, veeamPathLicenseUsage}
 
 // markNovelPartitionsSynced records a completed sync for every novel
-// partition, as a full `sync` run leaves it.
+// partition, as a full `sync` run leaves it: a finished sync_state and a
+// finished, unrestricted walk (here of an empty list).
 func markNovelPartitionsSynced(t *testing.T, db *store.Store) {
 	t.Helper()
 	for _, p := range veeamNovelPaths {
@@ -102,11 +104,26 @@ func markNovelPartitionsSynced(t *testing.T, db *store.Store) {
 			if err := db.SaveSyncState(name, "", 0); err != nil {
 				t.Fatal(err)
 			}
+			recordFinishedWalk(t, db, name, nil)
 		}
 	}
 }
 
-// seedPath stores objs the way sync does for a documented list path.
+// recordFinishedWalk records, through sync's own walk hooks, a finished
+// unrestricted walk of name that returned exactly ids.
+func recordFinishedWalk(t *testing.T, db *store.Store, name string, ids []string) {
+	t.Helper()
+	if err := veeamWalkBegin(db, name, true, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := veeamWalkEnd(db, name, true, ids, len(ids), true, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedPath stores objs the way sync does for a documented list path. For a
+// partition the reports read it also records them as returned by a finished,
+// unrestricted walk: the fixture's list is everything seeded into it so far.
 func seedPath(t *testing.T, db *store.Store, path string, objs ...map[string]any) {
 	t.Helper()
 	names := veeamSyncNames(path)
@@ -122,6 +139,18 @@ func seedPath(t *testing.T, db *store.Store, path string, objs ...map[string]any
 	if err != nil || stored != len(items) || skipped != 0 {
 		t.Fatalf("seed %s (%s): stored=%d skipped=%d err=%v", path, names[0], stored, skipped, err)
 	}
+	if !veeamWalkTracked(names[0]) {
+		return
+	}
+	prior, _, err := db.ReadVeeamWalk(context.Background(), names[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := slices.Clone(prior.Members)
+	for _, o := range objs {
+		ids = append(ids, extractID(names[0], o))
+	}
+	recordFinishedWalk(t, db, names[0], ids)
 }
 
 func runNovelJSON(t *testing.T, cmd *cobra.Command, args ...string) map[string]any {
@@ -333,6 +362,9 @@ func TestNovelPathsResolveToSyncPartitions(t *testing.T) {
 		}
 		if !slices.Contains(defaultSyncResources(), names[0]) {
 			t.Errorf("%s (%s) is not in the default sync set; `sync` would leave the novels empty", p, names[0])
+		}
+		if !veeamWalkTracked(names[0]) {
+			t.Errorf("%s (%s) is not walk-tracked; sync would never prove it whole and the novels would refuse it", p, names[0])
 		}
 	}
 }

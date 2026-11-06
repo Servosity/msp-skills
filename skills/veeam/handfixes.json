@@ -520,6 +520,141 @@
      "not_contains": "Commands marked local-write, which write only this CLI's own learn store, stay available."
     }
    ]
+  },
+  {
+   "id": "novels-read-last-full-walk",
+   "class": "correctness",
+   "summary": "The seven local-mirror reports count only the records the last finished, unrestricted sync walk of each partition returned (store table veeam_walk), so a narrowed walk, a walk capped by --max-pages and not resumed, a live read's write-through, an import, or a record the API has since deleted is never reported as part of the fleet",
+   "why": "sync_state.last_attempt_complete=1 proves only that the requested walk ended, not that it covered the collection: `sync --resources infrastructure-backup-servers-jobs --param offset=1` over jobs ordered Failed, Success stored only the Success job and finished, and fleet-health reported one success and zero failures (Codex, review class incomplete-read-coverage). The generated sync.go carries three hooks: veeamWalkBegin after the attempt-start checkpoint, seenIDs collection for walk-tracked partitions, and veeamWalkEnd after the final sync-state save (skipped on dry run). veeam_walk.go keeps per-partition membership: carried across a --max-pages resume, never touched by a --param, --resource-param, --global-param or since walk, broken by an out-of-order resume or a stored row it could not key. veeamLoad (veeam_fleet.go) reads only members and refuses an unproven partition, naming the `veeam-cli sync --resources <name>` (or `--full`) run that fixes it; store/veeam_walk.go writes the record under the store write lock. A reprint that drops the sync.go hooks fails closed (no walk is ever recorded, so every report refuses), not open. Tests drive the real sync command against a loopback VSPC fake that answers with the documented paging envelope.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := veeamWalkBegin(db, resource, veeamWalkUnfiltered(resource, effectiveSince, userParams), existingCursor); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if flatReconcilable || veeamWalkTracked(resource) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := veeamWalkEnd(db, resource, veeamWalkUnfiltered(resource, effectiveSince, userParams), seenIDs, totalCount, outcome.complete, finalCursor); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "func veeamWalkUnfiltered(resource, effectiveSince string, userParams *syncUserParams) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "func veeamWalkBegin(db *store.Store, resource string, unfiltered bool, startCursor string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "case ok && w.State == store.VeeamWalkWalking && w.NextCursor == startCursor:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "func veeamWalkEnd(db *store.Store, resource string, unfiltered bool, ids []string, stored int, natural bool, nextCursor string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "case len(ids) != stored:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk.go",
+     "contains": "func veeamWalkMembers(ctx context.Context, db *store.Store, path, name string) (map[string]bool, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "m, err := veeamWalkMembers(ctx, db, p, name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "if !members[rtype][id] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/veeam_walk.go",
+     "contains": "func (s *Store) UpdateVeeamWalk(ctx context.Context, resourceType string, f func(w VeeamWalk, ok bool) VeeamWalk) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "CREATE TABLE IF NOT EXISTS veeam_walk (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestNarrowedWalkIsNotTheWholePartition(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestWalkResumedAfterMaxPagesKeepsEveryPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestReportsCountOnlyTheLatestFullWalk(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestDryRunSyncLeavesWalkMembershipUnchanged(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestUnrestrictedFullWalkReportsEveryJob(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_walk_test.go",
+     "contains": "func TestInterruptedWalkNamesTheSyncThatFixesIt(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet_cmd_test.go",
+     "contains": "func recordFinishedWalk(t *testing.T, db *store.Store, name string, ids []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet_cmd_test.go",
+     "contains": "t.Errorf(\"%s (%s) is not walk-tracked; sync would never prove it whole and the novels would refuse it\", p, names[0])",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
