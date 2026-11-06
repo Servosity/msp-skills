@@ -116,7 +116,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -148,7 +148,7 @@ WatchGuard allows 500 requests per second and 200,000 requests per day per API k
 
 ### Can my AI isolate devices or change firewall policy?
 
-Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server there is no preview, watchguard_execute sends a write as soon as it is called. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute.
+Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server, watchguard_execute returns a preview of a write and sends it only when called again with confirm set to the JSON boolean true. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and watchguard_execute refuses every state-changing call.
 
 ### Has it been tested against a live WatchGuard Cloud account?
 

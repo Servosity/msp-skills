@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "WatchGuard Cloud MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server."
+description: "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers."
 permalink: /skills/watchguard/
 skill_name: "WatchGuard Cloud MCP"
 image: /assets/social/watchguard/wide-1200x630.png
@@ -12,7 +12,7 @@ faqs:
   - q: "Is the WatchGuard Cloud MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `WATCHGUARD_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `WATCHGUARD_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay on your machine, but not only in your environment: the token the CLI mints for your own account is cached in its credentials.toml (mode 0600), and `auth login` given `--client-id` or `--client-secret` also saves that Access ID and password there, so removing the environment variables does not revoke access - run `watchguard-cli auth logout` or click Revoke Access under Administration > Managed Access in WatchGuard Cloud. Per-customer tokens stay in memory and are never written to disk. Apart from those paths, whatever your agent reads goes to your AI provider as part of the conversation, including the secrets that credential reads return (see the safety tiers), and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my WatchGuard data safe?"
@@ -28,7 +28,7 @@ faqs:
   - q: "Will this hit my WatchGuard API rate limits?"
     a: "WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. accounts health, endpoint-devices posture and endpoint-patches exposure fetch at most four accounts in parallel by default (--concurrency), the cross-customer commands stop at --max-pages, --rate-limit caps requests per second, GET responses are cached for 5 minutes, and sync keeps a local copy that search and analytics read without calling the API."
   - q: "Can my AI isolate devices or change firewall policy?"
-    a: "Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server there is no preview, watchguard_execute sends a write as soon as it is called. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute."
+    a: "Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server, watchguard_execute returns a preview of a write and sends it only when called again with confirm set to the JSON boolean true. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and watchguard_execute refuses every state-changing call."
   - q: "Has it been tested against a live WatchGuard Cloud account?"
     a: "Not yet. Every command was built from WatchGuard's published OpenAPI specifications and tested against a local mock of those APIs, not a real account. If you run it against your own WatchGuard Cloud account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge."
 howto:
@@ -157,7 +157,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way watchguard-mcp runs, and shares MCP configuration with Codex: add watchguard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -189,7 +189,7 @@ WatchGuard allows 500 requests per second and 200,000 requests per day per API k
 
 ### Can my AI isolate devices or change firewall policy?
 
-Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server there is no preview, watchguard_execute sends a write as soon as it is called. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute.
+Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server, watchguard_execute returns a preview of a write and sends it only when called again with confirm set to the JSON boolean true. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and watchguard_execute refuses every state-changing call.
 
 ### Has it been tested against a live WatchGuard Cloud account?
 
