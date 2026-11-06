@@ -421,12 +421,12 @@
   {
    "id": "deliver-webhook-no-redirect",
    "summary": "--deliver webhook:<url> never follows a redirect; any 3xx is an error. Press 4.35.1 renders this natively (RoundTrip, no redirect client); the asserts pin it against a regression.",
-   "why": "Reproduced at onboarding: a 307 replayed `firebox-bovpn-tunnels list` output (pre-shared keys, passwords, private keys) to a second origin and exited 0. Ported from connectsecure. TestWebhookDeliveryRefusesRedirect fails on revert.",
+   "why": "Reproduced at onboarding: a 307 replayed `firebox-bovpn-tunnels list` output (pre-shared keys, passwords, private keys) to a second origin and exited 0. Ported from connectsecure. TestWebhookDeliveryRefusesRedirect fails on revert. Credential kit adoption (credkit-wiring): the webhook goes through the kit's outbound guard (cliutil.OutboundGuard(nil).RoundTrip); a RoundTripper follows no redirect, so the guard keeps this fix.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/deliver.go",
-     "contains": "resp, err := http.DefaultTransport.RoundTrip(req)",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
      "code_only": true
     },
     {
@@ -1562,6 +1562,383 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, OData, tenant audience grant, auth login, --deliver webhook and Spacefast, feedback, probe) goes through the kit's transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand, the terminal check through credkit.Terminal, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile).",
+   "why": "One contract, one matcher and one set of sinks over the connector's field-name redaction layer, which stays (secret-fields-never-persisted, error-body-redacts-secrets, tail-redacts-secrets, dry-run-redacts-secret-body, transport-error-withholds-echoed-secret, token-error-withholds-credentials, license-keys-fingerprinted, secret-never-row-identity, scoped-bearer-in-secret-set): each masks a field or value and keeps the rest of the output, where the kit withholds a whole unit, so none is a duplicate to retire. Classes closed by the wiring, each by a built-binary test in internal/credwire/leak_test.go seen failing on binaries built from the pre-wiring commit (.review/logs/leak-builtbinary-FAIL.log in the adoption run): an API error that echoes a piece of the minted or the audience-scoped bearer (TestMintedBearerEchoIsWithheld, CLI, --agent and MCP); a --stdin body's password echoed by the API (TestStdinBodyCredentialHeld, Declarations.StdinFlags); a profiles.json value under a credential flag and a saved base URL's userinfo held at startup (TestProfileCredentialValueHeldAtStartup); the explicit --config base URL decides the origin (TestExplicitConfigDecidesTheOrigin); the API key refused to another origin and over plain http, and the token grant never sent over plain http (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP); SPACEFAST_TOKEN held (TestSpacefastTokenHeld); feedback --stdin keeps its record (TestFeedbackStdinIsRecorded). In-process unit tests never run credkit.Start: the seams in cliutil/credkit_guard.go (OutboundGuard, Hold, HoldBody, HoldURL) are swapped in each package's credkit_seam_test.go.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring (mains, transports, sinks, SQL driver, MCP middleware) from the shared kit so a reprint keeps it.",
+   "asserts": [
+    {
+     "file": "cli/cmd/watchguard-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-cli/main.go",
+     "contains": "credwire.RestoreFeedbackStdin()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/watchguard-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:        []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:token\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:scoped-token\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:SPACEFAST_TOKEN\", Allowed: []string{\"https://api.spacefast.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:spacefast-page-key\", Allowed: []string{\"https://api.spacefast.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "feedbackStdin, data = data, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:token\", tokenResp.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/watchguard_tenant.go",
+     "contains": "cliutil.Hold(\"minted:scoped-token\", tr.AccessToken, \"Bearer \"+tr.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/watchguard_tenant.go",
+     "contains": "base = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/watchguard_odata.go",
+     "contains": "base = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMintedBearerEchoIsWithheld(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyCredentialHeld(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestExplicitConfigDecidesTheOrigin(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestHeldCredentialRefusedOffOriginAndOverPlainHTTP(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stored-credential-origin-exact-host",
+   "class": "credential-origin",
+   "summary": "Stored credentials apply only to the origin they were saved for under the one host rule SameOrigin uses: NormalizeCredentialOrigin keys the host with cliutil.CanonicalHost (an IP literal by address with its IPv6 zone exact, an ASCII DNS name lowercased, a non-ASCII name unchanged), and the client's redirect origin check, dial guard and configured-proxy check compare hosts with cliutil.SameHost",
+   "why": "Class 'credential sent to another host' (print Codex r2 [P1]). The generated NormalizeCredentialOrigin lowercased the whole hostname, folding the case of an IPv6 zone, so global credentials saved for https://[fe80::1%25lan0] were applied to an explicit --config profile whose base_url is https://[fe80::1%25LAN0], another link on Linux, and the saved token and API key went to that peer. The same strings.EqualFold folding sat in client.go redirectSameEffectiveOrigin, dialTargetAllowed and dialAddrIsConfiguredProxy. Swept and left alone (not a credential decision): config.normalizeStoreScopeBaseURL and cli storeScopeLabel (store scope labels), platform/gate.go normalizeBaseURL (identity metadata), mcp main originURLAgrees (browser origins carry no zone), the loopback checks. Failing first: TestGlobalCredentialsStayOnTheirIPv6Zone, TestCredentialOriginsMatchComparesHostsLikeTheNetwork and TestHostComparatorsAgreeWithSameHost (stored-credential-origin-FAIL.log), TestClientHostComparatorsKeepZoneCase (client-host-rule-FAIL.log).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: credentials.go.tmpl NormalizeCredentialOrigin and client.go.tmpl's redirect and dial host compares should use the oauthTokenSameHost rule.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/same_origin.go",
+     "contains": "func CanonicalHost(h string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/same_origin.go",
+     "contains": "func SameHost(a, b string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "return scheme + \"://\" + CanonicalHost(parsed.Hostname()) + \":\" + port + path, true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "not_contains": "strings.ToLower(parsed.Hostname())"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return as == bs && cliutil.SameHost(ah, bh) && ap == bp",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cliutil.SameHost(host, ah) && port == ap",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.SameHost(u.Hostname(), host) && p == port {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credential_origin_zone_test.go",
+     "contains": "func TestGlobalCredentialsStayOnTheirIPv6Zone(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credential_origin_test.go",
+     "contains": "func TestCredentialOriginsMatchComparesHostsLikeTheNetwork(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/host_rule_test.go",
+     "contains": "func TestClientHostComparatorsKeepZoneCase(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-dry-run-no-access-id",
+   "class": "credential-output",
+   "summary": "auth login --dry-run says it would POST client_credentials 'with the configured Access ID' and never prints the Access ID itself",
+   "why": "Class 'held credential on output'. The Access ID is a declared credential (WATCHGUARD_CLIENT_ID, --client-id). The dry-run line printed it ('as Access ID <id>'); with the kit wired the whole preview was withheld instead. Failing first: TestAuthLoginDryRunNeverPrintsTheAccessID in-process (auth-login-dry-run-access-id-FAIL.log) and on the pre-wiring built binary (leak-builtbinary-FAIL.log).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "with the configured Access ID and save the token in %s\", tokenURL, credentialSavePath(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "as Access ID %s"
+    },
+    {
+     "file": "cli/internal/cli/auth_dryrun_access_id_test.go",
+     "contains": "func TestAuthLoginDryRunNeverPrintsTheAccessID(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAuthLoginDryRunNeverPrintsTheAccessID(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "learn-journal-through-kit",
+   "class": "credential-file",
+   "summary": "The learn journal appends through credkit.AppendFile, so an entry that carries a held credential (a key typed as a flag name, or after a mistyped flag) is withheld from state/learn/journal-*.jsonl",
+   "why": "Class 'held credential written to a file'. The journal records a mistyped flag's name and value; a credential pasted where a flag name goes (--<key>) or after a mistyped flag was written to state/learn/journal-*.jsonl in the clear. Failing first on the pre-wiring built binary: TestJournalNeverRecordsAHeldCredential (leak-builtbinary-FAIL.log).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if err := credkit.AppendFile(p, append(line, '\\n'), 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestJournalNeverRecordsAHeldCredential(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-held-sources",
+   "class": "credential-sources",
+   "summary": "Startup holds every place a credential can come from: a --stdin body (StdinFlags), profiles.json values (HoldBody) and a saved base URL's userinfo (HoldURL), the base and token URLs from the environment and from the config the run really uses (an explicit --config decides), and SPACEFAST_TOKEN; minted bearers are held when they arrive",
+   "why": "Brief items 8 and 10 of the kit adoption: no hand-written reader and no free-text scanner, only HoldBody and HoldURL over the declared sources. Failing first on the pre-wiring built binary (leak-builtbinary-FAIL.log): TestStdinBodyCredentialHeld, TestProfileCredentialValueHeldAtStartup, TestExplicitConfigDecidesTheOrigin, TestSpacefastTokenHeld, TestMintedBearerEchoIsWithheld.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"userinfo\", v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdConfigURLs(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdURLSettings(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"SPACEFAST_TOKEN\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileCredentialValueHeldAtStartup(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestSpacefastTokenHeld(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFeedbackStdinIsRecorded(",
+     "code_only": true
     }
    ]
   }
