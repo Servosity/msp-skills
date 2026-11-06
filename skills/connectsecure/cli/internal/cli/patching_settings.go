@@ -41,7 +41,7 @@ func newPatchingSettingsCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			path := "/r/company/get_patch_settings"
 			c, err := flags.newClient()

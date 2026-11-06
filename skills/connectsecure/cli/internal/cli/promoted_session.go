@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"connectsecure-pp-cli/internal/cliutil"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +44,7 @@ func newSessionPromotedCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("client-auth-token") && flagClientAuthToken == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "client-auth-token")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "client-auth-token"))
 			}
 			// Hand-wired (handfixes.json: session-token-from-stdin): "-" reads the
 			// token from stdin so the encoded client secret stays out of argv.
@@ -55,6 +56,8 @@ func newSessionPromotedCmd(flags *rootFlags) *cobra.Command {
 				if flagClientAuthToken = strings.TrimSpace(string(raw)); flagClientAuthToken == "" {
 					return usageErr(fmt.Errorf("--client-auth-token -: stdin was empty"))
 				}
+				// Hand-fix (handfixes.json credkit-wiring): the token read from stdin is held before anything can print it.
+				cliutil.Hold("stdin", flagClientAuthToken)
 			}
 			c, err := flags.newClient()
 			if err != nil {
@@ -111,6 +114,9 @@ func newSessionPromotedCmd(flags *rootFlags) *cobra.Command {
 			// opt out of the auto-JSON path so piped consumers that asked for a
 			// non-JSON format reach the standard pipeline below.
 			if flags.asJSON || (!isTerminal(cmd.OutOrStdout()) && !flags.csv && !flags.quiet && !flags.plain) {
+				// --select and --compact can drop the transport sentinel.
+				// Read it before those filters so a verify noop is not stamped as a completed preview.
+				verifyNoop := isVerifySyntheticResponse(data)
 				var selectErr error
 				filtered := data
 				if flags.selectFields != "" {
@@ -130,7 +136,7 @@ func newSessionPromotedCmd(flags *rootFlags) *cobra.Command {
 				// Stamp after provenance and platform wrapping so those wrappers
 				// cannot hide dry_run and action under results.
 				if flags.dryRun {
-					stamped, stampErr := stampDryRunEnvelope(wrapped, "post")
+					stamped, stampErr := stampDryRunEnvelope(wrapped, "post", verifyNoop)
 					if stampErr != nil {
 						return stampErr
 					}

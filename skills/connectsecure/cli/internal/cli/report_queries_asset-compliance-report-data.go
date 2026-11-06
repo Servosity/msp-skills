@@ -46,10 +46,10 @@ func newReportQueriesAssetComplianceReportDataCmd(flags *rootFlags) *cobra.Comma
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("asset-id") && flagAssetId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "asset-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "asset-id"))
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			path := "/r/report_queries/asset_compliance_report_data"
 			c, err := flags.newClient()

@@ -19,6 +19,7 @@ import (
 
 	"connectsecure-pp-cli/internal/client"
 	"connectsecure-pp-cli/internal/cliutil"
+	"connectsecure-pp-cli/internal/credkit"
 )
 
 // JobRow is one entry in the local jobs ledger. Rows are appended as NDJSON
@@ -66,7 +67,7 @@ func RecordJob(row JobRow) error {
 		row.SubmittedAt = time.Now().UTC()
 	}
 	row.UpdatedAt = time.Now().UTC()
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening jobs ledger: %w", err)
 	}
@@ -405,7 +406,7 @@ func newJobsPruneCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			tmp := p + ".tmp"
-			f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+			f, err := credkit.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 			if err != nil {
 				return fmt.Errorf("opening tmp ledger: %w", err)
 			}

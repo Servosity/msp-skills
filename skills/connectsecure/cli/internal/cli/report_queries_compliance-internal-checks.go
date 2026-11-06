@@ -47,13 +47,13 @@ func newReportQueriesComplianceInternalChecksCmd(flags *rootFlags) *cobra.Comman
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("compliance-type") && flagComplianceType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "compliance-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "compliance-type"))
 			}
 			if !cmd.Flags().Changed("description") && flagDescription == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "description")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "description"))
 			}
 			if !cmd.Flags().Changed("platform") && flagPlatform == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "platform")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "platform"))
 			}
 			path := "/r/report_queries/compliance_internal_checks"
 			c, err := flags.newClient()

@@ -46,10 +46,10 @@ func newReportQueriesAdRolesMemberCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			if !cmd.Flags().Changed("object-guid") && flagObjectGuid == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "object-guid")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "object-guid"))
 			}
 			path := "/report_queries/ad_roles_member"
 			c, err := flags.newClient()

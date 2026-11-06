@@ -1445,8 +1445,9 @@ type PiiScanSettingsUpdateResponse struct {
 	Status  bool   `json:"status"`
 }
 
-type ReportBuilderCoverPageItem struct {
-	Global string `json:"global"`
+type ReportBuilderCoverPageResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
 type ReportBuilderCreateJobResponse struct {
@@ -1454,8 +1455,9 @@ type ReportBuilderCreateJobResponse struct {
 	Status  bool            `json:"status"`
 }
 
-type ReportBuilderDownloadDefaultTemplateItem struct {
-	Message string `json:"message"`
+type ReportBuilderDownloadDefaultTemplateResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
 type ReportBuilderReportLinkResponse struct {
@@ -1463,46 +1465,29 @@ type ReportBuilderReportLinkResponse struct {
 	Status  bool   `json:"status"`
 }
 
-type ReportBuilderStandardReportSettingsItem struct {
-	CompanyId      int             `json:"company_id"`
-	CompanyLogo    string          `json:"company_logo"`
-	CompanyLogoUrl string          `json:"company_logo_url"`
-	CoverPage      string          `json:"cover_page"`
-	FooterDetails  json.RawMessage `json:"footer_details"`
-	HeaderDetails  json.RawMessage `json:"header_details"`
-	Id             int             `json:"id"`
-	IsGlobal       bool            `json:"is_global"`
-	Reporttype     string          `json:"reporttype"`
-	Tenantid       int             `json:"tenantid"`
-	Updated        string          `json:"updated"`
-	Watermark      string          `json:"watermark"`
+type ReportBuilderStandardReportSettingsResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
-type ReportBuilderStandardReportsItem struct {
-	Reports json.RawMessage `json:"Reports"`
+type ReportBuilderStandardReportsResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
-type ReportBuilderUpdateCoverPageItem struct {
-	Msg string `json:"msg"`
+type ReportBuilderUpdateCoverPageResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
-type ReportBuilderUpdateStandardReportSettingsItem struct {
-	CompanyId      int             `json:"company_id"`
-	CompanyLogo    string          `json:"company_logo"`
-	CompanyLogoUrl string          `json:"company_logo_url"`
-	CoverPage      string          `json:"cover_page"`
-	FooterDetails  json.RawMessage `json:"footer_details"`
-	HeaderDetails  json.RawMessage `json:"header_details"`
-	Id             int             `json:"id"`
-	IsGlobal       bool            `json:"is_global"`
-	Reporttype     string          `json:"reporttype"`
-	Tenantid       int             `json:"tenantid"`
-	Updated        string          `json:"updated"`
-	Watermark      string          `json:"watermark"`
+type ReportBuilderUpdateStandardReportSettingsResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
-type ReportBuilderUploadTemplateItem struct {
-	Message string `json:"message"`
+type ReportBuilderUploadTemplateResponse struct {
+	Message json.RawMessage `json:"message"`
+	Status  bool            `json:"status"`
 }
 
 type ReportJobsViewGetResponse struct {
