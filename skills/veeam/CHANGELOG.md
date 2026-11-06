@@ -4,6 +4,23 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on press 4.35.1.** The MCP server's HTTP mode (`--transport http`, for remote agents) now serves `127.0.0.1:7777` by default, refuses to start until `VEEAM_MCP_HTTP_TOKEN` is set (at least 32 characters), rejects any request without that bearer token, refuses browser origins other than loopback, and needs TLS for any address other than loopback. The remote-agent install steps are back in [mcp-install.md](./mcp-install.md).
+- `VEEAM_MCP_READ_ONLY`, `VEEAM_NO_LOCAL_DATA` and `VEEAM_MCP_HTTP_TOKEN` can now be set from every install channel (Claude Desktop extension, MCP registry, manual config).
+
+### Fixed
+- **The cross-tenant reports count what Veeam returned in full.** `fleet-health`, `stale-backups`, `at-risk`, `alarms-triage`, `license-usage`, `company-overview` and `since` now read only the records the last complete, unfiltered `sync` returned. A sync narrowed with `--param`, `--resource-param` or `--global-param`, a record fetched by a live read, and a job or alarm Veeam no longer returns are not counted. A report over a list no complete sync proves fails and names the `sync` command that fixes it.
+- **The reports read Veeam's documented fields.** Active alarms come from the active-alarm list, not the alarm templates; an agent counts as online only when its status is `Active`; per-OS agent lists no longer count each agent twice; license points add up `usedUnits` where the unit is `Points` (the reports showed 0 before); a backup job belongs to the company it is assigned to, not the server's owner; Resolved alarms are not active; and two alarms on different objects that share a name stay two problems.
+- Two jobs or agents with the same name in different companies stay separate records in the local mirror.
+
+### Changed
+- On 16 create commands (backup policies, discovery rules, backup agent job configurations, companies, resellers, SAML identity providers, Microsoft 365 organizations and subscription plans), deeply nested settings are now one JSON flag instead of many long flags, for example `--deployment-settings-backup-agent-settings '{"disableScheduledBackups":true}'`. The request sent to Veeam is unchanged.
+- A plain `sync` now also fetches active alarms, license usage per organization, restore points and discovery rules, so it makes more calls than before.
+- `alarms-triage` shows the latest activation and repeat count; it no longer claims a first-seen time.
+- After upgrading, run `veeam-cli sync` once before the reports: a mirror synced by an older version is not proven whole and the reports refuse it.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed
