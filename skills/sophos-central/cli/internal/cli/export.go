@@ -7,6 +7,7 @@ package cli
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"sophos-central-pp-cli/internal/cliutil"
+	"sophos-central-pp-cli/internal/credkit"
 )
 
 func newExportCmd(flags *rootFlags) *cobra.Command {
@@ -134,13 +136,16 @@ large datasets as it has no memory pressure.`,
 
 			var writer *bufio.Writer
 			var outFile *os.File
+			var outKit *credkit.Writer
 			if outputFile != "" {
 				f, err := openExportOutput(outputFile)
 				if err != nil {
 					return err
 				}
 				outFile = f
-				writer = bufio.NewWriter(f)
+				// Hand-fix (handfixes.json credkit-wiring): the export is written through the credential kit as one stream.
+				outKit = credkit.NewWriter(f, credkit.SinkFile)
+				writer = bufio.NewWriter(outKit)
 				defer func() {
 					if err != nil && outFile != nil {
 						_ = outFile.Close()
@@ -154,7 +159,7 @@ large datasets as it has no memory pressure.`,
 					return fmt.Errorf("flushing export: %w", err)
 				}
 				if outFile != nil {
-					if err := outFile.Close(); err != nil {
+					if err := outKit.Close(); err != nil && !errors.Is(err, os.ErrClosed) { // Hand-fix (handfixes.json credkit-wiring)
 						return fmt.Errorf("closing export file: %w", err)
 					}
 					outFile = nil

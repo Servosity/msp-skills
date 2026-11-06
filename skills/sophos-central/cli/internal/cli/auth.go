@@ -173,14 +173,14 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if scope := resolveClientCredentialsScope(); scope != "" {
 		form.Set("scope", scope)
 	}
-	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(cliutil.TokenForm(form)))
 	if err != nil {
 		return nil, fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
 	// HAND-FIX(sophos-token-form-auth): no SetBasicAuth; credentials ride in the form.
-	req, err = client.GuardTokenRequest(httpClient, req, []byte(form.Encode()))
+	req, err = client.GuardTokenRequest(httpClient, req, []byte(cliutil.TokenForm(form)))
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +202,7 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	cliutil.Hold("minted:access_token", tok.AccessToken) // Hand-fix (handfixes.json credkit-wiring)
 	return &tok, nil
 }
 

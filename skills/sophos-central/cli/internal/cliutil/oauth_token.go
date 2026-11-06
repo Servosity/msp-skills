@@ -24,7 +24,7 @@ const oauthTokenHTTPClientTimeout = 30 * time.Second
 // callback is Go's default 10-hop policy. The replacement callback allows
 // same-origin hops only.
 func OAuthTokenHTTPClient(base *http.Client) *http.Client {
-	c := &http.Client{Timeout: oauthTokenHTTPClientTimeout}
+	c := &http.Client{Timeout: oauthTokenHTTPClientTimeout, Transport: OutboundGuard(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	if base != nil {
 		if base.Timeout > 0 {
 			c.Timeout = base.Timeout
